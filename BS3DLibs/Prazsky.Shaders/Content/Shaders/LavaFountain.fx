@@ -250,7 +250,21 @@ PlumeVertexOutput PlumeVS(FountainVertexInput input)
     return output;
 }
 
-float4 PlumePS(PlumeVertexOutput input) : COLOR
+//The reduced program's lumps (#1038): value noise off the cheap Hash21, four taps where GradientNoise2 takes four of the
+//dearer NoiseHash22 and dots them. On the reference APU at Low the column was 1.58 ms of the frame and bound by this
+//program; the value noise took 0.58 of it and reads the same over a column of hundreds of puffs. A sum of sines, which
+//took 0.63, printed darker, harder blobs
+float ValueLump(float2 p)
+{
+    float2 i = floor(p);
+    float2 f = frac(p);
+    float2 u = f * f * (3.0 - 2.0 * f);
+
+    return lerp(lerp(Hash21(i), Hash21(i + float2(1.0, 0.0)), u.x),
+                lerp(Hash21(i + float2(0.0, 1.0)), Hash21(i + float2(1.0, 1.0)), u.x), u.y) * 2.0 - 1.0;
+}
+
+float4 PuffSurface(PlumeVertexOutput input, uniform bool fullDetail)
 {
     float2 c = input.Corner;
     float r = length(c);
@@ -258,7 +272,8 @@ float4 PlumePS(PlumeVertexOutput input) : COLOR
     //Lumpy: the rim pulled in and out by a noise read in the puff's own frame, so a stack of puffs builds the
     //cauliflower head the references draw rather than a column of soft discs. The same value varies the
     //density inside the puff and tilts its shading, which is what makes the lumps read as lumps.
-    float lump = GradientNoise2(c * 1.7 + input.Seed);
+    float2 lumpAt = c * 1.7 + input.Seed;
+    float lump = fullDetail ? GradientNoise2(lumpAt) : ValueLump(lumpAt);
     float body = 1.0 - smoothstep(0.2, 0.8 + 0.35 * lump, r);
 
     float alpha = saturate(body * input.Alpha * (0.8 + 0.3 * lump));
@@ -275,6 +290,19 @@ float4 PlumePS(PlumeVertexOutput input) : COLOR
     //that way is not smoke - a column of 900 puffs at 0.085 grey came out as a white steam plume brighter
     //than the sky behind it, which is what sent this looking for a bug in the colour it was pushing.
     return float4(color * alpha, alpha);
+}
+
+float4 PlumePS(PlumeVertexOutput input) : COLOR { return PuffSurface(input, true); }
+float4 PlumeReducedPS(PlumeVertexOutput input) : COLOR { return PuffSurface(input, false); }
+
+//Low's column (#1038): the host draws the first half of the plume's puffs (a random half: each puff's randoms are its
+//own), and each takes the opacity two of them stacked would have, 1 - (1 - a)^2. At Low the column was bound by its
+//pixels, and half the puffs took 0.86 ms of its 1.58 with no change a capture could tell from the frame's own motion
+PlumeVertexOutput PlumeVSReduced(FountainVertexInput input)
+{
+    PlumeVertexOutput output = PlumeVS(input);
+    output.Alpha = saturate(output.Alpha * (2.0 - output.Alpha));
+    return output;
 }
 
 //--- The steam (#679) -------------------------------------------------------------------------------------
@@ -403,6 +431,15 @@ technique Plume
     {
         VertexShader = compile VS_SHADERMODEL PlumeVS();
         PixelShader = compile PS_SHADERMODEL PlumePS();
+    }
+};
+
+technique PlumeReduced
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL PlumeVSReduced();
+        PixelShader = compile PS_SHADERMODEL PlumeReducedPS();
     }
 };
 
