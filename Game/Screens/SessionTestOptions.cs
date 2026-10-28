@@ -80,6 +80,8 @@ namespace BS3D.Screens
     /// <param name="RevealShotSeconds">The <c>revealshot=</c> argument (#933): seconds of the floor net's opening reveal at which the
     /// frame is saved, in order, the reveal's clock held at each for a frame (<c>NetReveal.Pin</c>); empty or null for none. The
     /// reveal is two seconds and every capture's own hitch moves the next frame, so the wall clock's <c>shot=</c> cannot frame it.</param>
+    /// <param name="ShotSpeed">The <c>shotspeed=</c> argument (#1007): the speed every shot leaves at and every preview is solved
+    /// for, or null for the shipped <c>SHOOT_SPEED</c>.</param>
     internal sealed record SessionTestOptions(
         int? ForcedStreak,
         int ForcedWildcardEvery,
@@ -97,7 +99,8 @@ namespace BS3D.Screens
         bool LogTilt = false,
         IReadOnlyList<float> CutShotSeconds = null,
         IReadOnlyList<float> SwapShotSeconds = null,
-        IReadOnlyList<float> RevealShotSeconds = null)
+        IReadOnlyList<float> RevealShotSeconds = null,
+        float? ShotSpeed = null)
     {
         /// <summary>
         /// Reads the levers out of what the command line said. The one place their interpretation lives: any
@@ -123,6 +126,7 @@ namespace BS3D.Screens
             LogTilt: launch.LogTilt,
             CutShotSeconds: launch.CutShotSeconds ?? Array.Empty<float>(),
             SwapShotSeconds: launch.SwapShotSeconds ?? Array.Empty<float>(),
-            RevealShotSeconds: launch.RevealShotSeconds ?? Array.Empty<float>());
+            RevealShotSeconds: launch.RevealShotSeconds ?? Array.Empty<float>(),
+            ShotSpeed: launch.ShotSpeed);
     }
 }

@@ -49,7 +49,14 @@ namespace BS3D.Tests
     /// </summary>
     internal sealed class ShotRig : IDisposable
     {
-        public const float SHOOT_SPEED = 200f;
+        /// <summary>
+        /// The Game's <c>SHOOT_SPEED</c>, 200, or <c>BS3D_SHOT_SPEED</c> when it is set: the measurement asked at a slower shot,
+        /// the Game's <c>shotspeed=</c> trial (#1007). Every shot the rig fires takes it, so set it only for the report
+        /// (<c>BS3D_SHOT_RIG</c>); CI sets neither.
+        /// </summary>
+        public static readonly float SHOOT_SPEED =
+            float.TryParse(Environment.GetEnvironmentVariable("BS3D_SHOT_SPEED"), System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out float speed) && speed > 0f ? speed : 200f;
 
         private const int MAX_STEPS = 360;
 

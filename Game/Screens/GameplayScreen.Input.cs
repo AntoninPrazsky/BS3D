@@ -574,7 +574,7 @@ namespace BS3D.Screens
                 //listener in one call, in that order — a listener is keyed on a collidable reference, so the
                 //body has to exist first. It is also the ONLY place anything is ever registered, which is what
                 //makes "every listener is a shot still in the air" true (see AnyShotUndecided).
-                BallReference = _world.AddShotBall(muzzle.ToNumerics(), direction.ToNumerics() * SHOOT_SPEED,
+                BallReference = _world.AddShotBall(muzzle.ToNumerics(), direction.ToNumerics() * ShotSpeed,
                     _eventHandler),
                 Type = type, //the colour the player saw loaded at the muzzle, so aiming for it means something
                 Kind = kind  //and what it is, which for everything but a wildcard is Normal (#330)

@@ -981,6 +981,13 @@ namespace BS3D.Screens
         //the intended feel, and it is why the launch smear below exists at all.
         private const float SHOOT_SPEED = 200f;
 
+        /// <summary>
+        /// The speed this session's shots leave at and its previews are solved for: <see cref="SHOOT_SPEED"/>, or the
+        /// <c>shotspeed=</c> trial's (#1007). One figure for both, or the ghost would promise a flight the gun does not fly.
+        /// The benchmark's play keeps the shipped speed, so its figures stay comparable.
+        /// </summary>
+        private float ShotSpeed => _run.Benchmark ? SHOOT_SPEED : _test.ShotSpeed ?? SHOOT_SPEED;
+
         //How hard a shot hits the camera. Still a full kick: it is the *ceiling* that was lowered
         //(BS3DGame.CAMERA_SHAKE_SCALE), not the strength of one shot. Kicking at a fraction instead would let
         //two shots in quick succession accumulate straight back up to the response that was too strong.

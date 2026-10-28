@@ -32,8 +32,9 @@ dotnet run --project Game\Game.csproj
 Testbed.exe Testbed\Maps\Full.json
 
 # Play the latest main: fetches, builds the Game in Release in a second checkout (..\BS3D-play) and starts it,
-# so the folder you work in keeps its branch and its changes (-Ref <branch>, -NoRun, -NoFetch). The .cmd runs the
-# script with the execution policy lifted for that run: a stock Windows refuses to load any .ps1
+# so the folder you work in keeps its branch and its changes (-Ref <branch>, -NoRun, -NoFetch; any other word goes
+# to the Game, e.g. shotspeed=80). The .cmd runs the script with the execution policy lifted for that run: a stock
+# Windows refuses to load any .ps1
 Tools\play-latest.cmd
 ```
 

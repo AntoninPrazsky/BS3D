@@ -455,6 +455,8 @@ namespace BS3D.Screens
             _random = new Random(_seed);
 
             Console.WriteLine($"[session] seed {_seed}" + (_run.Benchmark ? " (the benchmark's)" : _test.Seed.HasValue ? " (pinned)" : " (rolled; replay it with seed=)"));
+            if (ShotSpeed != SHOOT_SPEED)
+                Console.WriteLine(FormattableString.Invariant($"[session] shots leave at {ShotSpeed:0.#} units/s (shotspeed=; the shipped speed is {SHOOT_SPEED:0})"));
         }
 
         /// <summary>
