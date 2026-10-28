@@ -28,6 +28,11 @@ namespace BS3D.Tests
         [InlineData("kunda")]
         [InlineData("Sex Machine")]
         [InlineData("Admin")]
+        [InlineData("Kulo Mrd")]
+        [InlineData("Ne Gr")]
+        [InlineData("Mr D")]
+        [InlineData("f u c k")]
+        [InlineData("Kurwa")]
         public void ANameHoldingADeniedWordIsRefused(string raw)
         {
             Assert.False(Nickname.TryNormalize(raw, out string name, out string problem));
@@ -50,6 +55,27 @@ namespace BS3D.Tests
         [InlineData("Titan")]
         [InlineData("Cucumber")]
         public void AnOrdinaryNameThatHoldsAShortWordIsKept(string raw)
+        {
+            Assert.True(Nickname.TryNormalize(raw, out string name, out _));
+            Assert.Equal(raw, name);
+        }
+
+        /// <summary>
+        /// Two ordinary words whose join holds a denied word (#1036): the words are looked in one at a time, and only runs of
+        /// one- and two-letter words are joined, so the gap between two real words is never read across.
+        /// </summary>
+        [Theory]
+        [InlineData("Jane Grey")]
+        [InlineData("Anne Green")]
+        [InlineData("Mr Darcy")]
+        [InlineData("Mr_Dobbs")]
+        [InlineData("Hans Lutz")]
+        [InlineData("Chris Hitchens")]
+        [InlineData("Wash It")]
+        [InlineData("Pen Isaac")]
+        [InlineData("Ben Iggy")]
+        [InlineData("Java Gina")]
+        public void TwoOrdinaryWordsAreNotReadAcrossTheirGap(string raw)
         {
             Assert.True(Nickname.TryNormalize(raw, out string name, out _));
             Assert.Equal(raw, name);
