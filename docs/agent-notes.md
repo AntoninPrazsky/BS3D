@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-10-28 — #1034 Online scores jako zaškrtávátko, seznam soukromí ve dvou sloupcích — desktop (RDT-PC), Claude Code (bs3d-13)
+- Hotovo: řádek Online scores je zaškrtávátko (`CheckRow.ShowCallToAction`): vypnuté má prázdný červený box, bez serveru je zaškrtnuté s červeným „(no server)“. Seznam soukromí je dvojice popisek–text (`MenuPage.FactList`): popisky jsou písmem Anton ve velikosti řádků a zarovnané doprava, text vede do konce šířky stránky.
+- About má kvůli tomu pátou stránku PRIVACY (druhou). Pod odstavcem o hře by seznam vytlačil Back z okna 1600x900.
+- ⚠ Stránka ONLINE je nejvyšší. Mezera mezi položkami 24 nechala desku 7 px od kraje okna 1600x900, s mezerou 12 je to 20 px.
+- Otevřené: verdikt oka (`verdict-eye`).
+
 ## 2026-10-28 — #1032 #1028 sopka a louka na Low — notebook (ThinkPad), Claude Code (github-4d)
 - Hotovo #1032: krok #748 na `Low` tvoří vertex shader terénu (`LandAt` a tři výšky na vrchol), ne pixely krajiny (plochá krajina ani zjednodušené detaily nepomohly). Mřížka se teď kreslí po blocích jen tam, kam kamera vidí. Caldera 16,34 → 16,00 ms (`Low`), na `Medium` −0,47. Snímky shodné.
 - Hotovo #1028: v Testbedu číselník `meadow=`. Pole stojí 3,1 ms, vzdálený prstenec nic. Amphora je 16,14 ms, na hraně rozpočtu. Rozhoduje majitel (`owner-decision`).
