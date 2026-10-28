@@ -103,11 +103,12 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Draws the blocks of <paramref name="grid"/> (a <see cref="Order.Blocks"/> grid, its buffers and the effect's pass
         /// already set) whose box the <paramref name="frustum"/> touches, each run of neighbouring ones in one draw. A block's
-        /// box spans its cells round the grid's snapped origin and every height from <paramref name="lowY"/> to
-        /// <paramref name="highY"/>, which the caller states wide enough for anything its vertex program lifts the ground to.
+        /// box spans its cells round the grid's snapped origin, grown by <paramref name="sideways"/> in X and Z, and every height
+        /// from <paramref name="lowY"/> to <paramref name="highY"/>: the caller states both wide enough for anything its vertex
+        /// program moves the ground by. Only the sea's waves move a vertex sideways (<see cref="SeaBackdrop.SwayReach"/>).
         /// </summary>
         public static void DrawSeenBlocks(GraphicsDevice device, Grid grid, BoundingFrustum frustum, float originX, float originZ,
-            float extent, float lowY, float highY)
+            float extent, float lowY, float highY, float sideways = 0f)
         {
             float cell = extent / (grid.N - 1);
             float half = extent * Constants.HALF, span = BLOCK_QUADS * cell;
@@ -118,8 +119,9 @@ namespace Prazsky.Core.Render
                 for (int bx = 0; bx < side; bx++)
                 {
                     int b = bz * side + bx;
-                    float x0 = originX - half + bx * span, z0 = originZ - half + bz * span;
-                    var box = new BoundingBox(new Vector3(x0, lowY, z0), new Vector3(x0 + span, highY, z0 + span));
+                    float x0 = originX - half + bx * span - sideways, z0 = originZ - half + bz * span - sideways;
+                    float x1 = x0 + span + 2f * sideways, z1 = z0 + span + 2f * sideways;
+                    var box = new BoundingBox(new Vector3(x0, lowY, z0), new Vector3(x1, highY, z1));
                     if (frustum.Contains(box) != ContainmentType.Disjoint)
                     {
                         if (runStart < 0) runStart = grid.BlockStart[b];

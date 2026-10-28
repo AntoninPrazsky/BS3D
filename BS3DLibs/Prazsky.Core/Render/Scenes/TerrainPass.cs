@@ -51,8 +51,8 @@ namespace Prazsky.Core.Render
         private readonly BoundingFrustum _frustum = new(Matrix.Identity);
 
         //Every height a scene's vertex program lifts its ground to, and far more: a block's box spans them, so only the lens'
-        //sides, near plane and far plane decide what is drawn (#1035)
-        private const float BLOCK_LOW_Y = -1000f, BLOCK_HIGH_Y = 3000f;
+        //sides, near plane and far plane decide what is drawn (#1035). The Moon's grid takes the same band
+        internal const float BLOCK_LOW_Y = -1000f, BLOCK_HIGH_Y = 3000f;
         private int _gridN;
         private readonly float _extent;
         private readonly bool _nearFirst;
@@ -134,7 +134,20 @@ namespace Prazsky.Core.Render
             _indexCount = _blocks.IndexCount;
         }
 
-        /// <summary>Whether the far ring is drawn: a measurement dial (the meadow's <c>meadow=</c> layers, #1028), true for every other caller.</summary>
+        /// <summary>
+        /// How far the vertex program moves a vertex sideways, world units: every block's box grows by it, or a block lying
+        /// just outside a side of the lens is skipped while a vertex of it swings into view, a notch in the ground at the
+        /// frame's edge. Zero for a program that only lifts; the sea and the lagoon state their waves' (#1035's review).
+        /// </summary>
+        public float SidewaysReach { get; set; }
+
+        /// <summary>
+        /// Whether the grid and the far ring are drawn: measurement dials (the meadow's <c>meadow=</c> layers, #1028, and the
+        /// mountain's <c>mountain=</c>, #1035), each read by <see cref="Draw"/> so either can be drawn alone; true for every other caller.
+        /// </summary>
+        public bool DrawsGrid { get; set; } = true;
+
+        /// <inheritdoc cref="DrawsGrid"/>
         public bool DrawsFarRing { get; set; } = true;
 
         /// <summary>
@@ -171,12 +184,13 @@ namespace Prazsky.Core.Render
             _graphicsDevice.SetVertexBuffer(_vertexBuffer);
             _graphicsDevice.Indices = _indexBuffer;
             Effect.CurrentTechnique.Passes[0].Apply();
-            if (_blocks != null)
+            if (DrawsGrid && _blocks != null)
             {
                 _frustum.Matrix = frame.Camera.View * frame.Camera.Projection;
-                TerrainGridCache.DrawSeenBlocks(_graphicsDevice, _blocks, _frustum, originX, originZ, _extent, BLOCK_LOW_Y, BLOCK_HIGH_Y);
+                TerrainGridCache.DrawSeenBlocks(_graphicsDevice, _blocks, _frustum, originX, originZ, _extent, BLOCK_LOW_Y, BLOCK_HIGH_Y,
+                    SidewaysReach);
             }
-            else _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _indexCount / 3);
+            else if (DrawsGrid) _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _indexCount / 3);
             if (DrawsFarRing) _farField.DrawRing(Effect, new Vector2(originX, originZ), _extent);
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;

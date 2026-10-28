@@ -237,6 +237,7 @@ namespace Prazsky.Core.Render
             _lagoonEffect.Parameters["ShallowBias"].SetValue(water.ShallowBias);
             _lagoonEffect.Parameters["WaveAmplitude"].SetValue(water.WaveAmplitude);
             _lagoonEffect.Parameters["WaveSteepness"].SetValue(water.WaveSteepness);
+            _lagoonPass.SidewaysReach = SeaBackdrop.SwayReach(water.WaveSteepness, water.WaveAmplitude);
             _lagoonEffect.Parameters["WaveSpeed"].SetValue(water.WaveSpeed);
             _lagoonEffect.Parameters["WaveFadeStart"].SetValue(water.WaveFadeStart);
             _lagoonEffect.Parameters["WaveFadeEnd"].SetValue(water.WaveFadeEnd);

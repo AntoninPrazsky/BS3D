@@ -170,6 +170,7 @@ static const float WAVE_PHASE[WAVE_COUNT] = {
     0.000, 0.392, 4.030, 5.357, 3.726, 1.634, 5.277, 3.201, 3.210, 4.731,
     0.929, 5.150, 4.293, 4.945, 1.204, 5.041, 1.202, 0.512, 5.374, 5.412 };
 static const float WAVE_STEEP_WEIGHT = 0.70;
+//SeaBackdrop.SwayReach carries this weight and the sum of WAVE_AMP: the grid's blocks are culled by how far a vertex sways
 
 //The first VERTEX_NORMAL_WAVES (52 down to 27.65 units, six and a half cells and more) are slow enough across the grid
 //for their normal to be interpolated from the vertices; the shorter rest are the pixel's own (SwellNormal)

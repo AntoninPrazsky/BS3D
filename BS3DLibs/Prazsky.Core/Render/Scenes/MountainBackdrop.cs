@@ -158,8 +158,9 @@ namespace Prazsky.Core.Render
         public override void Draw(in SceneFrame frame)
         {
             TerrainPass pass = SelectProgram();
+            pass.DrawsGrid = (Layers & MountainLayer.Range) != 0;
             pass.DrawsFarRing = (Layers & MountainLayer.FarRing) != 0;
-            if ((Layers & MountainLayer.Range) != 0) pass.Draw(frame, Services.TerrainHoleRadius);
+            if ((Layers & (MountainLayer.Range | MountainLayer.FarRing)) != 0) pass.Draw(frame, Services.TerrainHoleRadius);
             if (_berm != null && (Layers & MountainLayer.Berm) != 0)
                 _plants.Draw(frame, _berm.Buckets, _mountainConfig.HorizonHazeDistance, detail: true, Services.FineMeshes);
         }
