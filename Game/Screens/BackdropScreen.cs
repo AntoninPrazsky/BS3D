@@ -257,6 +257,20 @@ namespace BS3D.Screens
         //it (the shallowest field's middle is several units higher), so it cannot turn the look downward.
         private static readonly float LENS_FLOOR_Y = ArenaIsland.TOP_Y + 4f;
 
+        //=== THE SCENE'S OWN GROUND ===
+
+        //How far inside the scene's open ground (BS3DGame.OpenGroundRadius, the city's clearing) the lens is held (#1039).
+        //The wide leg stands further out the narrower the window, since the island has to fit the frame's HORIZONTAL
+        //half-angle: 46.5 units at aspect 1.25 (the owner's half-screen window), and the cities' first towers stand at
+        //about 50, with the lens among their floors. A facade a few units off the lens sweeps the frame's edge as a wall,
+        //so the margin is a street's worth of air, not the near plane's. Past it the lens stays put and the field of view
+        //widens instead (OpenGroundFieldOfView): the framing is what the fit asked for, from a nearer lens.
+        private const float OPEN_GROUND_MARGIN = 6f;
+
+        //And the widest the field of view may open to hold that framing: past it the lens goes on out, which only a window
+        //taller than it is wide asks for
+        private static readonly float OPEN_GROUND_MAX_FOV = MathHelper.ToRadians(100f);
+
         /// <summary>
         /// Solves how the camera frames one hanging map, and hands the result to the flight as the framing to
         /// drift towards. Run once per map — as the front end rolls a preview, and as a session installs a
@@ -314,7 +328,8 @@ namespace BS3D.Screens
                 + $", close {CloseRadius(framing, CLOSE_CLEARANCE):F1}"
                 + $", crane y {CraneHeight(framing, CloseRadius(framing, CLOSE_CLEARANCE), 0f):F1}"
                 + $" to {CraneHeight(framing, CloseRadius(framing, CLOSE_CLEARANCE), 1f):F1}"
-                + $" (up {MathHelper.ToDegrees(CRANE_LOW_PITCH):F0} to {MathHelper.ToDegrees(CRANE_HIGH_PITCH):F0} deg)");
+                + $" (up {MathHelper.ToDegrees(CRANE_LOW_PITCH):F0} to {MathHelper.ToDegrees(CRANE_HIGH_PITCH):F0} deg)"
+                + OpenGroundNote(WideRadius(framing)));
         }
 
         /// <summary>
@@ -507,8 +522,8 @@ namespace BS3D.Screens
             //in its cycle when the player asks, and the tour has to land where the camera actually is.
             Vector3 centre = new(0f, _framing.CentreY, 0f);
 
-            _tour.Begin(centre, Vector3.Distance(_lens, centre), FOV, _lens, centre,
-                Game.SceneViewpointAt, random, Game.IntroPrologue(FOV, random, _lens, centre));
+            _tour.Begin(centre, Vector3.Distance(_lens, centre), _lensFov, _lens, centre,
+                Game.SceneViewpointAt, random, Game.IntroPrologue(_lensFov, random, _lens, centre));
 
             Console.WriteLine($"[tour] {SceneRenderer.SceneName(Game.Scene)}: {_tour.Describe()}");
         }
@@ -520,6 +535,9 @@ namespace BS3D.Screens
         //orbit's own pose and not the camera's: under the result page the camera is a blend of this and the
         //gun's, and the question is where the FLIGHT stands, since that is what the hang would land under.
         private Vector3 _lens = new(0f, 0f, 1e4f);
+
+        //And its field of view, which the scene's open ground can widen (#1039): what a tour flown from the lens starts on
+        private float _lensFov = FOV;
 
         //=== THE CYCLE, ROLLED FRESH AT THE TOP OF EVERY ONE ===
         //
@@ -745,21 +763,62 @@ namespace BS3D.Screens
             _angle += MathHelper.Lerp(WIDE_ROTATION_SPEED, CLOSE_ROTATION_SPEED, closeness) * elapsed;
             if (_angle >= MathHelper.TwoPi) _angle -= MathHelper.TwoPi;
 
+            //Inside the scene's own ground (#1039): a stand-off past the city's clearing is taken from nearer, wider
+            fieldOfView = OpenGroundFieldOfView(ref radius);
+
             position = new Vector3(MathF.Cos(_angle) * radius, height, MathF.Sin(_angle) * radius);
             _lens = position;
+            _lensFov = fieldOfView;
 
             //Both legs aim at the middle of what hangs, and the camera's own height is what changes around it.
             //Aiming the crane anywhere else would swing the map across the frame as the lens climbed.
             //The aim, dropped by FramingLift so the subject rides higher in the frame (#472). Stated as a
             //fraction of the half-frame and turned into world units HERE, where the stand-off and the field
             //of view are both known - a lift written in world units would mean a different share of the
-            //picture at every aspect and every map size.
-            fieldOfView = FOV;
-
+            //picture at every aspect and every map size. The product of the two is the same whether or not the
+            //open ground pulled the lens in, so the lift is too.
             float lift = FramingLift <= 0f ? 0f
                 : MathF.Tan(fieldOfView * 0.5f) * radius * FramingLift;
 
             target = new Vector3(0f, _framing.CentreY - lift, 0f);
+        }
+
+        //The [orbit] line's note on the scene's open ground (#1039): nothing where the scene has none, and otherwise where
+        //the wide leg stands and through what lens
+        private string OpenGroundNote(float wide)
+        {
+            float open = Game.OpenGroundRadius;
+            if (!float.IsFinite(open)) return "";
+
+            float fov = OpenGroundFieldOfView(ref wide);
+            return $", open ground {open:F1}: wide leg at {wide:F1} through {MathHelper.ToDegrees(fov):F1} deg";
+        }
+
+        /// <summary>
+        /// The field of view for a lens at <paramref name="radius"/>, and the radius it may stand at (#1039): where the
+        /// scene's open ground (<see cref="BS3DGame.OpenGroundRadius"/>, less <see cref="OPEN_GROUND_MARGIN"/>) ends nearer
+        /// than <paramref name="radius"/>, the lens is brought in to it and the field of view widened by the same ratio of
+        /// tangents, so what stood at the frame's edge from the asked-for stand-off stands there again, up to
+        /// <see cref="OPEN_GROUND_MAX_FOV"/>. Exact for the plane through the aim, which is where the fits measure the
+        /// island and the map. Otherwise <see cref="FOV"/> and the radius as asked.
+        /// </summary>
+        private float OpenGroundFieldOfView(ref float radius)
+        {
+            float open = Game.OpenGroundRadius - OPEN_GROUND_MARGIN;
+            if (!(radius > open) || open <= 0f) return FOV;
+
+            float tangent = MathF.Tan(FOV * 0.5f) * radius / open;
+            float widest = MathF.Tan(OPEN_GROUND_MAX_FOV * 0.5f);
+
+            //Past the widest lens the rest of the stand-off is the lens's again, at that lens
+            if (tangent > widest)
+            {
+                radius = MathF.Tan(FOV * 0.5f) * radius / widest;
+                return OPEN_GROUND_MAX_FOV;
+            }
+
+            radius = open;
+            return 2f * MathF.Atan(tangent);
         }
 
         /// <summary>
