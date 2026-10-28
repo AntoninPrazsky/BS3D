@@ -1202,6 +1202,19 @@ technique Volcano
     }
 };
 
+//Medium's (#1037): the authored pixel program over Low's geometry - the reduced vertex program on the reduced grid
+//(VolcanoBackdrop.SelectProgram). Since #748 the vertex program works out the land's figures and three heights a vertex,
+//and on the reference APU Medium paid 5.9 ms for it; the scoria's finest two octaves are finer than the reduced grid's
+//cell, and the pixels' own relief carries the near flank's grain.
+technique VolcanoMedium
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL VolcanoVSReduced();
+        PixelShader = compile PS_SHADERMODEL VolcanoPS();
+    }
+};
+
 technique VolcanoReduced
 {
     pass P0
