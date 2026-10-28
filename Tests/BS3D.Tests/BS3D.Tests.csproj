@@ -186,6 +186,9 @@
         group does and held to a bound on its second difference; the one name it reads from the gameplay screen is stood in
         for there (the screen needs a device).-->
     <Compile Include="..\..\Game\Effects\DropCinematic.cs" />
+    <!--#1040: the front end's pass at the gun - where the lens stands round it and the two guards (out of the cluster's sphere,
+        inside the scene's open ground); pure geometry over Vector3, held against the shipped levels' own spheres.-->
+    <Compile Include="..\..\Game\Screens\GunPass.cs" />
   </ItemGroup>
 
   <!--The website capture's parts that have no device in them (#946): its clock and window, the stated camera's keys and curves, and

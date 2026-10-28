@@ -27,9 +27,11 @@ namespace BS3D.Screens
     /// </para>
     /// <para>
     /// Since #249 the setting it draws is not empty of the game: a random level's map hangs over the island
-    /// — no cannon, no physics, just the cluster and the glass over it — so the player sees at launch what a
+    /// — no physics, just the cluster and the glass over it — so the player sees at launch what a
     /// juicy map awaits them to shoot apart. The map is drawn again at random on every return to the front
-    /// end (<see cref="BS3DGame.ReturnToMainMenu"/>).
+    /// end (<see cref="BS3DGame.ReturnToMainMenu"/>). And since #1040 the gun stands under it
+    /// (<see cref="MenuGun"/>), loaded in the map's own colours, and the camera now and then comes to it
+    /// (<see cref="BlendGunPass"/>).
     /// </para>
     /// <para>
     /// And since #254 the camera does more than turn: it is <b>framed for the map that is actually hanging</b>
@@ -68,10 +70,14 @@ namespace BS3D.Screens
         //The frame's on-top slot (#600), made once so handing it to the host each frame allocates nothing
         private readonly Action _drawWordmark;
 
+        //The gun the front end stands when no session's does (#1040), rebuilt with every map that hangs
+        private readonly MenuGun _menuGun;
+
         public BackdropScreen(BS3DGame game)
         {
             Game = game;
             _drawWordmark = DrawWordmark;
+            _menuGun = new MenuGun(game);
 
             //Rolled here rather than on first draw: the level set is loaded and the sky is up by the time the
             //host builds this screen, so the very first frame the front end ever shows already carries the
@@ -489,8 +495,8 @@ namespace BS3D.Screens
         //The scene's own establishing tour, replayed on demand from the scene menu (#406). It is the very
         //same ChapterIntro a chapter's opening level runs - not a second flight built to look like it - so
         //what the player reviews here is what they will be shown in play, and a change to one is a change
-        //to both. The front end has no gun to aim and no level to play (a kept session's gun only stands there,
-        //#650, and nothing about the tour follows it), so what it hands over as the "gameplay pose" is
+        //to both. The front end has no gun to aim and no level to play (its gun - the menu's own, #1040, or a kept session's,
+        //#650 - only stands there, and nothing about the tour follows it), so what it hands over as the "gameplay pose" is
         //its own orbit: the tour's last key is where the menu camera already stands, which is what makes
         //the blend back onto the flight a nudge between near-identical poses rather than a cut.
         private readonly ChapterIntro _tour = new();
@@ -583,7 +589,60 @@ namespace BS3D.Screens
         //than the floor allows.
         private float _closeClearance = CLOSE_CLEARANCE;
 
-        private float ExcursionSeconds => _approachSeconds + _closeSeconds + _retreatSeconds;
+        //=== THE PASS AT THE GUN (#1040) ===
+        //
+        //Now and then an excursion goes to the gun instead of the cluster: the lens leaves the wide turn, comes in over the island to
+        //stand a few units behind and above the gun, turns round it (GunPass says how) so the loading window and the round in it are
+        //seen from both flanks and from over the breech, and goes back out. One cycle in three, rolled with the others, and never
+        //under the picker: the same clock, the same Closeness and the same hold (HoldWideLeg) as the cluster's pass, so the wide leg
+        //the quality probe measures (above) is untouched and the held wide leg is held. It stays out of the cluster by the same sphere
+        //the cluster's pass keeps off (#408) and inside a city's clearing (#1039).
+        private const float GUN_PASS_SHARE = 1f / 3f;
+
+        //Longer in the approach and the retreat than the cluster's, because the lens swings round the island to reach the gun's side
+        //and a quarter of a turn in three seconds is a sweep and not a flight; the close leg is the time to turn round the gun.
+        private const float GUN_APPROACH_SECONDS = 5f, GUN_APPROACH_JITTER_SECONDS = 2f;
+        private const float GUN_CLOSE_SECONDS = 10f, GUN_CLOSE_JITTER_SECONDS = 6f;
+        private const float GUN_RETREAT_SECONDS = 6f, GUN_RETREAT_JITTER_SECONDS = 3f;
+
+        //How much of the frame's narrower half-angle the barrel's reach (CannonRig.BarrelReach, the trunnions to the cascabel) fills
+        //at the stand-off, and the scale a pass rolls on it: 0.85 to 1.25 of the fit, so one pass is tighter on the gun than the last.
+        //Photographed: at 0.85 the carriage's trail legs just leave the frame's foot and the window and the rounds in it fill the
+        //middle; at 1.25 the gun stands in the island's foreground with the cluster overhead, whole.
+        private const float GUN_FRAME_SHARE = 0.7f;
+        private const float GUN_STAND_OFF_SCALE = 0.85f, GUN_STAND_OFF_JITTER = 0.4f;
+
+        //How far over the trunnions the lens stands (rolled): high enough to look down into the slot on the barrel's top face
+        //from the flanks, where it would be edge-on from level with the gun
+        private const float GUN_LIFT = 3f, GUN_LIFT_JITTER = 2f;
+
+        //How much air the lens keeps off the cluster's bounding sphere on this pass: more than the cluster's own close pass leaves
+        //(CLOSE_CLEARANCE), because this pass is not about the cluster and a ball filling a corner of the frame is only noise there.
+        //The sweep stays on the gun's outer side, so the sphere only binds on a map whose reach is long for its footprint.
+        private const float GUN_CLUSTER_AIR = 3.5f;
+
+        //This cycle's pass at the gun: whether it was rolled (the intent), whether the excursion has turned to it (the pass, decided as
+        //the excursion begins and false through the wide leg), and what it rolled. The swing is the lens's bearing off the wide turn's,
+        //unwrapped so it is continuous through the pass; the anchor is the gun's trunnions, kept so a gun that goes mid-pass leaves the
+        //lens heading where it was.
+        private bool _gunIntent, _gunPass;
+        private float _gunApproachSeconds = GUN_APPROACH_SECONDS;
+        private float _gunCloseSeconds = GUN_CLOSE_SECONDS;
+        private float _gunRetreatSeconds = GUN_RETREAT_SECONDS;
+        private float _gunStandOffScale = GUN_STAND_OFF_SCALE;
+        private float _gunLift = GUN_LIFT;
+        private float _gunDirection = 1f;
+        private float _gunSwing;
+        private bool _gunSwingSet;
+        private Vector3 _gunAnchor;
+
+        //The excursion's legs are the cluster's, or the gun's once the cycle has turned to it (#1040): one scalar, Closeness,
+        //answers for both, so the wordmark and the camera read the same shape off whichever pass is flying
+        private float ApproachSeconds => _gunPass ? _gunApproachSeconds : _approachSeconds;
+        private float CloseSeconds => _gunPass ? _gunCloseSeconds : _closeSeconds;
+        private float RetreatSeconds => _gunPass ? _gunRetreatSeconds : _retreatSeconds;
+
+        private float ExcursionSeconds => ApproachSeconds + CloseSeconds + RetreatSeconds;
         private float CycleSeconds => _wideSeconds + ExcursionSeconds;
 
         //How small the 3D title gets while the flight is in among the balls (its `presence` floor, #261):
@@ -618,6 +677,18 @@ namespace BS3D.Screens
             _closeSeconds = CLOSE_SECONDS + (float)RANDOM.NextDouble() * CLOSE_JITTER_SECONDS;
             _retreatSeconds = RETREAT_SECONDS + (float)RANDOM.NextDouble() * RETREAT_JITTER_SECONDS;
             _closeClearance = CLOSE_CLEARANCE * (1f + (2f * (float)RANDOM.NextDouble() - 1f) * CLOSE_CLEARANCE_JITTER);
+
+            //And whether this cycle's excursion goes to the gun (#1040): rolled here, decided when the excursion begins (the
+            //gun may not stand yet - a fresh roll of the preview rolls the cycle first), so the wide leg is the cluster's
+            //whichever it turns out to be
+            _gunIntent = Game.MenuGunMode == MenuGunMode.Pass
+                || (Game.MenuGunMode == MenuGunMode.Normal && RANDOM.NextDouble() < GUN_PASS_SHARE);
+            _gunPass = false;
+            _gunApproachSeconds = GUN_APPROACH_SECONDS + (float)RANDOM.NextDouble() * GUN_APPROACH_JITTER_SECONDS;
+            _gunCloseSeconds = GUN_CLOSE_SECONDS + (float)RANDOM.NextDouble() * GUN_CLOSE_JITTER_SECONDS;
+            _gunRetreatSeconds = GUN_RETREAT_SECONDS + (float)RANDOM.NextDouble() * GUN_RETREAT_JITTER_SECONDS;
+            _gunStandOffScale = GUN_STAND_OFF_SCALE + (float)RANDOM.NextDouble() * GUN_STAND_OFF_JITTER;
+            _gunLift = GUN_LIFT + (float)RANDOM.NextDouble() * GUN_LIFT_JITTER;
         }
 
         /// <summary>
@@ -630,12 +701,12 @@ namespace BS3D.Screens
             float since = clock - _wideSeconds;
 
             if (since <= 0f) return 0f;
-            if (since < _approachSeconds) return MathHelper.SmoothStep(0f, 1f, since / _approachSeconds);
+            if (since < ApproachSeconds) return MathHelper.SmoothStep(0f, 1f, since / ApproachSeconds);
 
-            since -= _approachSeconds;
-            if (since < _closeSeconds) return 1f;
+            since -= ApproachSeconds;
+            if (since < CloseSeconds) return 1f;
 
-            return MathHelper.SmoothStep(1f, 0f, (since - _closeSeconds) / _retreatSeconds);
+            return MathHelper.SmoothStep(1f, 0f, (since - CloseSeconds) / RetreatSeconds);
         }
 
         /// <summary>
@@ -670,6 +741,10 @@ namespace BS3D.Screens
         public override void Update(GameTime gameTime)
         {
             float elapsed = (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            //The front end's own gun drifts about its aim (#1040): stated off the wall clock, before the flight so the lens that
+            //comes to it sees this frame's pose
+            _menuGun.Update();
 
             //The level picker's request, once its focus has rested (#405) — before the flight, so a map hung this
             //frame is the one the framing starts drifting towards on the same frame.
@@ -744,13 +819,21 @@ namespace BS3D.Screens
                 RollCycle();
             }
 
+            //The excursion turns to the gun as it begins - strictly after the wide leg, so a held wide leg (its clock stops AT the
+            //end of it) does not begin one - and only with a gun to come to; a cycle rolled for it with none standing flies the
+            //cluster as before (#1040)
+            if (!_gunPass && _gunIntent && _flightClock > _wideSeconds) BeginGunPass();
+
             float closeness = Closeness(_flightClock);
+
+            //The pass at the gun is its own blend, below; the cluster's pass has none of this excursion
+            float clusterCloseness = _gunPass ? 0f : closeness;
 
             //Both stand-offs solved here, from the map's measurements and the window's own shape, rather than
             //stored with the framing — see OrbitFraming for why they cannot be settled at load. The close one
             //carries this cycle's rolled clearance, so one pass skims nearer the balls than the last.
             float closeRadius = CloseRadius(_framing, _closeClearance);
-            float radius = MathHelper.Lerp(WideRadius(_framing), closeRadius, closeness);
+            float radius = MathHelper.Lerp(WideRadius(_framing), closeRadius, clusterCloseness);
 
             //The crane's height is taken at the pass's own stand-off, where its pitches are meant, and mixed
             //with the wide leg's the way the radius is. Both are under the aim, so every blend of them is too:
@@ -758,17 +841,15 @@ namespace BS3D.Screens
             float height = MathF.Max(LENS_FLOOR_Y, MathHelper.Lerp(
                 _framing.CentreY - WIDE_LENS_DROP,
                 CraneHeight(_framing, closeRadius, Rise(_flightClock)),
-                closeness));
+                clusterCloseness));
 
-            _angle += MathHelper.Lerp(WIDE_ROTATION_SPEED, CLOSE_ROTATION_SPEED, closeness) * elapsed;
+            _angle += MathHelper.Lerp(WIDE_ROTATION_SPEED, CLOSE_ROTATION_SPEED, clusterCloseness) * elapsed;
             if (_angle >= MathHelper.TwoPi) _angle -= MathHelper.TwoPi;
 
             //Inside the scene's own ground (#1039): a stand-off past the city's clearing is taken from nearer, wider
             fieldOfView = OpenGroundFieldOfView(ref radius);
 
             position = new Vector3(MathF.Cos(_angle) * radius, height, MathF.Sin(_angle) * radius);
-            _lens = position;
-            _lensFov = fieldOfView;
 
             //Both legs aim at the middle of what hangs, and the camera's own height is what changes around it.
             //Aiming the crane anywhere else would swing the map across the frame as the lens climbed.
@@ -781,6 +862,112 @@ namespace BS3D.Screens
                 : MathF.Tan(fieldOfView * 0.5f) * radius * FramingLift;
 
             target = new Vector3(0f, _framing.CentreY - lift, 0f);
+
+            //The excursion at the gun, blended off the wide pose just solved (#1040)
+            if (_gunPass && closeness > 0f) BlendGunPass(closeness, ref position, ref target, ref fieldOfView);
+
+            _lens = position;
+            _lensFov = fieldOfView;
+        }
+
+        /// <summary>
+        /// The gun the camera can come to: a session's, kept for Continue or live, else the front end's own - and none under
+        /// <c>menugun=off</c> (#1040). The gun the frame draws (<see cref="MenuGunInFrame"/>) is the same object.
+        /// </summary>
+        private IStandingGun GunToAttendTo =>
+            Game.MenuGunMode == MenuGunMode.Off ? null : Game.StandingGun ?? MenuGunInFrame;
+
+        /// <summary>
+        /// The front end's own gun for this frame, or null: it stands only with a map hung, never while the benchmark's swarm
+        /// (#988) fills the frame - a measurement of the swarm is not one of a swarm and a gun, and the numbers from before
+        /// the gun stood stay comparable - and never under <c>menugun=off</c>. A session's gun is drawn by its own registration.
+        /// </summary>
+        private IStandingGun MenuGunInFrame =>
+            Game.MenuGunMode != MenuGunMode.Off && Game.BenchmarkSwarm == null ? _menuGun.Standing : null;
+
+        /// <summary>
+        /// The excursion turns to the gun (#1040): the legs become the gun's and the lens will come to stand behind it. Which way
+        /// round it sweeps is decided from where the lens stands now, so the approach takes the shorter way round the island.
+        /// </summary>
+        private void BeginGunPass()
+        {
+            IStandingGun gun = GunToAttendTo;
+
+            //Nothing standing to come to: this excursion is the cluster's, and it is not asked again
+            if (gun == null)
+            {
+                _gunIntent = false;
+                return;
+            }
+
+            _gunAnchor = gun.Position;
+            _gunPass = true;
+            _gunSwingSet = false;
+            _gunDirection = GunPass.DirectionFrom(_gunAnchor, _lens);
+
+            Console.WriteLine($"[orbit] gun pass: gun at {_gunAnchor.X:F1}, {_gunAnchor.Y:F1}, {_gunAnchor.Z:F1}"
+                + $", sweep {MathHelper.ToDegrees(GunPass.SWEEP):F0} deg {(_gunDirection > 0f ? "+" : "-")}"
+                + $", stand-off {GunStandOff():F1} (x{_gunStandOffScale:F2}), lift {_gunLift:F1}"
+                + $", legs {_gunApproachSeconds:F1} / {_gunCloseSeconds:F1} / {_gunRetreatSeconds:F1} s");
+        }
+
+        /// <summary>
+        /// How far from the trunnions the lens stands on this pass: the barrel's reach framed to <see cref="GUN_FRAME_SHARE"/> of the
+        /// frame's narrower half-angle (the barrel reaches in one axis and the window's shape decides which binds), scaled by the
+        /// pass's roll. Solved per frame like the cluster's stand-offs, so a window that changes shape mid-pass keeps the gun framed.
+        /// </summary>
+        private float GunStandOff()
+        {
+            FrameHalfAngles(out float vertical, out float horizontal);
+
+            return StandOffFor(Game.CannonRig.BarrelReach, MathF.Min(vertical, horizontal), GUN_FRAME_SHARE) * _gunStandOffScale;
+        }
+
+        /// <summary>
+        /// Blends the wide pose just solved towards the lens at the gun (#1040), by <paramref name="closeness"/>. The lens at the
+        /// gun is <see cref="GunPass.Pose"/> at the excursion's own progress (<see cref="Rise"/>: the turn round the gun begins
+        /// in the approach and ends in the retreat, so the lens is never parked), held out of the cluster's bounding sphere and
+        /// inside the scene's open ground.
+        /// <para>
+        /// <b>The blend is polar about the island's axis</b>, radius and bearing and height each linearly: a straight line
+        /// from a wide stand-off to the gun's far side would cross the cluster, where the polar path swings round the island
+        /// at a radius that falls only as far as the lens at the gun stands. The bearing is carried through the pass
+        /// unwrapped (<see cref="_gunSwing"/>), so it cannot jump the other way round when the gun passes behind the lens.
+        /// </para>
+        /// </summary>
+        private void BlendGunPass(float closeness, ref Vector3 position, ref Vector3 target, ref float fieldOfView)
+        {
+            IStandingGun gun = GunToAttendTo;
+            if (gun != null) _gunAnchor = gun.Position;
+
+            float standOff = GunStandOff();
+
+            GunPass.Pose(_gunAnchor, standOff, _gunLift, _gunDirection, Rise(_flightClock), out Vector3 lens, out Vector3 aim);
+
+            Vector3 cluster = new(0f, _framing.CentreY, 0f);
+            float air = _framing.Span + GUN_CLUSTER_AIR;
+            float open = Game.OpenGroundRadius - OPEN_GROUND_MARGIN;
+
+            lens = GunPass.KeepInside(GunPass.KeepClear(lens, cluster, air), open);
+
+            //The bearing of the lens at the gun off the wide turn's, continuous: the nearest of its 2-pi-apart readings to last
+            //frame's, and the shorter way round when the pass begins
+            float raw = MathF.Atan2(lens.Z, lens.X) - _angle;
+            _gunSwing = _gunSwingSet ? raw + MathHelper.TwoPi * MathF.Round((_gunSwing - raw) / MathHelper.TwoPi) : MathHelper.WrapAngle(raw);
+            _gunSwingSet = true;
+
+            float wideReach = MathF.Sqrt(position.X * position.X + position.Z * position.Z);
+            float gunReach = MathF.Sqrt(lens.X * lens.X + lens.Z * lens.Z);
+            float reach = MathHelper.Lerp(wideReach, gunReach, closeness);
+            float bearing = _angle + closeness * _gunSwing;
+
+            position = new Vector3(MathF.Cos(bearing) * reach, MathHelper.Lerp(position.Y, lens.Y, closeness), MathF.Sin(bearing) * reach);
+
+            //Held clear of the sphere and inside the ground once more on the blended path: both are continuous in the lens
+            position = GunPass.KeepInside(GunPass.KeepClear(position, cluster, air), open);
+
+            target = Vector3.Lerp(target, aim, closeness);
+            fieldOfView = MathHelper.Lerp(fieldOfView, FOV, closeness);
         }
 
         //The [orbit] line's note on the scene's open ground (#1039): nothing where the scene has none, and otherwise where
@@ -877,7 +1064,7 @@ namespace BS3D.Screens
         /// picker's focus rests on is hung in its own scene, sky, weather and material (#405, see
         /// <see cref="RequestPreview"/>).
         /// <para>
-        /// The map is data and nothing more — no physics is built for it, no cannon stands under it. It
+        /// The map is data and nothing more — no physics is built for it, and the gun under it is a prop (<see cref="MenuGun"/>, #1040). It
         /// hangs by the very offset a session derives for the same map
         /// (<see cref="GameplayScreen.FitClusterWorldOffset"/>), under the menu's own glass
         /// (<see cref="BS3DGame.MenuCeilingRenderer"/>) fitted to its footprint, and the camera is framed for
@@ -889,6 +1076,7 @@ namespace BS3D.Screens
             DropPending();
 
             _previewMap = null;
+            _menuGun.Clear();
             _previewIndex = -1;
             _requestedPreview = -1;
             _previewStyle = BallStyle.Beach;
@@ -1207,6 +1395,9 @@ namespace BS3D.Screens
             _previewStyle = Game.TestOptions.BallStyleOverride ?? style;
             _previewOffset = offset;
 
+            //The gun under it (#1040): where a session would stand it for this map, loaded in this map's colours
+            _menuGun.Place(map);
+
             //The menu's glass over what was just hung, and the sky palette the fresh renderer starts
             //without — the same re-run the session makes after its own refit.
             Game.RebuildMenuCeilingRenderer(map.StageSizeX, map.StageSizeZ);
@@ -1231,6 +1422,8 @@ namespace BS3D.Screens
         /// breathing on the wall clock — and, when a session is kept for Continue (#607), <b>its gun stands
         /// where it was left</b> (#650): <see cref="BS3DGame.StandingGun"/> is the one registration behind both
         /// the gun's shadow on the island and its drawing, so the front end cannot show the one without the other.
+        /// With no session the front end's <b>own</b> gun stands in its place (#1040), through the same slots and a second
+        /// registration (<see cref="BS3DGame.MenuGun"/>) held for the length of this frame.
         /// </summary>
         public override void Draw(GameTime gameTime)
         {
@@ -1245,10 +1438,14 @@ namespace BS3D.Screens
             //as the game's own balls are
             Game.BenchmarkSwarm?.Collect(ballFrame, (float)gameTime.ElapsedGameTime.TotalSeconds);
 
-            //The gun of a session kept for Continue (#650): the rounds in its bore go into the frame like any other
-            //ball, before BeginSceneDraw, whose shadow pass reads the buckets. Null with no session, and then there
-            //is no gun and no gun's shadow either — the shadow pass asks the same registration.
-            Game.StandingGun?.CollectBalls(ballFrame);
+            //The gun of a session kept for Continue (#650), or with none the front end's own (#1040): the rounds in its bore go
+            //into the frame like any other ball, before BeginSceneDraw, whose shadow pass reads the buckets. The own gun is
+            //registered for this frame only, so the shadow pass asks for it exactly when the frame draws it.
+            IStandingGun gun = Game.StandingGun;
+            Game.MenuGun = gun == null ? MenuGunInFrame : null;
+            gun ??= Game.MenuGun;
+
+            gun?.CollectBalls(ballFrame);
 
             //The preview plate's shadow, on the session's pattern (#553)
             Game.CastCeilingShadow(Game.MenuCeilingRenderer, _menuCeilingWorld);
@@ -1267,7 +1464,7 @@ namespace BS3D.Screens
 
             //Where the session's gun stands, in the slot it draws in during play — after the grab, so the copy the
             //preview plate's glass bends holds the setting alone, as it does there
-            Game.StandingGun?.Draw();
+            gun?.Draw();
 
             Game.Balls.Draw(Game.WallClock);
 
@@ -1283,7 +1480,7 @@ namespace BS3D.Screens
             Game.DrawCeilingRigging(Game.MenuCeilingRigging, _menuCeilingWorld, overGlass: true);
 
             //The gun's own glazing after the plate, as in play: the nearest translucent surface in the frame
-            Game.StandingGun?.DrawGlass();
+            gun?.DrawGlass();
 
             //A page's own foreground (#856, Help's live balls), into the sharp layer the host composites over the UI at the
             //end of its Draw. After the balls, since it borrows the ball set's frame once more, and before the close
@@ -1291,6 +1488,9 @@ namespace BS3D.Screens
 
             //The game's name last of all, in front of everything the scene drew (#600) - see DrawWordmark
             Game.FinishSceneDraw(sceneFrame, drawOnTop: _drawWordmark);
+
+            //The frame is closed and the shadow pass is behind it: the own gun's registration ends with it (#1040)
+            Game.MenuGun = null;
         }
 
         /// <summary>

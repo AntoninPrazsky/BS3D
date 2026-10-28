@@ -781,10 +781,17 @@ namespace BS3D.Screens
         /// comes down through it.
         /// </para>
         /// </summary>
-        private float FramedTopY()
+        private float FramedTopY() => FramedTopYFor(_ceilingDescent.Y, _clusterWorldOffset.Y);
+
+        /// <summary>
+        /// <see cref="FramedTopY"/> for a glass centred at <paramref name="ceilingCentreY"/> over a field whose floor is at
+        /// <paramref name="floorY"/>: the arithmetic on its own, so the front end's gun is fitted to the frame a session would
+        /// frame (<see cref="MenuGun"/>, #1040).
+        /// </summary>
+        internal static float FramedTopYFor(float ceilingCentreY, float floorY)
         {
-            float glass = CeilingPlate.TopFaceY(_ceilingDescent.Y);
-            float window = _clusterWorldOffset.Y + (FRAMED_LEVELS - 1) / Constants.SQRT_TWO;
+            float glass = CeilingPlate.TopFaceY(ceilingCentreY);
+            float window = floorY + (FRAMED_LEVELS - 1) / Constants.SQRT_TWO;
 
             return MathF.Min(glass, window);
         }

@@ -217,6 +217,11 @@ namespace BS3D
         //Named the way Level is: a 1-based place in the set, or a name.
         internal string Preview { get; private set; }
 
+        //Testing only: the front end's own gun (#1040). Normal is the player's: a gun stands and the camera attends to it now and
+        //then. "off" takes both away (the menu as it was, for a before/after pair); "pass" makes every cycle's excursion the pass
+        //at the gun, the one way to photograph it on a schedule.
+        internal Screens.MenuGunMode MenuGun { get; private set; }
+
         //Testing only: open the level picker at boot, on a named chapter or on the one it chooses itself
         //(#273). Null means the argument was absent. Empty string means "pick" without a chapter, which is
         //why this is a string and not an int? — the two are different requests.
@@ -747,6 +752,10 @@ namespace BS3D
             //played. The menu's camera is framed for that map since #254, so without this two shots of
             //the front end are two shots of different maps at different stand-offs.
             Row.Text("preview", (o, v) => o.Preview = v),
+            //"menugun=<off|pass>" (#1040): "off" is the front end without its gun and without the camera's pass at it, "pass" makes
+            //every cycle's excursion that pass. Anything else leaves what a player gets.
+            Row.Text("menugun", (o, v) => o.MenuGun = v == "off" ? Screens.MenuGunMode.Off : Screens.MenuGunMode.Pass,
+                v => v is "off" or "pass"),
             //"balls=<beach|bubble>" overrides what every level says it is made of (#258), the way "scene="
             //overrides the backdrop each one names. Parsed through BallStyles, so the spellings are the
             //ones a level file takes; an unknown one leaves the levels' own answers standing.

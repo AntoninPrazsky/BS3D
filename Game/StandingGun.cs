@@ -20,7 +20,12 @@ namespace BS3D
     /// The <b>host</b> owns the rig and the island; the <b>session</b> owns where the gun stands, which is why
     /// this is an interface the session implements and not a reach into the screen stack: the shadow pass runs
     /// at the top of <c>BeginSceneDraw</c>, before any screen has drawn. Set by the session's <c>BuildLevel</c>,
-    /// cleared by its <c>TearDown</c>; no session, no gun, no shadow.
+    /// cleared by its <c>TearDown</c>; no session, no session's gun.
+    /// </para>
+    /// <para>
+    /// <b>With no session the front end stands a gun of its own</b> (#1040): <see cref="Screens.MenuGun"/> implements this too and
+    /// <c>BackdropScreen.Draw</c> registers it as <see cref="BS3DGame.MenuGun"/> for the span of its frame, so the shadow
+    /// pass and the frame still ask one object. A session's gun, kept or live, wins.
     /// </para>
     /// </summary>
     internal interface IStandingGun
@@ -39,5 +44,11 @@ namespace BS3D
 
         /// <summary>The glazing of the gun's loading window, which is translucent and so goes after everything it is seen against.</summary>
         void DrawGlass();
+
+        /// <summary>
+        /// Where the gun's trunnions stand (#1040): what the front end's camera comes to look at on a pass at the gun, whichever
+        /// gun stands — the kept session's or the menu's own.
+        /// </summary>
+        Vector3 Position { get; }
     }
 }

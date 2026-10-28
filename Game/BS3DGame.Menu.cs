@@ -84,6 +84,9 @@ namespace BS3D
         /// </summary>
         internal BackdropScreen Backdrop => _backdrop;
 
+        /// <summary>What the front end does about its own gun (#1040): the <c>menugun=</c> argument, a gun and a pass at it unless it says otherwise.</summary>
+        internal MenuGunMode MenuGunMode { get; private set; }
+
         //The Myra host. Rendered as the very last thing in Draw (after the tonemap resolve and base.Draw),
         //straight to the back buffer — the same place the map editor puts it. Render() also processes Myra's
         //own mouse/keyboard input, so it is only called while a menu page is the active screen, where the

@@ -18,6 +18,7 @@ A locked desktop takes no keystrokes, a synthetic one lands in whichever window 
 ## What the front end hangs and plays
 
 - `preview=<n|name>` pins which map the front end hangs, as `level=` pins the played one; the camera is framed per map, so two shots differ unless it is passed.
+- `menugun=<off|pass>` (#1040): `off` is the front end without its own gun and without the camera's pass at it (the menu as it was, for a before/after pair); `pass` makes every cycle's excursion the pass at the gun, the only way to photograph one on a schedule (the wide leg is still first, so with `shot=` at 3 s intervals from 10 s a pass is on screen from about 20 s). A `[orbit] gun pass:` line says when one begins.
 - `balls=<beach|bubble>` draws every ball in one style (#258): a testing lever, **not a setting**, since the style belongs to the map's author.
 - `colourcue=<none|motif|motif:N>` sets the colour cue (#737), the figure every colour carries painted beside its hue. Without the argument every style but the lava draws its own figure set (the lava draws none) (`motif`, also `a`, `on` or `style`); `none` draws no figure, the look the balls had before; `motif:N` (1 to 4, or `figures`, `emblems`, `lines`, `spots`) puts set N on every style for a comparison ("The colour cue" in `docs/rendering/ball-styles.md`).
 - `tomenu=<s>` leaves the level for the main menu at that wall-clock second with the session **kept**, as the pause's Main Menu does; on `shot=`'s clock: `level=32 tomenu=20 shot=16,26,32`.
