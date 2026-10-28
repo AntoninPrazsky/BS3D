@@ -157,9 +157,18 @@ namespace Prazsky.Core.Render
         /// </summary>
         public override void Draw(in SceneFrame frame)
         {
-            SelectProgram().Draw(frame, Services.TerrainHoleRadius);
-            if (_berm != null) _plants.Draw(frame, _berm.Buckets, _mountainConfig.HorizonHazeDistance, detail: true, Services.FineMeshes);
+            TerrainPass pass = SelectProgram();
+            pass.DrawsFarRing = (Layers & MountainLayer.FarRing) != 0;
+            if ((Layers & MountainLayer.Range) != 0) pass.Draw(frame, Services.TerrainHoleRadius);
+            if (_berm != null && (Layers & MountainLayer.Berm) != 0)
+                _plants.Draw(frame, _berm.Buckets, _mountainConfig.HorizonHazeDistance, detail: true, Services.FineMeshes);
         }
+
+        /// <summary>
+        /// The layers drawn (#1035): a measurement dial (<see cref="SceneRenderer.MountainLayers"/>, the Testbed's <c>mountain=</c>),
+        /// <see cref="MountainLayer.All"/> for every other caller. Each layer is drawn or not on the next frame; nothing carries.
+        /// </summary>
+        public MountainLayer Layers { get; set; } = MountainLayer.All;
 
         /// <inheritdoc/>
         public override bool HasShadowCasters => _berm != null;
@@ -171,7 +180,10 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>The falling snow, through the shared flake buffer and this scene's own clone of <c>Snow.fx</c>.</summary>
-        public override void DrawOverlays(in SceneFrame frame) => Services.Snowfall.Draw(frame, _mountainSnowLook, _mountainConfig.Snow);
+        public override void DrawOverlays(in SceneFrame frame)
+        {
+            if ((Layers & MountainLayer.Snow) != 0) Services.Snowfall.Draw(frame, _mountainSnowLook, _mountainConfig.Snow);
+        }
 
         /// <inheritdoc/>
         public override bool TryGetViewpoint(float bearing, out SceneViewpoint viewpoint)
