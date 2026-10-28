@@ -6,7 +6,7 @@ The ONLINE tab of [the Settings page](settings.md) holds three rows and a note; 
 
 ## The ONLINE rows (#548)
 
-- **Online scores, Nickname, Remove scores**, and a note. Online scores is opt-in, off by default, and a checkbox since #1034 ([Two kinds of control](settings.md#two-kinds-of-control-816)); turning it on the first time puts the page into typing a nickname, and an empty or refused one keeps it off (the box stays empty while the name is typed). **Off keeps the identity**: on again later is the same player.
+- **Online scores, Nickname, Remove scores**, and a note. Online scores is opt-in, off by default, and a checkbox since #1034 ([Two kinds of control](settings.md#two-kinds-of-control-816)); turning it on the first time puts the page into typing a nickname, and an empty or refused one keeps it off. The box stays empty while the name is typed, and a press on it then keeps the name and turns the boards on, as Enter does (`OnOnline`: kept by "moving on" and then toggled, it turned them on and at once off again). **Off keeps the identity**: on again later is the same player.
 - **Remove** asks twice like the reset, then asks the **server** first (`DELETE /v1/players/{id}`). Only its yes (or its own 404; one without the service's JSON reason is no answer, #691) deletes `Online.json` and `Outbox.json` and turns the switch off. A removal made offline removes nothing, so the player still holds the token that proves the scores are theirs; with no server in reach at all, only the local copy goes.
 ## What is left to do is red
 

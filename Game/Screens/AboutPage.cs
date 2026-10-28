@@ -18,11 +18,11 @@ namespace BS3D.Screens
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Four pages behind one menu entry (#807)</b>, the owner's "nobody reads that much text": the two columns of #463 had
-    /// grown to some 160 words of running text plus the privacy sentence, in one face, one colour, with nothing to say where
-    /// to start. About opens on what the game is; then what online scores send (#1034), what it is built on and what it
-    /// was made with; and <b>the player last</b>, the owner's ruling (2026-10-12): it is a small easter egg, waiting at the end for
-    /// whoever turns that far. <b>What each page holds, in what order, is <see cref="AboutCopy.Pages"/></b>, and this page
+    /// <b>Five pages behind one menu entry (#807, #1034)</b>, the owner's "nobody reads that much text": the two columns of
+    /// #463 had grown to some 160 words of running text plus the privacy sentence, in one face, one colour, with nothing to
+    /// say where to start. About opens on what the game is; then what online scores send (#1034), what it is built on and
+    /// what it was made with; and <b>the player last</b>, the owner's ruling (2026-10-12): it is a small easter egg, waiting
+    /// at the end for whoever turns that far. <b>What each page holds, in what order, is <see cref="AboutCopy.Pages"/></b>, and this page
     /// sets every block it is handed (<see cref="BuildBody"/>), so the test that holds the words to the typesetting rules,
     /// the credits to the full list and the player to the last page reads what is drawn.
     /// </para>
@@ -49,7 +49,7 @@ namespace BS3D.Screens
         private const float ARROW_OF_CAP = 1.2f;
         private const int ARROW_GAP = 20;
 
-        //Between the page's name and the "2 of 4" under it: ArrowWithShoulder's own gap between an arrow and its shoulder,
+        //Between the page's name and the "2 of 5" under it: ArrowWithShoulder's own gap between an arrow and its shoulder,
         //so the counter stands level with the two shoulders
         private const int COUNTER_GAP = 10;
 
@@ -128,7 +128,7 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// The page's name between two arrows, with "1 of 4" under it level with the shoulders under the arrows. The arrows
+        /// The page's name between two arrows, with "1 of 5" under it level with the shoulders under the arrows. The arrows
         /// stop at the ends rather than wrap, as Help's Previous and Next do: a page read front to back that silently comes
         /// round to the first reads as having lost the player's place. An arrow with nowhere to go keeps its slab and dims
         /// its triangle, as High Scores' do, and its shoulder dims with it.
@@ -140,7 +140,7 @@ namespace BS3D.Screens
                 Spacing = Scaled(ARROW_GAP),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 //A paragraph's gap under it, on top of the column's spacing: with the spacing alone the page's first line
-                //stood just under "1 of 4" and read as one block with it (photographed)
+                //stood just under "1 of 5" and read as one block with it (photographed)
                 Margin = new Thickness(0, 0, 0, ParagraphGap),
             };
 
