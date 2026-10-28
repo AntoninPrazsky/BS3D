@@ -133,6 +133,9 @@ namespace BS3D.Screens
                     cutOffered: _run.CutOffered, aimHintArmed: _tutorial.HasBeenTaught(Tutorial.Lesson.LeanIn) || !tutorialLevel,
                     deadWeightArmed: true);
 
+            //And the aim hint's run of misses starts on this level's first shot (#1012)
+            _aimHint.BeginLevel();
+
             //The first five levels carry the "fire" chip for a player who stops (#925), on the level's own count from zero
             _fireHint.BeginLevel(tutorialLevel && !_run.Benchmark && FireHint.CarriesHint(chapter, levelInChapter));
 

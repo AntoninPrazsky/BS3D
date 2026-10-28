@@ -198,13 +198,14 @@ namespace BS3D.Screens
             public bool Tool;
 
             /// <summary>
-            /// A <b>hint</b> (#1012), not a lesson: the precise-aim reminder, shown when a shot fired outside the lean drops
-            /// nothing (<see cref="PreciseAimHint"/> decides when it is due). Like a kind or a tool card it belongs to no
-            /// chapter, but it is <b>never recorded</b>, so the save cannot retire it: it is armed on every level the session
-            /// asks for (<see cref="BeginLevel"/>'s <c>aimHintArmed</c>), fired by <see cref="Trigger"/> at most once a level,
-            /// and it waits behind a card already up instead of pushing it aside. Done when the button is held, as the lean's
-            /// own card is; unheld, it goes after <see cref="INFO_SECONDS"/>, which is enough to read it, rather than standing
-            /// for an action card's timeout.
+            /// A <b>hint</b> (#1012), not a lesson: the precise-aim reminder, shown when shots fired outside the lean go on
+            /// dropping nothing (<see cref="PreciseAimHint"/> decides when it is due). Like a kind or a tool card it belongs to
+            /// no chapter, but it is <b>never recorded</b>, so the save cannot retire it: it is armed on every level the
+            /// session asks for (<see cref="BeginLevel"/>'s <c>aimHintArmed</c>), and <see cref="Trigger"/> leaves it armed,
+            /// so it comes back as often as it is due - never while it is up or waiting its turn. It waits behind a card
+            /// already up instead of pushing it aside. Done when the button is held, as the lean's own card is; unheld, it
+            /// goes after <see cref="INFO_SECONDS"/>, which is enough to read it, rather than standing for an action card's
+            /// timeout.
             /// </summary>
             public bool Hint;
 
@@ -453,13 +454,14 @@ namespace BS3D.Screens
             },
 
             //THE PRECISE-AIM HINT (#1012), the owner's ruling after an outside player played the whole campaign from the
-            //overview: a shot outside the lean that drops nothing says the lean is there. The lean card's own words, so the
-            //reminder reads as the thing the second level taught; its key is never written (Definition.Hint)
+            //overview: shots outside the lean that go on dropping nothing say the lean is there. It names what to do, aim
+            //precisely, as the owner asked ("a hint to aim with the right button"), and what the button gives in the lean
+            //card's own image; its key is never written (Definition.Hint)
             new()
             {
                 Lesson = Lesson.AimHint, Key = "aimhint", Hint = true, Contextual = true, Action = true,
-                Glyph = MOUSE_RIGHT, Caption = LEAN_CAPTION, Detail = "A close-up for the precise shot",
-                PadGlyph = PAD_LEFT_TRIGGER, PadCaption = LEAN_PAD_CAPTION,
+                Glyph = MOUSE_RIGHT, Caption = "Hold to aim precisely", Detail = "A close-up down the barrel",
+                PadGlyph = PAD_LEFT_TRIGGER, PadCaption = "Hold the left trigger to aim precisely",
                 Praise = "Sharp!",
             },
 
@@ -1577,19 +1579,22 @@ namespace BS3D.Screens
         /// A contextual lesson's event has happened. Ignored unless the lesson is armed for this level (so it
         /// fires once a level at most, and never for one already taught); otherwise it goes to the front of
         /// the queue, and a card already up gives way to it and comes back straight after - a hint (#1012) and the dead
-        /// weight's card (#1023) excepted, which are shown after the card up.
+        /// weight's card (#1023) excepted, which are shown after the card up. A hint stays armed, so it fires as often as
+        /// it is due, but not while it is up or already waiting its turn. Returns whether the card was put up.
         /// </summary>
-        internal void Trigger(Lesson lesson)
+        internal bool Trigger(Lesson lesson)
         {
             int index = -1;
 
             for (int i = 0; i < _armed.Count; i++)
                 if (_armed[i].Lesson == lesson) { index = i; break; }
 
-            if (index < 0) return;
+            if (index < 0) return false;
 
             Definition triggered = _armed[index];
-            _armed.RemoveAt(index);
+
+            if (!triggered.Hint) _armed.RemoveAt(index);
+            else if (_card == triggered || _queue.Contains(triggered)) return false;
 
             //The card up returns behind the event's own card - unless that card is a hint (#1012), which waits behind the
             //card up instead: a reminder never pushes aside a card the player has not read. Nor does the dead weight's
@@ -1597,6 +1602,7 @@ namespace BS3D.Screens
             if (!triggered.Hint && !triggered.DeadBall && _phase is (Phase.Arriving or Phase.Shown)) StepAside();
 
             _queue.Insert(0, triggered);
+            return true;
         }
 
         /// <summary>
