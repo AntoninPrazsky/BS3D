@@ -62,6 +62,8 @@
     <Compile Include="..\..\Game\Effects\SpareVolley.cs" />
     <Compile Include="..\..\Game\Effects\BenchmarkDemo.cs" />
     <Compile Include="..\..\Game\Screens\PhysicsBench.cs" />
+    <!--The benchmark's swarm (#988): the ramp's rule over frame times and the storm's places, no device-->
+    <Compile Include="..\..\Game\Screens\BenchmarkSwarm.cs" />
     <Compile Include="..\..\Game\Screens\NavWalk.cs" />
     <!--How far a mouse-wheel notch moves a menu list (#952): a share of the viewport, scaled by the delta, over plain numbers and no Myra.-->
     <Compile Include="..\..\Game\Screens\WheelScroll.cs" />
