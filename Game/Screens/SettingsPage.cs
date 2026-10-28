@@ -790,7 +790,7 @@ namespace BS3D.Screens
             _musicValue.Text = FormatVolume(Game.MusicVolume);
             _ambienceValue.Text = FormatVolume(Game.AmbienceVolume);
             _rumbleValue.Text = FormatVolume(Game.RumbleStrength);
-            _keyboardLightsCheck.Show(Game.IsKeyboardLightingEnabled, Game.IsKeyboardLightingEnabled && !BS3D.Platform.KeyboardLights.HasKeyboard ? "none found" : null);
+            _keyboardLightsCheck.Show(Game.IsKeyboardLightingEnabled, Game.IsKeyboardLightingEnabled && BS3D.Platform.KeyboardLights.NoneFound ? "none found" : null);
             //As a percentage of the shipped feel, the volume rows' own idiom, and exact at every rung — the
             //ladder is written so that it is (0.75 is "75 %", where a multiplier would have to print "0.8×"
             //and lie, or "0.75×" and read as arithmetic).

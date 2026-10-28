@@ -142,6 +142,9 @@ namespace BS3D.Screens
         /// </summary>
         internal override bool DimsFrame => false;
 
+        /// <summary>The figures the page shows: the keyboard's ending reads it (#987), so the two cannot disagree.</summary>
+        internal LevelResult Result => _result;
+
         /// <summary>Takes the figures the level ended on. Called once, as the page is pushed.</summary>
         internal void Take(LevelResult result)
         {

@@ -13,8 +13,8 @@ namespace BS3D.Platform
         /// <summary>Never: there is no keyboard to compose for.</summary>
         internal static KeyLightLayout Layout => null;
 
-        /// <summary>Never: the Settings row says so.</summary>
-        internal static bool HasKeyboard => false;
+        /// <summary>Always: there is no keyboard to find, and the Settings row says so.</summary>
+        internal static bool NoneFound => true;
 
         /// <summary>Nothing to start.</summary>
         internal static void Start() { }
