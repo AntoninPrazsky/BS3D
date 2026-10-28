@@ -251,9 +251,9 @@ PlumeVertexOutput PlumeVS(FountainVertexInput input)
 }
 
 //The reduced program's lumps (#1038): value noise off the cheap Hash21, four taps where GradientNoise2 takes four of the
-//dearer NoiseHash22 and dots them. On the reference APU at Low the column was 1.58 ms of the frame and bound by this
-//program; the value noise took 0.58 of it and reads the same over a column of hundreds of puffs. A sum of sines, which
-//took 0.63, printed darker, harder blobs
+//dearer NoiseHash22 and dots them. On the reference APU at Low (the Testbed's play pose) the column was 1.58 ms of the
+//frame and bound by this program; the value noise took 0.58 of it and reads the same over a column of hundreds of puffs.
+//A sum of sines, which took 0.63, printed darker, harder blobs
 float ValueLump(float2 p)
 {
     float2 i = floor(p);
