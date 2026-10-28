@@ -1156,7 +1156,7 @@ namespace BS3D
         /// <summary>
         /// What this program casts into the sun's shadow map (#470): the island, always — it is the host's
         /// and stands in every scene, front end included — the gun, which is a <b>session's</b> and is
-        /// therefore cast by whatever <see cref="StandingGun"/> the session put there, and in the
+        /// therefore cast by whatever <see cref="StandingGun"/> the session put there (or the front end's own, #1040), and in the
         /// forest the wood standing round both (#471). <b>And the balls</b> (#470's own remaining half): every
         /// bucket <see cref="Balls"/> collected this frame <b>before</b> <see cref="BeginSceneDraw"/> — the cluster,
         /// the shots in flight, the loaded queue, the front end's preview. Not the balls a screen collects
@@ -1183,7 +1183,7 @@ namespace BS3D
         private void DrawShadowCasters(Matrix shadowViewProjection)
         {
             _island?.DrawShadow(shadowViewProjection);
-            StandingGun?.CastShadow(shadowViewProjection);
+            (StandingGun ?? MenuGun)?.CastShadow(shadowViewProjection);
             _balls?.DrawShadow(shadowViewProjection);
 
             //Scenery only where it is drawn (#808): the wood and the towers stay out of the map with the Scenery row off
@@ -1215,6 +1215,14 @@ namespace BS3D
         /// </para>
         /// </summary>
         internal IStandingGun StandingGun { get; set; }
+
+        /// <summary>
+        /// The front end's own gun (#1040), for the span of the backdrop's frame and no longer: <c>BackdropScreen.Draw</c> sets it
+        /// when no session's gun stands and clears it once the frame is closed, so the shadow pass casts it exactly when the
+        /// frame draws it — the frame <see cref="DrawSetting"/> runs after a teardown draws no gun and so casts none.
+        /// <see cref="StandingGun"/>, a session's, always wins.
+        /// </summary>
+        internal IStandingGun MenuGun { get; set; }
 
         /// <summary>
         /// The air over the scene being drawn, as the physics feels it (#95): its heading is the one the scene's grass,

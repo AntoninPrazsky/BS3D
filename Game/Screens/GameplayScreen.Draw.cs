@@ -428,9 +428,16 @@ namespace BS3D.Screens
             //a mark that pulses at 1.6 Hz is the one thing in that frame the eye cannot put down, which is
             //precisely why the breath earns its place in the overview. Leaned in, the collar becomes a steady
             //glow: still there, still the round's colour, and no longer asking to be looked at.
-            float lean = _preciseAim.Blend;
+            return MuzzleGlowAt(_preciseAim.Blend, WallClock);
+        }
 
-            float breath = MUZZLE_GLOW_SWING * (1f - lean) * MathF.Sin(MathHelper.TwoPi * MUZZLE_MARK_HZ * WallClock);
+        /// <summary>
+        /// The collar's strength at a lean and a wall-clock time: the breath and its damping, in one home so the front end's own
+        /// gun (<see cref="MenuGun"/>, #1040) glows exactly as the played one does.
+        /// </summary>
+        internal static float MuzzleGlowAt(float lean, float wallClock)
+        {
+            float breath = MUZZLE_GLOW_SWING * (1f - lean) * MathF.Sin(MathHelper.TwoPi * MUZZLE_MARK_HZ * wallClock);
 
             return MUZZLE_GLOW_BASE * MathHelper.Lerp(1f, MUZZLE_GLOW_ADS_STRENGTH, lean) + breath;
         }

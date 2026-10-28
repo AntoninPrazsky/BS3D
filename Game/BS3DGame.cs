@@ -860,6 +860,7 @@ namespace BS3D
             InstancedModelRenderer.FinDepthBias = !FinsLess(launch, "offset");
             InstancedModelRenderer.FinRampPixels = fins;
             _startupPreview = launch.Preview;
+            MenuGunMode = launch.MenuGun;
 
             //What one argument implies about another (level= means play, lost means result) is the script's
             _startupScript = new StartupScript(launch, TestOptions.StartupLevelFile);

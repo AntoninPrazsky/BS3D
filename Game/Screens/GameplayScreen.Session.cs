@@ -206,7 +206,7 @@ namespace BS3D.Screens
             Game.Confetti?.Stop();
             Game.Trophy?.Hide();
 
-            //The gun goes with the session that owned its pose (#470, #650): no shadow and no gun in the front end's
+            //The gun goes with the session that owned its pose (#470, #650): no session's shadow and no session's gun in the front end's
             //frame; the island goes on casting, being the host's. A registration that outlived the session would
             //draw a gun's shadow onto the stone with no gun standing on it, or a gun nobody can Continue.
             Game.StandingGun = null;

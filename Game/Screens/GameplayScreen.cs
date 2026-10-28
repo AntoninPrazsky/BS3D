@@ -375,7 +375,7 @@ namespace BS3D.Screens
         //What the magazine loads when a map carries no balls at all. A real level's colours are read off the
         //map itself — loading a colour that is nowhere in the cluster is a shot that cannot be spent, so the
         //queue can only be built from what is actually up there.
-        private static readonly BallType[] DEFAULT_BALL_TYPES =
+        internal static readonly BallType[] DEFAULT_BALL_TYPES =
             { BallType.Type1, BallType.Type2, BallType.Type3, BallType.Type4 };
 
         /// <summary>
@@ -1294,6 +1294,16 @@ namespace BS3D.Screens
 
         #endregion
 
+        /// <summary>
+        /// A gun as a session stands one, before the fit places it (<see cref="FitCannonAndGameCameraToLevel"/>), and the front
+        /// end's own gun too (<see cref="MenuGun"/>, #1040): one home for the orbit centre, so the menu's gun stands where a
+        /// session would stand it. The orbit centre is the field the cluster hangs over. No trunnion height goes in: the gun
+        /// stands on the island's dished stone, so its height is the carriage's own figure of its radius
+        /// (<see cref="CannonRig.TrunnionHeightAt"/>) and the pose re-seats it on every move — the wheels stay on the
+        /// stone wherever the walk stands.
+        /// </summary>
+        internal static Cannon NewCannon() => new(new Vector3(0f, 5f, 0f), 20f);
+
         /// <summary>The play session's screen, built once for the life of the program and reused by every level.</summary>
         /// <param name="game">The host: the camera, the scene, the audio and the level set.</param>
         /// <param name="test">The testing levers for play, from the command line; see <see cref="_test"/>.</param>
@@ -1321,11 +1331,7 @@ namespace BS3D.Screens
             //before the mixer exists, so a line here reached neither the second level nor the motors at all (#852).
             if (test.PadPrompts) _tutorial.PinDevice(Tutorial.Device.Gamepad);
 
-            //Orbit centre is the field the cluster hangs over. No trunnion height goes in: the gun stands on
-            //the island's dished stone, so its height is the carriage's own figure of its radius
-            //(CannonRig.TrunnionHeightAt) and the pose re-seats it on every move — the wheels stay on the
-            //stone wherever the walk stands.
-            _cannon = new Cannon(new Vector3(0f, 5f, 0f), 20f);
+            _cannon = NewCannon();
 
             //The queue's colours are the level's business (RandomBallType draws only among what is still
             //hanging), so what to load next is injected; the constructor deals a full queue with it, which is
@@ -2285,6 +2291,8 @@ namespace BS3D.Screens
         }
 
         void IStandingGun.Draw() => DrawGun(_cannon.BarrelWorld(), _cannon.CarriageWorld());
+
+        Vector3 IStandingGun.Position => _cannon.Position;
 
         void IStandingGun.DrawGlass()
         {
