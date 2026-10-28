@@ -26,6 +26,10 @@
 .PARAMETER NoRun
     Build and stop, without starting the Game.
 
+.PARAMETER GameArgs
+    Everything else on the line goes to the Game's own command line, so a trial needs no second step:
+    play-latest.cmd shotspeed=80 (#1007).
+
 .NOTES
     A stock Windows refuses to load any .ps1 ("running scripts is disabled on this system"). Run it through
     play-latest.cmd beside it, which lifts the policy for that one run and changes nothing on the machine, or pass
@@ -35,12 +39,18 @@
     Tools\play-latest.cmd
 
 .EXAMPLE
+    Tools\play-latest.cmd shotspeed=80
+
+.EXAMPLE
     powershell -NoProfile -ExecutionPolicy Bypass -File Tools\play-latest.ps1 -Ref origin/<branch> -NoRun
 #>
+# Not positional: a bare word on the line is the Game's (shotspeed=80), never -Ref
+[CmdletBinding(PositionalBinding = $false)]
 param(
     [string]$Ref = 'origin/main',
     [switch]$NoFetch,
-    [switch]$NoRun
+    [switch]$NoRun,
+    [Parameter(ValueFromRemainingArguments = $true)][string[]]$GameArgs
 )
 
 $ErrorActionPreference = 'Stop'
@@ -131,5 +141,10 @@ Write-Host ('BS3D ' + $short + ': ' + $exe) -ForegroundColor Green
 
 if ($NoRun) { exit 0 }
 
-Write-Host 'Starting the Game.'
-Start-Process -FilePath $exe -WorkingDirectory (Split-Path -Parent $exe)
+if ($GameArgs) {
+    Write-Host ('Starting the Game with: ' + ($GameArgs -join ' '))
+    Start-Process -FilePath $exe -WorkingDirectory (Split-Path -Parent $exe) -ArgumentList $GameArgs
+} else {
+    Write-Host 'Starting the Game.'
+    Start-Process -FilePath $exe -WorkingDirectory (Split-Path -Parent $exe)
+}
