@@ -491,7 +491,7 @@ namespace BS3D.Screens
             //Opt-in (#548): off until the player turns it on, and turning it on the first time asks for the nickname
             //the boards will show. Off keeps the identity, so on again later is the same player. A box since #1034, the
             //last two-state row to keep its words: "No server", the third state that kept them, is the reason beside it
-            AddCheckRow(grid, 0, "Online scores", OnOnline, out _onlineCheck);
+            AddCheckRow(grid, 0, "Online scores", OnOnline, out _onlineCheck, typingRow: true);
 
             //Typed, not cycled — see the class remarks
             AddRow(grid, 1, "Nickname", OnNickname, out _nicknameValue, typingRow: true);
@@ -658,11 +658,13 @@ namespace BS3D.Screens
         /// the whole row toggling it — a press on the caption is a press on the box, the caption being what the tick says.
         /// The box is as tall as a worded button's line, so the page measures the same with either kind of row.
         /// </summary>
-        private void AddCheckRow(Grid grid, int row, string caption, Action onClick, out CheckRow check)
+        /// <param name="typingRow">A row whose click deals with a name being typed itself, as <see cref="AddRow"/>'s does: the
+        /// Online row, whose first turn-on starts the typing (<see cref="OnOnline"/>).</param>
+        private void AddCheckRow(Grid grid, int row, string caption, Action onClick, out CheckRow check, bool typingRow = false)
         {
             Label captionLabel = AddCaption(grid, row, caption);
 
-            Button button = CheckBox(string.Empty, () =>
+            Button button = CheckBox(string.Empty, typingRow ? onClick : () =>
             {
                 KeepOrDropTyping();
                 onClick();
@@ -946,10 +948,25 @@ namespace BS3D.Screens
         /// <summary>
         /// The Online row (#548): off from on at once; on from off at once when there is a nickname, and otherwise
         /// only once one has been typed — an empty nickname keeps it off.
+        /// <para>
+        /// A press on the box while the name its own first turn-on asked for is being typed confirms that name, as Enter
+        /// would, which turns the boards on (#1034). The box stays empty while the name is typed, so it is what a player
+        /// clicks to say "done"; kept by the usual "moving on" and then toggled, the click turned the boards on and at once
+        /// off again, and left a kept name under an empty box. A name begun on the Nickname row is kept by the press and
+        /// the boards turn on as from any other state.
+        /// </para>
         /// </summary>
         private void OnOnline()
         {
             _removeArmed = false;
+
+            if (_typing && _turnOnAfterName)
+            {
+                KeepTyping();
+                return;
+            }
+
+            KeepOrDropTyping();
 
             if (Game.Online.IsOn) Game.Online.SetOn(false);
             else if (Game.Online.Nickname != null) Game.Online.SetOn(true);
@@ -1120,7 +1137,7 @@ namespace BS3D.Screens
                 {
                     case "enter": OnTextInput('\r'); break;
                     case "esc": OnTextInput('\x1b'); break;
-                    case "online": ShowTab(TAB_ONLINE); KeepOrDropTyping(); OnOnline(); break;
+                    case "online": ShowTab(TAB_ONLINE); OnOnline(); break;
                     case "intro": ShowTab(TAB_GAME); KeepOrDropTyping(); Game.ToggleIntroLogo(); break;
                     case "brightness": ShowTab(TAB_PICTURE); KeepOrDropTyping(); Game.CycleExposure(); break;
                     case "resolution": ShowTab(TAB_SCREEN); KeepOrDropTyping(); Game.CycleRenderResolution(); break;
