@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-28 — #1038 sopka na Low: proudy a sloup kouře — notebook (ThinkPad), Claude Code (github-4d)
+- Hotovo: pixel dál od proudu, než sahá jeho lem, proud přeskočí (všechny úrovně, žádný pixel se nemění). Ve hře Caldera 15,67 → 14,99 ms na `Low` a 31,94 → 29,81 na `Medium`, Paroxysm −0,73 a −2,16. `Low` kreslí polovinu sloupce kouře s dorovnanou hustotou a hrudky z hodnotového šumu (Caldera −0,16, změna vzhledu). `volcano=` má vrstvu `Steam`.
+- ⚠ Herní kamera vidí kužel zblízka a sloup kouře je skoro celý nad snímkem. Pohled Testbedu `campos=0,-4,30` sloup přecenil desetkrát. Hledat úspory z herní pózy: `campos=0,-4,30.4 camtarget=0,4,0 fov=43`.
+- Otevřené: `verdict-eye` (#1038, sloup na `Low`).
+
 ## 2026-10-28 — #1035 nálezy review — notebook (ThinkPad), Claude Code (github-4d)
 - Hotovo: všech pět nálezů review `c1e13583` (komentář na #1035). Bloky moře a laguny se rozšiřují o boční výkyv vln (`SeaBackdrop.SwayReach`, test `SeaSwayReachTests` ho drží se `Sea.fx`). Měsíc bere blokovou mřížku, takže v cache už není druhá kopie 360/1200 a Měsíc se ořezává podle záběru (Colossus −0,13 ms na `Low` i `Medium`). `farring` jde kreslit samotný a `MeadowLayer` má zpět svůj summary.
 - Šev vzdáleného prstence hor na `Medium` je na snímcích ze tří pohledů stejný jako před #1035.

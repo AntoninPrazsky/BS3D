@@ -61,7 +61,7 @@ namespace Prazsky.Core.Render
 
         //Cached at load: the by-name Techniques indexer is a linear scan and this pass selects between the
         //three of them every frame (BestPractices.md §1).
-        private readonly EffectTechnique _plumeTechnique, _jetTechnique, _glowTechnique;
+        private readonly EffectTechnique _plumeTechnique, _plumeReducedTechnique, _jetTechnique, _glowTechnique;
 
         //The steam of the fumaroles on the lava field (#679): its own billboard buffer through LavaFountain.fx's
         //Steam technique, and the vents it rises from
@@ -123,6 +123,7 @@ namespace Prazsky.Core.Render
 
             _fountainEffect = content.Load<Effect>("Shaders/LavaFountain");
             _plumeTechnique = _fountainEffect.Techniques["Plume"];
+            _plumeReducedTechnique = _fountainEffect.Techniques["PlumeReduced"];
             _steamTechnique = _fountainEffect.Techniques["Steam"];
             _jetTechnique = _fountainEffect.Techniques["Fountain"];
             _glowTechnique = _fountainEffect.Techniques["Glow"];
@@ -627,7 +628,7 @@ namespace Prazsky.Core.Render
             _graphicsDevice.Indices = _fountainIndexBuffer;
 
             //The fumaroles' steam first: nearer the ground and fainter than the plume, alpha-blended the same way
-            if (_steamQuads > 0 && _steamVertexBuffer != null && (Layers & VolcanoLayer.Plume) != 0)
+            if (_steamQuads > 0 && _steamVertexBuffer != null && (Layers & VolcanoLayer.Steam) != 0)
             {
                 _graphicsDevice.BlendState = BlendState.AlphaBlend;
                 _graphicsDevice.SetVertexBuffer(_steamVertexBuffer);
@@ -642,9 +643,11 @@ namespace Prazsky.Core.Render
             if (_plumeQuads > 0 && (Layers & VolcanoLayer.Plume) != 0)
             {
                 _graphicsDevice.BlendState = BlendState.AlphaBlend;
-                _fountainEffect.CurrentTechnique = _plumeTechnique;
+                //Low draws half the column, each puff as dense as two and its lumps off the cheaper noise (#1038)
+                bool full = _sceneDetail > 0.5f;
+                _fountainEffect.CurrentTechnique = full ? _plumeTechnique : _plumeReducedTechnique;
                 _fountainEffect.CurrentTechnique.Passes[0].Apply();
-                _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _plumeQuads * 2);
+                _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, (full ? _plumeQuads : _plumeQuads / 2) * 2);
             }
 
             if (_jetQuads > 0 && (Layers & VolcanoLayer.Jets) != 0)
