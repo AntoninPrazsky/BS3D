@@ -273,6 +273,12 @@ namespace BS3D.Tools.WindingCheck
             yield return ("WireBoxMesh(editor AABB)", () => new WireBoxMesh(d, 4f, 3f, 2f, 0.05f));
             yield return ("TrophyMesh(plain)", () => new TrophyMesh(d, handles: false));
             yield return ("TrophyMesh(handles)", () => new TrophyMesh(d, handles: true));
+            //#827's winners' podium, both materials: the lacquered plinth and blocks, and every piece of gold on them
+            foreach (WinnersPodiumMesh.Part part in Enum.GetValues<WinnersPodiumMesh.Part>())
+            {
+                WinnersPodiumMesh.Part p = part;
+                yield return ($"WinnersPodiumMesh.{p}", () => new WinnersPodiumMesh(d, p));
+            }
             //#257's crate, every part, at a long crate's proportions and a cube's
             foreach (CrateMesh.Part part in Enum.GetValues<CrateMesh.Part>())
             {
