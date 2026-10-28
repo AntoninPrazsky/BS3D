@@ -33,17 +33,19 @@ namespace BS3D.Screens
     internal sealed class OverviewFocus
     {
         /// <summary>
-        /// How long the overview holds the full frame at a level's opening before it focuses, in seconds: past the
+        /// How long the overview holds the full frame at a level's opening before it focuses, in seconds: well past the
         /// cluster's spring from the glass (<c>ClusterStartSwing</c>'s hold and ease, 1.8 s), which the owner likes and
-        /// which the full frame shows whole (#617), and long enough to take the level in.
+        /// which the full frame shows whole (#617), and long enough to take the level in. 2.5 s until the owner's verdict of
+        /// 2026-10-28, "the zoom should come somewhat later".
         /// </summary>
-        public const float HOLD_OPENING_SECONDS = 2.5f;
+        public const float HOLD_OPENING_SECONDS = 4f;
 
         /// <summary>
         /// How long it holds the full frame after a lean or a takeover hands the lens back, in seconds: a glance at the whole
-        /// field, which is what coming back to the overview is for, and short, because the player is about to aim.
+        /// field, which is what coming back to the overview is for, and short, because the player is about to aim. Doubled
+        /// from 0.5 s with the opening's hold (the owner, 2026-10-28: later).
         /// </summary>
-        public const float HOLD_RETURN_SECONDS = 0.5f;
+        public const float HOLD_RETURN_SECONDS = 1f;
 
         /// <summary>
         /// The rise's time constant, <c>1/ω</c> of a critically damped chase from rest: 90 % of the way in about 1.2 s,
@@ -66,10 +68,11 @@ namespace BS3D.Screens
 
         /// <summary>
         /// How far the focused lens moves in along its horizontal bearing, in world units: the "somewhat closer" of the
-        /// ruling, about an eighth of the stand-off on the shipped fits (30.6 units on Zigzag). It also steepens the view up at
-        /// the cluster, which gives back part of what <see cref="RISE"/> flattened.
+        /// ruling, about a twelfth of the stand-off on the shipped fits (30.6 units on Zigzag). It also steepens the view up
+        /// at the cluster, which gives back part of what <see cref="RISE"/> flattened. 4 units until the owner's verdict of
+        /// 2026-10-28, "too close, it should be somewhat further".
         /// </summary>
-        public const float ADVANCE = 4f;
+        public const float ADVANCE = 2.5f;
 
         /// <summary>
         /// How much of the way from the overview's look-at to the followed aim point the focused look-at moves: enough
@@ -79,13 +82,14 @@ namespace BS3D.Screens
         public const float PULL = 0.6f;
 
         /// <summary>
-        /// The focused field of view as a share of the overview's: 42.86° becomes 37.71°, still wider than
-        /// <see cref="PreciseAim.FOV"/> (36°), the owner's "longer than precise aim" (a test holds it). Measured with the
-        /// other three on the opening frames at 1920x1080: on Zigzag the muzzle went from 57 % down the frame to the
-        /// <see cref="AimTilt.GUN_KEEP_FRACTION"/> line at 88 %, and on Hopper and Totem likewise, so the gun shows the
-        /// barrel's front and the loaded ball rather than the lower half of the frame.
+        /// The focused field of view as a share of the overview's: 42.86° becomes 39.43°, still wider than
+        /// <see cref="PreciseAim.FOV"/> (36°), the owner's "longer than precise aim" (a test holds it); 0.88 until the owner's
+        /// "too close" of 2026-10-28. Measured with the other three on the opening frames at 1920x1080 (<c>logtilt</c>): on
+        /// Zigzag the muzzle goes from 57 % down the frame to the <see cref="AimTilt.GUN_KEEP_FRACTION"/> line at 88 %, on
+        /// Hopper from 57 % and on Totem from 51 %, so the gun shows the barrel's front and the loaded ball rather than the
+        /// lower half of the frame.
         /// </summary>
-        public const float FOV_SCALE = 0.88f;
+        public const float FOV_SCALE = 0.92f;
 
         /// <summary>The aim point's chase in space, <c>1/ω</c> of a critically damped follow per axis.</summary>
         public const float AIM_FOLLOW_SECONDS = 0.15f;
