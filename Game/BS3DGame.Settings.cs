@@ -149,6 +149,19 @@ namespace BS3D
             OnVolumeRowChanged();
         }
 
+        /// <summary>
+        /// Toggles the keyboard's lights (#987). <c>UpdateKeyboardLights</c> hands the switch to the backend every frame, which
+        /// closes the keyboard (giving it back to Windows) or opens it again off the frame.
+        /// </summary>
+        internal void ToggleKeyboardLighting()
+        {
+            _effective.KeyboardLighting = !_effective.KeyboardLighting;
+
+            SaveSettings();
+
+            _settingsPage.Refresh();
+        }
+
         private void OnVolumeRowChanged()
         {
             //The one place rows become gains is the director's (#583), which reads them through the file

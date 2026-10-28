@@ -2162,6 +2162,9 @@ namespace BS3D
 
             _audioDirector.UpdateRumble(elapsed, IsActive);
 
+            //The backlit keyboard (#987), off the stack as it stands after this frame's update, beside the pad's motors
+            UpdateKeyboardLights();
+
             //The command line's one-shot actions (#583), each once at its moment: the startup level, then the
             //celebrations, then the pages held back past the title card. See StartupScript.
             _startupScript.Step(this);

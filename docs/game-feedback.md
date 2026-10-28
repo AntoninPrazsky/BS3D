@@ -1,6 +1,6 @@
 # The game: feedback
 
-Everything the game says back to the player: the HUD, the tutorial, the sound, the music, the pad's rumble, the fireworks and the cup, the light that runs through the cluster, and the camera that follows a good shot down.
+Everything the game says back to the player: the HUD, the tutorial, the sound, the music, the pad's rumble, the backlit keyboard, the fireworks and the cup, the light that runs through the cluster, and the camera that follows a good shot down.
 
 **What a player is shown, and when, is the part that decides whether a newcomer understands the game** ([The HUD](game-feedback/hud.md), [The tutorial](game-feedback/tutorial.md)): a mechanism ships with the cue that teaches it. **A sound is pleasant before it is credible, and its identity sits in 300 Hz–4 kHz**, because the owner listens on monitor speakers that drop the bass. **Generated recordings replace the procedural score**, which stays as the About page's player.
 
@@ -27,6 +27,7 @@ Everything the game says back to the player: the HUD, the tutorial, the sound, t
 - [The tutorial card: look, devices, detection and test levers](game-feedback/tutorial-card.md) — where and how big the card is, PromptFont, pad prompts, what each lesson's detection reads, camera takeovers, the `tutorial`, `tutorial=demo`, `settings` and `pad` arguments
 - [The "fire" hint for a player who has stopped](game-feedback/fire-hint.md) — the bold "Fire!" chip of the first five levels: the measured pause, what restarts the count, the beat, where it stands, the scripted run that shows it
 - [The pad: rumble and haptics](game-feedback/pad-rumble.md) — how the pad answers a shot: the four-motor mixer, what triggers each pulse, why the trigger motors need Windows.Gaming.Input, what gates the output (active window, hand on the pad), and what the owner has and has not felt
+- [The backlit keyboard](game-feedback/keyboard-lighting.md) — what a Dynamic Lighting keyboard shows (the loaded ball, the queue on F1 to F4, the ending, a card's keys blinking), `LampArray` instead of a vendor SDK, the foreground rule, the worker that sends it off the frame, the Settings row, the traps
 - [The ambience](game-feedback/ambience.md) — the per-scene noise beds: filtered noise never a tone, sealed loops, baking a bed when its scene is first named, the crossfade, and why the stereo is decorrelation and not panning
 - [The game's music: recordings, families and playback](game-feedback/music.md) — generated recordings replace the procedural score (#443): `GameMusic`, fades and arrivals, Ogg decoding traps, loudness and the mix constants, families and pinned recordings, the pause's own loop, the intensity drums layer, yielding to About
 - [Making the recordings](game-feedback/music-generation.md) — the ACE-Step pipeline, the brief that worked, how a family's offenders are named and a candidate chosen, how a loop is cut and checked, and the exact `MusicBake` usage line and exit codes

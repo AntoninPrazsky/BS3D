@@ -73,6 +73,13 @@ namespace BS3D
         [JsonPropertyName("rumble")]
         public float RumbleStrength { get; set; } = 1f;
 
+        /// <summary>
+        /// Whether a backlit keyboard shows the game (#987): the loaded ball, the queue, the ending, the keys a card asks for. On by
+        /// default, as the pad's motors are; a keyboard Windows' Dynamic Lighting does not list is never touched either way.
+        /// </summary>
+        [JsonPropertyName("keyboardLighting")]
+        public bool KeyboardLighting { get; set; } = true;
+
         /// <summary>The tonemap's shutter, off the exposure ladder. Zero means the game's own default.</summary>
         [JsonPropertyName("exposure")]
         public float Exposure { get; set; }

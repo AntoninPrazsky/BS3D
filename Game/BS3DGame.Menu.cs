@@ -903,6 +903,7 @@ namespace BS3D
         internal float MusicVolume => _effective.MusicVolume;
         internal float AmbienceVolume => _effective.AmbienceVolume;
         internal float RumbleStrength => _effective.RumbleStrength;
+        internal bool IsKeyboardLightingEnabled => _effective.KeyboardLighting;
 
         /// <summary>
         /// The player's aim dial (#384), read by <c>GameplayScreen</c> straight into

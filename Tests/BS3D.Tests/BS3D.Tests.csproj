@@ -139,6 +139,7 @@
         rainbow fill and sparkles as functions of the page's clock-->
     <Compile Include="..\..\Game\Audio\NewBestSynth.cs" />
     <Compile Include="..\..\Game\Screens\NewBestCelebration.cs" />
+    <Compile Include="..\..\Game\Lighting\KeyLightModel.cs" />
     <Compile Include="..\..\Game\Screens\StreakCues.cs" />
     <!--#726: the blue ceiling step's bake, and the game's own Ogg decoder and FFT, so the tests measure the shipped
         recording decoded the way the game loads it, and the red step's beside it-->
