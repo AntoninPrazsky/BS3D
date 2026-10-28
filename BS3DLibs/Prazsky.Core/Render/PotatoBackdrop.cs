@@ -315,6 +315,12 @@ namespace Prazsky.Core.Render
         /// <summary>How many vertices the backdrop hands V3D a frame, the price #829 measures a scene by.</summary>
         public int VertexCount { get; private set; }
 
+        /// <summary>
+        /// How far the open ground round the island reaches (<see cref="City.OpenRadius"/>, #1039): the city's clearing on a
+        /// city's backdrop, infinite on every other, which has nothing standing near enough for the menu's orbit to meet.
+        /// </summary>
+        public float OpenRadius { get; private set; } = float.PositiveInfinity;
+
         /// <summary>The same per draw, for the load line: instances x the mesh's vertices, in draw order.</summary>
         public string Census => string.Join(", ", _census);
         private readonly List<string> _census = new();
@@ -728,6 +734,7 @@ namespace Prazsky.Core.Render
             //this launch; its own instance, since the host's is the other city until SetScene's EnsureCityLayout runs
             var city = new City(config, neon, ArenaIsland.RADIUS);
             Opened(city.Buildings);
+            backdrop.OpenRadius = city.OpenRadius;
 
             //The near blocks only, sorted near to far from the island (#829): a tower beyond the near ranks shows only its
             //top over them, if that, and the whole neon city is 5,700 boxes to 16 blocks out. The cull per frame is the

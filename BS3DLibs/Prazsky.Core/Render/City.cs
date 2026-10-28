@@ -39,6 +39,15 @@ namespace Prazsky.Core.Render
         public int TowerCount { get; }
 
         /// <summary>
+        /// How far the open ground round the island reaches, in world units: the least distance in the ground plane from the
+        /// arena's axis to any box of <see cref="Buildings"/>, cornices included. A lens closer to the axis than this is in
+        /// the clearing at any height; one further out can stand inside a tower. The front end's orbit is held inside it,
+        /// because a narrow window stands its wide leg far enough out to pass through the first towers (the owner's report
+        /// on #1039).
+        /// </summary>
+        public float OpenRadius { get; }
+
+        /// <summary>
         /// The far skyline round the grid (#774): plain slabs past the last block, so a street's view ends in a city and
         /// not in the sky. Not among <see cref="Buildings"/>: drawn by <see cref="CityRooftops"/> through the plain lit
         /// technique, since in the city's own program every pixel of them cost the chapter intro's street swing up to
@@ -277,6 +286,7 @@ namespace Prazsky.Core.Render
             _radii = new float[Buildings.Length];
 
             float farthest = 1f;
+            float open = float.PositiveInfinity;
             for (int i = 0; i < Buildings.Length; i++)
             {
                 Matrix world = Buildings[i].World;
@@ -288,7 +298,15 @@ namespace Prazsky.Core.Render
                 _radii[i] = radius;
 
                 farthest = MathF.Max(farthest, centre.Length() + radius);
+
+                //The box's footprint is the rectangle of half-sizes M11/2 by M33/2 about its centre: its nearest point to
+                //the axis is past each half-size on each axis, or on the axis itself where the box straddles it
+                float outX = MathF.Max(0f, MathF.Abs(centre.X) - 0.5f * MathF.Abs(world.M11));
+                float outZ = MathF.Max(0f, MathF.Abs(centre.Z) - 0.5f * MathF.Abs(world.M33));
+                open = MathF.Min(open, MathF.Sqrt(outX * outX + outZ * outZ));
             }
+
+            OpenRadius = open;
 
             //Buckets span twice the city's own reach, which is the worst case for a camera standing at one
             //edge and looking at the other. Beyond that everything lands in the last bucket, which is correct

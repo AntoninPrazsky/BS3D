@@ -45,6 +45,15 @@ namespace BS3D
         /// </summary>
         private SceneKind _scene = SceneKind.NeonCity;
 
+        /// <summary>
+        /// How far the open ground round the island reaches in the scene up now (#1039): the city's clearing, the nearest
+        /// tower's footprint (<see cref="City.OpenRadius"/>; the Potato path's own city on that path), and infinite in every
+        /// other scene. The front end's orbit keeps its lens inside it.
+        /// </summary>
+        internal float OpenGroundRadius => _scene is SceneKind.City or SceneKind.NeonCity
+            ? _city?.OpenRadius ?? _potatoBackdrop?.OpenRadius ?? float.PositiveInfinity
+            : float.PositiveInfinity;
+
         //How many scenes there are, and what each is called, are SceneRenderer's since #75:
         //SceneRenderer.SceneCount and SceneRenderer.SceneName, both in the declared order of SceneKind, so the
         //scene page still indexes its labels by the enum's own value. The count stood here as a literal 11 and
