@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-28 — #1035 mřížky terénu jen v záběru, hory na Low — notebook (ThinkPad), Claude Code (github-4d)
+- Hotovo: `TerrainGridCache` drží mřížky i po blocích (16 čtverců) a `DrawSeenBlocks` kreslí jen bloky v záběru. Platí pro `TerrainPass` (10 scén) i sopku. Prstencová mřížka hor na High zůstala celá. Sonda `mountain=` ukázala, že terén hor stojí 5,48 ms, a `MountainReduced` má teď reliéf skály 1 oktávou místo 3. Spyglass na `Low` 17,32 → 15,44 ms, Belfry −1,95. Snímky 10 scén se liší jen tím, co se hýbe.
+- ⚠ Balloon občas celý jeden běh ukáže o ~3 ms méně, na obou buildech. Minimum ze dvou běhů pak lže.
+- Otevřené: #1035 `verdict-eye` (hladší skála hor na `Low`). Body 2 a 3 (sopka na `Medium`, rezerva sopky na `Low`) jdou dál.
+
 ## 2026-10-28 — #985 blog: loga studií, která nikdy neexistovala — desktop (RDT-PC), Claude Code (bs3d-13)
 - Hotovo: článek `Web/src/blog/logos-of-studios-that-never-existed.md` (merge `94ff8d86`), devět obrázků a náhled. Publikace je na majiteli (`Web\publish.ps1`).
 - Změřeno: Qwen3-VL-8B prošel všech 1891 souborů v `AI\sd\out`, 86 jeho ANO u renderů jsem prošel okem. 34 značek, všechny od kleinu (34 z 704), Z-Image 0 z 974. Všechny pochází ze zadání se slovem „game“ (34 ze 140), u fotografií 0 z 544. U „realistic 2026 graphics“ 7 z 8 (v rozích letopočty).

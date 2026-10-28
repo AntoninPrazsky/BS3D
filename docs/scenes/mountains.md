@@ -20,6 +20,15 @@ A snow basin ringed by tall snow-capped peaks that rise with distance into alpin
 - **Rock relief**: four octaves of `Fbm2Combed` with a grain (`ROCK_GRAIN`, `ROCK_STRETCH`); the old four plane-wave sines laid a plaid over the snow. The config frequency is an *angular* one and goes in as `f / 2pi`; amplitude is bought back by the shader gain `ROCK_FBM_GAIN`, not `RockReliefStrength` (hand-built levels pin it), doubled when the relief turned out to have been applied twice since #208 (#504).
 - **Snow's sparkle** (`SnowSparkle`, gated on the snow mask). ⚠ **The lattice cell says only where a glint is; its size comes from the footprint**: a world-fixed cell is 30 pixels on the basin floor and lit white parallelograms across the ground nearest the player (#278). The drift relief was **cut at every tier** (#296: 1.08 ms of 10.99, indistinguishable photographed; partial cuts bought proportionally less on an occupancy-bound pass). **`MountainReduced`** (`detail=0`, Low) drops the sparkle and shades the rock on three octaves: 0.18 ms at `ssaa` 1, 0.58 at 2.
 
+## Low's range on the reference APU (#1035)
+
+The range was the one chapter over `Low`'s 16.1 ms budget (Spyglass 16.95 ms in #1026's table; `Low`'s far plane stays, by the owner's ruling). Taken apart with the Testbed's `mountain=` dial at `Low`'s settings (one process, `campos=0,-4,30 camtarget=0,6,-60`, 35 cycles): of a 13.27 ms frame the range is **5.48 ms**, the snowfall 0.31, the far ring 0.15 and the bank's planting nothing. Two cuts:
+
+- **The grid is drawn only where the lens looks** ("The terrain grids and the billboards" in [Terrain grids](terrain-grids-and-mirrors.md)): Spyglass −0.63 ms.
+- **`MountainReduced` takes the rock relief at one octave** (three before; the authored program's four and the fine program's stay). In one process: two octaves −0.47 ms, one −0.96, none −1.61. The far ring past the grid draws the reduced program on every tier, where the relief is band-limited away; High's captures differ only by the flakes.
+
+Both together, in the Game beside the build before them: Spyglass **17.32 → 15.44 ms** and Belfry 18.80 → 16.85 at `Low`, Belfry −0.63 at `Medium`.
+
 ## High and Ultra's range (#781)
 
 **`SceneRenderer.FineMeshes` (High, Ultra) draws a third program, `MountainFine`, on a grid twice as fine** (`FINE_GRID_N` 720, 1.67 units a cell, 518 400 vertices; its own `TerrainPass`, built on the first fine draw and kept, so switching tiers rebuilds nothing). Low and Medium draw `Mountain` and `MountainReduced` on the 360 grid exactly as before: `finemeshes=0` matches the previous build at four pinned cameras but for the falling snow.
