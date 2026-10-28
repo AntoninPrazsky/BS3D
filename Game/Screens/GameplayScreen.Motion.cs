@@ -68,7 +68,8 @@ namespace BS3D.Screens
         /// </summary>
         private const float CAMERA_SHARE = 0.25f;
 
-        //The overview lens's vertical scale, 1 / tan(fov / 2) — what Projection.M22 reads when nothing is leaned in. A
+        //The overview lens's vertical scale, 1 / tan(fov / 2) — what Projection.M22 reads when nothing is leaned in and the
+        //overview's focus (#1006) has not narrowed the lens; a focused lens cuts the camera's smear by its ratio as a lean does. A
         //property, not a static field: GAME_FOV lives in another part of this partial class, and the order static
         //initializers run across partial files is not defined.
         private static float OverviewLensScale => 1f / MathF.Tan(GAME_FOV * 0.5f);
