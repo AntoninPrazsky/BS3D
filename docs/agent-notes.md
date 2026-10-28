@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-10-28 — #1035 nálezy review — notebook (ThinkPad), Claude Code (github-4d)
+- Hotovo: všech pět nálezů review `c1e13583` (komentář na #1035). Bloky moře a laguny se rozšiřují o boční výkyv vln (`SeaBackdrop.SwayReach`, test `SeaSwayReachTests` ho drží se `Sea.fx`). Měsíc bere blokovou mřížku, takže v cache už není druhá kopie 360/1200 a Měsíc se ořezává podle záběru (Colossus −0,13 ms na `Low` i `Medium`). `farring` jde kreslit samotný a `MeadowLayer` má zpět svůj summary.
+- Šev vzdáleného prstence hor na `Medium` je na snímcích ze tří pohledů stejný jako před #1035.
+- ⚠ Klíč cache obsahuje pořadí: kdo bere stejný pár v řádcích, drží druhou kopii.
+- Otevřené: nic.
+
 ## 2026-10-28 — #1037 sopka na Medium — notebook (ThinkPad), Claude Code (github-4d)
 - Hotovo: `Medium` kreslí `VolcanoMedium`, tedy autorský pixelový program svahu na geometrii z `Low` (hrubší mřížka a redukovaný vertex program). Ve hře Caldera 38,00 → 31,93 ms a Paroxysm 36,00 → 29,95, Colossus beze změny. `Low` a `High` jsou na snímcích stejné. `volcano=` má vrstvy `Planting` a `Country`.
 - ⚠ #748 stál `Medium` 5,9 ms, třikrát víc než `Low`. Krajina nahradila oblohu, takže přibyly pixely terénu (8,8 ms škáluje s rozlišením, předtím 6,0), a vertex program běžel na plné mřížce. Ploché stínování krajiny ušetřilo jen 0,5 ms.
