@@ -201,6 +201,7 @@ namespace BS3D
         //The cup the player just won (#183). On the frame because it is drawn inside the scene's own HDR pass,
         //which is the host's; the result page owns only the decision to show one.
         private TrophyPodium _trophy;
+        private WinnersPodium _winners;
 
         //The game's name in 3D over the front end (#248). On the host because its meshes and renderers outlive
         //every screen and because it is enrolled in the scene's light rig like the rest of the setting; the
@@ -259,6 +260,13 @@ namespace BS3D
         /// HDR pass; the result page decides which tier and when — see <see cref="TrophyPodium"/>.
         /// </summary>
         internal TrophyPodium Trophy => _trophy;
+
+        /// <summary>
+        /// The Top Players page's winners' podium (#827): the stepped podium with the result screen's gold, silver and bronze
+        /// cups on it, drawn into the sharp foreground layer by the page. On the host for the cup's reasons: built with the
+        /// scene's effect and lit by the rig (<c>ApplySkyLighting</c>).
+        /// </summary>
+        internal WinnersPodium Winners => _winners;
 
         /// <summary>
         /// The game's name as 3D lettering (#248). On the host because it is drawn in the scene's HDR pass and
@@ -1591,6 +1599,9 @@ namespace BS3D
             //instancing effect and the flat ambient constant every renderer shares.
             _trophy = new TrophyPodium(GraphicsDevice, _instancingEffect, SCENE_AMBIENT_INTENSITY);
 
+            //And the winners' podium (#827), which stands the cups above on its steps: before the SetScene for the same reason
+            _winners = new WinnersPodium(GraphicsDevice, _instancingEffect, SCENE_AMBIENT_INTENSITY, _trophy);
+
             //A different one of the fifteen every launch, so the front end is not the same picture twice — unless
             //the command line pinned one. It also sets the dome and the city's lighting, and ends in
             //ApplySkyLighting, which is why nothing derives the light rig before this point.
@@ -2288,6 +2299,10 @@ namespace BS3D
             //nothing, which is nearly all of them.
             CompositeForegroundLast();
 
+            //What a page writes over its own foreground (#827): the Top Players' names on the podium's steps, which the
+            //composite above would otherwise cover
+            if (_screens.Active is Screens.MenuPage { PresentsForeground: true } presenting) presenting.DrawOverForeground();
+
             //The grey ramp that shows the back buffer's depth to the eye (#859, the "ramp" argument), over everything
             //and before the screenshot writer - though a shot cannot show it, a PNG being 8-bit
             if (_ramp) DrawRamp();
@@ -2557,6 +2572,7 @@ namespace BS3D
             _fireworks?.Dispose();
             _confetti?.Dispose();
             _trophy?.Dispose();
+            _winners?.Dispose();
             _titleWordmark?.Dispose();
 
             base.UnloadContent();

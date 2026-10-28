@@ -364,4 +364,72 @@ namespace BS3D.Online
     /// service that did not answer at all.
     /// </summary>
     internal sealed record SummaryReply(int Ticket, BoardsSummaryBody Summary, string Problem, bool NotOffered);
+
+    /// <summary>
+    /// One page of the players ranked across the campaign, as <c>GET /v1/ranking</c> answers it (#827, BS3D-API#11): each
+    /// player's best clear of every level added up, ranked by that total, with the levels and stars beside it for
+    /// information. The period, the month it covers, how many are ranked, the page, and the asking player's own row
+    /// wherever it falls (null when the player is not ranked).
+    /// </summary>
+    internal sealed class RankingPageBody
+    {
+        [JsonPropertyName("period")]
+        public string Period { get; set; }
+
+        /// <summary><c>YYYY-MM</c> for the month, null for all time.</summary>
+        [JsonPropertyName("month")]
+        public string Month { get; set; }
+
+        [JsonPropertyName("total")]
+        public int Total { get; set; }
+
+        /// <summary>⚠ An explicit <c>"entries": null</c> overwrites this; <c>OnlineScores.SanitizeRanking</c> puts a list back.</summary>
+        [JsonPropertyName("entries")]
+        public List<RankingEntryBody> Entries { get; set; } = new();
+
+        [JsonPropertyName("me")]
+        public RankingMeBody Me { get; set; }
+    }
+
+    internal sealed class RankingEntryBody
+    {
+        [JsonPropertyName("rank")]
+        public int Rank { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("levels")]
+        public int Levels { get; set; }
+
+        [JsonPropertyName("stars")]
+        public int Stars { get; set; }
+
+        [JsonPropertyName("score")]
+        public long Score { get; set; }
+    }
+
+    internal sealed class RankingMeBody
+    {
+        [JsonPropertyName("rank")]
+        public int Rank { get; set; }
+
+        [JsonPropertyName("levels")]
+        public int Levels { get; set; }
+
+        [JsonPropertyName("stars")]
+        public int Stars { get; set; }
+
+        [JsonPropertyName("score")]
+        public long Score { get; set; }
+    }
+
+    /// <summary>What the Top Players page asks for (#827): which period, which slice, and whose row to add.</summary>
+    internal readonly record struct RankingRequest(int Ticket, bool AllTime, int Rules, Guid? Player, int Limit, int Offset);
+
+    /// <summary>
+    /// The worker's answer to a <see cref="RankingRequest"/>: the page, or why there is none. <paramref name="NotOffered"/> is a
+    /// service that answered but has no ranking (one older than BS3D-API v0.1.35), which the page says differently.
+    /// </summary>
+    internal sealed record RankingReply(int Ticket, RankingPageBody Page, string Problem, bool NotOffered);
 }

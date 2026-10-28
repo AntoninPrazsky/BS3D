@@ -76,6 +76,8 @@
     <Compile Include="..\..\Game\Screens\TabularFigures.cs" />
     <!--What the level picker, the boards and the result page say (#806): strings only, held to those rules-->
     <Compile Include="..\..\Game\Screens\PickerCopy.cs" />
+    <!--What Top Players says (#827): strings only, held to the same rules-->
+    <Compile Include="..\..\Game\Screens\RankingCopy.cs" />
     <!--The online boards' row (#934): the name's column, a name cut to it and how wide a board may be on a wide display - arithmetic over
         measured widths, no device.-->
     <Compile Include="..\..\Game\Screens\BoardLayout.cs" />

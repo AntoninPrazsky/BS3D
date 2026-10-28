@@ -166,10 +166,15 @@ namespace BS3D.Online
         }
 
         /// <summary>
-        /// Forgets the cached summaries: a clear changed the boards, a rename changed a name on them, or the identity asking
-        /// is no longer the one they were asked for (#685's review). The next request asks the service again.
+        /// Forgets the cached summaries and ranking pages (#827): a clear changed the boards, a rename changed a name on them,
+        /// or the identity asking is no longer the one they were asked for (#685's review). The next request asks the service
+        /// again.
         /// </summary>
-        private void ForgetSummaries() => _summaryCache.Clear();
+        private void ForgetSummaries()
+        {
+            _summaryCache.Clear();
+            _rankingCache.Clear();
+        }
 
         /// <summary>The reply to a <see cref="RequestBoardsSummary"/> ticket, once it has come; taken once.</summary>
         internal bool TryTakeBoardsSummary(int ticket, out SummaryReply reply) => _summaryReplies.Remove(ticket, out reply);
@@ -178,6 +183,36 @@ namespace BS3D.Online
         private readonly Dictionary<int, bool> _pendingSummaryKeys = new();
         private readonly Dictionary<bool, int> _pendingSummaryByPeriod = new();
         private readonly Dictionary<bool, (SummaryReply Reply, float At)> _summaryCache = new();
+
+        /// <summary>
+        /// Asks for one page of the players' ranking (#827) and returns the ticket its reply will carry, or -1 when this run
+        /// cannot see the boards. Cached for a minute by period and slice, as a board page is, so paging back and forth or
+        /// coming back to the page asks the service nothing; a clear or a rename forgets the cache.
+        /// </summary>
+        internal int RequestRanking(bool allTime, int offset, int limit)
+        {
+            if (!Enabled) return -1;
+
+            int ticket = ++_boardTicket;
+            var key = (allTime, offset, limit);
+            if (_rankingCache.TryGetValue(key, out var cached) && _wallClock() - cached.At < BOARD_CACHE_SECONDS)
+            {
+                _rankingReplies[ticket] = cached.Reply with { Ticket = ticket };
+                return ticket;
+            }
+
+            _pendingRankingKeys[ticket] = key;
+            _client.RequestRanking(new RankingRequest(ticket, allTime, Prazsky.BS3D.Scoring.ScoreKeeper.RulesVersion, PlayerId,
+                limit, offset));
+            return ticket;
+        }
+
+        /// <summary>The reply to a <see cref="RequestRanking"/> ticket, once it has come; taken once.</summary>
+        internal bool TryTakeRanking(int ticket, out RankingReply reply) => _rankingReplies.Remove(ticket, out reply);
+
+        private readonly Dictionary<int, RankingReply> _rankingReplies = new();
+        private readonly Dictionary<int, (bool, int, int)> _pendingRankingKeys = new();
+        private readonly Dictionary<(bool, int, int), (RankingReply Reply, float At)> _rankingCache = new();
 
         private static string IdentityPath => UserData.PathTo(OnlineIdentity.DefaultFileName);
 
@@ -256,6 +291,11 @@ namespace BS3D.Online
                 _summaryReplies[ticket] = new SummaryReply(ticket, null, "interrupted", NotOffered: false);
             _pendingSummaryKeys.Clear();
             _pendingSummaryByPeriod.Clear();
+
+            //And a ranking page on its way (#827), for the same reason
+            foreach (int ticket in _pendingRankingKeys.Keys)
+                _rankingReplies[ticket] = new RankingReply(ticket, null, "interrupted", NotOffered: false);
+            _pendingRankingKeys.Clear();
             ForgetSummaries();
         }
 
@@ -567,6 +607,12 @@ namespace BS3D.Online
                     if (summary.Summary != null) _summaryCache[summaryAllTime] = (summary, _wallClock());
                 }
                 _summaryReplies[summary.Ticket] = summary;
+            }
+
+            while (_client.TryTakeRanking(out RankingReply ranking))
+            {
+                if (_pendingRankingKeys.Remove(ranking.Ticket, out var key) && ranking.Page != null) _rankingCache[key] = (ranking, _wallClock());
+                _rankingReplies[ranking.Ticket] = ranking;
             }
 
             while (_client.TryTakeBoard(out BoardReply board))

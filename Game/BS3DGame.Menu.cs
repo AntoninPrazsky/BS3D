@@ -64,6 +64,7 @@ namespace BS3D
         private NicknamePage _nicknamePage;
         private LevelBoardPage _levelBoardPage;
         private HighScoresPage _highScoresPage;
+        private TopPlayersPage _topPlayersPage;
         private LevelSelectPage _levelSelectPage;
         private ScenePage _scenePage;
         private ExtrasPage _extrasPage;
@@ -684,6 +685,7 @@ namespace BS3D
             _aboutPage = new AboutPage(this);
             _levelBoardPage = new LevelBoardPage(this);
             _highScoresPage = new HighScoresPage(this);
+            _topPlayersPage = new TopPlayersPage(this);
             _helpPage = new HelpPage(this);
             _resultPage = new ResultPage(this);
             _finalePage = new CampaignFinalePage(this);
@@ -1409,6 +1411,16 @@ namespace BS3D
         }
         internal void OpenSettings() => OpenPage(_settingsPage);
         internal void OpenHighScores() => OpenPage(_highScoresPage);
+
+        /// <summary>Opens Extras > Top Players (#827).</summary>
+        internal void OpenTopPlayers() => OpenPage(_topPlayersPage);
+
+        /// <summary>Opens Top Players on a stated period - the <c>topplayers</c> argument's (#827).</summary>
+        internal void OpenTopPlayersAt(bool allTime)
+        {
+            _topPlayersPage.Pin(allTime);
+            OpenPage(_topPlayersPage);
+        }
 
         /// <summary>Opens High Scores on a stated chapter (1-based) and period - the <c>highscores=</c> argument's (#685).</summary>
         internal void OpenHighScoresAt(int chapter, bool allTime)

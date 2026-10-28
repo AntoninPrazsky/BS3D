@@ -210,6 +210,13 @@ namespace BS3D.Screens
         internal virtual void DrawForeground() { }
 
         /// <summary>
+        /// Draws what the page writes over its own foreground (#827), after the host has composited the layer over everything:
+        /// the Top Players' names on the podium's steps, which would otherwise stand under it. Into the host's overlay batch,
+        /// which the page begins and ends; asked only of a page that <see cref="PresentsForeground"/>.
+        /// </summary>
+        internal virtual void DrawOverForeground() { }
+
+        /// <summary>
         /// Draws what the page puts <b>over</b> its own tree (#926), into the host's overlay batch after the desktop has been laid out and
         /// drawn and before the focus prompt: the result page's "NEW BEST", whose rainbow fill is a colour that changes across each letter,
         /// which a Myra label cannot draw, and whose bounce overshoots the lines around it on purpose. Asked every frame the page is the active
