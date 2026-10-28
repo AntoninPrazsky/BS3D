@@ -10,7 +10,11 @@ namespace Prazsky.Core.Render
 {
     /// <summary>The volcano's separately drawn layers, for <see cref="SceneRenderer.VolcanoLayers"/> (#540).</summary>
     [System.Flags]
-    public enum VolcanoLayer { None = 0, Terrain = 1, Plume = 2, Jets = 4, Glow = 8, Ash = 16, All = Terrain | Plume | Jets | Glow | Ash }
+    public enum VolcanoLayer
+    {
+        None = 0, Terrain = 1, Plume = 2, Jets = 4, Glow = 8, Ash = 16, Planting = 32, Country = 64,
+        All = Terrain | Plume | Jets | Glow | Ash | Planting | Country
+    }
 
     /// <summary>
     /// The aurora's separately drawn layers, for <see cref="SceneRenderer.AuroraLayers"/> (#1027): the fine and the coarse

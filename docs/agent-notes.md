@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-10-28 — #1037 sopka na Medium — notebook (ThinkPad), Claude Code (github-4d)
+- Hotovo: `Medium` kreslí `VolcanoMedium`, tedy autorský pixelový program svahu na geometrii z `Low` (hrubší mřížka a redukovaný vertex program). Ve hře Caldera 38,00 → 31,93 ms a Paroxysm 36,00 → 29,95, Colossus beze změny. `Low` a `High` jsou na snímcích stejné. `volcano=` má vrstvy `Planting` a `Country`.
+- ⚠ #748 stál `Medium` 5,9 ms, třikrát víc než `Low`. Krajina nahradila oblohu, takže přibyly pixely terénu (8,8 ms škáluje s rozlišením, předtím 6,0), a vertex program běžel na plné mřížce. Ploché stínování krajiny ušetřilo jen 0,5 ms.
+- ⚠ Vrstva `Plume` (sloup a pára fumarol) stojí 1,80 ms na `Low` a 3,38 na `Medium`. Doc dřív tvrdil, že nic.
+- Otevřené: `verdict-eye` (#1037), rezerva sopky na `Low` (Caldera 16,00 ms) přes kouř.
+
 ## 2026-10-28 — #987 podsvícená klávesnice, verdikty 27. a 28. 10. — desktop (RDT-PC), Claude Code (bs3d-13)
 - Hotovo: klávesnice svítí přes Windows `LampArray` (Dynamic Lighting), bez Logitech SDK, DLL a EULA (merge `355de3eb`, opravy z recenze `5696e5b8`).
   - Při hraní: barva nabité koule, Space naplno, fronta na F1–F4.

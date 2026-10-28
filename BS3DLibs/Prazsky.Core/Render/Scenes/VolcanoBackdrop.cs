@@ -116,6 +116,9 @@ namespace Prazsky.Core.Render
             //are billboard buffers over two more effects, all animated in their vertex shaders and rebuilt only
             //when a config is applied.
             _volcanoEffect = content.Load<Effect>("Shaders/Volcano");
+            _fullTechnique = _volcanoEffect.Techniques["Volcano"];
+            _mediumTechnique = _volcanoEffect.Techniques["VolcanoMedium"];
+            _reducedTechnique = _volcanoEffect.Techniques["VolcanoReduced"];
             EnsureVolcanoGrid(VOLCANO_GRID_N);
 
             _fountainEffect = content.Load<Effect>("Shaders/LavaFountain");
@@ -460,11 +463,10 @@ namespace Prazsky.Core.Render
             //The flows, the crater's lake and the sheen stay on every tier; they are what the scene is.
             //Since #540 the reduced program is also a coarser grid under it: most of what the vertex program costs is
             //paid per vertex whatever the pixels, and the reduced program's scoria has no octave the finer grid resolves.
-            _volcanoEffect.CurrentTechnique = _volcanoEffect.Techniques[sceneDetail > 0.5f ? "Volcano" : "VolcanoReduced"];
-            EnsureVolcanoGrid(sceneDetail > 0.5f ? VOLCANO_GRID_N : VOLCANO_GRID_N_REDUCED);
-
+            //The program and the grid are taken per draw (SelectProgram), since Medium's tell is FineMeshes, which has no hook.
             //The land's snags, woods and village (#748) are the full tier's: Low keeps the land's ground alone
             _sceneDetail = sceneDetail;
+            SelectProgram();
         }
 
         /// <summary>
@@ -484,6 +486,28 @@ namespace Prazsky.Core.Render
 
         private int _volcanoGridN;
 
+        /// <summary>
+        /// The flank's program and grid for this frame: <c>VolcanoReduced</c> on the reduced grid at Low
+        /// (<see cref="SceneRenderer.SceneDetail"/>), <c>Volcano</c> on the full grid at High and Ultra
+        /// (<see cref="SceneRenderer.FineMeshes"/>), and between them Medium's <c>VolcanoMedium</c> (#1037): the full pixel
+        /// program over Low's geometry, the reduced grid and the reduced vertex program. Since #748 every vertex works out the
+        /// land's figures and three heights, and on the reference APU Medium paid 5.9 ms for it; Low's geometry took 4.5 of
+        /// them back (the reduced vertex program alone 2.3, the reduced grid alone 2.55). Retaken only when the answer changes.
+        /// </summary>
+        private void SelectProgram()
+        {
+            bool full = _sceneDetail > 0.5f, fine = Services.FineMeshes;
+            EffectTechnique wanted = !full ? _reducedTechnique : fine ? _fullTechnique : _mediumTechnique;
+            if (wanted == _drawnTechnique) return;
+
+            _volcanoEffect.CurrentTechnique = wanted;
+            _drawnTechnique = wanted;
+            EnsureVolcanoGrid(full && fine ? VOLCANO_GRID_N : VOLCANO_GRID_N_REDUCED);
+        }
+
+        private EffectTechnique _drawnTechnique;
+        private readonly EffectTechnique _fullTechnique, _mediumTechnique, _reducedTechnique;
+
         /// <summary>The flank, then the fountains, the plume and the blaze over it.</summary>
         public override void Draw(in SceneFrame frame)
         {
@@ -492,9 +516,9 @@ namespace Prazsky.Core.Render
             //of the cone and has to occlude it. Only the ash is an overlay.
             if ((Layers & VolcanoLayer.Terrain) != 0) DrawVolcanoTerrain(frame);
             //What stands on the field (#679), opaque and depth-writing, before anything translucent over it
-            if (_planting != null && (Layers & VolcanoLayer.Terrain) != 0)
+            if (_planting != null && (Layers & VolcanoLayer.Planting) != 0)
                 _plants.Draw(frame, _planting.Buckets, _volcanoConfig.HorizonHazeDistance, detail: true, Services.FineMeshes);
-            if (_country != null && _sceneDetail > 0.5f && (Layers & VolcanoLayer.Terrain) != 0) DrawCountry(frame);
+            if (_country != null && _sceneDetail > 0.5f && (Layers & VolcanoLayer.Country) != 0) DrawCountry(frame);
             DrawLavaFountains(frame);
         }
 
@@ -533,6 +557,7 @@ namespace Prazsky.Core.Render
         /// </summary>
         private void DrawVolcanoTerrain(in SceneFrame frame)
         {
+            SelectProgram();
             float cell = VOLCANO_EXTENT / (_volcanoGridN - 1);
             float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
             float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
