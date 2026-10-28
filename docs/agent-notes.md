@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-10-28 — #922 galerie webu v pohybu — desktop (RDT-PC), Claude Code (bs3d-13)
+- Hotovo: osm snímků galerie jsou okamžiky z benchmarkového dema z nastavených kamer, bez HUD, na Ultra v 2560×1440 (merge `15f1f7b1`). Nový `Tools/web-gallery.ps1` je bere podle `shot` v `gallery.json`. `web-screenshots.ps1` ve výchozím stavu bere jen Meander. Dva běhy daly všech 16 JPEG bajtově stejně.
+- ⚠ Hra bere `fov=` užší, než by sedělo na svislé zorné pole: shluk visí od ostrova až k desce asi na y = 12. Kamery s cílem kolem y = 0 ho uřízly. Začni z jednoho širokého snímku zdálky.
+- ⚠ `capturefrom` se zaokrouhluje nahoru na snímek (`ceil(F·fps)`), takže okno od 12,9 s při 15 fps začíná o půl snímku později. Okamžik se počítá z indexu, ne z popisku.
+- ⚠ Na Vortexu demo nic pořádného neshodí.
+- Otevřené: `verdict-eye` (karta na stránce 28. 10.), publikace webu je na majiteli.
+
 ## 2026-10-28 — #1035 mřížky terénu jen v záběru, hory na Low — notebook (ThinkPad), Claude Code (github-4d)
 - Hotovo: `TerrainGridCache` drží mřížky i po blocích (16 čtverců) a `DrawSeenBlocks` kreslí jen bloky v záběru. Platí pro `TerrainPass` (10 scén) i sopku. Prstencová mřížka hor na High zůstala celá. Sonda `mountain=` ukázala, že terén hor stojí 5,48 ms, a `MountainReduced` má teď reliéf skály 1 oktávou místo 3. Spyglass na `Low` 17,32 → 15,44 ms, Belfry −1,95. Snímky 10 scén se liší jen tím, co se hýbe.
 - ⚠ Balloon občas celý jeden běh ukáže o ~3 ms méně, na obou buildech. Minimum ze dvou běhů pak lže.
