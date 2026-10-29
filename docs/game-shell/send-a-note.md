@@ -6,7 +6,7 @@ Part of [The game: shell](../game-shell.md).
 
 ## The entry
 
-"Write to the Author" in sea teal (`BS3DGame.NoteEntry`, `NOTE_ENTRY`; `MENU_TEXT_NOTE` is one more deliberate exception to the greyscale rule: an invitation, not a control). (It read "Send a Note" until 2026-10-07: that did not say to whom.) **Where**: the pause page after Settings and Scene, above the three that end the run (#383); About under the repository link; **Extras above Back**. **Not the result page** (no room).
+"Write to the Author" in sea teal (`BS3DGame.NoteEntry`, `NOTE_ENTRY`; `MENU_TEXT_NOTE` is one more deliberate exception to the greyscale rule: an invitation, not a control). (It read "Send a Note" until 2026-10-07: that did not say to whom.) **Where**: the pause page after Settings and Scene, above the three that end the run (#383); About under the repository link; **Extras first**, above Top Players (the owner, 2026-10-29). **Not the result page** (no room).
 
 ## The picture
 
