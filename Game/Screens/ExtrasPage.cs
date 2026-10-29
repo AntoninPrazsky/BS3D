@@ -7,8 +7,9 @@ using VerticalAlignment = Myra.Graphics2D.UI.VerticalAlignment;
 namespace BS3D.Screens
 {
     /// <summary>
-    /// The main menu's Extras (#704): the Scene picker, which stood in the main menu itself until now, the Jukebox, Top Players
-    /// (#827) and the Benchmark (#988), with room for more. The owner wanted no ninth entry in the main menu, so Scene gave its slot up to this page.
+    /// The main menu's Extras (#704): Write to the Author (#813), Top Players (#827), the Benchmark (#988), the Jukebox and the
+    /// Scene picker, which stood in the main menu itself until #704, in the owner's order of 2026-10-29, with room for more.
+    /// The owner wanted no ninth entry in the main menu, so Scene gave its slot up to this page.
     /// <para>
     /// It wears the front end's composition rather than a plate (<see cref="MainMenuPage"/>): the entries hang off the
     /// bottom-left corner over the turning scene, at the same inset, so it reads as the menu going one level deeper
@@ -31,14 +32,13 @@ namespace BS3D.Screens
             column.VerticalAlignment = VerticalAlignment.Bottom;
             column.Margin = ScaledThickness(MainMenuPage.FRONT_INSET, 0, 0, MainMenuPage.FRONT_INSET);
 
-            column.Widgets.Add(FrontEndEntry("Scene", Game.OpenSceneSelect));
-            column.Widgets.Add(FrontEndEntry("Jukebox", Game.OpenJukebox));
+            //The way to the author from the front end, beside About's (#813, the owner's ask): Extras is where a player
+            //looks for what else there is, and it heads the page (the owner, 2026-10-29)
+            column.Widgets.Add(Game.NoteEntry("extras", frontEnd: true));
             column.Widgets.Add(FrontEndEntry(RankingCopy.TITLE, Game.OpenTopPlayers));
             column.Widgets.Add(FrontEndEntry("Benchmark", Game.OpenBenchmark));
-
-            //The way to the author from the front end, beside About's (#813, the owner's ask): Extras is where a player
-            //looks for what else there is
-            column.Widgets.Add(Game.NoteEntry("extras", frontEnd: true));
+            column.Widgets.Add(FrontEndEntry("Jukebox", Game.OpenJukebox));
+            column.Widgets.Add(FrontEndEntry("Scene", Game.OpenSceneSelect));
             column.Widgets.Add(Game.FrontEndEntry("Back", GoBack, Prompt(PromptGlyph.PAD_B, PromptGlyph.KEY_ESCAPE)));
 
             return ScreenRoot(column, VersionTag());
