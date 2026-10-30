@@ -1,6 +1,6 @@
 ---
 title: Logos of studios that never existed
-date: 2026-10-28T12:00:00Z
+date: 2026-10-30T12:00:00Z
 topics: [AI pictures, Measurement]
 summary: "Ask a small image model for a game picture and now and then it signs it, with the logo of a studio that was never there. What we found in 1,743 of our own renders, why we think it happens, and the one use where the other model is brilliant: painting over the game's own frame."
 thumb: /img/blog/thumbs/logos-of-studios-that-never-existed.jpg

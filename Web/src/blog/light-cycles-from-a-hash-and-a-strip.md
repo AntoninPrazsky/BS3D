@@ -1,6 +1,6 @@
 ---
 title: Light cycles from a hash and a strip of triangles
-date: 2026-10-27T12:00:00Z
+date: 2026-10-30T11:00:00Z
 topics: [Rendering, Shaders]
 summary: How the Grid's three light cycles are drawn, with no stored path, no sorting and no light but their own edges - a run that is a pure function of a clock, a wall that is a strip of triangles, and a body that is only seams.
 thumb: /img/blog/thumbs/light-cycles-from-a-hash-and-a-strip.jpg
