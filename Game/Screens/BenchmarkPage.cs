@@ -219,7 +219,7 @@ namespace BS3D.Screens
                         ? string.Create(CultureInfo.InvariantCulture, $"Swarm: more than {_swarmHeld:N0} balls at 60 FPS (the most it asks)")
                         : _swarmHeld > 0
                             ? string.Create(CultureInfo.InvariantCulture, $"Swarm: {_swarmHeld:N0} balls at 60 FPS")
-                            : string.Create(CultureInfo.InvariantCulture, $"Swarm: fewer than {BenchmarkSwarm.START_BALLS:N0} balls at 60 FPS"),
+                            : string.Create(CultureInfo.InvariantCulture, $"Swarm: fewer than {_swarmBrokeAt:N0} balls at 60 FPS"),
                     Font = FontBody,
                     TextColor = BS3DGame.MENU_TEXT,
                     HorizontalAlignment = HorizontalAlignment.Center,
@@ -568,7 +568,7 @@ namespace BS3D.Screens
             _swarmMeasured = true;
             _swarmHeld = _swarm.Held;
             _swarmHeldMedian = _swarm.HeldMedian;
-            _swarmBrokeAt = _swarm.Capped ? 0 : _swarm.Balls;
+            _swarmBrokeAt = _swarm.BrokeAt;
             _swarmBrokenMedian = _swarm.BrokenMedian;
             _swarmSteps = _swarm.Steps;
             _swarmCapped = _swarm.Capped;
@@ -725,6 +725,7 @@ namespace BS3D.Screens
                     ["scene"] = SceneRenderer.SceneName(SWARM_SCENE),
                     ["budgetMs"] = Math.Round(BenchmarkSwarm.BUDGET_MILLISECONDS, 3),
                     ["startBalls"] = BenchmarkSwarm.START_BALLS,
+                    ["minBalls"] = BenchmarkSwarm.MIN_BALLS,
                     ["growth"] = BenchmarkSwarm.GROWTH,
                     ["stepSeconds"] = BenchmarkSwarm.STEP_SECONDS,
                     ["held"] = _swarmHeld,
@@ -910,9 +911,9 @@ namespace BS3D.Screens
                 new Vector2(left + inner - MathF.Round(captionSize.X), lineY - MathF.Round(captionSize.Y) - line), PlayHud.HUD_ACCENT);
 
             //How far through its steps the physics is; how far the storm has grown towards the most it asks, on the ramp's own
-            //(logarithmic) scale, so each step moves the bar alike
+            //(logarithmic) scale, so each step moves the bar alike (empty on a way down under the first count)
             float progress = physics && _physics != null ? _physics.Progress
-                : swarm ? MathF.Log((float)_swarm.Balls / BenchmarkSwarm.START_BALLS) / MathF.Log((float)BenchmarkSwarm.MAX_BALLS / BenchmarkSwarm.START_BALLS)
+                : swarm ? MathF.Max(0f, MathF.Log((float)_swarm.Balls / BenchmarkSwarm.START_BALLS) / MathF.Log((float)BenchmarkSwarm.MAX_BALLS / BenchmarkSwarm.START_BALLS))
                 : -1f;
             if (progress >= 0f)
             {
