@@ -13,7 +13,7 @@ namespace BS3D.Tests
     /// <summary>
     /// The benchmark's result on its way to the author (#988), the real <see cref="OnlineBenchmarks"/> against the loopback
     /// stand-in: written to the outbox first, sent without a token, gone only once the service names it, kept on no answer, a
-    /// stranger's 2xx or a 429 and sent at the next start, dropped on a refusal with a reason, and kept on the machine by a
+    /// stranger's 2xx or a 429 and sent at the next start with online scores on (kept at one with them off, #1041), dropped on a refusal with a reason, and kept on the machine by a
     /// build that reaches no server, the outbox held to its capacity.
     /// </summary>
     [Collection(OnlineStatsCollection.Name)]
@@ -29,8 +29,9 @@ namespace BS3D.Tests
             _temp.Dispose();
         }
 
-        private OnlineBenchmarks Client(string server = "") =>
-            OnlineBenchmarks.Start(new GameSettings { Server = server == "" ? _server.Url : server }, Outbox);
+        //Online scores on, the benchmark's consent (#1041), unless a test says otherwise
+        private OnlineBenchmarks Client(string server = "", bool? online = true) =>
+            OnlineBenchmarks.Start(new GameSettings { Online = online, Server = server == "" ? _server.Url : server }, Outbox);
 
         private static JsonObject Result(string gpu = "Test GPU") => new()
         {
@@ -110,6 +111,35 @@ namespace BS3D.Tests
             Until(() => Waiting().Length == 0);
             Assert.Equal(2, _server.Requests.Count);
             Assert.All(_server.Requests, r => Assert.Equal(id.ToString(), StandIn.BenchmarkIdOf(r.Body)));
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(null)]
+        public void A_kept_result_waits_at_a_start_with_online_scores_off(bool? online)
+        {
+            Guid id;
+            using (OnlineBenchmarks first = Client())
+            {
+                _server.BenchmarkAnswers.Enqueue((503, "{\"reason\":\"busy\"}"));
+                id = first.Send(Result());
+                Assert.Equal(BenchmarkDelivery.Kept, Outcome(first, id));
+            }
+
+            //Turned off since (or never answered, a profile written by hand): the start sends nothing it holds
+            using (OnlineBenchmarks off = Client(online: online))
+            {
+                Assert.False(off.DrainsAtStart);
+                Thread.Sleep(300);
+            }
+            Assert.Single(Waiting());
+            Assert.Single(_server.Requests);
+
+            //On again: the next start sends it
+            using OnlineBenchmarks on = Client();
+            Assert.True(on.DrainsAtStart);
+            Until(() => Waiting().Length == 0);
+            Assert.Equal(2, _server.Requests.Count);
         }
 
         [Fact]

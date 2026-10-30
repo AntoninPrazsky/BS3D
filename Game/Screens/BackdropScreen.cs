@@ -878,12 +878,13 @@ namespace BS3D.Screens
             Game.MenuGunMode == MenuGunMode.Off ? null : Game.StandingGun ?? MenuGunInFrame;
 
         /// <summary>
-        /// The front end's own gun for this frame, or null: it stands only with a map hung, never while the benchmark's swarm
-        /// (#988) fills the frame - a measurement of the swarm is not one of a swarm and a gun, and the numbers from before
-        /// the gun stood stay comparable - and never under <c>menugun=off</c>. A session's gun is drawn by its own registration.
+        /// The front end's own gun for this frame, or null: it stands only with a map hung, never while the benchmark (#988)
+        /// runs - its tours fly over this island, and the gun cost the Pi's tours about 1.1 ms a frame, so results from before
+        /// the gun stood would no longer compare - and never under <c>menugun=off</c>. A session's gun is drawn by its own
+        /// registration.
         /// </summary>
         private IStandingGun MenuGunInFrame =>
-            Game.MenuGunMode != MenuGunMode.Off && Game.BenchmarkSwarm == null ? _menuGun.Standing : null;
+            Game.MenuGunMode != MenuGunMode.Off && !Game.Benchmarking ? _menuGun.Standing : null;
 
         /// <summary>
         /// The excursion turns to the gun (#1040): the legs become the gun's and the lens will come to stand behind it. Which way

@@ -25,6 +25,13 @@ namespace BS3D.Screens
     /// machine</b>, not the display's refresh the tours are judged by: a figure two machines can be compared by.
     /// </para>
     /// <para>
+    /// <b>A machine that cannot hold the first count is followed down</b>: halved (<see cref="DESCENT"/>) while nothing has
+    /// held, to <see cref="MIN_BALLS"/> at the least, and from the first count that holds it grows again by
+    /// <see cref="GROWTH"/> until the next count would be one that already broke. So a weak machine gets a figure as fine as
+    /// a strong one's, and a strong one's run is no longer: the Pi 5 broke 1024 in every run (#988), and a figure of
+    /// "fewer than 1024" would not tell the next Pi from it.
+    /// </para>
+    /// <para>
     /// <b>The shape is a function of the ball's index alone</b> (<see cref="Place"/>), so a bigger count is the smaller one
     /// filled in: the storm thickens as it grows, and it is the same storm on every machine and every run. It is turned
     /// about the island's axis as a whole, so the camera's bearing changes nothing the frame pays for.
@@ -32,11 +39,17 @@ namespace BS3D.Screens
     /// </summary>
     internal sealed class BenchmarkSwarm
     {
-        /// <summary>The first count, low enough that a Pi's Potato path can hold it, so the ramp has a step that held.</summary>
+        /// <summary>The first count: a machine that cannot hold it is followed down (see the class).</summary>
         public const int START_BALLS = 1024;
 
         /// <summary>Each step's count over the last one's: about 21 steps from the start to the cap, under half a minute.</summary>
         public const float GROWTH = 1.3f;
+
+        /// <summary>How much a count that broke is cut while nothing has held: halves, so the Pi's way down is a few steps.</summary>
+        public const int DESCENT = 2;
+
+        /// <summary>The fewest the storm is cut to: a machine that cannot hold these at 60 FPS cannot play the game.</summary>
+        public const int MIN_BALLS = 32;
 
         /// <summary>The most the storm grows to: past a quarter of a million balls the figure says nothing a player needs.</summary>
         public const int MAX_BALLS = 1 << 18;
@@ -66,8 +79,11 @@ namespace BS3D.Screens
         /// <summary>How many balls the storm has this step.</summary>
         public int Balls { get; private set; } = START_BALLS;
 
-        /// <summary>The largest count whose step held the budget, 0 when the first did not.</summary>
+        /// <summary>The largest count whose step held the budget, 0 when not even <see cref="MIN_BALLS"/> did.</summary>
         public int Held { get; private set; }
+
+        /// <summary>The smallest count that broke the budget twice running, 0 while none has (and when the run was capped).</summary>
+        public int BrokeAt { get; private set; }
 
         /// <summary>The median frame of the step that held <see cref="Held"/>, and of the step that ended the run.</summary>
         public float HeldMedian { get; private set; }
@@ -78,7 +94,10 @@ namespace BS3D.Screens
         /// <summary>How many steps were measured, a count measured again included.</summary>
         public int Steps { get; private set; }
 
-        /// <summary>The ramp is over: a step broke the budget, or the storm reached <see cref="MAX_BALLS"/> holding it.</summary>
+        /// <summary>
+        /// The ramp is over: a count broke the budget twice above one that held (or at <see cref="MIN_BALLS"/>), or the storm
+        /// reached <see cref="MAX_BALLS"/> holding it.
+        /// </summary>
         public bool Done { get; private set; }
 
         /// <summary>It ended at <see cref="MAX_BALLS"/> still holding: the machine's reach is past what the run asks.</summary>
@@ -123,6 +142,16 @@ namespace BS3D.Screens
                     return true;
                 }
 
+                _brokeOnce = false;
+                BrokeAt = Balls;
+
+                //Nothing has held yet: down, until a count holds or there is no lower one to try
+                if (Held == 0 && Balls > MIN_BALLS)
+                {
+                    Balls = Math.Max(MIN_BALLS, Balls / DESCENT);
+                    return true;
+                }
+
                 Done = true;
                 return true;
             }
@@ -137,7 +166,15 @@ namespace BS3D.Screens
                 return true;
             }
 
-            Balls = Math.Min(MAX_BALLS, (int)MathF.Ceiling(Balls * GROWTH));
+            //Up again after the way down stops short of the count that already broke: it is known
+            int next = Math.Min(MAX_BALLS, (int)MathF.Ceiling(Balls * GROWTH));
+            if (BrokeAt > 0 && next >= BrokeAt)
+            {
+                Done = true;
+                return true;
+            }
+
+            Balls = next;
             return true;
         }
 

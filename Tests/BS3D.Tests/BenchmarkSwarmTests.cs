@@ -9,7 +9,8 @@ namespace BS3D.Tests
     /// <summary>
     /// The benchmark's swarm (#988): the ramp grows the storm while a step's median frame holds 60 FPS and stops at a count
     /// that breaks it twice running, the step's first moments left out; the storm's places are the same for an index whatever
-    /// the count.
+    /// the count. A machine that cannot hold the first count is followed down by halves and grows back up under the count
+    /// that broke, so the Pi gets a figure.
     /// </summary>
     public class BenchmarkSwarmTests
     {
@@ -57,6 +58,7 @@ namespace BS3D.Tests
             Assert.True(swarm.Done);
             Assert.False(swarm.Capped);
             Assert.Equal(broke, swarm.Balls);
+            Assert.Equal(broke, swarm.BrokeAt);
             Assert.True(swarm.Held < broke && swarm.Held >= held);
             Assert.Equal(21f, swarm.BrokenMedian, 3);
             Assert.Equal(5, swarm.Steps);
@@ -65,14 +67,55 @@ namespace BS3D.Tests
             Assert.False(swarm.Tick(1f));
         }
 
+        //Steps until the run is over, each frame as long as the machine draws the storm's count in
+        private static void RunToEnd(BenchmarkSwarm swarm, Func<int, float> frameMilliseconds)
+        {
+            for (int steps = 0; !swarm.Done && steps < 100; steps++) RunStep(swarm, frameMilliseconds(swarm.Balls));
+            Assert.True(swarm.Done);
+        }
+
         [Fact]
-        public void AMachineThatCannotHoldTheFirstStepHeldNothing()
+        public void AMachineThatCannotHoldTheFirstCountIsFollowedDownAndGrowsBackUnderTheCountThatBroke()
+        {
+            //The Pi's shape (#988): 1024 breaks, half of it holds, and the way back up stops at the first count that breaks
+            var swarm = new BenchmarkSwarm();
+            RunToEnd(swarm, balls => 10f + balls * 0.012f);
+
+            int half = BenchmarkSwarm.START_BALLS / BenchmarkSwarm.DESCENT;
+            int up = (int)MathF.Ceiling(half * BenchmarkSwarm.GROWTH);
+            Assert.Equal(half, swarm.Held);
+            Assert.Equal(up, swarm.BrokeAt);
+            Assert.False(swarm.Capped);
+            //1024 twice, its half once, the count over it twice
+            Assert.Equal(5, swarm.Steps);
+        }
+
+        [Fact]
+        public void TheWayBackUpNeverMeasuresACountThatAlreadyBroke()
         {
             var swarm = new BenchmarkSwarm();
-            RunStep(swarm, 40f);
-            Assert.True(RunStep(swarm, 40f));
-            Assert.True(swarm.Done);
+            RunToEnd(swarm, balls => balls < BenchmarkSwarm.START_BALLS ? 10f : 20f);
+
+            //Up by GROWTH from the half while under 1024, and over then without measuring 1024's next count again
+            int held = BenchmarkSwarm.START_BALLS / BenchmarkSwarm.DESCENT;
+            while ((int)MathF.Ceiling(held * BenchmarkSwarm.GROWTH) < BenchmarkSwarm.START_BALLS)
+                held = (int)MathF.Ceiling(held * BenchmarkSwarm.GROWTH);
+            Assert.Equal(held, swarm.Held);
+            Assert.Equal(BenchmarkSwarm.START_BALLS, swarm.BrokeAt);
+            Assert.True(swarm.Balls < BenchmarkSwarm.START_BALLS);
+        }
+
+        [Fact]
+        public void AMachineThatCannotHoldTheFewestHeldNothing()
+        {
+            var swarm = new BenchmarkSwarm();
+            RunToEnd(swarm, _ => 40f);
+
             Assert.Equal(0, swarm.Held);
+            Assert.Equal(BenchmarkSwarm.MIN_BALLS, swarm.BrokeAt);
+            //Every count from the first down to the fewest, each broken twice
+            int counts = (int)MathF.Round(MathF.Log2((float)BenchmarkSwarm.START_BALLS / BenchmarkSwarm.MIN_BALLS)) + 1;
+            Assert.Equal(2 * counts, swarm.Steps);
         }
 
         [Fact]
@@ -117,6 +160,7 @@ namespace BS3D.Tests
 
             Assert.True(swarm.Capped);
             Assert.Equal(BenchmarkSwarm.MAX_BALLS, swarm.Held);
+            Assert.Equal(0, swarm.BrokeAt);
             Assert.True(swarm.Steps < 30, $"{swarm.Steps} steps to the cap: the run would last {swarm.Steps * BenchmarkSwarm.STEP_SECONDS} s");
         }
 

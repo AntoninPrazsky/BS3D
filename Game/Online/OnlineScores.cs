@@ -452,8 +452,8 @@ namespace BS3D.Online
         /// the code. It says everything the sentence it replaced said, the unfinished attempt (#716) and the play counts
         /// (#709, <see cref="StatsBatchBody"/>, the service's <c>play_stats</c>) included: only what the code guarantees of
         /// those, that they are sent and stored without the player's id or name, which is also why a removal cannot find
-        /// them. And the benchmark's result (#988, <see cref="OnlineBenchmarks"/>), which goes whether online scores are on
-        /// or not, the Start press being its consent.
+        /// them. And the benchmark's result (#988, <see cref="OnlineBenchmarks"/>), which a run started with online scores on
+        /// sends, they being its consent (#1041).
         /// </summary>
         internal static (string Label, string Text)[] PrivacyList(GameSettings settings)
         {
@@ -468,8 +468,8 @@ namespace BS3D.Online
                 ("Delete", "Remove scores deletes all of it."),
                 ("Play counts", "Each level’s starts, retries, clears, losses, quits, skips, shots and time go there too, sent and "
                     + "stored without your id or name, so Remove scores cannot find them."),
-                ("Benchmark", "A finished benchmark (Extras) sends its figures and your computer’s specification there too, "
-                    + "with online scores on or off, without your id or name."),
+                ("Benchmark", "The benchmark (Extras) runs only with online scores on, and a finished one sends its figures and "
+                    + "your computer’s specification there too, without your id or name."),
             };
         }
 

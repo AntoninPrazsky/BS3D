@@ -64,6 +64,8 @@
     <Compile Include="..\..\Game\Screens\PhysicsBench.cs" />
     <!--The benchmark's swarm (#988): the ramp's rule over frame times and the storm's places, no device-->
     <Compile Include="..\..\Game\Screens\BenchmarkSwarm.cs" />
+    <!--When the benchmark may run and what its page says about it (#1041): a rule over the Online setting, and strings-->
+    <Compile Include="..\..\Game\Screens\BenchmarkConsent.cs" />
     <Compile Include="..\..\Game\Screens\NavWalk.cs" />
     <!--How far a mouse-wheel notch moves a menu list (#952): a share of the viewport, scaled by the delta, over plain numbers and no Myra.-->
     <Compile Include="..\..\Game\Screens\WheelScroll.cs" />
