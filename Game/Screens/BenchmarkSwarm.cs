@@ -85,7 +85,7 @@ namespace BS3D.Screens
         /// <summary>The smallest count that broke the budget twice running, 0 while none has (and when the run was capped).</summary>
         public int BrokeAt { get; private set; }
 
-        /// <summary>The median frame of the step that held <see cref="Held"/>, and of the step that ended the run.</summary>
+        /// <summary>The median frame of the step that held <see cref="Held"/>, and of the second step at <see cref="BrokeAt"/>.</summary>
         public float HeldMedian { get; private set; }
 
         /// <inheritdoc cref="HeldMedian"/>
@@ -135,15 +135,16 @@ namespace BS3D.Screens
 
             if (median > BUDGET_MILLISECONDS)
             {
-                BrokenMedian = median;
                 if (!_brokeOnce)
                 {
                     _brokeOnce = true;
                     return true;
                 }
 
+                //Kept only for a count broken twice, so it is always BrokeAt's median, never a hitch that held when measured again
                 _brokeOnce = false;
                 BrokeAt = Balls;
+                BrokenMedian = median;
 
                 //Nothing has held yet: down, until a count holds or there is no lower one to try
                 if (Held == 0 && Balls > MIN_BALLS)
