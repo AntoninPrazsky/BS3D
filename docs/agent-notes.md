@@ -24,7 +24,8 @@ Pravidla:
 - Hotovo: v0.5.1 vydána (tag na 9738f584, run 41074849908, zip 402 MB, linux-arm64 384 MB). Zkušební běh na stejném commitu předem zelený. Stažený zip: SHA256SUMS OK, jedna složka (BS3D.exe + Content/Levels/Music/Sfx), v rohu menu `v0.5.1`, shadery `set 2f86e179` jako lokálně.
 - Majitel: verze 0.5.1, obrázek nechal na mně (Caldera na Ultra), rychlost střely (#1007) zatím neřešit.
 - ⚠ SSH z desktopu na Pi (port 22) dál končí timeoutem; `update-ceilings.sh` (starFloors z #1024) musí spustit majitel nebo Pi session.
-- Otevřené: `update-ceilings.sh` na Pi, publikace webu (galerie #922, tři příspěvky blogu nejsou živě).
+- `update-ceilings.sh` spustil majitel na Pi (30. 10.); health dál `ok`, 183 boardů.
+- Otevřené: publikace webu (galerie #922, tři příspěvky blogu nejsou živě).
 
 ## 2026-10-30 — #1041 #988 #1006 #1012 #1040 benchmark před releasem, verdikty — desktop (RDT-PC), Claude Code (bs3d-10)
 - Hotovo: #1041 benchmark běží jen s Online scores (Start bez nich: hláška + Settings, argument `benchmark` odmítnut `[bench] not started`, fronta `Benchmarks/` se při startu bez Online neposílá), zavřeno. #988: kanon z menu mimo celý běh (Pi +1,1 ms v trasách), roj klesá po polovinách, když 1024 neudrží (merge 8d6e542b, review c934dcc5).
