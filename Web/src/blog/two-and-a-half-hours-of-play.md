@@ -1,6 +1,6 @@
 ---
 title: Two and a half hours of play in under eighteen minutes
-date: 2026-10-27T12:00:00Z
+date: 2026-10-30T10:00:00Z
 topics: [Online scores, Fair play]
 summary: "One evening a script took first place on every online board. Each of its clears passed every check on its own; together they claimed two and a half hours of play in under eighteen minutes, and stars their scores could not have earned. What the score service checks now, and what it still cannot."
 thumb: /img/blog/thumbs/two-and-a-half-hours-of-play.jpg
