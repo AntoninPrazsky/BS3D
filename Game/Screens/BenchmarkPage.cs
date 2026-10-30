@@ -200,6 +200,8 @@ namespace BS3D.Screens
         /// </summary>
         internal override void Refresh()
         {
+            //Online scores turned on answer the refusal: off again later is no Start press, and asks nothing until one
+            if (_refused && Game.Online.IsOn) _refused = false;
             if (!Running && (_builtWithKeptSession != Game.HasKeptSession || _builtRefused != Refused)) InvalidateTree();
         }
 

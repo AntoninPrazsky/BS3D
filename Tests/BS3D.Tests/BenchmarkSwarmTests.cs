@@ -140,6 +140,23 @@ namespace BS3D.Tests
         }
 
         [Fact]
+        public void TheBrokenMedianIsTheCountThatBrokeNotAHitchThatHeld()
+        {
+            //On the way back up a count breaks once and holds when measured again: the figure kept is still BrokeAt's
+            var swarm = new BenchmarkSwarm();
+            RunStep(swarm, 30f);
+            RunStep(swarm, 30f);
+            Assert.Equal(BenchmarkSwarm.START_BALLS, swarm.BrokeAt);
+            Assert.Equal(30f, swarm.BrokenMedian, 3);
+
+            RunStep(swarm, 10f);
+            RunStep(swarm, 25f);
+            RunStep(swarm, 10f);
+            Assert.False(swarm.Done);
+            Assert.Equal(30f, swarm.BrokenMedian, 3);
+        }
+
+        [Fact]
         public void TheStepsFirstMomentsAreLeftOut()
         {
             //A long hitch inside the settle (the buffers growing for the new count) does not break a step that holds after it
