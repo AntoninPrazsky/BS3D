@@ -25,8 +25,10 @@ namespace BS3D.Screens
     /// measures every frame. A segment's first <see cref="SETTLE_SECONDS"/> are the scene's first-use cost (shaders, a hall
     /// built off the frame) and are reported apart. The result is shown here, written to the log as <c>[bench]</c> lines and
     /// to <c>Benchmark.json</c> in the player's profile with the machine it ran on (<see cref="BS3DGame.BenchmarkSystem"/>), and
-    /// sent to the author (<see cref="OnlineBenchmarks"/>, the owner's ask of 2026-10-25), which the page says before it starts:
-    /// the Start press is the consent, as a note's Send is. Nothing is changed unasked. The skip key stops it, and a stopped run
+    /// sent to the author (<see cref="OnlineBenchmarks"/>, the owner's ask of 2026-10-25), which the page says before it starts.
+    /// <b>It runs only with online scores on</b> (#1041): the Online switch is the one place a player says the game may talk
+    /// to the server, so Start with it off says so and opens the way to Settings instead of the run (<see cref="BenchmarkConsent"/>);
+    /// <c>benchmarkplay</c>, which sends nothing, is not held to it. Nothing is changed unasked. The skip key stops it, and a stopped run
     /// is neither saved nor sent. After the tours it plays the city's biggest level (#1018): the chapter's opening, which ends
     /// at the gun, and then the gun firing at the cluster by itself under a lens of its own (<c>GameplayScreen.Benchmark</c>),
     /// measured as the tours are. Then the CPU's physics is timed on its own
@@ -154,12 +156,23 @@ namespace BS3D.Screens
                     ProseMeasure));
                 if (!Game.SceneryShown && !BS3DGame.PotatoPath)
                     column.Widgets.Add(Paragraph("The scenery is off in your settings: the benchmark shows it, so that it has something to measure.", ProseMeasure));
-                column.Widgets.Add(Paragraph(SENT_NOTE, ProseMeasure));
+                column.Widgets.Add(Paragraph(BenchmarkConsent.SENT_NOTE, ProseMeasure));
             }
 
             //Read as the tree is built, and the tree built again whenever it changes (Refresh): a level kept for Continue can be
-            //left after the page was first seen, and a run started over it closes it
+            //left after the page was first seen, and a run started over it closes it; online scores can be turned on in
+            //Settings, the door the refusal opens, and Back from there finds Start again
             _builtWithKeptSession = Game.HasKeptSession;
+            _builtRefused = Refused;
+            if (_builtRefused)
+            {
+                column.Widgets.Add(Paragraph(BenchmarkConsent.OFFLINE_NOTE, ProseMeasure));
+                _firstEntry = MenuButton("Settings", Game.OpenSettings);
+                column.Widgets.Add(_firstEntry);
+                column.Widgets.Add(BackButton());
+                return ScreenRoot(Plate(column));
+            }
+
             if (_builtWithKeptSession)
                 column.Widgets.Add(Paragraph("The benchmark plays a level of its own, so the level you left unfinished will be closed.", ProseMeasure));
 
@@ -169,25 +182,33 @@ namespace BS3D.Screens
             return ScreenRoot(Plate(column));
         }
 
-        //Whether the tree was built with a level kept for Continue, which it warns of
-        private bool _builtWithKeptSession;
+        //Whether the tree was built with a level kept for Continue, which it warns of, and as the refusal
+        private bool _builtWithKeptSession, _builtRefused;
 
-        /// <summary>The page is built again when a level has been kept or let go since its tree was built: the warning follows it.</summary>
+        //Start was pressed with online scores off (#1041); cleared by a Start that runs
+        private bool _refused;
+
+        /// <summary>
+        /// Start was pressed with online scores off and they are off still: the page says the benchmark needs them and offers
+        /// Settings in place of Start. Online scores on is the consent (#1041); <c>null</c>, never answered, is off.
+        /// </summary>
+        private bool Refused => _refused && !Game.Online.IsOn;
+
+        /// <summary>
+        /// The page is built again when a level has been kept or let go since its tree was built (the warning follows it), and
+        /// when online scores have been turned on or off since a refusal (Back from Settings finds Start).
+        /// </summary>
         internal override void Refresh()
         {
-            if (!Running && _builtWithKeptSession != Game.HasKeptSession) InvalidateTree();
+            if (!Running && (_builtWithKeptSession != Game.HasKeptSession || _builtRefused != Refused)) InvalidateTree();
         }
-
-        /// <summary>What the page says before a run about what leaves the machine: the Start press is the consent to it.</summary>
-        internal const string SENT_NOTE = "When it finishes, the result and your computer's specification (graphics card, processor, memory, "
-            + "system and screen) go to the author, to see how the game runs on computers like yours. Nothing that names you goes with them.";
 
         //How the result fared, in the page's words
         private string DeliveryText() => _delivery switch
         {
             null => "Sending the result to the author…",
             BenchmarkDelivery.Sent => "Sent to the author with your computer's specification. Thank you!",
-            BenchmarkDelivery.Kept => "Not sent yet: the author's server did not answer. It goes the next time the game starts.",
+            BenchmarkDelivery.Kept => "Not sent yet: the author's server did not answer. It goes the next time the game starts with online scores on.",
             BenchmarkDelivery.Refused => "The author's server did not take the result.",
             _ => "Not sent: this build of the game sends results nowhere.",
         };
@@ -347,6 +368,18 @@ namespace BS3D.Screens
         private void Start()
         {
             if (Running) return;
+
+            //No run without online scores on (#1041), from the menu or the benchmark argument alike: a scripted run's scratch
+            //profile needs "online": true. The play alone (benchmarkplay) sends nothing and is not held to it
+            if (!BenchmarkConsent.MayRun(Game.Online.IsOn, _playOnly))
+            {
+                _refused = true;
+                Console.WriteLine("[bench] not started: online scores are off, and the benchmark runs only with them on (\"online\": true in Settings.json)");
+                Rebuild();
+                return;
+            }
+
+            _refused = false;
             _segment = 0;
             _measured = 0;
             _swarmMeasured = false;
@@ -750,8 +783,8 @@ namespace BS3D.Screens
                     ["physics"] = physics,
                 };
                 Game.SaveBenchmark(result);
-                //To the author, as the page said before the run (the consent): written to the sender's outbox first, so a
-                //result the server does not answer for goes at the next start
+                //To the author, as the page said before the run, which online scores on let start (#1041): written to the
+                //sender's outbox first, so a result the server does not answer for goes at a later start with them on
                 _resultId = Game.BenchmarkResults?.Send(result) ?? Guid.Empty;
                 _delivery = null;
             }

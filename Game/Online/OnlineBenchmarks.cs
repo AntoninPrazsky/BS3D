@@ -38,8 +38,9 @@ namespace BS3D.Online
     /// (2026-10-25): "as soon as the benchmark finishes, the result, including the specification of the player's hardware
     /// it ran on, must be sent to the server".
     /// <para>
-    /// <b>The Start press is the consent</b>, as a note's Send is: the benchmark page says before it starts what goes and
-    /// that nothing names the player, so this does not wait for the online scores to be switched on. <b>Nothing in it names
+    /// <b>Online scores on are the consent</b> (#1041, <see cref="BS3D.Screens.BenchmarkConsent"/>): a run starts only with
+    /// them on, and a result an earlier run left waiting goes at start only while they are on, so turning them off stops
+    /// everything the benchmark sends. <b>Nothing in it names
     /// the player</b>: no player id, no token, no nickname, and no <c>Authorization</c> header; the result is the object the
     /// game saves as <c>Benchmark.json</c> (<see cref="BS3DGame.BenchmarkSystem"/> holds no paths and no user name).
     /// </para>
@@ -48,8 +49,8 @@ namespace BS3D.Online
     /// user data folder, before it is sent, and leaves only when the service has answered for it; the server is the one
     /// <see cref="OnlineScores.TryResolveServer"/> resolves, so a developer's runs never post to the owner's service; an
     /// answer is the service's only when it carries its JSON and names the result; a 4xx with the service's reason drops it
-    /// and logs why, anything else keeps it. There is no retry timer: the outbox is drained at start and after each new
-    /// result. Nothing of this runs on the frame.
+    /// and logs why, anything else keeps it. There is no retry timer: the outbox is drained at a start with online scores on
+    /// and after each new result. Nothing of this runs on the frame.
     /// </para>
     /// </summary>
     internal sealed class OnlineBenchmarks : IDisposable
@@ -73,10 +74,14 @@ namespace BS3D.Online
         private readonly CancellationTokenSource _stop = new();
         private readonly Task _worker;
 
-        private OnlineBenchmarks(string folder, Uri server)
+        //Whether the outbox is drained at start: only with online scores on (#1041)
+        private readonly bool _drainAtStart;
+
+        private OnlineBenchmarks(string folder, Uri server, bool drainAtStart)
         {
             _folder = folder;
             _server = server;
+            _drainAtStart = drainAtStart;
 
             if (server != null)
             {
@@ -96,15 +101,18 @@ namespace BS3D.Online
         internal bool CanReachServer => _server != null;
 
         /// <summary>
-        /// Starts the worker, which drains whatever an earlier run left in the outbox. No I/O here. Says in one
-        /// <c>[bench]</c> line where results go.
+        /// Starts the worker, which drains whatever an earlier run left in the outbox when online scores are on. No I/O here.
+        /// Says in one <c>[bench]</c> line where results go.
         /// </summary>
         internal static OnlineBenchmarks Start(GameSettings settings, string folder)
         {
             bool resolved = OnlineScores.TryResolveServer(settings, out Uri server, out string problem, out _);
             Console.WriteLine(resolved ? $"[bench] Results go to {server}" : $"[bench] Results stay in {FolderName}/: {problem}");
-            return new OnlineBenchmarks(folder, resolved ? server : null);
+            return new OnlineBenchmarks(folder, resolved ? server : null, drainAtStart: settings.Online == true);
         }
+
+        /// <summary>Whether this start sends what an earlier run left: only with online scores on (#1041).</summary>
+        internal bool DrainsAtStart => _drainAtStart;
 
         /// <summary>Hands a finished result to the worker, which writes it to the outbox and sends it. Returns its id.</summary>
         internal Guid Send(JsonObject result)
@@ -131,8 +139,11 @@ namespace BS3D.Online
             CancellationToken stop = _stop.Token;
             try
             {
-                //At start: whatever an earlier run left
-                await DrainAsync(null, stop);
+                //At start: whatever an earlier run left, while online scores are on (#1041); with them off since, it waits
+                //for a start with them on, or for the next result (which only a run with them on makes)
+                if (_drainAtStart) await DrainAsync(null, stop);
+                else if (_server != null && Waiting().Length > 0)
+                    Console.WriteLine($"[bench] Results waiting in {FolderName}/ go at a start with online scores on");
 
                 while (!stop.IsCancellationRequested)
                 {
