@@ -22,9 +22,8 @@ Pravidla:
 
 ## 2026-10-30 — #1041 #988 #1006 #1012 #1040 benchmark před releasem, verdikty — desktop (RDT-PC), Claude Code (bs3d-10)
 - Hotovo: #1041 benchmark běží jen s Online scores (Start bez nich: hláška + Settings, argument `benchmark` odmítnut `[bench] not started`, fronta `Benchmarks/` se při startu bez Online neposílá), zavřeno. #988: kanon z menu mimo celý běh (Pi +1,1 ms v trasách), roj klesá po polovinách, když 1024 neudrží (merge 8d6e542b, review c934dcc5).
-- Majitel: Ano na kontrolu issues před releasem a tyto opravy.
+- Majitel: Ano na kontrolu issues před releasem a tyto opravy. Verdikty #1040, #1006 a #1012: OK bez poznámky (30. 10.), zavřeno.
 - ⚠ Skriptovaný benchmark (i na Pi) potřebuje v profilu `"online": true`.
-- Verdikty #1040 (eye, mlčení 6. 11.), #1006 a #1012 (hands): stránka https://claude.ai/artifact/PRQW7QmBVmoWoQUw8PwrDh, db `verdicts`.
 - Otevřené: #1007 rychlost střely (rozhodnutí), poznámky k releasu, `update-ceilings.sh` po vydání (starFloors z #1024), kanon odložené hry v trasách benchmarku.
 
 ## 2026-10-28 — #1012 #1006 #1039 #1007 #988 #827 dávka poznámek majitele — desktop (RDT-PC), Claude Code (bs3d-83)
