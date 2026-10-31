@@ -346,12 +346,12 @@ namespace Prazsky.Core.Render
         /// boulders and the volcano's rivers fall where the desktop's would, and the rivers where the Potato lamps run.</param>
         /// <param name="cityConfig">The host's city config, its seeds already rolled for the launch: the two cities
         /// (<see cref="SceneKind.City"/>, <see cref="SceneKind.NeonCity"/>) are <see cref="City"/>'s towers and cornices
-        /// as the desktop lays them out, one unit box each, the facade's colour and no windows (the facade program is the
-        /// desktop's dearest pixel), over the street level as a plane of asphalt.</param>
+        /// as the desktop lays them out, one unit box each in the facade's colour with windows from a baked tile (#1044), over
+        /// the street level as a plane of asphalt.</param>
         public static PotatoBackdrop For(SceneKind scene, GraphicsDevice graphicsDevice, Effect potatoEffect, float holeRadius, int seedOffset,
             CitySceneConfig cityConfig = null)
         {
-            return scene switch
+            PotatoBackdrop backdrop = scene switch
             {
                 SceneKind.Savanna => Savanna(graphicsDevice, potatoEffect, holeRadius),
                 SceneKind.Desert => Desert(graphicsDevice, potatoEffect, holeRadius),
@@ -369,6 +369,69 @@ namespace Prazsky.Core.Render
                 SceneKind.Dream => Dream(graphicsDevice, potatoEffect),
                 _ => null,
             };
+
+            if (backdrop != null)
+            {
+                backdrop.HazeReach = HazeReachOf(scene);
+                if (scene == SceneKind.Desert)
+                {
+                    //Desert.fx's murk: the erg's own dust-hazed skyline, the horizon carried towards the sand's hue
+                    var desert = new DesertSceneConfig();
+                    backdrop._hazeHue = desert.SandColor.ToVector3();
+                    backdrop._hazeWarmth = desert.HazeWarmth;
+                }
+                backdrop._hazeColor = potatoEffect.Parameters["HazeColor"];
+                backdrop._hazeInverseReach = potatoEffect.Parameters["HazeInverseReach"];
+            }
+
+            return backdrop;
+        }
+
+        /// <summary>
+        /// How far the scene's ground melts into its skyline (#1044, <c>PotatoModel.fx</c>'s <c>HazeAt</c>): the desktop
+        /// scene's own <c>HorizonHazeDistance</c>, read from its config. The two cities have none on the desktop, whose fog
+        /// stands in. Theirs here (<see cref="CITY_HAZE_REACH"/>, <see cref="NEON_HAZE_REACH"/>) were set by eye on the Pi's
+        /// captures, so that the last rank of towers 250 units out reads as distance. Zero for a scene that stands in its
+        /// void, whose dark is its own.
+        /// </summary>
+        public static float HazeReachOf(SceneKind scene) => scene switch
+        {
+            SceneKind.Savanna => new SavannaSceneConfig().HorizonHazeDistance,
+            SceneKind.Desert => new DesertSceneConfig().HorizonHazeDistance,
+            SceneKind.Meadow => new MeadowSceneConfig().HorizonHazeDistance,
+            SceneKind.Mountain => new MountainSceneConfig().HorizonHazeDistance,
+            SceneKind.Volcano => new VolcanoSceneConfig().HorizonHazeDistance,
+            SceneKind.City => CITY_HAZE_REACH,
+            SceneKind.NeonCity => NEON_HAZE_REACH,
+            _ => 0f,
+        };
+
+        /// <summary>The day city's and the neon city's haze, by eye (<see cref="HazeReachOf"/>).</summary>
+        public const float CITY_HAZE_REACH = 600f, NEON_HAZE_REACH = 450f;
+
+        /// <summary>How far the ground melts into the skyline (<see cref="HazeReachOf"/>), 0 for none.</summary>
+        public float HazeReach { get; private set; }
+
+        private EffectParameter _hazeColor, _hazeInverseReach;
+
+        //The desert's murk (Desert.fx): the hue the horizon is carried towards and how far; none elsewhere
+        private Vector3 _hazeHue;
+        private float _hazeWarmth;
+
+        /// <summary>
+        /// What the far ground melts into, linear: the dome's horizon as the dome DRAWS it (<see cref="SkyDome.DrawnLinearAt"/>,
+        /// #551). The rig's horizon is an average over the capture's bottom fifth and can be another hue: under the mountains'
+        /// and the desert's dome it is teal where the dome draws lilac-grey, and the far ridges and dunes stood against the
+        /// sky as a teal band (Desert.fx records the same). The desert carries it on towards the sand's hue, at the horizon's
+        /// own brightness, as Desert.fx's murk does.
+        /// </summary>
+        public Vector3 HazeColorOf(Vector3 drawnHorizon)
+        {
+            if (_hazeWarmth <= 0f) return drawnHorizon;
+
+            var luma = new Vector3(0.2126f, 0.7152f, 0.0722f);
+            Vector3 hue = _hazeHue / MathF.Max(Vector3.Dot(_hazeHue, luma), 1e-3f);
+            return Vector3.Lerp(drawnHorizon, hue * Vector3.Dot(drawnHorizon, luma), _hazeWarmth);
         }
 
         /// <summary>
@@ -1314,9 +1377,14 @@ namespace Prazsky.Core.Render
         /// glows with their emission. The leaf cards are one-sided sheets seen from both sides (#610), so their draws
         /// cull nothing; everything else is a wound solid.
         /// </summary>
-        public void Draw(ICamera camera, BasicEffectParams sceneParams, float time = 0f)
+        /// <param name="drawnHorizon">The dome's horizon as the dome draws it, linear (<see cref="HazeColorOf"/>, #1044).</param>
+        /// <param name="exposure">The player's brightness, for the haze's colour on the display.</param>
+        public void Draw(ICamera camera, BasicEffectParams sceneParams, float time, Vector3 drawnHorizon, float exposure)
         {
             GraphicsDevice device = _device;
+            _hazeColor?.SetValue(PotatoDisplay.ToDisplay(HazeColorOf(drawnHorizon), exposure));
+            _hazeInverseReach?.SetValue(HazeReach > 0f ? 1f / HazeReach : 0f);
+
             RasterizerState raster = device.RasterizerState;
             device.BlendState = BlendState.Opaque;
             device.DepthStencilState = DepthStencilState.Default;

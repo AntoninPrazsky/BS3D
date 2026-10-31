@@ -1557,6 +1557,19 @@ struct VertexLitOutput
     float4 Surface : TEXCOORD0;
 };
 
+//THE HAZE (#1044): the backdrop melting into the skyline as the desktop's scenes melt theirs - Meadow.fx's, Savanna.fx's,
+//Desert.fx's and Mountain.fx's own rule, lerp(colour, HorizonColor, (distance / HorizonHazeDistance)^2), the scene's
+//distance and the dome's horizon as the dome draws it (the desert's carried towards its sand). Without it the Pi's ground ran at full strength to the grid's last row and stopped
+//there against the sky, and a far ridge was as dark as a near one. Taken at the vertex: it changes over hundreds of units
+float3 HazeColor;        //the dome's drawn horizon, display-encoded (PotatoBackdrop.HazeColorOf, PotatoDisplay on the CPU)
+float HazeInverseReach;  //one over the scene's HorizonHazeDistance; 0 for no haze (the scenes that stand in their void)
+
+float HazeAt(float3 worldPosition)
+{
+    float h = saturate(distance(worldPosition, EyePosition) * HazeInverseReach);
+    return h * h;
+}
+
 VertexLitOutput PotatoVertexLitVS(VertexInput input, InstanceInput instance)
 {
     VertexOutput lit = PotatoVS(input, instance);
@@ -1564,6 +1577,7 @@ VertexLitOutput PotatoVertexLitVS(VertexInput input, InstanceInput instance)
     VertexLitOutput output;
     output.Position = lit.Position;
     output.Surface = ToScreen(Shade(lit.WorldPosition, lit.WorldNormal, instance.Custom, 1, lit.SceneDiffuse, lit.SceneSpecular, false));
+    output.Surface.rgb = lerp(output.Surface.rgb, HazeColor, HazeAt(lit.WorldPosition));
 
     return output;
 }
@@ -1624,6 +1638,7 @@ struct FacadeOutput
     float4 Surface : TEXCOORD0;  //the wall lit at the vertex, display-encoded
     float4 Grid : TEXCOORD1;     //xy: the face in cells from the interior's corner; zw: the cells across and up
     float4 Building : TEXCOORD2; //x: whether this face carries windows; y: the tower's lamp in the neon city; zw: its tile's shift
+    float Haze : TEXCOORD3;      //the haze over the wall and its windows alike
 };
 
 //Clouds.fxh's hash, frac/dot/multiply only: one roll in [0,1) off a point
@@ -1667,6 +1682,7 @@ FacadeOutput PotatoFacadeVS(VertexInput input, InstanceInput instance)
     float roll = FacadeRoll(floor(centre.xz * 0.37));
     output.Building = float4(step(1.0, count.x) * step(1.0, count.y) * vertical, step(0.5, roll),
         floor(roll * 64.0), floor(frac(roll * 13.0) * 64.0));
+    output.Haze = HazeAt(lit.WorldPosition);
 
     return output;
 }
@@ -1685,6 +1701,7 @@ float4 PotatoFacadePS(FacadeOutput input) : COLOR0
 
     float3 colour = lerp(input.Surface.rgb, FacadeGlass, tile.r * inside);
     colour = lerp(colour, lamp, tile.g * inside);
+    colour = lerp(colour, HazeColor, input.Haze);
 
     return float4(colour, input.Surface.a);
 }
