@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-10-31 — #988 dělo zpět v turách benchmarku, swarm na Pi — Pi (BS3DServer), Claude Code
+- Hotovo: menu dělo (#1040) zase stojí v turách benchmarku a swarm ho dál vynechává (`BackdropScreen.MenuGunInFrame`: `BenchmarkSwarm == null` místo `!Benchmarking` z 8d8bd8ab). Sestup swarmu z 8d8bd8ab zůstává.
+- Majitel: „Dělo bych nevyřazoval“ a „vrať dělo do tur. Na Pi nyní nikdo hru nehraje ani neposílá výsledky benchmarku, takže to nevadí.“
+- Změřeno na Pi (nativní 1080p, Potato, pořadí G M M G): tury s dělem +1,0 až +1,4 ms, město a fyzika beze změny, swarm 333 koulí ve všech čtyřech bězích (433 nevydrželo). Čísla jsou v #988.
+- ⚠ Worktree přidaný z ~/BS3D na Pi zdědí řídký checkout. `git sparse-checkout disable` v něm platí jen pro něj (`extensions.worktreeConfig`).
+- Otevřené: vlastní segmenty Pi (tura Forest na Potato nemá les, jen oblohu a ostrov).
+
 ## 2026-10-30 — #none release v0.5.1 — desktop (RDT-PC), Claude Code (bs3d-10)
 - Hotovo: v0.5.1 vydána (tag na 9738f584, run 41074849908, zip 402 MB, linux-arm64 384 MB). Zkušební běh na stejném commitu předem zelený. Stažený zip: SHA256SUMS OK, jedna složka (BS3D.exe + Content/Levels/Music/Sfx), v rohu menu `v0.5.1`, shadery `set 2f86e179` jako lokálně.
 - Majitel: verze 0.5.1, obrázek nechal na mně (Caldera na Ultra), rychlost střely (#1007) zatím neřešit.
