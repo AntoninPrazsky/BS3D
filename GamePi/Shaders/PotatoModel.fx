@@ -1582,6 +1582,120 @@ technique PotatoVertexLit
     }
 };
 
+//THE CITIES' WINDOWS (#1044): a tower's wall lit at the vertex as PotatoVertexLit's, and its windows laid out per pixel
+//as City.fxh's CityPS lays them out. A wall margin is held at every edge, as many windows as fit at the config's pitch
+//spread evenly across the interior, each one glass and lit or not by a roll of its own. The towers are the backdrop's
+//nearest and largest surfaces. Without windows the neon city was black boxes and the day city beige ones, and the two
+//scenes lost what makes them cities. The desktop's facade program (its kinds, frames, sills, bars, grain and signs) is
+//its dearest pixel. This keeps the layout and the lit share: a floor and two lerps a pixel, the rest the vertex's.
+//
+//The colours are the CPU's, display-encoded once a frame (PotatoDisplay.ToDisplay): the dark glass, and two lamps - the
+//day city's warm and cool, the neon city's magenta and cyan.
+float2 FacadePitch;      //CitySceneConfig.WindowPitchX/Y: the target spacing of the windows across and up
+float2 FacadeFill;       //WindowFillX/Y: the share of a window's cell that is glass
+float FacadeMargin;      //WindowMargin: the wall kept at every edge of a face
+float FacadeLitFraction; //WindowLitFraction: the share of windows lit
+float FacadeNeon;        //1 in the neon city: the lamp is the tower's colour, and one window in six the other
+float3 FacadeGlass;      //the dark pane, display-encoded
+float3 FacadeLampA;      //the day city's warm lamp, or the neon city's magenta; display-encoded
+float3 FacadeLampB;      //the day city's cool lamp, or the neon city's cyan
+
+struct FacadeOutput
+{
+    float4 Position : POSITION0;
+    float4 Surface : TEXCOORD0;  //the wall lit at the vertex, display-encoded
+    float4 Grid : TEXCOORD1;     //xy: the face in cells from the interior's corner; zw: the cells across and up
+    float2 Building : TEXCOORD2; //x: whether this face carries windows; y: the tower's roll
+};
+
+//Clouds.fxh's hash, frac/dot/multiply only: one roll in [0,1) off a cell
+float FacadeRoll(float2 p)
+{
+    float3 p3 = frac(float3(p.x, p.y, p.x) * 0.1031);
+    p3 += dot(p3, float3(p3.y, p3.z, p3.x) + 33.33);
+    return frac((p3.x + p3.y) * p3.z);
+}
+
+FacadeOutput PotatoFacadeVS(VertexInput input, InstanceInput instance)
+{
+    VertexOutput lit = PotatoVS(input, instance);
+
+    FacadeOutput output;
+    output.Position = lit.Position;
+    output.Surface = ToScreen(Shade(lit.WorldPosition, lit.WorldNormal, instance.Custom, 1, lit.SceneDiffuse, lit.SceneSpecular, false));
+
+    //A tower is the unit box scaled and placed: its centre is the instance's translation and its size the lengths of
+    //the three axes. Every setback tier stands on the tower's centre, so the tiers share one roll
+    float3 centre = instance.WorldRow4.xyz;
+    float3 size = float3(length(instance.WorldRow1.xyz), length(instance.WorldRow2.xyz), length(instance.WorldRow3.xyz));
+
+    //Which world axis runs across this face, and the face's own frame from the centre; vertical is always world Y
+    float3 normal = normalize(lit.WorldNormal);
+    float facingX = step(abs(normal.z), abs(normal.x));
+    float3 fromCentre = lit.WorldPosition - centre;
+    float2 along = float2(lerp(fromCentre.x, fromCentre.z, facingX), fromCentre.y);
+    float2 halfSize = float2(lerp(size.x, size.z, facingX), size.y) * 0.5;
+
+    //The interior after the margin, the whole windows that fit at the pitch, and the pitch that fills it evenly. A face
+    //has vertices of its own, so these are one value across it, and the position in cells is linear across it
+    float2 interior = halfSize - FacadeMargin;
+    float2 count = floor(interior * 2.0 / FacadePitch + 0.5);
+    float2 cellPitch = interior * 2.0 / max(count, 1.0);
+    output.Grid = float4((along + interior) / cellPitch, count);
+
+    //Roofs carry none, and a face too small for one window none
+    float vertical = 1.0 - step(0.5, abs(normal.y));
+    output.Building = float2(step(1.0, count.x) * step(1.0, count.y) * vertical, FacadeRoll(floor(centre.xz * 0.37)));
+
+    return output;
+}
+
+float4 PotatoFacadePS(FacadeOutput input) : COLOR0
+{
+    float2 grid = input.Grid.xy;
+    float2 count = input.Grid.zw;
+    float2 cell = floor(grid);
+    float2 within = abs(frac(grid) - 0.5) * 2.0;
+
+    //Band-limited as CityPS is: once a pixel covers more than a window, the pattern fades to its own average instead of
+    //aliasing into a moire of lit and unlit floors. Each edge is as soft as a pixel is wide, in cells
+    float2 footprint = fwidth(grid);
+    float resolvable = saturate(1.0 - max(footprint.x, footprint.y));
+    float2 shape = saturate((FacadeFill - within) / max(footprint * 2.0, 1e-4) + 0.5);
+
+    //Only the interior's cells: the margin is wall
+    float inside = step(0.0, cell.x) * step(cell.x, count.x - 1.0) * step(0.0, cell.y) * step(cell.y, count.y - 1.0);
+    float area = FacadeFill.x * FacadeFill.y * input.Building.x;
+    float window = shape.x * shape.y * inside * input.Building.x;
+
+    //Each window's own roll, the tower's roll moving the lattice so no two towers wear one pattern
+    float roll = FacadeRoll(cell + input.Building.y * 917.0);
+    float lit = step(1.0 - FacadeLitFraction, roll);
+
+    //The day city: warm or cool, window by window. The neon city: the tower's colour, one window in six the other
+    float pickWindow = step(0.5, frac(roll * 7.31));
+    float spark = step(0.83, frac(roll * 13.7));
+    float pick = lerp(pickWindow, abs(step(0.5, input.Building.y) - spark), FacadeNeon);
+    float3 lamp = lerp(FacadeLampA, FacadeLampB, pick);
+
+    //Glass where the facade is glass, and the lamp over it where the window is lit; at a distance, both as averages
+    float glass = lerp(area, window, resolvable);
+    float shine = lerp(area * FacadeLitFraction, window * lit, resolvable);
+    float3 colour = lerp(input.Surface.rgb, FacadeGlass, glass);
+    colour = lerp(colour, lamp, shine);
+
+    return float4(colour, input.Surface.a);
+}
+
+technique PotatoFacade
+{
+    pass P0
+    {
+        VertexShader = compile POTATO_VS PotatoFacadeVS();
+        PixelShader = compile POTATO_PS PotatoFacadePS();
+    }
+};
+
 technique PotatoBand
 {
     pass P0

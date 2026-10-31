@@ -754,8 +754,10 @@ namespace Prazsky.Core.Render
             for (int i = 0; i < near.Count; i++) (towers[i], bounds[i]) = (near[i].Instance, near[i].Bounds);
             var visible = new ModelInstance[near.Count];
             var frustum = new BoundingFrustum(Matrix.Identity);
+            Action applyFacade = FacadeOf(potatoEffect, config, neon);
             int PrepareVisible(ICamera camera)
             {
+                applyFacade();
                 frustum.Matrix = camera.View * camera.Projection;
                 int count = 0;
                 for (int i = 0; i < towers.Length; i++)
@@ -771,7 +773,7 @@ namespace Prazsky.Core.Render
 
             Vector3 facade = (neon ? config.FacadeNeonColor : config.FacadeColor).ToVector3();
             BoxMesh box = backdrop.Own(new BoxMesh(graphicsDevice, 1f, 1f, 1f));
-            var renderer = new InstancedModelRenderer(graphicsDevice, box, ColorSpace.LinearToSrgb(facade), potatoEffect) { PotatoVertexLit = true, SpecularAmbientStrength = 0f };
+            var renderer = new InstancedModelRenderer(graphicsDevice, box, ColorSpace.LinearToSrgb(facade), potatoEffect) { PotatoVertexLit = true, PotatoFacade = true, SpecularAmbientStrength = 0f };
             backdrop._owned.Add(renderer);
             backdrop._renderers.Add(renderer);
             backdrop._draws.Add(new DrawItem { Renderer = renderer, Instances = visible, Prepare = PrepareVisible });
@@ -779,6 +781,50 @@ namespace Prazsky.Core.Render
             backdrop._census.Add($"city {towers.Length}x{box.PrimitiveCount * 3} of {city.Buildings.Length} within {CITY_REACH:F0} ({city.TowerCount} towers in all; the frustum's set a frame)");
 
             return backdrop;
+        }
+
+        /// <summary>
+        /// The neon city's two window colours, <c>City.fxh</c>'s own (its <c>neonMagenta</c> and <c>neonCyan</c>): the
+        /// skyline runs on the pink and blue of a neon street.
+        /// </summary>
+        private static readonly Vector3 NEON_MAGENTA = new(1.0f, 0.04f, 0.85f), NEON_CYAN = new(0.05f, 0.85f, 1.0f);
+
+        /// <summary>
+        /// The towers' windows (#1044, <c>PotatoModel.fx</c>'s <c>PotatoFacade</c>): the config's layout and lit share, and
+        /// three colours curved to the display at the player's brightness (<see cref="PotatoDisplay.ToDisplay"/>). The
+        /// effect is every Potato renderer's, so the city states them before its own draw every frame.
+        /// <list type="bullet">
+        /// <item>The day city's lamps are the config's warm and cool at its window brightness.</item>
+        /// <item>The neon city's lamps are magenta and cyan at the neon look's brightness, the tower choosing which.</item>
+        /// <item>The glass is the config's dark pane. By day it also carries the sky it mirrors (the desktop's reflection
+        /// boost), which is what a pane reads as from a distance.</item>
+        /// </list>
+        /// </summary>
+        private static Action FacadeOf(Effect potatoEffect, CitySceneConfig config, bool neon)
+        {
+            EffectParameterCollection parameters = potatoEffect.Parameters;
+            EffectParameter exposure = parameters["Exposure"], pitch = parameters["FacadePitch"], fill = parameters["FacadeFill"],
+                margin = parameters["FacadeMargin"], litFraction = parameters["FacadeLitFraction"], neonFlag = parameters["FacadeNeon"],
+                glass = parameters["FacadeGlass"], lampA = parameters["FacadeLampA"], lampB = parameters["FacadeLampB"];
+
+            Vector3 pane = config.WindowGlassColor.ToVector3() * (neon ? 1f : config.WindowReflectionBoost);
+            Vector3 a = neon ? NEON_MAGENTA * config.NeonLook.WindowBrightness : config.WindowWarm.ToVector3() * config.WindowBrightness;
+            Vector3 b = neon ? NEON_CYAN * config.NeonLook.WindowBrightness : config.WindowCool.ToVector3() * config.WindowBrightness;
+            var windowPitch = new Vector2(config.WindowPitchX, config.WindowPitchY);
+            var windowFill = new Vector2(config.WindowFillX, config.WindowFillY);
+
+            return () =>
+            {
+                float brightness = exposure?.GetValueSingle() ?? 1f;
+                pitch?.SetValue(windowPitch);
+                fill?.SetValue(windowFill);
+                margin?.SetValue(config.WindowMargin);
+                litFraction?.SetValue(config.WindowLitFraction);
+                neonFlag?.SetValue(neon ? 1f : 0f);
+                glass?.SetValue(PotatoDisplay.ToDisplay(pane, brightness));
+                lampA?.SetValue(PotatoDisplay.ToDisplay(a, brightness));
+                lampB?.SetValue(PotatoDisplay.ToDisplay(b, brightness));
+            };
         }
 
         /// <summary>
