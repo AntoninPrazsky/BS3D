@@ -311,6 +311,20 @@ h3 { font-size: 1.45rem; }
   .compare.is-live .compare-pane.is-shown { transition: opacity 0.18s ease, visibility 0s; }
 }
 
+/* A looping clip (#1042) is shown at its own size like a picture drawn for the post, centred and never enlarged. A grid figure
+   puts two or three pictures or clips side by side, each with a short label under it, and the caption under them all; on a
+   phone it is one column, since a third of a phone is too small to read a picture by */
+.post figure video { display: block; width: auto; max-width: 100%; height: auto; margin-inline: auto; border-radius: var(--radius); background: var(--bg-sunken); }
+.post figure.grid { display: grid; gap: 14px 12px; align-items: start; }
+.post figure.grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.post figure.grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.post figure.grid img, .post figure.grid video { width: 100%; }
+.post figure.grid figcaption { grid-column: 1 / -1; margin-top: 0; }
+.cell-label { display: block; margin-top: 6px; color: var(--muted); font-size: 0.85em; text-align: center; }
+@media (max-width: 640px) {
+  .post figure.grid-2, .post figure.grid-3 { grid-template-columns: minmax(0, 1fr); }
+}
+
 .post-more { margin-top: 44px; padding-top: 20px; border-top: 1px solid var(--line); }
 .post-more p { margin: 0 0 0.5em; }
 .post-more span { display: inline-block; min-width: 4.5em; color: var(--muted); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.06em; }

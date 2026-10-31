@@ -12,6 +12,9 @@ module.exports = function (eleventyConfig) {
     // And the game's sound behind the page's toggle (#950): the game's own files, copied at the build, so the page never keeps
     // a copy that could fall behind them
     eleventyConfig.addPassthroughCopy({ "../Game/Music/menu.ogg": "audio/menu.ogg", "../Game/Sfx/shoot.ogg": "audio/shoot.ogg" });
+    // The posts' looping clips (#1042). Only their own folder: src/video is also where Tools/web-capture.ps1 writes its
+    // captures, which no page uses yet and which are not to be uploaded
+    eleventyConfig.addPassthroughCopy("src/video/blog");
 
     // A post's date as a reader says it, for the blog (src/blog/*.md, tagged "posts" by blog.11tydata.json)
     eleventyConfig.addFilter("readableDate", (date) =>
@@ -21,10 +24,10 @@ module.exports = function (eleventyConfig) {
     eleventyConfig.addFilter("isoDate", (date) => date.toISOString());
 
     // A post's HTML for the feed: a feed reader shows it away from this site, so every root-relative link and picture
-    // is given the site's address
+    // is given the site's address (a clip's poster too)
     eleventyConfig.addFilter("absoluteLinks", (html) =>
         String(html)
-            .replace(/(href|src)="\/(?!\/)/g, `$1="${site.url}/`)
+            .replace(/(href|src|poster)="\/(?!\/)/g, `$1="${site.url}/`)
             .replace(/srcset="([^"]*)"/g, (_, list) => `srcset="${list.replace(/(^|,\s*)\/(?!\/)/g, `$1${site.url}/`)}"`));
 
     // A post is Markdown and nothing else: no Liquid pass over it, so a brace in a code sample is only a brace

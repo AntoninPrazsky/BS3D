@@ -20,6 +20,18 @@ Pravidla:
 
 ---
 
+## 2026-10-31 — #1042 blog: LCD panel serveru — Pi (BS3DServer), Claude Code
+- Hotovo: článek „Seventeen greys on a screen that has two“ (FRC a 17 odstínů šedi, V0 místo podsvícení, siréna, STOPPED). Má fotky panelu, simulované screenshoty a čtyři smyčkové klipy z GIFů BS3D-LCD (3,6 MB GIF → 0,82 MB WebM).
+- Nově na webu:
+  - `figure.grid`;
+  - `video.clip` s `js/clips.js`, který klip pouští jen ve výhledu a nikdy při omezeném pohybu;
+  - passthrough `src/video/blog`;
+  - `poster` v `absoluteLinks`.
+- Majitel: „V tom článku o LCD určitě použij obrázky, animace i fotografie, které jsou na GitHubu.“
+- ⚠ Na Pi je Node v `~/.local/opt/node/bin` (mimo PATH).
+- ⚠ Simulované LCD zmenšené prohlížečem čtyřikrát dělá moaré. Řešení: kopie o šířce 710 px a `srcset`.
+- Otevřené: publikace webu (majitel), #1043 (článek o benchmarku na Pi).
+
 ## 2026-10-31 — #988 dělo zpět v turách benchmarku, swarm na Pi — Pi (BS3DServer), Claude Code
 - Hotovo: menu dělo (#1040) zase stojí v turách benchmarku a swarm ho dál vynechává (`BackdropScreen.MenuGunInFrame`: `BenchmarkSwarm == null` místo `!Benchmarking` z 8d8bd8ab). Sestup swarmu z 8d8bd8ab zůstává.
 - Majitel: „Dělo bych nevyřazoval“ a „vrať dělo do tur. Na Pi nyní nikdo hru nehraje ani neposílá výsledky benchmarku, takže to nevadí.“
