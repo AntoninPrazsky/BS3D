@@ -986,6 +986,10 @@ namespace Prazsky.Core.Render
         //The mountains' own: finer than the other reliefs, for ridges that read as ridges and not as teeth (#1044); one
         //blended grid, where the 96-cell one was two
         private const int MOUNTAIN_CELLS = 160;
+
+        //The half-widths of the snow's edges on the mountains (#1044): in the normal's height and in world units. Narrow, for
+        //the desktop's sharp edge; wide enough that the blend is soft across a cell rather than a triangle's step
+        private const float SNOW_EDGE_SLOPE = 0.05f, SNOW_EDGE_HEIGHT = 8f;
         private const float MOUNTAIN_EXTENT = 600f, VOLCANO_EXTENT = 560f, MOON_EXTENT = 480f;
 
         private static PotatoBackdrop Mountain(GraphicsDevice graphicsDevice, Effect potatoEffect, float holeRadius)
@@ -993,20 +997,24 @@ namespace Prazsky.Core.Render
             var config = new MountainSceneConfig();
             float Height(float x, float z) => TerrainMirror.Mountain(x, z, config);
 
-            //Mountain.fx's rule, smoothed as the desktop smooths it: snow thins from SnowSlope's gentleness to RockSlope's
-            //steepness, and lies where the face is also above the snowline (SnowlineLow to SnowlineHigh), on the clearing's
-            //floor (#504: the basin is snow), or gentle enough by LowlandSnowSlope to hold it anywhere (#959: the valley
-            //floors). Taken at every vertex and blended there (PotatoVertexLitBlend). It was a triangle's choice, and the
-            //slopes were dark teeth with hard edges
-            float lowlandSlope = (config.RockSlope + config.SnowSlope) * 0.5f + config.LowlandSnowSlope;
+            //Mountain.fx's rule at the middle of each of its bands, as the triangles had it: snow where the face is gentler
+            //than the middle of RockSlope..SnowSlope and either above the middle of the snowline, on the clearing's floor
+            //(#504: the basin is snow), or gentle enough by LowlandSnowSlope to hold it anywhere (#959: the valley floors).
+            //Each edge is a narrow smoothstep taken at every vertex, and PotatoVertexLitBlend's pixel crosses from rock to
+            //snow where the interpolated share does: the desktop's edge is sharp, near-black rock against bright snow
+            //(#504). A triangle's choice made the slopes dark teeth with hard edges; the band's full width, blended at the
+            //vertex, turned every slope a beige half-snow
+            float slope = (config.RockSlope + config.SnowSlope) * 0.5f;
+            float lowlandSlope = slope + config.LowlandSnowSlope;
+            float snowline = (config.SnowlineLow + config.SnowlineHigh) * 0.5f;
             float floor = config.ClearingRadius + config.ClearingTransition * 0.3f;
             float Snow(Vector3 position, Vector3 normal)
             {
-                float slope = ShaderMath.SmoothStep(config.RockSlope, config.SnowSlope, normal.Y);
-                float high = ShaderMath.SmoothStep(config.SnowlineLow, config.SnowlineHigh, position.Y);
-                float basin = 1f - ShaderMath.SmoothStep(floor - 30f, floor + 30f, MathF.Sqrt(position.X * position.X + position.Z * position.Z));
-                float lowland = ShaderMath.SmoothStep(lowlandSlope - 0.05f, lowlandSlope + 0.05f, normal.Y);
-                return slope * MathF.Max(MathF.Max(high, basin), lowland);
+                float gentle = ShaderMath.SmoothStep(slope - SNOW_EDGE_SLOPE, slope + SNOW_EDGE_SLOPE, normal.Y);
+                float high = ShaderMath.SmoothStep(snowline - SNOW_EDGE_HEIGHT, snowline + SNOW_EDGE_HEIGHT, position.Y);
+                float basin = 1f - ShaderMath.SmoothStep(floor - SNOW_EDGE_HEIGHT, floor + SNOW_EDGE_HEIGHT, MathF.Sqrt(position.X * position.X + position.Z * position.Z));
+                float lowland = ShaderMath.SmoothStep(lowlandSlope - SNOW_EDGE_SLOPE, lowlandSlope + SNOW_EDGE_SLOPE, normal.Y);
+                return gentle * MathF.Max(MathF.Max(high, basin), lowland);
             }
 
             var backdrop = new PotatoBackdrop(graphicsDevice);
