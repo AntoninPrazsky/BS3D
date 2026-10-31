@@ -754,7 +754,9 @@ namespace Prazsky.Core.Render
             for (int i = 0; i < near.Count; i++) (towers[i], bounds[i]) = (near[i].Instance, near[i].Bounds);
             var visible = new ModelInstance[near.Count];
             var frustum = new BoundingFrustum(Matrix.Identity);
-            Action applyFacade = FacadeOf(potatoEffect, config, neon);
+            Texture2D tile = FacadeTile(graphicsDevice, config, neon);
+            backdrop._owned.Add(tile);
+            Action applyFacade = FacadeOf(graphicsDevice, potatoEffect, config, neon, tile);
             int PrepareVisible(ICamera camera)
             {
                 applyFacade();
@@ -789,9 +791,12 @@ namespace Prazsky.Core.Render
         /// </summary>
         private static readonly Vector3 NEON_MAGENTA = new(1.0f, 0.04f, 0.85f), NEON_CYAN = new(0.05f, 0.85f, 1.0f);
 
+        /// <summary>The windows across the baked tile (<c>PotatoModel.fx</c>'s <c>FACADE_TILE_WINDOWS</c>), and the texels to a window.</summary>
+        public const int FACADE_TILE_WINDOWS = 8, FACADE_TILE_TEXELS = 16;
+
         /// <summary>
-        /// The towers' windows (#1044, <c>PotatoModel.fx</c>'s <c>PotatoFacade</c>): the config's layout and lit share, and
-        /// three colours curved to the display at the player's brightness (<see cref="PotatoDisplay.ToDisplay"/>). The
+        /// The towers' windows (#1044, <c>PotatoModel.fx</c>'s <c>PotatoFacade</c>): the config's layout, the baked tile
+        /// and three colours curved to the display at the player's brightness (<see cref="PotatoDisplay.ToDisplay"/>). The
         /// effect is every Potato renderer's, so the city states them before its own draw every frame.
         /// <list type="bullet">
         /// <item>The day city's lamps are the config's warm and cool at its window brightness.</item>
@@ -800,32 +805,101 @@ namespace Prazsky.Core.Render
         /// boost), which is what a pane reads as from a distance.</item>
         /// </list>
         /// </summary>
-        private static Action FacadeOf(Effect potatoEffect, CitySceneConfig config, bool neon)
+        private static Action FacadeOf(GraphicsDevice device, Effect potatoEffect, CitySceneConfig config, bool neon, Texture2D tile)
         {
             EffectParameterCollection parameters = potatoEffect.Parameters;
-            EffectParameter exposure = parameters["Exposure"], pitch = parameters["FacadePitch"], fill = parameters["FacadeFill"],
-                margin = parameters["FacadeMargin"], litFraction = parameters["FacadeLitFraction"], neonFlag = parameters["FacadeNeon"],
-                glass = parameters["FacadeGlass"], lampA = parameters["FacadeLampA"], lampB = parameters["FacadeLampB"];
+            EffectParameter exposure = parameters["Exposure"], pitch = parameters["FacadePitch"], margin = parameters["FacadeMargin"],
+                neonFlag = parameters["FacadeNeon"], glass = parameters["FacadeGlass"], lampA = parameters["FacadeLampA"],
+                lampB = parameters["FacadeLampB"], tileParam = parameters["FacadeTile"];
 
             Vector3 pane = config.WindowGlassColor.ToVector3() * (neon ? 1f : config.WindowReflectionBoost);
             Vector3 a = neon ? NEON_MAGENTA * config.NeonLook.WindowBrightness : config.WindowWarm.ToVector3() * config.WindowBrightness;
             Vector3 b = neon ? NEON_CYAN * config.NeonLook.WindowBrightness : config.WindowCool.ToVector3() * config.WindowBrightness;
             var windowPitch = new Vector2(config.WindowPitchX, config.WindowPitchY);
-            var windowFill = new Vector2(config.WindowFillX, config.WindowFillY);
 
             return () =>
             {
                 float brightness = exposure?.GetValueSingle() ?? 1f;
                 pitch?.SetValue(windowPitch);
-                fill?.SetValue(windowFill);
                 margin?.SetValue(config.WindowMargin);
-                litFraction?.SetValue(config.WindowLitFraction);
                 neonFlag?.SetValue(neon ? 1f : 0f);
                 glass?.SetValue(PotatoDisplay.ToDisplay(pane, brightness));
                 lampA?.SetValue(PotatoDisplay.ToDisplay(a, brightness));
                 lampB?.SetValue(PotatoDisplay.ToDisplay(b, brightness));
+                tileParam?.SetValue(tile);
+
+                //The tile wraps and is read through its mips: trilinear, as the island's stone is not
+                device.SamplerStates[0] = SamplerState.LinearWrap;
             };
         }
+
+        /// <summary>The baked tile on the device, its mips each a box filter of the one before, wrapping as the tile does.</summary>
+        private static Texture2D FacadeTile(GraphicsDevice device, CitySceneConfig config, bool neon)
+        {
+            int size = FACADE_TILE_WINDOWS * FACADE_TILE_TEXELS;
+            Color[] level = BakeFacadeTile(config, neon);
+            var texture = new Texture2D(device, size, size, mipmap: true, SurfaceFormat.Color);
+            for (int mip = 0; size >= 1 && mip < texture.LevelCount; mip++, size >>= 1)
+            {
+                texture.SetData(mip, null, level, 0, level.Length);
+                if (size == 1) break;
+                int half = size >> 1;
+                var next = new Color[half * half];
+                for (int y = 0; y < half; y++)
+                    for (int x = 0; x < half; x++)
+                    {
+                        Color p = level[2 * y * size + 2 * x], q = level[2 * y * size + 2 * x + 1];
+                        Color r = level[(2 * y + 1) * size + 2 * x], t = level[(2 * y + 1) * size + 2 * x + 1];
+                        next[y * half + x] = new Color((p.R + q.R + r.R + t.R + 2) / 4, (p.G + q.G + r.G + t.G + 2) / 4, (p.B + q.B + r.B + t.B + 2) / 4, 255);
+                    }
+                level = next;
+            }
+
+            return texture;
+        }
+
+        /// <summary>
+        /// The tile of <see cref="FACADE_TILE_WINDOWS"/> by as many windows, <see cref="FACADE_TILE_TEXELS"/> texels to a
+        /// window. Each window's cell has <c>CityPS</c>'s rectangle of glass at the config's fill, centred, its edge
+        /// antialiased by four by four samples a texel.
+        /// <list type="bullet">
+        /// <item>Red is where the cell is glass.</item>
+        /// <item>Green is where the glass is lit: each window rolled once against the config's lit share.</item>
+        /// <item>Blue is the window's lamp. By day it is warm or cool, half and half. In the neon city it is one window in
+        /// six that sparks the other colour.</item>
+        /// </list>
+        /// No device, for the tests.
+        /// </summary>
+        public static Color[] BakeFacadeTile(CitySceneConfig config, bool neon)
+        {
+            const int n = FACADE_TILE_WINDOWS, texels = FACADE_TILE_TEXELS, samples = 4;
+            int size = n * texels;
+            var tile = new Color[size * size];
+            for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                {
+                    int cellX = x / texels, cellY = y / texels;
+                    int glass = 0;
+                    for (int sy = 0; sy < samples; sy++)
+                        for (int sx = 0; sx < samples; sx++)
+                        {
+                            float u = ((x % texels) + (sx + 0.5f) / samples) / texels, v = ((y % texels) + (sy + 0.5f) / samples) / texels;
+                            if (MathF.Abs(u - 0.5f) * 2f < config.WindowFillX && MathF.Abs(v - 0.5f) * 2f < config.WindowFillY) glass++;
+                        }
+
+                    float coverage = (float)glass / (samples * samples);
+                    float litRoll = WindowRoll(cellX, cellY, 1), pickRoll = WindowRoll(cellX, cellY, 2);
+                    bool lit = litRoll < config.WindowLitFraction;
+                    bool pick = neon ? pickRoll >= 0.83f : pickRoll >= 0.5f;
+
+                    tile[y * size + x] = new Color(coverage, lit ? coverage : 0f, pick ? 1f : 0f);
+                }
+
+            return tile;
+        }
+
+        //A window's roll in [0,1) for a salt: the shared shader hash off the cell, the salt moving the lattice
+        private static float WindowRoll(int x, int y, int salt) => ShaderMath.Hash22(x + salt * 17.31f, y - salt * 9.17f).X * 0.5f + 0.5f;
 
         /// <summary>
         /// The instances' Custom made the Potato effect's open occluder, in place: the city writes a building's facade

@@ -1582,33 +1582,51 @@ technique PotatoVertexLit
     }
 };
 
-//THE CITIES' WINDOWS (#1044): a tower's wall lit at the vertex as PotatoVertexLit's, and its windows laid out per pixel
-//as City.fxh's CityPS lays them out. A wall margin is held at every edge, as many windows as fit at the config's pitch
-//spread evenly across the interior, each one glass and lit or not by a roll of its own. The towers are the backdrop's
-//nearest and largest surfaces. Without windows the neon city was black boxes and the day city beige ones, and the two
-//scenes lost what makes them cities. The desktop's facade program (its kinds, frames, sills, bars, grain and signs) is
-//its dearest pixel. This keeps the layout and the lit share: a floor and two lerps a pixel, the rest the vertex's.
+//THE CITIES' WINDOWS (#1044): a tower's wall lit at the vertex as PotatoVertexLit's, and its windows laid out as
+//City.fxh's CityPS lays them out. A wall margin is held at every edge, and as many windows as fit at the config's pitch
+//are spread evenly across the interior. The towers are the backdrop's nearest and largest surfaces. Without windows the
+//neon city was black boxes and the day city beige ones, and the two scenes lost what makes them cities. The desktop's
+//facade program (its kinds, frames, sills, bars, grain and signs) is its dearest pixel.
+//
+//Here the vertex lays the grid out, and the windows themselves are a baked tile of eight by eight (PotatoBackdrop's
+//FacadeTile) read once a pixel. Its red is where the cell is glass, its green where the glass is lit (the config's lit
+//share, rolled per window), and its blue each window's pick between the two lamps. Each tower reads the tile moved by
+//whole cells of its own, so no two wear one pattern. The tile's mips give a far tower its windows' average, which is
+//CityPS's band-limiting for nothing. Computed per pixel (the cell, its roll, the edges, the fade), the windows cost the
+//Pi 2.4 to 2.9 ms at native.
 //
 //The colours are the CPU's, display-encoded once a frame (PotatoDisplay.ToDisplay): the dark glass, and two lamps - the
 //day city's warm and cool, the neon city's magenta and cyan.
 float2 FacadePitch;      //CitySceneConfig.WindowPitchX/Y: the target spacing of the windows across and up
-float2 FacadeFill;       //WindowFillX/Y: the share of a window's cell that is glass
 float FacadeMargin;      //WindowMargin: the wall kept at every edge of a face
-float FacadeLitFraction; //WindowLitFraction: the share of windows lit
-float FacadeNeon;        //1 in the neon city: the lamp is the tower's colour, and one window in six the other
+float FacadeNeon;        //1 in the neon city: the lamp is the tower's colour, and the tile's blue says which windows spark the other
 float3 FacadeGlass;      //the dark pane, display-encoded
 float3 FacadeLampA;      //the day city's warm lamp, or the neon city's magenta; display-encoded
 float3 FacadeLampB;      //the day city's cool lamp, or the neon city's cyan
+
+texture FacadeTile;
+sampler2D FacadeSampler = sampler_state
+{
+    Texture = <FacadeTile>;
+    AddressU = Wrap;
+    AddressV = Wrap;
+    MinFilter = Linear;
+    MagFilter = Linear;
+    MipFilter = Linear;
+};
+
+//PotatoBackdrop.FACADE_TILE_WINDOWS: the windows across the tile
+#define FACADE_TILE_WINDOWS 8.0
 
 struct FacadeOutput
 {
     float4 Position : POSITION0;
     float4 Surface : TEXCOORD0;  //the wall lit at the vertex, display-encoded
     float4 Grid : TEXCOORD1;     //xy: the face in cells from the interior's corner; zw: the cells across and up
-    float2 Building : TEXCOORD2; //x: whether this face carries windows; y: the tower's roll
+    float4 Building : TEXCOORD2; //x: whether this face carries windows; y: the tower's lamp in the neon city; zw: its tile's shift
 };
 
-//Clouds.fxh's hash, frac/dot/multiply only: one roll in [0,1) off a cell
+//Clouds.fxh's hash, frac/dot/multiply only: one roll in [0,1) off a point
 float FacadeRoll(float2 p)
 {
     float3 p3 = frac(float3(p.x, p.y, p.x) * 0.1031);
@@ -1643,46 +1661,30 @@ FacadeOutput PotatoFacadeVS(VertexInput input, InstanceInput instance)
     float2 cellPitch = interior * 2.0 / max(count, 1.0);
     output.Grid = float4((along + interior) / cellPitch, count);
 
-    //Roofs carry none, and a face too small for one window none
+    //Roofs carry none, and a face too small for one window none. The tower's roll picks its neon lamp and moves its tile
+    //by whole cells
     float vertical = 1.0 - step(0.5, abs(normal.y));
-    output.Building = float2(step(1.0, count.x) * step(1.0, count.y) * vertical, FacadeRoll(floor(centre.xz * 0.37)));
+    float roll = FacadeRoll(floor(centre.xz * 0.37));
+    output.Building = float4(step(1.0, count.x) * step(1.0, count.y) * vertical, step(0.5, roll),
+        floor(roll * 64.0), floor(frac(roll * 13.0) * 64.0));
 
     return output;
 }
 
 float4 PotatoFacadePS(FacadeOutput input) : COLOR0
 {
-    float2 grid = input.Grid.xy;
-    float2 count = input.Grid.zw;
-    float2 cell = floor(grid);
-    float2 within = abs(frac(grid) - 0.5) * 2.0;
-
-    //Band-limited as CityPS is: once a pixel covers more than a window, the pattern fades to its own average instead of
-    //aliasing into a moire of lit and unlit floors. Each edge is as soft as a pixel is wide, in cells
-    float2 footprint = fwidth(grid);
-    float resolvable = saturate(1.0 - max(footprint.x, footprint.y));
-    float2 shape = saturate((FacadeFill - within) / max(footprint * 2.0, 1e-4) + 0.5);
-
     //Only the interior's cells: the margin is wall
-    float inside = step(0.0, cell.x) * step(cell.x, count.x - 1.0) * step(0.0, cell.y) * step(cell.y, count.y - 1.0);
-    float area = FacadeFill.x * FacadeFill.y * input.Building.x;
-    float window = shape.x * shape.y * inside * input.Building.x;
+    float2 grid = input.Grid.xy;
+    float inside = step(0.0, grid.x) * step(grid.x, input.Grid.z) * step(0.0, grid.y) * step(grid.y, input.Grid.w) * input.Building.x;
 
-    //Each window's own roll, the tower's roll moving the lattice so no two towers wear one pattern
-    float roll = FacadeRoll(cell + input.Building.y * 917.0);
-    float lit = step(1.0 - FacadeLitFraction, roll);
+    float3 tile = tex2D(FacadeSampler, (grid + input.Building.zw) * (1.0 / FACADE_TILE_WINDOWS)).rgb;
 
-    //The day city: warm or cool, window by window. The neon city: the tower's colour, one window in six the other
-    float pickWindow = step(0.5, frac(roll * 7.31));
-    float spark = step(0.83, frac(roll * 13.7));
-    float pick = lerp(pickWindow, abs(step(0.5, input.Building.y) - spark), FacadeNeon);
+    //The day city: the window's own pick. The neon city: the tower's colour, or the other where the tile says it sparks
+    float pick = lerp(tile.b, abs(input.Building.y - tile.b), FacadeNeon);
     float3 lamp = lerp(FacadeLampA, FacadeLampB, pick);
 
-    //Glass where the facade is glass, and the lamp over it where the window is lit; at a distance, both as averages
-    float glass = lerp(area, window, resolvable);
-    float shine = lerp(area * FacadeLitFraction, window * lit, resolvable);
-    float3 colour = lerp(input.Surface.rgb, FacadeGlass, glass);
-    colour = lerp(colour, lamp, shine);
+    float3 colour = lerp(input.Surface.rgb, FacadeGlass, tile.r * inside);
+    colour = lerp(colour, lamp, tile.g * inside);
 
     return float4(colour, input.Surface.a);
 }
