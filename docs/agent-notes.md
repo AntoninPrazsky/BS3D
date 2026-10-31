@@ -20,6 +20,14 @@ Pravidla:
 
 ---
 
+## 2026-10-31 — #1044 Pi: hory se sněhem podle vrstevnic — Pi (BS3DServer), Claude Code
+- Hotovo: krok 4 #1044. Hory jsou jedna mřížka se 160 buňkami. Podíl sněhu nese vrchol, `PotatoVertexLitBlend` osvětlí skálu i sníh ve vrcholu a pixel mezi nimi přepne na izolinii 0,5. Výsledek: téměř černá skála proti jasnému sněhu (#504), hrana po terénu. Cena na Belfry +0,7 ms při 1080p, +0,4 ms při 720p.
+- ⚠ Tři slepé cesty:
+  - sníh po trojúhelnících dělá zuby;
+  - jemnější mřížka sype do sněhu tmavé konfety;
+  - prolnutí ve vrcholu zbarví skálu do béžova.
+- Otevřené: další kroky #1044 (sopka, louka; `PotatoVertexLitBlend` se hodí i pro tóny trávy).
+
 ## 2026-10-31 — #1044 Pi: opar k horizontu — Pi (BS3DServer), Claude Code
 - Hotovo: krok 3 #1044. Vzdálený terén všech scén s kopulí mizí do horizontu podle desktopového pravidla (`HorizonHazeDistance` ze scény, kvadrát), počítáno ve vrcholu (`HazeAt`). Poušť jde do teplého prachu (`HazeWarmth`). Cena je v šumu.
 - ⚠ Barvu horizontu brát z `SkyDome.DrawnLinearAt(0)`, ne z `rig.HorizonLinear`. Ta je pod horami a pouští tyrkysová, zatímco kopule kreslí lila šedou, a hřebeny pak stojí jako tyrkysový pruh.
