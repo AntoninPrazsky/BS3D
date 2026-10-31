@@ -228,7 +228,7 @@ namespace BS3D
             //The scene's ground and its static scatter (#829), where the scene has them on this path: before the island,
             //opaque and depth-written, under the same flat ambient and the lamps (the volcano's light its cone; taken at
             //the vertex they cost nothing measurable - the neon city with none was the same frame)
-            _potatoBackdrop?.Draw(_camera, _sceneEffectParams, _wallClock, PotatoDisplay.ToDisplay(_rig.HorizonLinear, _exposure));
+            _potatoBackdrop?.Draw(_camera, _sceneEffectParams, _wallClock, _sky.DrawnLinearAt(0f), _exposure);
 
             _island.EventGlow = 0f;
             _island.DrawIsland(_camera, _sceneEffectParams, _scene);

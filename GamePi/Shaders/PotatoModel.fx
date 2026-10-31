@@ -1559,9 +1559,9 @@ struct VertexLitOutput
 
 //THE HAZE (#1044): the backdrop melting into the skyline as the desktop's scenes melt theirs - Meadow.fx's, Savanna.fx's,
 //Desert.fx's and Mountain.fx's own rule, lerp(colour, HorizonColor, (distance / HorizonHazeDistance)^2), the scene's
-//distance and the dome's horizon. Without it the Pi's ground ran at full strength to the grid's last row and stopped
+//distance and the dome's horizon as the dome draws it (the desert's carried towards its sand). Without it the Pi's ground ran at full strength to the grid's last row and stopped
 //there against the sky, and a far ridge was as dark as a near one. Taken at the vertex: it changes over hundreds of units
-float3 HazeColor;        //the dome's horizon, display-encoded (PotatoDisplay on the CPU)
+float3 HazeColor;        //the dome's drawn horizon, display-encoded (PotatoBackdrop.HazeColorOf, PotatoDisplay on the CPU)
 float HazeInverseReach;  //one over the scene's HorizonHazeDistance; 0 for no haze (the scenes that stand in their void)
 
 float HazeAt(float3 worldPosition)

@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-10-31 — #1044 Pi: opar k horizontu — Pi (BS3DServer), Claude Code
+- Hotovo: krok 3 #1044. Vzdálený terén všech scén s kopulí mizí do horizontu podle desktopového pravidla (`HorizonHazeDistance` ze scény, kvadrát), počítáno ve vrcholu (`HazeAt`). Poušť jde do teplého prachu (`HazeWarmth`). Cena je v šumu.
+- ⚠ Barvu horizontu brát z `SkyDome.DrawnLinearAt(0)`, ne z `rig.HorizonLinear`. Ta je pod horami a pouští tyrkysová, zatímco kopule kreslí lila šedou, a hřebeny pak stojí jako tyrkysový pruh.
+- Otevřené: další kroky #1044 (hory: zubaté špičky; sopka; louka).
+
 ## 2026-10-31 — #1044 Pi: okna ve městech — Pi (BS3DServer), Claude Code
 - Hotovo: krok 2 #1044. `PotatoFacade` dává věžím okna. Vrchol rozvrhne rastr oken jako desktopový `CityPS`, pixel čte předpečenou dlaždici 8×8 oken: sklo, rozsvícení podle `WindowLitFraction` a volbu lampy. Den: teplé a studené lampy, neon: magenta a azurová podle věže.
 - Mimo obrazovku na Pi, A B B A proti fab7ea61: +0,6 ms při 720p, +1,2 až 1,5 ms při 1080p.

@@ -373,6 +373,13 @@ namespace Prazsky.Core.Render
             if (backdrop != null)
             {
                 backdrop.HazeReach = HazeReachOf(scene);
+                if (scene == SceneKind.Desert)
+                {
+                    //Desert.fx's murk: the erg's own dust-hazed skyline, the horizon carried towards the sand's hue
+                    var desert = new DesertSceneConfig();
+                    backdrop._hazeHue = desert.SandColor.ToVector3();
+                    backdrop._hazeWarmth = desert.HazeWarmth;
+                }
                 backdrop._hazeColor = potatoEffect.Parameters["HazeColor"];
                 backdrop._hazeInverseReach = potatoEffect.Parameters["HazeInverseReach"];
             }
@@ -406,6 +413,26 @@ namespace Prazsky.Core.Render
         public float HazeReach { get; private set; }
 
         private EffectParameter _hazeColor, _hazeInverseReach;
+
+        //The desert's murk (Desert.fx): the hue the horizon is carried towards and how far; none elsewhere
+        private Vector3 _hazeHue;
+        private float _hazeWarmth;
+
+        /// <summary>
+        /// What the far ground melts into, linear: the dome's horizon as the dome DRAWS it (<see cref="SkyDome.DrawnLinearAt"/>,
+        /// #551). The rig's horizon is an average over the capture's bottom fifth and can be another hue: under the mountains'
+        /// and the desert's dome it is teal where the dome draws lilac-grey, and the far ridges and dunes stood against the
+        /// sky as a teal band (Desert.fx records the same). The desert carries it on towards the sand's hue, at the horizon's
+        /// own brightness, as Desert.fx's murk does.
+        /// </summary>
+        public Vector3 HazeColorOf(Vector3 drawnHorizon)
+        {
+            if (_hazeWarmth <= 0f) return drawnHorizon;
+
+            var luma = new Vector3(0.2126f, 0.7152f, 0.0722f);
+            Vector3 hue = _hazeHue / MathF.Max(Vector3.Dot(_hazeHue, luma), 1e-3f);
+            return Vector3.Lerp(drawnHorizon, hue * Vector3.Dot(drawnHorizon, luma), _hazeWarmth);
+        }
 
         /// <summary>
         /// The big top (#829): the desktop's is one analytic full-screen pass (<c>Circus.fx</c>), a handful of quadrics
@@ -1350,11 +1377,12 @@ namespace Prazsky.Core.Render
         /// glows with their emission. The leaf cards are one-sided sheets seen from both sides (#610), so their draws
         /// cull nothing; everything else is a wound solid.
         /// </summary>
-        /// <param name="hazeColor">The dome's horizon, display-encoded, which the far ground melts into (#1044).</param>
-        public void Draw(ICamera camera, BasicEffectParams sceneParams, float time, Vector3 hazeColor)
+        /// <param name="drawnHorizon">The dome's horizon as the dome draws it, linear (<see cref="HazeColorOf"/>, #1044).</param>
+        /// <param name="exposure">The player's brightness, for the haze's colour on the display.</param>
+        public void Draw(ICamera camera, BasicEffectParams sceneParams, float time, Vector3 drawnHorizon, float exposure)
         {
             GraphicsDevice device = _device;
-            _hazeColor?.SetValue(hazeColor);
+            _hazeColor?.SetValue(PotatoDisplay.ToDisplay(HazeColorOf(drawnHorizon), exposure));
             _hazeInverseReach?.SetValue(HazeReach > 0f ? 1f / HazeReach : 0f);
 
             RasterizerState raster = device.RasterizerState;
