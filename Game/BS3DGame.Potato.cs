@@ -234,6 +234,9 @@ namespace BS3D
             _island.DrawIsland(_camera, _sceneEffectParams, _scene);
             _island.DrawPit(_camera, _sceneEffectParams, _scene);
 
+            //The backdrop's puffs (#1044: the volcano's ash and steam, the savanna's fires), translucent, after the island
+            _potatoBackdrop?.DrawPuffs(_camera, _wallClock);
+
             //The weather over a dome (#1044): the desktop's field, clock and look, drawn as the deck baked into a texture.
             //After the ground and the island, behind them in depth, so the pixels they cover are never shaded (2.0 ms at
             //native drawn first). A clear sky has nothing over the threshold anywhere, so it is not drawn at all

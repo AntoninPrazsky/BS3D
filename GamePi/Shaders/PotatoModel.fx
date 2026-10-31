@@ -1657,6 +1657,64 @@ technique PotatoVertexLitBlend
     }
 };
 
+//PUFFS (#1044): soft round billboards that rise, grow and fade on a clock, for the steam over the volcano's vents, the
+//ash out of its crater and the savanna's campfires and their smoke, which the Pi drew none of. Every puff's whole life
+//is worked out in the vertex shader from its emitter, its phase and the time (as PotatoSkyStars lays out its quads), so the
+//buffer is built once and a kind of puff is one draw. Smoke is alpha-blended, flame added; the host picks the blend.
+float PuffTime;          //seconds
+float3 PuffColor;        //linear radiance, curved at the vertex
+float4 PuffMotion;       //x: how far a puff rises over its life; y: its life, seconds; z: how much it grows over it (times
+                         //its size, negative to taper, a flame); w: its opacity at its thickest
+float2 PuffWind;         //how far it drifts over its life, x and z
+float PuffSize;          //its half-size at birth, world units
+
+struct PuffInput
+{
+    float4 Position : POSITION0;  //the emitter
+    float4 Look : COLOR0;         //r: the puff's phase in its life; g: its size; b: its rise; a: its strength (each a share)
+    float2 Corner : TEXCOORD0;    //the quad's corner, -1 to 1
+};
+
+struct PuffOutput
+{
+    float4 Position : POSITION0;
+    float4 Color : TEXCOORD0;
+    float2 Corner : TEXCOORD1;
+};
+
+PuffOutput PuffVS(PuffInput input)
+{
+    float age = frac(PuffTime / PuffMotion.y + input.Look.r);
+    float3 centre = input.Position.xyz + float3(PuffWind.x * age, PuffMotion.x * (0.6 + 0.8 * input.Look.b) * age, PuffWind.y * age);
+    float size = PuffSize * (0.6 + 0.8 * input.Look.g) * max(1.0 + PuffMotion.z * age, 0.05);
+
+    //Laid out square to the eye
+    float4 view = mul(float4(centre, 1.0), View);
+    view.xy += input.Corner * size;
+
+    PuffOutput output;
+    output.Position = mul(view, Projection);
+    float fade = smoothstep(0.0, 0.12, age) * (1.0 - smoothstep(0.55, 1.0, age));
+    output.Color = float4(ToDisplay(PuffColor), PuffMotion.w * input.Look.a * fade);
+    output.Corner = input.Corner;
+    return output;
+}
+
+float4 PuffPS(PuffOutput input) : COLOR0
+{
+    float a = saturate(1.0 - dot(input.Corner, input.Corner));
+    return float4(input.Color.rgb, input.Color.a * a * a);
+}
+
+technique PotatoPuffs
+{
+    pass P0
+    {
+        VertexShader = compile POTATO_VS PuffVS();
+        PixelShader = compile POTATO_PS PuffPS();
+    }
+};
+
 //THE CITIES' WINDOWS (#1044): a tower's wall lit at the vertex as PotatoVertexLit's, and its windows laid out as
 //City.fxh's CityPS lays them out. A wall margin is held at every edge, and as many windows as fit at the config's pitch
 //are spread evenly across the interior. The towers are the backdrop's nearest and largest surfaces. Without windows the
