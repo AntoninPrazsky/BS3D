@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-10-31 — #1044 Pi: okna ve městech — Pi (BS3DServer), Claude Code
+- Hotovo: krok 2 #1044. `PotatoFacade` dává věžím okna. Vrchol rozvrhne rastr oken jako desktopový `CityPS`, pixel čte předpečenou dlaždici 8×8 oken: sklo, rozsvícení podle `WindowLitFraction` a volbu lampy. Den: teplé a studené lampy, neon: magenta a azurová podle věže.
+- Mimo obrazovku na Pi, A B B A proti fab7ea61: +0,6 ms při 720p, +1,2 až 1,5 ms při 1080p.
+- ⚠ Okno počítané v každém pixelu (buňka, hash, hrany, útlum) stálo 2,4 až 2,9 ms při 1080p. Dlaždice s mipmapami to polovinu ušetří a útlum na dálku dá zadarmo.
+- Otevřené: další kroky #1044 (opar k horizontu, hory, sopka, louka).
+
 ## 2026-10-31 — #1044 Pi: mraky nad scénami s kopulí — Pi (BS3DServer), Claude Code
 - Majitel: „vezmi další scény, které na Pi nejsou dodělané nebo nevypadají dobře, hlavně ty s levely, pro Pi-Apps“ a „pokračuj, dokud ti nedojde limit“.
 - Hotovo:
