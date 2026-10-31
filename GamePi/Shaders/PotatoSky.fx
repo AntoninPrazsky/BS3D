@@ -316,9 +316,10 @@ struct DeckOutput
 {
     float4 Position : POSITION0;
     float4 Uv : TEXCOORD0;      //the weather's read, then the finer one
-    float3 Sun : TEXCOORD1;     //the lit side, display-encoded, the silver in it
-    float3 Shade : TEXCOORD2;   //the underside, display-encoded
-    float Fade : TEXCOORD3;     //none at the horizon
+    float3 Shade : TEXCOORD1;   //the curve at no sunlight: the underside, display-encoded
+    float3 Quarter : TEXCOORD2; //the curve at a quarter of the sunlight
+    float3 Sun : TEXCOORD3;     //the curve at all of it: the lit side, the silver in it
+    float Fade : TEXCOORD4;     //none at the horizon
 };
 
 DeckOutput DeckVS(VertexInput input)
@@ -343,8 +344,15 @@ DeckOutput DeckVS(VertexInput input)
 
     //Towards the sun a thin edge is bright: Sky.fx's forward scattering, weighted below by the light that got through
     float silver = pow(saturate(dot(direction, SunDirection)), CloudSilverPower) * CloudSilverStrength;
-    output.Sun = ToDisplay(CloudSunColor * (1.0 + silver));
+    float3 lit = CloudSunColor * (1.0 + silver);
+
+    //Sky.fx mixes the underside and the lit side as light and curves the mix once at the resolve; mixed after the curve
+    //instead, a cloud a fifth lit is nearly all underside and the deck goes grey. The curve of the mix is a function of
+    //the sunlight alone at a vertex, so it is taken here at three points (none, a quarter, all) and the pixel puts a
+    //parabola through them: the shape of the curve, for a few multiply-adds and no curve per pixel
     output.Shade = ToDisplay(CloudShadowColor);
+    output.Quarter = ToDisplay(lerp(CloudShadowColor, lit, 0.25));
+    output.Sun = ToDisplay(lit);
 
     return output;
 }
@@ -363,7 +371,12 @@ float4 DeckPS(DeckOutput input) : COLOR0
     //A flat field seen from under it: the thick parts are the undersides with the light used up, the thin parts let it
     //through - dark cores and bright edges, Sky.fx's Beer-Lambert on the body alone
     float sunlight = exp(-max(thickness, 0.0) * CloudSelfAbsorption);
-    float3 colour = lerp(input.Shade, input.Sun, sunlight);
+
+    //Lagrange through (0, Shade), (1/4, Quarter) and (1, Sun)
+    float s = sunlight;
+    float3 colour = input.Shade * ((s - 0.25) * (s - 1.0) * 4.0)
+        + input.Quarter * (s * (s - 1.0) * -5.333333)
+        + input.Sun * (s * (s - 0.25) * 1.333333);
 
     return float4(colour, saturate(density * CloudOpacity) * input.Fade);
 }
