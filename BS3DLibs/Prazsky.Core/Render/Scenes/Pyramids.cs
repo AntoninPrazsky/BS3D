@@ -112,12 +112,15 @@ namespace Prazsky.Core.Render
             }
         }
 
+        /// <summary>The plan's own compass: the angle of a pyramid's first corner round its centre, its faces square to east
+        /// and north turned with the plan. For the build and for the Potato path's copy (#1044).</summary>
+        internal const float PlanTurn = BEARING + DIAGONAL_TURN + MathHelper.Pi * 1.25f;
+
         private static PyramidVertex[] Build(DesertSceneConfig config)
         {
             var v = new List<PyramidVertex>();
             int seed = 0;
-            //The plan's own compass: its faces stand square to east and north, turned with the plan
-            float turn = BEARING + DIAGONAL_TURN + MathHelper.Pi * 1.25f;
+            float turn = PlanTurn;
             foreach (var (centre, side, height, casing) in Placement(config))
             {
                 float half = side * 0.5f;
