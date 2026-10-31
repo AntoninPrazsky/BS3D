@@ -348,8 +348,9 @@ DeckOutput DeckVS(VertexInput input)
 
     //Sky.fx mixes the underside and the lit side as light and curves the mix once at the resolve; mixed after the curve
     //instead, a cloud a fifth lit is nearly all underside and the deck goes grey. The curve of the mix is a function of
-    //the sunlight alone at a vertex, so it is taken here at three points (none, a quarter, all) and the pixel puts a
-    //parabola through them: the shape of the curve, for a few multiply-adds and no curve per pixel
+    //the sunlight alone at a vertex, so it is taken here at three points (none, a quarter, all) and the pixel joins them
+    //with two straight pieces: the shape of the curve for two lerps and no curve per pixel. A parabola through the same
+    //three points overshot past the lit side where a channel saturates first, and tinted white cloud pink
     output.Shade = ToDisplay(CloudShadowColor);
     output.Quarter = ToDisplay(lerp(CloudShadowColor, lit, 0.25));
     output.Sun = ToDisplay(lit);
@@ -372,11 +373,9 @@ float4 DeckPS(DeckOutput input) : COLOR0
     //through - dark cores and bright edges, Sky.fx's Beer-Lambert on the body alone
     float sunlight = exp(-max(thickness, 0.0) * CloudSelfAbsorption);
 
-    //Lagrange through (0, Shade), (1/4, Quarter) and (1, Sun)
-    float s = sunlight;
-    float3 colour = input.Shade * ((s - 0.25) * (s - 1.0) * 4.0)
-        + input.Quarter * (s * (s - 1.0) * -5.333333)
-        + input.Sun * (s * (s - 0.25) * 1.333333);
+    //Through (0, Shade), (1/4, Quarter) and (1, Sun): below a quarter the second lerp is still at its start, above it
+    //the first is at its end
+    float3 colour = lerp(lerp(input.Shade, input.Quarter, saturate(sunlight * 4.0)), input.Sun, saturate((sunlight - 0.25) * 1.333333));
 
     return float4(colour, saturate(density * CloudOpacity) * input.Fade);
 }
