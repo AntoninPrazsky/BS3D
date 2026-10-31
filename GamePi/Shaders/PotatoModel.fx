@@ -1596,6 +1596,47 @@ technique PotatoVertexLit
     }
 };
 
+//A GROUND OF TWO MATERIALS (#1044): PotatoVertexLit's surface whose albedo is a blend of two, by a share the mesh
+//carries in its texture coordinate's x (PotatoTerrainMesh's blend), interpolated as the light is. The renderer's own
+//colour is white and the two albedos are the draw's, so Shade's texRgb is the blend. The mountains were two grids, the
+//snow's triangles and the rock's. Split triangle by triangle, the slopes were dark teeth with hard edges, and a finer
+//grid scattered dark triangles over the snowfields. Blended at the vertex by the desktop's own smoothstep, they are
+//one surface whose snow thins where Mountain.fx's thins.
+float3 BlendLow;   //the albedo at a share of 0, linear (the mountains' rock)
+float3 BlendHigh;  //the albedo at 1 (the snow)
+
+struct BlendVertexInput
+{
+    float4 Position : POSITION0;
+    float3 Normal : NORMAL0;
+    float2 Blend : TEXCOORD0;
+};
+
+VertexLitOutput PotatoVertexLitBlendVS(BlendVertexInput input, InstanceInput instance)
+{
+    VertexInput plain;
+    plain.Position = input.Position;
+    plain.Normal = input.Normal;
+    VertexOutput lit = PotatoVS(plain, instance);
+
+    VertexLitOutput output;
+    output.Position = lit.Position;
+    output.Surface = ToScreen(Shade(lit.WorldPosition, lit.WorldNormal, instance.Custom, lerp(BlendLow, BlendHigh, saturate(input.Blend.x)),
+        lit.SceneDiffuse, lit.SceneSpecular, false));
+    output.Surface.rgb = lerp(output.Surface.rgb, HazeColor, HazeAt(lit.WorldPosition));
+
+    return output;
+}
+
+technique PotatoVertexLitBlend
+{
+    pass P0
+    {
+        VertexShader = compile POTATO_VS PotatoVertexLitBlendVS();
+        PixelShader = compile POTATO_PS VertexLitPS();
+    }
+};
+
 //THE CITIES' WINDOWS (#1044): a tower's wall lit at the vertex as PotatoVertexLit's, and its windows laid out as
 //City.fxh's CityPS lays them out. A wall margin is held at every edge, and as many windows as fit at the config's pitch
 //are spread evenly across the interior. The towers are the backdrop's nearest and largest surfaces. Without windows the

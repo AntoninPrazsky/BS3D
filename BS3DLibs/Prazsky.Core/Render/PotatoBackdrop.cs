@@ -22,12 +22,14 @@ namespace Prazsky.Core.Render
         public int PrimitiveCount { get; }
         public BoundingSphere BoundingSphere { get; }
 
-        /// <param name="keep">Which triangles to keep, by their three corners, or null for all of them: the mountains are
-        /// two grids over one field, the snow's triangles and the rock's (#829).</param>
+        /// <param name="keep">Which triangles to keep, by their three corners, or null for all of them.</param>
+        /// <param name="blend">A share of a second material at each vertex, by its position and normal, carried in the
+        /// texture coordinate's x for <c>PotatoVertexLitBlend</c> (#1044: the mountains' snow over their rock); null keeps the
+        /// grid's own coordinates.</param>
         public PotatoTerrainMesh(GraphicsDevice graphicsDevice, int cells, float extent, float holeRadius, Func<float, float, float> height,
-            Func<Vector3, Vector3, Vector3, bool> keep = null)
+            Func<Vector3, Vector3, Vector3, bool> keep = null, Func<Vector3, Vector3, float> blend = null)
         {
-            (VertexPositionNormalTexture[] vertices, int[] indices) = Build(cells, extent, holeRadius, height, keep);
+            (VertexPositionNormalTexture[] vertices, int[] indices) = Build(cells, extent, holeRadius, height, keep, blend);
 
             PrimitiveCount = indices.Length / 3;
 
@@ -42,7 +44,7 @@ namespace Prazsky.Core.Render
 
         /// <summary>The grid's geometry, with no device: <c>PotatoBackdropTests</c> hold the hole and the winding.</summary>
         public static (VertexPositionNormalTexture[] Vertices, int[] Indices) Build(int cells, float extent, float holeRadius, Func<float, float, float> height,
-            Func<Vector3, Vector3, Vector3, bool> keep = null)
+            Func<Vector3, Vector3, Vector3, bool> keep = null, Func<Vector3, Vector3, float> blend = null)
         {
             if (cells < 2) throw new ArgumentOutOfRangeException(nameof(cells));
 
@@ -61,8 +63,9 @@ namespace Prazsky.Core.Render
                     float dz = (height(x, z + step) - height(x, z - step)) / (2f * step);
                     Vector3 normal = Vector3.Normalize(new Vector3(-dx, 1f, -dz));
 
-                    vertices[row * side + column] = new VertexPositionNormalTexture(new Vector3(x, y, z), normal,
-                        new Vector2((float)column / cells, (float)row / cells));
+                    var position = new Vector3(x, y, z);
+                    vertices[row * side + column] = new VertexPositionNormalTexture(position, normal,
+                        blend != null ? new Vector2(blend(position, normal), 0f) : new Vector2((float)column / cells, (float)row / cells));
                 }
 
             var indices = new List<int>(cells * cells * 6);
@@ -979,6 +982,10 @@ namespace Prazsky.Core.Render
         //where their haze would be (HorizonHazeDistance 500), the volcano's to the cone's far foot (ConeCenter.Y -
         //ConeRadius is -465), the Moon's past the highland crest (310) where its curvature has closed the horizon
         private const int RELIEF_CELLS = 96;
+
+        //The mountains' own: finer than the other reliefs, for ridges that read as ridges and not as teeth (#1044); one
+        //blended grid, where the 96-cell one was two
+        private const int MOUNTAIN_CELLS = 160;
         private const float MOUNTAIN_EXTENT = 600f, VOLCANO_EXTENT = 560f, MOON_EXTENT = 480f;
 
         private static PotatoBackdrop Mountain(GraphicsDevice graphicsDevice, Effect potatoEffect, float holeRadius)
@@ -986,27 +993,26 @@ namespace Prazsky.Core.Render
             var config = new MountainSceneConfig();
             float Height(float x, float z) => TerrainMirror.Mountain(x, z, config);
 
-            //Mountain.fx's rule, at the middle of each of its bands: snow lies where the face is gentler than the middle of
-            //RockSlope..SnowSlope and either above the middle of the snowline or on the clearing's floor (#504: the basin
-            //is snow), or anywhere gentler still by LowlandSnowSlope (#959: the valley floors); rock everywhere else. A
-            //triangle is one or the other; the desktop's edge is sharp too
-            float slope = (config.RockSlope + config.SnowSlope) * 0.5f;
-            float lowlandSlope = slope + config.LowlandSnowSlope;
-            float snowline = (config.SnowlineLow + config.SnowlineHigh) * 0.5f;
+            //Mountain.fx's rule, smoothed as the desktop smooths it: snow thins from SnowSlope's gentleness to RockSlope's
+            //steepness, and lies where the face is also above the snowline (SnowlineLow to SnowlineHigh), on the clearing's
+            //floor (#504: the basin is snow), or gentle enough by LowlandSnowSlope to hold it anywhere (#959: the valley
+            //floors). Taken at every vertex and blended there (PotatoVertexLitBlend). It was a triangle's choice, and the
+            //slopes were dark teeth with hard edges
+            float lowlandSlope = (config.RockSlope + config.SnowSlope) * 0.5f + config.LowlandSnowSlope;
             float floor = config.ClearingRadius + config.ClearingTransition * 0.3f;
-            bool Snowy(Vector3 a, Vector3 b, Vector3 c)
+            float Snow(Vector3 position, Vector3 normal)
             {
-                Vector3 normal = Vector3.Normalize(Vector3.Cross(b - a, c - a));
-                if (MathF.Abs(normal.Y) < slope) return false;
-                if (MathF.Abs(normal.Y) >= lowlandSlope) return true;
-                Vector3 centre = (a + b + c) / 3f;
-                return centre.Y > snowline || MathF.Sqrt(centre.X * centre.X + centre.Z * centre.Z) < floor;
+                float slope = ShaderMath.SmoothStep(config.RockSlope, config.SnowSlope, normal.Y);
+                float high = ShaderMath.SmoothStep(config.SnowlineLow, config.SnowlineHigh, position.Y);
+                float basin = 1f - ShaderMath.SmoothStep(floor - 30f, floor + 30f, MathF.Sqrt(position.X * position.X + position.Z * position.Z));
+                float lowland = ShaderMath.SmoothStep(lowlandSlope - 0.05f, lowlandSlope + 0.05f, normal.Y);
+                return slope * MathF.Max(MathF.Max(high, basin), lowland);
             }
 
             var backdrop = new PotatoBackdrop(graphicsDevice);
             Vector3 rock = Vector3.Lerp(config.RockColor.ToVector3(), config.RockColorLight.ToVector3(), 0.5f);
-            backdrop.AddGround(graphicsDevice, potatoEffect, new PotatoTerrainMesh(graphicsDevice, RELIEF_CELLS, MOUNTAIN_EXTENT, holeRadius, Height, Snowy), config.SnowColor.ToVector3());
-            backdrop.AddGround(graphicsDevice, potatoEffect, new PotatoTerrainMesh(graphicsDevice, RELIEF_CELLS, MOUNTAIN_EXTENT, holeRadius, Height, (a, b, c) => !Snowy(a, b, c)), rock);
+            backdrop.AddBlendedGround(graphicsDevice, potatoEffect,
+                new PotatoTerrainMesh(graphicsDevice, MOUNTAIN_CELLS, MOUNTAIN_EXTENT, holeRadius, Height, blend: Snow), rock, config.SnowColor.ToVector3());
 
             return backdrop;
         }
@@ -1259,6 +1265,36 @@ namespace Prazsky.Core.Render
         }
 
         private static readonly Vector4 OPEN = new(0f, 0f, 0f, 1f);
+
+        /// <summary>
+        /// A ground of two materials (#1044, <c>PotatoVertexLitBlend</c>): the mesh's blend picks between
+        /// <paramref name="low"/> and <paramref name="high"/>, both linear, at every vertex. The renderer is white and the
+        /// draw states the two albedos, since the effect is every renderer's.
+        /// </summary>
+        private void AddBlendedGround(GraphicsDevice graphicsDevice, Effect potatoEffect, PotatoTerrainMesh mesh, Vector3 low, Vector3 high)
+        {
+            _owned.Add(mesh);
+
+            var renderer = new InstancedModelRenderer(graphicsDevice, mesh, Vector3.One, potatoEffect) { PotatoVertexLit = true, PotatoVertexBlend = true, SpecularAmbientStrength = 0f };
+            _owned.Add(renderer);
+            _renderers.Add(renderer);
+
+            EffectParameter lowParam = potatoEffect.Parameters["BlendLow"], highParam = potatoEffect.Parameters["BlendHigh"];
+            var instances = new[] { new ModelInstance(Matrix.Identity, OPEN) };
+            _draws.Add(new DrawItem
+            {
+                Renderer = renderer,
+                Instances = instances,
+                Prepare = _ =>
+                {
+                    lowParam?.SetValue(low);
+                    highParam?.SetValue(high);
+                    return instances.Length;
+                },
+            });
+            VertexCount += mesh.PrimitiveCount * 3;
+            _census.Add($"blended ground {mesh.PrimitiveCount * 3}");
+        }
 
         /// <summary>
         /// Any mesh under any instances, matte and lit at the vertex, in <paramref name="colour"/> and radiating
