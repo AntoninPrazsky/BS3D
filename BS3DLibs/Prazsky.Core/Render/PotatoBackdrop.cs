@@ -305,6 +305,7 @@ namespace Prazsky.Core.Render
             public bool TwoSided;
             public Vector3? Glow;
             public Func<ICamera, int> Prepare;
+            public bool MirrorsSky;
             public Action<DrawItem, float> Animate;
         }
 
@@ -990,6 +991,9 @@ namespace Prazsky.Core.Render
         //The half-widths of the snow's edges on the mountains (#1044): in the normal's height and in world units. Narrow, for
         //the desktop's sharp edge; wide enough that the blend is soft across a cell rather than a triangle's step
         private const float SNOW_EDGE_SLOPE = 0.05f, SNOW_EDGE_HEIGHT = 8f;
+
+        //Where the pixel crosses from rock to snow in the interpolated share: a pixel sharp, as Mountain.fx's edge is
+        private static readonly Vector2 SNOW_EDGE = new(0.42f, 0.58f);
         private const float MOUNTAIN_EXTENT = 600f, VOLCANO_EXTENT = 560f, MOON_EXTENT = 480f;
 
         private static PotatoBackdrop Mountain(GraphicsDevice graphicsDevice, Effect potatoEffect, float holeRadius)
@@ -1020,7 +1024,8 @@ namespace Prazsky.Core.Render
             var backdrop = new PotatoBackdrop(graphicsDevice);
             Vector3 rock = Vector3.Lerp(config.RockColor.ToVector3(), config.RockColorLight.ToVector3(), 0.5f);
             backdrop.AddBlendedGround(graphicsDevice, potatoEffect,
-                new PotatoTerrainMesh(graphicsDevice, MOUNTAIN_CELLS, MOUNTAIN_EXTENT, holeRadius, Height, blend: Snow), rock, config.SnowColor.ToVector3());
+                new PotatoTerrainMesh(graphicsDevice, MOUNTAIN_CELLS, MOUNTAIN_EXTENT, holeRadius, Height, blend: Snow), rock, config.SnowColor.ToVector3(),
+                SNOW_EDGE);
 
             return backdrop;
         }
@@ -1130,17 +1135,113 @@ namespace Prazsky.Core.Render
             return backdrop;
         }
 
+        //The meadow's grass tones (#1044): the size of a patch of one tone, in world units, and a soft crossing
+        private const float GRASS_PATCH = 70f;
+        private static readonly Vector2 SOFT_EDGE = new(0f, 1f);
+
+        //The ribbons over the meadow's grid: a hand over it, and a unit more every 250 units out (the depth buffer's step
+        //at 400 units is about a unit, #1044); their steps along their length
+        private const float RIBBON_LIFT = 0.35f, RIBBON_LIFT_PER_UNIT = 0.004f;
+        private const int RIBBON_STEPS = 96, POND_SEGMENTS = 32;
+        private const float MEADOW_PATH_REACH = 430f, MEADOW_BROOK_REACH = 450f;
+
+        //Meadow.fx's PATH_DIRT; the water's dark body (its BROOK_BODY), which the sky lights from above (AddWater)
+        private static readonly Vector3 MEADOW_PATH_DIRT = new(0.20f, 0.155f, 0.10f);
+        private static readonly Vector3 MEADOW_WATER = new(0.05f, 0.085f, 0.06f);
+
+        /// <summary>The footpath (<see cref="MeadowPath.Lateral"/>'s centreline) from its start on the knoll out over the hills, its width the config's.</summary>
+        private static PotatoStripMesh MeadowPathRibbon(GraphicsDevice graphicsDevice, MeadowSceneConfig config, Func<float, float, float> over)
+        {
+            float start = config.ClearingRadius * MeadowPath.START;
+            var left = new Vector3[RIBBON_STEPS + 1];
+            var right = new Vector3[RIBBON_STEPS + 1];
+            for (int i = 0; i <= RIBBON_STEPS; i++)
+            {
+                float d = MathHelper.Lerp(start, MEADOW_PATH_REACH, (float)i / RIBBON_STEPS);
+                float half = config.PathWidth;
+                float angle = config.PathBearing + MeadowPath.Wander(d, config) / d;
+                float l = angle - half / d, r = angle + half / d;
+                left[i] = new Vector3(MathF.Cos(l) * d, 0f, MathF.Sin(l) * d);
+                right[i] = new Vector3(MathF.Cos(r) * d, 0f, MathF.Sin(r) * d);
+                left[i].Y = over(left[i].X, left[i].Z);
+                right[i].Y = over(right[i].X, right[i].Z);
+            }
+
+            return new PotatoStripMesh(graphicsDevice, left, right);
+        }
+
+        /// <summary>The brook (<see cref="MeadowPath.BrookPoint"/>) from the pond out to the hills, its width the config's.</summary>
+        private static PotatoStripMesh MeadowBrookRibbon(GraphicsDevice graphicsDevice, MeadowSceneConfig config, Func<float, float, float> over)
+        {
+            float start = config.ClearingRadius * MeadowPath.BROOK_START;
+            var left = new Vector3[RIBBON_STEPS + 1];
+            var right = new Vector3[RIBBON_STEPS + 1];
+            for (int i = 0; i <= RIBBON_STEPS; i++)
+            {
+                float d = MathHelper.Lerp(start, MEADOW_BROOK_REACH, (float)i / RIBBON_STEPS);
+                (float lx, float lz) = MeadowPath.BrookPoint(d, -config.BrookWidth * 0.5f, config);
+                (float rx, float rz) = MeadowPath.BrookPoint(d, config.BrookWidth * 0.5f, config);
+                left[i] = new Vector3(lx, over(lx, lz), lz);
+                right[i] = new Vector3(rx, over(rx, rz), rz);
+            }
+
+            return new PotatoStripMesh(graphicsDevice, left, right);
+        }
+
+        /// <summary>The pond (<see cref="MeadowPath.PondShore"/>): its ragged round as a fan, its two edges a strip from the
+        /// centre out, level at the shore's highest point so the water lies flat.</summary>
+        private static PotatoStripMesh MeadowPondDisc(GraphicsDevice graphicsDevice, MeadowSceneConfig config, Func<float, float, float> over)
+        {
+            (float cx, float cz) = MeadowPath.PondCentre(config);
+            var shore = new Vector3[POND_SEGMENTS + 1];
+            float level = float.MinValue;
+            for (int i = 0; i <= POND_SEGMENTS; i++)
+            {
+                float a = MathHelper.TwoPi * i / POND_SEGMENTS;
+                float radius = config.PondRadius * MeadowPath.PondOutline(a);
+                shore[i] = new Vector3(cx + MathF.Cos(a) * radius, 0f, cz + MathF.Sin(a) * radius);
+                level = MathF.Max(level, over(shore[i].X, shore[i].Z));
+            }
+
+            var centre = new Vector3[POND_SEGMENTS + 1];
+            for (int i = 0; i <= POND_SEGMENTS; i++)
+            {
+                shore[i].Y = level;
+                centre[i] = new Vector3(cx, level, cz);
+            }
+
+            return new PotatoStripMesh(graphicsDevice, centre, shore);
+        }
+
         private static PotatoBackdrop Meadow(GraphicsDevice graphicsDevice, Effect potatoEffect, float holeRadius)
         {
             var config = new MeadowSceneConfig();
             //The field uncut (#892): the brook's swale and the pond's crater are banks a few units wide, and at 15 units
-            //a cell a vertex that fell into one would pull a whole cell down into a dent. So no cut here, as no
-            //brook or pond is painted here, and the planting stands on the same uncut field, at the rim's height.
+            //a cell a vertex that fell into one would pull a whole cell down into a dent. So no cut here: the brook, the
+            //pond and the path lie over the field as ribbons (below), and the planting stands on the same uncut field.
             float Height(float x, float z) => TerrainMirror.MeadowGround(x, z, config);
 
+            //The grass in two tones over the field (#1044): the dark grass and the sunlit tips, blended by Meadow.fx's
+            //clumps and dry patches taken as two octaves of noise at every vertex, soft across the whole share. It was
+            //one green to the horizon, and the first level of the game is here
             var backdrop = new PotatoBackdrop(graphicsDevice);
-            Vector3 grass = Vector3.Lerp(config.GrassColor.ToVector3(), config.GrassColorDark.ToVector3(), 0.35f);
-            backdrop.AddGround(graphicsDevice, potatoEffect, new PotatoTerrainMesh(graphicsDevice, SAVANNA_CELLS, SAVANNA_EXTENT, holeRadius, Height), grass);
+            Vector3 dark = config.GrassColorDark.ToVector3();
+            Vector3 light = Vector3.Lerp(config.GrassColor.ToVector3(), config.GrassTipColor.ToVector3(), config.GrassDryPatchStrength);
+            float Tone(Vector3 position, Vector3 normal) => Math.Clamp(0.5f
+                + 0.55f * ShaderMath.Noise(new Vector2(position.X, position.Z) * (1f / GRASS_PATCH))
+                + 0.3f * ShaderMath.Noise(new Vector2(position.X, position.Z) * (2.7f / GRASS_PATCH) + new Vector2(17.3f)), 0f, 1f);
+            backdrop.AddBlendedGround(graphicsDevice, potatoEffect,
+                new PotatoTerrainMesh(graphicsDevice, SAVANNA_CELLS, SAVANNA_EXTENT, holeRadius, Height, blend: Tone), dark, light, SOFT_EDGE);
+
+            //The footpath, the brook and the pond (#1044, MeadowPath's own lines). The desktop cuts them into the field;
+            //at 15 units a cell the grid cannot hold a 3-unit brook or a 1-unit path, so they lie over it as ribbons, a
+            //little over the grid as drawn, and lifted further with the distance so the depth buffer still parts them
+            float Over(float x, float z) => TerrainMirror.OnGrid(Height, SAVANNA_CELLS + 1, SAVANNA_EXTENT * 2f, x, z)
+                + RIBBON_LIFT + MathF.Sqrt(x * x + z * z) * RIBBON_LIFT_PER_UNIT;
+            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(MeadowPathRibbon(graphicsDevice, config, Over)),
+                new[] { new ModelInstance(Matrix.Identity, OPEN) }, MEADOW_PATH_DIRT, null, "path");
+            backdrop.AddWater(graphicsDevice, potatoEffect, backdrop.Own(MeadowBrookRibbon(graphicsDevice, config, Over)), MEADOW_WATER, "brook");
+            backdrop.AddWater(graphicsDevice, potatoEffect, backdrop.Own(MeadowPondDisc(graphicsDevice, config, Over)), MEADOW_WATER, "pond");
 
             //The bench's feet are seated on the grid as drawn, not the field between its vertices (#1022)
             var scatter = new MeadowScatter(graphicsDevice, config, MeadowScatter.DEFAULT_SEED, Height,
@@ -1276,10 +1377,11 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// A ground of two materials (#1044, <c>PotatoVertexLitBlend</c>): the mesh's blend picks between
-        /// <paramref name="low"/> and <paramref name="high"/>, both linear, at every vertex. The renderer is white and the
+        /// <paramref name="low"/> and <paramref name="high"/>, both linear, the pixel crossing from one to the other over
+        /// <paramref name="edge"/> of the interpolated share (the mountains' sharp snow, the meadow's soft tones). The renderer is white and the
         /// draw states the two albedos, since the effect is every renderer's.
         /// </summary>
-        private void AddBlendedGround(GraphicsDevice graphicsDevice, Effect potatoEffect, PotatoTerrainMesh mesh, Vector3 low, Vector3 high)
+        private void AddBlendedGround(GraphicsDevice graphicsDevice, Effect potatoEffect, PotatoTerrainMesh mesh, Vector3 low, Vector3 high, Vector2 edge)
         {
             _owned.Add(mesh);
 
@@ -1287,7 +1389,7 @@ namespace Prazsky.Core.Render
             _owned.Add(renderer);
             _renderers.Add(renderer);
 
-            EffectParameter lowParam = potatoEffect.Parameters["BlendLow"], highParam = potatoEffect.Parameters["BlendHigh"];
+            EffectParameter lowParam = potatoEffect.Parameters["BlendLow"], highParam = potatoEffect.Parameters["BlendHigh"], edgeParam = potatoEffect.Parameters["BlendEdge"];
             var instances = new[] { new ModelInstance(Matrix.Identity, OPEN) };
             _draws.Add(new DrawItem
             {
@@ -1297,6 +1399,7 @@ namespace Prazsky.Core.Render
                 {
                     lowParam?.SetValue(low);
                     highParam?.SetValue(high);
+                    edgeParam?.SetValue(edge);
                     return instances.Length;
                 },
             });
@@ -1328,6 +1431,24 @@ namespace Prazsky.Core.Render
             VertexCount += mesh.PrimitiveCount * 3;
             _census.Add($"{what} {mesh.PrimitiveCount * 3}");
         }
+
+        /// <summary>
+        /// Water over the ground (#1044): its dark body in <paramref name="body"/>, linear, lit at the vertex, and the sky it
+        /// mirrors as its glow - the dome's horizon as drawn, the colour a level surface seen at a low angle reflects, a
+        /// share of it every frame (<see cref="WATER_SKY"/>), so the water follows the level's dome.
+        /// </summary>
+        private void AddWater(GraphicsDevice graphicsDevice, Effect potatoEffect, IProceduralMesh mesh, Vector3 body, string what)
+        {
+            var renderer = new InstancedModelRenderer(graphicsDevice, mesh, ColorSpace.LinearToSrgb(body), potatoEffect) { PotatoVertexLit = true, SpecularAmbientStrength = 0f };
+            _owned.Add(renderer);
+            _renderers.Add(renderer);
+            _draws.Add(new DrawItem { Renderer = renderer, Instances = new[] { new ModelInstance(Matrix.Identity, OPEN) }, TwoSided = true, MirrorsSky = true });
+            VertexCount += mesh.PrimitiveCount * 3;
+            _census.Add($"{what} {mesh.PrimitiveCount * 3}");
+        }
+
+        /// <summary>How much of the dome's horizon a water surface glows with (<see cref="AddWater"/>): its reflection at a low angle.</summary>
+        private const float WATER_SKY = 0.55f;
 
         //A trunk's column: a unit cylinder, a little narrower at the top, closed, seen from outside; scaled per tree
         private const int COLUMN_SEGMENTS = 8;
@@ -1446,7 +1567,7 @@ namespace Prazsky.Core.Render
             {
                 draw.Animate?.Invoke(draw, time);
                 device.RasterizerState = draw.TwoSided ? RasterizerState.CullNone : RasterizerState.CullCounterClockwise;
-                effectParams.EmissiveColor = draw.Glow ?? Vector3.Zero;
+                effectParams.EmissiveColor = draw.MirrorsSky ? ColorSpace.LinearToSrgb(drawnHorizon * WATER_SKY) : draw.Glow ?? Vector3.Zero;
 
                 //A city's draw is its visible set, culled to the frustum a frame: a tower behind the camera is its faces' fill saved
                 int count = draw.Prepare?.Invoke(camera) ?? draw.Instances.Length;

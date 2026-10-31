@@ -20,6 +20,15 @@ Pravidla:
 
 ---
 
+## 2026-11-01 — #1044 Pi: louka (tóny trávy, potok, rybník, cesta) — Pi (BS3DServer), Claude Code
+- Hotovo: krok 5 #1044, louka v první kapitole.
+  - Tráva ve dvou tónech přes `PotatoVertexLitBlend`; okraj prolnutí je teď uniforma `BlendEdge` (hory 0,42–0,58, louka 0–1).
+  - Cesta, potok a rybník jako stužky nad mřížkou, po čarách `MeadowPath`.
+  - Voda svítí horizontem kopule, takže sedí ke každému levelu.
+- Cena na Pennant: +0,2 ms při 1080p, při 720p nic.
+- ⚠ Stužky nad mřížkou zvedat i se vzdáleností: hloubkový krok je kolem 400 jednotek zhruba 1 jednotka.
+- Otevřené: další kroky #1044 (sopka, savana, poušť).
+
 ## 2026-10-31 — #1044 Pi: hory se sněhem podle vrstevnic — Pi (BS3DServer), Claude Code
 - Hotovo: krok 4 #1044. Hory jsou jedna mřížka se 160 buňkami. Podíl sněhu nese vrchol, `PotatoVertexLitBlend` osvětlí skálu i sníh ve vrcholu a pixel mezi nimi přepne na izolinii 0,5. Výsledek: téměř černá skála proti jasnému sněhu (#504), hrana po terénu. Cena na Belfry +0,7 ms při 1080p, +0,4 ms při 720p.
 - ⚠ Tři slepé cesty:
