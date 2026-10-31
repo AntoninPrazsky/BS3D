@@ -334,7 +334,11 @@ DeckOutput DeckVS(VertexInput input)
 {
     DeckOutput output;
     output.Position = mul(mul(mul(input.Position, World), View), Projection);
-    output.Position.z = output.Position.w * CLOUD_DEPTH;
+
+    //max, not a plain overwrite, and the deck is never nearer than the far plane's share of this anyway. Overwritten, z
+    //no longer read Projection's third column, the compiler dropped its register, MojoShader packed the uniforms closer
+    //and MonoGame went on writing the matrix where it had been: w came out of the wrong row and the deck was drawn nowhere
+    output.Position.z = max(output.Position.z, output.Position.w * CLOUD_DEPTH);
 
     //The point of the deck this vertex stands for: the camera's place plus the direction scaled to the deck's height.
     //Under a deck the camera has risen through (a tour's high pass), the height stays a little over it
