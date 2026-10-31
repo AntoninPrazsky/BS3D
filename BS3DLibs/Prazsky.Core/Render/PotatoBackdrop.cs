@@ -1217,8 +1217,8 @@ namespace Prazsky.Core.Render
         {
             var config = new MeadowSceneConfig();
             //The field uncut (#892): the brook's swale and the pond's crater are banks a few units wide, and at 15 units
-            //a cell a vertex that fell into one would pull a whole cell down into a dent. So no cut here, as no
-            //brook or pond is painted here, and the planting stands on the same uncut field, at the rim's height.
+            //a cell a vertex that fell into one would pull a whole cell down into a dent. So no cut here: the brook, the
+            //pond and the path lie over the field as ribbons (below), and the planting stands on the same uncut field.
             float Height(float x, float z) => TerrainMirror.MeadowGround(x, z, config);
 
             //The grass in two tones over the field (#1044): the dark grass and the sunlit tips, blended by Meadow.fx's
