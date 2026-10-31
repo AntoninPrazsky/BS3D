@@ -115,6 +115,44 @@ namespace Prazsky.Core.Render
     }
 
     /// <summary>
+    /// A list of triangles as they are given, each with its own normals, for a piece the Potato backdrop builds of flat faces
+    /// (#1044: the desert's pyramids). Wound as given: the caller orders each triangle's corners.
+    /// </summary>
+    public sealed class PotatoTriangleMesh : IProceduralMesh, IDisposable
+    {
+        public VertexBuffer VertexBuffer { get; private set; }
+        public IndexBuffer IndexBuffer { get; private set; }
+        public int PrimitiveCount { get; }
+        public BoundingSphere BoundingSphere { get; }
+
+        public PotatoTriangleMesh(GraphicsDevice graphicsDevice, VertexPositionNormalTexture[] vertices)
+        {
+            PrimitiveCount = vertices.Length / 3;
+            VertexBuffer = new VertexBuffer(graphicsDevice, VertexPositionNormalTexture.VertexDeclaration, vertices.Length, BufferUsage.WriteOnly);
+            VertexBuffer.SetData(vertices);
+            var indices = new int[vertices.Length];
+            for (int i = 0; i < indices.Length; i++) indices[i] = i;
+            IndexBuffer = new IndexBuffer(graphicsDevice, IndexElementSize.ThirtyTwoBits, indices.Length, BufferUsage.WriteOnly);
+            IndexBuffer.SetData(indices);
+
+            Vector3 centre = Vector3.Zero;
+            foreach (VertexPositionNormalTexture v in vertices) centre += v.Position;
+            centre /= Math.Max(vertices.Length, 1);
+            float radius = 0f;
+            foreach (VertexPositionNormalTexture v in vertices) radius = MathF.Max(radius, Vector3.Distance(centre, v.Position));
+            BoundingSphere = new BoundingSphere(centre, radius);
+        }
+
+        public void Dispose()
+        {
+            VertexBuffer?.Dispose();
+            VertexBuffer = null;
+            IndexBuffer?.Dispose();
+            IndexBuffer = null;
+        }
+    }
+
+    /// <summary>
     /// A ribbon on the Potato path (#829): a strip of quads between two rails of points, its normals up, wound clockwise
     /// seen from above like the grid. The volcano's lava rivers, which the desktop paints into its terrain's pixels.
     /// </summary>
@@ -306,6 +344,7 @@ namespace Prazsky.Core.Render
             public Vector3? Glow;
             public Func<ICamera, int> Prepare;
             public bool MirrorsSky;
+            public float? HazeReach;
             public Action<DrawItem, float> Animate;
         }
 
@@ -1123,14 +1162,61 @@ namespace Prazsky.Core.Render
         private const int SAVANNA_CELLS = 64;
         private const float SAVANNA_EXTENT = 480f;
 
+        //The desert's own (#1044): the sand's two tones in patches of this size; the ring of far dunes past the near grid, its
+        //cells, its reach and its hole, and how far it sinks under the near grid where the two overlap; and the pyramids'
+        //haze, Pyramids.HAZE's, lighter than the dunes' or they vanish into it
+        private const float SAND_PATCH = 55f;
+        private const int DESERT_RING_CELLS = 48;
+        private const float DESERT_RING_EXTENT = 1400f, DESERT_RING_HOLE = 470f, DESERT_RING_SINK = 2f;
+        private const float PYRAMID_HAZE = 1600f;
+
+        //Pyramid.fx's STONE: the limestone the group stands in today, its casing long gone
+        private static readonly Vector3 PYRAMID_STONE = new(0.40f, 0.26f, 0.12f);
+
         private static PotatoBackdrop Desert(GraphicsDevice graphicsDevice, Effect potatoEffect, float holeRadius)
         {
             var config = new DesertSceneConfig();
             float Height(float x, float z) => TerrainMirror.Desert(x, z, config);
 
+            //The sand in two tones (#1044): the config's sand and its pale, in soft patches by two octaves of noise, as the
+            //meadow's grass, where it was one colour to the horizon
             var backdrop = new PotatoBackdrop(graphicsDevice);
-            Vector3 sand = Vector3.Lerp(config.SandColor.ToVector3(), config.SandColorPale.ToVector3(), 0.4f);
-            backdrop.AddGround(graphicsDevice, potatoEffect, new PotatoTerrainMesh(graphicsDevice, SAVANNA_CELLS, SAVANNA_EXTENT, holeRadius, Height), sand);
+            Vector3 sand = config.SandColor.ToVector3(), pale = config.SandColorPale.ToVector3();
+            float Tone(Vector3 position, Vector3 normal) => Math.Clamp(0.4f
+                + 0.55f * ShaderMath.Noise(new Vector2(position.X, position.Z) * (1f / SAND_PATCH))
+                + 0.3f * ShaderMath.Noise(new Vector2(position.X, position.Z) * (2.7f / SAND_PATCH) + new Vector2(41.7f)), 0f, 1f);
+            backdrop.AddBlendedGround(graphicsDevice, potatoEffect,
+                new PotatoTerrainMesh(graphicsDevice, SAVANNA_CELLS, SAVANNA_EXTENT, holeRadius, Height, blend: Tone), sand, pale, SOFT_EDGE);
+
+            //The far dunes (#1044): a coarse ring from inside the near grid's reach out past the pyramids, so they stand on
+            //sand as the desktop's do, sunk a little where the two overlap so the near grid wins there. The haze has them all
+            backdrop.AddBlendedGround(graphicsDevice, potatoEffect,
+                new PotatoTerrainMesh(graphicsDevice, DESERT_RING_CELLS, DESERT_RING_EXTENT, DESERT_RING_HOLE, (x, z) => Height(x, z) - DESERT_RING_SINK, blend: Tone),
+                sand, pale, SOFT_EDGE);
+
+            //The Giza group (#965) where the desktop stands it (Pyramids.Placement): four faces each, the stone lit at the
+            //vertex, hazed over Pyramids' own reach
+            var triangles = new List<VertexPositionNormalTexture>();
+            foreach (var (centre, side, height, _) in Pyramids.Placement(config))
+            {
+                float half = side * 0.5f * 1.41421356f;
+                Vector3 apex = centre + Vector3.Up * height;
+                for (int k = 0; k < 4; k++)
+                {
+                    float a0 = Pyramids.PlanTurn + k * MathHelper.PiOver2, a1 = a0 + MathHelper.PiOver2;
+                    Vector3 c0 = centre + new Vector3(MathF.Cos(a0), 0f, MathF.Sin(a0)) * half;
+                    Vector3 c1 = centre + new Vector3(MathF.Cos(a1), 0f, MathF.Sin(a1)) * half;
+                    Vector3 normal = Vector3.Normalize(Vector3.Cross(c1 - c0, apex - c0));
+                    if (Vector3.Dot(normal, (c0 + c1) * 0.5f - centre) < 0f) normal = -normal;
+                    triangles.Add(new VertexPositionNormalTexture(c0, normal, Vector2.Zero));
+                    triangles.Add(new VertexPositionNormalTexture(c1, normal, Vector2.Zero));
+                    triangles.Add(new VertexPositionNormalTexture(apex, normal, Vector2.Zero));
+                }
+            }
+            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoTriangleMesh(graphicsDevice, triangles.ToArray())),
+                new[] { new ModelInstance(Matrix.Identity, OPEN) }, PYRAMID_STONE, null, "pyramids");
+            backdrop._draws[^1].HazeReach = PYRAMID_HAZE;
+            backdrop._draws[^1].TwoSided = true;
 
             return backdrop;
         }
@@ -1568,6 +1654,10 @@ namespace Prazsky.Core.Render
                 draw.Animate?.Invoke(draw, time);
                 device.RasterizerState = draw.TwoSided ? RasterizerState.CullNone : RasterizerState.CullCounterClockwise;
                 effectParams.EmissiveColor = draw.MirrorsSky ? ColorSpace.LinearToSrgb(drawnHorizon * WATER_SKY) : draw.Glow ?? Vector3.Zero;
+
+                //A piece far out may have a haze of its own (the desert's pyramids, which the dunes' would hide)
+                float reach = draw.HazeReach ?? HazeReach;
+                _hazeInverseReach?.SetValue(reach > 0f ? 1f / reach : 0f);
 
                 //A city's draw is its visible set, culled to the frustum a frame: a tower behind the camera is its faces' fill saved
                 int count = draw.Prepare?.Invoke(camera) ?? draw.Instances.Length;

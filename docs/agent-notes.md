@@ -20,6 +20,14 @@ Pravidla:
 
 ---
 
+## 2026-11-01 — #1044 Pi: poušť s pyramidami — Pi (BS3DServer), Claude Code
+- Hotovo: krok 6 #1044.
+  - Gízské pyramidy stojí tam, kde je staví desktopový `Pyramids.Placement`.
+  - Vnější prstenec dun sahá do 1400, aby pyramidy stály na písku.
+  - Písek má dva tóny. Cena se změřit nedá.
+- ⚠ Pyramidy potřebují vlastní opar (1600 jako na desktopu), jinak zmizí v oparu dun (420). `DrawItem.HazeReach`.
+- Otevřené: další kroky #1044 (savana: ohně, sopka: kouř a žár).
+
 ## 2026-11-01 — #1044 Pi: louka (tóny trávy, potok, rybník, cesta) — Pi (BS3DServer), Claude Code
 - Hotovo: krok 5 #1044, louka v první kapitole.
   - Tráva ve dvou tónech přes `PotatoVertexLitBlend`; okraj prolnutí je teď uniforma `BlendEdge` (hory 0,42–0,58, louka 0–1).
