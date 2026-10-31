@@ -1605,12 +1605,10 @@ technique PotatoVertexLit
 //with hard edges. A finer grid scattered dark triangles over the snowfields. Blended at the vertex, a cell's mixed corners
 //turned the rock beige. Picked at the pixel, the rock stays near-black against bright snow (#504), as Mountain.fx's sharp
 //edge has it.
-float3 BlendLow;   //the albedo at a share of 0, linear (the mountains' rock)
-float3 BlendHigh;  //the albedo at 1 (the snow)
-
-//Where the pixel crosses from the first to the second, in the interpolated share
-#define BLEND_EDGE_FROM 0.42
-#define BLEND_EDGE_TO 0.58
+float3 BlendLow;   //the albedo at a share of 0, linear (the mountains' rock, the meadow's dark grass)
+float3 BlendHigh;  //the albedo at 1 (the snow, the meadow's sunlit tips)
+float2 BlendEdge;  //where the pixel crosses from the first to the second, in the interpolated share: narrow for the
+                   //mountains' sharp snow (0.42 to 0.58), the whole range for the meadow's soft tones (0 to 1)
 
 struct BlendVertexInput
 {
@@ -1647,7 +1645,7 @@ BlendOutput PotatoVertexLitBlendVS(BlendVertexInput input, InstanceInput instanc
 
 float4 VertexLitBlendPS(BlendOutput input) : COLOR0
 {
-    return float4(lerp(input.Low.rgb, input.High.rgb, smoothstep(BLEND_EDGE_FROM, BLEND_EDGE_TO, input.High.w)), input.Low.a);
+    return float4(lerp(input.Low.rgb, input.High.rgb, smoothstep(BlendEdge.x, BlendEdge.y, input.High.w)), input.Low.a);
 }
 
 technique PotatoVertexLitBlend
