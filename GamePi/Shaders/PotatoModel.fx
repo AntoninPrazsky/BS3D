@@ -1596,6 +1596,69 @@ technique PotatoVertexLit
     }
 };
 
+//A GROUND OF TWO MATERIALS (#1044): PotatoVertexLit's surface in two albedos, the share of the second carried by the
+//mesh in its texture coordinate's x (PotatoTerrainMesh's blend). The vertex lights both (the renderer is white and the two
+//albedos are the draw's, so each is Shade's texRgb), and the pixel picks between them across a narrow band of the
+//interpolated share. So the edge between the two is as sharp as a pixel, and it follows the share's contour across a
+//triangle rather than the triangle's own edges.
+//The mountains were two grids, the snow's triangles and the rock's. Split triangle by triangle, the slopes were dark teeth
+//with hard edges. A finer grid scattered dark triangles over the snowfields. Blended at the vertex, a cell's mixed corners
+//turned the rock beige. Picked at the pixel, the rock stays near-black against bright snow (#504), as Mountain.fx's sharp
+//edge has it.
+float3 BlendLow;   //the albedo at a share of 0, linear (the mountains' rock)
+float3 BlendHigh;  //the albedo at 1 (the snow)
+
+//Where the pixel crosses from the first to the second, in the interpolated share
+#define BLEND_EDGE_FROM 0.42
+#define BLEND_EDGE_TO 0.58
+
+struct BlendVertexInput
+{
+    float4 Position : POSITION0;
+    float3 Normal : NORMAL0;
+    float2 Blend : TEXCOORD0;
+};
+
+struct BlendOutput
+{
+    float4 Position : POSITION0;
+    float4 Low : TEXCOORD0;    //the surface in the first albedo, lit, display-encoded
+    float4 High : TEXCOORD1;   //rgb the surface in the second; w the share
+};
+
+BlendOutput PotatoVertexLitBlendVS(BlendVertexInput input, InstanceInput instance)
+{
+    VertexInput plain;
+    plain.Position = input.Position;
+    plain.Normal = input.Normal;
+    VertexOutput lit = PotatoVS(plain, instance);
+
+    float haze = HazeAt(lit.WorldPosition);
+    float4 low = ToScreen(Shade(lit.WorldPosition, lit.WorldNormal, instance.Custom, BlendLow, lit.SceneDiffuse, lit.SceneSpecular, false));
+    float4 high = ToScreen(Shade(lit.WorldPosition, lit.WorldNormal, instance.Custom, BlendHigh, lit.SceneDiffuse, lit.SceneSpecular, false));
+
+    BlendOutput output;
+    output.Position = lit.Position;
+    output.Low = float4(lerp(low.rgb, HazeColor, haze), low.a);
+    output.High = float4(lerp(high.rgb, HazeColor, haze), saturate(input.Blend.x));
+
+    return output;
+}
+
+float4 VertexLitBlendPS(BlendOutput input) : COLOR0
+{
+    return float4(lerp(input.Low.rgb, input.High.rgb, smoothstep(BLEND_EDGE_FROM, BLEND_EDGE_TO, input.High.w)), input.Low.a);
+}
+
+technique PotatoVertexLitBlend
+{
+    pass P0
+    {
+        VertexShader = compile POTATO_VS PotatoVertexLitBlendVS();
+        PixelShader = compile POTATO_PS VertexLitBlendPS();
+    }
+};
+
 //THE CITIES' WINDOWS (#1044): a tower's wall lit at the vertex as PotatoVertexLit's, and its windows laid out as
 //City.fxh's CityPS lays them out. A wall margin is held at every edge, and as many windows as fit at the config's pitch
 //are spread evenly across the interior. The towers are the backdrop's nearest and largest surfaces. Without windows the
