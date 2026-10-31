@@ -19,10 +19,20 @@ namespace Prazsky.Core.Render
     /// <para>
     /// <b>A real plane, drawn small.</b> The mesh is a disc on the plane one unit over the eye, rings closer together
     /// near the middle, out to where the deck is <see cref="HORIZON_RISE"/> over the horizon. It is drawn round the camera,
-    /// scaled by <see cref="DRAW_SCALE"/>, inside the far plane and with no depth test, as the dome is. A uniform scale
-    /// about the eye projects to the same picture, and the triangles stay flat, so the texture's coordinates (the
-    /// plane's world position, taken in the vertex shader) are interpolated exactly. Nothing the deck stands behind
-    /// needs a depth for it: the backdrop and everything else are drawn after.
+    /// scaled by <see cref="DRAW_SCALE"/> to fit inside the camera's planes. A uniform scale about the eye projects to the
+    /// same picture, and the triangles stay flat, so the texture's coordinates are interpolated exactly. The texture's
+    /// coordinates are the plane's world position, taken in the vertex shader.
+    /// </para>
+    /// <para>
+    /// <b>Behind everything, and drawn after the ground.</b> The vertex shader puts the deck just short of the far plane.
+    /// The host draws it after the backdrop and the island with the depth test on and no depth written, so the GPU throws
+    /// away a pixel that the ground, a tower or a ridge already covers before shading it. Drawn first over the whole sky,
+    /// the deck cost the Pi 2.0 ms at native 1080p.
+    /// </para>
+    /// <para>
+    /// <b>The colours are curved here.</b> The underside and the lit side go through the display curve on the CPU at three
+    /// points of their mix (<see cref="ToDisplay"/>), and the pixel joins them: a curve per pixel, or three colours per
+    /// vertex, were the deck's dearest part after its pixels.
     /// </para>
     /// </summary>
     public sealed class PotatoCloudDeck : IDisposable
@@ -58,7 +68,7 @@ namespace Prazsky.Core.Render
         private readonly GraphicsDevice _device;
         private readonly Effect _effect;
         private readonly EffectTechnique _technique, _firstTechnique;
-        private readonly EffectParameter _world, _view, _projection, _cameraPosition, _texture;
+        private readonly EffectParameter _world, _view, _projection, _cameraPosition, _texture, _shade, _quarter, _sun;
         private VertexBuffer _vertices;
         private IndexBuffer _indices;
         private Texture2D _field;
@@ -77,6 +87,9 @@ namespace Prazsky.Core.Render
             _projection = parameters["Projection"];
             _cameraPosition = parameters["CameraPosition"];
             _texture = parameters["CloudTexture"];
+            _shade = parameters["CloudDisplayShade"];
+            _quarter = parameters["CloudDisplayQuarter"];
+            _sun = parameters["CloudDisplaySun"];
 
             (VertexPositionColor[] vertices, int[] indices) = BuildDisc(RINGS, SEGMENTS, HORIZON_RISE);
             _vertices = new VertexBuffer(device, VertexPositionColor.VertexDeclaration, vertices.Length, BufferUsage.WriteOnly);
@@ -240,12 +253,13 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Draws the deck round the camera over the dome, alpha-blended, with no depth test. The weather's uniforms are
-        /// <see cref="CloudField"/>'s, pushed by the host before this (<see cref="CloudField.ApplyTo"/> and
-        /// <see cref="CloudField.ApplyDome"/>); the deck itself sets the camera, the matrices and its texture. Leaves the
-        /// depth state default and the blend state alpha, as BeginPotatoSceneDraw states them after the dome.
+        /// Draws the deck round the camera, alpha-blended over whatever sky is behind it, tested against the depth already
+        /// drawn and writing none. The weather's uniforms are <see cref="CloudField"/>'s, pushed by the host before this
+        /// (<see cref="CloudField.ApplyTo"/>; <see cref="CloudField.ApplyDome"/> at every dome). The deck itself sets the
+        /// camera, the matrices, its texture and its three colours: <paramref name="clouds"/>' two through the curve at
+        /// <paramref name="exposure"/>, the player's brightness. Leaves the depth state default and the blend state alpha.
         /// </summary>
-        public void Draw(ICamera camera)
+        public void Draw(ICamera camera, CloudField clouds, float exposure)
         {
             _world?.SetValue(Matrix.CreateScale(DRAW_SCALE) * Matrix.CreateTranslation(camera.Position));
             _view?.SetValue(camera.View);
@@ -253,7 +267,12 @@ namespace Prazsky.Core.Render
             _cameraPosition?.SetValue(camera.Position);
             _texture?.SetValue(_field);
 
-            _device.DepthStencilState = DepthStencilState.None;
+            Vector3 shade = clouds.ShadowColor, lit = clouds.SunColor;
+            _shade?.SetValue(ToDisplay(shade, exposure));
+            _quarter?.SetValue(ToDisplay(Vector3.Lerp(shade, lit, 0.25f), exposure));
+            _sun?.SetValue(ToDisplay(lit, exposure));
+
+            _device.DepthStencilState = DepthStencilState.DepthRead;
             _device.BlendState = BlendState.NonPremultiplied;
             _device.RasterizerState = RasterizerState.CullNone;
 
@@ -268,6 +287,23 @@ namespace Prazsky.Core.Render
             _effect.CurrentTechnique = _firstTechnique;
             _device.DepthStencilState = DepthStencilState.Default;
             _device.BlendState = BlendState.AlphaBlend;
+        }
+
+        /// <summary>
+        /// <c>PotatoOutput.fxh</c>'s <c>ToDisplay</c>, line for line: the exposure, Narkowicz's ACES fit and the exact sRGB
+        /// curve, from linear radiance to what the back buffer holds.
+        /// </summary>
+        public static Vector3 ToDisplay(Vector3 radiance, float exposure)
+        {
+            Vector3 x = radiance * exposure;
+            return new Vector3(Channel(x.X), Channel(x.Y), Channel(x.Z));
+
+            static float Channel(float v)
+            {
+                float aces = Math.Clamp(v * (2.51f * v + 0.03f) / (v * (2.43f * v + 0.59f) + 0.14f), 0f, 1f);
+                float c = MathF.Max(aces, 0f);
+                return c < 0.0031308f ? c * 12.92f : 1.055f * MathF.Pow(c, 1f / 2.4f) - 0.055f;
+            }
         }
 
         public void Dispose()

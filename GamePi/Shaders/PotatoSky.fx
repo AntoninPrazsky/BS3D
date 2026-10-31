@@ -273,8 +273,7 @@ technique PotatoSkyStars
 //
 //The mesh is a disc on the plane one unit over the eye, drawn round the camera as the dome is. A vertex's position is
 //the direction to its point on the deck, so the deck's world position is the camera's plus that direction scaled to
-//the deck's height. The triangles are flat, so the texture's coordinates are interpolated exactly. The fade towards the
-//horizon, the sun's silver and the two colours change slowly across the sky, so they are the vertex's.
+//the deck's height. The triangles are flat, so the texture's coordinates are interpolated exactly.
 
 float3 CameraPosition;
 float3 SunDirection;
@@ -290,8 +289,6 @@ float CloudHorizonFade;
 float CloudSelfAbsorption;
 float CloudSilverStrength;
 float CloudSilverPower;
-float3 CloudSunColor;
-float3 CloudShadowColor;
 
 texture CloudTexture;
 sampler2D CloudSampler = sampler_state
@@ -312,20 +309,32 @@ sampler2D CloudSampler = sampler_state
 //desktop erodes with four more octaves than this; its strengths (1.4 to 3.2) scale this the same way
 #define CLOUD_DETAIL_REACH 0.06
 
+//The curve of the mix of the underside and the lit side, at no sunlight, a quarter and all of it (PotatoCloudDeck,
+//from CloudSunColor and CloudShadowColor through PotatoOutput.fxh's ToDisplay on the CPU, every frame). Sky.fx mixes the
+//two as light and curves the mix once; mixed after the curve instead, a cloud a fifth lit was nearly all underside and the
+//deck went grey. Three points of the curve and two straight pieces between them give its shape with no curve per pixel.
+//A parabola through the same points overshot where a channel saturates first, and tinted white cloud pink
+float3 CloudDisplayShade;
+float3 CloudDisplayQuarter;
+float3 CloudDisplaySun;
+
+//Where the deck is drawn in depth: just short of the far plane, behind everything the frame holds. It is drawn after the
+//backdrop and the island with the depth test on, so a pixel the ground, a tower or a ridge already covers is thrown away
+//before it is shaded. Drawn first over the whole sky, the deck cost 2.0 ms at native 1080p on the Pi
+#define CLOUD_DEPTH 0.999999
+
 struct DeckOutput
 {
     float4 Position : POSITION0;
     float4 Uv : TEXCOORD0;      //the weather's read, then the finer one
-    float3 Shade : TEXCOORD1;   //the curve at no sunlight: the underside, display-encoded
-    float3 Quarter : TEXCOORD2; //the curve at a quarter of the sunlight
-    float3 Sun : TEXCOORD3;     //the curve at all of it: the lit side, the silver in it
-    float Fade : TEXCOORD4;     //none at the horizon
+    float2 Light : TEXCOORD1;   //the fade (none at the horizon), the silver towards the sun
 };
 
 DeckOutput DeckVS(VertexInput input)
 {
     DeckOutput output;
     output.Position = mul(mul(mul(input.Position, World), View), Projection);
+    output.Position.z = output.Position.w * CLOUD_DEPTH;
 
     //The point of the deck this vertex stands for: the camera's place plus the direction scaled to the deck's height.
     //Under a deck the camera has risen through (a tour's high pass), the height stays a little over it
@@ -339,21 +348,11 @@ DeckOutput DeckVS(VertexInput input)
     output.Uv.xy = (hit + drift) * (CloudScale / CLOUD_TILE_FEATURES);
     output.Uv.zw = (hit + drift * 1.25) * (CloudScale * CLOUD_DETAIL_SCALE / CLOUD_TILE_FEATURES) + 0.37;
 
+    //Towards the sun a thin edge is bright: Sky.fx's forward scattering, weighted in the pixel by the light that got
+    //through. Both change slowly across the sky, so they are the vertex's
     float3 direction = normalize(toward);
-    output.Fade = smoothstep(0.0, CloudHorizonFade, direction.y);
-
-    //Towards the sun a thin edge is bright: Sky.fx's forward scattering, weighted below by the light that got through
-    float silver = pow(saturate(dot(direction, SunDirection)), CloudSilverPower) * CloudSilverStrength;
-    float3 lit = CloudSunColor * (1.0 + silver);
-
-    //Sky.fx mixes the underside and the lit side as light and curves the mix once at the resolve; mixed after the curve
-    //instead, a cloud a fifth lit is nearly all underside and the deck goes grey. The curve of the mix is a function of
-    //the sunlight alone at a vertex, so it is taken here at three points (none, a quarter, all) and the pixel joins them
-    //with two straight pieces: the shape of the curve for two lerps and no curve per pixel. A parabola through the same
-    //three points overshot past the lit side where a channel saturates first, and tinted white cloud pink
-    output.Shade = ToDisplay(CloudShadowColor);
-    output.Quarter = ToDisplay(lerp(CloudShadowColor, lit, 0.25));
-    output.Sun = ToDisplay(lit);
+    output.Light = float2(smoothstep(0.0, CloudHorizonFade, direction.y),
+        pow(saturate(dot(direction, SunDirection)), CloudSilverPower) * CloudSilverStrength);
 
     return output;
 }
@@ -374,10 +373,11 @@ float4 DeckPS(DeckOutput input) : COLOR0
     float sunlight = exp(-max(thickness, 0.0) * CloudSelfAbsorption);
 
     //Through (0, Shade), (1/4, Quarter) and (1, Sun): below a quarter the second lerp is still at its start, above it
-    //the first is at its end
-    float3 colour = lerp(lerp(input.Shade, input.Quarter, saturate(sunlight * 4.0)), input.Sun, saturate((sunlight - 0.25) * 1.333333));
+    //the first is at its end. The silver takes the lit colour on towards white where the light comes through
+    float3 colour = lerp(lerp(CloudDisplayShade, CloudDisplayQuarter, saturate(sunlight * 4.0)), CloudDisplaySun, saturate((sunlight - 0.25) * 1.333333));
+    colour += (1.0 - colour) * saturate(input.Light.y * sunlight);
 
-    return float4(colour, saturate(density * CloudOpacity) * input.Fade);
+    return float4(colour, saturate(density * CloudOpacity) * input.Light.x);
 }
 
 technique PotatoCloudDeck

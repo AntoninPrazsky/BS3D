@@ -80,6 +80,21 @@ namespace BS3D.Tests
         }
 
         [Fact]
+        public void TheCurveIsPotatoOutputs()
+        {
+            //Black stays black, mid-grey radiance lands where the ACES fit and the sRGB curve put it (worked by hand from
+            //PotatoOutput.fxh), and a bright sun saturates to white without passing it
+            Assert.Equal(Vector3.Zero, PotatoCloudDeck.ToDisplay(Vector3.Zero, 1.1f));
+            Assert.Equal(0.5534f, PotatoCloudDeck.ToDisplay(new Vector3(0.18f), 1f).X, 3);
+            Vector3 sun = PotatoCloudDeck.ToDisplay(new Vector3(40f), 1.1f);
+            Assert.InRange(sun.X, 0.99f, 1f);
+
+            //And it rises with the light and with the exposure
+            Assert.True(PotatoCloudDeck.ToDisplay(new Vector3(0.3f), 1f).X > PotatoCloudDeck.ToDisplay(new Vector3(0.2f), 1f).X);
+            Assert.True(PotatoCloudDeck.ToDisplay(new Vector3(0.2f), 1.3f).X > PotatoCloudDeck.ToDisplay(new Vector3(0.2f), 1f).X);
+        }
+
+        [Fact]
         public void TheShaderReadsTheTileWithTheClassesFigure()
         {
             string source = File.ReadAllText(FindUnderRepository(Path.Combine("GamePi", "Shaders", "PotatoSky.fx")));

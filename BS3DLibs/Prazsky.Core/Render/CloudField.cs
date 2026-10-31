@@ -51,6 +51,9 @@ namespace Prazsky.Core.Render
         //before its first ApplyDome gets the weather's own radiance rather than black.
         private Vector3 _skyTint = Vector3.One;
 
+        //The lit side as ApplyDome last pushed it, kept for SunColor
+        private Vector3 _sunColor = Vector3.One;
+
         //A light on the ground lighting the deck from below (#509), stated by the host every frame through
         //SetGroundGlow/ClearGroundGlow. Black means none, which is an exact no-op in the sky shader.
         private Vector3 _groundGlowPosition, _groundGlowColor;
@@ -58,6 +61,15 @@ namespace Prazsky.Core.Render
 
         /// <summary>Which authored sky is up. Set through <see cref="SetWeather"/>, which fades to it.</summary>
         public WeatherPreset Preset => _preset;
+
+        /// <summary>
+        /// The clouds' lit side, linear, as <see cref="ApplyDome"/> last pushed it: the sun's radiance carried towards the
+        /// dome's horizon. For a deck that curves its colours itself (<see cref="PotatoCloudDeck"/>, #1044).
+        /// </summary>
+        public Vector3 SunColor => _sunColor;
+
+        /// <summary>The shadowed underside, linear, as <see cref="ApplyTo"/> pushes it: the weather's half times the dome's.</summary>
+        public Vector3 ShadowColor => _look.ShadowColor * _skyTint;
 
         /// <summary>
         /// How long a change of sky takes. The ambience crossfades its beds rather than cutting them on the
@@ -300,7 +312,7 @@ namespace Prazsky.Core.Render
             //the sky it sees — so it is the one value needing both, and it is pushed here because the
             //weather's half moves per frame while the dome's moves once a scene. <see cref="ApplyDome"/>
             //remembers its half for exactly this.
-            slots.ShadowColor?.SetValue(_look.ShadowColor * _skyTint);
+            slots.ShadowColor?.SetValue(ShadowColor);
 
             //The ground's light on the deck (#509) - the sky shader's alone; no other effect declares these.
             slots.GroundGlowPosition?.SetValue(_groundGlowPosition);
@@ -402,7 +414,8 @@ namespace Prazsky.Core.Render
 
             Vector3 domeTint = Vector3.Lerp(Vector3.One, horizonLinear, SunTintStrength);
 
-            slots.SunColor?.SetValue(sunRadiance * domeTint);
+            _sunColor = sunRadiance * domeTint;
+            slots.SunColor?.SetValue(_sunColor);
 
             //The sun disc takes the sun's radiance straight, without the second lerp towards the horizon the
             //clouds' lit side gets: a cloud is a lit surface and the sun is the source, and carrying the disc

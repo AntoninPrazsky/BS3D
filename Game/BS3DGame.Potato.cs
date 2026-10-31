@@ -213,15 +213,6 @@ namespace BS3D
                 GraphicsDevice.BlendState = BlendState.Opaque;
                 GraphicsDevice.RasterizerState = RasterizerState.CullNone;
                 _sky.Draw(_camera);
-
-                //The weather over it (#1044): the desktop's field, clock and look, drawn as the deck baked into a texture.
-                //A clear sky has nothing over the threshold anywhere, so it is not drawn at all
-                _clouds.Time = _wallClock;
-                if (_potatoCloudDeck != null && PotatoCloudDeck.Shows(_clouds))
-                {
-                    _clouds.ApplyTo(_skyEffect);
-                    _potatoCloudDeck.Draw(_camera);
-                }
             }
 
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
@@ -242,6 +233,16 @@ namespace BS3D
             _island.EventGlow = 0f;
             _island.DrawIsland(_camera, _sceneEffectParams, _scene);
             _island.DrawPit(_camera, _sceneEffectParams, _scene);
+
+            //The weather over a dome (#1044): the desktop's field, clock and look, drawn as the deck baked into a texture.
+            //After the ground and the island, behind them in depth, so the pixels they cover are never shaded (2.0 ms at
+            //native drawn first). A clear sky has nothing over the threshold anywhere, so it is not drawn at all
+            if (_potatoCloudDeck != null && !PotatoSceneRig.TryGetVoid(_scene, out _) && PotatoCloudDeck.Shows(_clouds))
+            {
+                _clouds.Time = _wallClock;
+                _clouds.ApplyTo(_skyEffect);
+                _potatoCloudDeck.Draw(_camera, _clouds, _exposure);
+            }
 
             //The translucent baseline the caller's glass draws inherit (#667), as BeginSceneDraw promises it
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
