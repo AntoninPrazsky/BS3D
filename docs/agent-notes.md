@@ -20,6 +20,16 @@ Pravidla:
 
 ---
 
+## 2026-10-31 — #1044 Pi: mraky nad scénami s kopulí — Pi (BS3DServer), Claude Code
+- Majitel: „vezmi další scény, které na Pi nejsou dodělané nebo nevypadají dobře, hlavně ty s levely, pro Pi-Apps“ a „pokračuj, dokud ti nedojde limit“.
+- Hotovo:
+  - audit 14 scén s levely (#1044, snímky v `Research/pi-port/1044`);
+  - krok 1: desktopové `CloudField` jako deck na Potato (`PotatoCloudDeck`), předpečená textura, dvě čtení na pixel.
+- Cena mimo obrazovku: +0,3 až 0,6 ms při 720p, +0,6 až 1,7 ms při 1080p.
+- ⚠ Hra se dá fotit bez obrazovky: headless labwc s `WLR_RENDER_DRM_DEVICE=/dev/dri/renderD128`. Bez toho hra kreslí softwarově (4 FPS).
+- ⚠ Shader nesmí přepsat `z` tak, aby Projection přišla o řádek: MojoShader sbalí uniformy a MonoGame zapisuje matici vedle. Zůstat u `max(z, …)`.
+- Otevřené: další kroky #1044 (okna měst, hory, sopka, louka).
+
 ## 2026-10-31 — #1043 blog: swarm na Pi a A/B s dělem — Pi (BS3DServer), Claude Code
 - Hotovo: článek „Zero balls at sixty frames a second“:
   - swarm na Pi: 0 → sestup → 333 koulí;

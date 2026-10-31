@@ -550,10 +550,9 @@ namespace BS3D
             //rig gives the scene — one sun, one number (see SkyLightRig.SunRadianceTinted). Since #220 the
             //sun's DIRECTION rides along, the dome having its own: the drawn disc, the deck's silver lining
             //and the shadow the instanced shader throws are all re-aimed in this one call.
-            //No clouds on the Potato path (#789): neither effect there has a cloud uniform
-            if (!PotatoPath)
-                _clouds.ApplyDome(_skyEffect, _instancingEffect, _rig.SunDirection,
-                    _rig.SunRadianceTinted, _rig.ZenithLinear, _rig.HorizonLinear);
+            //On the Potato path only the sky's deck takes them (#1044): PotatoModel throws no cloud shadow
+            _clouds.ApplyDome(_skyEffect, PotatoPath ? null : _instancingEffect, _rig.SunDirection,
+                _rig.SunRadianceTinted, _rig.ZenithLinear, _rig.HorizonLinear);
         }
 
         /// <summary>
