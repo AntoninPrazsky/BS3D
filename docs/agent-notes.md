@@ -20,6 +20,15 @@ Pravidla:
 
 ---
 
+## 2026-10-31 — #1043 blog: swarm na Pi a A/B s dělem — Pi (BS3DServer), Claude Code
+- Hotovo: článek „Zero balls at sixty frames a second“:
+  - swarm na Pi: 0 → sestup → 333 koulí;
+  - A/B v pořadí ABCCBA na utichlém Pi: dělo stojí 1,1 ms;
+  - majitel dělo v turách nechal.
+- Graf je SVG vyfocené headless Chromiem do PNG (na Pi není matplotlib), v široké i telefonní verzi.
+- ⚠ Přímka v #988 a v `benchmark.md` byla „11,8 ms + 12 µs“. Nejmenší čtverce přes 16 mediánů dávají 11,9 ms + 12,2 µs, takže rozpočet protne u ~390 koulí a bouři zbývá ~4,7 ms. Opraveno v `benchmark.md` i v #988.
+- Otevřené: publikace webu (majitel).
+
 ## 2026-10-31 — #1042 blog: LCD panel serveru — Pi (BS3DServer), Claude Code
 - Hotovo: článek „Seventeen greys on a screen that has two“ (FRC a 17 odstínů šedi, V0 místo podsvícení, siréna, STOPPED). Má fotky panelu, simulované screenshoty a čtyři smyčkové klipy z GIFů BS3D-LCD (3,6 MB GIF → 0,82 MB WebM).
 - Nově na webu:
