@@ -1556,8 +1556,8 @@ namespace BS3D
             //part of starting up and belong to a play session, so the GameplayScreen builds them on the first
             //"Play" and rebuilds them per level. Everything above is the scene, which the menu also stands in.
 
-            //The Potato path (#789) has no Sky.fx: the dome is drawn through GamePi's PotatoSky, its gradient alone, curved
-            //with the player's exposure like everything else there - and with no cloud deck or sun disc to place, no camera
+            //The Potato path (#789) has no Sky.fx: the dome is drawn through GamePi's PotatoSky, its gradient curved with the
+            //player's exposure like everything else there, and its cloud deck takes the camera itself (PotatoCloudDeck)
             if (PotatoPath) _skyEffect = Content.Load<Effect>("Shaders/PotatoSky");
             else
             {
@@ -1572,8 +1572,9 @@ namespace BS3D
 
             //Everything about the clouds that does not change frame to frame, pushed once. The per-frame half —
             //the clock and the camera — goes out in BeginSceneDraw, right before the dome; the colours and the
-            //sun's own direction follow the dome and are ApplySkyLighting's business. No clouds on the Potato path.
-            if (!PotatoPath) _clouds.ApplyStaticParameters(_skyEffect);
+            //sun's own direction follow the dome and are ApplySkyLighting's business. PotatoSky's deck (#1044)
+            //declares the same names, and takes the ones it uses.
+            _clouds.ApplyStaticParameters(_skyEffect);
 
             //The game's name as 3D lettering over the front end (#248). Its twenty-two meshes are built here,
             //once — eleven letters at the stroke weight and eleven again fatter, for the keyline behind them.
@@ -1657,6 +1658,7 @@ namespace BS3D
             {
                 ApplyPotatoExposure();
                 LoadPotatoUpscale();
+                _potatoCloudDeck = PotatoCloudDeck.Create(GraphicsDevice, _skyEffect);
             }
 
             //Both display levers ("celebrate" and "confetti") are FIRED FROM Update, not from here — see

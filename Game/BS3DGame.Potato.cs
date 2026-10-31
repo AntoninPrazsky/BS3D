@@ -26,8 +26,9 @@ namespace BS3D
     /// are set in has a low-poly backdrop of its own (<see cref="PotatoBackdrop"/>, #829: the ground, the scatter, the
     /// aurora's spruce stand, the cities' near towers, all lit at the vertex through <c>PotatoVertexLit</c>), and four of
     /// them a sky of their own (<see cref="PotatoSkyFigure"/>: space, the aurora, the dream and the Moon's stars). Any
-    /// other scene's island stands under the dome's gradient alone, drawn through <c>PotatoSky</c>, the player's exposure
-    /// and all (no <c>Sky.fx</c>, so no cloud deck and no sun disc). No <see cref="PostProcessPipeline"/>: no bloom, no
+    /// other scene's island stands under the dome's gradient, drawn through <c>PotatoSky</c>, the player's exposure and
+    /// all, with the desktop's weather over it as a deck baked into a texture (<see cref="PotatoCloudDeck"/>, #1044; no
+    /// <c>Sky.fx</c>, so no sun disc and no cloud shadows). No <see cref="PostProcessPipeline"/>: no bloom, no
     /// defocus, no motion blur, no grain, and the HUD's layer is drawn straight. None of the host's own scenery is built:
     /// no street level, no city or roofs (<see cref="PotatoBackdrop"/> lays out a city of its own), no forest or aurora
     /// wood planted from the scene renderer's configs.
@@ -128,6 +129,12 @@ namespace BS3D
         /// <summary>The scene's own sky where it has one on this path (space, the aurora, the dream, the Moon's stars), built with the backdrop.</summary>
         private PotatoSkyFigure _potatoSkyFigure;
 
+        /// <summary>
+        /// The cloud deck over the scenes that stand under a dome (#1044), built once at load; null on an effect compiled
+        /// before it, which leaves the dome's gradient alone.
+        /// </summary>
+        private PotatoCloudDeck _potatoCloudDeck;
+
         /// <summary>The scene <see cref="_potatoBackdrop"/> and <see cref="_potatoSkyFigure"/> were built for, null before the first build.</summary>
         private SceneKind? _potatoBackdropScene;
 
@@ -172,8 +179,8 @@ namespace BS3D
 
         /// <summary>
         /// <see cref="BeginSceneDraw"/> on the Potato path: the frame cleared to the dome's horizon and the dome's gradient,
-        /// or a sky-replacing scene's void and its own sky; then the scene's backdrop, the island and its pit - and the
-        /// frame the rest of the draw needs. No shadow maps, no clouds, no sea or kill-plane fade; of the scene's own lamps
+        /// and its cloud deck, or a sky-replacing scene's void and its own sky; then the scene's backdrop, the island and its
+        /// pit - and the frame the rest of the draw needs. No shadow maps, no cloud shadows, no sea or kill-plane fade; of the scene's own lamps
         /// only those no desktop backdrop has to be built for (#795, <see cref="SceneLights.Apply"/> with no renderer). The
         /// cup and the confetti are drawn last of all instead of first into a layer (<see cref="CompositeForegroundLast"/>).
         /// </summary>
@@ -206,6 +213,15 @@ namespace BS3D
                 GraphicsDevice.BlendState = BlendState.Opaque;
                 GraphicsDevice.RasterizerState = RasterizerState.CullNone;
                 _sky.Draw(_camera);
+
+                //The weather over it (#1044): the desktop's field, clock and look, drawn as the deck baked into a texture.
+                //A clear sky has nothing over the threshold anywhere, so it is not drawn at all
+                _clouds.Time = _wallClock;
+                if (_potatoCloudDeck != null && PotatoCloudDeck.Shows(_clouds))
+                {
+                    _clouds.ApplyTo(_skyEffect);
+                    _potatoCloudDeck.Draw(_camera);
+                }
             }
 
             GraphicsDevice.BlendState = BlendState.AlphaBlend;

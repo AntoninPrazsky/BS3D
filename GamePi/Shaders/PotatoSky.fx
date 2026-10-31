@@ -263,3 +263,116 @@ technique PotatoSkyStars
         PixelShader = compile POTATO_PS StarPS();
     }
 };
+
+//--- THE CLOUD DECK (#1044) ------------------------------------------------------------------------------------------
+//The desktop's weather over the seven scenes under a dome, which had their dome's gradient alone here. The same
+//CloudField drives it, and its uniforms are the desktop sky's names, so CloudField.ApplyTo, ApplyDome and
+//ApplyStaticParameters hand them over as they do to Sky.fx. Sky.fx computes gradient noise per pixel, octave by octave,
+//and per-pixel noise cost the Pi 12 ms at 1080p (#829's skies). Here the field is baked into a tiling texture once
+//(PotatoCloudDeck.BakeField: the weather layer in red, finer octaves in green), and the pixel reads it twice.
+//
+//The mesh is a disc on the plane one unit over the eye, drawn round the camera as the dome is. A vertex's position is
+//the direction to its point on the deck, so the deck's world position is the camera's plus that direction scaled to
+//the deck's height. The triangles are flat, so the texture's coordinates are interpolated exactly. The fade towards the
+//horizon, the sun's silver and the two colours change slowly across the sky, so they are the vertex's.
+
+float3 CameraPosition;
+float3 SunDirection;
+float CloudPlaneY;
+float CloudScale;
+float CloudTime;
+float2 CloudWind;
+float CloudCoverageBias;
+float CloudCoverageGain;
+float CloudDetailStrength;
+float CloudOpacity;
+float CloudHorizonFade;
+float CloudSelfAbsorption;
+float CloudSilverStrength;
+float CloudSilverPower;
+float3 CloudSunColor;
+float3 CloudShadowColor;
+
+texture CloudTexture;
+sampler2D CloudSampler = sampler_state
+{
+    Texture = <CloudTexture>;
+    AddressU = Wrap;
+    AddressV = Wrap;
+    MinFilter = Linear;
+    MagFilter = Linear;
+    MipFilter = Linear;
+};
+
+//PotatoCloudDeck.TILE_FEATURES, the weather layer's features across one tile; and how much finer the second read is,
+//not a whole number, so its tile never lines up with the first
+#define CLOUD_TILE_FEATURES 4.0
+#define CLOUD_DETAIL_SCALE 2.37
+//How far the finer octaves carry an edge in or out, in the weather layer's own units, at a detail strength of one. The
+//desktop erodes with four more octaves than this; its strengths (1.4 to 3.2) scale this the same way
+#define CLOUD_DETAIL_REACH 0.06
+
+struct DeckOutput
+{
+    float4 Position : POSITION0;
+    float4 Uv : TEXCOORD0;      //the weather's read, then the finer one
+    float3 Sun : TEXCOORD1;     //the lit side, display-encoded, the silver in it
+    float3 Shade : TEXCOORD2;   //the underside, display-encoded
+    float Fade : TEXCOORD3;     //none at the horizon
+};
+
+DeckOutput DeckVS(VertexInput input)
+{
+    DeckOutput output;
+    output.Position = mul(mul(mul(input.Position, World), View), Projection);
+
+    //The point of the deck this vertex stands for: the camera's place plus the direction scaled to the deck's height.
+    //Under a deck the camera has risen through (a tour's high pass), the height stays a little over it
+    float3 toward = input.Position.xyz;
+    float height = max(CloudPlaneY - CameraPosition.y, 10.0);
+    float2 hit = CameraPosition.xz + toward.xz * height;
+
+    //The weather drifts with the wind, the finer octaves a quarter faster (Clouds.fxh's second octave), so the edges
+    //keep changing as the forms cross the sky
+    float2 drift = CloudWind * CloudTime;
+    output.Uv.xy = (hit + drift) * (CloudScale / CLOUD_TILE_FEATURES);
+    output.Uv.zw = (hit + drift * 1.25) * (CloudScale * CLOUD_DETAIL_SCALE / CLOUD_TILE_FEATURES) + 0.37;
+
+    float3 direction = normalize(toward);
+    output.Fade = smoothstep(0.0, CloudHorizonFade, direction.y);
+
+    //Towards the sun a thin edge is bright: Sky.fx's forward scattering, weighted below by the light that got through
+    float silver = pow(saturate(dot(direction, SunDirection)), CloudSilverPower) * CloudSilverStrength;
+    output.Sun = ToDisplay(CloudSunColor * (1.0 + silver));
+    output.Shade = ToDisplay(CloudShadowColor);
+
+    return output;
+}
+
+float4 DeckPS(DeckOutput input) : COLOR0
+{
+    //Stored as half the value plus a half
+    float weather = tex2D(CloudSampler, input.Uv.xy).r * 2.0 - 1.0;
+    float detail = tex2D(CloudSampler, input.Uv.zw).g * 2.0 - 1.0;
+
+    //Sky.fx's thickness (unclamped, for the shading) and coverage (clamped, for the compositing): the finer octaves
+    //move the threshold where the weather layer drew it, which is what chews the edges
+    float thickness = (weather + CloudCoverageBias + detail * CLOUD_DETAIL_REACH * CloudDetailStrength) * CloudCoverageGain;
+    float density = saturate(thickness);
+
+    //A flat field seen from under it: the thick parts are the undersides with the light used up, the thin parts let it
+    //through - dark cores and bright edges, Sky.fx's Beer-Lambert on the body alone
+    float sunlight = exp(-max(thickness, 0.0) * CloudSelfAbsorption);
+    float3 colour = lerp(input.Shade, input.Sun, sunlight);
+
+    return float4(colour, saturate(density * CloudOpacity) * input.Fade);
+}
+
+technique PotatoCloudDeck
+{
+    pass P0
+    {
+        VertexShader = compile POTATO_VS DeckVS();
+        PixelShader = compile POTATO_PS DeckPS();
+    }
+};
