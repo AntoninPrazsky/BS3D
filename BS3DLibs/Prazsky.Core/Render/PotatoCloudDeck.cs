@@ -31,7 +31,7 @@ namespace Prazsky.Core.Render
     /// </para>
     /// <para>
     /// <b>The colours are curved here.</b> The underside and the lit side go through the display curve on the CPU at three
-    /// points of their mix (<see cref="ToDisplay"/>), and the pixel joins them: a curve per pixel, or three colours per
+    /// points of their mix (<see cref="PotatoDisplay.ToDisplay"/>), and the pixel joins them: a curve per pixel, or three colours per
     /// vertex, were the deck's dearest part after its pixels.
     /// </para>
     /// </summary>
@@ -268,9 +268,9 @@ namespace Prazsky.Core.Render
             _texture?.SetValue(_field);
 
             Vector3 shade = clouds.ShadowColor, lit = clouds.SunColor;
-            _shade?.SetValue(ToDisplay(shade, exposure));
-            _quarter?.SetValue(ToDisplay(Vector3.Lerp(shade, lit, 0.25f), exposure));
-            _sun?.SetValue(ToDisplay(lit, exposure));
+            _shade?.SetValue(PotatoDisplay.ToDisplay(shade, exposure));
+            _quarter?.SetValue(PotatoDisplay.ToDisplay(Vector3.Lerp(shade, lit, 0.25f), exposure));
+            _sun?.SetValue(PotatoDisplay.ToDisplay(lit, exposure));
 
             _device.DepthStencilState = DepthStencilState.DepthRead;
             _device.BlendState = BlendState.NonPremultiplied;
@@ -287,23 +287,6 @@ namespace Prazsky.Core.Render
             _effect.CurrentTechnique = _firstTechnique;
             _device.DepthStencilState = DepthStencilState.Default;
             _device.BlendState = BlendState.AlphaBlend;
-        }
-
-        /// <summary>
-        /// <c>PotatoOutput.fxh</c>'s <c>ToDisplay</c>, line for line: the exposure, Narkowicz's ACES fit and the exact sRGB
-        /// curve, from linear radiance to what the back buffer holds.
-        /// </summary>
-        public static Vector3 ToDisplay(Vector3 radiance, float exposure)
-        {
-            Vector3 x = radiance * exposure;
-            return new Vector3(Channel(x.X), Channel(x.Y), Channel(x.Z));
-
-            static float Channel(float v)
-            {
-                float aces = Math.Clamp(v * (2.51f * v + 0.03f) / (v * (2.43f * v + 0.59f) + 0.14f), 0f, 1f);
-                float c = MathF.Max(aces, 0f);
-                return c < 0.0031308f ? c * 12.92f : 1.055f * MathF.Pow(c, 1f / 2.4f) - 0.055f;
-            }
         }
 
         public void Dispose()

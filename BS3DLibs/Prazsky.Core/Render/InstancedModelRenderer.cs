@@ -168,6 +168,16 @@ namespace Prazsky.Core.Render
         /// is PotatoLit per pixel, as the island and the gun are drawn.
         /// </summary>
         public bool PotatoVertexLit { get; set; }
+
+        //The cities' towers with their windows (#1044, PotatoModel.fx's PotatoFacade), null on an effect compiled before it
+        private EffectTechnique _potatoFacadeTechnique;
+
+        /// <summary>
+        /// Draw this renderer's parts as the cities' towers on the Potato path (#1044): the wall lit at the vertex as
+        /// <see cref="PotatoVertexLit"/>'s, with windows laid out per pixel. The facade's uniforms are the caller's to set
+        /// (<see cref="PotatoBackdrop"/>). On an effect without the technique, <see cref="PotatoVertexLit"/> stands in.
+        /// </summary>
+        public bool PotatoFacade { get; set; }
         private readonly MeshPartData[] _parts;
         private DynamicVertexBuffer _instanceBuffer;
         private readonly ModelInstance[] _singleInstance = new ModelInstance[1];
@@ -2215,6 +2225,7 @@ namespace Prazsky.Core.Render
             _potatoBallCutterTechnique = RequiredTechnique("PotatoBallCutter");
             _potatoBallCutterDitherTechnique = RequiredTechnique("PotatoBallCutterDither");
             _potatoVertexLitTechnique = _effect.Techniques["PotatoVertexLit"];
+            _potatoFacadeTechnique = _effect.Techniques["PotatoFacade"];
             _potatoBallCueTechniques = new[]
             {
                 RequiredTechnique("PotatoBallCueBands"), RequiredTechnique("PotatoBallCueSpots"),
@@ -2617,6 +2628,7 @@ namespace Prazsky.Core.Render
                     _effect.CurrentTechnique = _potatoBandTechnique;
                     _potatoBandSeamParam.SetValue(new Vector2(FunnelRimsMesh.SEAM_HEIGHT, PotatoBandUnderPit ? 1f : 0f));
                 }
+                else if (PotatoFacade && _potatoFacadeTechnique != null) _effect.CurrentTechnique = _potatoFacadeTechnique;
                 else if (PotatoVertexLit && _potatoVertexLitTechnique != null) _effect.CurrentTechnique = _potatoVertexLitTechnique;
                 else _effect.CurrentTechnique = _mainTechnique;
 
