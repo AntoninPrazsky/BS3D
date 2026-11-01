@@ -785,6 +785,21 @@ namespace Prazsky.Core.Render
                 new[] { new ModelInstance(Matrix.CreateScale(radius * 0.26f, radius * 0.05f, radius * 0.15f) * stormOrient, OPEN) },
                 planet.StormColor.ToVector3(), null, "storm");
 
+            //The saucer (#1044, #955): SaucerFlight's craft on its loop round the station, SaucerMesh's hull and dome. Saucer.fx
+            //mirrors a studio's band of light in the chrome and paints the bulbs, the belly's glow and the crew; here the hull
+            //is a pale metal under the scene's rig, the dome the cabin's warm light, the bulbs small spheres round the rim and
+            //the top's ring in their own light, and the belly a flattened disc of its teal glow
+            Func<float, Matrix> flight = SaucerFlight.WorldAt;
+            var saucer = backdrop.Own(new SaucerMesh(graphicsDevice));
+            var one = new[] { Matrix.Identity };
+            backdrop.AddMovingParts(graphicsDevice, potatoEffect, saucer.Hull, one, flight, SAUCER_HULL, Vector3.Zero, "saucer");
+            backdrop.AddMovingParts(graphicsDevice, potatoEffect, saucer.Dome, one, flight, SAUCER_HULL * 0.3f, SAUCER_CABIN, "dome");
+            SphereMesh bulb = backdrop.Own(new SphereMesh(graphicsDevice, 0.5f, 6, 3));
+            backdrop.AddMovingParts(graphicsDevice, potatoEffect, bulb, SaucerBulbs(), flight, SAUCER_BULB, SAUCER_BULB, "bulbs");
+            backdrop.AddMovingParts(graphicsDevice, potatoEffect, bulb,
+                new[] { Matrix.CreateScale(SaucerMesh.RIM_RADIUS * 1.1f, 0.35f, SaucerMesh.RIM_RADIUS * 1.1f) * Matrix.CreateTranslation(0f, SaucerMesh.UNDER_Y, 0f) },
+                flight, Vector3.Zero, SAUCER_BELLY, "belly");
+
             return backdrop;
         }
 
@@ -1085,11 +1100,15 @@ namespace Prazsky.Core.Render
             {
                 backdrop._owned.Add(backdrop._cycles);
                 SphereMesh disc = backdrop.Own(new SphereMesh(graphicsDevice, 0.5f, 12, 6));
+                PotatoLightCycles cycles = backdrop._cycles;
                 for (int i = 0; i < PotatoLightCycles.Count; i++)
                 {
+                    int rider = i;
                     Vector3 light = PotatoLightCycles.Color(i);
-                    backdrop.AddCyclePart(graphicsDevice, potatoEffect, box, CYCLE_BOXES, i, towers.BodyColor.ToVector3(), light * CYCLE_BODY_GLOW, $"cycle {i}");
-                    backdrop.AddCyclePart(graphicsDevice, potatoEffect, disc, CYCLE_WHEELS, i, towers.BodyColor.ToVector3(), light * CYCLE_WHEEL_GLOW, $"wheels {i}");
+                    backdrop.AddMovingParts(graphicsDevice, potatoEffect, box, CYCLE_BOXES, time => cycles.World(rider, time),
+                        towers.BodyColor.ToVector3(), light * CYCLE_BODY_GLOW, $"cycle {i}");
+                    backdrop.AddMovingParts(graphicsDevice, potatoEffect, disc, CYCLE_WHEELS, time => cycles.World(rider, time),
+                        towers.BodyColor.ToVector3(), light * CYCLE_WHEEL_GLOW, $"wheels {i}");
                 }
             }
             backdrop.AddPiece(graphicsDevice, potatoEffect, box, traces.ToArray(), terrain.LineColor.ToVector3(),
@@ -1120,11 +1139,11 @@ namespace Prazsky.Core.Render
         private PotatoLightCycles _cycles;
 
         /// <summary>
-        /// One kind of part of light cycle <paramref name="rider"/> (#1044): <paramref name="parts"/> of
-        /// <paramref name="mesh"/> in the cycle's own frame, carried every frame to where its rider is
-        /// (<see cref="PotatoLightCycles.World"/>), matte in <paramref name="colour"/> and radiating <paramref name="glow"/>.
+        /// One kind of part of something that moves (#1044: a light cycle, the saucer): <paramref name="parts"/> of
+        /// <paramref name="mesh"/> in its own frame, carried every frame to where <paramref name="world"/> says it is at the
+        /// clock, matte in <paramref name="colour"/> and radiating <paramref name="glow"/>, both linear.
         /// </summary>
-        private void AddCyclePart(GraphicsDevice graphicsDevice, Effect potatoEffect, IProceduralMesh mesh, Matrix[] parts, int rider,
+        private void AddMovingParts(GraphicsDevice graphicsDevice, Effect potatoEffect, IProceduralMesh mesh, Matrix[] parts, Func<float, Matrix> world,
             Vector3 colour, Vector3 glow, string what)
         {
             var renderer = new InstancedModelRenderer(graphicsDevice, mesh, ColorSpace.LinearToSrgb(colour), potatoEffect) { PotatoVertexLit = true, SpecularAmbientStrength = 0f };
@@ -1132,11 +1151,10 @@ namespace Prazsky.Core.Render
             _renderers.Add(renderer);
             var instances = new ModelInstance[parts.Length];
             var item = new DrawItem { Renderer = renderer, Instances = instances, Glow = ColorSpace.LinearToSrgb(Vector3.Clamp(glow, Vector3.Zero, Vector3.One)) };
-            PotatoLightCycles cycles = _cycles;
             item.Animate = (draw, time) =>
             {
-                Matrix world = cycles.World(rider, time);
-                for (int k = 0; k < parts.Length; k++) draw.Instances[k] = new ModelInstance(parts[k] * world, OPEN);
+                Matrix at = world(time);
+                for (int k = 0; k < parts.Length; k++) draw.Instances[k] = new ModelInstance(parts[k] * at, OPEN);
             };
             _draws.Add(item);
             VertexCount += mesh.PrimitiveCount * 3 * parts.Length;
@@ -1520,6 +1538,30 @@ namespace Prazsky.Core.Render
             }
 
             return new PotatoStripMesh(graphicsDevice, left, right, along, normal);
+        }
+
+        //The saucer's look (#1044, Saucer.fx's figures): the hull's metal (a mirror there, a pale grey under the rig here), the
+        //cabin's light through the dome, the bulbs (BULB_COLOR at RIM_LIGHT_RADIANCE, a share brighter for the glare they have
+        //not), the belly's glow (BELLY_GLOW at BELLY_RADIANCE); how many bulbs round the rim and round the top, and a bulb's
+        //size (Saucer.fx's 0.22 radius, twice it so a bulb holds a pixel at the loop's 240 units)
+        private static readonly Vector3 SAUCER_HULL = new(0.48f, 0.50f, 0.54f), SAUCER_CABIN = new Vector3(0.30f, 0.16f, 0.10f) * 1.6f;
+        private static readonly Vector3 SAUCER_BULB = new Vector3(1.00f, 0.90f, 0.68f) * 0.75f, SAUCER_BELLY = new Vector3(0.25f, 0.85f, 0.75f) * 0.35f;
+        private const int SAUCER_RIM_BULBS = 24, SAUCER_TOP_BULBS = 16;
+        private const float SAUCER_BULB_SIZE = 0.88f;
+
+        /// <summary>The saucer's bulbs in its own frame: a ring round the rim's band and a ring round the top (SaucerMesh's).</summary>
+        private static Matrix[] SaucerBulbs()
+        {
+            var bulbs = new Matrix[SAUCER_RIM_BULBS + SAUCER_TOP_BULBS];
+            float rimY = 0.5f * (SaucerMesh.RIM_BAND.X + SaucerMesh.RIM_BAND.Y);
+            for (int i = 0; i < bulbs.Length; i++)
+            {
+                bool rim = i < SAUCER_RIM_BULBS;
+                float a = MathHelper.TwoPi * (rim ? i / (float)SAUCER_RIM_BULBS : (i - SAUCER_RIM_BULBS) / (float)SAUCER_TOP_BULBS);
+                float r = rim ? SaucerMesh.RIM_RADIUS : SaucerMesh.TOP_RING.X, y = rim ? rimY : SaucerMesh.TOP_RING.Y;
+                bulbs[i] = Matrix.CreateScale(SAUCER_BULB_SIZE) * Matrix.CreateTranslation(MathF.Cos(a) * r, y, MathF.Sin(a) * r);
+            }
+            return bulbs;
         }
 
         private const int RIVER_STEPS = 28;
