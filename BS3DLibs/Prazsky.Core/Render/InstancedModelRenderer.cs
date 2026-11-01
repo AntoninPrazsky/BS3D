@@ -173,7 +173,7 @@ namespace Prazsky.Core.Render
         private EffectTechnique _potatoFacadeTechnique;
 
         //A ground of two materials (#1044, PotatoModel.fx's PotatoVertexLitBlend), null on an effect compiled before it
-        private EffectTechnique _potatoVertexBlendTechnique;
+        private EffectTechnique _potatoVertexBlendTechnique, _potatoVertexRampTechnique;
 
         /// <summary>
         /// Draw this renderer's mesh as a ground of two materials on the Potato path (#1044): lit at the vertex as
@@ -182,6 +182,13 @@ namespace Prazsky.Core.Render
         /// effect without the technique, <see cref="PotatoVertexLit"/> stands in, in white.
         /// </summary>
         public bool PotatoVertexBlend { get; set; }
+
+        /// <summary>
+        /// <see cref="PotatoVertexBlend"/> crossed at the vertex rather than the pixel (#1044, <c>PotatoVertexLitRamp</c>): for
+        /// a soft ramp, at <see cref="PotatoVertexLit"/>'s price a pixel. On an effect without the technique,
+        /// <see cref="PotatoVertexLit"/> stands in, in white.
+        /// </summary>
+        public bool PotatoVertexRamp { get; set; }
 
         /// <summary>
         /// Draw this renderer's parts as the cities' towers on the Potato path (#1044): the wall lit at the vertex as
@@ -2238,6 +2245,7 @@ namespace Prazsky.Core.Render
             _potatoVertexLitTechnique = _effect.Techniques["PotatoVertexLit"];
             _potatoFacadeTechnique = _effect.Techniques["PotatoFacade"];
             _potatoVertexBlendTechnique = _effect.Techniques["PotatoVertexLitBlend"];
+            _potatoVertexRampTechnique = _effect.Techniques["PotatoVertexLitRamp"];
             _potatoBallCueTechniques = new[]
             {
                 RequiredTechnique("PotatoBallCueBands"), RequiredTechnique("PotatoBallCueSpots"),
@@ -2642,6 +2650,7 @@ namespace Prazsky.Core.Render
                 }
                 else if (PotatoFacade && _potatoFacadeTechnique != null) _effect.CurrentTechnique = _potatoFacadeTechnique;
                 else if (PotatoVertexBlend && _potatoVertexBlendTechnique != null) _effect.CurrentTechnique = _potatoVertexBlendTechnique;
+                else if (PotatoVertexRamp && _potatoVertexRampTechnique != null) _effect.CurrentTechnique = _potatoVertexRampTechnique;
                 else if (PotatoVertexLit && _potatoVertexLitTechnique != null) _effect.CurrentTechnique = _potatoVertexLitTechnique;
                 else _effect.CurrentTechnique = _mainTechnique;
 

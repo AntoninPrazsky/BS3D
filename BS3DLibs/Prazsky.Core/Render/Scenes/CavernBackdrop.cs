@@ -36,10 +36,10 @@ namespace Prazsky.Core.Render
         private readonly Vector4[] _lightColors = new Vector4[MAX_LIGHTS];
 
         /// <summary>A cluster's light reaches this far, scaled by its size; the inverse square has done most of its work by then.</summary>
-        internal const float LIGHT_RANGE = 150f;
+        private const float LIGHT_RANGE = 150f;
 
         /// <summary>A cluster's light, at the shader's own falloff scale, over its colour: the pool on the rock round it.</summary>
-        internal const float LIGHT_INTENSITY = 3.4f;
+        private const float LIGHT_INTENSITY = 3.4f;
 
         /// <summary>A glowworm's radius on the screen, in pixels at 1080 lines (#507: a point stays about a pixel and a half wide).</summary>
         internal const float GLOWWORM_PIXELS = 1.6f;
@@ -310,12 +310,9 @@ namespace Prazsky.Core.Render
 
         //The light a cluster throws is its colour paler than its glow: a crystal's light on wet stone reads as a tint, and at
         //its own saturation it painted the columns magenta and teal
-        private Vector3 LightTint(CavernCluster cluster) => LightTintOf(_config.Crystals, cluster);
-
-        /// <summary>The light a cluster throws on the rock (<see cref="LightTint"/>), with no backdrop.</summary>
-        internal static Vector3 LightTintOf(CavernCrystalConfig crystals, CavernCluster cluster)
+        private Vector3 LightTint(CavernCluster cluster)
         {
-            Vector3 colour = ClusterColorOf(crystals, cluster);
+            Vector3 colour = ClusterColor(cluster);
             float luminance = Vector3.Dot(colour, new Vector3(0.2126f, 0.7152f, 0.0722f));
             return Vector3.Lerp(colour, new Vector3(luminance), LIGHT_PALE);
         }

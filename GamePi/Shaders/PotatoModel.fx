@@ -1657,6 +1657,34 @@ technique PotatoVertexLitBlend
     }
 };
 
+//THE SAME TWO ALBEDOS CROSSED AT THE VERTEX (#1044): for a ramp too soft for the pixel's pick to show, the cavern's rock
+//from wet stone to flowstone. The albedo is mixed at the vertex and lit once there, and the pixel is one move, as
+//PotatoVertexLit's: picked at the pixel, the rock - most of the cavern's frame - cost 0.6 ms at native
+VertexLitOutput PotatoVertexLitRampVS(BlendVertexInput input, InstanceInput instance)
+{
+    VertexInput plain;
+    plain.Position = input.Position;
+    plain.Normal = input.Normal;
+    VertexOutput lit = PotatoVS(plain, instance);
+
+    float3 albedo = lerp(BlendLow, BlendHigh, smoothstep(BlendEdge.x, BlendEdge.y, saturate(input.Blend.x)));
+
+    VertexLitOutput output;
+    output.Position = lit.Position;
+    output.Surface = ToScreen(Shade(lit.WorldPosition, lit.WorldNormal, instance.Custom, albedo, lit.SceneDiffuse, lit.SceneSpecular, false));
+    output.Surface.rgb = lerp(output.Surface.rgb, HazeColor, HazeAt(lit.WorldPosition));
+    return output;
+}
+
+technique PotatoVertexLitRamp
+{
+    pass P0
+    {
+        VertexShader = compile POTATO_VS PotatoVertexLitRampVS();
+        PixelShader = compile POTATO_PS VertexLitPS();
+    }
+};
+
 //PUFFS (#1044): soft round billboards that rise, grow and fade on a clock, for the steam over the volcano's vents, the
 //ash out of its crater and the savanna's campfires and their smoke, which the Pi drew none of. Every puff's whole life
 //is worked out in the vertex shader from its emitter, its phase and the time (as PotatoSkyStars lays out its quads), so the
