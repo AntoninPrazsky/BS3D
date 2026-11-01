@@ -11,7 +11,8 @@ namespace Prazsky.Core.Render
     /// scene's technique of <c>PotatoSky.fx</c> (<see cref="PotatoSceneRig.SkyLookOf"/>), its figure - the Milky Way,
     /// the curtains, the marble - computed per vertex as the dome's gradient is; and the stars as a batch of small
     /// screen-aligned quads built once, added over it. Per pixel both cost a move: the first cut computed the
-    /// figures per pixel and paid 12 ms at 1080p. Nothing here depends on the scene's config beyond the look.
+    /// figures per pixel and paid 12 ms at 1080p. Nothing here depends on the scene's config beyond the look, but for
+    /// the aurora's curtains, baked into a texture as the figure is built (<see cref="PotatoAuroraSky"/>, #1044).
     /// </summary>
     public sealed class PotatoSkyFigure : IDisposable
     {
@@ -37,14 +38,27 @@ namespace Prazsky.Core.Render
         private readonly EffectParameter _world, _view, _projection, _time, _void, _colorA, _colorB, _colorC, _colorD,
             _axis, _axis2, _params, _params2, _starSize;
 
+        //The aurora's curtains, null for any other scene
+        private PotatoAuroraSky _aurora;
+
         /// <summary>The scene's look: the technique and its uniforms.</summary>
         public PotatoSceneRig.PotatoSkyLook Look { get; }
 
-        private PotatoSkyFigure(GraphicsDevice device, Effect effect, PotatoSceneRig.PotatoSkyLook look, VertexPositionColorTexture[] stars)
+        /// <summary>
+        /// Whether the host draws this figure after the ground and the island, at the far plane with the depth test on, so
+        /// the pixels they cover are never shaded (#1044): the aurora's, whose pixel reads a texture and draws the Moon, and
+        /// whose ground covers half the frame. The others are drawn first, with no depth test, before backdrops that may add
+        /// light the sky would then cover.
+        /// </summary>
+        public bool DrawsBehind => _aurora != null;
+
+        private PotatoSkyFigure(GraphicsDevice device, Effect effect, PotatoSceneRig.PotatoSkyLook look, VertexPositionColorTexture[] stars,
+            PotatoAuroraSky aurora)
         {
             _device = device;
             _effect = effect;
             Look = look;
+            _aurora = aurora;
 
             _technique = look.Technique != null ? effect.Techniques[look.Technique] : null;
             _starsTechnique = effect.Techniques["PotatoSkyStars"];
@@ -66,8 +80,8 @@ namespace Prazsky.Core.Render
             _params2 = parameters["SkyParams2"];
             _starSize = parameters["StarSize"];
 
-            (VertexPositionColor[] vertices, int[] indices) = BuildSphere(RINGS, SEGMENTS, RADIUS);
-            _sphere = new VertexBuffer(device, VertexPositionColor.VertexDeclaration, vertices.Length, BufferUsage.WriteOnly);
+            (VertexPositionColorTexture[] vertices, int[] indices) = BuildSphere(RINGS, SEGMENTS, RADIUS);
+            _sphere = new VertexBuffer(device, VertexPositionColorTexture.VertexDeclaration, vertices.Length, BufferUsage.WriteOnly);
             _sphere.SetData(vertices);
             _sphereIndices = new IndexBuffer(device, IndexElementSize.ThirtyTwoBits, indices.Length, BufferUsage.WriteOnly);
             _sphereIndices.SetData(indices);
@@ -107,13 +121,19 @@ namespace Prazsky.Core.Render
                 SceneKind.Moon => BuildStars(1300, 2028, null, 0f),
                 _ => Array.Empty<VertexPositionColorTexture>(),
             };
-            return new PotatoSkyFigure(device, effect, look, stars);
+            //The aurora's curtains, baked off the frame as the figure is built (PotatoAuroraSky.Bake)
+            PotatoAuroraSky aurora = scene == SceneKind.Aurora ? PotatoAuroraSky.Create(device, effect) : null;
+            return new PotatoSkyFigure(device, effect, look, stars, aurora);
         }
 
-        /// <summary>A sphere of <paramref name="radius"/>, rings by segments, the colour unused; no device, for the tests.</summary>
-        public static (VertexPositionColor[] Vertices, int[] Indices) BuildSphere(int rings, int segments, float radius)
+        /// <summary>
+        /// A sphere of <paramref name="radius"/>, rings by segments, the colour unused and the texture coordinate the
+        /// longitude and the latitude from 0 to 1 (the seam's column twice, at 0 and at 1, so a texture wraps across it);
+        /// no device, for the tests.
+        /// </summary>
+        public static (VertexPositionColorTexture[] Vertices, int[] Indices) BuildSphere(int rings, int segments, float radius)
         {
-            var vertices = new VertexPositionColor[(rings + 1) * (segments + 1)];
+            var vertices = new VertexPositionColorTexture[(rings + 1) * (segments + 1)];
             for (int ring = 0; ring <= rings; ring++)
             {
                 float lat = MathHelper.Pi * ((float)ring / rings - 0.5f);
@@ -121,7 +141,8 @@ namespace Prazsky.Core.Render
                 for (int segment = 0; segment <= segments; segment++)
                 {
                     float lon = MathHelper.TwoPi * segment / segments;
-                    vertices[ring * (segments + 1) + segment] = new VertexPositionColor(new Vector3(c * MathF.Cos(lon), y, c * MathF.Sin(lon)) * radius, Color.White);
+                    vertices[ring * (segments + 1) + segment] = new VertexPositionColorTexture(new Vector3(c * MathF.Cos(lon), y, c * MathF.Sin(lon)) * radius,
+                        Color.White, new Vector2((float)segment / segments, (float)ring / rings));
                 }
             }
 
@@ -178,8 +199,9 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Draws the sphere with the scene's technique and the stars over it, round the camera, with no depth test; the
-        /// look's uniforms and the clock pushed first: every frame, since the effect is the dome's too. False, and nothing
+        /// Draws the sphere with the scene's technique and the stars over it, round the camera, with no depth test (behind
+        /// what is drawn, for a figure that <see cref="DrawsBehind"/>); the look's uniforms and the clock pushed first:
+        /// every frame, since the effect is the dome's too. False, and nothing
         /// drawn, when the effect has no such technique (a build ahead of its compiled effect). Leaves the depth state
         /// default and the blend state alpha, as BeginPotatoSceneDraw states them after the dome.
         /// </summary>
@@ -202,8 +224,9 @@ namespace Prazsky.Core.Render
             _axis2?.SetValue(Look.Axis2);
             _params?.SetValue(Look.Params);
             _params2?.SetValue(Look.Params2);
+            _aurora?.Push(time);
 
-            _device.DepthStencilState = DepthStencilState.None;
+            _device.DepthStencilState = DrawsBehind ? DepthStencilState.DepthRead : DepthStencilState.None;
             _device.BlendState = BlendState.Opaque;
             _device.RasterizerState = RasterizerState.CullNone;
 
@@ -242,6 +265,7 @@ namespace Prazsky.Core.Render
             _sphereIndices?.Dispose(); _sphereIndices = null;
             _stars?.Dispose(); _stars = null;
             _starIndices?.Dispose(); _starIndices = null;
+            _aurora?.Dispose(); _aurora = null;
         }
     }
 }

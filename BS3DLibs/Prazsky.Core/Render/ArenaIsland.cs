@@ -383,10 +383,6 @@ namespace Prazsky.Core.Render
         //until #536 made it a sea stack), and those scenes draw exactly as before - no tint at all.
         private static readonly IslandLook DEFAULT_LOOK = new(STONE_COLOR, CONCRETE_COLOR, 0.14f, 0.08f, 2f);
 
-        //The aurora's lake ice as the Potato path draws it (#534's, a shade darker and greener than the glacier): the
-        //desktop's darker ice of #963 is for its moonlit snow, which the Raspberry Pi's stand-in does not draw
-        private static readonly IslandLook POTATO_AURORA_LOOK = new(new Vector3(0.70f, 0.78f, 0.84f), new Vector3(0.54f, 0.66f, 0.76f), 0.36f, 0.26f, 2f);
-
         //The dream's island as the Potato path draws it: one pastel tint, since its island has no marble (#779)
         private static readonly IslandLook POTATO_DREAM_LOOK = new(new Vector3(0.78f, 0.67f, 0.78f), new Vector3(0.66f, 0.59f, 0.74f), 0.32f, 0.20f, 2.5f);
 
@@ -506,9 +502,8 @@ namespace Prazsky.Core.Render
             SceneKind.Polar => new(new Vector3(0.80f, 0.87f, 0.93f), new Vector3(0.62f, 0.74f, 0.84f), 0.42f, 0.30f, 3f),
             //Lake ice under the aurora (#534, "ice standing in ice"): darker and greyer than the polar glacier since #963,
             //whose moonlit snow round it is the brightest thing in the picture - the old pale ice outshone the snow it
-            //stood in. It was frosted stone until #534.
-            //The Potato path keeps the paler ice it shipped with: its stand-in has no moonlit snow to be outshone by
-            SceneKind.Aurora => potato ? POTATO_AURORA_LOOK : new(new Vector3(0.50f, 0.57f, 0.64f), new Vector3(0.42f, 0.50f, 0.58f), 0.30f, 0.22f, 2f),
+            //stood in. It was frosted stone until #534. The Potato path's too since its snow is moonlit as well (#1044)
+            SceneKind.Aurora => new(new Vector3(0.50f, 0.57f, 0.64f), new Vector3(0.42f, 0.50f, 0.58f), 0.30f, 0.22f, 2f),
             //Glossy black, for the grid's light to run in
             SceneKind.Grid => new(new Vector3(0.14f, 0.15f, 0.19f), new Vector3(0.12f, 0.13f, 0.16f), 0.45f, 0.30f, 3f),
             //The big top's pedestal (#690): a performer's tub at the island's scale - an ivory varnished top on a lacquered

@@ -202,8 +202,9 @@ namespace BS3D
 
                 //Space, the aurora and the dream have a picture of their own (#829, PotatoSky.fx's figures): a finer sphere
                 //drawn with the scene's technique and its stars over it, the void under them; the Moon its stars alone.
-                //Nothing is drawn by a build ahead of its compiled effect (GamePi/Shaders/Compiled), which keeps the void
-                _potatoSkyFigure?.Draw(_camera, _wallClock);
+                //Nothing is drawn by a build ahead of its compiled effect (GamePi/Shaders/Compiled), which keeps the void.
+                //The aurora's is drawn behind the ground instead, below
+                if (_potatoSkyFigure?.DrawsBehind == false) _potatoSkyFigure.Draw(_camera, _wallClock);
             }
             else
             {
@@ -236,6 +237,10 @@ namespace BS3D
 
             //The backdrop's puffs (#1044: the volcano's ash and steam, the savanna's fires), translucent, after the island
             _potatoBackdrop?.DrawPuffs(_camera, _wallClock);
+
+            //The aurora's sky (#1044), as the cloud deck below: after the ground and the island, behind them in depth, so the
+            //pixels they cover are never shaded
+            if (_potatoSkyFigure?.DrawsBehind == true) _potatoSkyFigure.Draw(_camera, _wallClock);
 
             //The weather over a dome (#1044): the desktop's field, clock and look, drawn as the deck baked into a texture.
             //After the ground and the island, behind them in depth, so the pixels they cover are never shaded (2.0 ms at
