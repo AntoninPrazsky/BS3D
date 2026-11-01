@@ -82,9 +82,8 @@ namespace Prazsky.Core.Render
         private static SceneLightRig Of(Rgb skyAmbient, Rgb groundAmbient, Rgb keyTint, Rgb backTint) =>
             new(skyAmbient.ToVector3(), groundAmbient.ToVector3(), keyTint.ToVector3(), backTint.ToVector3());
 
-        //Where the aurora's Moon stands: its key, and the disc PotatoSkyAurora draws (AuroraBackdrop's own clamp)
-        private static readonly Vector3 AuroraMoon = SceneRenderer.DirectionFromElevationAzimuth(
-            Math.Clamp(AURORA.Sky.MoonElevationDegrees, 1f, 89f), AURORA.Sky.MoonAzimuthDegrees);
+        //Where the aurora's Moon stands: its key, and the disc PotatoSkyAurora draws
+        private static readonly Vector3 AuroraMoon = PotatoAuroraSky.MoonDirection(AURORA);
 
         //AuroraBackdrop.RIG_STEPS: how finely the back light follows the curtains' breath
         private const float AURORA_RIG_STEPS = 24f;
@@ -146,11 +145,12 @@ namespace Prazsky.Core.Render
                     //and the mist at it, and the Moon; the curtains are PotatoAuroraSky's texture
                     AuroraNightSkyConfig sky = AURORA.Sky;
                     float bearing = MathHelper.ToRadians(AURORA.Curtains.BearingDegrees);
+                    Vector3 disc = PotatoAuroraSky.DiscEdges(AURORA);
                     return new PotatoSkyLook("PotatoSkyAurora", sky.Horizon.ToVector3(),
                         sky.Zenith.ToVector3(), sky.Horizon.ToVector3(), sky.HorizonGlow.ToVector3(), AURORA.Mist.Color.ToVector3(),
                         AuroraMoon, new Vector3(MathF.Sin(bearing), 0f, MathF.Cos(bearing)),
-                        new Vector4(sky.GradientPower, sky.HorizonGlowWidth, MathHelper.ToRadians(sky.MoonRadiusDegrees), sky.MoonHaloWidth),
-                        new Vector4(PotatoAuroraSky.SHIMMER, 0f, 0f, 0f));
+                        new Vector4(sky.GradientPower, sky.HorizonGlowWidth, sky.MoonHaloWidth, 0f),
+                        new Vector4(PotatoAuroraSky.SHIMMER, disc.X, disc.Y, disc.Z));
                 }
                 case SceneKind.Moon:
                     return new PotatoSkyLook(null, MOON.VoidColor.ToVector3(), Vector3.Zero, Vector3.Zero, Vector3.Zero, Vector3.Zero, Vector3.Up, Vector3.Up, Vector4.Zero, Vector4.Zero);

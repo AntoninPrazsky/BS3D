@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Prazsky.Core.Tools;
 using System;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
@@ -10,47 +11,72 @@ namespace Prazsky.Core.Render
     /// <summary>
     /// The aurora's sky on the Potato path (#1044): the desktop's night of #963 (<c>Aurora.fx</c>'s <c>AuroraSkyPS</c>) in
     /// place of #829's band, which was the look the owner rejected on the desktop. The desktop intersects every view ray
-    /// with three curtains per pixel, a dozen noises an arc; the Pi paid 12 ms at 1080p for far less (#829's skies). Here
-    /// the same arcs, on the same config, are worked out ONCE on the CPU (<see cref="Bake"/>, a port of <c>AuroraArc</c>
-    /// term for term) into a texture over the upper hemisphere, which <c>PotatoSky.fx</c>'s <c>PotatoSkyAurora</c> reads
-    /// once a pixel. What moves on the desktop moves here by cheaper means: each arc breathes on its own clock
-    /// (<see cref="ArcBreaths"/>, the desktop's <c>ArcBrightness</c>; the texture's alpha says which arc a texel is), and
-    /// the rays shimmer by a sliding beat across the sky in place of running along each curtain. The folds do not re-form.
-    /// The gradient, the glow along the horizon and the mist at it are the vertex's, as the dome's gradient is; the Moon is
-    /// the pixel's.
+    /// with three curtains per pixel, a dozen noises an arc. Here the same arcs, on the same config, are worked out on the
+    /// CPU (<see cref="Bake"/>, a port of <c>AuroraArc</c> term for term) into a texture over the upper hemisphere, which
+    /// <c>PotatoSky.fx</c>'s <c>PotatoSkyAurora</c> reads once a pixel. The night under them - the gradient, the glow along
+    /// the horizon, the mist at it and the air lit round the Moon - is smooth and the vertex's (<see cref="Night"/>,
+    /// <see cref="Halo"/>), through the curve there, as the dome's gradient is.
+    /// <para>
+    /// ⚠ <b>The texture holds the curtains already through the curve</b>: what they add to the night on the display, at
+    /// the effect's exposure, so the pixel adds and does nothing else. Curved per pixel - the exposure, the ACES fit and the
+    /// sRGB power on the sum - with the Moon's roots and two sines, the pass cost 5.6 ms at native on Anchor. A change of
+    /// the exposure bakes again. Each arc breathes on its own clock (<see cref="ArcBreaths"/>, the desktop's
+    /// <c>ArcBrightness</c>, carried to the display's scale; the texture's alpha says which arc a texel is), and the rays
+    /// shimmer by two beats sliding round the sky in place of running along each curtain. The folds do not re-form. The
+    /// Moon's disc is the pixel's, as on the desktop, by the squared chord to it.
+    /// </para>
+    /// The bake (a quarter to half a second on the Pi's cores) runs off the frame, and the curtains brighten in over
+    /// <see cref="FADE_IN"/> once it is in: on the frame it held the scene's build at 0.6 s, a stall in the scene picker,
+    /// which applies a scene at once.
     /// </summary>
     public sealed class PotatoAuroraSky : IDisposable
     {
         /// <summary>
         /// The texture: columns round the sky from +X towards +Z (<see cref="PotatoSkyFigure.BuildSphere"/>'s longitude),
-        /// rows from the horizon up by the square root of the elevation's sine, so the low sky where the curtains' edges
-        /// hang has the most of them. At the play view's lens a texel is two to four pixels; rays finer than a texel are
-        /// faded as the desktop fades those finer than a pixel.
+        /// rows from the horizon to the zenith evenly in elevation, as the sphere's rings are, so the vertex's coordinates
+        /// interpolate exactly. A column is a tenth of a degree and a row an eighth, two to four pixels at the play view's
+        /// lens; rays finer than a column are faded as the desktop fades those finer than a pixel.
         /// </summary>
-        public const int WIDTH = 4096, HEIGHT = 512;
+        public const int WIDTH = 4096, HEIGHT = 768;
 
-        /// <summary>The radiance a texel's full white stands for: the brightest folds, the slant and the rays together, are past it.</summary>
-        public const float SCALE = 4f;
+        /// <summary>How deep the rays' shimmer cuts the curtains, on the display.</summary>
+        public const float SHIMMER = 0.15f;
 
-        /// <summary>How deep the rays' shimmer cuts the curtains.</summary>
-        public const float SHIMMER = 0.3f;
+        /// <summary>How long the curtains take to brighten in once the bake is in, seconds of real time.</summary>
+        public const float FADE_IN = 1.5f;
+
+        /// <summary>
+        /// The power that carries an arc's breath (a share of its light) to the display's scale: the texture's light is
+        /// curved, and a dim curtain scales with its light where a bright fold, near the curve's shoulder, hardly does.
+        /// </summary>
+        public const float BREATH_POWER = 0.6f;
+
+        /// <summary>Where the disc's edge runs, as shares of its radius: a band a sixth of it wide, a pixel or two at the play view's lens.</summary>
+        private const float DISC_INNER = 0.92f, DISC_OUTER = 1.08f;
 
         private readonly AuroraSceneConfig _config;
         private Texture2D _texture;
-        private readonly EffectParameter _textureParameter, _scale, _breaths, _moonDisc, _moonHalo;
+        private readonly EffectParameter _textureParameter, _shown, _breaths, _moonDisc, _moonHalo, _exposure;
+
+        //The bake running off the frame, null when none is; the exposure the texture holds (NaN before the first bake is
+        //in, when the curtains are drawn at nought and the texture's contents are never seen) and when it went in
+        private Task<Color[]> _bake;
+        private float _bakeExposure, _shownExposure = float.NaN;
+        private long _bakedAt;
 
         private PotatoAuroraSky(GraphicsDevice device, Effect effect, AuroraSceneConfig config)
         {
             _config = config;
             _texture = new Texture2D(device, WIDTH, HEIGHT, false, SurfaceFormat.Color);
-            _texture.SetData(Bake(config, WIDTH, HEIGHT));
 
             EffectParameterCollection parameters = effect.Parameters;
             _textureParameter = parameters["AuroraTexture"];
-            _scale = parameters["AuroraScale"];
+            _shown = parameters["AuroraShown"];
             _breaths = parameters["ArcBreath"];
-            _moonDisc = parameters["MoonDisc"];
+            _moonDisc = parameters["MoonDiscDisplay"];
             _moonHalo = parameters["MoonHalo"];
+            _exposure = parameters["Exposure"];
+            StartBake(ExposureNow());
         }
 
         /// <summary>The aurora's sky through <paramref name="effect"/> (<c>PotatoSky</c>), baked on the config's defaults; null when the effect has no texture for it yet.</summary>
@@ -60,14 +86,55 @@ namespace Prazsky.Core.Render
             return new PotatoAuroraSky(device, effect, new AuroraSceneConfig());
         }
 
-        /// <summary>Its uniforms at <paramref name="time"/>: the texture, the arcs' breaths, the Moon's light.</summary>
+        //The exposure the host last pushed into the effect (ApplyPotatoExposure), which the texture must be baked at
+        private float ExposureNow() => _exposure?.GetValueSingle() ?? PostProcessPipeline.DEFAULT_EXPOSURE;
+
+        private void StartBake(float exposure)
+        {
+            AuroraSceneConfig config = _config;
+            _bakeExposure = exposure;
+            _bake = Task.Run(() => Bake(config, WIDTH, HEIGHT, exposure));
+        }
+
+        /// <summary>
+        /// Its uniforms at <paramref name="time"/>: the texture, the arcs' breaths, the Moon's light. The first call after a
+        /// bake is done hands its texels to the texture, on the thread that draws; a call that finds the exposure changed
+        /// starts another, and the old texture stays up until it is in.
+        /// </summary>
         public void Push(float time)
         {
+            if (_bake != null && _bake.IsCompleted)
+            {
+                if (_bake.IsCompletedSuccessfully)
+                {
+                    _texture.SetData(_bake.Result);
+                    if (float.IsNaN(_shownExposure)) _bakedAt = Stopwatch.GetTimestamp();
+                    _shownExposure = _bakeExposure;
+                }
+                _bake = null;
+            }
+            float exposure = ExposureNow();
+            if (_bake == null && exposure != _bakeExposure) StartBake(exposure);
+
+            float shown = _bakedAt == 0 ? 0f : MathHelper.Clamp((float)Stopwatch.GetElapsedTime(_bakedAt).TotalSeconds / FADE_IN, 0f, 1f);
+            Vector3 breaths = ArcBreaths(_config, time);
+
             _textureParameter?.SetValue(_texture);
-            _scale?.SetValue(SCALE);
-            _breaths?.SetValue(ArcBreaths(_config, time));
-            _moonDisc?.SetValue(_config.Sky.MoonDisc.ToVector3());
+            _shown?.SetValue(shown * shown * (3f - 2f * shown));
+            _breaths?.SetValue(new Vector3(MathF.Pow(breaths.X, BREATH_POWER), MathF.Pow(breaths.Y, BREATH_POWER), MathF.Pow(breaths.Z, BREATH_POWER)));
+            _moonDisc?.SetValue(PotatoDisplay.ToDisplay(_config.Sky.MoonDisc.ToVector3(), exposure));
             _moonHalo?.SetValue(_config.Sky.MoonHalo.ToVector3());
+        }
+
+        /// <summary>
+        /// The disc's edges for the pixel (<c>SkyParams2</c>'s y to w): the squared chord where it starts to fade, one over
+        /// the band it fades across, and one over its radius squared, for the limb.
+        /// </summary>
+        public static Vector3 DiscEdges(AuroraSceneConfig config)
+        {
+            float radius = 2f * MathF.Sin(MathHelper.ToRadians(config.Sky.MoonRadiusDegrees) * 0.5f);
+            float inner = radius * DISC_INNER, outer = radius * DISC_OUTER;
+            return new Vector3(inner * inner, 1f / (outer * outer - inner * inner), 1f / (radius * radius));
         }
 
         /// <summary>
@@ -88,11 +155,42 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// The texels, no device: for the tests. Each holds the arcs' light over that direction at their full brightness,
-        /// as the square root of its share of <see cref="SCALE"/> (the dark sky between the curtains keeps its steps), and in
-        /// alpha which arc it is - 0 the first, a half the second, 1 the third, between where two overlap.
+        /// The night along <paramref name="dir"/>, linear: the gradient from the horizon up, the glow along the horizon,
+        /// strongest under the curtains, and the mist the horizon fades into (Aurora.fx's <c>AuroraSkyPS</c>).
+        /// ⚠ <c>PotatoSky.fx</c>'s <c>AuroraVS</c> is this line for line: the bake curves the curtains over it.
         /// </summary>
-        public static Color[] Bake(AuroraSceneConfig config, int width, int height)
+        public static Vector3 Night(AuroraSceneConfig config, Vector3 dir)
+        {
+            AuroraNightSkyConfig sky = config.Sky;
+            float up = MathHelper.Clamp(dir.Y, 0f, 1f);
+            Vector3 night = Vector3.Lerp(sky.Horizon.ToVector3(), sky.Zenith.ToVector3(), MathF.Pow(up, sky.GradientPower));
+
+            float bearing = MathHelper.ToRadians(config.Curtains.BearingDegrees);
+            Vector2 flat = Vector2.Normalize(new Vector2(dir.X + 1e-5f, dir.Z));
+            float towards = MathHelper.Clamp(Vector2.Dot(flat, new Vector2(MathF.Sin(bearing), MathF.Cos(bearing))) * 0.5f + 0.5f, 0f, 1f);
+            night += sky.HorizonGlow.ToVector3() * (MathF.Exp(-up / sky.HorizonGlowWidth) * (0.45f + 0.9f * towards * towards));
+
+            return Vector3.Lerp(night, config.Mist.Color.ToVector3(), MathHelper.Clamp(1f - up / 0.035f, 0f, 1f) * 0.85f);
+        }
+
+        /// <summary>The air lit round the Moon along <paramref name="dir"/>, linear, by the chord to it. ⚠ <c>AuroraVS</c>'s too.</summary>
+        public static Vector3 Halo(AuroraSceneConfig config, Vector3 dir, Vector3 moon)
+        {
+            float chord = MathF.Sqrt(MathF.Max(2f - 2f * Vector3.Dot(dir, moon), 0f));
+            return config.Sky.MoonHalo.ToVector3() * MathF.Exp(-chord / config.Sky.MoonHaloWidth);
+        }
+
+        /// <summary>Where the Moon stands, as the desktop's backdrop places it.</summary>
+        public static Vector3 MoonDirection(AuroraSceneConfig config) =>
+            SceneRenderer.DirectionFromElevationAzimuth(Math.Clamp(config.Sky.MoonElevationDegrees, 1f, 89f), config.Sky.MoonAzimuthDegrees);
+
+        /// <summary>
+        /// The texels at <paramref name="exposure"/>, no device: for the tests. Each holds what the arcs at their full
+        /// brightness add on the display to the night and the halo along that direction (the curve of the sum less the curve
+        /// of the night; none at all where no curtain is), and in alpha which arc it is - 0 the first, a half the second,
+        /// 1 the third, between where two overlap.
+        /// </summary>
+        public static Color[] Bake(AuroraSceneConfig config, int width, int height, float exposure)
         {
             AuroraCurtainsConfig curtains = config.Curtains;
             int count = Math.Min(curtains.Arcs.Length, 3);
@@ -114,19 +212,23 @@ namespace Prazsky.Core.Render
                 float longitude = MathHelper.TwoPi * (column + 0.5f) / width;
                 columns[column] = new Vector2(MathF.Cos(longitude), MathF.Sin(longitude));
             }
-            Parallel.For(0, height, row => BakeRow(texels, row, width, height, columns, arcs, curtains));
+            Vector3 moon = MoonDirection(config);
+
+            //A core left to the game's thread, which draws on while the bake runs
+            var options = new ParallelOptions { MaxDegreeOfParallelism = Math.Max(Environment.ProcessorCount - 1, 1) };
+            Parallel.For(0, height, options, row => BakeRow(texels, row, width, height, columns, arcs, config, moon, exposure));
 
             return texels;
         }
 
-        //One row of the texture. The bake runs once, as the scene is built, so its methods are compiled optimised at once:
-        //at the runtime's first tier the first bake took twice as long as a warm one
+        //One row of the texture. The bake runs as the scene is built, so its methods are compiled optimised at once: at the
+        //runtime's first tier the first bake took twice as long as a warm one
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-        private static void BakeRow(Color[] texels, int row, int width, int height, Vector2[] columns, Arc[] arcs, AuroraCurtainsConfig curtains)
+        private static void BakeRow(Color[] texels, int row, int width, int height, Vector2[] columns, Arc[] arcs,
+            AuroraSceneConfig config, Vector3 moon, float exposure)
         {
-            float s = (row + 0.5f) / height;
-            float sinElevation = s * s;
-            float cosElevation = MathF.Sqrt(MathF.Max(1f - sinElevation * sinElevation, 0f));
+            float elevation = MathHelper.PiOver2 * (row + 0.5f) / height;
+            float sinElevation = MathF.Sin(elevation), cosElevation = MathF.Cos(elevation);
             float texelAngle = MathHelper.TwoPi / width;
             int count = arcs.Length;
             for (int column = 0; column < width; column++)
@@ -137,16 +239,21 @@ namespace Prazsky.Core.Render
                 float weight = 0f, which = 0f;
                 for (int k = 0; k < count; k++)
                 {
-                    Vector3 c = ArcLight(dir, arcs[k], curtains, texelAngle);
+                    Vector3 c = ArcLight(dir, arcs[k], config.Curtains, texelAngle);
                     light += c;
                     float luma = ColorSpace.Luminance(c);
                     weight += luma;
                     which += luma * (count > 1 ? k / (count - 1f) : 0f);
                 }
+                if (weight <= 1e-6f)
+                {
+                    texels[row * width + column] = new Color(0, 0, 0, 0);
+                    continue;
+                }
 
-                Vector3 encoded = new(MathF.Sqrt(MathHelper.Clamp(light.X / SCALE, 0f, 1f)),
-                    MathF.Sqrt(MathHelper.Clamp(light.Y / SCALE, 0f, 1f)), MathF.Sqrt(MathHelper.Clamp(light.Z / SCALE, 0f, 1f)));
-                texels[row * width + column] = new Color(encoded.X, encoded.Y, encoded.Z, weight > 1e-6f ? which / weight : 0f);
+                Vector3 under = Night(config, dir) + Halo(config, dir, moon);
+                Vector3 added = PotatoDisplay.ToDisplay(under + light, exposure) - PotatoDisplay.ToDisplay(under, exposure);
+                texels[row * width + column] = new Color(Vector3.Max(added, Vector3.Zero)) { A = (byte)MathF.Round(which / weight * 255f) };
             }
         }
 

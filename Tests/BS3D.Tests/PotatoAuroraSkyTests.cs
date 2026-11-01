@@ -15,7 +15,7 @@ namespace BS3D.Tests
         public void TheCurtainsHangOverTheirBearingAndNotAtTheHorizon()
         {
             var config = new AuroraSceneConfig();
-            Color[] texels = PotatoAuroraSky.Bake(config, WIDTH, HEIGHT);
+            Color[] texels = PotatoAuroraSky.Bake(config, WIDTH, HEIGHT, 1.1f);
 
             //The horizon's row is dark: the desktop's air fades every curtain to nothing there
             for (int column = 0; column < WIDTH; column++)
@@ -35,7 +35,7 @@ namespace BS3D.Tests
         [Fact]
         public void TheAlphaTellsTheArcsApart()
         {
-            Color[] texels = PotatoAuroraSky.Bake(new AuroraSceneConfig(), WIDTH, HEIGHT);
+            Color[] texels = PotatoAuroraSky.Bake(new AuroraSceneConfig(), WIDTH, HEIGHT, 1.1f);
             bool first = false, last = false;
             foreach (Color texel in texels)
             {

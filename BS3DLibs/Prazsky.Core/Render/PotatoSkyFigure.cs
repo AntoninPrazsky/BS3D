@@ -113,7 +113,7 @@ namespace Prazsky.Core.Render
                 SceneKind.Moon => BuildStars(1300, 2028, null, 0f),
                 _ => Array.Empty<VertexPositionColorTexture>(),
             };
-            //The aurora's curtains, baked as the figure is built (a quarter of a second on the Pi, PotatoAuroraSky.Bake)
+            //The aurora's curtains, baked off the frame as the figure is built (PotatoAuroraSky.Bake)
             PotatoAuroraSky aurora = scene == SceneKind.Aurora ? PotatoAuroraSky.Create(device, effect) : null;
             return new PotatoSkyFigure(device, effect, look, stars, aurora);
         }

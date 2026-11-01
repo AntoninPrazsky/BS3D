@@ -68,8 +68,8 @@ float3 SkyColorC;       //the aurora: the glow along the horizon; the dream: pal
 float3 SkyColorD;       //space: the Milky Way's core; the aurora: the mist the horizon fades into; the dream: palette D
 float3 SkyAxis;         //space: the band's normal; the aurora: towards the Moon
 float3 SkyAxis2;        //space: where the nebula stands; the aurora: the curtains' bearing, flat
-float4 SkyParams;       //the aurora: the gradient's power, the glow's height, the Moon's radius and its halo's width (radians); the dream: swirl scale, warp, slow speed, fast speed
-float4 SkyParams2;      //the aurora: the rays' shimmer, (unused); the dream: ribbon sharpness, brightness, orb brightness, orb width
+float4 SkyParams;       //the aurora: the gradient's power, the glow's height, the Moon's halo's width, (unused); the dream: swirl scale, warp, slow speed, fast speed
+float4 SkyParams2;      //the aurora: the rays' shimmer and the Moon's disc's edges (PotatoAuroraSky.DiscEdges); the dream: ribbon sharpness, brightness, orb brightness, orb width
 float2 StarSize;        //half the width and height of a full-brightness star, in clip units
 
 struct FigureOutput
@@ -149,14 +149,16 @@ FigureOutput DreamVS(VertexInput input)
 }
 
 //THE AURORA (#1044): the desktop's night of #963 (Aurora.fx's AuroraSkyPS) in place of #829's band of sines, the look
-//the owner rejected on the desktop. The gradient from the horizon to the zenith, the glow along the horizon under the
-//curtains and the mist the horizon fades into are smooth, and the vertex's. The curtains are PotatoAuroraSky's texture:
-//the desktop's three arcs worked out once on the CPU over the upper hemisphere, columns round the sky as the sphere's
-//longitude runs, rows up by the square root of the elevation's sine, the light as the square root of its share of
-//AuroraScale and in alpha which arc it is (0, a half, 1). Each arc breathes on its own clock (ArcBreath), and the rays
-//shimmer by two beats sliding across the sky in place of running along the curtain. The Moon is the pixel's, as on the
-//desktop: a disc with its limb darkened over the curtains, and the air lit round it. The curve is the pixel's too, on
-//the sum, since the curtains are light added over the night.
+//the owner rejected on the desktop. The night - the gradient from the horizon to the zenith, the glow along the horizon
+//under the curtains, the mist the horizon fades into and the air lit round the Moon - is smooth, and the vertex's,
+//through the curve there as the dome's gradient is (PotatoAuroraSky.Night and Halo are this line for line). The curtains
+//are PotatoAuroraSky's texture: the desktop's three arcs worked out on the CPU over the upper hemisphere, columns round
+//the sky as the sphere's longitude runs and rows up evenly in elevation as its rings do, each texel what the curtains
+//add to the night ON THE DISPLAY at the effect's exposure, and in alpha which arc it is (0, a half, 1). So the pixel adds
+//and curves nothing. ⚠ Curved per pixel, with the Moon's roots and two sines, the pass cost 5.6 ms at native on the Pi:
+//every power, root, sine and exponential there is a trip to its slow special-function unit. Each arc breathes on its
+//own clock (ArcBreath, already at the display's scale), and the rays shimmer by two triangle waves sliding round the sky
+//against each other in place of running along the curtain. The Moon's disc is the pixel's, by the squared chord to it.
 texture AuroraTexture;
 sampler2D AuroraSampler = sampler_state
 {
@@ -168,23 +170,24 @@ sampler2D AuroraSampler = sampler_state
     MipFilter = None;
 };
 
-float AuroraScale;      //the radiance a texel's white stands for
-float3 ArcBreath;       //each arc's brightness this frame against the bake's
-float3 MoonDisc;        //the disc's radiance
-float3 MoonHalo;        //the air lit round it
+float AuroraShown;       //how far the curtains have brightened in since their bake came in, 0 to 1
+float3 ArcBreath;        //each arc's brightness this frame against the bake's, at the display's scale
+float3 MoonDiscDisplay;  //the disc, display-encoded
+float3 MoonHalo;         //the air lit round it, linear
 
 struct AuroraInput
 {
     float4 Position : POSITION0;
     float4 Color : COLOR0;
-    float2 TexCoord : TEXCOORD0;  //x round the sky, 0 to 1 (the sphere's longitude); y unused
+    float2 TexCoord : TEXCOORD0;  //x round the sky, y up it from the nadir, each 0 to 1 (the sphere's longitude and latitude)
 };
 
 struct AuroraOutput
 {
     float4 Position : POSITION0;
-    float3 Sky : TEXCOORD0;       //the night, linear
-    float4 Ray : TEXCOORD1;       //xyz the direction, w round the sky
+    float3 Night : TEXCOORD0;     //the night and the halo, display-encoded
+    float3 Ray : TEXCOORD1;       //the direction
+    float2 TexCoord : TEXCOORD2;  //the texture's: round the sky, and up from the horizon to the zenith
 };
 
 AuroraOutput AuroraVS(AuroraInput input)
@@ -194,42 +197,41 @@ AuroraOutput AuroraVS(AuroraInput input)
 
     float3 dir = normalize(input.Position.xyz);
     float up = saturate(dir.y);
-    float3 sky = lerp(SkyColorB, SkyColorA, pow(up, SkyParams.x));
-
-    //The glow along the horizon, strongest under the curtains
+    float3 night = lerp(SkyColorB, SkyColorA, pow(up, SkyParams.x));
     float2 flat = normalize(dir.xz + float2(1e-5, 0.0));
     float towards = saturate(dot(flat, SkyAxis2.xz) * 0.5 + 0.5);
-    sky += SkyColorC * exp(-up / SkyParams.y) * (0.45 + 0.9 * towards * towards);
+    night += SkyColorC * (exp(-up / SkyParams.y) * (0.45 + 0.9 * towards * towards));
+    night = lerp(night, SkyColorD, saturate(1.0 - up / 0.035) * 0.85);
 
-    //The mist at the horizon, so the hills fade into the sky and not into a line under it
-    output.Sky = lerp(sky, SkyColorD, saturate(1.0 - up / 0.035) * 0.85);
-    output.Ray = float4(dir, input.TexCoord.x);
+    float chord = sqrt(max(2.0 - 2.0 * dot(dir, SkyAxis), 0.0));
+    output.Night = ToDisplay(night + MoonHalo * exp(-chord / SkyParams.z));
+    output.Ray = dir;
+    output.TexCoord = float2(input.TexCoord.x, saturate(input.TexCoord.y * 2.0 - 1.0));
     return output;
 }
 
 float4 AuroraPS(AuroraOutput input) : COLOR0
 {
-    float3 dir = normalize(input.Ray.xyz);
-    float4 curtain = tex2D(AuroraSampler, float2(input.Ray.w, sqrt(saturate(dir.y))));
+    float4 curtain = tex2D(AuroraSampler, input.TexCoord);
 
-    //Which arc's breath, blended where two overlap; the shimmer's beats kept to a few hundred cycles round the sky before
-    //the sine, so its argument stays small
+    //Which arc's breath, blended where two overlap
     float which = curtain.a * 2.0;
     float breath = lerp(lerp(ArcBreath.x, ArcBreath.y, saturate(which)), ArcBreath.z, saturate(which - 1.0));
-    float shimmer = 1.0 + SkyParams2.x * sin(6.2831853 * frac(input.Ray.w * 700.0 + SkyTime * 2.5))
-        * sin(6.2831853 * frac(input.Ray.w * 170.0 - SkyTime * 0.6));
-    float3 aurora = curtain.rgb * curtain.rgb * (AuroraScale * breath * shimmer);
+    float beatA = abs(frac(input.TexCoord.x * 700.0 + SkyTime * 2.5) * 2.0 - 1.0) * 2.0 - 1.0;
+    float beatB = abs(frac(input.TexCoord.x * 170.0 - SkyTime * 0.6) * 2.0 - 1.0) * 2.0 - 1.0;
+    float shimmer = 1.0 + SkyParams2.x * beatA * beatB;
 
-    //The Moon: the chord to it stands for the angle, which it is to well under a pixel this close
-    float angle = sqrt(max(2.0 - 2.0 * dot(dir, SkyAxis), 0.0));
-    float radius = SkyParams.z;
-    float disc = 1.0 - smoothstep(radius * 0.92, radius * 1.08, angle);
-    float limb = sqrt(saturate(1.0 - angle * angle / (radius * radius)));
+    //The disc: the squared chord to the Moon, which the interpolated direction gives to well under a pixel, against
+    //SkyParams2's edges (PotatoAuroraSky.DiscEdges); its limb a quarter darker at the rim
+    float3 offset = input.Ray - SkyAxis;
+    float chord = dot(offset, offset);
+    float edge = saturate((chord - SkyParams2.y) * SkyParams2.z);
+    float disc = 1.0 - edge * edge * (3.0 - 2.0 * edge);
+    float limb = 0.75 + 0.25 * saturate(1.0 - chord * SkyParams2.w);
 
     //The curtains in front of the night (a glow hides nothing behind it), behind the Moon
-    float3 sky = input.Sky + MoonHalo * exp(-angle / SkyParams.w) + aurora * (1.0 - disc);
-    sky = max(sky, MoonDisc * (disc * (0.75 + 0.25 * limb)));
-    return float4(ToDisplay(sky), 1.0);
+    float3 sky = input.Night + curtain.rgb * (AuroraShown * breath * shimmer * (1.0 - disc));
+    return float4(max(sky, MoonDiscDisplay * (disc * limb)), 1.0);
 }
 
 float4 FigurePS(FigureOutput input) : COLOR0
