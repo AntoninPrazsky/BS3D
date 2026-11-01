@@ -1743,7 +1743,7 @@ technique PotatoPuffs
     }
 };
 
-//SPECKS (#1044): Cavern.fx's glowworms, points on the vault a pixel or two wide at any distance, which the Pi drew none
+//SPECKS (#1044): Cavern.fx's glowworms and Circus.fx's bulbs, points a pixel or two wide at any distance, which the Pi drew none
 //of. One quad a worm in CavernGeometry.BuildGlowworms' vertices, laid out in the vertex shader by a size in PIXELS (a
 //world-sized dot at the far end of the hall is a fraction of a pixel, and a field of those crawls) and lifted a hand's
 //width towards the lens in world units, so the rock it hangs on cannot cover it. Its breath and the fog on its way to
@@ -1752,6 +1752,7 @@ float3 SpeckColor;      //linear radiance, over 1 so a pixel or two survives the
 float2 SpeckScale;      //a speck's radius in clip units for a size of 1 (its pixels over half the viewport)
 float SpeckFog;         //the fog's density on the way to the lens
 float SpeckTime;        //seconds, for the breath
+float3 SpeckBreath;     //the breath: its floor, its depth and how fast it goes (a glowworm's slow and deep, a bulb's a faint flicker)
 
 struct SpeckInput
 {
@@ -1778,7 +1779,7 @@ SpeckOutput SpeckVS(SpeckInput input)
     clip.xy += input.Corner.xy * SpeckScale * (input.Corner.w * clip.w);
     output.Position = clip;
 
-    float breathe = 0.55 + 0.45 * sin(SpeckTime * 0.7 + input.Corner.z);
+    float breathe = SpeckBreath.x + SpeckBreath.y * sin(SpeckTime * SpeckBreath.z + input.Corner.z);
     output.Color = ToDisplay(SpeckColor * (breathe * exp(-distance * SpeckFog * 0.8)));
     output.Corner = input.Corner.xy;
     return output;

@@ -33,6 +33,14 @@ The owner: the big top "looks rather primitive, lacking detail and dirt" (and th
 - **Cost** (Testbed 3840x1600, ssaa 2, `nopost`, against the tent before #976): up at the canvas `campos=20,-5,20 camtarget=60,40,45` 7.88 against 7.73 ms; the play pose `campos=0,-2,34 camtarget=0,-9,0` 14.06 against 13.96.
 - Not done: bunting, the trapeze and its net, and the rope rigging the references hang across the tent.
 
+## The Potato path
+
+The Raspberry Pi's renderer (`PotatoBackdrop.BigTop`, #829, #1044) builds the quadrics as shells seen from inside, each colour at a fraction (`DIM` 0.42, the canvas dimmer again towards the crown: the owner's "the tent shone"). Since #1044:
+
+- **The bulb strings**: `StringPoint`'s sixteen strings, a bulb every `BulbSpacing`, sagging `BulbSag`, as specks (`PotatoSpecks`, the cavern's glowworms' technique) in `BulbColor`, 4.5 pixels in radius at 1080 lines, flickering as faintly as the desktop's. ⚠ At 2.4 pixels, with no bloom to spread them, the strings were faint dotted lines on the canvas.
+- **The spots** turn with the desktop's (`SpotAimOf`, the same lamps on the same clock). Each has a small lens glowing in its tint, and **the roving pair** has its beam: a cone from the lens to where it aims, added through `PotatoTrail`, fading down its length (`PotatoSpotBeams`). ⚠ The three that hold on the island have no beam: their cones come down past the play camera and, added front and back, cost 3 ms at native on BigTop (1.7 with one side culled), where the roving pair's cost 0.27. No pools and no footlights: a scene lamp is about 0.15 ms on this path.
+- Cost, BigTop off screen against main: 9.41 ms at native against 9.16, 6.87 at 720p against 6.65.
+
 ## Costs
 
 - At 2560x1440 it matches the other full-screen scenes (7.00 ms against the cavern's 6.88; `Sag_Chain.json`, `fpscap=600`, desktop, 2026-10-02): something common to them bounds the frame. The reduced program (`detail` at or under 0.5) drops the beams, the one part integrating five cones a pixel.

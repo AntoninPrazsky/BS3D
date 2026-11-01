@@ -575,7 +575,80 @@ namespace Prazsky.Core.Render
                 backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new BoxMesh(graphicsDevice, 1f, 1f, 1f)), poles, tent.PoleColor.ToVector3() * DIM, null, "poles");
             }
 
+            //The spots (#1044): the desktop's five lamps turning on its clock (PotatoSpotBeams), each a small lens glowing in its
+            //tint on the rig and its beam down to where it aims, drawn with the puffs after the island
+            backdrop._beams = PotatoSpotBeams.Create(graphicsDevice, potatoEffect, config);
+            if (backdrop._beams != null)
+            {
+                backdrop._owned.Add(backdrop._beams);
+                PotatoSpotBeams beams = backdrop._beams;
+                SphereMesh lens = backdrop.Own(new SphereMesh(graphicsDevice, 0.5f, 8, 4));
+                for (int i = 0; i < CircusBackdrop.SPOT_COUNT; i++)
+                {
+                    int spot = i;
+                    backdrop.AddMovingParts(graphicsDevice, potatoEffect, lens, BIGTOP_LENS, time => beams.Lens(spot, time),
+                        Vector3.Zero, beams.Color(i), $"lens {i}");
+                }
+            }
+
+            //The bulb strings (#1044): Circus.fx's StringPoint, CircusLightsConfig's sixteen strings from the crown to the wall,
+            //a bulb every BulbSpacing along each and the string sagging BulbSag, its bulbs as specks in the bulbs' colour
+            //(the desktop's are closest-approach glows widened to the pixel) flickering as faintly as the desktop's
+            (CavernGlowwormVertex[] bulbs, int[] bulbIndices) = BigTopBulbs(tent, config.Lights);
+            backdrop._specks = PotatoSpecks.Create(graphicsDevice, potatoEffect, bulbs, bulbIndices, config.Lights.BulbColor.ToVector3(),
+                BIGTOP_BULB_PIXELS, 0f, BIGTOP_BULB_FLICKER);
+            if (backdrop._specks != null)
+            {
+                backdrop._owned.Add(backdrop._specks);
+                backdrop.VertexCount += bulbs.Length;
+                backdrop._census.Add($"bulbs {bulbIndices.Length / 6}");
+            }
+
             return backdrop;
+        }
+
+        //A spot's lens in its own frame (Matrix.CreateWorld's: the beam along -Z): a flattened ball, the lamp's face
+        private static readonly Matrix[] BIGTOP_LENS = { Matrix.CreateScale(1.1f, 1.1f, 0.4f) };
+
+        //The big top's spot beams (#1044), null for any other scene: drawn with the puffs
+        private PotatoSpotBeams _beams;
+
+        //The big top's bulbs: a bulb's radius in pixels at 1080 lines - the desktop's core is 0.28 units, some five pixels
+        //across from the gun, and the bloom spreads it; at 2.4 here, with no bloom, the strings were faint dotted lines
+        //on the canvas - and Circus.fx's flicker (0.93 + 0.07 sin, at 2.3 a second)
+        private const float BIGTOP_BULB_PIXELS = 4.5f;
+        private static readonly Vector3 BIGTOP_BULB_FLICKER = new(0.93f, 0.07f, 2.3f);
+
+        /// <summary>
+        /// The big top's bulbs (#1044) as speck quads: <c>Circus.fx</c>'s strings, each in its own vertical plane at
+        /// (k + 0.25) of the circle, from just under the crown to just inside the wall's top, sagging in a parabola; the
+        /// flicker's phase the desktop's own (index 1.7 and string 5.1 apart).
+        /// </summary>
+        public static (CavernGlowwormVertex[] Vertices, int[] Indices) BigTopBulbs(CircusTentConfig tent, CircusLightsConfig lights)
+        {
+            float r0 = tent.CrownRadius + 2.5f, r1 = tent.WallRadius - 2f, y0 = tent.CrownY - 4f, y1 = tent.WallTopY - 0.5f;
+            int strings = Math.Max(lights.BulbStrings, 0), count = (int)MathF.Floor((r1 - r0) / MathF.Max(lights.BulbSpacing, 0.1f));
+            var vertices = new CavernGlowwormVertex[strings * (count + 1) * 4];
+            var indices = new int[strings * (count + 1) * 6];
+            Vector2[] corners = { new(-1f, -1f), new(1f, -1f), new(1f, 1f), new(-1f, 1f) };
+            int q = 0;
+            for (int k = 0; k < strings; k++)
+            {
+                float bearing = (k + 0.25f) * MathHelper.TwoPi / strings;
+                for (int index = 0; index <= count; index++)
+                {
+                    float u = count > 0 ? index / (float)count : 0f;
+                    float r = MathHelper.Lerp(r0, r1, u), y = MathHelper.Lerp(y0, y1, u) - lights.BulbSag * 4f * u * (1f - u);
+                    var at = new Vector3(MathF.Cos(bearing) * r, y, MathF.Sin(bearing) * r);
+                    for (int c = 0; c < 4; c++)
+                        vertices[q * 4 + c] = new CavernGlowwormVertex(at, new Vector4(corners[c].X, corners[c].Y, index * 1.7f + k * 5.1f, 1f));
+                    int v = q * 4, i = q * 6;
+                    indices[i] = v; indices[i + 1] = v + 1; indices[i + 2] = v + 2;
+                    indices[i + 3] = v; indices[i + 4] = v + 2; indices[i + 5] = v + 3;
+                    q++;
+                }
+            }
+            return (vertices, indices);
         }
 
         /// <summary>
@@ -2037,8 +2110,9 @@ namespace Prazsky.Core.Render
         private PotatoSpecks _specks;
 
         /// <summary>
-        /// The backdrop's puffs, specks and walls (#1044): the volcano's ash and steam, the savanna's flames and smoke, the
-        /// cavern's glowworms, the Grid's light-cycle walls. Translucent and writing no depth, so the host draws them after the island and its pit, which would
+        /// The backdrop's puffs, specks, walls and beams (#1044): the volcano's ash and steam, the savanna's flames and smoke,
+        /// the cavern's glowworms and the big top's bulbs, the Grid's light-cycle walls, the big top's spot beams. Translucent
+        /// and writing no depth, so the host draws them after the island and its pit, which would
         /// otherwise draw over one in front of them.
         /// </summary>
         public void DrawPuffs(ICamera camera, float time)
@@ -2046,6 +2120,7 @@ namespace Prazsky.Core.Render
             foreach (PotatoPuffs puffs in _puffs) puffs.Draw(camera, time);
             _specks?.Draw(camera, time);
             _cycles?.DrawWalls(camera, time);
+            _beams?.DrawBeams(camera, time);
         }
 
         /// <summary>

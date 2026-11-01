@@ -7,25 +7,31 @@ namespace Prazsky.Core.Render
 {
     /// <summary>
     /// Points of light a pixel or two wide at any distance on the Potato path (#1044, <c>PotatoModel.fx</c>'s
-    /// <c>PotatoSpecks</c>): the cavern's glowworms, which the Pi drew none of. The quads are the desktop's own
-    /// (<see cref="CavernGeometry.BuildGlowworms"/>, a corner, the breath's phase and the size at each vertex); the size on
-    /// screen, the lift towards the lens, the breath and the fog are the vertex shader's, and the whole field is one draw.
+    /// <c>PotatoSpecks</c>): the cavern's glowworms and the big top's bulbs, which the Pi drew none of. The quads are the
+    /// cavern's own kind (<see cref="CavernGeometry.BuildGlowworms"/>, a corner, the breath's phase and the size at each
+    /// vertex); the size on screen, the lift towards the lens, the breath and the fog are the vertex shader's, and the
+    /// whole field is one draw.
     /// </summary>
     public sealed class PotatoSpecks : IDisposable
     {
         private readonly GraphicsDevice _device;
         private readonly Effect _effect;
         private readonly EffectTechnique _technique;
-        private readonly EffectParameter _view, _projection, _eye, _color, _scale, _fog, _time;
+        private readonly EffectParameter _view, _projection, _eye, _color, _scale, _fog, _time, _breathParameter;
         private VertexBuffer _vertices;
         private IndexBuffer _indices;
         private readonly int _count;
         private readonly Vector3 _colour;
         private readonly float _pixels, _fogDensity;
+        private readonly Vector3 _breath;
+
+        /// <summary>A glowworm's breath (Cavern.fx's WormVS): from 0.1 to 1 of its light, slowly.</summary>
+        public static readonly Vector3 GLOWWORM_BREATH = new(0.55f, 0.45f, 0.7f);
 
         private PotatoSpecks(GraphicsDevice device, Effect effect, EffectTechnique technique, CavernGlowwormVertex[] vertices, int[] indices,
-            Vector3 colour, float pixels, float fogDensity)
+            Vector3 colour, float pixels, float fogDensity, Vector3 breath)
         {
+            _breath = breath;
             _device = device;
             _effect = effect;
             _technique = technique;
@@ -34,7 +40,7 @@ namespace Prazsky.Core.Render
             _fogDensity = fogDensity;
             EffectParameterCollection p = effect.Parameters;
             _view = p["View"]; _projection = p["Projection"]; _eye = p["EyePosition"];
-            _color = p["SpeckColor"]; _scale = p["SpeckScale"]; _fog = p["SpeckFog"]; _time = p["SpeckTime"];
+            _color = p["SpeckColor"]; _scale = p["SpeckScale"]; _fog = p["SpeckFog"]; _time = p["SpeckTime"]; _breathParameter = p["SpeckBreath"];
 
             _count = indices.Length / 6;
             _vertices = new VertexBuffer(device, CavernGlowwormVertex.Declaration, vertices.Length, BufferUsage.WriteOnly);
@@ -45,15 +51,16 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The specks of <paramref name="vertices"/> in <paramref name="colour"/> (linear), <paramref name="pixels"/> in radius
-        /// at 1080 lines for a size of 1, fading by <paramref name="fogDensity"/> on the way to the lens; null when the effect
-        /// has no <c>PotatoSpecks</c> yet or there is nothing to draw.
+        /// at 1080 lines for a size of 1, fading by <paramref name="fogDensity"/> on the way to the lens and breathing by
+        /// <paramref name="breath"/> (its floor, its depth, its speed; <see cref="GLOWWORM_BREATH"/> when null); null when the
+        /// effect has no <c>PotatoSpecks</c> yet or there is nothing to draw.
         /// </summary>
         public static PotatoSpecks Create(GraphicsDevice device, Effect effect, CavernGlowwormVertex[] vertices, int[] indices,
-            Vector3 colour, float pixels, float fogDensity)
+            Vector3 colour, float pixels, float fogDensity, Vector3? breath = null)
         {
             EffectTechnique technique = effect.Techniques["PotatoSpecks"];
             if (technique == null || indices.Length == 0) return null;
-            return new PotatoSpecks(device, effect, technique, vertices, indices, colour, pixels, fogDensity);
+            return new PotatoSpecks(device, effect, technique, vertices, indices, colour, pixels, fogDensity, breath ?? GLOWWORM_BREATH);
         }
 
         /// <summary>
@@ -72,6 +79,7 @@ namespace Prazsky.Core.Render
             _scale?.SetValue(new Vector2(2f * pixels / viewport.Width, 2f * pixels / viewport.Height));
             _fog?.SetValue(_fogDensity);
             _time?.SetValue(time);
+            _breathParameter?.SetValue(_breath);
 
             _device.DepthStencilState = DepthStencilState.DepthRead;
             _device.BlendState = BlendState.Additive;

@@ -45,7 +45,7 @@ namespace Prazsky.Core.Render
         //matched by FIXTURE_BACK * 0.5 in Circus.fx, which is where the shader stands the rod. The lamp turns about the
         //middle of its can, as a lamp in a yoke does, so the rod meets the ring at every angle - it stood at the can's
         //middle with the apex on the ring until the review of #690, and slid off the ring as the lamp turned.
-        private const float PIVOT_TO_APEX = 0.95f;
+        internal const float PIVOT_TO_APEX = 0.95f;
 
         /// <summary>How far a footlight reaches (the shared effect's (1 - d / range) squared): the drum strongly, and the
         /// cluster and the gun above it as a warm light from below, the way footlights light a stage.</summary>
@@ -233,7 +233,7 @@ namespace Prazsky.Core.Render
         }
 
         //How bright the two roving spots are against the three on the island
-        private const float ROVING_SHARE = 0.55f;
+        internal const float ROVING_SHARE = 0.55f;
 
         //The distance a spot's pool has its stated intensity at: about the rig's height over the floor, so a spot aimed
         //straight down lands at the intensity the config states
@@ -242,7 +242,7 @@ namespace Prazsky.Core.Render
         //The five spots: where on the rig each hangs (bearing, degrees), its colour, and what it aims at. The first three
         //hold on the island, from three sides, so it stands in a pool of crossed light; the last two rove the ring.
         private static readonly float[] SPOT_BEARINGS = { 20f, 140f, 260f, 80f, 320f };
-        private static readonly Vector3[] SPOT_TINTS =
+        internal static readonly Vector3[] SPOT_TINTS =
         {
             new(1.00f, 0.90f, 0.74f),
             new(1.00f, 0.62f, 0.30f),
@@ -269,9 +269,12 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>Spot <paramref name="i"/>'s pivot on the ring, and the point it aims at at <paramref name="time"/>.</summary>
-        private void SpotAim(int i, float time, out Vector3 pivot, out Vector3 target)
+        private void SpotAim(int i, float time, out Vector3 pivot, out Vector3 target) => SpotAimOf(_config, i, time, out pivot, out target);
+
+        /// <summary><see cref="SpotAim"/> on <paramref name="config"/>, with no backdrop: the Potato path's beams turn with these (#1044).</summary>
+        internal static void SpotAimOf(CircusSceneConfig config, int i, float time, out Vector3 pivot, out Vector3 target)
         {
-            CircusLightsConfig lights = _config.Lights;
+            CircusLightsConfig lights = config.Lights;
             float bearing = MathHelper.ToRadians(SPOT_BEARINGS[i]);
             pivot = new Vector3(MathF.Cos(bearing) * lights.SpotRigRadius, lights.SpotRigY, MathF.Sin(bearing) * lights.SpotRigRadius);
 
@@ -293,16 +296,16 @@ namespace Prazsky.Core.Render
                 //Two rove the ring and climb into the seats, round and out and back on their own phases
                 float sweep = bearing + time * speed * (i == 3 ? 0.6f : -0.5f);
                 float radius = 52f + 20f * MathF.Sin(time * speed * 0.29f + i * 1.7f);
-                target = new Vector3(MathF.Cos(sweep) * radius, FloorOrSeatsY(radius), MathF.Sin(sweep) * radius);
+                target = new Vector3(MathF.Cos(sweep) * radius, FloorOrSeatsY(config, radius), MathF.Sin(sweep) * radius);
             }
         }
 
         /// <summary>The height of what a roving spot lands on at <paramref name="radius"/>: the floor, or the rake of the seats.</summary>
-        private float FloorOrSeatsY(float radius)
+        private static float FloorOrSeatsY(CircusSceneConfig config, float radius)
         {
-            CircusSeatingConfig seats = _config.Seating;
-            if (radius < seats.InnerRadius) return _config.Ring.FloorY;
-            return _config.Ring.FloorY + seats.RowRise + (radius - seats.InnerRadius) * seats.RowRise / seats.RowDepth;
+            CircusSeatingConfig seats = config.Seating;
+            if (radius < seats.InnerRadius) return config.Ring.FloorY;
+            return config.Ring.FloorY + seats.RowRise + (radius - seats.InnerRadius) * seats.RowRise / seats.RowDepth;
         }
 
         /// <summary>
