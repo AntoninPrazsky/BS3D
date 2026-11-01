@@ -20,6 +20,14 @@ Pravidla:
 
 ---
 
+## 2026-11-01 — #1044 Pi: talíř ve vesmíru, žárovky a reflektory ve stanu — Pi (BS3DServer), Claude Code
+- Hotovo: kroky 12 a 13 #1044, merge 01df2987 a 7023c083. Tím jsou hotové všechny scény s levely.
+  - Vesmír: talíř na své dráze kolem stanice (`AddMovingParts`).
+  - Stan: šňůry žárovek jako `PotatoSpecks` s dýcháním v uniformu a reflektory otáčené podle desktopu. Kužel světla mají jen dva putující.
+- Cena: vesmír asi +0,1 ms. BigTop +0,25 ms při 1080p a +0,22 ms při 720p.
+- ⚠ Kužele tří reflektorů nad ostrovem jdou kolem kamery. Sčítané zepředu i zezadu stály 3 ms, s jednou stranou 1,7 ms.
+- Otevřené: verdikt majitele na stránce s odpověďmi (odkaz v #1044). Štítky `shipped-awaiting-verdict` a `verdict-eye`.
+
 ## 2026-11-01 — #1044 Pi: koleje na Měsíci, Grid se švy a motorkami — Pi (BS3DServer), Claude Code
 - Hotovo: kroky 10 a 11 #1044, merge 5ddc9dec a 06442c11.
   - Měsíc: dvě koleje vozítka jako pásky po `TRAVERSE_PATH`, na koncích vyblednou.
