@@ -20,6 +20,15 @@ Pravidla:
 
 ---
 
+## 2026-11-01 — #1044 Pi: noc aurory podle desktopu — Pi (BS3DServer), Claude Code
+- Hotovo: krok 8 #1044, merge 281f57fa. Pi už nemá pás sinusů z #829, tedy vzhled, který majitel na desktopu odmítl.
+  - Tři oblouky z `Aurora.fx` se jednou upečou do textury 4096×768 (`PotatoAuroraSky`), na pozadí. Záclony pak naběhnou za 1,5 s.
+  - Dál Měsíc, osvětlení měsícem podle desktopu, tmavší led ostrova, prstenec vzdáleného lesa (2 400 jehlanů) a opar mlhy.
+- Cena: Anchor +0,94 ms při 1080p a +0,65 ms při 720p (A B B A dvakrát, mimo obrazovku).
+- ⚠ Křivka (ACES, sRGB), odmocniny a siny na každém pixelu stály 5,6 ms. GPU na Pi platí za každou transcendentní operaci. Textura proto drží rozdíl záclon už po křivce, při expozici efektu.
+- ⚠ Pečení přímo ve snímku drželo stavbu scény 0,6 s.
+- Otevřené: jeskyně, Měsíc, Grid, vesmír, velký stan.
+
 ## 2026-11-01 — #1044 Pi: pára a popel sopky, ohně savany — Pi (BS3DServer), Claude Code
 - Hotovo: krok 7 #1044. Nová technika `PotatoPuffs` kreslí měkké billboardy. Celý jejich život počítá vrchol, takže jeden druh je jeden draw.
   - Sopka: sloup popela a pára z průduchů rozmístěných podle desktopu.
