@@ -163,9 +163,14 @@ namespace Prazsky.Core.Render
         public int PrimitiveCount { get; }
         public BoundingSphere BoundingSphere { get; }
 
-        public PotatoStripMesh(GraphicsDevice graphicsDevice, Vector3[] left, Vector3[] right)
+        /// <param name="along">A share for each step, carried in both rails' texture x (a ramp's, <c>PotatoVertexLitRamp</c>);
+        /// null for the rails' own 0 and 1 across.</param>
+        /// <param name="normal">The surface's normal at a point (x, z), for a strip lying on a ground and lit as it is; null
+        /// for straight up.</param>
+        public PotatoStripMesh(GraphicsDevice graphicsDevice, Vector3[] left, Vector3[] right, float[] along = null,
+            Func<float, float, Vector3> normal = null)
         {
-            (VertexPositionNormalTexture[] vertices, int[] indices) = Build(left, right);
+            (VertexPositionNormalTexture[] vertices, int[] indices) = Build(left, right, along, normal);
 
             PrimitiveCount = indices.Length / 3;
 
@@ -184,7 +189,8 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>The strip's geometry, with no device: two rails of the same length, a quad between each pair of steps.</summary>
-        public static (VertexPositionNormalTexture[] Vertices, int[] Indices) Build(Vector3[] left, Vector3[] right)
+        public static (VertexPositionNormalTexture[] Vertices, int[] Indices) Build(Vector3[] left, Vector3[] right, float[] along = null,
+            Func<float, float, Vector3> normal = null)
         {
             if (left.Length != right.Length || left.Length < 2) throw new ArgumentException("two rails of the same length, two steps at least");
 
@@ -193,8 +199,9 @@ namespace Prazsky.Core.Render
             for (int i = 0; i < steps; i++)
             {
                 float t = (float)i / (steps - 1);
-                vertices[i * 2] = new VertexPositionNormalTexture(left[i], Vector3.Up, new Vector2(0f, t));
-                vertices[i * 2 + 1] = new VertexPositionNormalTexture(right[i], Vector3.Up, new Vector2(1f, t));
+                Vector3 upLeft = normal?.Invoke(left[i].X, left[i].Z) ?? Vector3.Up, upRight = normal?.Invoke(right[i].X, right[i].Z) ?? Vector3.Up;
+                vertices[i * 2] = new VertexPositionNormalTexture(left[i], upLeft, new Vector2(along?[i] ?? 0f, t));
+                vertices[i * 2 + 1] = new VertexPositionNormalTexture(right[i], upRight, new Vector2(along?[i] ?? 1f, t));
             }
 
             var indices = new List<int>((steps - 1) * 6);
@@ -1224,6 +1231,20 @@ namespace Prazsky.Core.Render
             //rounded boulder is its own ellipsoid. The angular blocks (60) stay themselves
             backdrop.AddScatter(graphicsDevice, potatoEffect, planting.Buckets, blobOver: 400);
 
+            //The rover's tracks (#1044, #746's MoonPlanting.TRAVERSE_PATH): the desktop presses two ruts into its ground's
+            //pixels and darkens the regolith they turned over; here each rut is a ribbon of that darker regolith over the
+            //grid as drawn, crossing from the plain's own grey at both ends as the desktop's fade in under drifted dust
+            float Over(float x, float z) => TerrainMirror.OnGrid(Height, RELIEF_CELLS + 1, MOON_EXTENT * 2f, x, z)
+                + RIBBON_LIFT + MathF.Sqrt(x * x + z * z) * RIBBON_LIFT_PER_UNIT;
+            //Lit as the ground beside it is, by the grid's own normal (PotatoTerrainMesh's differences a cell apart): straight
+            //up under the low sun, the ribbons were black lines over the slopes that face it
+            float cell = 2f * MOON_EXTENT / RELIEF_CELLS;
+            Vector3 GroundNormal(float x, float z) => Vector3.Normalize(new Vector3(
+                -(Height(x + cell, z) - Height(x - cell, z)) / (2f * cell), 1f, -(Height(x, z + cell) - Height(x, z - cell)) / (2f * cell)));
+            foreach (float side in new[] { -1f, 1f })
+                backdrop.AddBlended(graphicsDevice, potatoEffect, backdrop.Own(MoonRut(graphicsDevice, side, Over, GroundNormal)),
+                    regolith, regolith * (1f - MOON_TRACK_DARKEN), new Vector2(0f, 1f), "rut", atVertex: true);
+
             //The Earth (the owner's eye: the Moon has no Earth in its sky): a sphere where the config hangs it, at the
             //earthshine's distance and the config's angle, in the ocean's blue under a share of cloud, lit by the rig's
             //low sun so it shows a phase, with a little of the cloud as a glow so its night is not black
@@ -1240,6 +1261,49 @@ namespace Prazsky.Core.Render
             }
 
             return backdrop;
+        }
+
+        //The rover's ruts: between their middles and how wide each lies with the regolith it turned (RoverTracks.fxh's
+        //TRACK_GAUGE, and its TRACK_TYRE with the berm beside it), how much darker it is than the plain (Moon.fx's
+        //TRACK_DARKEN 0.22, and a share more for the relief's shade a flat ribbon has not), how far the dust fades it in
+        //at either end (TRACK_END_FADE), and the steps along each of the traverse's segments
+        private const float MOON_TRACK_GAUGE = 1.83f, MOON_RUT_WIDTH = 0.36f, MOON_TRACK_DARKEN = 0.3f, MOON_TRACK_END_FADE = 30f;
+        private const int MOON_RUT_STEPS = 8;
+
+        /// <summary>
+        /// One of the rover's ruts (#1044) on <paramref name="side"/> of <see cref="MoonPlanting.TRAVERSE_PATH"/>, lying on
+        /// <paramref name="over"/>, with its share of the darkened regolith along it: none at either end, all of it past
+        /// <see cref="MOON_TRACK_END_FADE"/>.
+        /// </summary>
+        private static PotatoStripMesh MoonRut(GraphicsDevice graphicsDevice, float side, Func<float, float, float> over, Func<float, float, Vector3> normal)
+        {
+            Vector2[] path = MoonPlanting.TRAVERSE_PATH;
+            int steps = (path.Length - 1) * MOON_RUT_STEPS + 1;
+            var middle = new Vector2[steps];
+            var travelled = new float[steps];
+            for (int i = 0; i < steps; i++)
+            {
+                int segment = Math.Min(i / MOON_RUT_STEPS, path.Length - 2);
+                middle[i] = Vector2.Lerp(path[segment], path[segment + 1], (i - segment * MOON_RUT_STEPS) / (float)MOON_RUT_STEPS);
+                if (i > 0) travelled[i] = travelled[i - 1] + Vector2.Distance(middle[i - 1], middle[i]);
+            }
+
+            float total = travelled[steps - 1];
+            var left = new Vector3[steps];
+            var right = new Vector3[steps];
+            var along = new float[steps];
+            for (int i = 0; i < steps; i++)
+            {
+                Vector2 tangent = Vector2.Normalize(middle[Math.Min(i + 1, steps - 1)] - middle[Math.Max(i - 1, 0)]);
+                Vector2 across = new(-tangent.Y, tangent.X);
+                Vector2 centre = middle[i] + across * (side * MOON_TRACK_GAUGE * 0.5f);
+                Vector2 l = centre - across * (MOON_RUT_WIDTH * 0.5f), r = centre + across * (MOON_RUT_WIDTH * 0.5f);
+                left[i] = new Vector3(l.X, over(l.X, l.Y), l.Y);
+                right[i] = new Vector3(r.X, over(r.X, r.Y), r.Y);
+                along[i] = ShaderMath.SmoothStep(0f, MOON_TRACK_END_FADE, travelled[i]) * ShaderMath.SmoothStep(0f, MOON_TRACK_END_FADE, total - travelled[i]);
+            }
+
+            return new PotatoStripMesh(graphicsDevice, left, right, along, normal);
         }
 
         private const int RIVER_STEPS = 28;
