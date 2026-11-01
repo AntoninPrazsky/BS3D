@@ -20,6 +20,17 @@ Pravidla:
 
 ---
 
+## 2026-11-01 — #1044 Pi: jeskyně ve světle krystalů — Pi (BS3DServer), Claude Code
+- Hotovo: krok 9 #1044, merge d8f11464.
+  - Čtyři nejbližší shluky krystalů svítí jako lampy na halu, ostrov i kuličky. Přes nový `SceneLights.BackdropLamps`.
+  - 9 000 světlušek (`PotatoSpecks`).
+  - Skála v tónech od mokrého kamene po sintr, míchaná ve vrcholu (`PotatoVertexLitRamp`).
+  - Mlha jeskyně.
+- Cena: Grotto +0,87 ms při 1080p a +0,62 ms při 720p.
+- ⚠ Jedna lampa stojí asi 0,15 ms, na každém vrcholu každého kreslení, hlavně na kuličkách. Proto jen čtyři.
+- ⚠ Výběr mezi dvěma albedy v pixelu (`PotatoVertexLitBlend`) stál na skále 0,6 ms. Měkký přechod patří do vrcholu.
+- Otevřené: stavba jeskyně drží snímek asi 1,1 s, z velké části studený JIT. Pi build není ReadyToRun (#858).
+
 ## 2026-11-01 — #1044 Pi: noc aurory podle desktopu — Pi (BS3DServer), Claude Code
 - Hotovo: krok 8 #1044, merge 281f57fa. Pi už nemá pás sinusů z #829, tedy vzhled, který majitel na desktopu odmítl.
   - Tři oblouky z `Aurora.fx` se jednou upečou do textury 4096×768 (`PotatoAuroraSky`), na pozadí. Záclony pak naběhnou za 1,5 s.
