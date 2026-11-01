@@ -165,6 +165,9 @@ namespace BS3D
 
             _potatoBackdrop?.Dispose();
             _potatoBackdrop = PotatoBackdrop.For(_scene, GraphicsDevice, _instancingEffect, ArenaIsland.TERRAIN_HOLE_RADIUS, _sceneSeedOffset, _cityConfig);
+
+            //The lamps only the backdrop knows (#1044: the cavern's clusters), for the scene lights that have no renderer to ask
+            _sceneLights.BackdropLamps = _potatoBackdrop?.Lamps;
             if (_potatoBackdrop == null) return;
 
             //Lit now, not only at the next ApplySkyLighting: the first build runs after the startup's SetScene has

@@ -1657,6 +1657,34 @@ technique PotatoVertexLitBlend
     }
 };
 
+//THE SAME TWO ALBEDOS CROSSED AT THE VERTEX (#1044): for a ramp too soft for the pixel's pick to show, the cavern's rock
+//from wet stone to flowstone. The albedo is mixed at the vertex and lit once there, and the pixel is one move, as
+//PotatoVertexLit's: picked at the pixel, the rock - most of the cavern's frame - cost 0.6 ms at native
+VertexLitOutput PotatoVertexLitRampVS(BlendVertexInput input, InstanceInput instance)
+{
+    VertexInput plain;
+    plain.Position = input.Position;
+    plain.Normal = input.Normal;
+    VertexOutput lit = PotatoVS(plain, instance);
+
+    float3 albedo = lerp(BlendLow, BlendHigh, smoothstep(BlendEdge.x, BlendEdge.y, saturate(input.Blend.x)));
+
+    VertexLitOutput output;
+    output.Position = lit.Position;
+    output.Surface = ToScreen(Shade(lit.WorldPosition, lit.WorldNormal, instance.Custom, albedo, lit.SceneDiffuse, lit.SceneSpecular, false));
+    output.Surface.rgb = lerp(output.Surface.rgb, HazeColor, HazeAt(lit.WorldPosition));
+    return output;
+}
+
+technique PotatoVertexLitRamp
+{
+    pass P0
+    {
+        VertexShader = compile POTATO_VS PotatoVertexLitRampVS();
+        PixelShader = compile POTATO_PS VertexLitPS();
+    }
+};
+
 //PUFFS (#1044): soft round billboards that rise, grow and fade on a clock, for the steam over the volcano's vents, the
 //ash out of its crater and the savanna's campfires and their smoke, which the Pi drew none of. Every puff's whole life
 //is worked out in the vertex shader from its emitter, its phase and the time (as PotatoSkyStars lays out its quads), so the
@@ -1712,6 +1740,62 @@ technique PotatoPuffs
     {
         VertexShader = compile POTATO_VS PuffVS();
         PixelShader = compile POTATO_PS PuffPS();
+    }
+};
+
+//SPECKS (#1044): Cavern.fx's glowworms, points on the vault a pixel or two wide at any distance, which the Pi drew none
+//of. One quad a worm in CavernGeometry.BuildGlowworms' vertices, laid out in the vertex shader by a size in PIXELS (a
+//world-sized dot at the far end of the hall is a fraction of a pixel, and a field of those crawls) and lifted a hand's
+//width towards the lens in world units, so the rock it hangs on cannot cover it. Its breath and the fog on its way to
+//the lens are the vertex's, curved there, and the pixel a soft dot: added, depth-tested, writing no depth.
+float3 SpeckColor;      //linear radiance, over 1 so a pixel or two survives the curve
+float2 SpeckScale;      //a speck's radius in clip units for a size of 1 (its pixels over half the viewport)
+float SpeckFog;         //the fog's density on the way to the lens
+float SpeckTime;        //seconds, for the breath
+
+struct SpeckInput
+{
+    float4 Position : POSITION0;   //the worm
+    float4 Corner : TEXCOORD0;     //the quad's corner (xy, -1 to 1), the breath's phase, the size
+};
+
+struct SpeckOutput
+{
+    float4 Position : POSITION0;
+    float3 Color : TEXCOORD0;
+    float2 Corner : TEXCOORD1;
+};
+
+SpeckOutput SpeckVS(SpeckInput input)
+{
+    SpeckOutput output;
+    float3 p = input.Position.xyz;
+    float3 toEye = EyePosition - p;
+    float distance = length(toEye);
+    p += toEye * (0.6 / max(distance, 1e-3));
+
+    float4 clip = mul(mul(float4(p, 1.0), View), Projection);
+    clip.xy += input.Corner.xy * SpeckScale * (input.Corner.w * clip.w);
+    output.Position = clip;
+
+    float breathe = 0.55 + 0.45 * sin(SpeckTime * 0.7 + input.Corner.z);
+    output.Color = ToDisplay(SpeckColor * (breathe * exp(-distance * SpeckFog * 0.8)));
+    output.Corner = input.Corner.xy;
+    return output;
+}
+
+float4 SpeckPS(SpeckOutput input) : COLOR0
+{
+    float a = saturate(1.0 - dot(input.Corner, input.Corner));
+    return float4(input.Color * (a * a), 1.0);
+}
+
+technique PotatoSpecks
+{
+    pass P0
+    {
+        VertexShader = compile POTATO_VS SpeckVS();
+        PixelShader = compile POTATO_PS SpeckPS();
     }
 };
 

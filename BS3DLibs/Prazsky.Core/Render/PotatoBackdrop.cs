@@ -418,6 +418,8 @@ namespace Prazsky.Core.Render
                 backdrop.HazeReach = HazeReachOf(scene);
                 //The aurora stands in its void, so the dome's horizon is not its sky: its hills recede into the desktop's mist
                 if (scene == SceneKind.Aurora) backdrop._hazeOwn = new AuroraSceneConfig().Mist.Color.ToVector3();
+                //The cavern stands in its rock, and its fog is the dark blue-violet the desktop's walls recede into
+                if (scene == SceneKind.Cavern) backdrop._hazeOwn = new CavernSceneConfig().Rock.FogColor.ToVector3();
                 if (scene == SceneKind.Desert)
                 {
                     //Desert.fx's murk: the erg's own dust-hazed skyline, the horizon carried towards the sand's hue
@@ -437,7 +439,8 @@ namespace Prazsky.Core.Render
         /// scene's own <c>HorizonHazeDistance</c>, read from its config. The two cities have none on the desktop, whose fog
         /// stands in. Theirs here (<see cref="CITY_HAZE_REACH"/>, <see cref="NEON_HAZE_REACH"/>) were set by eye on the Pi's
         /// captures, so that the last rank of towers 250 units out reads as distance. The aurora's is its mist's
-        /// (<see cref="AuroraHazeReach"/>). Zero for any other scene that stands in its void, whose dark is its own.
+        /// (<see cref="AuroraHazeReach"/>), the cavern's its fog's (<see cref="CavernHazeReach"/>). Zero for any other scene
+        /// that stands in its void, whose dark is its own.
         /// </summary>
         public static float HazeReachOf(SceneKind scene) => scene switch
         {
@@ -449,8 +452,21 @@ namespace Prazsky.Core.Render
             SceneKind.City => CITY_HAZE_REACH,
             SceneKind.NeonCity => NEON_HAZE_REACH,
             SceneKind.Aurora => AuroraHazeReach(new AuroraSceneConfig()),
+            SceneKind.Cavern => CavernHazeReach(new CavernSceneConfig()),
             _ => 0f,
         };
+
+        /// <summary>
+        /// The cavern's fog (#1044): <c>Cavern.fx</c>'s exponential distance fog (<see cref="CavernRockConfig.FogDensity"/>)
+        /// as this path's square law, matched where it veils the hall's far end (<see cref="CAVERN_FOG_MATCH"/>).
+        /// </summary>
+        public static float CavernHazeReach(CavernSceneConfig config) => HazeReachMatching(config.Rock.FogDensity, CAVERN_FOG_MATCH);
+
+        //How far from the arena the cavern's fog is matched: past the long axis of a hall of the config's 180 at its 1.3
+        private const float CAVERN_FOG_MATCH = 250f;
+
+        //The reach whose (distance / reach)^2 veils as much at distance as an exponential fog of density does
+        private static float HazeReachMatching(float density, float distance) => distance / MathF.Sqrt(1f - MathF.Exp(-density * distance));
 
         /// <summary>
         /// The aurora's haze (#1044): the desktop's is an optical depth a unit of path (<see cref="AuroraMistConfig.Haze"/>,
@@ -459,8 +475,7 @@ namespace Prazsky.Core.Render
         /// </summary>
         public static float AuroraHazeReach(AuroraSceneConfig config)
         {
-            float edge = config.FarStand.OuterRadius;
-            return edge / MathF.Sqrt(1f - MathF.Exp(-config.Mist.Haze * edge));
+            return HazeReachMatching(config.Mist.Haze, config.FarStand.OuterRadius);
         }
 
         /// <summary>The day city's and the neon city's haze, by eye (<see cref="HazeReachOf"/>).</summary>
@@ -475,7 +490,7 @@ namespace Prazsky.Core.Render
         private Vector3 _hazeHue;
         private float _hazeWarmth;
 
-        //A haze of the scene's own colour, whatever the dome: the aurora's mist
+        //A haze of the scene's own colour, whatever the dome: the aurora's mist, the cavern's fog
         private Vector3? _hazeOwn;
 
         /// <summary>
@@ -483,7 +498,8 @@ namespace Prazsky.Core.Render
         /// #551). The rig's horizon is an average over the capture's bottom fifth and can be another hue: under the mountains'
         /// and the desert's dome it is teal where the dome draws lilac-grey, and the far ridges and dunes stood against the
         /// sky as a teal band (Desert.fx records the same). The desert carries it on towards the sand's hue, at the horizon's
-        /// own brightness, as Desert.fx's murk does. The aurora, which has no dome, recedes into its mist's colour.
+        /// own brightness, as Desert.fx's murk does. The aurora and the cavern, which have no dome, recede into their
+        /// mist's and their fog's colours.
         /// </summary>
         public Vector3 HazeColorOf(Vector3 drawnHorizon)
         {
@@ -701,21 +717,24 @@ namespace Prazsky.Core.Render
         /// </summary>
         private static PotatoBackdrop Cavern(GraphicsDevice graphicsDevice, Effect potatoEffect, int seedOffset)
         {
-            //No glowworms here, and they are placed last off the seed, so leaving them out moves nothing else
             var config = new CavernSceneConfig();
-            config.Air.GlowwormCount = 0;
             var chamber = new CavernChamber(config, seedOffset);
             CavernGeometry.Detail detail = CavernGeometry.Detail.Potato;
 
             var backdrop = new PotatoBackdrop(graphicsDevice);
             var one = new[] { new ModelInstance(Matrix.Identity, OPEN) };
 
-            //The rock a third of the way to the lake's teal (the desktop's walls take the clusters' and the lake's light; the
-            //Pi's only the rig), dark under the cave's own cool rig
-            Vector3 rock = Vector3.Lerp(config.Rock.RockColor.ToVector3(), config.Water.GlowColor.ToVector3() * 2f, 0.3f);
+            //The rock in its tones (#1044): Cavern.fx's RockAlbedo at the vertex as a share along one ramp, from wet stone by
+            //the lake, dark and carrying its teal (the desktop lights the walls from the water; this path's rig cannot),
+            //through the dry rock, to the flowstone's pale sheets down the steep walls, crossed at the vertex
             (VertexPositionNormalTexture[] rockVertices, int[] rockIndices) = CavernGeometry.BuildRock(chamber, detail);
-            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new CavernProceduralMesh(graphicsDevice, rockVertices, rockIndices)),
-                one, rock, null, "hall");
+            Vector3 rock = config.Rock.RockColor.ToVector3(), glow = config.Water.GlowColor.ToVector3();
+            Vector3 wetRock = Vector3.Lerp(rock * CAVERN_WET_DARK, glow * 2f, CAVERN_WET_TEAL);
+            Vector3 flowstone = config.Rock.CalciteColor.ToVector3() * CAVERN_FLOWSTONE;
+            for (int k = 0; k < rockVertices.Length; k++)
+                rockVertices[k].TextureCoordinate = new Vector2(CavernRockShare(rockVertices[k], chamber.WaterY), 0f);
+            backdrop.AddBlended(graphicsDevice, potatoEffect, backdrop.Own(new CavernProceduralMesh(graphicsDevice, rockVertices, rockIndices)),
+                wetRock, flowstone, new Vector2(0f, 1f), "hall", atVertex: true);
 
             float reach = 0f;
             for (int k = 0; k < 72; k++)
@@ -742,8 +761,104 @@ namespace Prazsky.Core.Render
                     colour * 0.06f, Vector3.Clamp(colour * 0.7f, Vector3.Zero, Vector3.One), $"crystals {k}");
             }
 
+            //The glowworms (#1044): the desktop's constellation on the vault, its own quads (#507), a pixel and a half wide
+            (CavernGlowwormVertex[] worms, int[] wormIndices) = CavernGeometry.BuildGlowworms(chamber);
+            backdrop._specks = PotatoSpecks.Create(graphicsDevice, potatoEffect, worms, wormIndices,
+                config.Air.GlowwormColor.ToVector3(), CavernBackdrop.GLOWWORM_PIXELS, config.Rock.FogDensity);
+            if (backdrop._specks != null)
+            {
+                backdrop._owned.Add(backdrop._specks);
+                backdrop.VertexCount += worms.Length;
+                backdrop._census.Add($"glowworms {chamber.Glowworms.Count}");
+            }
+
+            //The clusters' light (#1044): the desktop lights its rock with all twelve per pixel and the arena with the four
+            //nearest through the scene lights; here those four, at the vertex, on the hall, the island and the balls alike
+            int[] nearest = CavernLampOrder(chamber);
+            backdrop.Lamps = (time, position, colour, range, max) => CavernLamps(config, chamber, nearest, time, position, colour, range, max);
+
             return backdrop;
         }
+
+        //The cavern's rock ramp: how dark the wet stone is against the dry and how far towards the lake's teal, and the
+        //flowstone's share of the calcite (Cavern.fx's 0.30 + 0.30 streak, at its middle); where on the ramp the dry rock
+        //stands, and how much of it the mottle and a recess move
+        private const float CAVERN_WET_DARK = 0.5f, CAVERN_WET_TEAL = 0.3f, CAVERN_FLOWSTONE = 0.45f;
+        private const float CAVERN_DRY_SHARE = 0.35f, CAVERN_MOTTLE_SHARE = 0.15f;
+
+        /// <summary>
+        /// Where a vertex of the cavern's rock stands on the ramp from wet stone (0) through the dry rock
+        /// (<see cref="CAVERN_DRY_SHARE"/>) to the flowstone (1): <c>Cavern.fx</c>'s <c>RockAlbedo</c> - the paler sheets
+        /// down the steep walls in patches, the mottle, the bed a little paler - with the recess the mesh carries in its
+        /// texture's x darkening it and the wet band within 7 units of the water. The share is handed to the pixel through
+        /// the inverse of its smoothstep, so the ramp is linear in it.
+        /// </summary>
+        private static float CavernRockShare(VertexPositionNormalTexture vertex, float waterY)
+        {
+            Vector3 p = vertex.Position;
+            float occlusion = vertex.TextureCoordinate.X, floor = vertex.TextureCoordinate.Y;
+            float steep = 1f - MathF.Abs(vertex.Normal.Y);
+            float sheet = ShaderMath.SmoothStep(0.05f, 0.35f, CavernNoise.Fbm(p * new Vector3(0.022f, 0.006f, 0.022f) + new Vector3(3f), 2))
+                * ShaderMath.SmoothStep(0.35f, 0.8f, steep) * (1f - floor);
+            float mottle = MathHelper.Clamp(CavernNoise.Fbm(p * 0.035f + new Vector3(17f), 2) + 0.5f, 0f, 1f) - 0.5f;
+
+            float share = CAVERN_DRY_SHARE + (1f - CAVERN_DRY_SHARE) * sheet + CAVERN_MOTTLE_SHARE * mottle + 0.15f * floor;
+            share *= MathHelper.Lerp(0.5f, 1f, occlusion);
+            float wet = 1f - ShaderMath.SmoothStep(0f, 7f, p.Y - waterY);
+            share *= 1f - wet;
+
+            //smoothstep(0, 1, s) = share, solved for s
+            share = MathHelper.Clamp(share, 0f, 1f);
+            return 0.5f - MathF.Sin(MathF.Asin(1f - 2f * share) / 3f);
+        }
+
+        //The clusters by their distance from the arena's axis, nearest first: the order the lamps take their slots in
+        private static int[] CavernLampOrder(CavernChamber chamber)
+        {
+            var order = new int[chamber.Clusters.Count];
+            var distance = new float[order.Length];
+            for (int k = 0; k < order.Length; k++)
+            {
+                Vector3 at = chamber.Clusters[k].LightPosition;
+                order[k] = k;
+                distance[k] = MathF.Sqrt(at.X * at.X + at.Z * at.Z);
+            }
+            Array.Sort(distance, order);
+            return order;
+        }
+
+        /// <summary>
+        /// The cavern's lamps at <paramref name="time"/> (#1044, <see cref="Lamps"/>): the desktop's arena lights to the figure
+        /// (<c>CavernBackdrop.ArenaLights</c>), the clusters within <see cref="CavernBackdrop.ARENA_LIGHT_REACH"/> of the axis,
+        /// four at most, in their own colour on their prisms' breath, reaching the island. Here they light the hall round
+        /// them as well, at the vertex. ⚠ A lamp is about 0.15 ms at native on Grotto, every vertex of every draw (the
+        /// cluster's balls the most): the three nearest of the other clusters as the desktop's wall lights cost 0.45 more.
+        /// </summary>
+        private static int CavernLamps(CavernSceneConfig config, CavernChamber chamber, int[] nearest, float time,
+            Vector3[] position, Vector3[] colour, float[] range, int max)
+        {
+            CavernCrystalConfig crystals = config.Crystals;
+            if (crystals.ArenaLight <= 0f) return 0;
+            max = Math.Min(max, CAVERN_ARENA_LAMPS);
+            int count = 0;
+            for (int n = 0; n < nearest.Length && count < max; n++)
+            {
+                int k = nearest[n];
+                CavernCluster cluster = chamber.Clusters[k];
+                Vector3 at = cluster.LightPosition;
+                float distance = MathF.Sqrt(at.X * at.X + at.Z * at.Z);
+                if (distance > CavernBackdrop.ARENA_LIGHT_REACH) break;
+                position[count] = at;
+                colour[count] = CavernBackdrop.ClusterColorOf(crystals, cluster)
+                    * (crystals.ArenaLight * CavernBackdrop.ARENA_LIGHT_STRENGTH * CavernBackdrop.ClusterPulse(crystals, cluster, k, time));
+                range[count] = distance * 1.6f + 20f;
+                count++;
+            }
+            return count;
+        }
+
+        //The desktop's arena lights, four at most (CavernBackdrop.ArenaLights' own cap)
+        private const int CAVERN_ARENA_LAMPS = 4;
 
         /// <summary>
         /// The Grid (#829): the desktop's is <c>Grid.fx</c>, a circuit-board floor, distant solids running Life on their
@@ -1578,8 +1693,22 @@ namespace Prazsky.Core.Render
         private void AddBlendedGround(GraphicsDevice graphicsDevice, Effect potatoEffect, PotatoTerrainMesh mesh, Vector3 low, Vector3 high, Vector2 edge)
         {
             _owned.Add(mesh);
+            AddBlended(graphicsDevice, potatoEffect, mesh, low, high, edge, "blended ground");
+        }
 
-            var renderer = new InstancedModelRenderer(graphicsDevice, mesh, Vector3.One, potatoEffect) { PotatoVertexLit = true, PotatoVertexBlend = true, SpecularAmbientStrength = 0f };
+        /// <summary>
+        /// Any mesh lit at the vertex in two albedos (linear), <paramref name="low"/> and <paramref name="high"/>, crossed at
+        /// the pixel by the share each vertex carries in its texture's x (<c>PotatoVertexLitBlend</c>) over
+        /// <paramref name="edge"/>, or at the vertex for a soft ramp (<paramref name="atVertex"/>, <c>PotatoVertexLitRamp</c>).
+        /// The caller owns the mesh.
+        /// </summary>
+        private void AddBlended(GraphicsDevice graphicsDevice, Effect potatoEffect, IProceduralMesh mesh, Vector3 low, Vector3 high, Vector2 edge, string what,
+            bool atVertex = false)
+        {
+            var renderer = new InstancedModelRenderer(graphicsDevice, mesh, Vector3.One, potatoEffect)
+            {
+                PotatoVertexLit = true, PotatoVertexBlend = !atVertex, PotatoVertexRamp = atVertex, SpecularAmbientStrength = 0f,
+            };
             _owned.Add(renderer);
             _renderers.Add(renderer);
 
@@ -1598,7 +1727,7 @@ namespace Prazsky.Core.Render
                 },
             });
             VertexCount += mesh.PrimitiveCount * 3;
-            _census.Add($"blended ground {mesh.PrimitiveCount * 3}");
+            _census.Add($"{what} {mesh.PrimitiveCount * 3}");
         }
 
         /// <summary>
@@ -1655,15 +1784,25 @@ namespace Prazsky.Core.Render
             _census.Add($"puffs {emitters.Count}x{perEmitter}");
         }
 
+        //The cavern's glowworms (#1044), drawn with the puffs for the puffs' reason
+        private PotatoSpecks _specks;
+
         /// <summary>
-        /// The backdrop's puffs (#1044): the volcano's ash and steam, the savanna's flames and smoke. Translucent and writing
-        /// no depth, so the host draws them after the island and its pit, which would otherwise draw over a puff in front of
-        /// them.
+        /// The backdrop's puffs and specks (#1044): the volcano's ash and steam, the savanna's flames and smoke, the cavern's
+        /// glowworms. Translucent and writing no depth, so the host draws them after the island and its pit, which would
+        /// otherwise draw over one in front of them.
         /// </summary>
         public void DrawPuffs(ICamera camera, float time)
         {
             foreach (PotatoPuffs puffs in _puffs) puffs.Draw(camera, time);
+            _specks?.Draw(camera, time);
         }
+
+        /// <summary>
+        /// The lamps this backdrop knows where they stand (#1044: the cavern's crystal clusters), for the host's
+        /// <see cref="SceneLights.BackdropLamps"/>; null for a scene with none.
+        /// </summary>
+        public SceneLights.LampSource Lamps { get; private set; }
 
         /// <summary>How much of the dome's horizon a water surface glows with (<see cref="AddWater"/>): its reflection at a low angle.</summary>
         private const float WATER_SKY = 0.55f;
