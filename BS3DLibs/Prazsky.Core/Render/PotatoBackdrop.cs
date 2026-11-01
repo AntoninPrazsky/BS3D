@@ -863,10 +863,10 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// The Grid (#829): the desktop's is <c>Grid.fx</c>, a circuit-board floor, distant solids running Life on their
         /// faces and a void. Here the floor as a plane with the arena's hole, a little of the traces' light in it, and the
-        /// solids as boxes in their body colour with a share of their windows' light: as many as the config asks for, in
-        /// its band of radii and sizes, cubes first, each kept a gap off the ones before it (the desktop's own retry),
-        /// on the config's seed and the launch's roll. Not the desktop's stream to the number: its draws are shared
-        /// with the Life boards and the landmark ring, which this path does not build.
+        /// solids as dark boxes with glowing seams: as many as the config asks for, in its band of radii and sizes, cubes
+        /// first, each kept a gap off the ones before it (the desktop's own retry) and off the landmark ring, which stands
+        /// here too (#1044), on the config's seed and the launch's roll. Not the desktop's stream to the number: its draws
+        /// are shared with the Life boards, which this path does not run.
         /// </summary>
         private static PotatoBackdrop Grid(GraphicsDevice graphicsDevice, Effect potatoEffect, float holeRadius, int seedOffset)
         {
@@ -876,14 +876,22 @@ namespace Prazsky.Core.Render
 
             var backdrop = new PotatoBackdrop(graphicsDevice);
             backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoTerrainMesh(graphicsDevice, 2, config.Terrain.HorizonHazeDistance, holeRadius, (x, z) => level)),
-                new[] { new ModelInstance(Matrix.Identity, OPEN) }, Vector3.Lerp(config.Terrain.BodyColor.ToVector3(), config.Terrain.LineColor.ToVector3(), 0.2f),
-                config.Terrain.LineColor.ToVector3() * 0.25f, "floor");
+                new[] { new ModelInstance(Matrix.Identity, OPEN) }, config.Terrain.BodyColor.ToVector3(),
+                config.Terrain.LineColor.ToVector3() * GRID_FLOOR_GLOW, "floor");
 
             const float SOLID_GAP = 15f;
             var placement = new Random(towers.Seed + seedOffset);
+
+            //The landmark ring's place (#1044, GridBackdrop.GridLandmarkShape): every solid keeps off its footprint (#559)
+            GridLandmarkConfig landmark = config.Landmark;
+            bool ring = landmark.Enabled && landmark.Segments >= 3;
+            float ringBearing = MathHelper.ToRadians(landmark.Bearing);
+            Vector2 ringStand = new(MathF.Cos(ringBearing) * landmark.Distance, MathF.Sin(ringBearing) * landmark.Distance);
+            float ringTube = MathF.Max(landmark.TubeRadius, 0.1f), ringOuter = MathF.Max(landmark.Radius, 1f) + ringTube;
             int cubeCount = (int)MathF.Round(towers.Count * MathHelper.Clamp(towers.CubeFraction, 0f, 1f));
             var placed = new List<(Vector2 Centre, float Radius)>();
             var solids = new List<ModelInstance>();
+            var seams = new List<ModelInstance>();
             for (int i = 0; i < Math.Max(towers.Count, 0); i++)
             {
                 bool cube = i < cubeCount;
@@ -907,18 +915,62 @@ namespace Prazsky.Core.Render
                     }
                     xz = new Vector2(MathF.Cos(angle) * radius, MathF.Sin(angle) * radius);
                     footprint = 0.5f * MathF.Sqrt(size.X * size.X + size.Z * size.Z);
-                    bool overlaps = false;
+                    bool overlaps = ring && Vector2.Distance(xz, ringStand) < footprint + ringOuter + SOLID_GAP;
                     foreach ((Vector2 other, float otherRadius) in placed)
                         if (Vector2.Distance(xz, other) < footprint + otherRadius + SOLID_GAP) { overlaps = true; break; }
                     if (!overlaps) break;
                 }
                 placed.Add((xz, footprint));
                 solids.Add(new ModelInstance(Matrix.CreateScale(size) * Matrix.CreateTranslation(xz.X, level + size.Y * 0.5f, xz.Y), OPEN));
+                AddBoxSeams(seams, new Vector3(xz.X, level + size.Y * 0.5f, xz.Y), size, towers.EdgeWidth * GRID_SEAM_SCALE);
             }
 
+            //The solids as the desktop's are (#1044): near-black bodies, flat-shaded a face at a time by the rig, with a
+            //little of their windows' light, and every edge glowing in the seams' colour (GridTowerConfig.EdgeColor), the
+            //scene's rule that the light comes only from the seams. On #829's way, the bodies at twice the body colour
+            //with a seventh of the windows' light, they were pale teal blocks
             BoxMesh box = backdrop.Own(new BoxMesh(graphicsDevice, 1f, 1f, 1f));
-            backdrop.AddPiece(graphicsDevice, potatoEffect, box, solids.ToArray(), towers.BodyColor.ToVector3() * 2f,
-                Vector3.Clamp(towers.WindowColor.ToVector3() * 0.14f, Vector3.Zero, Vector3.One), "solids");
+            backdrop.AddPiece(graphicsDevice, potatoEffect, box, solids.ToArray(), towers.BodyColor.ToVector3(),
+                Vector3.Clamp(towers.WindowColor.ToVector3() * GRID_WINDOW_SHARE, Vector3.Zero, Vector3.One), "solids");
+
+            //The landmark (#1044): GridBackdrop's faceted ring on edge, facing the arena, resting on the floor, its
+            //segments dark and its four long borders glowing as rails (the desktop lights only a quad's long borders, so the
+            //joins between segments never draw)
+            if (ring)
+            {
+                Vector3 stand = new(ringStand.X, level, ringStand.Y);
+                Vector3 planeNormal = stand.LengthSquared() < 1e-6f ? Vector3.Forward : Vector3.Normalize(new Vector3(-stand.X, 0f, -stand.Z));
+                Vector3 side = Vector3.Normalize(Vector3.Cross(Vector3.Up, planeNormal));
+                Vector3 centre = stand + Vector3.Up * (landmark.Radius + ringTube);
+                float inner = MathF.Max(landmark.Radius - ringTube, 0.2f), halfWidth = MathF.Max(landmark.Width, 0.1f) * 0.5f;
+                float rail = towers.EdgeWidth * GRID_SEAM_SCALE;
+                var segments = new List<ModelInstance>(landmark.Segments);
+                for (int i = 0; i < landmark.Segments; i++)
+                {
+                    float a0 = MathHelper.TwoPi * i / landmark.Segments, a1 = MathHelper.TwoPi * (i + 1) / landmark.Segments;
+                    Vector3 d0 = side * MathF.Cos(a0) + Vector3.Up * MathF.Sin(a0), d1 = side * MathF.Cos(a1) + Vector3.Up * MathF.Sin(a1);
+                    Vector3 radial = Vector3.Normalize(d0 + d1), tangent = Vector3.Normalize(d1 - d0);
+                    //Right-handed (tangent, radial, tangent x radial), so the box's faces stay wound outwards
+                    Vector3 across = Vector3.Cross(tangent, radial);
+                    float middle = (inner + ringOuter) * 0.5f * MathF.Cos(MathHelper.Pi / landmark.Segments);
+                    float length = Vector3.Distance(d0, d1) * ringOuter;
+                    Matrix basis = new(tangent.X, tangent.Y, tangent.Z, 0f, radial.X, radial.Y, radial.Z, 0f, across.X, across.Y, across.Z, 0f, 0f, 0f, 0f, 1f);
+                    segments.Add(new ModelInstance(Matrix.CreateScale(length, ringOuter - inner, 2f * halfWidth) * basis
+                        * Matrix.CreateTranslation(centre + radial * middle), OPEN));
+
+                    //The rails: along the segment at the inner and outer radius, on both flanks
+                    foreach (float r in new[] { inner, ringOuter })
+                        foreach (float w in new[] { -halfWidth, halfWidth })
+                        {
+                            Vector3 from = centre + d0 * r + planeNormal * w, to = centre + d1 * r + planeNormal * w;
+                            seams.Add(new ModelInstance(Matrix.CreateScale(Vector3.Distance(from, to) + rail, rail, rail) * basis
+                                * Matrix.CreateTranslation((from + to) * 0.5f), OPEN));
+                        }
+                }
+                backdrop.AddPiece(graphicsDevice, potatoEffect, box, segments.ToArray(), towers.BodyColor.ToVector3(),
+                    Vector3.Clamp(towers.WindowColor.ToVector3() * GRID_WINDOW_SHARE, Vector3.Zero, Vector3.One), "landmark");
+            }
+            backdrop.AddPiece(graphicsDevice, potatoEffect, box, seams.ToArray(), towers.BodyColor.ToVector3(), towers.EdgeColor.ToVector3(), "seams");
 
             //The lines (the owner's eye: the Grid has no grid): the lattice of the desktop's circuit board as thin boxes
             //on the floor, a cell apart, radiating the line colour; every TraceStride-th line bolder and brighter, as the
@@ -944,10 +996,101 @@ namespace Prazsky.Core.Render
                 }
             }
             backdrop.AddPiece(graphicsDevice, potatoEffect, box, plain.ToArray(), terrain.LineColor.ToVector3() * 0.5f, terrain.LineColor.ToVector3(), "lines");
+
+            //The light cycles (#1044, #956): the desktop's riders on their runs, each cycle LightCycles' primitives - a long
+            //low body, a cowl and the rider's hood as boxes, two disc wheels - near-black with their rider's light in them,
+            //the wheels brightest, following the run every frame; and the walls behind them (PotatoLightCycles.DrawWalls)
+            backdrop._cycles = PotatoLightCycles.Create(graphicsDevice, potatoEffect, config);
+            if (backdrop._cycles != null)
+            {
+                backdrop._owned.Add(backdrop._cycles);
+                SphereMesh disc = backdrop.Own(new SphereMesh(graphicsDevice, 0.5f, 12, 6));
+                for (int i = 0; i < PotatoLightCycles.Count; i++)
+                {
+                    Vector3 light = PotatoLightCycles.Color(i);
+                    backdrop.AddCyclePart(graphicsDevice, potatoEffect, box, CYCLE_BOXES, i, towers.BodyColor.ToVector3(), light * CYCLE_BODY_GLOW, $"cycle {i}");
+                    backdrop.AddCyclePart(graphicsDevice, potatoEffect, disc, CYCLE_WHEELS, i, towers.BodyColor.ToVector3(), light * CYCLE_WHEEL_GLOW, $"wheels {i}");
+                }
+            }
             backdrop.AddPiece(graphicsDevice, potatoEffect, box, traces.ToArray(), terrain.LineColor.ToVector3(),
                 Vector3.Clamp(terrain.AccentColor.ToVector3() * 0.25f, Vector3.Zero, Vector3.One), "traces");
 
             return backdrop;
+        }
+
+        //A light cycle in its own frame (+X forward, its foot on the floor), LightCycles.CycleBody's parts: the body, the cowl
+        //and the hood as unit boxes scaled to their sizes, and the two wheels as unit spheres flattened to discs
+        private static readonly Matrix[] CYCLE_BOXES =
+        {
+            Matrix.CreateScale(4.4f, 0.9f, 0.84f) * Matrix.CreateTranslation(0f, 1.25f, 0f),
+            Matrix.CreateScale(2.0f, 0.5f, 0.76f) * Matrix.CreateTranslation(1.5f, 1.95f, 0f),
+            Matrix.CreateScale(1.8f, 0.64f, 0.72f) * Matrix.CreateTranslation(-0.6f, 2.0f, 0f),
+        };
+        private static readonly Matrix[] CYCLE_WHEELS =
+        {
+            Matrix.CreateScale(2.5f, 2.5f, 0.7f) * Matrix.CreateTranslation(2.6f, 1.25f, 0f),
+            Matrix.CreateScale(2.5f, 2.5f, 0.7f) * Matrix.CreateTranslation(-2.6f, 1.25f, 0f),
+        };
+
+        //How much of its rider's light a cycle's body and its wheels carry (the desktop lights only their seams; at this
+        //size a seam is a pixel, so the body glows dimly and the wheels, the film's brightest part, near full)
+        private const float CYCLE_BODY_GLOW = 0.12f, CYCLE_WHEEL_GLOW = 0.6f;
+
+        //The Grid's light cycles (#1044), null for any other scene: their walls are drawn with the puffs
+        private PotatoLightCycles _cycles;
+
+        /// <summary>
+        /// One kind of part of light cycle <paramref name="rider"/> (#1044): <paramref name="parts"/> of
+        /// <paramref name="mesh"/> in the cycle's own frame, carried every frame to where its rider is
+        /// (<see cref="PotatoLightCycles.World"/>), matte in <paramref name="colour"/> and radiating <paramref name="glow"/>.
+        /// </summary>
+        private void AddCyclePart(GraphicsDevice graphicsDevice, Effect potatoEffect, IProceduralMesh mesh, Matrix[] parts, int rider,
+            Vector3 colour, Vector3 glow, string what)
+        {
+            var renderer = new InstancedModelRenderer(graphicsDevice, mesh, ColorSpace.LinearToSrgb(colour), potatoEffect) { PotatoVertexLit = true, SpecularAmbientStrength = 0f };
+            _owned.Add(renderer);
+            _renderers.Add(renderer);
+            var instances = new ModelInstance[parts.Length];
+            var item = new DrawItem { Renderer = renderer, Instances = instances, Glow = ColorSpace.LinearToSrgb(Vector3.Clamp(glow, Vector3.Zero, Vector3.One)) };
+            PotatoLightCycles cycles = _cycles;
+            item.Animate = (draw, time) =>
+            {
+                Matrix world = cycles.World(rider, time);
+                for (int k = 0; k < parts.Length; k++) draw.Instances[k] = new ModelInstance(parts[k] * world, OPEN);
+            };
+            _draws.Add(item);
+            VertexCount += mesh.PrimitiveCount * 3 * parts.Length;
+            _census.Add($"{what} {parts.Length}x{mesh.PrimitiveCount * 3}");
+        }
+
+        //The Grid's seams: how much wider than the desktop's EdgeWidth (which a pixel-exact shader draws), so a box a seam
+        //holds a pixel from the gun as the floor's lines do; and how much of the windows' light a dark body keeps, standing
+        //in for the Life the desktop runs on its faces
+        //⚠ A vertex-lit piece's glow is added whatever its albedo: at 0.04 of the windows' light the bodies were mid-teal
+        private const float GRID_SEAM_SCALE = 1.4f, GRID_WINDOW_SHARE = 0.006f;
+
+        //The floor between the lines (#1044): its own dark body and a trace of the lines' light, as the desktop's board is
+        //near-black between its seams; at a fifth of the way to the line colour and a quarter of its light, the cells were teal
+        private const float GRID_FLOOR_GLOW = 0.03f;
+
+        /// <summary>
+        /// The twelve edges of an upright box at <paramref name="centre"/> of <paramref name="size"/>, each a box
+        /// <paramref name="width"/> thick centred on the edge, so each face shows half of it (the desktop's seam, which two
+        /// faces draw half each at a corner).
+        /// </summary>
+        private static void AddBoxSeams(List<ModelInstance> into, Vector3 centre, Vector3 size, float width)
+        {
+            Vector3 h = size * 0.5f;
+            foreach (float sx in new[] { -1f, 1f })
+                foreach (float sz in new[] { -1f, 1f })
+                    into.Add(new ModelInstance(Matrix.CreateScale(width, size.Y + width, width) * Matrix.CreateTranslation(centre + new Vector3(sx * h.X, 0f, sz * h.Z)), OPEN));
+            foreach (float sy in new[] { -1f, 1f })
+            {
+                foreach (float sz in new[] { -1f, 1f })
+                    into.Add(new ModelInstance(Matrix.CreateScale(size.X + width, width, width) * Matrix.CreateTranslation(centre + new Vector3(0f, sy * h.Y, sz * h.Z)), OPEN));
+                foreach (float sx in new[] { -1f, 1f })
+                    into.Add(new ModelInstance(Matrix.CreateScale(width, width, size.Z + width) * Matrix.CreateTranslation(centre + new Vector3(sx * h.X, sy * h.Y, 0f)), OPEN));
+            }
         }
 
         /// <summary>The spans of a line at offset <paramref name="p"/> across the floor, outside the arena's hole: one, or two round the hole.</summary>
@@ -1788,14 +1931,15 @@ namespace Prazsky.Core.Render
         private PotatoSpecks _specks;
 
         /// <summary>
-        /// The backdrop's puffs and specks (#1044): the volcano's ash and steam, the savanna's flames and smoke, the cavern's
-        /// glowworms. Translucent and writing no depth, so the host draws them after the island and its pit, which would
+        /// The backdrop's puffs, specks and walls (#1044): the volcano's ash and steam, the savanna's flames and smoke, the
+        /// cavern's glowworms, the Grid's light-cycle walls. Translucent and writing no depth, so the host draws them after the island and its pit, which would
         /// otherwise draw over one in front of them.
         /// </summary>
         public void DrawPuffs(ICamera camera, float time)
         {
             foreach (PotatoPuffs puffs in _puffs) puffs.Draw(camera, time);
             _specks?.Draw(camera, time);
+            _cycles?.DrawWalls(camera, time);
         }
 
         /// <summary>

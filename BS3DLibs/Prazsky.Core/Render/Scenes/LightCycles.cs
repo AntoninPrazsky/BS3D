@@ -27,18 +27,18 @@ namespace Prazsky.Core.Render
     {
         //The riders: how many, their colours (linear, past the glare threshold so their seams and walls bloom: the blue of the
         //scene's own seams, the film's orange and its red), their seeds
-        private static readonly Vector3[] COLORS =
+        internal static readonly Vector3[] COLORS =
         {
             new(0.45f, 1.60f, 2.40f),
             new(2.40f, 1.05f, 0.18f),
             new(2.30f, 0.30f, 0.22f)
         };
-        private const int RIDERS = 3;
+        internal const int RIDERS = 3;
 
         //The lattice they ride, the ring they keep to, how fast they ride (units a second) and how often one goes straight on
         private const float LATTICE = 16f;
         private const float RING_MIN = 56f, RING_MAX = 124f;
-        private const float SPEED = 24f;
+        internal const float SPEED = 24f;
         private const float STRAIGHT_SHARE = 0.6f;
 
         //The trail: how long a wall stands behind a rider, how tall, and how far behind the cycle's middle it starts (its back wheel)
@@ -48,7 +48,7 @@ namespace Prazsky.Core.Render
 
         //The nodes a rider keeps: enough for the trail behind it, with the segment it is on
         private const int KEPT = (int)(TRAIL_LENGTH / LATTICE) + 4;
-        private const int TRAIL_POINTS = KEPT + 2;
+        internal const int TRAIL_POINTS = KEPT + 2;
 
         private readonly GraphicsDevice _graphicsDevice;
         private readonly Effect _effect;
@@ -86,8 +86,11 @@ namespace Prazsky.Core.Render
             _bodyVertices.SetData(body);
             _trailVertices = new DynamicVertexBuffer(graphicsDevice, VertexPositionTexture.VertexDeclaration, _trail.Length, BufferUsage.WriteOnly);
 
-            for (int i = 0; i < RIDERS; i++) _riders[i] = new Rider(7919 * (i + 1) + config.Towers.Seed);
+            for (int i = 0; i < RIDERS; i++) _riders[i] = new Rider(RiderSeed(config, i));
         }
+
+        /// <summary>Rider <paramref name="index"/>'s seed on <paramref name="config"/>: the Potato path rides the same runs (#1044).</summary>
+        internal static int RiderSeed(GridSceneConfig config, int index) => 7919 * (index + 1) + config.Towers.Seed;
 
         /// <summary>Draws the cycles (opaque, writing depth) and then their walls (added over the frame, depth read only).
         /// Leaves the blend, depth and rasterizer states as it found them.</summary>
@@ -161,7 +164,7 @@ namespace Prazsky.Core.Render
         /// One rider's run: the nodes it passes, made one at a time from its seed, the last <see cref="KEPT"/> of them in a ring.
         /// Every segment is one <see cref="LATTICE"/> long, so the node a distance falls after is that distance over the lattice.
         /// </summary>
-        private sealed class Rider
+        internal sealed class Rider
         {
             private readonly int _seed;
             private readonly Vector2[] _nodes = new Vector2[KEPT];

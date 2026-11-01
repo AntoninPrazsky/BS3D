@@ -1799,6 +1799,55 @@ technique PotatoSpecks
     }
 };
 
+//TRAILS (#1044): the Grid's light-cycle walls, LightCycle.fx's LightCycleTrail - a strip of (foot, top) pairs back along a
+//rider's run from its back wheel, added over the frame and writing no depth, brightest along its top and foot and fading
+//to its tail. The fade and the curve are the vertex's; the pixel shapes the wall across its height, with no transcendental.
+float3 TrailColor;      //the rider's, linear radiance (LightCycles.COLORS times LightCycle.fx's TRAIL_RADIANCE)
+
+struct TrailInput
+{
+    float4 Position : POSITION0;
+    float2 Data : TEXCOORD0;      //x: 0 at the cycle to 1 at the tail; y: 0 at the foot to 1 at the top
+};
+
+struct TrailOutput
+{
+    float4 Position : POSITION0;
+    float3 Color : TEXCOORD0;     //the middle of the wall, display-encoded
+    float3 Edge : TEXCOORD1;      //the top and foot, display-encoded
+    float Height : TEXCOORD2;
+};
+
+TrailOutput TrailVS(TrailInput input)
+{
+    TrailOutput output;
+    output.Position = mul(mul(input.Position, View), Projection);
+
+    //LightCycle.fx's pow(1 - age, 1.5), as (1 - age) times its square root's stand-in, the age itself
+    float left = saturate(1.0 - input.Data.x);
+    float fade = left * lerp(left, 1.0, 0.5);
+    output.Color = ToDisplay(TrailColor * (0.35 * fade));
+    output.Edge = ToDisplay(TrailColor * (1.55 * fade));
+    output.Height = input.Data.y;
+    return output;
+}
+
+float4 TrailPS(TrailOutput input) : COLOR0
+{
+    //LightCycle.fx's TRAIL_EDGE: a tenth of the height at the top and the foot runs bright
+    float edge = saturate(max(input.Height - 0.9, 0.1 - input.Height) * 10.0);
+    return float4(lerp(input.Color, input.Edge, edge * edge * (3.0 - 2.0 * edge)), 1.0);
+}
+
+technique PotatoTrail
+{
+    pass P0
+    {
+        VertexShader = compile POTATO_VS TrailVS();
+        PixelShader = compile POTATO_PS TrailPS();
+    }
+};
+
 //THE CITIES' WINDOWS (#1044): a tower's wall lit at the vertex as PotatoVertexLit's, and its windows laid out as
 //City.fxh's CityPS lays them out. A wall margin is held at every edge, and as many windows as fit at the config's pitch
 //are spread evenly across the interior. The towers are the backdrop's nearest and largest surfaces. Without windows the
