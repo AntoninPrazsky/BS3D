@@ -1667,6 +1667,7 @@ float4 PuffMotion;       //x: how far a puff rises over its life; y: its life, s
                          //its size, negative to taper, a flame); w: its opacity at its thickest
 float2 PuffWind;         //how far it drifts over its life, x and z
 float PuffSize;          //its half-size at birth, world units
+float PuffEdge;          //how hard its rim is: 1 a soft puff, more a disc (the aurora's Moon)
 
 struct PuffInput
 {
@@ -1702,7 +1703,7 @@ PuffOutput PuffVS(PuffInput input)
 
 float4 PuffPS(PuffOutput input) : COLOR0
 {
-    float a = saturate(1.0 - dot(input.Corner, input.Corner));
+    float a = saturate((1.0 - dot(input.Corner, input.Corner)) * PuffEdge);
     return float4(input.Color.rgb, input.Color.a * a * a);
 }
 

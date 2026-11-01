@@ -416,6 +416,8 @@ namespace Prazsky.Core.Render
             if (backdrop != null)
             {
                 backdrop.HazeReach = HazeReachOf(scene);
+                //The aurora stands in its void, so the dome's horizon is not its sky: its hills recede into the desktop's mist
+                if (scene == SceneKind.Aurora) backdrop._hazeOwn = new AuroraSceneConfig().Mist.Color.ToVector3();
                 if (scene == SceneKind.Desert)
                 {
                     //Desert.fx's murk: the erg's own dust-hazed skyline, the horizon carried towards the sand's hue
@@ -434,8 +436,8 @@ namespace Prazsky.Core.Render
         /// How far the scene's ground melts into its skyline (#1044, <c>PotatoModel.fx</c>'s <c>HazeAt</c>): the desktop
         /// scene's own <c>HorizonHazeDistance</c>, read from its config. The two cities have none on the desktop, whose fog
         /// stands in. Theirs here (<see cref="CITY_HAZE_REACH"/>, <see cref="NEON_HAZE_REACH"/>) were set by eye on the Pi's
-        /// captures, so that the last rank of towers 250 units out reads as distance. Zero for a scene that stands in its
-        /// void, whose dark is its own.
+        /// captures, so that the last rank of towers 250 units out reads as distance. The aurora's is its mist's
+        /// (<see cref="AuroraHazeReach"/>). Zero for any other scene that stands in its void, whose dark is its own.
         /// </summary>
         public static float HazeReachOf(SceneKind scene) => scene switch
         {
@@ -446,8 +448,20 @@ namespace Prazsky.Core.Render
             SceneKind.Volcano => new VolcanoSceneConfig().HorizonHazeDistance,
             SceneKind.City => CITY_HAZE_REACH,
             SceneKind.NeonCity => NEON_HAZE_REACH,
+            SceneKind.Aurora => AuroraHazeReach(new AuroraSceneConfig()),
             _ => 0f,
         };
+
+        /// <summary>
+        /// The aurora's haze (#1044): the desktop's is an optical depth a unit of path (<see cref="AuroraMistConfig.Haze"/>,
+        /// SceneFog.fxh), this path's a square of the distance over a reach; the reach is where the two veil the far stand's
+        /// last ridge alike (<see cref="AuroraFarStandConfig.OuterRadius"/>).
+        /// </summary>
+        public static float AuroraHazeReach(AuroraSceneConfig config)
+        {
+            float edge = config.FarStand.OuterRadius;
+            return edge / MathF.Sqrt(1f - MathF.Exp(-config.Mist.Haze * edge));
+        }
 
         /// <summary>The day city's and the neon city's haze, by eye (<see cref="HazeReachOf"/>).</summary>
         public const float CITY_HAZE_REACH = 600f, NEON_HAZE_REACH = 450f;
@@ -461,15 +475,19 @@ namespace Prazsky.Core.Render
         private Vector3 _hazeHue;
         private float _hazeWarmth;
 
+        //A haze of the scene's own colour, whatever the dome: the aurora's mist
+        private Vector3? _hazeOwn;
+
         /// <summary>
         /// What the far ground melts into, linear: the dome's horizon as the dome DRAWS it (<see cref="SkyDome.DrawnLinearAt"/>,
         /// #551). The rig's horizon is an average over the capture's bottom fifth and can be another hue: under the mountains'
         /// and the desert's dome it is teal where the dome draws lilac-grey, and the far ridges and dunes stood against the
         /// sky as a teal band (Desert.fx records the same). The desert carries it on towards the sand's hue, at the horizon's
-        /// own brightness, as Desert.fx's murk does.
+        /// own brightness, as Desert.fx's murk does. The aurora, which has no dome, recedes into its mist's colour.
         /// </summary>
         public Vector3 HazeColorOf(Vector3 drawnHorizon)
         {
+            if (_hazeOwn is Vector3 own) return own;
             if (_hazeWarmth <= 0f) return drawnHorizon;
 
             var luma = new Vector3(0.2126f, 0.7152f, 0.0722f);
@@ -1383,7 +1401,16 @@ namespace Prazsky.Core.Render
         //vertices, and from the gun the stand, 52 to 430 units out, is its silhouette - a wall of spires on bare stems
         //over the snow Forest.fx lays there. The grid runs past the stand's last tree and the desktop's haze
         private const int AURORA_EXTENT_MARGIN = 60, SPRUCE_SEGMENTS = 8;
+
         private const float SPRUCE_TIP = 0.04f, SPRUCE_SNOW_SHARE = 0.08f, SNOW_DARK_SHARE = 0.25f;
+
+        //The aurora's far stand and Moon (#1044): the ring of far ground, its overlap with the near grid and how far it
+        //sinks there; how many spires (the desktop's 25,000 are tiers of a mesh each; a cone each is a silhouette at this
+        //range) and the share of snow on them; the Moon's distance (inside the far plane, far past the wood), how hard its
+        //disc's rim is and how much brighter its halo is than the config's (which is a glare pass's, here only added light)
+        private const int AURORA_RING_CELLS = 48, AURORA_FAR_SPIRES = 1600;
+        private const float AURORA_RING_OVERLAP = 20f, AURORA_RING_SINK = 1.5f, FAR_SPIRE_SNOW = 0.18f;
+        private const float MOON_DISTANCE = 1500f, MOON_EDGE = 24f, MOON_HALO_GAIN = 3f;
 
         private static PotatoBackdrop Aurora(GraphicsDevice graphicsDevice, Effect potatoEffect, float holeRadius, int seedOffset)
         {
@@ -1428,6 +1455,42 @@ namespace Prazsky.Core.Render
             Vector3 needles = Vector3.Lerp(trees.ConiferColor.ToVector3(), trees.CrownSnowColor.ToVector3(), trees.CrownSnow * SPRUCE_SNOW_SHARE);
             backdrop.AddPiece(graphicsDevice, potatoEffect, stem, stems, trees.TrunkColor.ToVector3(), null, "stems");
             backdrop.AddPiece(graphicsDevice, potatoEffect, crown, crowns, needles, null, "spruces");
+
+            //The far stand (#1044, #963's AuroraFarStandConfig): spires on the hills from the planted wood's edge out to the
+            //stand's outer reach, over a coarse ring of the same snow past the near grid. On the desktop thousands of
+            //spruces in tiers; here a cone each, the needles' dark with a little snow, a silhouette against the curtains
+            var auroraConfig = new AuroraSceneConfig();
+            AuroraFarStandConfig far = auroraConfig.FarStand;
+            backdrop.AddGround(graphicsDevice, potatoEffect,
+                new PotatoTerrainMesh(graphicsDevice, AURORA_RING_CELLS, far.OuterRadius + AURORA_EXTENT_MARGIN, extent - AURORA_RING_OVERLAP,
+                    (x, z) => Height(x, z) - AURORA_RING_SINK), snow);
+            var spires = new List<ModelInstance>(AURORA_FAR_SPIRES);
+            var spireRng = new Random(9631 + seedOffset);
+            float inner = MathF.Max(far.InnerRadius, trees.MaxRadius * 0.85f);
+            for (int i = 0; i < AURORA_FAR_SPIRES; i++)
+            {
+                //Evenly over the ring's area, so the far hills are as thick as the near
+                float r = MathF.Sqrt(MathHelper.Lerp(inner * inner, far.OuterRadius * far.OuterRadius, (float)spireRng.NextDouble()));
+                float a = (float)spireRng.NextDouble() * MathHelper.TwoPi;
+                float x = MathF.Cos(a) * r, z = MathF.Sin(a) * r;
+                float scale = MathHelper.Lerp(far.MinScale, far.MaxScale, (float)spireRng.NextDouble());
+                float y = r < extent ? TerrainMirror.OnGrid(Height, RELIEF_CELLS + 1, extent * 2f, x, z) : Height(x, z) - AURORA_RING_SINK;
+                spires.Add(new ModelInstance(Matrix.CreateScale(far.Radius * scale, far.Height * scale, far.Radius * scale) * Matrix.CreateTranslation(x, y - 0.5f, z), OPEN));
+            }
+            Vector3 farNeedles = Vector3.Lerp(far.Needles.ToVector3(), far.Snow.ToVector3(), FAR_SPIRE_SNOW);
+            backdrop.AddPiece(graphicsDevice, potatoEffect, crown, spires.ToArray(), farNeedles, null, "far stand");
+
+            //The Moon (#963): low, to the left of the play view and a little behind it, its disc over the glare and the air lit
+            //round it, as two puffs that never rise or age, far out on its bearing (inside the far plane), behind the wood
+            float elevation = MathHelper.ToRadians(auroraConfig.Sky.MoonElevationDegrees), azimuth = MathHelper.ToRadians(auroraConfig.Sky.MoonAzimuthDegrees);
+            Vector3 toMoon = new(MathF.Sin(azimuth) * MathF.Cos(elevation), MathF.Sin(elevation), MathF.Cos(azimuth) * MathF.Cos(elevation));
+            var moon = new[] { (toMoon * MOON_DISTANCE, 1f) };
+            float disc = MOON_DISTANCE * MathF.Tan(MathHelper.ToRadians(auroraConfig.Sky.MoonRadiusDegrees));
+            float halo = MOON_DISTANCE * MathF.Tan(auroraConfig.Sky.MoonHaloWidth);
+            backdrop.AddPuffs(graphicsDevice, potatoEffect,
+                new PotatoPuffs.Look(auroraConfig.Sky.MoonHalo.ToVector3() * MOON_HALO_GAIN, 0f, 1f, 0f, halo, 1f, Vector2.Zero, true, Still: true), moon, 1, 1);
+            backdrop.AddPuffs(graphicsDevice, potatoEffect,
+                new PotatoPuffs.Look(auroraConfig.Sky.MoonDisc.ToVector3(), 0f, 1f, 0f, disc, 1f, Vector2.Zero, true, MOON_EDGE, Still: true), moon, 1, 2);
 
             return backdrop;
         }
