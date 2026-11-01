@@ -45,6 +45,15 @@ The owner, "for fun": a few light cycles as a homage to the film, in its own ren
 - **The look** (`LightCycle.fx`), the scene's rule that light comes only from the seams: a near-black body of the film's primitives (three boxes and two disc wheels), one flat value a face, every edge glowing in the rider's colour past the glare threshold, the wheels ringed at the rim and the hub (each vertex carries its face-local seam data). The wall is added over the frame writing no depth, brightest along its top and foot, fading to its tail. ⚠ `BlendState.Additive` scales the source by its alpha: a shader returning alpha 0 adds nothing.
 - Not handled: a lens inside a cycle (the intro keeps its lenses near the island and the solids), and a wall in front of the island drawn under it (the island draws after the backdrop; only a lens out past the ring can see one between).
 
+## The Potato path
+
+The Raspberry Pi's renderer (`PotatoBackdrop.Grid`, #829, #1044) draws the floor as a plane in its own dark body with a trace of the lines' light, and the lattice as thin boxes radiating the line colour, every `TraceStride`-th one bolder in place of the Hilbert trace. Since #1044:
+
+- **The solids** are the desktop's near-black bodies, flat-shaded a face at a time by the rig, each edge glowing in `EdgeColor` as a thin box centred on it, 1.4 times `EdgeWidth` so it holds a pixel from the gun as the floor's lines do. No Life on their faces. ⚠ A vertex-lit piece's glow is added whatever its albedo: at 0.04 of the windows' light the bodies were mid-teal blocks, and at a fifth of the way to the line colour with a quarter of its light the floor's cells were teal.
+- **The landmark ring** stands where `GridLandmarkShape` puts it, its segments dark boxes and its four long borders glowing rails. The solids keep off its footprint, as the desktop's do (#559).
+- **The light cycles** are the desktop's three riders on their own seeds (`LightCycles.Rider`, `PotatoLightCycles`). Each cycle is `CycleBody`'s parts as boxes and two flattened spheres for the disc wheels, following its run every frame. Its wall goes through `PotatoModel.fx`'s `PotatoTrail`, added after the island as `LightCycle.fx`'s is, brightest along its top and foot and fading to its tail.
+- Cost, Cantor off screen against main: 9.85 ms at native against 9.62, 7.81 at 720p against 7.64.
+
 ## Costs
 
 Desktop, Testbed, `sceneseed=0`, 3840x1600 ssaa 2, `nopost nooverc`, `fpscap=2000`: **1.81 ms** at the play pose, 1.26 where the ring fills a third of the frame; the flat shade and the landmark were free.
