@@ -36,13 +36,13 @@ namespace Prazsky.Core.Render
         private readonly Vector4[] _lightColors = new Vector4[MAX_LIGHTS];
 
         /// <summary>A cluster's light reaches this far, scaled by its size; the inverse square has done most of its work by then.</summary>
-        private const float LIGHT_RANGE = 150f;
+        internal const float LIGHT_RANGE = 150f;
 
         /// <summary>A cluster's light, at the shader's own falloff scale, over its colour: the pool on the rock round it.</summary>
-        private const float LIGHT_INTENSITY = 3.4f;
+        internal const float LIGHT_INTENSITY = 3.4f;
 
         /// <summary>A glowworm's radius on the screen, in pixels at 1080 lines (#507: a point stays about a pixel and a half wide).</summary>
-        private const float GLOWWORM_PIXELS = 1.6f;
+        internal const float GLOWWORM_PIXELS = 1.6f;
 
         //The mirrored hall the lake reflects, half the bound target's size each way: a reflection on a rippled lake is
         //never sharper than that, and it is a quarter of the pixels
@@ -292,21 +292,30 @@ namespace Prazsky.Core.Render
         /// with the same phase the cluster's prisms carry (<see cref="CavernGeometry.BuildCrystals"/>), so the light a
         /// cluster throws swells with the glow in its prisms.
         /// </summary>
-        private float Pulse(CavernCluster cluster, int index, float time)
+        private float Pulse(CavernCluster cluster, int index, float time) => ClusterPulse(_config.Crystals, cluster, index, time);
+
+        /// <summary>The breath of cluster <paramref name="index"/> at <paramref name="time"/> on <paramref name="crystals"/>' speed (<see cref="Pulse"/>): the Potato path's lamps take it too.</summary>
+        internal static float ClusterPulse(CavernCrystalConfig crystals, CavernCluster cluster, int index, float time)
         {
-            float beat = 0.5f + 0.5f * MathF.Sin(time * _config.Crystals.PulseSpeed + cluster.Phase + index * 0.37f);
+            float beat = 0.5f + 0.5f * MathF.Sin(time * crystals.PulseSpeed + cluster.Phase + index * 0.37f);
             return 0.65f + 0.35f * beat * beat;
         }
 
         /// <summary>A cluster's colour (linear), on the cyan-magenta axis at its hue.</summary>
-        public Vector3 ClusterColor(CavernCluster cluster) =>
-            Vector3.Lerp(_config.Crystals.ColorA.ToVector3(), _config.Crystals.ColorB.ToVector3(), cluster.Hue);
+        public Vector3 ClusterColor(CavernCluster cluster) => ClusterColorOf(_config.Crystals, cluster);
+
+        /// <summary>A cluster's colour (linear) on <paramref name="crystals"/>' axis, with no backdrop.</summary>
+        internal static Vector3 ClusterColorOf(CavernCrystalConfig crystals, CavernCluster cluster) =>
+            Vector3.Lerp(crystals.ColorA.ToVector3(), crystals.ColorB.ToVector3(), cluster.Hue);
 
         //The light a cluster throws is its colour paler than its glow: a crystal's light on wet stone reads as a tint, and at
         //its own saturation it painted the columns magenta and teal
-        private Vector3 LightTint(CavernCluster cluster)
+        private Vector3 LightTint(CavernCluster cluster) => LightTintOf(_config.Crystals, cluster);
+
+        /// <summary>The light a cluster throws on the rock (<see cref="LightTint"/>), with no backdrop.</summary>
+        internal static Vector3 LightTintOf(CavernCrystalConfig crystals, CavernCluster cluster)
         {
-            Vector3 colour = ClusterColor(cluster);
+            Vector3 colour = ClusterColorOf(crystals, cluster);
             float luminance = Vector3.Dot(colour, new Vector3(0.2126f, 0.7152f, 0.0722f));
             return Vector3.Lerp(colour, new Vector3(luminance), LIGHT_PALE);
         }
@@ -591,10 +600,10 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>A cluster further from the axis than this does not light the arena.</summary>
-        private const float ARENA_LIGHT_REACH = 130f;
+        internal const float ARENA_LIGHT_REACH = 130f;
 
         /// <summary>The scene light's colour over the cluster's: the instanced effect's falloff is quadratic over its range.</summary>
-        private const float ARENA_LIGHT_STRENGTH = 1.1f;
+        internal const float ARENA_LIGHT_STRENGTH = 1.1f;
 
         /// <summary>
         /// The clusters whose light reaches the arena, for the scene lights on the instanced effect: those within

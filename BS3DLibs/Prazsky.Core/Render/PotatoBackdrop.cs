@@ -418,6 +418,8 @@ namespace Prazsky.Core.Render
                 backdrop.HazeReach = HazeReachOf(scene);
                 //The aurora stands in its void, so the dome's horizon is not its sky: its hills recede into the desktop's mist
                 if (scene == SceneKind.Aurora) backdrop._hazeOwn = new AuroraSceneConfig().Mist.Color.ToVector3();
+                //The cavern stands in its rock, and its fog is the dark blue-violet the desktop's walls recede into
+                if (scene == SceneKind.Cavern) backdrop._hazeOwn = new CavernSceneConfig().Rock.FogColor.ToVector3();
                 if (scene == SceneKind.Desert)
                 {
                     //Desert.fx's murk: the erg's own dust-hazed skyline, the horizon carried towards the sand's hue
@@ -437,7 +439,8 @@ namespace Prazsky.Core.Render
         /// scene's own <c>HorizonHazeDistance</c>, read from its config. The two cities have none on the desktop, whose fog
         /// stands in. Theirs here (<see cref="CITY_HAZE_REACH"/>, <see cref="NEON_HAZE_REACH"/>) were set by eye on the Pi's
         /// captures, so that the last rank of towers 250 units out reads as distance. The aurora's is its mist's
-        /// (<see cref="AuroraHazeReach"/>). Zero for any other scene that stands in its void, whose dark is its own.
+        /// (<see cref="AuroraHazeReach"/>), the cavern's its fog's (<see cref="CavernHazeReach"/>). Zero for any other scene
+        /// that stands in its void, whose dark is its own.
         /// </summary>
         public static float HazeReachOf(SceneKind scene) => scene switch
         {
@@ -449,8 +452,21 @@ namespace Prazsky.Core.Render
             SceneKind.City => CITY_HAZE_REACH,
             SceneKind.NeonCity => NEON_HAZE_REACH,
             SceneKind.Aurora => AuroraHazeReach(new AuroraSceneConfig()),
+            SceneKind.Cavern => CavernHazeReach(new CavernSceneConfig()),
             _ => 0f,
         };
+
+        /// <summary>
+        /// The cavern's fog (#1044): <c>Cavern.fx</c>'s exponential distance fog (<see cref="CavernRockConfig.FogDensity"/>)
+        /// as this path's square law, matched where it veils the hall's far end (<see cref="CAVERN_FOG_MATCH"/>).
+        /// </summary>
+        public static float CavernHazeReach(CavernSceneConfig config) => HazeReachMatching(config.Rock.FogDensity, CAVERN_FOG_MATCH);
+
+        //How far from the arena the cavern's fog is matched: past the long axis of a hall of the config's 180 at its 1.3
+        private const float CAVERN_FOG_MATCH = 250f;
+
+        //The reach whose (distance / reach)^2 veils as much at distance as an exponential fog of density does
+        private static float HazeReachMatching(float density, float distance) => distance / MathF.Sqrt(1f - MathF.Exp(-density * distance));
 
         /// <summary>
         /// The aurora's haze (#1044): the desktop's is an optical depth a unit of path (<see cref="AuroraMistConfig.Haze"/>,
@@ -459,8 +475,7 @@ namespace Prazsky.Core.Render
         /// </summary>
         public static float AuroraHazeReach(AuroraSceneConfig config)
         {
-            float edge = config.FarStand.OuterRadius;
-            return edge / MathF.Sqrt(1f - MathF.Exp(-config.Mist.Haze * edge));
+            return HazeReachMatching(config.Mist.Haze, config.FarStand.OuterRadius);
         }
 
         /// <summary>The day city's and the neon city's haze, by eye (<see cref="HazeReachOf"/>).</summary>
@@ -475,7 +490,7 @@ namespace Prazsky.Core.Render
         private Vector3 _hazeHue;
         private float _hazeWarmth;
 
-        //A haze of the scene's own colour, whatever the dome: the aurora's mist
+        //A haze of the scene's own colour, whatever the dome: the aurora's mist, the cavern's fog
         private Vector3? _hazeOwn;
 
         /// <summary>
@@ -483,7 +498,8 @@ namespace Prazsky.Core.Render
         /// #551). The rig's horizon is an average over the capture's bottom fifth and can be another hue: under the mountains'
         /// and the desert's dome it is teal where the dome draws lilac-grey, and the far ridges and dunes stood against the
         /// sky as a teal band (Desert.fx records the same). The desert carries it on towards the sand's hue, at the horizon's
-        /// own brightness, as Desert.fx's murk does. The aurora, which has no dome, recedes into its mist's colour.
+        /// own brightness, as Desert.fx's murk does. The aurora and the cavern, which have no dome, recede into their
+        /// mist's and their fog's colours.
         /// </summary>
         public Vector3 HazeColorOf(Vector3 drawnHorizon)
         {
@@ -701,9 +717,7 @@ namespace Prazsky.Core.Render
         /// </summary>
         private static PotatoBackdrop Cavern(GraphicsDevice graphicsDevice, Effect potatoEffect, int seedOffset)
         {
-            //No glowworms here, and they are placed last off the seed, so leaving them out moves nothing else
             var config = new CavernSceneConfig();
-            config.Air.GlowwormCount = 0;
             var chamber = new CavernChamber(config, seedOffset);
             CavernGeometry.Detail detail = CavernGeometry.Detail.Potato;
 
@@ -742,8 +756,82 @@ namespace Prazsky.Core.Render
                     colour * 0.06f, Vector3.Clamp(colour * 0.7f, Vector3.Zero, Vector3.One), $"crystals {k}");
             }
 
+            //The glowworms (#1044): the desktop's constellation on the vault, its own quads (#507), a pixel and a half wide
+            (CavernGlowwormVertex[] worms, int[] wormIndices) = CavernGeometry.BuildGlowworms(chamber);
+            backdrop._specks = PotatoSpecks.Create(graphicsDevice, potatoEffect, worms, wormIndices,
+                config.Air.GlowwormColor.ToVector3(), CavernBackdrop.GLOWWORM_PIXELS, config.Rock.FogDensity);
+            if (backdrop._specks != null)
+            {
+                backdrop._owned.Add(backdrop._specks);
+                backdrop.VertexCount += worms.Length;
+                backdrop._census.Add($"glowworms {chamber.Glowworms.Count}");
+            }
+
+            //The clusters' light (#1044): the desktop lights its rock with all twelve per pixel and the arena with the four
+            //nearest through the scene lights; here every light is the effect's, at the vertex, on the hall, the island and
+            //the balls alike, in the seven slots a flash leaves free
+            int[] nearest = CavernLampOrder(chamber);
+            backdrop.Lamps = (time, position, colour, range, max) => CavernLamps(config, chamber, nearest, time, position, colour, range, max);
+
             return backdrop;
         }
+
+        //The clusters by their distance from the arena's axis, nearest first: the order the lamps take their slots in
+        private static int[] CavernLampOrder(CavernChamber chamber)
+        {
+            var order = new int[chamber.Clusters.Count];
+            var distance = new float[order.Length];
+            for (int k = 0; k < order.Length; k++)
+            {
+                Vector3 at = chamber.Clusters[k].LightPosition;
+                order[k] = k;
+                distance[k] = MathF.Sqrt(at.X * at.X + at.Z * at.Z);
+            }
+            Array.Sort(distance, order);
+            return order;
+        }
+
+        /// <summary>
+        /// The cavern's lamps at <paramref name="time"/> (#1044, <see cref="Lamps"/>). The clusters within
+        /// <see cref="CavernBackdrop.ARENA_LIGHT_REACH"/> of the axis, four at most, are the desktop's arena lights to the
+        /// figure (<c>CavernBackdrop.ArenaLights</c>: their own colour, reaching the island); the nearest of the rest light
+        /// the rock round them as the desktop's walls are lit (<see cref="CavernBackdrop.LightTintOf"/>, its intensity and
+        /// size), over <see cref="CAVERN_WALL_LAMP_RANGE"/>. Each on its prisms' breath.
+        /// </summary>
+        private static int CavernLamps(CavernSceneConfig config, CavernChamber chamber, int[] nearest, float time,
+            Vector3[] position, Vector3[] colour, float[] range, int max)
+        {
+            CavernCrystalConfig crystals = config.Crystals;
+            int count = 0, arena = 0;
+            for (int n = 0; n < nearest.Length && count < max; n++)
+            {
+                int k = nearest[n];
+                CavernCluster cluster = chamber.Clusters[k];
+                Vector3 at = cluster.LightPosition;
+                float distance = MathF.Sqrt(at.X * at.X + at.Z * at.Z);
+                float pulse = CavernBackdrop.ClusterPulse(crystals, cluster, k, time);
+                position[count] = at;
+                if (distance <= CavernBackdrop.ARENA_LIGHT_REACH && arena < CAVERN_ARENA_LAMPS && crystals.ArenaLight > 0f)
+                {
+                    colour[count] = CavernBackdrop.ClusterColorOf(crystals, cluster) * (crystals.ArenaLight * CavernBackdrop.ARENA_LIGHT_STRENGTH * pulse);
+                    range[count] = distance * 1.6f + 20f;
+                    arena++;
+                }
+                else
+                {
+                    colour[count] = CavernBackdrop.LightTintOf(crystals, cluster)
+                        * (CavernBackdrop.LIGHT_INTENSITY * cluster.Size * cluster.Size * pulse * crystals.WallLight);
+                    range[count] = CAVERN_WALL_LAMP_RANGE * cluster.Size;
+                }
+                count++;
+            }
+            return count;
+        }
+
+        //The desktop's arena lights, four at most; and a wall lamp's reach, where the effect's quadratic falloff to its range
+        //halves at 15 units as the desktop's inverse square does (Cavern.fx's LIGHT_NEAR): (1 - 15 / 51)^2 = 0.5
+        private const int CAVERN_ARENA_LAMPS = 4;
+        private const float CAVERN_WALL_LAMP_RANGE = 51f;
 
         /// <summary>
         /// The Grid (#829): the desktop's is <c>Grid.fx</c>, a circuit-board floor, distant solids running Life on their
@@ -1655,15 +1743,25 @@ namespace Prazsky.Core.Render
             _census.Add($"puffs {emitters.Count}x{perEmitter}");
         }
 
+        //The cavern's glowworms (#1044), drawn with the puffs for the puffs' reason
+        private PotatoSpecks _specks;
+
         /// <summary>
-        /// The backdrop's puffs (#1044): the volcano's ash and steam, the savanna's flames and smoke. Translucent and writing
-        /// no depth, so the host draws them after the island and its pit, which would otherwise draw over a puff in front of
-        /// them.
+        /// The backdrop's puffs and specks (#1044): the volcano's ash and steam, the savanna's flames and smoke, the cavern's
+        /// glowworms. Translucent and writing no depth, so the host draws them after the island and its pit, which would
+        /// otherwise draw over one in front of them.
         /// </summary>
         public void DrawPuffs(ICamera camera, float time)
         {
             foreach (PotatoPuffs puffs in _puffs) puffs.Draw(camera, time);
+            _specks?.Draw(camera, time);
         }
+
+        /// <summary>
+        /// The lamps this backdrop knows where they stand (#1044: the cavern's crystal clusters), for the host's
+        /// <see cref="SceneLights.BackdropLamps"/>; null for a scene with none.
+        /// </summary>
+        public SceneLights.LampSource Lamps { get; private set; }
 
         /// <summary>How much of the dome's horizon a water surface glows with (<see cref="AddWater"/>): its reflection at a low angle.</summary>
         private const float WATER_SKY = 0.55f;

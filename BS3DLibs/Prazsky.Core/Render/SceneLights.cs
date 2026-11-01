@@ -84,6 +84,19 @@ namespace Prazsky.Core.Render
         public VolcanoLava Volcano { get; set; }
 
         /// <summary>
+        /// Lamps a scene's backdrop knows where they stand, answered into the arrays: how many it wrote, at most
+        /// <paramref name="max"/>, at <paramref name="wallClock"/>.
+        /// </summary>
+        public delegate int LampSource(float wallClock, Vector3[] position, Vector3[] colour, float[] range, int max);
+
+        /// <summary>
+        /// The Potato path's backdrop's own lamps (#1044, <see cref="PotatoBackdrop.Lamps"/>: the cavern's crystal clusters),
+        /// read when there is no renderer to ask; null for a scene whose backdrop has none. The host sets it with each
+        /// backdrop it builds.
+        /// </summary>
+        public LampSource BackdropLamps { get; set; }
+
+        /// <summary>
         /// Adds one short-lived light to the <b>next</b> <see cref="Apply"/> only (#389) — a blast lighting up
         /// the balls, the island and the gun around it for the fraction of a second it lasts. It takes the
         /// first slot the scene has left free and is dropped when there is none: the savanna's ring of
@@ -119,8 +132,9 @@ namespace Prazsky.Core.Render
         /// <param name="sceneRenderer">Where the campfire and the planetshine come from — the same source the
         /// grass shader and the flame billboard read, which is what keeps them consistent. Null on the Potato path
         /// (#795), which has none: then the volcano's lamps come from <see cref="Volcano"/>, the neon ring from
-        /// <paramref name="neonLook"/> as always, and the scenes whose lights only a backdrop knows (the campfires, the
-        /// big top, the planetshine, the earthshine, the lightning) push none.</param>
+        /// <paramref name="neonLook"/> as always, the cavern's clusters from the Potato backdrop
+        /// (<see cref="BackdropLamps"/>, #1044), and the other scenes whose lights only a backdrop knows (the campfires,
+        /// the big top, the planetshine, the earthshine, the lightning) push none.</param>
         /// <param name="neonLook">The neon city's ring (count, range, radius, height, colours), read only when
         /// <paramref name="scene"/> is <see cref="SceneKind.NeonCity"/>. Passed by reference, never copied.</param>
         /// <param name="wallClock">Must be the same clock the caller feeds <see cref="SceneFrame.Time"/>, or
@@ -156,8 +170,10 @@ namespace Prazsky.Core.Render
             }
             else if (sceneRenderer == null)
             {
-                //No renderer (the Potato path): only the neon ring, which is config, and not a backdrop's
+                //No renderer (the Potato path): the neon ring, which is config, and the lamps the Potato backdrop built
+                //(#1044), a slot left for a flash
                 if (scene == SceneKind.NeonCity) count = BuildNeonRing(neonLook);
+                else if (BackdropLamps != null) count = BackdropLamps(wallClock, _lightPosition, _lightColor, _lightRange, MaxLights - 1);
             }
             else if (scene == SceneKind.Savanna)
             {

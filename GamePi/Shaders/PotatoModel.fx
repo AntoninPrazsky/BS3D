@@ -1715,6 +1715,62 @@ technique PotatoPuffs
     }
 };
 
+//SPECKS (#1044): Cavern.fx's glowworms, points on the vault a pixel or two wide at any distance, which the Pi drew none
+//of. One quad a worm in CavernGeometry.BuildGlowworms' vertices, laid out in the vertex shader by a size in PIXELS (a
+//world-sized dot at the far end of the hall is a fraction of a pixel, and a field of those crawls) and lifted a hand's
+//width towards the lens in world units, so the rock it hangs on cannot cover it. Its breath and the fog on its way to
+//the lens are the vertex's, curved there, and the pixel a soft dot: added, depth-tested, writing no depth.
+float3 SpeckColor;      //linear radiance, over 1 so a pixel or two survives the curve
+float2 SpeckScale;      //a speck's radius in clip units for a size of 1 (its pixels over half the viewport)
+float SpeckFog;         //the fog's density on the way to the lens
+float SpeckTime;        //seconds, for the breath
+
+struct SpeckInput
+{
+    float4 Position : POSITION0;   //the worm
+    float4 Corner : TEXCOORD0;     //the quad's corner (xy, -1 to 1), the breath's phase, the size
+};
+
+struct SpeckOutput
+{
+    float4 Position : POSITION0;
+    float3 Color : TEXCOORD0;
+    float2 Corner : TEXCOORD1;
+};
+
+SpeckOutput SpeckVS(SpeckInput input)
+{
+    SpeckOutput output;
+    float3 p = input.Position.xyz;
+    float3 toEye = EyePosition - p;
+    float distance = length(toEye);
+    p += toEye * (0.6 / max(distance, 1e-3));
+
+    float4 clip = mul(mul(float4(p, 1.0), View), Projection);
+    clip.xy += input.Corner.xy * SpeckScale * (input.Corner.w * clip.w);
+    output.Position = clip;
+
+    float breathe = 0.55 + 0.45 * sin(SpeckTime * 0.7 + input.Corner.z);
+    output.Color = ToDisplay(SpeckColor * (breathe * exp(-distance * SpeckFog * 0.8)));
+    output.Corner = input.Corner.xy;
+    return output;
+}
+
+float4 SpeckPS(SpeckOutput input) : COLOR0
+{
+    float a = saturate(1.0 - dot(input.Corner, input.Corner));
+    return float4(input.Color * (a * a), 1.0);
+}
+
+technique PotatoSpecks
+{
+    pass P0
+    {
+        VertexShader = compile POTATO_VS SpeckVS();
+        PixelShader = compile POTATO_PS SpeckPS();
+    }
+};
+
 //THE CITIES' WINDOWS (#1044): a tower's wall lit at the vertex as PotatoVertexLit's, and its windows laid out as
 //City.fxh's CityPS lays them out. A wall margin is held at every edge, and as many windows as fit at the config's pitch
 //are spread evenly across the interior. The towers are the backdrop's nearest and largest surfaces. Without windows the
