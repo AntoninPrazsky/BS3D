@@ -1177,7 +1177,8 @@ namespace Prazsky.Core.Render
                 vents.Add((new Vector3(x, Height(x, z) + 0.3f, z), strength));
             }
             backdrop.AddPuffs(graphicsDevice, potatoEffect,
-                VOLCANO_STEAM with { Color = steam.Color.ToVector3(), Rise = steam.Rise * steam.Life, Life = steam.Life, Size = steam.Size, Opacity = steam.Strength },
+                VOLCANO_STEAM with { Color = steam.Color.ToVector3() * STEAM_LIGHT, Rise = steam.Rise * steam.Life, Life = steam.Life,
+                    Size = steam.Size * STEAM_SIZE, Opacity = Math.Min(steam.Strength * STEAM_THICKNESS, 1f) },
                 vents, STEAM_PUFFS, 6791 + seedOffset);
 
             return backdrop;
@@ -1186,9 +1187,13 @@ namespace Prazsky.Core.Render
         //The volcano's puffs (#1044): the ash column, dark and slow, rising high and leaning downwind (the plume's ash
         //colour lifted a little, or the column vanishes into the storm's dusk); the steam, VolcanoBackdrop's figures but its
         //colour and its numbers from SteamConfig (only its drift and growth are set here)
-        private static readonly PotatoPuffs.Look VOLCANO_ASH = new(new Vector3(0.11f, 0.10f, 0.095f), 240f, 28f, 3.2f, 13f, 0.8f, new Vector2(60f, 30f), false);
-        private static readonly PotatoPuffs.Look VOLCANO_STEAM = new(Vector3.One, 90f, 12f, 2f, 3.6f, 0.55f, new Vector2(8f, 5f), false);
-        private const int ASH_PUFFS = 48, STEAM_PUFFS = 14;
+        private static readonly PotatoPuffs.Look VOLCANO_ASH = new(new Vector3(0.17f, 0.155f, 0.145f), 240f, 28f, 2.6f, 17f, 0.85f, new Vector2(60f, 30f), false);
+        private static readonly PotatoPuffs.Look VOLCANO_STEAM = new(Vector3.One, 90f, 12f, 2.5f, 3.6f, 0.55f, new Vector2(8f, 5f), false);
+
+        //The steam on the Pi: SteamConfig's vapour, lit as the desktop's bloom and sky light it (its colour this much
+        //brighter, its puffs this much bigger and thicker), or the columns are faint smudges against the storm's dusk
+        private const float STEAM_LIGHT = 1.7f, STEAM_SIZE = 1.5f, STEAM_THICKNESS = 1.45f;
+        private const int ASH_PUFFS = 32, STEAM_PUFFS = 20;
 
         //The grid over an open ground: the savanna's HorizonHazeDistance (520) is where the desktop's ground fades into
         //the haze, and the other open scenes reach about as far
@@ -1482,7 +1487,7 @@ namespace Prazsky.Core.Render
                 smokes.Add((at + Vector3.Up * config.Campfire.FlameSize, 1f));
             }
             float flame = config.Campfire.FlameSize;
-            backdrop.AddPuffs(graphicsDevice, potatoEffect, FIRE_FLAME with { Rise = flame * 1.7f, Size = flame * 0.42f }, fires, FLAME_PUFFS, 8811);
+            backdrop.AddPuffs(graphicsDevice, potatoEffect, FIRE_FLAME with { Rise = flame * 1.6f, Size = flame * 0.55f }, fires, FLAME_PUFFS, 8811);
             backdrop.AddPuffs(graphicsDevice, potatoEffect, FIRE_SMOKE, smokes, SMOKE_PUFFS, 8812);
 
             return backdrop;
@@ -1490,9 +1495,9 @@ namespace Prazsky.Core.Render
 
         //The campfires' puffs (#1044): the flame bright over the glare's threshold so the curve takes it to a hot yellow-orange,
         //short-lived and tapering; the smoke thin and slow, drifting off
-        private static readonly PotatoPuffs.Look FIRE_FLAME = new(new Vector3(2.6f, 1.0f, 0.28f), 4f, 0.9f, -0.7f, 1f, 0.85f, Vector2.Zero, true);
+        private static readonly PotatoPuffs.Look FIRE_FLAME = new(new Vector3(1.5f, 0.5f, 0.1f), 4f, 0.9f, -0.75f, 1f, 0.55f, Vector2.Zero, true);
         private static readonly PotatoPuffs.Look FIRE_SMOKE = new(new Vector3(0.07f, 0.065f, 0.06f), 28f, 7f, 2.5f, 1.2f, 0.32f, new Vector2(4f, 2.5f), false);
-        private const int FLAME_PUFFS = 12, SMOKE_PUFFS = 10;
+        private const int FLAME_PUFFS = 16, SMOKE_PUFFS = 10;
 
         /// <param name="colour">The ground's colour as the scene's config gives it, linear; encoded here like a bucket's,
         /// since the renderer's material is sRGB and decoded (the first three grounds were handed linear and came out dark
