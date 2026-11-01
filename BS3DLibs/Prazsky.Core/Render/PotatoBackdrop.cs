@@ -1404,17 +1404,16 @@ namespace Prazsky.Core.Render
 
         private const float SPRUCE_TIP = 0.04f, SPRUCE_SNOW_SHARE = 0.08f, SNOW_DARK_SHARE = 0.25f;
 
-        //The aurora's far stand and Moon (#1044): the ring of far ground, its overlap with the near grid and how far it
-        //sinks there; how many spires (the desktop's 25,000 are tiers of a mesh each; a cone each is a silhouette at this
-        //range) and the share of snow on them; the Moon's distance (inside the far plane, far past the wood), how hard its
-        //disc's rim is and how much brighter its halo is than the config's (which is a glare pass's, here only added light)
-        private const int AURORA_RING_CELLS = 48, AURORA_FAR_SPIRES = 1600;
+        //The aurora's far stand (#1044): the ring of far ground, its overlap with the near grid and how far it sinks there;
+        //how many spires (the desktop's 25,000 are tiers of a mesh each; a cone each is a silhouette at this range), their
+        //sides, and the share of snow on them
+        private const int AURORA_RING_CELLS = 48, AURORA_FAR_SPIRES = 4000, FAR_SPIRE_SEGMENTS = 5;
         private const float AURORA_RING_OVERLAP = 20f, AURORA_RING_SINK = 1.5f, FAR_SPIRE_SNOW = 0.18f;
-        private const float MOON_DISTANCE = 1500f, MOON_EDGE = 24f, MOON_HALO_GAIN = 3f;
 
         private static PotatoBackdrop Aurora(GraphicsDevice graphicsDevice, Effect potatoEffect, float holeRadius, int seedOffset)
         {
-            ForestSceneConfig terrain = new AuroraSceneConfig().Terrain;
+            var auroraConfig = new AuroraSceneConfig();
+            ForestSceneConfig terrain = auroraConfig.Terrain;
             ForestTreeConfig trees = terrain.Trees;
             float Height(float x, float z) => TerrainMirror.Forest(x, z, terrain);
 
@@ -1459,7 +1458,6 @@ namespace Prazsky.Core.Render
             //The far stand (#1044, #963's AuroraFarStandConfig): spires on the hills from the planted wood's edge out to the
             //stand's outer reach, over a coarse ring of the same snow past the near grid. On the desktop thousands of
             //spruces in tiers; here a cone each, the needles' dark with a little snow, a silhouette against the curtains
-            var auroraConfig = new AuroraSceneConfig();
             AuroraFarStandConfig far = auroraConfig.FarStand;
             backdrop.AddGround(graphicsDevice, potatoEffect,
                 new PotatoTerrainMesh(graphicsDevice, AURORA_RING_CELLS, far.OuterRadius + AURORA_EXTENT_MARGIN, extent - AURORA_RING_OVERLAP,
@@ -1478,19 +1476,8 @@ namespace Prazsky.Core.Render
                 spires.Add(new ModelInstance(Matrix.CreateScale(far.Radius * scale, far.Height * scale, far.Radius * scale) * Matrix.CreateTranslation(x, y - 0.5f, z), OPEN));
             }
             Vector3 farNeedles = Vector3.Lerp(far.Needles.ToVector3(), far.Snow.ToVector3(), FAR_SPIRE_SNOW);
-            backdrop.AddPiece(graphicsDevice, potatoEffect, crown, spires.ToArray(), farNeedles, null, "far stand");
-
-            //The Moon (#963): low, to the left of the play view and a little behind it, its disc over the glare and the air lit
-            //round it, as two puffs that never rise or age, far out on its bearing (inside the far plane), behind the wood
-            float elevation = MathHelper.ToRadians(auroraConfig.Sky.MoonElevationDegrees), azimuth = MathHelper.ToRadians(auroraConfig.Sky.MoonAzimuthDegrees);
-            Vector3 toMoon = new(MathF.Sin(azimuth) * MathF.Cos(elevation), MathF.Sin(elevation), MathF.Cos(azimuth) * MathF.Cos(elevation));
-            var moon = new[] { (toMoon * MOON_DISTANCE, 1f) };
-            float disc = MOON_DISTANCE * MathF.Tan(MathHelper.ToRadians(auroraConfig.Sky.MoonRadiusDegrees));
-            float halo = MOON_DISTANCE * MathF.Tan(auroraConfig.Sky.MoonHaloWidth);
-            backdrop.AddPuffs(graphicsDevice, potatoEffect,
-                new PotatoPuffs.Look(auroraConfig.Sky.MoonHalo.ToVector3() * MOON_HALO_GAIN, 0f, 1f, 0f, halo, 1f, Vector2.Zero, true, Still: true), moon, 1, 1);
-            backdrop.AddPuffs(graphicsDevice, potatoEffect,
-                new PotatoPuffs.Look(auroraConfig.Sky.MoonDisc.ToVector3(), 0f, 1f, 0f, disc, 1f, Vector2.Zero, true, MOON_EDGE, Still: true), moon, 1, 2);
+            PotatoShellMesh spire = backdrop.Own(new PotatoShellMesh(graphicsDevice, 1f, SPRUCE_TIP, 0f, 1f, FAR_SPIRE_SEGMENTS, closeTop: true, inside: false));
+            backdrop.AddPiece(graphicsDevice, potatoEffect, spire, spires.ToArray(), farNeedles, null, "far stand");
 
             return backdrop;
         }

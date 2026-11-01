@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Prazsky.Core.Render;
+using System;
 using Xunit;
 
 namespace BS3D.Tests
@@ -53,11 +54,15 @@ namespace BS3D.Tests
                 }
             }
 
+            //The aurora's night is the desktop's (#1044), and its Moon the rig's key
             PotatoSceneRig.PotatoSkyLook aurora = PotatoSceneRig.SkyLookOf(SceneKind.Aurora);
             var config = new AuroraSceneConfig();
-            Assert.Equal(config.Potato.Sky.ColorLow.ToVector3(), aurora.ColorA);
-            Assert.Equal(config.Potato.Sky.ColorHigh.ToVector3(), aurora.ColorB);
-            Assert.Equal(config.Potato.Sky.BandHeight, aurora.Params.Y);
+            Assert.Equal(config.Sky.Zenith.ToVector3(), aurora.ColorA);
+            Assert.Equal(config.Sky.Horizon.ToVector3(), aurora.ColorB);
+            Assert.Equal(config.Sky.GradientPower, aurora.Params.X);
+            Assert.True(PotatoSceneRig.TryGetSunDirection(SceneKind.Aurora, out Vector3 moon));
+            Assert.Equal(moon, aurora.Axis);
+            Assert.InRange(MathHelper.ToDegrees(MathF.Asin(moon.Y)), config.Sky.MoonElevationDegrees - 0.01f, config.Sky.MoonElevationDegrees + 0.01f);
         }
 
         [Fact]

@@ -12,11 +12,18 @@ namespace BS3D.Tests
         [Fact]
         public void TheSphereHasItsRingsAndSegmentsAtItsRadius()
         {
-            (VertexPositionColor[] vertices, int[] indices) = PotatoSkyFigure.BuildSphere(8, 16, 12.5f);
+            (VertexPositionColorTexture[] vertices, int[] indices) = PotatoSkyFigure.BuildSphere(8, 16, 12.5f);
 
             Assert.Equal(9 * 17, vertices.Length);
             Assert.Equal(8 * 16 * 6, indices.Length);
-            foreach (VertexPositionColor vertex in vertices) Assert.Equal(12.5f, vertex.Position.Length(), 3);
+            foreach (VertexPositionColorTexture vertex in vertices)
+            {
+                Assert.Equal(12.5f, vertex.Position.Length(), 3);
+                //The texture's column is the longitude the position is at (PotatoAuroraSky's columns), the seam's twice
+                float longitude = MathF.Atan2(vertex.Position.Z, vertex.Position.X) / MathHelper.TwoPi;
+                if (MathF.Abs(vertex.Position.X) + MathF.Abs(vertex.Position.Z) > 1e-3f)
+                    Assert.Equal(0f, MathF.Abs(((vertex.TextureCoordinate.X - longitude) % 1f + 1.5f) % 1f - 0.5f), 3);
+            }
             foreach (int index in indices) Assert.InRange(index, 0, vertices.Length - 1);
         }
 

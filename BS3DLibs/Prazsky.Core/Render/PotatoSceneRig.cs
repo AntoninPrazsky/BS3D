@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using Prazsky.Core.Tools;
 using System;
 
 namespace Prazsky.Core.Render
@@ -8,8 +9,9 @@ namespace Prazsky.Core.Render
     /// the Potato path builds none, so <see cref="SkyLightRig"/> had only the dome to light by, and the Moon, the cavern
     /// and the Grid stood in the dome's lilac where the desktop lights them with the scene's own rig
     /// (<c>Backdrop.TryGetLightRig</c>) under a void. Each answer here is the figure the scene's own backdrop gives
-    /// from its config's defaults - the aurora's without its back light's breath, which follows the curtains this path
-    /// does not draw - and the colour its void or its fog is, for the frame to be cleared to in place of the dome.
+    /// from its config's defaults - the aurora's back light breathing with its curtains as the desktop's does
+    /// (<see cref="PotatoAuroraSky.ArcBreaths"/>) - and the colour its void or its fog is, for the frame to be cleared to
+    /// in place of the dome.
     /// </summary>
     public static class PotatoSceneRig
     {
@@ -32,13 +34,13 @@ namespace Prazsky.Core.Render
                 case SceneKind.Moon: rig = Of(MOON.Lighting.SkyAmbient, MOON.Lighting.GroundAmbient, MOON.Lighting.KeyTint, MOON.Lighting.BackTint); return true;
                 case SceneKind.Space: rig = Of(SPACE.Lighting.SkyAmbient, SPACE.Lighting.GroundAmbient, SPACE.Lighting.KeyTint, SPACE.Lighting.BackTint); return true;
                 case SceneKind.Dream: rig = Of(DREAM.Lighting.SkyAmbient, DREAM.Lighting.GroundAmbient, DREAM.Lighting.KeyTint, DREAM.Lighting.BackTint); return true;
-                case SceneKind.Aurora: rig = Of(AURORA.Potato.Lighting.SkyAmbient, AURORA.Potato.Lighting.GroundAmbient, AURORA.Potato.Lighting.KeyTint, AURORA.Potato.Lighting.BackTint); return true;
+                case SceneKind.Aurora: rig = AuroraRig(wallClock); return true;
                 case SceneKind.Circus: rig = Of(CIRCUS.Lighting.SkyAmbient, CIRCUS.Lighting.GroundAmbient, CIRCUS.Lighting.KeyTint, CIRCUS.Lighting.BackTint); return true;
                 default: rig = default; return false;
             }
         }
 
-        /// <summary>The scene's own key direction - the Moon's low Apollo sun, the big top's spot rig - where it states one.</summary>
+        /// <summary>The scene's own key direction - the Moon's low Apollo sun, the big top's spot rig, the aurora's Moon - where it states one.</summary>
         public static bool TryGetSunDirection(SceneKind scene, out Vector3 direction)
         {
             switch (scene)
@@ -48,6 +50,9 @@ namespace Prazsky.Core.Render
                     return true;
                 case SceneKind.Circus:
                     direction = SceneRenderer.DirectionFromElevationAzimuth(Math.Clamp(CIRCUS.Lighting.KeyElevationDegrees, 1f, 89f), CIRCUS.Lighting.KeyAzimuthDegrees);
+                    return true;
+                case SceneKind.Aurora:
+                    direction = AuroraMoon;
                     return true;
                 default:
                     direction = default;
@@ -68,7 +73,7 @@ namespace Prazsky.Core.Render
                 case SceneKind.Moon: linear = MOON.VoidColor.ToVector3(); return true;
                 case SceneKind.Space: linear = SPACE.VoidColor.ToVector3(); return true;
                 case SceneKind.Dream: linear = DREAM.DeepColor.ToVector3(); return true;
-                case SceneKind.Aurora: linear = AURORA.Potato.VoidColor.ToVector3(); return true;
+                case SceneKind.Aurora: linear = AURORA.Sky.Horizon.ToVector3(); return true;
                 case SceneKind.Circus: linear = CIRCUS.Lights.HazeColor.ToVector3(); return true;
                 default: linear = default; return false;
             }
@@ -76,6 +81,41 @@ namespace Prazsky.Core.Render
 
         private static SceneLightRig Of(Rgb skyAmbient, Rgb groundAmbient, Rgb keyTint, Rgb backTint) =>
             new(skyAmbient.ToVector3(), groundAmbient.ToVector3(), keyTint.ToVector3(), backTint.ToVector3());
+
+        //Where the aurora's Moon stands: its key, and the disc PotatoSkyAurora draws (AuroraBackdrop's own clamp)
+        private static readonly Vector3 AuroraMoon = SceneRenderer.DirectionFromElevationAzimuth(
+            Math.Clamp(AURORA.Sky.MoonElevationDegrees, 1f, 89f), AURORA.Sky.MoonAzimuthDegrees);
+
+        //AuroraBackdrop.RIG_STEPS: how finely the back light follows the curtains' breath
+        private const float AURORA_RIG_STEPS = 24f;
+
+        /// <summary>
+        /// The aurora's rig as <c>AuroraBackdrop.TryGetLightRig</c> states it (#963, #1044): the Moon the key, the snow's
+        /// bounce from below, the sky's ambient carried part of the way to the curtains' green, and their green from behind
+        /// at 0.7 to 1.3 of the authored back light as they breathe, in steps.
+        /// </summary>
+        private static SceneLightRig AuroraRig(float wallClock)
+        {
+            AuroraLightingConfig lighting = AURORA.Lighting;
+            AuroraCurtainsConfig curtains = AURORA.Curtains;
+            Vector3 breaths = PotatoAuroraSky.ArcBreaths(AURORA, wallClock);
+            float total = 0f, peak = 0f;
+            for (int k = 0; k < Math.Min(curtains.Arcs.Length, 3); k++)
+            {
+                float full = curtains.Intensity * curtains.Arcs[k].Brightness;
+                total += full * (k == 0 ? breaths.X : k == 1 ? breaths.Y : breaths.Z);
+                peak += full;
+            }
+            float share = peak > 1e-4f ? MathF.Round(Math.Clamp(total / peak, 0f, 1f) * AURORA_RIG_STEPS) / AURORA_RIG_STEPS : 1f;
+
+            //The sky's ambient towards the green at its own brightness (AuroraBackdrop.TowardsHue)
+            Vector3 green = curtains.Green.ToVector3();
+            Vector3 sky = lighting.SkyAmbient.ToVector3();
+            sky = Vector3.Lerp(sky, green * (ColorSpace.Luminance(sky) / ColorSpace.Luminance(green)), lighting.GlowTint);
+
+            return new SceneLightRig(sky, lighting.GroundAmbient.ToVector3(), lighting.KeyTint.ToVector3(),
+                lighting.BackTint.ToVector3() * (0.7f + 0.6f * share));
+        }
 
         /// <summary>
         /// What <c>PotatoSky.fx</c> draws on the dome for a scene that replaces the sky with a picture of its own (#829):
@@ -102,11 +142,15 @@ namespace Prazsky.Core.Render
                 }
                 case SceneKind.Aurora:
                 {
-                    AuroraSkyConfig sky = AURORA.Potato.Sky;
-                    return new PotatoSkyLook("PotatoSkyAurora", AURORA.Potato.VoidColor.ToVector3(),
-                        sky.ColorLow.ToVector3(), sky.ColorHigh.ToVector3(), new Vector3(0.9f, 0.95f, 1.05f), Vector3.Zero, Vector3.Up, Vector3.Up,
-                        new Vector4(sky.Intensity * 0.5f, sky.BandHeight, sky.RayStrength, sky.PulseDepth),
-                        new Vector4(sky.DriftSpeed, sky.MorphSpeed, sky.CurtainScale, sky.RayScale));
+                    //The desktop's night of #963 (#1044): the gradient, the glow along the horizon under the curtains' bearing
+                    //and the mist at it, and the Moon; the curtains are PotatoAuroraSky's texture
+                    AuroraNightSkyConfig sky = AURORA.Sky;
+                    float bearing = MathHelper.ToRadians(AURORA.Curtains.BearingDegrees);
+                    return new PotatoSkyLook("PotatoSkyAurora", sky.Horizon.ToVector3(),
+                        sky.Zenith.ToVector3(), sky.Horizon.ToVector3(), sky.HorizonGlow.ToVector3(), AURORA.Mist.Color.ToVector3(),
+                        AuroraMoon, new Vector3(MathF.Sin(bearing), 0f, MathF.Cos(bearing)),
+                        new Vector4(sky.GradientPower, sky.HorizonGlowWidth, MathHelper.ToRadians(sky.MoonRadiusDegrees), sky.MoonHaloWidth),
+                        new Vector4(PotatoAuroraSky.SHIMMER, 0f, 0f, 0f));
                 }
                 case SceneKind.Moon:
                     return new PotatoSkyLook(null, MOON.VoidColor.ToVector3(), Vector3.Zero, Vector3.Zero, Vector3.Zero, Vector3.Zero, Vector3.Up, Vector3.Up, Vector4.Zero, Vector4.Zero);

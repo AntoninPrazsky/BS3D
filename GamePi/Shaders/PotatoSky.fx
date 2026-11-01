@@ -53,22 +53,23 @@ technique PotatoSky
 
 //--- THE SKIES THAT REPLACE THE SKY (#829): space, the aurora and the dream ------------------------------------------
 //On the desktop each is a full-screen pass of its own (Space.fx, Aurora.fx, Dream.fx), marched and noised in Shader
-//Model 5.0. Here the smooth part of each - the Milky Way's band and the nebula, the curtains, the marble and the orbs -
-//is computed PER VERTEX on a finer sphere of the host's (PotatoSkyFigure, 48 rings by 96 segments) and interpolated,
-//exactly as the gradient above is: a field of sines over a few degrees per vertex is the same picture to the eye,
-//and the pixel costs one move. The first cut did it per pixel and cost 12 ms at 1080p. The stars, which are points,
-//are a batch of small screen-aligned quads the host builds once (PotatoSkyStars), added over the sphere.
+//Model 5.0. Here the smooth part of each - the Milky Way's band and the nebula, the marble and the orbs, the aurora's
+//night - is computed PER VERTEX on a finer sphere of the host's (PotatoSkyFigure, 48 rings by 96 segments) and
+//interpolated, exactly as the gradient above is: a field of sines over a few degrees per vertex is the same picture to
+//the eye, and the pixel costs one move. The first cut did it per pixel and cost 12 ms at 1080p. The aurora's curtains,
+//whose edges are sharp, are a texture baked once (below). The stars, which are points, are a batch of small
+//screen-aligned quads the host builds once (PotatoSkyStars), added over the sphere.
 
 float SkyTime;
 float3 SkyVoid;         //the colour behind everything, linear (the scene's void or its deep)
-float3 SkyColorA;       //space: the Milky Way's colour; the aurora: its low colour; the dream: palette A
-float3 SkyColorB;       //space: the nebula's colour; the aurora: its high colour; the dream: palette B
-float3 SkyColorC;       //the dream: palette C
-float3 SkyColorD;       //space: the Milky Way's core; the dream: palette D
-float3 SkyAxis;         //space: the band's normal
-float3 SkyAxis2;        //space: where the nebula stands
-float4 SkyParams;       //the aurora: intensity, band height, (unused), pulse depth; the dream: swirl scale, warp, slow speed, fast speed
-float4 SkyParams2;      //the aurora: drift speed, morph speed, curtain scale, (unused); the dream: ribbon sharpness, brightness, orb brightness, orb width
+float3 SkyColorA;       //space: the Milky Way's colour; the aurora: the night's zenith; the dream: palette A
+float3 SkyColorB;       //space: the nebula's colour; the aurora: the night's horizon; the dream: palette B
+float3 SkyColorC;       //the aurora: the glow along the horizon; the dream: palette C
+float3 SkyColorD;       //space: the Milky Way's core; the aurora: the mist the horizon fades into; the dream: palette D
+float3 SkyAxis;         //space: the band's normal; the aurora: towards the Moon
+float3 SkyAxis2;        //space: where the nebula stands; the aurora: the curtains' bearing, flat
+float4 SkyParams;       //the aurora: the gradient's power, the glow's height, the Moon's radius and its halo's width (radians); the dream: swirl scale, warp, slow speed, fast speed
+float4 SkyParams2;      //the aurora: the rays' shimmer, (unused); the dream: ribbon sharpness, brightness, orb brightness, orb width
 float2 StarSize;        //half the width and height of a full-brightness star, in clip units
 
 struct FigureOutput
@@ -88,36 +89,6 @@ float3 SpaceSky(float3 dir)
     float towards = saturate(dot(dir, SkyAxis2));
     float nebula = pow(towards, 60.0) * (0.7 + 0.3 * sin(dir.y * 11.0 + dir.z * 9.0));
     return SkyVoid + way + nebula * SkyColorB;
-}
-
-float3 AuroraSky(float3 dir)
-{
-    float intensity = SkyParams.x, bandHeight = SkyParams.y, pulseDepth = SkyParams.w;
-    float driftSpeed = SkyParams2.x, morphSpeed = SkyParams2.y, curtainScale = SkyParams2.z;
-
-    //The band: from a little over the horizon up through bandHeight of the sky, fading before the zenith
-    float elevation = dir.y;
-    float band = smoothstep(0.06, 0.26, elevation) * (1.0 - smoothstep(0.1 + bandHeight, 0.98, elevation));
-
-    //The drift turns the sample direction about the vertical, as the desktop's does, so there is no azimuth to seam
-    float sinDrift, cosDrift;
-    sincos(SkyTime * driftSpeed, sinDrift, cosDrift);
-    float3 r = float3(dir.x * cosDrift - dir.z * sinDrift, dir.y, dir.x * sinDrift + dir.z * cosDrift);
-
-    //The folds: sines along the band, compressed little along the vertical so a fold is a streak, re-forming in place
-    float morph = SkyTime * morphSpeed;
-    float folds = sin(r.x * 2.1 * curtainScale + r.z * 1.3 * curtainScale + morph * 1.7)
-        + 0.6 * sin(r.z * 4.3 * curtainScale - r.x * 2.7 * curtainScale - morph * 1.1 + r.y * 0.8)
-        + 0.35 * sin(r.x * 8.9 * curtainScale + r.z * 6.1 * curtainScale + morph * 2.9);
-    float curtain = saturate(0.5 + 0.3 * folds);
-    curtain = curtain * curtain * curtain;
-
-    //Two clocks summed, the desktop's envelope
-    float pulse = 1.0 - pulseDepth * (0.5 + 0.5 * sin(SkyTime * 0.4)) * (0.7 + 0.3 * sin(SkyTime * 0.124 + 1.7));
-
-    float within = saturate((elevation - 0.1) / max(bandHeight, 0.01));
-    float3 glow = lerp(SkyColorA, SkyColorB, within) * (intensity * band * curtain * pulse);
-    return SkyVoid + glow;
 }
 
 float3 DreamPalette(float u)
@@ -169,20 +140,96 @@ FigureOutput SpaceVS(VertexInput input)
     return output;
 }
 
-FigureOutput AuroraVS(VertexInput input)
-{
-    FigureOutput output;
-    output.Position = mul(mul(mul(input.Position, World), View), Projection);
-    output.Color = ToDisplay(AuroraSky(normalize(input.Position.xyz)));
-    return output;
-}
-
 FigureOutput DreamVS(VertexInput input)
 {
     FigureOutput output;
     output.Position = mul(mul(mul(input.Position, World), View), Projection);
     output.Color = ToDisplay(DreamSky(normalize(input.Position.xyz)));
     return output;
+}
+
+//THE AURORA (#1044): the desktop's night of #963 (Aurora.fx's AuroraSkyPS) in place of #829's band of sines, the look
+//the owner rejected on the desktop. The gradient from the horizon to the zenith, the glow along the horizon under the
+//curtains and the mist the horizon fades into are smooth, and the vertex's. The curtains are PotatoAuroraSky's texture:
+//the desktop's three arcs worked out once on the CPU over the upper hemisphere, columns round the sky as the sphere's
+//longitude runs, rows up by the square root of the elevation's sine, the light as the square root of its share of
+//AuroraScale and in alpha which arc it is (0, a half, 1). Each arc breathes on its own clock (ArcBreath), and the rays
+//shimmer by two beats sliding across the sky in place of running along the curtain. The Moon is the pixel's, as on the
+//desktop: a disc with its limb darkened over the curtains, and the air lit round it. The curve is the pixel's too, on
+//the sum, since the curtains are light added over the night.
+texture AuroraTexture;
+sampler2D AuroraSampler = sampler_state
+{
+    Texture = <AuroraTexture>;
+    AddressU = Wrap;
+    AddressV = Clamp;
+    MinFilter = Linear;
+    MagFilter = Linear;
+    MipFilter = None;
+};
+
+float AuroraScale;      //the radiance a texel's white stands for
+float3 ArcBreath;       //each arc's brightness this frame against the bake's
+float3 MoonDisc;        //the disc's radiance
+float3 MoonHalo;        //the air lit round it
+
+struct AuroraInput
+{
+    float4 Position : POSITION0;
+    float4 Color : COLOR0;
+    float2 TexCoord : TEXCOORD0;  //x round the sky, 0 to 1 (the sphere's longitude); y unused
+};
+
+struct AuroraOutput
+{
+    float4 Position : POSITION0;
+    float3 Sky : TEXCOORD0;       //the night, linear
+    float4 Ray : TEXCOORD1;       //xyz the direction, w round the sky
+};
+
+AuroraOutput AuroraVS(AuroraInput input)
+{
+    AuroraOutput output;
+    output.Position = mul(mul(mul(input.Position, World), View), Projection);
+
+    float3 dir = normalize(input.Position.xyz);
+    float up = saturate(dir.y);
+    float3 sky = lerp(SkyColorB, SkyColorA, pow(up, SkyParams.x));
+
+    //The glow along the horizon, strongest under the curtains
+    float2 flat = normalize(dir.xz + float2(1e-5, 0.0));
+    float towards = saturate(dot(flat, SkyAxis2.xz) * 0.5 + 0.5);
+    sky += SkyColorC * exp(-up / SkyParams.y) * (0.45 + 0.9 * towards * towards);
+
+    //The mist at the horizon, so the hills fade into the sky and not into a line under it
+    output.Sky = lerp(sky, SkyColorD, saturate(1.0 - up / 0.035) * 0.85);
+    output.Ray = float4(dir, input.TexCoord.x);
+    return output;
+}
+
+float4 AuroraPS(AuroraOutput input) : COLOR0
+{
+    float3 dir = normalize(input.Ray.xyz);
+    float4 curtain = tex2D(AuroraSampler, float2(input.Ray.w, sqrt(saturate(dir.y))));
+
+    //Which arc's breath, blended where two overlap; the shimmer's beats kept to a few hundred cycles round the sky before
+    //the sine, so its argument stays small
+    float which = curtain.a * 2.0;
+    float breath = lerp(lerp(ArcBreath.x, ArcBreath.y, saturate(which)), ArcBreath.z, saturate(which - 1.0));
+    float shimmer = 1.0 + SkyParams2.x * sin(6.2831853 * frac(input.Ray.w * 700.0 + SkyTime * 2.5))
+        * sin(6.2831853 * frac(input.Ray.w * 170.0 - SkyTime * 0.6));
+    float3 aurora = curtain.rgb * curtain.rgb * (AuroraScale * breath * shimmer);
+
+    //The Moon: the chord to it stands for the angle, which it is to well under a pixel this close
+    float angle = sqrt(max(2.0 - 2.0 * dot(dir, SkyAxis), 0.0));
+    float radius = SkyParams.z;
+    float disc = 1.0 - smoothstep(radius * 0.92, radius * 1.08, angle);
+    float limb = sqrt(saturate(1.0 - angle * angle / (radius * radius)));
+
+    //The curtains in front of the night (a glow hides nothing behind it), behind the Moon
+    float3 sky = input.Sky + MoonHalo * exp(-angle / SkyParams.w) + aurora * (1.0 - disc);
+    sky = max(sky, MoonDisc * (disc * (0.75 + 0.25 * limb)));
+    return float4(ToDisplay(sky), 1.0);
 }
 
 float4 FigurePS(FigureOutput input) : COLOR0
@@ -242,7 +289,7 @@ technique PotatoSkyAurora
     pass P0
     {
         VertexShader = compile POTATO_VS AuroraVS();
-        PixelShader = compile POTATO_PS FigurePS();
+        PixelShader = compile POTATO_PS AuroraPS();
     }
 };
 

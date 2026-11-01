@@ -139,12 +139,6 @@ namespace Prazsky.Core.Render
 
         /// <summary>What lights the island, the gun, the balls and the wood: the Moon as the key, the snow's bounce, the curtains' green from behind.</summary>
         public AuroraLightingConfig Lighting { get; set; } = new();
-
-        /// <summary>
-        /// The Potato path's stand-in (#829) keeps the look it shipped with: the desktop's rebuild (#963) does not reach
-        /// the Raspberry Pi's renderer, whose sky and rig are read from here and from nowhere else.
-        /// </summary>
-        public AuroraPotatoConfig Potato { get; set; } = new();
     }
 
     /// <summary>
@@ -483,62 +477,5 @@ namespace Prazsky.Core.Render
 
         /// <summary>How far the sky ambient is carried towards the curtains' current colour, 0 to 1.</summary>
         public float GlowTint { get; set; } = 0.2f;
-    }
-
-    /// <summary>
-    /// The Potato path's aurora (#829): the sky, the rig and the void it shipped with, frozen here when the desktop scene
-    /// was rebuilt (#963). <c>PotatoSceneRig</c> reads them and nothing else does.
-    /// </summary>
-    public sealed class AuroraPotatoConfig
-    {
-        /// <summary>The empty sky between the stars (linear).</summary>
-        public Rgb VoidColor { get; set; } = new(0.0018f, 0.0022f, 0.0032f);
-
-        /// <summary>The ribbons' look.</summary>
-        public AuroraSkyConfig Sky { get; set; } = new();
-
-        /// <summary>The rig.</summary>
-        public AuroraLightingConfig Lighting { get; set; } = new()
-        {
-            SkyAmbient = new(0.016f, 0.028f, 0.026f),
-            GroundAmbient = new(0.010f, 0.017f, 0.016f),
-            KeyTint = new(0.40f, 0.52f, 0.48f),
-            BackTint = new(0.26f, 0.36f, 0.50f),
-            GlowTint = 0.6f,
-        };
-    }
-
-    /// <summary>The Potato path's aurora ribbons (#829's <c>PotatoSkyAurora</c>): a banded green-to-violet glow.</summary>
-    public sealed class AuroraSkyConfig
-    {
-        /// <summary>Low-altitude colour (linear).</summary>
-        public Rgb ColorLow { get; set; } = new(0.05f, 1.15f, 0.55f);
-
-        /// <summary>High-altitude colour (linear).</summary>
-        public Rgb ColorHigh { get; set; } = new(0.65f, 0.12f, 1.05f);
-
-        /// <summary>Peak linear radiance at the brightest fold.</summary>
-        public float Intensity { get; set; } = 1.35f;
-
-        /// <summary>How much of the upper sky the band occupies, 0 to 1 of the hemisphere up from the horizon.</summary>
-        public float BandHeight { get; set; } = 0.62f;
-
-        /// <summary>How fast the field turns about the zenith, radians a second.</summary>
-        public float DriftSpeed { get; set; } = 0.02f;
-
-        /// <summary>How fast the folds re-form in place.</summary>
-        public float MorphSpeed { get; set; } = 0.06f;
-
-        /// <summary>Frequency of the folds across the sky.</summary>
-        public float CurtainScale { get; set; } = 2.6f;
-
-        /// <summary>Frequency of the rays across the sky.</summary>
-        public float RayScale { get; set; } = 24f;
-
-        /// <summary>How deeply the rays cut the band.</summary>
-        public float RayStrength { get; set; } = 0.55f;
-
-        /// <summary>How deep the brightness pulse cuts.</summary>
-        public float PulseDepth { get; set; } = 0.45f;
     }
 }
