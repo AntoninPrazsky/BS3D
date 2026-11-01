@@ -20,6 +20,16 @@ Pravidla:
 
 ---
 
+## 2026-11-01 — #1044 Pi: koleje na Měsíci, Grid se švy a motorkami — Pi (BS3DServer), Claude Code
+- Hotovo: kroky 10 a 11 #1044, merge 5ddc9dec a 06442c11.
+  - Měsíc: dvě koleje vozítka jako pásky po `TRAVERSE_PATH`, na koncích vyblednou.
+  - Grid: tmavá tělesa se zářícími hranami, prstenec, tmavá podlaha a tři světelné motorky se stěnami (`PotatoTrail`).
+- Cena: Měsíc nic měřitelného. Cantor +0,23 ms při 1080p a +0,17 ms při 720p.
+- ⚠ Páska s normálou vzhůru je pod nízkým sluncem Měsíce černá čára. Musí mít normálu terénu.
+- ⚠ Záře dílu kresleného ve vrcholu se přičítá bez ohledu na albedo. Už 0,04 světla oken obarvila tělesa do tyrkysova.
+- ⚠ Dvě větve upravující tentýž dlouhý řádek `potato-path.md` dají při merge konflikt. Vyřeš ho ručně a před pushem sestav.
+- Otevřené: vesmír (talíř) a velký stan.
+
 ## 2026-11-01 — #1044 Pi: jeskyně ve světle krystalů — Pi (BS3DServer), Claude Code
 - Hotovo: krok 9 #1044, merge d8f11464.
   - Čtyři nejbližší shluky krystalů svítí jako lampy na halu, ostrov i kuličky. Přes nový `SceneLights.BackdropLamps`.
