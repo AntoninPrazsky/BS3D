@@ -44,6 +44,14 @@ namespace Prazsky.Core.Render
         /// <summary>The scene's look: the technique and its uniforms.</summary>
         public PotatoSceneRig.PotatoSkyLook Look { get; }
 
+        /// <summary>
+        /// Whether the host draws this figure after the ground and the island, at the far plane with the depth test on, so
+        /// the pixels they cover are never shaded (#1044): the aurora's, whose pixel reads a texture and draws the Moon, and
+        /// whose ground covers half the frame. The others are drawn first, with no depth test, before backdrops that may add
+        /// light the sky would then cover.
+        /// </summary>
+        public bool DrawsBehind => _aurora != null;
+
         private PotatoSkyFigure(GraphicsDevice device, Effect effect, PotatoSceneRig.PotatoSkyLook look, VertexPositionColorTexture[] stars,
             PotatoAuroraSky aurora)
         {
@@ -191,8 +199,9 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Draws the sphere with the scene's technique and the stars over it, round the camera, with no depth test; the
-        /// look's uniforms and the clock pushed first: every frame, since the effect is the dome's too. False, and nothing
+        /// Draws the sphere with the scene's technique and the stars over it, round the camera, with no depth test (behind
+        /// what is drawn, for a figure that <see cref="DrawsBehind"/>); the look's uniforms and the clock pushed first:
+        /// every frame, since the effect is the dome's too. False, and nothing
         /// drawn, when the effect has no such technique (a build ahead of its compiled effect). Leaves the depth state
         /// default and the blend state alpha, as BeginPotatoSceneDraw states them after the dome.
         /// </summary>
@@ -217,7 +226,7 @@ namespace Prazsky.Core.Render
             _params2?.SetValue(Look.Params2);
             _aurora?.Push(time);
 
-            _device.DepthStencilState = DepthStencilState.None;
+            _device.DepthStencilState = DrawsBehind ? DepthStencilState.DepthRead : DepthStencilState.None;
             _device.BlendState = BlendState.Opaque;
             _device.RasterizerState = RasterizerState.CullNone;
 

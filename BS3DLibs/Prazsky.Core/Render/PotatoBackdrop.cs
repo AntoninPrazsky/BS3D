@@ -1407,7 +1407,7 @@ namespace Prazsky.Core.Render
         //The aurora's far stand (#1044): the ring of far ground, its overlap with the near grid and how far it sinks there;
         //how many spires (the desktop's 25,000 are tiers of a mesh each; a cone each is a silhouette at this range), their
         //sides, and the share of snow on them
-        private const int AURORA_RING_CELLS = 48, AURORA_FAR_SPIRES = 4000, FAR_SPIRE_SEGMENTS = 5;
+        private const int AURORA_RING_CELLS = 48, AURORA_FAR_SPIRES = 2400, FAR_SPIRE_SEGMENTS = 4;
         private const float AURORA_RING_OVERLAP = 20f, AURORA_RING_SINK = 1.5f, FAR_SPIRE_SNOW = 0.18f;
 
         private static PotatoBackdrop Aurora(GraphicsDevice graphicsDevice, Effect potatoEffect, float holeRadius, int seedOffset)

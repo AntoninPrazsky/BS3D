@@ -159,6 +159,10 @@ FigureOutput DreamVS(VertexInput input)
 //every power, root, sine and exponential there is a trip to its slow special-function unit. Each arc breathes on its
 //own clock (ArcBreath, already at the display's scale), and the rays shimmer by two triangle waves sliding round the sky
 //against each other in place of running along the curtain. The Moon's disc is the pixel's, by the squared chord to it.
+//⚠ Drawn after the ground, the wood and the island, just short of the far plane with the depth test on, as the cloud
+//deck is (CLOUD_DEPTH, below), so a pixel they cover is never shaded (PotatoSkyFigure.DrawsBehind): its stars too
+#define FIGURE_DEPTH 0.999999
+
 texture AuroraTexture;
 sampler2D AuroraSampler = sampler_state
 {
@@ -194,6 +198,7 @@ AuroraOutput AuroraVS(AuroraInput input)
 {
     AuroraOutput output;
     output.Position = mul(mul(mul(input.Position, World), View), Projection);
+    output.Position.z = max(output.Position.z, output.Position.w * FIGURE_DEPTH);
 
     float3 dir = normalize(input.Position.xyz);
     float up = saturate(dir.y);
@@ -263,6 +268,7 @@ StarOutput StarVS(StarInput input)
     float4 clip = mul(mul(mul(float4(input.Position.xyz, 1), World), View), Projection);
     float size = 0.55 + 0.9 * input.Color.a;
     clip.xy += input.Corner * StarSize * (size * clip.w);
+    clip.z = max(clip.z, clip.w * FIGURE_DEPTH);
     output.Position = clip;
     output.Color = input.Color;
     output.Corner = input.Corner;
