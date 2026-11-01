@@ -48,7 +48,13 @@ The arena draws after the backdrop. When the hall was shaded into the display-re
 
 - **Low** (`SceneDetail` reduced) draws no mirror (the lake reads a dark ramp and the clusters' glints) and the reduced programs: `RockReduced` without the creased joints, with three of the relief's five octaves and the flowstone's and the mottle's fields at one octave (#1029), and `FormationReduced` without its finest octave. The mirror on High and Ultra draws the rock through the same reduced body.
 - **Low and Medium** draw the coarse meshes (`FineMeshes` off); High and Ultra the fine ones.
-- **The Potato path** (`PotatoBackdrop.Cavern`) draws the same hall off the same `CavernChamber` on the launch's seed at `Detail.Potato`: a shell of 18 cells a face edge and the bed in the rock's colour, the columns and up to fifty of the longest stalactites and stalagmites on 6 facets, every cluster's prisms in a nearly black casing radiating the cluster's colour, the lake as a plane with a little of its glow, under the cave's rig. No mirror, no glowworms, no shafts.
+- **The Potato path** (`PotatoBackdrop.Cavern`) draws the same hall off the same `CavernChamber` on the launch's seed at `Detail.Potato`: a shell of 18 cells a face edge, the columns and up to fifty of the longest stalactites and stalagmites on 6 facets, every cluster's prisms in a nearly black casing radiating the cluster's colour, the lake as a plane with a little of its glow, under the cave's rig. Since #1044:
+  - **the rock in its tones**: `RockAlbedo` at the vertex (the flowstone's sheets down the steep walls, the mottle, the recess the mesh carries, the bed, the wet band within 7 units of the water) as a share along one ramp from wet stone, dark and carrying the lake's teal, to the flowstone's pale calcite, crossed at the vertex (`PotatoVertexLitRamp`);
+  - **the clusters' light**: the four arena lights (`ArenaLights`' figures) as the effect's lamps, through `SceneLights.BackdropLamps`, on the hall round them, the island and the balls, at the vertex;
+  - **the glowworms**: the desktop's 9,000 quads through `PotatoSpecks`, a pixel and a half wide at 1080 lines, breathing and fogged at the vertex;
+  - **the fog** into `FogColor` by the square law of the other Potato grounds, its reach (`PotatoBackdrop.CavernHazeReach`, about 370 units) where it veils as much as the desktop's exponential 250 units out.
+  - No mirror and no shafts. ⚠ The chamber, its meshes and the glowworms are built on the frame: about 1.1 s on the Pi at a level's start, most of it the runtime compiling the code the first time through (the chamber alone is 0.3 s cold and 0.06 s warm).
+  - Cost, Grotto off screen against main: 15.05 ms at native against 14.18, 9.73 at 720p against 9.11. A lamp is about 0.15 ms at native, which is why the desktop's twelve wall lights are not here.
 
 ## The arena in the hall's light
 
