@@ -20,6 +20,15 @@ Pravidla:
 
 ---
 
+## 2026-11-01 — #1044 Pi: pára a popel sopky, ohně savany — Pi (BS3DServer), Claude Code
+- Hotovo: krok 7 #1044. Nová technika `PotatoPuffs` kreslí měkké billboardy. Celý jejich život počítá vrchol, takže jeden druh je jeden draw.
+  - Sopka: sloup popela a pára z průduchů rozmístěných podle desktopu.
+  - Savana: plameny a kouř osmi ohňů.
+- Cena: Vent +1,1 ms při 1080p a +0,45 ms při 720p, Giraffe +0,5 a +0,1 ms.
+- ⚠ Velké průhledné čtverce stojí plochu. Se 48 chuchvalci popela a 24 na průduch stál Vent 1,7 ms.
+- ⚠ Pi se během měření restartoval (exit 137) a scratchpad v /tmp zmizel. Kompozitor bez obrazovky a skripty je pak třeba spustit znovu.
+- Otevřené: další kroky #1044 (velký stan, jeskyně, aurora).
+
 ## 2026-11-01 — #1044 Pi: poušť s pyramidami — Pi (BS3DServer), Claude Code
 - Hotovo: krok 6 #1044.
   - Gízské pyramidy stojí tam, kde je staví desktopový `Pyramids.Placement`.

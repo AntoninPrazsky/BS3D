@@ -1154,8 +1154,46 @@ namespace Prazsky.Core.Render
             SphereMesh lens = backdrop.Own(new SphereMesh(graphicsDevice, 1f, PROXY_SLICES, PROXY_STACKS));
             backdrop.AddGlow(graphicsDevice, potatoEffect, lens, Matrix.CreateScale(lake, 1.5f, lake) * Matrix.CreateTranslation(cone.X, floor + 1f, cone.Y), crust, hot, "lake");
 
+            //The ash out of the crater and the steam over the vents (#1044), as puffs. The column rises from the crater's rim
+            //and leans downwind; the vents are VolcanoBackdrop's fumaroles, rolled off its seed by its rule (out of the cone's
+            //foot and off the arena's river; the land past the field, which the Pi does not draw, is not asked)
+            float rim = Height(cone.X + config.CraterRadius, cone.Y);
+            backdrop.AddPuffs(graphicsDevice, potatoEffect, VOLCANO_ASH,
+                new[] { (new Vector3(cone.X, rim, cone.Y), 1f) }, ASH_PUFFS, 7001 + seedOffset);
+            var vents = new List<(Vector3, float)>();
+            var steamRng = new Random(6790 + seedOffset);
+            SteamConfig steam = config.Steam;
+            for (int tries = 0; vents.Count < Math.Clamp(steam.VentCount, 0, 12) && tries < 200; tries++)
+            {
+                float bearing = (float)steamRng.NextDouble() * MathHelper.TwoPi;
+                float reach = MathHelper.Lerp(steam.NearestVent, steam.FarthestVent, MathF.Sqrt((float)steamRng.NextDouble()));
+                float x = MathF.Cos(bearing) * reach, z = MathF.Sin(bearing) * reach;
+                float strength = 0.6f + 0.4f * (float)steamRng.NextDouble();
+                if (Vector2.Distance(new Vector2(x, z), cone) < config.ConeRadius * 0.35f) continue;
+                Vector2 river = new(MathF.Cos(lava.RiverBearing[0]), MathF.Sin(lava.RiverBearing[0]));
+                Vector2 fromCone = new Vector2(x, z) - cone;
+                float along = Vector2.Dot(fromCone, river);
+                if (along > 0f && MathF.Abs(fromCone.X * river.Y - fromCone.Y * river.X) < config.RiverWidth * 2.5f) continue;
+                vents.Add((new Vector3(x, Height(x, z) + 0.3f, z), strength));
+            }
+            backdrop.AddPuffs(graphicsDevice, potatoEffect,
+                VOLCANO_STEAM with { Color = steam.Color.ToVector3() * STEAM_LIGHT, Rise = steam.Rise * steam.Life, Life = steam.Life,
+                    Size = steam.Size * STEAM_SIZE, Opacity = Math.Min(steam.Strength * STEAM_THICKNESS, 1f) },
+                vents, STEAM_PUFFS, 6791 + seedOffset);
+
             return backdrop;
         }
+
+        //The volcano's puffs (#1044): the ash column, dark and slow, rising high and leaning downwind (the plume's ash
+        //colour lifted a little, or the column vanishes into the storm's dusk); the steam, VolcanoBackdrop's figures but its
+        //colour and its numbers from SteamConfig (only its drift and growth are set here)
+        private static readonly PotatoPuffs.Look VOLCANO_ASH = new(new Vector3(0.17f, 0.155f, 0.145f), 240f, 28f, 2.6f, 17f, 0.85f, new Vector2(60f, 30f), false);
+        private static readonly PotatoPuffs.Look VOLCANO_STEAM = new(Vector3.One, 90f, 12f, 2.5f, 3.6f, 0.55f, new Vector2(8f, 5f), false);
+
+        //The steam on the Pi: SteamConfig's vapour, lit as the desktop's bloom and sky light it (its colour this much
+        //brighter, its puffs this much bigger and thicker), or the columns are faint smudges against the storm's dusk
+        private const float STEAM_LIGHT = 1.7f, STEAM_SIZE = 1.5f, STEAM_THICKNESS = 1.45f;
+        private const int ASH_PUFFS = 32, STEAM_PUFFS = 20;
 
         //The grid over an open ground: the savanna's HorizonHazeDistance (520) is where the desktop's ground fades into
         //the haze, and the other open scenes reach about as far
@@ -1438,8 +1476,28 @@ namespace Prazsky.Core.Render
             backdrop._owned.Add(scatter);
             backdrop.AddScatter(graphicsDevice, potatoEffect, scatter.Buckets);
 
+            //The ring of campfires (#1044), where SavannaBackdrop stands it (CampfireRingPoint, on the plain: no mounds on
+            //this path): each a flame of added light puffs that taper as they rise, and a thin smoke over it
+            var fires = new List<(Vector3, float)>();
+            var smokes = new List<(Vector3, float)>();
+            for (int i = 0; i < SavannaBackdrop.CampfireRingCount(config); i++)
+            {
+                Vector3 at = SavannaBackdrop.CampfireRingPoint(config, i, config.Campfire.HeightAboveTerrain);
+                fires.Add((at, 1f));
+                smokes.Add((at + Vector3.Up * config.Campfire.FlameSize, 1f));
+            }
+            float flame = config.Campfire.FlameSize;
+            backdrop.AddPuffs(graphicsDevice, potatoEffect, FIRE_FLAME with { Rise = flame * 1.6f, Size = flame * 0.55f }, fires, FLAME_PUFFS, 8811);
+            backdrop.AddPuffs(graphicsDevice, potatoEffect, FIRE_SMOKE, smokes, SMOKE_PUFFS, 8812);
+
             return backdrop;
         }
+
+        //The campfires' puffs (#1044): the flame bright over the glare's threshold so the curve takes it to a hot yellow-orange,
+        //short-lived and tapering; the smoke thin and slow, drifting off
+        private static readonly PotatoPuffs.Look FIRE_FLAME = new(new Vector3(1.5f, 0.5f, 0.1f), 4f, 0.9f, -0.75f, 1f, 0.55f, Vector2.Zero, true);
+        private static readonly PotatoPuffs.Look FIRE_SMOKE = new(new Vector3(0.07f, 0.065f, 0.06f), 28f, 7f, 2.5f, 1.2f, 0.32f, new Vector2(4f, 2.5f), false);
+        private const int FLAME_PUFFS = 16, SMOKE_PUFFS = 10;
 
         /// <param name="colour">The ground's colour as the scene's config gives it, linear; encoded here like a bucket's,
         /// since the renderer's material is sRGB and decoded (the first three grounds were handed linear and came out dark
@@ -1531,6 +1589,30 @@ namespace Prazsky.Core.Render
             _draws.Add(new DrawItem { Renderer = renderer, Instances = new[] { new ModelInstance(Matrix.Identity, OPEN) }, TwoSided = true, MirrorsSky = true });
             VertexCount += mesh.PrimitiveCount * 3;
             _census.Add($"{what} {mesh.PrimitiveCount * 3}");
+        }
+
+        //The backdrop's puffs (#1044): drawn after the island (DrawPuffs), since they are translucent and write no depth
+        private readonly List<PotatoPuffs> _puffs = new();
+
+        /// <summary>A kind of puff over <paramref name="emitters"/> (#1044, <see cref="PotatoPuffs"/>); nothing on an effect without it.</summary>
+        private void AddPuffs(GraphicsDevice graphicsDevice, Effect potatoEffect, PotatoPuffs.Look look, IReadOnlyList<(Vector3 At, float Strength)> emitters, int perEmitter, int seed)
+        {
+            PotatoPuffs puffs = PotatoPuffs.Create(graphicsDevice, potatoEffect, look, emitters, perEmitter, seed);
+            if (puffs == null) return;
+            _owned.Add(puffs);
+            _puffs.Add(puffs);
+            VertexCount += emitters.Count * perEmitter * 6;
+            _census.Add($"puffs {emitters.Count}x{perEmitter}");
+        }
+
+        /// <summary>
+        /// The backdrop's puffs (#1044): the volcano's ash and steam, the savanna's flames and smoke. Translucent and writing
+        /// no depth, so the host draws them after the island and its pit, which would otherwise draw over a puff in front of
+        /// them.
+        /// </summary>
+        public void DrawPuffs(ICamera camera, float time)
+        {
+            foreach (PotatoPuffs puffs in _puffs) puffs.Draw(camera, time);
         }
 
         /// <summary>How much of the dome's horizon a water surface glows with (<see cref="AddWater"/>): its reflection at a low angle.</summary>
