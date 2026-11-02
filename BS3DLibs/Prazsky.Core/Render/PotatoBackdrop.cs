@@ -735,6 +735,71 @@ namespace Prazsky.Core.Render
         //The planet stands this far out: beyond anything the arena has, inside the far plane, its radius from its angular size
         private const float PLANET_DISTANCE = 700f;
 
+        //The gas giant's mesh: its rings of latitude and its segments round, fine enough that a band's noise (a seventh of the
+        //sphere from pole to pole, finer octaves under it) is a few rings across
+        private const int PLANET_RINGS = 96, PLANET_SEGMENTS = 96;
+
+        /// <summary>
+        /// <c>Space.fx</c>'s bands at a point of the planet's unit sphere in its own frame (its pole up): the share from the
+        /// dark belts' colour to the pale zones'. Noise squashed in latitude by <paramref name="bandScale"/> runs round as belts
+        /// and zones, a shear along the longitude draws their edges out, and the result is steepened about a little under
+        /// its middle, as the desktop's is; handed to the vertex through the inverse of its smoothstep, so the mix is linear.
+        /// The noise is <see cref="CavernNoise"/>'s, not the shader's: the same kind of field, not the same belts.
+        /// </summary>
+        public static float PlanetBands(Vector3 p, float bandScale)
+        {
+            float shear = CavernNoise.Fbm(p * 2.2f + new Vector3(9.4f), 2);
+            var banded = new Vector3(p.X * 0.9f, p.Y * bandScale + shear * 1.7f, p.Z * 0.9f);
+            float bands = CavernNoise.Fbm(banded + new Vector3(3f), 3) + 0.5f;
+            bands = MathHelper.Clamp((bands - 0.45f) * 2.3f + 0.5f, 0f, 1f);
+            return 0.5f - MathF.Sin(MathF.Asin(1f - 2f * bands) / 3f);
+        }
+
+        /// <summary>
+        /// A unit sphere wound as <see cref="SphereMesh"/> is (the poles single vertices, the rings between), each vertex's
+        /// texture x <paramref name="share"/> at its point: a blend's or a ramp's share (<see cref="AddBlended"/>).
+        /// </summary>
+        public static (VertexPositionNormalTexture[] Vertices, int[] Indices) BandedSphere(int rings, int segments, Func<Vector3, float> share)
+        {
+            float Share(float y) => share(new Vector3(0f, y, 0f));
+            var vertices = new VertexPositionNormalTexture[2 + (rings - 1) * segments];
+            vertices[0] = new VertexPositionNormalTexture(Vector3.Up, Vector3.Up, new Vector2(Share(1f), 0f));
+            for (int ring = 1; ring < rings; ring++)
+            {
+                float phi = MathHelper.Pi * ring / rings, y = MathF.Cos(phi), r = MathF.Sin(phi);
+                for (int segment = 0; segment < segments; segment++)
+                {
+                    float theta = MathHelper.TwoPi * segment / segments;
+                    var n = new Vector3(r * MathF.Cos(theta), y, r * MathF.Sin(theta));
+                    vertices[1 + (ring - 1) * segments + segment] = new VertexPositionNormalTexture(n, n, new Vector2(share(n), 0f));
+                }
+            }
+            int bottom = vertices.Length - 1;
+            vertices[bottom] = new VertexPositionNormalTexture(Vector3.Down, Vector3.Down, new Vector2(Share(-1f), 0f));
+
+            var indices = new List<int>(segments * 6 * rings);
+            for (int segment = 0; segment < segments; segment++)
+            {
+                indices.Add(0); indices.Add(1 + segment); indices.Add(1 + (segment + 1) % segments);
+            }
+            for (int ring = 0; ring < rings - 2; ring++)
+            {
+                int upper = 1 + ring * segments, lower = upper + segments;
+                for (int segment = 0; segment < segments; segment++)
+                {
+                    int next = (segment + 1) % segments;
+                    indices.Add(upper + segment); indices.Add(lower + segment); indices.Add(upper + next);
+                    indices.Add(upper + next); indices.Add(lower + segment); indices.Add(lower + next);
+                }
+            }
+            int last = 1 + (rings - 2) * segments;
+            for (int segment = 0; segment < segments; segment++)
+            {
+                indices.Add(bottom); indices.Add(last + (segment + 1) % segments); indices.Add(last + segment);
+            }
+            return (vertices, indices.ToArray());
+        }
+
         /// <summary>
         /// Space (#829, the owner's eye: "I don't see the big planet"): the desktop's gas giant, which <c>Space.fx</c> shades
         /// per pixel with its bands and storm, as a sphere in its dark colour under belts of its light one - frustums of
@@ -758,19 +823,15 @@ namespace Prazsky.Core.Render
             orient.Translation = direction * PLANET_DISTANCE;
             Matrix world = Matrix.CreateScale(radius) * orient;
 
-            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new SphereMesh(graphicsDevice, 1f, 32, 16)), new[] { new ModelInstance(world, OPEN) },
-                planet.ColorDark.ToVector3(), planet.RimColor.ToVector3() * (planet.RimStrength * 0.6f), "planet");
-
-            //The belts: the sphere between two latitudes as a frustum a hair over the surface, every other one
-            int bands = Math.Max(3, (int)MathF.Round(planet.BandScale));
-            for (int b = 0; b < bands; b += 2)
-            {
-                float lat0 = -MathHelper.PiOver2 + MathHelper.Pi * b / bands, lat1 = -MathHelper.PiOver2 + MathHelper.Pi * (b + 1) / bands;
-                const float OVER = 1.004f;
-                var belt = backdrop.Own(new PotatoShellMesh(graphicsDevice, MathF.Cos(lat0) * OVER, MathF.Cos(lat1) * OVER, MathF.Sin(lat0) * OVER, MathF.Sin(lat1) * OVER, 32,
-                    closeTop: false, inside: false));
-                backdrop.AddPiece(graphicsDevice, potatoEffect, belt, new[] { new ModelInstance(world, OPEN) }, planet.ColorLight.ToVector3(), null, $"belt {b}");
-            }
+            //The planet and its belts in one mesh (#1044): Space.fx's bands - noise squashed in latitude, sheared along the
+            //longitude, steepened - taken at every vertex as the share from the dark belts' colour to the pale zones', and
+            //crossed at the vertex, soft as the desktop's are. ⚠ The belts were frustums 0.4 % over the surface, 700 units out:
+            //the depth buffer could not part them from the sphere and they flickered through it at every move of the lens (the
+            //owner's "vypadá jako bug")
+            (VertexPositionNormalTexture[] globe, int[] globeIndices) = BandedSphere(PLANET_RINGS, PLANET_SEGMENTS, p => PlanetBands(p, planet.BandScale));
+            backdrop.AddBlended(graphicsDevice, potatoEffect, backdrop.Own(new CavernProceduralMesh(graphicsDevice, globe, globeIndices)),
+                planet.ColorDark.ToVector3(), planet.ColorLight.ToVector3(), new Vector2(0f, 1f), "planet", atVertex: true,
+                instances: new[] { new ModelInstance(world, OPEN) }, glow: planet.RimColor.ToVector3() * (planet.RimStrength * 0.6f));
 
             //The storm: an ellipsoid lying in the belts on the side that faces the arena, below the equator
             Vector3 towardsArena = Vector3.Normalize(-direction - axis * Vector3.Dot(-direction, axis));
@@ -2021,11 +2082,12 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Any mesh lit at the vertex in two albedos (linear), <paramref name="low"/> and <paramref name="high"/>, crossed at
         /// the pixel by the share each vertex carries in its texture's x (<c>PotatoVertexLitBlend</c>) over
-        /// <paramref name="edge"/>, or at the vertex for a soft ramp (<paramref name="atVertex"/>, <c>PotatoVertexLitRamp</c>).
-        /// The caller owns the mesh.
+        /// <paramref name="edge"/>, or at the vertex for a soft ramp (<paramref name="atVertex"/>, <c>PotatoVertexLitRamp</c>);
+        /// under <paramref name="instances"/> (the identity when null) and radiating <paramref name="glow"/> if there is one, as
+        /// the shader adds a glow, times the albedo. The caller owns the mesh.
         /// </summary>
         private void AddBlended(GraphicsDevice graphicsDevice, Effect potatoEffect, IProceduralMesh mesh, Vector3 low, Vector3 high, Vector2 edge, string what,
-            bool atVertex = false)
+            bool atVertex = false, ModelInstance[] instances = null, Vector3? glow = null)
         {
             var renderer = new InstancedModelRenderer(graphicsDevice, mesh, Vector3.One, potatoEffect)
             {
@@ -2035,11 +2097,12 @@ namespace Prazsky.Core.Render
             _renderers.Add(renderer);
 
             EffectParameter lowParam = potatoEffect.Parameters["BlendLow"], highParam = potatoEffect.Parameters["BlendHigh"], edgeParam = potatoEffect.Parameters["BlendEdge"];
-            var instances = new[] { new ModelInstance(Matrix.Identity, OPEN) };
+            instances ??= new[] { new ModelInstance(Matrix.Identity, OPEN) };
             _draws.Add(new DrawItem
             {
                 Renderer = renderer,
                 Instances = instances,
+                Glow = glow.HasValue ? ColorSpace.LinearToSrgb(glow.Value) : null,
                 Prepare = _ =>
                 {
                     lowParam?.SetValue(low);

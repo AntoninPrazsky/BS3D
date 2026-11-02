@@ -70,6 +70,8 @@ The owner: the island "does not feel finished", and he asked for a space base, p
 - **Cost**: cheaper than the machined disc it replaces, which drew the four-octave relief (Testbed 3840x1600, ssaa 2, `nopost`, two pairs: play pose `campos=0,-2,34 camtarget=0,-9,0` 8.08 against 8.72 ms, from below `campos=18,-19,40 camtarget=0,-12,0` 8.46 against 8.75).
 - **The Potato path** draws the shape and the pods (their cores emissive there too) in the plain colour: it has no station technique.
 
+- **The Potato path's gas giant** (`PotatoBackdrop.Space`, #1044): one sphere of 96 rings by 96 segments whose vertices carry the bands of the desktop's planet (`PlanetBands`: noise squashed in latitude by `BandScale`, sheared along the longitude, steepened, on `CavernNoise`'s field rather than the shader's) as the share from `ColorDark` to `ColorLight`, crossed at the vertex through `PotatoVertexLitRamp`; the storm an ellipsoid in it. ⚠ The belts were frustums 0.4 % over the sphere, 700 units out: the depth buffer could not part them and they flickered through it at every move of the lens (the owner: "vypadá jako bug"). No cost measurable on Analemma.
+
 ## The saucer (#955)
 
 The owner: the scene "lacks something to make it special - a flying saucer with aliens". The references (`955-zimage`, `955-klein`) agree on a classic chrome saucer: a ring of warm bulbs round the rim, a glass dome with grey aliens with big black eyes, an antenna, a glow under the belly.
