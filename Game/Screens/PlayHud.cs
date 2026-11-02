@@ -579,13 +579,13 @@ namespace BS3D.Screens
             public Color Tint;
 
             /// <summary>Seconds since birth on the play clock. <b>Negative</b> while it waits its turn - the completion bonus
-            /// (<see cref="AddBonus"/>), a cut's award (<see cref="WorldWait"/>): not drawn yet, though its points are
+            /// (<see cref="AddBonus"/>), a cut's award (<see cref="CutWait"/>): not drawn yet, though its points are
             /// already withheld from the readout.</summary>
             public float Age;
 
-            /// <summary>A cut's award (#767): the WORLD's seconds it still waits before it is born (<see cref="AwardZoom.CUT_WORLD_WAIT"/>),
+            /// <summary>A cut's award (#767): the seconds it still waits before it is born (<see cref="AwardZoom.CUT_WAIT"/>),
             /// its <see cref="Age"/> held negative and still meanwhile. Zero for every other award.</summary>
-            public float WorldWait;
+            public float CutWait;
 
             /// <summary>Its zoom (#846): the top size in scores, how long the zoom in takes, and how long it is read
             /// before it leaves — set from its points at birth, the hold cut short when a newer award is born
@@ -871,7 +871,7 @@ namespace BS3D.Screens
         /// in the order they landed, each paid as it arrives.
         /// </remarks>
         /// <param name="cutter">True for a cutter's strike (#766): tinted with the Cutter's accent, never its dealt colour, and born only
-        /// once its severing has been seen (<see cref="AwardZoom.CUT_WORLD_WAIT"/>, #767).</param>
+        /// once its severing has been seen (<see cref="AwardZoom.CUT_WAIT"/>, #767).</param>
         internal void AddAward(Vector3 world, ScoreAward award, BallType type, bool cutter = false)
         {
             HandOffReads();
@@ -895,10 +895,10 @@ namespace BS3D.Screens
                 Tint = cutter ? CutterTint : TypeColor(type),
 
                 //A cut's award waits for its severing to be seen (#767): born at once it stood, zoomed to its largest, exactly
-                //over the slash running across the storey it was paid for (photographed, Elephant). It waits on the world's
-                //clock, as the slash lives (WorldWait); every other award is born on its landing, as #846 has it.
+                //over the slash running across the storey it was paid for (photographed, Elephant). It waits half the
+                //slash's life (CutWait); every other award is born on its landing, as #846 has it.
                 Age = cutter ? -1f : 0f,
-                WorldWait = cutter ? AwardZoom.CUT_WORLD_WAIT : 0f,
+                CutWait = cutter ? AwardZoom.CUT_WAIT : 0f,
                 Peak = AwardZoom.Peak(award.Points),
                 Birth = AwardZoom.Birth(award.Points),
                 Hold = AwardZoom.Hold(award.Points),
@@ -918,20 +918,19 @@ namespace BS3D.Screens
 
         /// <summary>
         /// A level-ending cut's award, born now (#767): called when the field has just emptied and the cut's award still waits
-        /// on the world's clock (<see cref="AwardZoom.CutWaitLeft"/>). With no drop cinematic over the clear, that wait would run
-        /// under the cut's slow motion and put the number's birth, its read and its flight past the cleared beat, over the
-        /// completion bonus and the result page. Under a drop cinematic the world runs at game time and the beat is held
-        /// for the shot, so the award keeps its wait.
+        /// (<see cref="AwardZoom.CutWaitLeft"/>). With no drop cinematic over the clear, that wait would put the number's birth,
+        /// its read and its flight past the cleared beat, over the completion bonus and the result page. Under a drop
+        /// cinematic the beat is held for the shot, so the award keeps its wait.
         /// </summary>
         internal void BirthWaitingAwards(bool dropCinematic)
         {
             for (int i = 0; i < _popups.Count; i++)
             {
                 Popup popup = _popups[i];
-                if (popup.WorldWait <= 0f) continue;
+                if (popup.CutWait <= 0f) continue;
 
-                popup.WorldWait = AwardZoom.CutWaitLeft(popup.WorldWait, levelCleared: true, dropCinematic);
-                if (popup.WorldWait <= 0f) popup.Age = 0f;
+                popup.CutWait = AwardZoom.CutWaitLeft(popup.CutWait, levelCleared: true, dropCinematic);
+                if (popup.CutWait <= 0f) popup.Age = 0f;
 
                 _popups[i] = popup;
             }
@@ -1127,13 +1126,11 @@ namespace BS3D.Screens
         /// <param name="swapHint">Whether the Swap chip points at the cure this frame (#845, <see cref="StreakCues.SwapIsTheCure"/>
         /// as the session reads it): a streak is running, the round in the bore has nowhere to score and the Swap would load
         /// one that has.</param>
-        /// <param name="worldElapsed">The frame's seconds of the world's time (slow motion included), which a cut's award waits
-        /// on (<see cref="Popup.WorldWait"/>).</param>
-        internal void Update(float elapsed, float worldElapsed, ScoreKeeper score, bool swapHint = false)
+        internal void Update(float elapsed, ScoreKeeper score, bool swapHint = false)
         {
             _clock += elapsed;
 
-            AgePopups(elapsed, worldElapsed);
+            AgePopups(elapsed);
             AgeLostCaption(elapsed);
             ChaseScore(elapsed, score);
             WatchStreak(elapsed, score);
@@ -1153,7 +1150,7 @@ namespace BS3D.Screens
         /// points into the readout and kicks it. Cause and effect land on the same frame, which is the whole
         /// point of flying them there.
         /// </summary>
-        private void AgePopups(float elapsed, float worldElapsed)
+        private void AgePopups(float elapsed)
         {
             bool waitedBorn = false;
 
@@ -1161,13 +1158,13 @@ namespace BS3D.Screens
             {
                 Popup popup = _popups[i];
 
-                //A cut's award counts the world's seconds down instead, its age held, and is born when they run out
-                if (popup.WorldWait > 0f)
+                //A cut's award counts its wait down instead, its age held, and is born when it runs out
+                if (popup.CutWait > 0f)
                 {
-                    popup.WorldWait -= worldElapsed;
-                    if (popup.WorldWait <= 0f)
+                    popup.CutWait -= elapsed;
+                    if (popup.CutWait <= 0f)
                     {
-                        popup.WorldWait = 0f;
+                        popup.CutWait = 0f;
                         popup.Age = 0f;
                         waitedBorn = true;
                     }

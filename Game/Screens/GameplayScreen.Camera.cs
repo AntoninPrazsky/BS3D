@@ -304,8 +304,8 @@ namespace BS3D.Screens
         /// lens returns to on a release has followed the barrel the whole time.
         /// </para>
         /// <para>
-        /// <b>Real time, not the simulation's</b>: <paramref name="elapsed"/> is the frame's unscaled wall time, as the
-        /// bearing's trail and the lean take it, so a slowed world (a cut's) does not slow the lens.
+        /// <b>Real time, not the simulation's</b>: <paramref name="elapsed"/> is the frame's wall time, as the bearing's trail
+        /// and the lean take it (the world runs at it too since #1046).
         /// </para>
         /// </summary>
         private Vector3 TiltedOverviewTarget(Vector3 lens, Vector3 lookAt, Vector3 muzzle, float elapsed)

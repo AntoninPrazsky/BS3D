@@ -11,7 +11,7 @@ namespace BS3D.Tests
     /// #767: the Cut's beats are pure functions of how long ago each began (<see cref="CutBeats"/>), and what it asks of the
     /// pad is the mixer's own arithmetic (<see cref="CutRumble"/> over <see cref="PadChannel"/>). These tests hold the rules
     /// the brief binds them to: the same at 30, 60, 75 and 144 frames a second, a saw that never spins fast enough to alias
-    /// (#766's lesson), a slow motion that always gives the world back, and a hand that is never asked for more than a shot
+    /// (#766's lesson), and a hand that is never asked for more than a shot
     /// or the landing's ceiling asks (#810: "it shakes my joints"), with the line loss still the heaviest thing the pad says.
     /// </summary>
     public class CutStagingTests
@@ -100,33 +100,6 @@ namespace BS3D.Tests
 
             Assert.True(fastest <= BallRenderSet.CUTTER_SPIN_FLYING + EPSILON);
             Assert.True(perFrame < 0.5f, $"the charge turns the saw {perFrame:F2} of a tooth a frame at 30 Hz");
-        }
-
-        /// <summary>
-        /// The slow motion's curve always gives the world back: a hit-stop, then for a cut that freed something a slower fall
-        /// the bigger the result, then 1 again. Whether the game steps it the same at every frame rate is
-        /// <c>CutStagingSessionTests</c>', which drive the session's own stepping.
-        /// </summary>
-        [Fact]
-        public void The_slow_motion_gives_the_world_back_and_grows_with_the_result()
-        {
-            Assert.Equal(1f, CutBeats.TimeScale(-0.1f, 1f, true));
-            Assert.Equal(CutBeats.HIT_STOP_SCALE, CutBeats.TimeScale(0f, 0f, false));
-
-            foreach ((float size, bool freed) in new[] { (0f, false), (0f, true), (0.4f, true), (1f, true) })
-            {
-                float end = CutBeats.SlowSeconds(size, freed);
-                Assert.Equal(1f, CutBeats.TimeScale(end, size, freed), 4);
-                Assert.Equal(1f, CutBeats.TimeScale(end + 1f, size, freed));
-
-                for (float t = 0f; t < end; t += 0.001f)
-                    Assert.InRange(CutBeats.TimeScale(t, size, freed), CutBeats.HIT_STOP_SCALE - EPSILON, 1f);
-            }
-
-            //Bigger is slower and longer
-            Assert.True(CutBeats.SlowSeconds(1f, true) > CutBeats.SlowSeconds(0f, true));
-            Assert.True(CutBeats.SlowSeconds(0f, true) > CutBeats.SlowSeconds(0f, false));
-            Assert.True(CutBeats.TimeScale(0.3f, 1f, true) < CutBeats.TimeScale(0.3f, 0f, true));
         }
 
         [Fact]

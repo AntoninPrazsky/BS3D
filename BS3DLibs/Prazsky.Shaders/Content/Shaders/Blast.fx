@@ -95,7 +95,7 @@ static const float3 BLADE_HOT = float3(1.0, 0.96, 0.88);
 static const float3 BLADE_EMBER = float3(1.0, 0.55, 0.22);
 
 //The flash: a cut's, nearly a bomb's size, and lingering a little longer than a bomb's - cubed as it fades, it is under a
-//tenth of its light by the end of the shortest slow motion (CutBeats.FLASH_SECONDS, which a test holds this to)
+//tenth of its light 0.16 s after the strike (CutBeats.FLASH_SECONDS, which a test holds this to)
 static const float BLADE_FLASH_SCALE = 0.9;
 static const float BLADE_FLASH_SECONDS = 0.3;
 

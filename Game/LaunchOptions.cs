@@ -337,7 +337,7 @@ namespace BS3D
         //SessionTestOptions.DetonateSeconds.
         internal float[] DetonateSeconds { get; private set; }
 
-        //Testing only: seconds of the world's clock after a cutter strikes at which the frame is saved (#767). See
+        //Testing only: seconds after a cutter strikes at which the frame is saved (#767). See
         //SessionTestOptions.CutShotSeconds.
         internal float[] CutShotSeconds { get; private set; }
 
@@ -677,10 +677,9 @@ namespace BS3D
             //beside a bomb, which no script can aim, and the effect it answers with is the Game's alone. It
             //DOES change play, like "wildcard=": the bomb really goes. Parsed by the same lenient list.
             Row.List("detonate", (o, v) => o.DetonateSeconds = v),
-            //"cutshot=<s1,s2,…>" saves the frame at those seconds after a cutter strikes (#767), counted on the world's
-            //clock the strike's slash, sparks and glows age by, so a capture names the moment of the effect it shows
-            //whatever the slow motion and a capture's own hitch did to the wall clock. A strike's frame cannot be
-            //aimed with shot=: the flight is a few frames long and each capture costs a tenth of a second.
+            //"cutshot=<s1,s2,…>" saves the frame at those seconds after a cutter strikes (#767), counted from the strike,
+            //so a capture names the moment of the effect it shows. A strike's frame cannot be aimed with shot=: the
+            //flight is a few frames long and each capture costs a tenth of a second.
             Row.List("cutshot", (o, v) => o.CutShotSeconds = v),
             //"swapshot=<s1,s2,…>" saves the frame at those seconds of a Swap's own picture (#871), 0 to its length: the age is
             //held at each in turn for one frame, so a capture shows the stated moment of the two rounds sliding through each

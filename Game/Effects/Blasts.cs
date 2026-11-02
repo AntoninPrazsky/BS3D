@@ -18,9 +18,7 @@ namespace BS3D.Effects
     /// <para>
     /// <b>Session-owned, on the SIMULATION's clock.</b> A blast is a thing that happens in the world, like the
     /// balls it throws — not a rule of the level, which is why it does not stamp the wall clock the way the floor
-    /// alarm must. So it is stepped with the very time the physics is stepped with, slow motion included: a
-    /// cut's blade is struck into a world that then crawls, and a flash that ran at full speed over debris crawling
-    /// in slow motion would be over before the balls it threw had moved. Under the result page it
+    /// alarm must. So it is stepped with the very time the physics is stepped with. Under the result page it
     /// is stepped with the world (#241); under a pause it stops with it.
     /// </para>
     /// <para>
@@ -40,10 +38,9 @@ namespace BS3D.Effects
     /// it cut (<see cref="CutSlash"/>) and a grinder's fan of sparks thrown off the cut towards the gun, cooling to the
     /// cutter's amber (the shader's second style), each part lasting as long as <see cref="CutBeats"/>' severing figures
     /// say. It is here and not in the Cut's code so the next power-up round's impact is one more style of the same one
-    /// buffer, and it keeps the blasts' clock: the world's, slow motion included. Its sound and its jolt are the caller's
-    /// (<see cref="Update"/> plays a report and returns a jolt for bombs alone), since a cut answers with its own; and a shot
-    /// fired while it burns plays the rest of it out fast (<see cref="HurryBlades"/>), so it is skippable as the slow
-    /// motion is.
+    /// buffer, and it keeps the blasts' clock: the world's. Its sound and its jolt are the caller's (<see cref="Update"/>
+    /// plays a report and returns a jolt for bombs alone), since a cut answers with its own; and a shot fired while it burns
+    /// plays the rest of it out fast (<see cref="HurryBlades"/>), so it never stands in the way of the next shot.
     /// </para>
     /// <para>
     /// The slots themselves - ages, the chain's stagger, the hurry, when a slot is freed, the light - are
@@ -141,7 +138,7 @@ namespace BS3D.Effects
         public void Cut(Vector3 struck, CutSlash slash, float size) => _slots.Cut(struck, slash, size);
 
         /// <summary>
-        /// A shot was fired while a cut's picture is up (#765: skippable, as its slow motion is): every blade still burning
+        /// A shot was fired while a cut's picture is up (#765: skippable): every blade still burning
         /// plays the rest of its picture <see cref="CutBeats.HURRY_RATE"/> times as fast, so the field clears in a few frames
         /// and nothing vanishes in one (<see cref="BlastSlots.HurryBlades"/>). Returns whether a blade was hurried now.
         /// </summary>

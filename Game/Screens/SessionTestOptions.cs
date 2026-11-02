@@ -71,9 +71,9 @@ namespace BS3D.Screens
     /// is touched (<see cref="Tutorial.PinDevice"/>).</param>
     /// <param name="LogTilt">The <c>logtilt</c> argument (#720): print the overview's tilt with the aim, the camera's
     /// pitch and where the muzzle and the beam's end sit in the frame, once a frame. Only on request.</param>
-    /// <param name="CutShotSeconds">The <c>cutshot=</c> argument (#767): seconds of the world's clock after a cutter strikes
-    /// at which the frame is saved, in order; empty or null for none. A cut's strike cannot be photographed on the wall
-    /// clock's <c>shot=</c>: its flight is a few frames long and every capture's own hitch moves the next frame.</param>
+    /// <param name="CutShotSeconds">The <c>cutshot=</c> argument (#767): seconds after a cutter strikes at which the frame is
+    /// saved, in order; empty or null for none. A cut's strike cannot be photographed on <c>shot=</c>'s clock: its flight is
+    /// a few frames long and every capture's own hitch moves the next frame.</param>
     /// <param name="SwapShotSeconds">The <c>swapshot=</c> argument (#871): seconds of a Swap's own picture at which the frame is
     /// saved, in order, the picture's age held at each for a frame (<c>SwapMotion.Pin</c>); empty or null for none. A swap is a
     /// third of a second and every capture's own hitch moves the next frame, so the wall clock's <c>shot=</c> cannot frame it.</param>

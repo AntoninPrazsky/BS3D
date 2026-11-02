@@ -249,7 +249,7 @@ namespace BS3D
         /// player back where they started, and a quality dial that oscillates is worse than one set too low.
         /// </para>
         /// </summary>
-        /// <param name="elapsed">The frame's real time, unscaled — a slowed world still costs what it costs.</param>
+        /// <param name="elapsed">The frame's real time.</param>
         /// <param name="where">
         /// What is being judged, for the log line: "menu" or "level". Named by the caller because the probe
         /// cannot see which screen is on top, and the distinction is the whole point of the second caller.

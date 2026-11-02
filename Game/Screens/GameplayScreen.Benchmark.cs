@@ -34,7 +34,7 @@ namespace BS3D.Screens
         //The hand on the gun, as a player's is: the barrel glides to its mark on a critically damped spring (SPRING, in radians
         //a second, so it eases out of its start and into the mark) no faster than MAX_RATE, fires once it has held still on the
         //mark for DWELL, and stays on the shot's line for HOLD before it moves on (AFTER_CUT for a cutter, so its strike and its
-        //slow fall are seen). Settled is within SETTLE_ANGLE of the mark and turning slower than SETTLE_RATE. A frame longer than
+        //fall are seen). Settled is within SETTLE_ANGLE of the mark and turning slower than SETTLE_RATE. A frame longer than
         //MAX_STEP is stepped as that, so a hitch cannot fling the spring
         private const float DEMO_SPRING = 7f, DEMO_MAX_RATE = 1.4f, DEMO_DWELL = 0.18f, DEMO_HOLD = 0.3f, DEMO_AFTER_CUT = 2.6f;
         private const float DEMO_SETTLE_ANGLE = 0.004f, DEMO_SETTLE_RATE = 0.06f, DEMO_MAX_STEP = 0.05f;

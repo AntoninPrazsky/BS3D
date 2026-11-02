@@ -502,14 +502,6 @@ namespace BS3D.Screens
         /// </summary>
         private void Shoot()
         {
-            //A cut's slow motion ends at a pull of the trigger (#767, skippable as #765 asks), and the pull goes on to be a
-            //shot like any other: the moment never eats the input that skips it
-            if (_cutStaging.Slowed)
-            {
-                _cutStaging.Skip();
-                Console.WriteLine("[skip] cut slow motion");
-            }
-
             //The level is already decided — cleared and waiting out LEVEL_CLEARED_BEAT, or lost. The gun stops
             //answering the instant the outcome is settled rather than when the result screen finally covers
             //this one, which is a whole beat later and longer still under a drop cinematic: a shot fired into
@@ -551,7 +543,7 @@ namespace BS3D.Screens
             //left finishes at once and is not waited for
             _netReveal.Skip();
 
-            //And the cut's picture: the slash, the sparks and the light outlive the slow motion (#767's verdict made them last),
+            //And the cut's picture: the slash, the sparks and the light last nearly two seconds (#767's verdict made them last),
             //so a shot that leaves plays the rest of them out fast (Blasts.HurryBlades) and crosses a field already clearing.
             //Only a shot that leaves: a refused pull fires nothing across it, and the picture runs on at the world's pace
             if (_blasts.HurryBlades()) Console.WriteLine("[skip] cut's slash hurried");

@@ -40,10 +40,8 @@ namespace BS3D.Screens
 
         private void StepSpareVolley(float elapsed)
         {
-            //Once the lens is free and the world runs at game time: not under a cut's slow motion, whose hit-stop and fall
-            //would slow the balls under a count running at full speed; and not in the clear's first moments without a cinematic
-            if (_volleyPending && _phase == LevelPhase.ClearedBeat && !_cinematic.Engaged && !_cutStaging.Slowed
-                && _clearedElapsed >= VOLLEY_SETTLE)
+            //Once the lens is free, and not in the clear's first moments without a cinematic
+            if (_volleyPending && _phase == LevelPhase.ClearedBeat && !_cinematic.Engaged && _clearedElapsed >= VOLLEY_SETTLE)
                 BeginSpareVolley();
             if (!_spareVolley.Engaged) return;
 

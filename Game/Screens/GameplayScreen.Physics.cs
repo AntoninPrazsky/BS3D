@@ -120,7 +120,7 @@ namespace BS3D.Screens
                 //Timestep → Flush → contacts order INSIDE each step is PhysicsWorld.Step's, which is why the
                 //work that belongs there is handed over rather than written after the call.
                 //The gust at this step (#95): set before the step so the integrator broadcasts it with gravity, and
-                //advanced by the step so it stops with the world under a pause and runs slow with a cut's slow motion
+                //advanced by the step so it stops with the world under a pause
                 _world.Wind = _wind.Acceleration(_windClock);
                 _windClock += PHYSICS_TIMESTEP;
 
