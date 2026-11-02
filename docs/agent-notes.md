@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-02 — #1044 Pi: přepracování podle verdiktů — Pi (BS3DServer), Claude Code
+- Hotovo, vše na main: pruhy plynného obra v jedné kouli, už neblikají (c3a186e5); sedačky ve stanu (19d3bb83); krystaly v jeskyni s ploškami (990f589c); modrá Země na Měsíci (aba05d5e). Ceny v šumu, sedačky +0,09 ms nativně.
+- Majitel (verdikty 2. 11.): devět kroků OK, čtyři „Vrať“ s poznámkou. „Vrať“ čtu jako přepracovat, ne vrátit krok. Druhé kolo je na stránce verdiktů, mlčení platí do 9. 11.
+- ⚠ Pruhy jako samostatné pláty 0,4 % nad koulí, 700 jednotek daleko, z-fightují. Vzor patří do jedné sítě jako podíl ve vrcholu.
+- ⚠ Krystal zesvětlený o třetinu k bílé se září 0,85 se slil do bíla a ztratil barvu.
+- Otevřené: druhé kolo verdiktu; `~/BS3D-gamepi` aktualizovat na nový main.
+
 ## 2026-11-02 — #1044 revize Potato scén: světlo aurory a pára za mraky — desktop, Claude Code
 - Hotovo: Windows build s `potato` vykreslí všech 14 scén pod DX11 bez chyby (komentář v #1044). Revize kódu #1044 nenašla pád ani souběh, ale našla dvě chyby, obě opravené:
   - Potato cesta nekrokovala rig aurory (`StepSceneLight` leží až za odbočkou do Potato cesty), takže zadní světlo ostrova nedýchalo se záclonami.
