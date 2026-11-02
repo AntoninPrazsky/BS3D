@@ -9,9 +9,9 @@ namespace BS3D.Effects
     /// is the same at 30, 60, 75 and 144 Hz by construction, and a pause (which stops the clocks feeding the ages) holds it.
     /// <para>
     /// <b>Which clock each beat runs on</b> (#767's rule): the press and the flight are the gun and the lens, so their ages
-    /// are wall-clock seconds; the strike's glows are the world's, so their age is the simulation's seconds (slow motion
-    /// included, as the blasts', #389); the slow motion itself is a property of time, so its own timeline runs on the wall
-    /// clock.
+    /// are wall-clock seconds; the strike's glows are the world's, so their age is the simulation's seconds, as the blasts'
+    /// (#389). <b>The world always runs in real time</b> (#1046, the owner's ruling: no hit-stop, no slow motion, anywhere),
+    /// so the two clocks run together; they are kept apart because the glows belong to what the simulation moves.
     /// </para>
     /// </summary>
     internal static class CutBeats
@@ -138,66 +138,14 @@ namespace BS3D.Effects
 
         /// <summary>
         /// How big a cut's result is, 0 to 1, from the balls it freed: the release rumble's own logarithm
-        /// (<see cref="LandingRumble.Size"/>, #810), so the pad, the slow motion and the effect grow along one curve and
-        /// cannot drift apart.
+        /// (<see cref="LandingRumble.Size"/>, #810), so the pad and the effect grow along one curve and cannot drift apart.
         /// </summary>
         public static float Size(int freed) => LandingRumble.Size(freed);
 
-        //THE SLOW MOTION. Every cut starts with a hit-stop - the world almost held for a beat as the blade goes through - and
-        //a cut that freed something then lets it go in slow motion, deeper and longer the more it freed; one that freed
-        //nothing comes straight back up. On the wall clock (see the class remarks), and only ever the world: the HUD, the lens
-        //and the gun run on.
-
-        /// <summary>The world's speed through the hit-stop, and how long it holds there, in seconds.</summary>
-        public const float HIT_STOP_SCALE = 0.15f;
-        public const float HIT_STOP_SECONDS = 0.07f;
-
-        /// <summary>How slow the fall runs for the smallest and for a full-size result, as the world's speed.</summary>
-        public const float FALL_SCALE_SMALL = 0.6f;
-        public const float FALL_SCALE_FULL = 0.35f;
-
-        /// <summary>How long the fall's slow motion holds for the smallest and for a full-size result, in seconds.</summary>
-        public const float FALL_HOLD_SMALL = 0.25f;
-        public const float FALL_HOLD_FULL = 0.75f;
-
-        /// <summary>How long the world takes to come back up to speed, in seconds.</summary>
-        public const float RECOVER_SECONDS = 0.3f;
-
-        /// <summary>The whole slow motion for a result of <paramref name="size"/>, in seconds.</summary>
-        public static float SlowSeconds(float size, bool freed) =>
-            HIT_STOP_SECONDS + (freed ? Lerp(FALL_HOLD_SMALL, FALL_HOLD_FULL, size) : 0f) + RECOVER_SECONDS;
-
-        /// <summary>
-        /// The world's speed <paramref name="age"/> wall-clock seconds after the strike, 0 to 1: the hit-stop, then (when
-        /// something was <paramref name="freed"/>) the fall's slow motion for a result of <paramref name="size"/>, then a
-        /// smooth recovery to 1. 1 before the strike and after it.
-        /// </summary>
-        public static float TimeScale(float age, float size, bool freed)
-        {
-            if (age < 0f) return 1f;
-
-            float hold = freed ? Lerp(FALL_HOLD_SMALL, FALL_HOLD_FULL, size) : 0f;
-            float slow = freed ? Lerp(FALL_SCALE_SMALL, FALL_SCALE_FULL, size) : 1f;
-
-            if (age < HIT_STOP_SECONDS) return HIT_STOP_SCALE;
-
-            float since = age - HIT_STOP_SECONDS;
-
-            //Out of the hit-stop into the fall's pace (or straight up, for a cut that freed nothing), over the recovery
-            //when there is no fall to hold
-            if (since < hold)
-            {
-                //Eased from the hit-stop into the fall's pace over its first tenth of a second
-                float into = SmoothStep(MathF.Min(1f, since / 0.1f));
-                return Lerp(HIT_STOP_SCALE, slow, into);
-            }
-
-            float from = hold > 0f ? slow : HIT_STOP_SCALE;
-            float back = (since - hold) / RECOVER_SECONDS;
-            if (back >= 1f) return 1f;
-
-            return Lerp(from, 1f, SmoothStep(back));
-        }
+        //NO SLOW MOTION (#1046). Until then every cut began with a hit-stop (the world at 0.15 for 0.07 s) and let what it
+        //freed fall at down to 0.35 of the world's speed for up to 1.35 s. The owner took it out: "the game always runs in
+        //real time; the slowing makes no sense and players do not like it". The fall is the world's at full speed, and the
+        //moment is the slash, the flash, the sparks, the glowing faces, the slice's ring and the knock in the hand.
 
         /// <summary>How long the freed part's cut face glows, simulated seconds: held briefly, then cooling.</summary>
         public const float FALL_GLOW_HOLD_SECONDS = 0.12f;
@@ -234,8 +182,8 @@ namespace BS3D.Effects
 
         #region The severing's picture: the slash, the flash, the sparks and the light
 
-        //The strike's picture is Blasts' blade style (Blast.fx on both paths), on the blasts' clock: the WORLD's seconds, slow
-        //motion included, so it plays out the same at any frame rate. Its figures are here so the tests can hold them; the two
+        //The strike's picture is Blasts' blade style (Blast.fx on both paths), on the blasts' clock: the WORLD's seconds, so
+        //it plays out the same at any frame rate. Its figures are here so the tests can hold them; the two
         //Blast.fx files carry the same values under the names in each remark, and a test reads them back (they cannot be
         //handed over as uniforms without a fourth vector per blast). #767's verdict set their size ("bigger and last a bit
         //longer"; the sparks "barely perceptible, so few and so briefly are they shown"): a thick slash living nearly two
@@ -246,8 +194,8 @@ namespace BS3D.Effects
         public const float SLASH_SECONDS = 1.8f;
 
         /// <summary>The blade's flash, simulated seconds (Blast.fx <c>BLADE_FLASH_SECONDS</c>; a bomb's is 0.16). Cubed as it
-        /// fades, so it is under a tenth of its light by the end of the shortest slow motion (<see cref="FlashLeft"/>): the
-        /// flash is the one part bright and wide enough to hide the field, and it never outlasts the slow motion.</summary>
+        /// fades, so it is under a tenth of its light after 0.16 s (<see cref="FlashLeft"/>): the flash is the one part bright
+        /// and wide enough to hide the field, and it is gone almost at once.</summary>
         public const float FLASH_SECONDS = 0.3f;
 
         /// <summary>A spark's mean life, simulated seconds (Blast.fx <c>BLADE_SPARK_SECONDS</c>), jittered per spark between
@@ -299,17 +247,6 @@ namespace BS3D.Effects
         /// what was left of its slot's life, played <see cref="HURRY_RATE"/> times as fast.</summary>
         public static float HurriedSecondsLeft(float age) => MathF.Max(0f, LIFE_SECONDS - age) / HURRY_RATE;
 
-        /// <summary>The world time a slow motion of <paramref name="size"/> lets pass while it runs, simulated seconds: the
-        /// integral of <see cref="TimeScale"/> over <see cref="SlowSeconds"/>, by the midpoint rule at a millisecond.</summary>
-        public static float WorldSecondsOfSlowMotion(float size, bool freed)
-        {
-            float wall = SlowSeconds(size, freed);
-            const float step = 0.001f;
-            double world = 0.0;
-            for (float t = step * 0.5f; t < wall; t += step) world += TimeScale(t, size, freed) * step;
-            return (float)world;
-        }
-
         #endregion
 
         private static float SmoothStep(float x)
@@ -317,7 +254,5 @@ namespace BS3D.Effects
             x = Math.Clamp(x, 0f, 1f);
             return x * x * (3f - 2f * x);
         }
-
-        private static float Lerp(float a, float b, float t) => a + (b - a) * t;
     }
 }

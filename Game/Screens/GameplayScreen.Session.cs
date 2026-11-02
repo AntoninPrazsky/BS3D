@@ -154,7 +154,7 @@ namespace BS3D.Screens
             //Nor a blast from the last level still burning over the new field (#389).
             _blasts.Reset();
 
-            //Nor a cut still charging, pinching, slowing the world or glowing (#767)
+            //Nor a cut still charging, pinching or glowing (#767)
             _cutStaging.Reset();
 
             //Nor a swap's rounds still sliding (#871)

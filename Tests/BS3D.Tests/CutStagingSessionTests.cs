@@ -16,15 +16,14 @@ namespace BS3D.Tests
     /// <summary>
     /// #767: the Cut's staging as the session runs it (<see cref="CutStaging"/>), on a real cut of a real hung slab
     /// (<see cref="BallsConstraintsBuilder.CutBall"/>), stepped the way <c>GameplayScreen</c> steps it every frame: the wall
-    /// clock's beats first (<see cref="CutStaging.StepWall"/>), then the world at <see cref="CutStaging.TimeScale"/> of the
-    /// frame (<see cref="CutStaging.StepWorld"/>). What they hold: the slow motion and the cut faces' heat are the same at
-    /// 30, 60, 75 and 144 frames a second (and a stepping that counts frames instead of seconds is seen to fail the same
-    /// check), a shot ends the slow motion, there is none under the drop cinematic, only the cut's own balls glow (the last
-    /// N of the falling list), the face above the cut glows and <see cref="CutStaging.Reset"/> puts every glow out, the charge's
-    /// angle is held once the press is over and its top is felt once. Since #767's verdict also the slash's place (level
-    /// through the struck ball, square to the shot, across the storey the cut destroyed) and the severing's picture: it
-    /// plays out the same at any frame rate, its sparks read for a second, its flash never outlasts the slow motion, a shot
-    /// hurries it, and both Blast.fx files carry its figures.
+    /// clock's beats first (<see cref="CutStaging.StepWall"/>), then the world's (<see cref="CutStaging.StepWorld"/>), which
+    /// runs at real time (#1046: no hit-stop, no slow motion). What they hold: the cut faces' heat is the same at 30, 60, 75
+    /// and 144 frames a second (and a stepping that counts frames instead of seconds is seen to fail the same check), only the
+    /// cut's own balls glow (the last N of the falling list), the face above the cut glows and <see cref="CutStaging.Reset"/>
+    /// puts every glow out, the charge's angle is held once the press is over and its top is felt once. Since #767's verdict
+    /// also the slash's place (level through the struck ball, square to the shot, across the storey the cut destroyed) and the
+    /// severing's picture: it plays out the same at any frame rate, its sparks read for a second, its flash is gone almost at
+    /// once, a shot hurries it, and both Blast.fx files carry its figures.
     /// </summary>
     public class CutStagingSessionTests
     {
@@ -78,13 +77,13 @@ namespace BS3D.Tests
         //would not pass for one square to the shot
         private static readonly Microsoft.Xna.Framework.Vector3 Shot = Microsoft.Xna.Framework.Vector3.Normalize(new(0.45f, 0.3f, -1f));
 
-        private static CutStaging Strike(CutSlab slab, bool slowMotion = true) => Strike(slab, Shot, out _, slowMotion);
+        private static CutStaging Strike(CutSlab slab) => Strike(slab, Shot, out _);
 
-        private static CutStaging Strike(CutSlab slab, Microsoft.Xna.Framework.Vector3 shot, out CutSlash slash, bool slowMotion = true)
+        private static CutStaging Strike(CutSlab slab, Microsoft.Xna.Framework.Vector3 shot, out CutSlash slash)
         {
             var staging = new CutStaging();
             staging.Strike(slab.Cell, slab.Struck, shot, Microsoft.Xna.Framework.Vector3.Zero, slab.Falling, slab.Result.Total,
-                slab.Result.Orphaned, slab.Hung.Balls, slowMotion, out slash, out _);
+                slab.Hung.Balls, out slash, out _);
             return staging;
         }
 
@@ -98,11 +97,11 @@ namespace BS3D.Tests
 
         /// <summary>
         /// The game's frame, as <c>GameplayScreen</c> runs it after a strike, at <paramref name="hz"/>: the wall clock's beats,
-        /// then the world at the slow motion's scale. <paramref name="wallStep"/> is what the staging is told a frame lasted -
-        /// the frame itself, unless the test plants the fault of a stepping that counts frames. Returns the world time the
-        /// slow motion cost over two seconds of wall time, and one storey ball's glow when the world reached half a second.
+        /// then the world's. <paramref name="worldStep"/> is what the staging is told a frame lasted - the frame itself, unless
+        /// the test plants the fault of a stepping that counts frames. Returns one storey ball's glow when the world reached
+        /// half a second.
         /// </summary>
-        private static (double Lost, float GlowAtHalf) RunFrames(float hz, Func<float, float> wallStep, Func<float, float> worldStep)
+        private static float GlowAtHalf(float hz, Func<float, float> worldStep)
         {
             using CutSlab slab = new();
             CutStaging staging = Strike(slab);
@@ -112,50 +111,18 @@ namespace BS3D.Tests
                 if (slab.Falling[i].ArrayPosition.Level == slab.Cell.Level) { storeyBall = slab.Falling[i]; break; }
 
             float dt = 1f / hz;
-            double world = 0.0, wall = 0.0;
-            float glowAtHalf = -1f;
+            double wall = 0.0;
 
             while (wall < 2.0)
             {
-                staging.StepWall(wallStep(dt));
-                float scale = staging.TimeScale;
-                staging.StepWorld(worldStep(dt * scale));
+                staging.StepWall(dt);
+                staging.StepWorld(worldStep(dt));
 
                 wall += dt;
-                world += dt * scale;
-                if (glowAtHalf < 0f && world >= 0.5) glowAtHalf = storeyBall.CutPreviewGlow;
+                if (wall >= 0.5) return storeyBall.CutPreviewGlow;
             }
 
-            return (wall - world, glowAtHalf);
-        }
-
-        /// <summary>
-        /// The slow motion costs the world the same time at every frame rate, to the one frame's rounding a frame-stepped
-        /// curve that moves by at most 0.85 of the world's speed up and down can have; and the planted fault - the slow
-        /// motion's timeline advanced by a fixed sixtieth a frame, a stepping that counts frames instead of seconds - is
-        /// seen to fail the very same check at 30 and at 144 Hz, so the check bites.
-        /// </summary>
-        [Fact]
-        public void The_slow_motion_costs_the_same_world_time_at_any_frame_rate()
-        {
-            double reference = RunFrames(REFERENCE_HZ, dt => dt, dt => dt).Lost;
-            _output.WriteLine($"reference ({REFERENCE_HZ} Hz): the world loses {reference:F4} s");
-            Assert.True(reference > 0.3, $"the slow motion cost the world only {reference:F3} s");
-
-            foreach (float hz in FrameRates)
-            {
-                double lost = RunFrames(hz, dt => dt, dt => dt).Lost;
-                double tolerance = 0.85 / hz + 1e-4;
-                _output.WriteLine($"{hz} Hz: loses {lost:F4} s, {Math.Abs(lost - reference):F4} off (allowed {tolerance:F4})");
-                Assert.True(Math.Abs(lost - reference) <= tolerance, $"{hz} Hz: the world loses {lost:F4} s against {reference:F4}");
-            }
-
-            foreach (float hz in new[] { 30f, 144f })
-            {
-                double faulty = RunFrames(hz, dt => 1f / 60f, dt => dt).Lost;
-                _output.WriteLine($"planted fault at {hz} Hz (a sixtieth a frame): loses {faulty:F4} s");
-                Assert.True(Math.Abs(faulty - reference) > 0.85 / hz + 1e-4, $"the check passed a frame-counting stepping at {hz} Hz");
-            }
+            return -1f;
         }
 
         /// <summary>
@@ -165,7 +132,7 @@ namespace BS3D.Tests
         [Fact]
         public void The_cut_faces_cool_the_same_at_any_frame_rate()
         {
-            float reference = RunFrames(REFERENCE_HZ, dt => dt, dt => dt).GlowAtHalf;
+            float reference = GlowAtHalf(REFERENCE_HZ, dt => dt);
             Assert.True(reference > 0.1f, $"the storey's glow at half a second is only {reference:F3}");
 
             //The heat falls at most FALL_GLOW / FALL_GLOW_COOL_SECONDS a second, and the world moves at most a frame past half
@@ -174,54 +141,14 @@ namespace BS3D.Tests
 
             foreach (float hz in FrameRates)
             {
-                float glow = RunFrames(hz, dt => dt, dt => dt).GlowAtHalf;
+                float glow = GlowAtHalf(hz, dt => dt);
                 _output.WriteLine($"{hz} Hz: glow {glow:F4} against {reference:F4}");
                 Assert.InRange(glow, reference - slope / hz - 1e-3f, reference + 1e-3f);
             }
 
-            float faulty = RunFrames(30f, dt => dt, dt => 1f / 60f).GlowAtHalf;
+            float faulty = GlowAtHalf(30f, dt => 1f / 60f);
             _output.WriteLine($"planted fault at 30 Hz (the heat a sixtieth a frame): glow {faulty:F4}");
             Assert.False(faulty >= reference - slope / 30f - 1e-3f && faulty <= reference + 1e-3f, "the check passed a frame-counting heat");
-        }
-
-        /// <summary>A shot fired during the slow motion ends it at once - and only it: the faces go on cooling.</summary>
-        [Fact]
-        public void A_shot_ends_the_slow_motion_and_nothing_else()
-        {
-            using CutSlab slab = new();
-            CutStaging staging = Strike(slab);
-
-            staging.StepWall(0.05f);
-            Assert.True(staging.Slowed);
-            Assert.True(staging.TimeScale < 1f);
-
-            staging.Skip();
-
-            Assert.False(staging.Slowed);
-            Assert.Equal(1f, staging.TimeScale);
-
-            staging.StepWorld(0.05f);
-            Assert.True(slab.Falling[^1].CutPreviewGlow > 0f, "the skip put the cut's glow out with the slow motion");
-        }
-
-        /// <summary>Under the drop cinematic the cut adds no slow motion of its own; its glows are armed all the same.</summary>
-        [Fact]
-        public void There_is_no_slow_motion_under_the_cinematic()
-        {
-            using CutSlab slab = new();
-            CutStaging staging = Strike(slab, slowMotion: false);
-
-            for (int i = 0; i < 120; i++)
-            {
-                staging.StepWall(1f / 60f);
-                Assert.False(staging.Slowed);
-                Assert.Equal(1f, staging.TimeScale);
-                staging.StepWorld(1f / 60f);
-            }
-
-            using CutSlab fresh = new();
-            Strike(fresh, slowMotion: false);
-            Assert.True(fresh.Falling[^1].CutPreviewGlow > 0f, "the cinematic took the cut's glow with its slow motion");
         }
 
         /// <summary>
@@ -283,7 +210,6 @@ namespace BS3D.Tests
                 for (int z = 0; z < 5; z++)
                     Assert.Equal(0f, slab.Hung.Balls[x, z, slab.Cell.Level + 1].CutPreviewGlow);
             foreach (PhysicsBall ball in slab.Falling) Assert.Equal(0f, ball.CutPreviewGlow);
-            Assert.False(staging.Slowed);
         }
 
         /// <summary>When the faces have cooled they are put out for good, not left a hair above zero.</summary>
@@ -396,10 +322,10 @@ namespace BS3D.Tests
         }
 
         /// <summary>
-        /// The severing's picture runs on the world's clock, which the slow motion scales: the blasts' own slots
-        /// (<see cref="BlastSlots"/>, whose ages the draw reads), stepped with the session's world time as the game steps them,
-        /// put the blade's light out and free its slot at the same wall time at 30, 60, 75 and 144 Hz as at the reference rate,
-        /// to a frame. (Seen to fail with the slots aging by a sixtieth a step instead of by the time handed in.)
+        /// The severing's picture runs on the world's clock, at real time (#1046): the blasts' own slots (<see cref="BlastSlots"/>,
+        /// whose ages the draw reads), stepped as the game steps them, put the blade's light out and free its slot at the same
+        /// wall time at 30, 60, 75 and 144 Hz as at the reference rate, to a frame, and the slot is freed at its own life: nothing
+        /// stretches the picture. (Seen to fail with the slots aging by a sixtieth a step instead of by the time handed in.)
         /// </summary>
         [Fact]
         public void The_severing_burns_out_at_the_same_wall_time_at_any_frame_rate()
@@ -416,9 +342,8 @@ namespace BS3D.Tests
                 while (wall < 10.0)
                 {
                     staging.StepWall(dt);
-                    float scale = staging.TimeScale;
-                    staging.StepWorld(dt * scale);
-                    slots.Step(dt * scale);
+                    staging.StepWorld(dt);
+                    slots.Step(dt);
                     wall += dt;
 
                     if (dark < 0.0 && !slots.TryGetLight(out _, out _, out _)) dark = wall;
@@ -430,7 +355,7 @@ namespace BS3D.Tests
 
             (double referenceDark, double referenceFreed) = BurnsOut(REFERENCE_HZ);
             _output.WriteLine($"reference ({REFERENCE_HZ} Hz): the light is out {referenceDark:F3} s and the slot freed {referenceFreed:F3} s after the strike");
-            Assert.True(referenceFreed > CutBeats.LIFE_SECONDS, "the slow motion did not stretch the picture at all");
+            Assert.InRange(referenceFreed, CutBeats.LIFE_SECONDS - 1e-3, CutBeats.LIFE_SECONDS + 1.0 / REFERENCE_HZ + 1e-3);
             Assert.True(referenceDark > 0.0 && referenceDark < referenceFreed, "the light outlived the slot");
 
             foreach (float hz in FrameRates)
@@ -438,8 +363,7 @@ namespace BS3D.Tests
                 (double dark, double freed) = BurnsOut(hz);
                 _output.WriteLine($"{hz} Hz: dark {dark:F3} s, freed {freed:F3} s");
 
-                //A frame's rounding either way: the frame that crosses the end, and the slow motion's own (its world time is
-                //the same to 0.85 of a frame, The_slow_motion_costs_the_same_world_time_at_any_frame_rate)
+                //A frame's rounding either way: the frame that crosses the end
                 Assert.InRange(dark, referenceDark - 1.0 / hz - 1e-3, referenceDark + 1.0 / hz + 1e-3);
                 Assert.InRange(freed, referenceFreed - 1.0 / hz - 1e-3, referenceFreed + 1.0 / hz + 1e-3);
             }
@@ -468,7 +392,7 @@ namespace BS3D.Tests
                 BlastSlots slots = new();
                 slots.Cut(Microsoft.Xna.Framework.Vector3.Zero, lone, 1f);
 
-                //Up to the shot at the world's full speed, in fine steps (the shot ends the slow motion)
+                //Up to the shot in fine steps
                 const float fine = 1f / 2000f;
                 while (slots[0].Age + fine <= age) slots.Step(fine);
 
@@ -536,16 +460,15 @@ namespace BS3D.Tests
         }
 
         /// <summary>
-        /// The flash is the one part bright and wide enough to hide the field: it is under a tenth of its light by the time the
-        /// shortest slow motion (a cut that freed nothing) has let its world time pass, so it never hides the field past the
-        /// slow motion.
+        /// The flash is the one part bright and wide enough to hide the field: it is under a tenth of its light 0.17 s after the
+        /// strike (<see cref="CutBeats.FLASH_SECONDS"/>' remark says 0.16), so it never stands between the player and the field.
         /// </summary>
         [Fact]
-        public void The_flash_never_outlasts_the_slow_motion()
+        public void The_flash_is_gone_almost_at_once()
         {
-            float shortest = CutBeats.WorldSecondsOfSlowMotion(0f, false);
-            _output.WriteLine($"the shortest slow motion lets {shortest:F3} s of the world pass; the flash is at {CutBeats.FlashLeft(shortest):F3} then");
-            Assert.True(CutBeats.FlashLeft(shortest) < 0.1f, "the flash outlasts the shortest slow motion");
+            _output.WriteLine($"the flash is at {CutBeats.FlashLeft(0.17f):F3} of its light 0.17 s after the strike");
+            Assert.True(CutBeats.FlashLeft(0.17f) < 0.1f, "the flash still lights the field 0.17 s after the strike");
+            Assert.True(CutBeats.FlashLeft(0.15f) >= 0.1f, "the remark's 0.16 s is no longer where the flash drops under a tenth");
         }
 
         /// <summary>

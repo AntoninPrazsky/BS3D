@@ -9,10 +9,10 @@ namespace BS3D.Effects
     /// <see cref="Blasts"/>' state, without the GPU and without the sound (#767's review): which slots burn, how old each one
     /// is, a chain's stagger, a blade's hurry, when a slot is freed and the light they throw. <see cref="Blasts"/> draws what
     /// stands here and plays the reports it says are due. Kept apart so the tests can step the very ages the picture is drawn
-    /// from, at any frame rate, through the session's own slow motion, instead of a copy of the arithmetic.
+    /// from, at any frame rate, instead of a copy of the arithmetic.
     /// <para>
-    /// Everything advances on what <see cref="Step"/> is handed, which is the <b>world's</b> seconds (slow motion included,
-    /// see <see cref="Blasts"/>' remarks); nothing counts frames.
+    /// Everything advances on what <see cref="Step"/> is handed, which is the <b>world's</b> seconds (see
+    /// <see cref="Blasts"/>' remarks); nothing counts frames.
     /// </para>
     /// </summary>
     internal sealed class BlastSlots

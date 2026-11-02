@@ -20,16 +20,15 @@ namespace BS3D.Effects
     /// <item><description><b>The flight</b> (<see cref="Fired"/>, wall clock): the lens pinches (<see cref="FovScale"/>), and
     /// what the round will cut off stays lit while it flies.</description></item>
     /// <item><description><b>The severing</b> (<see cref="Strike"/>, the world's clock): the blade's slash through the storey
-    /// it struck, a white-hot flash and a grinder's sparks (<c>Blasts.Cut</c>), the slice's ring, a knock in the hand, and a
-    /// hit-stop - the world almost held for a beat (<see cref="TimeScale"/>).</description></item>
-    /// <item><description><b>The fall</b>: what the cut freed drops in slow motion that grows with how much it was, its cut
-    /// face glowing white-hot and cooling to nothing as it falls, and the storey left hanging above the cut glowing with it;
-    /// the pad's roll-off grows along the release's curve. A cut with nothing hanging on its storey is the severing alone, still an
-    /// event; a bigger result adds beats on top.</description></item>
+    /// it struck, a white-hot flash and a grinder's sparks (<c>Blasts.Cut</c>), the slice's ring and a knock in the hand.</description></item>
+    /// <item><description><b>The fall</b>: what the cut freed drops at the world's full speed, its cut face glowing white-hot
+    /// and cooling to nothing as it falls, and the storey left hanging above the cut glowing with it; the pad's roll-off grows
+    /// along the release's curve. A cut with nothing hanging on its storey is the severing alone, still an event; a bigger
+    /// result adds beats on top.</description></item>
     /// </list>
-    /// <b>Never in the way</b>: nothing here changes a rule or the score (the cut's landing is scored as it always was), the
-    /// slow motion is the world's alone - the HUD, the lens and the gun run on - and a shot fired during it ends it
-    /// (<see cref="Skip"/>) and leaves as it always would, so it eats no input. A pause stops every clock that feeds it.
+    /// <b>Never in the way</b>: nothing here changes a rule or the score (the cut's landing is scored as it always was), and
+    /// <b>nothing here slows the world</b> (#1046, the owner's ruling: the game always runs in real time; a hit-stop and a slow
+    /// fall were here until then). A pause stops every clock that feeds it.
     /// </summary>
     internal sealed class CutStaging
     {
@@ -43,16 +42,11 @@ namespace BS3D.Effects
         /// <summary>How much brighter than its accent the loaded round is at the top of its charge (<see cref="Glow"/>).</summary>
         public const float CHARGE_GLOW = 0.6f;
 
-        //The beats' ages: the press and the flight on the wall clock, the slow motion's own timeline on the wall clock, the
-        //cut faces' heat on the world's. Negative is "not running".
+        //The beats' ages: the press and the flight on the wall clock, the cut faces' heat on the world's. Negative is "not
+        //running".
         private float _pressAge = -1f;
         private float _fireAge = -1f;
-        private float _slowAge = -1f;
         private float _heatAge = -1f;
-
-        //What the strike measured, for the slow motion
-        private float _size;
-        private bool _freed;
 
         //What glows: the freed balls with each one's share of the heat, and the storey left above the cut
         private readonly List<PhysicsBall> _freedBalls = new(256);
@@ -79,12 +73,6 @@ namespace BS3D.Effects
         /// <summary>The lens's field of view as a multiple of what it would be: the flight's pinch.</summary>
         public float FovScale => CutBeats.FovScale(_fireAge);
 
-        /// <summary>How fast the world runs now, 0 to 1: the strike's hit-stop and the fall's slow motion, 1 otherwise.</summary>
-        public float TimeScale => _slowAge < 0f ? 1f : CutBeats.TimeScale(_slowAge, _size, _freed);
-
-        /// <summary>Whether the strike's slow motion is running (what a shot fired now would end).</summary>
-        public bool Slowed => _slowAge >= 0f;
-
         /// <summary>The press: the round in the bore has just become a cutter. Starts the charge.</summary>
         public void Press() => _pressAge = 0f;
 
@@ -96,25 +84,16 @@ namespace BS3D.Effects
         }
 
         /// <summary>
-        /// Ends the strike's slow motion at once: a shot fired during it (#765: skippable, and never eating the input that
-        /// skips it), the drop cinematic taking the lens (it runs the world at game time, #877, so a cut's slow motion never runs under it), the result page.
-        /// </summary>
-        public void Skip() => _slowAge = -1f;
-
-        /// <summary>
         /// The severing: a cutter travelling along <paramref name="shot"/> struck <paramref name="cell"/> at
         /// <paramref name="struck"/> (world space) and let go <paramref name="freedCount"/> balls, which are the last
         /// <paramref name="freedCount"/> entries of <paramref name="falling"/> - the storey it destroyed and what hung on it.
-        /// Arms the cut faces' glow and the slow motion, and answers where the slash runs (<see cref="CutSlash"/>: level
-        /// through the struck ball, square to the shot, across the storey the cut destroyed) and how big the result was.
+        /// Arms the cut faces' glow, and answers where the slash runs (<see cref="CutSlash"/>: level through the struck ball,
+        /// square to the shot, across the storey the cut destroyed) and how big the result was.
         /// </summary>
         /// <param name="shot">Which way the cutter was flying (any length; zero when unknown, and then the slash takes
         /// <paramref name="aim"/>'s heading).</param>
-        /// <param name="orphaned">What hung on the storey alone: the part of the result the fall's slow motion grows with.</param>
-        /// <param name="slowMotion">False while the drop cinematic has the lens (a big release): it runs the world at game
-        /// time (#877), so the cut adds no slow motion under it.</param>
         public void Strike(XZLevel cell, Vector3 struck, Vector3 shot, Vector3 aim, List<PhysicsBall> falling, int freedCount,
-            int orphaned, PhysicsBall[,,] cluster, bool slowMotion, out CutSlash slash, out float size)
+            PhysicsBall[,,] cluster, out CutSlash slash, out float size)
         {
             ClearGlows();
 
@@ -170,9 +149,6 @@ namespace BS3D.Effects
             _heatAge = 0f;
 
             size = CutBeats.Size(freedCount);
-            _size = CutBeats.Size(orphaned);
-            _freed = orphaned > 0;
-            _slowAge = slowMotion ? 0f : -1f;
 
             StepWorld(0f);
         }
@@ -194,7 +170,7 @@ namespace BS3D.Effects
 
         /// <summary>
         /// The beats that run on the wall clock, by <paramref name="elapsed"/> seconds of it: the press (and when it tops out,
-        /// <see cref="ToppedOut"/>), the flight's pinch and the slow motion's own timeline.
+        /// <see cref="ToppedOut"/>) and the flight's pinch.
         /// </summary>
         public void StepWall(float elapsed)
         {
@@ -214,17 +190,10 @@ namespace BS3D.Effects
                 _fireAge += elapsed;
                 if (_fireAge >= CutBeats.PINCH_IN_SECONDS + CutBeats.PINCH_OUT_SECONDS) _fireAge = -1f;
             }
-
-            if (_slowAge >= 0f)
-            {
-                _slowAge += elapsed;
-                if (_slowAge >= CutBeats.SlowSeconds(_size, _freed)) _slowAge = -1f;
-            }
         }
 
         /// <summary>
-        /// The beats that belong to the world, by <paramref name="elapsed"/> seconds of the simulation's time (slow motion
-        /// included): the cut faces' heat, written into each ball's glow through the ripple's channel
+        /// The beats that belong to the world, by <paramref name="elapsed"/> seconds of the simulation's time: the cut faces' heat, written into each ball's glow through the ripple's channel
         /// (<see cref="PhysicsBall.CutPreviewGlow"/>, which the preview hands over to at the strike).
         /// </summary>
         public void StepWorld(float elapsed)
@@ -248,7 +217,7 @@ namespace BS3D.Effects
         public void Reset()
         {
             ClearGlows();
-            _pressAge = _fireAge = _slowAge = -1f;
+            _pressAge = _fireAge = -1f;
         }
 
         private void ClearGlows()

@@ -23,7 +23,7 @@ namespace BS3D.Screens
 
         //The camera's view × projection, the barrel's and the carriage's world matrices, each over the last shutter
         //and a little more. Wall-clock stamped: what the shutter covers is time on screen, so a pause stands the
-        //record still and a cut's slow motion shortens the smear by itself, with nothing to scale.
+        //record still.
         private readonly ShutterHistory _cameraShutter = new(), _barrelShutter = new(), _carriageShutter = new();
 
         //This frame's poses and their shutter-opening counterparts, taken once by PrepareMotion and read by the
@@ -40,10 +40,9 @@ namespace BS3D.Screens
         //Whether PrepareMotion ran this frame — the frame's one answer to "is this frame blurred"
         private bool _motionThisFrame;
 
-        //The wall clock when the simulation last stepped, and how fast it was running: the balls' smear comes off
-        //their velocities, which a paused world still holds, so a world that is not stepping must smear nothing
+        //The wall clock when the simulation last stepped: the balls' smear comes off their velocities, which a paused
+        //world still holds, so a world that is not stepping must smear nothing
         private float _simulatedAt = float.NegativeInfinity;
-        private float _simulationTimeScale = 1f;
 
         //Cached rather than a method group per frame (a method group is a new delegate each time it is passed)
         private Action<MotionBlur> _drawMotionVelocity;
@@ -74,20 +73,15 @@ namespace BS3D.Screens
         //initializers run across partial files is not defined.
         private static float OverviewLensScale => 1f / MathF.Tan(GAME_FOV * 0.5f);
 
-        /// <summary>Notes that the simulation stepped this frame, at <paramref name="timeScale"/> of real time.</summary>
-        private void NoteSimulated(float timeScale)
-        {
-            _simulatedAt = WallClock;
-            _simulationTimeScale = timeScale;
-        }
+        /// <summary>Notes that the simulation stepped this frame (always at real time, #1046).</summary>
+        private void NoteSimulated() => _simulatedAt = WallClock;
 
         /// <summary>
-        /// How much simulated time the balls' shutter covers this frame: the shutter scaled by how fast the world is
-        /// running, or nothing when it did not step at all this frame (the pause, a page over a finished level that
-        /// has stopped it).
+        /// How much simulated time the balls' shutter covers this frame: the whole shutter, or nothing when the world did
+        /// not step at all this frame (the pause, a page over a finished level that has stopped it).
         /// </summary>
         private float BallShutterSeconds =>
-            WallClock - _simulatedAt < 0.25f ? MotionBlur.SHUTTER_SECONDS * _simulationTimeScale : 0f;
+            WallClock - _simulatedAt < 0.25f ? MotionBlur.SHUTTER_SECONDS : 0f;
 
         /// <summary>
         /// Takes this frame's poses into their records and reads each back a shutter ago. Called before the balls are

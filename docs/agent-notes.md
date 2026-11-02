@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-02 — #1046 #1045 hra vždy v reálném čase, čas ve skóre — desktop (RDT-PC), Claude Code
+- Hotovo: #1046 Cut už nemá hit-stop ani zpomalený pád, svět se krokuje vždy časem snímku (`WorldTimeScale` pryč). Body za Cut čekají `AwardZoom.CUT_WAIT` 0,9 s. `RealTimeSourceTests` odmítne škálování času světa kdekoli v `Game/`.
+- Majitel: #1015 obráceno, čas bude ve skóre (#1045). Rychlejší dohrání = víc bodů, hodiny stojí při každé animaci kamery, 4 hvězdy musí být těžší. A: „Hra má vždycky běžet v reálném čase. To zpomalování chceme úplně pryč.“ Zpomalení už nenavrhovat.
+- ⚠ Od #1011 se kamera za pádem spouští až od čtvrtiny levelu. Cuty z návodu (Teapot 51, Elephant 56) ji nespustí.
+- Otevřené: #1045, nejdřív zastavit hodiny levelu při převzetí kamery, aby data z dalšího releasu byla čistá.
+
 ## 2026-11-02 — #1044 Pi: přepracování podle verdiktů — Pi (BS3DServer), Claude Code
 - Hotovo, vše na main: pruhy plynného obra v jedné kouli, už neblikají (c3a186e5); sedačky ve stanu (19d3bb83); krystaly v jeskyni s ploškami (990f589c); modrá Země na Měsíci (aba05d5e). Ceny v šumu, sedačky +0,09 ms nativně.
 - Majitel (verdikty 2. 11.): devět kroků OK, čtyři „Vrať“ s poznámkou. „Vrať“ čtu jako přepracovat, ne vrátit krok. Druhé kolo je na stránce verdiktů, mlčení platí do 9. 11.
