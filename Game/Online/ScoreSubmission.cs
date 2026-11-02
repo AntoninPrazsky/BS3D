@@ -52,7 +52,8 @@ namespace BS3D.Online
         [JsonPropertyName("shotsUsed")]
         public int ShotsUsed { get; set; }
 
-        /// <summary>Seconds of play from the level's start to its end: a pause, an unfocused window and the chapter's tour are not play.</summary>
+        /// <summary>Seconds of play from the level's start to its end: a pause, an unfocused window, the chapter's tour and,
+        /// from the build after v0.5.1, the drop cinematic are not play (<c>PlayClock</c>, #1045).</summary>
         [JsonPropertyName("durationSeconds")]
         public float DurationSeconds { get; set; }
 

@@ -2,7 +2,7 @@
 
 Part of [The game: a session](../game-session.md).
 
-The game counts, per level, how often it is **started, retried, cleared, lost (out of balls, or at the line), quit and skipped**, the **shots and seconds** spent on it, and **how many starts a first clear took** (#709). The point is the question the level work keeps guessing at: *where does the game get stuck?* ScoreSim says how a simulated player rates; these say what real ones do. Counters only: no event log, no device, no time of day, no quality tier.
+The game counts, per level, how often it is **started, retried, cleared, lost (out of balls, or at the line), quit and skipped**, the **shots and seconds** spent on it, and **how many starts a first clear took** (#709). The seconds are the level's play clock (`PlayClock`), which since #1045 stands still under a camera takeover; the batches carry no game version, so sums counted before and after that build cannot be told apart. The point is the question the level work keeps guessing at: *where does the game get stuck?* ScoreSim says how a simulated player rates; these say what real ones do. Counters only: no event log, no device, no time of day, no quality tier.
 
 ## What is counted, and where
 
