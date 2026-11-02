@@ -868,10 +868,22 @@ namespace Prazsky.Core.Render
             return (vertices, indices.ToArray());
         }
 
+        /// <summary>A sphere's frame with its pole along <paramref name="axis"/> (normalized) and its centre at <paramref name="at"/>.</summary>
+        private static Matrix PoleFrame(Vector3 axis, Vector3 at)
+        {
+            Vector3 right = Vector3.Normalize(Vector3.Cross(axis, MathF.Abs(axis.Y) > 0.9f ? Vector3.Right : Vector3.Up));
+            Matrix frame = Matrix.Identity;
+            frame.Right = right;
+            frame.Up = axis;
+            frame.Backward = Vector3.Cross(right, axis);
+            frame.Translation = at;
+            return frame;
+        }
+
         /// <summary>
         /// Space (#829, the owner's eye: "I don't see the big planet"): the desktop's gas giant, which <c>Space.fx</c> shades
-        /// per pixel with its bands and storm, as a sphere in its dark colour under belts of its light one - frustums of
-        /// the sphere between latitudes about the planet's axis, every other belt - and a storm as an ellipsoid on the
+        /// per pixel with its bands and storm, as one sphere about the planet's axis whose vertices carry the bands as the
+        /// share from its dark colour to its light one (<see cref="PlanetBands"/>), and a storm as an ellipsoid on the
         /// side the arena sees, lit by the rig's key so it has a day side and a night, with a little of its rim colour as
         /// a glow. Where the config points it, as big as the config's angle says.
         /// </summary>
@@ -883,12 +895,7 @@ namespace Prazsky.Core.Render
             Vector3 direction = Vector3.Normalize(planet.Direction.ToVector3());
             Vector3 axis = Vector3.Normalize(planet.Axis.ToVector3());
             float radius = PLANET_DISTANCE * MathF.Sin(MathHelper.ToRadians(MathHelper.Clamp(planet.AngularRadiusDegrees, 1f, 60f)));
-            Vector3 right = Vector3.Normalize(Vector3.Cross(axis, MathF.Abs(axis.Y) > 0.9f ? Vector3.Right : Vector3.Up));
-            Matrix orient = Matrix.Identity;
-            orient.Right = right;
-            orient.Up = axis;
-            orient.Backward = Vector3.Cross(right, axis);
-            orient.Translation = direction * PLANET_DISTANCE;
+            Matrix orient = PoleFrame(axis, direction * PLANET_DISTANCE);
             Matrix world = Matrix.CreateScale(radius) * orient;
 
             //The planet and its belts in one mesh (#1044): Space.fx's bands - noise squashed in latitude, sheared along the
@@ -1609,8 +1616,11 @@ namespace Prazsky.Core.Render
                     regolith, regolith * (1f - MOON_TRACK_DARKEN), new Vector2(0f, 1f), "rut", atVertex: true);
 
             //The Earth (the owner's eye: the Moon has no Earth in its sky): a sphere where the config hangs it, at the
-            //earthshine's distance and the config's angle, in the ocean's blue under a share of cloud, lit by the rig's
-            //low sun so it shows a phase, with a little of the cloud as a glow so its night is not black
+            //earthshine's distance and the config's angle, about its tilted pole, lit by the rig's low sun so it shows a phase.
+            //Since #1044 a blue marble (the owner: "je šedivá, měla by být modrá"): Moon.fx's weather and polar ice at every
+            //vertex as the share from the ocean's blue to the cloud's white (EarthWeather), crossed at the vertex, with a
+            //little of the atmosphere's blue as a glow so its night is not black. ⚠ One colour over the sphere, the ocean a
+            //third of the way to the cloud, was a grey disc
             MoonSceneConfig moon = new();
             MoonEarthConfig earth = moon.Earth;
             if (earth.AngularRadiusDegrees > 0f)
@@ -1618,12 +1628,37 @@ namespace Prazsky.Core.Render
                 float distance = moon.Lighting.EarthshineDistance;
                 float earthRadius = distance * MathF.Tan(MathHelper.ToRadians(earth.AngularRadiusDegrees));
                 Vector3 position = Vector3.Normalize(earth.Direction.ToVector3()) * distance;
-                Vector3 marble = Vector3.Lerp(earth.OceanColor.ToVector3(), earth.CloudColor.ToVector3(), 0.3f);
-                backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new SphereMesh(graphicsDevice, 1f, 16, 8)),
-                    new[] { new ModelInstance(Matrix.CreateScale(earthRadius) * Matrix.CreateTranslation(position), OPEN) }, marble, earth.CloudColor.ToVector3() * 0.12f, "earth");
+                (VertexPositionNormalTexture[] globe, int[] globeIndices) = BandedSphere(EARTH_RINGS, EARTH_SEGMENTS, p => EarthWeather(p, earth.CloudAmount));
+                backdrop.AddBlended(graphicsDevice, potatoEffect, backdrop.Own(new CavernProceduralMesh(graphicsDevice, globe, globeIndices)),
+                    earth.OceanColor.ToVector3(), earth.CloudColor.ToVector3(), new Vector2(0f, 1f), "earth", atVertex: true,
+                    instances: new[] { new ModelInstance(Matrix.CreateScale(earthRadius) * PoleFrame(Vector3.Normalize(earth.Axis.ToVector3()), position), OPEN) },
+                    glow: earth.RimColor.ToVector3() * (earth.RimStrength * EARTH_AIR_GLOW));
             }
 
             return backdrop;
+        }
+
+        //The Earth's mesh, about 25 pixels across at 1080 lines (a vertex a pixel or two apart, so the swirls hold), and how
+        //much of the atmosphere's rim (MoonEarthConfig.RimColor at its strength) it glows with
+        private const int EARTH_RINGS = 24, EARTH_SEGMENTS = 48;
+        private const float EARTH_AIR_GLOW = 0.5f;
+
+        /// <summary>
+        /// <c>Moon.fx</c>'s weather over the Earth at a point of its unit sphere in its own frame (its pole up): the share from
+        /// the ocean's colour to the cloud's. A cloud field sampled through a swirl of three more, cut by a band set by
+        /// <paramref name="cloudAmount"/>, and the polar caps broken by the continents' fractal, as the desktop's are; handed
+        /// to the vertex through the inverse of the ramp's smoothstep. No land: a ramp crosses two colours, and the blue
+        /// between white swirls is what says the Earth at this size. The noise is <see cref="CavernNoise"/>'s, not the shader's.
+        /// </summary>
+        public static float EarthWeather(Vector3 p, float cloudAmount)
+        {
+            var swirl = new Vector3(CavernNoise.Fbm(p * 2.7f + new Vector3(91f), 3), CavernNoise.Fbm(p * 2.5f + new Vector3(137f), 3),
+                CavernNoise.Fbm(p * 2.9f + new Vector3(173f), 3));
+            float clouds = CavernNoise.Fbm(p * 2.8f + swirl * 1.2f + new Vector3(7f), 3);
+            float cloud = ShaderMath.SmoothStep(0.68f - cloudAmount * 0.25f, 0.86f - cloudAmount * 0.25f, clouds + 0.5f);
+            float ice = ShaderMath.SmoothStep(0.78f, 0.88f, MathF.Abs(p.Y) + CavernNoise.Fbm(p * 2.2f + new Vector3(19f), 3) * 0.07f);
+            float share = MathF.Max(cloud, ice);
+            return 0.5f - MathF.Sin(MathF.Asin(1f - 2f * share) / 3f);
         }
 
         //The rover's ruts: between their middles and how wide each lies with the regolith it turned (RoverTracks.fxh's
