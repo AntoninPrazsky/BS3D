@@ -4,6 +4,7 @@ using Prazsky.Core.Tools;
 using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Prazsky.Core.Render
@@ -64,6 +65,14 @@ namespace Prazsky.Core.Render
         private float _bakeExposure, _shownExposure = float.NaN;
         private long _bakedAt;
 
+        //Cancelled when the sky is disposed: the picker builds a scene's figure as it passes over it, and a bake left
+        //running for a sky nobody draws holds three of the Pi's four cores for half a second and 12.6 MB of texels.
+        //Never disposed itself, so a bake that has not yet registered with it cannot meet a disposed source; it owns no timer
+        private readonly CancellationTokenSource _cancel = new CancellationTokenSource();
+
+        //A failed bake is tried once more, so a passing fault does not leave the sky without its curtains
+        private bool _retried;
+
         private PotatoAuroraSky(GraphicsDevice device, Effect effect, AuroraSceneConfig config)
         {
             _config = config;
@@ -92,14 +101,16 @@ namespace Prazsky.Core.Render
         private void StartBake(float exposure)
         {
             AuroraSceneConfig config = _config;
+            CancellationToken cancel = _cancel.Token;
             _bakeExposure = exposure;
-            _bake = Task.Run(() => Bake(config, WIDTH, HEIGHT, exposure));
+            _bake = Task.Run(() => Bake(config, WIDTH, HEIGHT, exposure, cancel), cancel);
         }
 
         /// <summary>
         /// Its uniforms at <paramref name="time"/>: the texture, the arcs' breaths, the Moon's light. The first call after a
         /// bake is done hands its texels to the texture, on the thread that draws; a call that finds the exposure changed
-        /// starts another, and the old texture stays up until it is in.
+        /// starts another, and the old texture stays up until it is in. A bake that failed is logged and, the first time,
+        /// started again.
         /// </summary>
         public void Push(float time)
         {
@@ -110,6 +121,12 @@ namespace Prazsky.Core.Render
                     _texture.SetData(_bake.Result);
                     if (float.IsNaN(_shownExposure)) _bakedAt = Stopwatch.GetTimestamp();
                     _shownExposure = _bakeExposure;
+                }
+                else if (_bake.IsFaulted)
+                {
+                    Console.WriteLine($"[aurora] bake failed{(_retried ? "" : ", trying once more")}: {_bake.Exception.GetBaseException().Message}");
+                    if (!_retried) _bakeExposure = float.NaN;
+                    _retried = true;
                 }
                 _bake = null;
             }
@@ -188,9 +205,11 @@ namespace Prazsky.Core.Render
         /// The texels at <paramref name="exposure"/>, no device: for the tests. Each holds what the arcs at their full
         /// brightness add on the display to the night and the halo along that direction (the curve of the sum less the curve
         /// of the night; none at all where no curtain is), and in alpha which arc it is - 0 the first, a half the second,
-        /// 1 the third, between where two overlap.
+        /// 1 the third, between where two overlap. <paramref name="cancel"/> stops it between rows, with
+        /// <see cref="OperationCanceledException"/>.
         /// </summary>
-        public static Color[] Bake(AuroraSceneConfig config, int width, int height, float exposure)
+        public static Color[] Bake(AuroraSceneConfig config, int width, int height, float exposure,
+            CancellationToken cancel = default)
         {
             AuroraCurtainsConfig curtains = config.Curtains;
             int count = Math.Min(curtains.Arcs.Length, 3);
@@ -215,7 +234,11 @@ namespace Prazsky.Core.Render
             Vector3 moon = MoonDirection(config);
 
             //A core left to the game's thread, which draws on while the bake runs
-            var options = new ParallelOptions { MaxDegreeOfParallelism = Math.Max(Environment.ProcessorCount - 1, 1) };
+            var options = new ParallelOptions
+            {
+                MaxDegreeOfParallelism = Math.Max(Environment.ProcessorCount - 1, 1),
+                CancellationToken = cancel,
+            };
             Parallel.For(0, height, options, row => BakeRow(texels, row, width, height, columns, arcs, config, moon, exposure));
 
             return texels;
@@ -370,6 +393,7 @@ namespace Prazsky.Core.Render
 
         public void Dispose()
         {
+            _cancel.Cancel();
             _texture?.Dispose();
             _texture = null;
         }

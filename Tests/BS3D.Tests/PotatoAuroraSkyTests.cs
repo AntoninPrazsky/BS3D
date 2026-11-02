@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Prazsky.Core.Render;
 using System;
+using System.Threading;
 using Xunit;
 
 namespace BS3D.Tests
@@ -56,6 +57,15 @@ namespace BS3D.Tests
                 Vector3 breaths = PotatoAuroraSky.ArcBreaths(config, t);
                 foreach (float b in new[] { breaths.X, breaths.Y, breaths.Z }) Assert.InRange(b, floor, 1.0001f);
             }
+        }
+
+        [Fact]
+        public void ACancelledBakeStops()
+        {
+            //What the sky's Dispose does to a bake still running when the picker moves on
+            using var cancel = new CancellationTokenSource();
+            cancel.Cancel();
+            Assert.Throws<OperationCanceledException>(() => PotatoAuroraSky.Bake(new AuroraSceneConfig(), WIDTH, HEIGHT, 1.1f, cancel.Token));
         }
     }
 }
