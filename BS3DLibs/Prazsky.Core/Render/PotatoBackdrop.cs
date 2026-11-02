@@ -974,15 +974,20 @@ namespace Prazsky.Core.Render
             backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new CavernProceduralMesh(graphicsDevice, formationVertices, formationIndices)),
                 one, config.Rock.CalciteColor.ToVector3() * 0.3f, null, "formations");
 
-            //A cluster's prisms as one mesh in its colour; the glow under one in linear and the casing nearly black (a casing
-            //a quarter of the colour took the key light and the prisms were pale pink; a crystal here is its own light)
+            //A cluster's prisms as one mesh, a crystal its own light (#1044, the owner: "vypadají jenom jako placaté obrysy,
+            //jako by neměly žádný tvar"). The light differs face by face: each facet's share (CrystalFacetShare) runs from the
+            //cluster's colour deep and dark on a face turned from the light to its colour paled towards white on one turned to
+            //it and on the tips, and the glow is scaled by it, so the prisms read as faceted solids. One colour and one glow over
+            //every face, as before, made each cluster a flat cut-out
             for (int k = 0; k < chamber.Clusters.Count; k++)
             {
                 CavernCluster cluster = chamber.Clusters[k];
                 Vector3 colour = Vector3.Lerp(config.Crystals.ColorA.ToVector3(), config.Crystals.ColorB.ToVector3(), cluster.Hue);
                 (VertexPositionNormalTexture[] v, int[] i) = CavernGeometry.BuildClusterPlain(cluster, k);
-                backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new CavernProceduralMesh(graphicsDevice, v, i)), one,
-                    colour * 0.06f, Vector3.Clamp(colour * 0.7f, Vector3.Zero, Vector3.One), $"crystals {k}");
+                for (int n = 0; n < v.Length; n++) v[n].TextureCoordinate = new Vector2(CrystalFacetShare(v[n], cluster), 0f);
+                backdrop.AddBlended(graphicsDevice, potatoEffect, backdrop.Own(new CavernProceduralMesh(graphicsDevice, v, i)),
+                    colour * CRYSTAL_DARK, Vector3.Clamp(Vector3.Lerp(colour, Vector3.One, CRYSTAL_PALE) * CRYSTAL_BRIGHT, Vector3.Zero, Vector3.One),
+                    new Vector2(0f, 1f), $"crystals {k}", atVertex: true, glow: new Vector3(CRYSTAL_GLOW));
             }
 
             //The glowworms (#1044): the desktop's constellation on the vault, its own quads (#507), a pixel and a half wide
@@ -1033,6 +1038,27 @@ namespace Prazsky.Core.Render
 
             //smoothstep(0, 1, s) = share, solved for s
             share = MathHelper.Clamp(share, 0f, 1f);
+            return 0.5f - MathF.Sin(MathF.Asin(1f - 2f * share) / 3f);
+        }
+
+        //A crystal's facets: its colour on a face turned from the light (a share of 0), its colour paled towards white on one
+        //turned to it (1), the glow they both carry, and the light's direction (from over the cluster and a little behind the
+        //play view, so the faces the lens sees most are split between lit and dark); a facet's share at the foot of a cluster
+        //against its tips
+        private const float CRYSTAL_DARK = 0.16f, CRYSTAL_PALE = 0.1f, CRYSTAL_BRIGHT = 0.85f, CRYSTAL_GLOW = 0.7f;
+        private static readonly Vector3 CRYSTAL_LIGHT = Vector3.Normalize(new Vector3(-0.35f, 0.8f, 0.45f));
+        private const float CRYSTAL_FOOT = 0.55f, CRYSTAL_TIP = 1.15f;
+
+        /// <summary>
+        /// How much of a crystal facet's light a vertex of the Potato cavern's prisms carries (#1044): its face's normal against
+        /// <see cref="CRYSTAL_LIGHT"/>, wrapped so no face goes black, times its height up the cluster (dimmer at the foot,
+        /// brighter at the tips, a crystal lit from within its points), through the inverse of the ramp's smoothstep.
+        /// </summary>
+        private static float CrystalFacetShare(VertexPositionNormalTexture vertex, CavernCluster cluster)
+        {
+            float facing = 0.1f + 0.9f * MathHelper.Clamp(0.5f + 0.5f * Vector3.Dot(vertex.Normal, CRYSTAL_LIGHT), 0f, 1f);
+            float up = MathHelper.Clamp(Vector3.Dot(vertex.Position - cluster.Base, cluster.Up) / MathF.Max(6f * cluster.Size, 0.1f), 0f, 1f);
+            float share = MathHelper.Clamp(facing * MathHelper.Lerp(CRYSTAL_FOOT, CRYSTAL_TIP, up), 0f, 1f);
             return 0.5f - MathF.Sin(MathF.Asin(1f - 2f * share) / 3f);
         }
 
