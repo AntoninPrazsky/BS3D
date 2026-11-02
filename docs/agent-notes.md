@@ -20,6 +20,14 @@ Pravidla:
 
 ---
 
+## 2026-11-02 — #1044 revize Potato scén: světlo aurory a pára za mraky — desktop, Claude Code
+- Hotovo: Windows build s `potato` vykreslí všech 14 scén pod DX11 bez chyby (komentář v #1044). Revize kódu #1044 nenašla pád ani souběh, ale našla dvě chyby, obě opravené:
+  - Potato cesta nekrokovala rig aurory (`StepSceneLight` leží až za odbočkou do Potato cesty), takže zadní světlo ostrova nedýchalo se záclonami.
+  - Pára a kouř se kreslily před mraky a aurorou, které se pak prolnuly přes ně.
+- Majitel: „vzhled aurory ber i po zpracování jako odsouhlasený“.
+- ⚠ Průsvitné věci bez zápisu hloubky (`DrawPuffs`) patří až za všechno, co se kreslí u vzdálené roviny.
+- Otevřené: chyba při pečení aurory se ztratí bez logu a pečení nejde zrušit (body 3 a 4 revize v #1044). Deník ještě neprošel rotací za říjen.
+
 ## 2026-11-01 — #1044 Pi: talíř ve vesmíru, žárovky a reflektory ve stanu — Pi (BS3DServer), Claude Code
 - Hotovo: kroky 12 a 13 #1044, merge 01df2987 a 7023c083. Tím jsou hotové všechny scény s levely.
   - Vesmír: talíř na své dráze kolem stanice (`AddMovingParts`).
