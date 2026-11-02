@@ -191,6 +191,13 @@ namespace BS3D
         {
             _ceilingGlassBehind = null;
 
+            //The aurora's rig follows its curtains' breath on the wall clock (PotatoSceneRig's AuroraRig), as the desktop's
+            //does, and the desktop steps it in BeginSceneDraw's aurora branch, which this path returns before. Unstepped, the
+            //rig stayed at the clock SetScene derived it at, so the island and the balls kept one back light while the
+            //curtains breathed (#1044's review). It steps rather than slides, so the re-light's walk runs only on a step, and
+            //every other scene answers false at once (SceneRenderer.AnimatesLightRig).
+            if (_rig.StepSceneLight(_wallClock)) ApplySkyLighting();
+
             GraphicsDevice.SetRenderTarget(EnsurePotatoSceneTarget());
 
             //A scene that replaces the sky on the desktop (space, the dream, the cavern, the Moon, the aurora, the Grid, the
@@ -238,9 +245,6 @@ namespace BS3D
             _island.DrawIsland(_camera, _sceneEffectParams, _scene);
             _island.DrawPit(_camera, _sceneEffectParams, _scene);
 
-            //The backdrop's puffs (#1044: the volcano's ash and steam, the savanna's fires), translucent, after the island
-            _potatoBackdrop?.DrawPuffs(_camera, _wallClock);
-
             //The aurora's sky (#1044), as the cloud deck below: after the ground and the island, behind them in depth, so the
             //pixels they cover are never shaded
             if (_potatoSkyFigure?.DrawsBehind == true) _potatoSkyFigure.Draw(_camera, _wallClock);
@@ -254,6 +258,12 @@ namespace BS3D
                 _clouds.ApplyTo(_skyEffect);
                 _potatoCloudDeck.Draw(_camera, _clouds, _exposure);
             }
+
+            //The backdrop's translucents (#1044: the volcano's ash and steam, the savanna's fires, the glowworms, the cycles'
+            //walls, the spot beams), after the island AND after both skies above. They write no depth, so a sky drawn after
+            //them at the far plane passed the depth test over them and blended on top: the ash column stood behind the
+            //clouds (#1044's review)
+            _potatoBackdrop?.DrawPuffs(_camera, _wallClock);
 
             //The translucent baseline the caller's glass draws inherit (#667), as BeginSceneDraw promises it
             GraphicsDevice.BlendState = BlendState.AlphaBlend;

@@ -2092,7 +2092,7 @@ namespace Prazsky.Core.Render
             _census.Add($"{what} {mesh.PrimitiveCount * 3}");
         }
 
-        //The backdrop's puffs (#1044): drawn after the island (DrawPuffs), since they are translucent and write no depth
+        //The backdrop's puffs (#1044): drawn after the island and the skies (DrawPuffs), since they are translucent and write no depth
         private readonly List<PotatoPuffs> _puffs = new();
 
         /// <summary>A kind of puff over <paramref name="emitters"/> (#1044, <see cref="PotatoPuffs"/>); nothing on an effect without it.</summary>
@@ -2113,7 +2113,8 @@ namespace Prazsky.Core.Render
         /// The backdrop's puffs, specks, walls and beams (#1044): the volcano's ash and steam, the savanna's flames and smoke,
         /// the cavern's glowworms and the big top's bulbs, the Grid's light-cycle walls, the big top's spot beams. Translucent
         /// and writing no depth, so the host draws them after the island and its pit, which would
-        /// otherwise draw over one in front of them.
+        /// otherwise draw over one in front of them, and after the cloud deck and the aurora's sky, which are drawn at the far
+        /// plane and would otherwise blend over them.
         /// </summary>
         public void DrawPuffs(ICamera camera, float time)
         {
