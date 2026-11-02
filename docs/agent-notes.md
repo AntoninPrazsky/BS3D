@@ -24,7 +24,9 @@ Pravidla:
 - Hotovo: #1046 Cut už nemá hit-stop ani zpomalený pád, svět se krokuje vždy časem snímku (`WorldTimeScale` pryč). Body za Cut čekají `AwardZoom.CUT_WAIT` 0,9 s. `RealTimeSourceTests` odmítne škálování času světa kdekoli v `Game/`.
 - Majitel: #1015 obráceno, čas bude ve skóre (#1045). Rychlejší dohrání = víc bodů, hodiny stojí při každé animaci kamery, 4 hvězdy musí být těžší. A: „Hra má vždycky běžet v reálném čase. To zpomalování chceme úplně pryč.“ Zpomalení už nenavrhovat.
 - ⚠ Od #1011 se kamera za pádem spouští až od čtvrtiny levelu. Cuty z návodu (Teapot 51, Elephant 56) ji nespustí.
-- Otevřené: #1045, nejdřív zastavit hodiny levelu při převzetí kamery, aby data z dalšího releasu byla čistá.
+- Hotovo i první krok #1045: hodiny levelu (`PlayClock`) stojí při každém převzetí kamery, včetně návratu ke zbrani. Sill s výbuchem: bez kamery 20,0 s, s kamerou 12,5 s (záběr 6,51 s + ~1 s návrat).
+- ⚠ Časy na boardech do v0.5.1 včetně a statistiky (bez verze) obsahují sekundy kamery; par brát jen z novějších `gameVersion`.
+- Otevřené: #1045 zbytek (par z lidských časů, pravidlo, ScoreSim, RulesVersion, server).
 
 ## 2026-11-02 — #1044 Pi: přepracování podle verdiktů — Pi (BS3DServer), Claude Code
 - Hotovo, vše na main: pruhy plynného obra v jedné kouli, už neblikají (c3a186e5); sedačky ve stanu (19d3bb83); krystaly v jeskyni s ploškami (990f589c); modrá Země na Měsíci (aba05d5e). Ceny v šumu, sedačky +0,09 ms nativně.

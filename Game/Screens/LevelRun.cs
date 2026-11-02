@@ -86,8 +86,9 @@ namespace BS3D.Screens
 
         /// <summary>
         /// Seconds of play on this level (#546): counted where the frame steps the world, which a pause, an
-        /// unfocused window and the page over a finished level never reach — so it is time the player spent
-        /// playing, not time the window was open. Real seconds: the world always runs at them (#1046).
+        /// unfocused window and the page over a finished level never reach, and not while a camera takeover has the lens
+        /// (<see cref="PlayClock"/>, #1045) — so it is time the player spent playing, not time the window was open.
+        /// Real seconds: the world always runs at them (#1046).
         /// </summary>
         internal float Seconds { get; set; }
 

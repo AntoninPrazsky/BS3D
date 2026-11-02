@@ -95,10 +95,10 @@ namespace BS3D.Tests
                 Assert.True(WorldFedOtherThanElapsed.IsMatch(CodeOf(line)), $"the call rule passes a line it exists to refuse: '{line}'");
 
             //And what they must let through: the feeds as they stand, the declaration, a comment naming the old scale
-            Assert.False(WorldFedOtherThanElapsed.IsMatch("StepPhysics(elapsed);"));
-            Assert.False(WorldFedOtherThanElapsed.IsMatch("float blastJolt = _blasts.Update(elapsed, Game.Audio);"));
-            Assert.False(WorldFedOtherThanElapsed.IsMatch("private void StepPhysics(float elapsed)"));
-            Assert.False(ScaleByName.IsMatch(CodeOf("//the Cut's TimeScale went in #1046")));
+            Assert.DoesNotMatch(WorldFedOtherThanElapsed, "StepPhysics(elapsed);");
+            Assert.DoesNotMatch(WorldFedOtherThanElapsed, "float blastJolt = _blasts.Update(elapsed, Game.Audio);");
+            Assert.DoesNotMatch(WorldFedOtherThanElapsed, "private void StepPhysics(float elapsed)");
+            Assert.DoesNotMatch(ScaleByName, CodeOf("//the Cut's TimeScale went in #1046"));
         }
 
         private static string[] GameSources()
