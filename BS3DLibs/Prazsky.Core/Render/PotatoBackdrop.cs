@@ -543,10 +543,15 @@ namespace Prazsky.Core.Render
             backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoTerrainMesh(graphicsDevice, 2, tent.WallRadius, holeRadius, (x, z) => floor)), one, ring.Sawdust.ToVector3() * 0.6f, null, "floor");
             backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoShellMesh(graphicsDevice, ring.CurbRadius, ring.CurbRadius, floor, floor + ring.CurbHeight, 48, closeTop: false)), one, ring.CurbRed.ToVector3() * DIM, null, "curb");
 
-            //The rake: a row's rise for every row's depth from the ring's edge to the wall
-            float rows = MathF.Max(1f, (seating.OuterRadius - seating.InnerRadius) / MathF.Max(seating.RowDepth, 0.1f));
-            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoShellMesh(graphicsDevice, seating.InnerRadius, seating.OuterRadius, floor, floor + rows * seating.RowRise, 48, closeTop: false)),
-                one, seating.SeatRed.ToVector3() * DIM, null, "seats");
+            //The seats (#1044, the owner: "chybí alespoň základní pódium - sedačky pro diváky"): Circus.fx's rake as the rows it
+            //is, each a riser and a tread a row's rise up and a row's depth out, the riser and the front of the tread the seats'
+            //red, the back of the tread the wooden walkway; the stair aisles all wood; the performers' entrance cut away. Two
+            //meshes, the red and the wood, where a smooth red cone stood
+            (VertexPositionNormalTexture[] red, int[] redIndices, VertexPositionNormalTexture[] wood, int[] woodIndices) = BigTopSeats(seating, floor);
+            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new CavernProceduralMesh(graphicsDevice, red, redIndices)), one,
+                seating.SeatRed.ToVector3() * DIM, null, "seats");
+            backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new CavernProceduralMesh(graphicsDevice, wood, woodIndices)), one,
+                seating.Wood.ToVector3() * DIM, null, "tiers");
             backdrop.AddPiece(graphicsDevice, potatoEffect, backdrop.Own(new PotatoShellMesh(graphicsDevice, tent.WallRadius, tent.WallRadius, floor, tent.WallTopY, 48, closeTop: false)), one, tent.Curtain.ToVector3() * DIM, null, "wall");
 
             //The canvas: the shader's panels, alternating; an odd count is doubled so the ring closes on a pair; in two
@@ -618,6 +623,69 @@ namespace Prazsky.Core.Render
         //on the canvas - and Circus.fx's flicker (0.93 + 0.07 sin, at 2.3 a second)
         private const float BIGTOP_BULB_PIXELS = 4.5f;
         private static readonly Vector3 BIGTOP_BULB_FLICKER = new(0.93f, 0.07f, 2.3f);
+
+        //The big top's seats: segments round the bowl (two degrees: an aisle is a segment or two wide), and the share of a
+        //tread the seat takes at its front, the walkway behind it
+        private const int BIGTOP_SEAT_SEGMENTS = 180;
+        private const float BIGTOP_SEAT_SHARE = 0.6f;
+
+        /// <summary>
+        /// The big top's rows of seats (#1044), as <c>Circus.fx</c>'s rake lays them: row k's riser at the inner radius plus
+        /// k row depths, from the floor plus k rises to one more, and its tread on top of it a row's depth out; the riser and
+        /// <see cref="BIGTOP_SEAT_SHARE"/> of the tread are the seats (the first arrays), the rest of the tread the walkway, and
+        /// every step of an aisle the wood (the second arrays). An aisle is where the arc to the nearest of the config's
+        /// aisles is under half its width at that row's radius (the shader's <c>aisleDistance</c>), the entrance where its
+        /// half-width reaches at the front row (<c>InEntrance</c>); bearings from +X towards +Z, as the shader's
+        /// <c>atan2(z, x)</c>. Each shell faces the ring and the sky, as <see cref="PotatoShellMesh"/> builds them.
+        /// </summary>
+        public static (VertexPositionNormalTexture[] Seats, int[] SeatIndices, VertexPositionNormalTexture[] Wood, int[] WoodIndices) BigTopSeats(
+            CircusSeatingConfig seating, float floor)
+        {
+            var seats = new List<VertexPositionNormalTexture>();
+            var seatIndices = new List<int>();
+            var wood = new List<VertexPositionNormalTexture>();
+            var woodIndices = new List<int>();
+            void Add(List<VertexPositionNormalTexture> v, List<int> idx, (VertexPositionNormalTexture[] V, int[] I) shell)
+            {
+                int first = v.Count;
+                v.AddRange(shell.V);
+                foreach (int i in shell.I) idx.Add(first + i);
+            }
+
+            float depth = MathF.Max(seating.RowDepth, 0.1f), rise = seating.RowRise;
+            int rows = Math.Max(1, (int)MathF.Round((seating.OuterRadius - seating.InnerRadius) / depth));
+            float entrance = MathHelper.ToRadians(seating.EntranceBearingDegrees);
+            float Bearing(int segment) => MathHelper.TwoPi * (segment + 0.5f) / BIGTOP_SEAT_SEGMENTS;
+            bool InEntrance(int segment)
+            {
+                float delta = Bearing(segment) - entrance;
+                delta -= MathHelper.TwoPi * MathF.Floor((delta + MathHelper.Pi) / MathHelper.TwoPi);
+                return MathF.Abs(delta) * seating.InnerRadius < seating.EntranceWidth * 0.5f;
+            }
+            bool InAisle(int segment, float radius)
+            {
+                if (seating.AisleCount <= 0) return false;
+                float period = radius * MathHelper.TwoPi / seating.AisleCount, arc = radius * Bearing(segment);
+                float distance = MathF.Abs(arc / period + 0.5f - MathF.Floor(arc / period + 0.5f) - 0.5f) * period;
+                return distance < seating.AisleWidth * 0.5f;
+            }
+
+            for (int k = 0; k < rows; k++)
+            {
+                float r0 = seating.InnerRadius + k * depth, r1 = r0 + depth, rSeat = r0 + depth * BIGTOP_SEAT_SHARE;
+                float y0 = floor + k * rise, y1 = y0 + rise;
+                float middle = (r0 + r1) * 0.5f;
+                Func<int, bool> seat = i => !InEntrance(i) && !InAisle(i, middle);
+                Func<int, bool> aisle = i => !InEntrance(i) && InAisle(i, middle);
+                Func<int, bool> open = i => !InEntrance(i);
+                Add(seats, seatIndices, PotatoShellMesh.Build(r0, r0, y0, y1, BIGTOP_SEAT_SEGMENTS, seat, closeTop: false));
+                Add(seats, seatIndices, PotatoShellMesh.Build(r0, rSeat, y1, y1, BIGTOP_SEAT_SEGMENTS, seat, closeTop: false));
+                Add(wood, woodIndices, PotatoShellMesh.Build(rSeat, r1, y1, y1, BIGTOP_SEAT_SEGMENTS, seat, closeTop: false));
+                Add(wood, woodIndices, PotatoShellMesh.Build(r0, r0, y0, y1, BIGTOP_SEAT_SEGMENTS, aisle, closeTop: false));
+                Add(wood, woodIndices, PotatoShellMesh.Build(r0, r1, y1, y1, BIGTOP_SEAT_SEGMENTS, aisle, closeTop: false));
+            }
+            return (seats.ToArray(), seatIndices.ToArray(), wood.ToArray(), woodIndices.ToArray());
+        }
 
         /// <summary>
         /// The big top's bulbs (#1044) as speck quads: <c>Circus.fx</c>'s strings, each in its own vertical plane at
