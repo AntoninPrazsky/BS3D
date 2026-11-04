@@ -1115,7 +1115,7 @@ namespace Prazsky.Core.Render
 
             InstanceBinding.Set(_graphicsDevice, mesh.VertexBuffer, 0, instances.Buffer, 0);
             _graphicsDevice.Indices = mesh.IndexBuffer;
-            _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, instances.Count);
+            _graphicsDevice.DrawInstanced(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, instances.Count);
         }
 
         /// <inheritdoc/>

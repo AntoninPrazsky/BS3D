@@ -321,7 +321,7 @@ namespace Prazsky.Core.Render
                 InstanceBinding.Set(_device, _meshes[kind], 0, _instances[kind], 0);
                 _device.Indices = _meshIndices[kind];
                 _effect.CurrentTechnique.Passes[0].Apply();
-                _device.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, _meshTriangles[kind], counts[kind]);
+                _device.DrawInstanced(PrimitiveType.TriangleList, 0, 0, _meshTriangles[kind], counts[kind]);
             }
 
             //The discs over the sand and in front of the bodies, premultiplied, reading the depth and writing none

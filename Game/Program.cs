@@ -9,6 +9,37 @@ namespace BS3D
         [STAThread]
         private static void Main(string[] args)
         {
+            LaunchOptions options = Start(args);
+            if (options == null) return;
+
+            //Anything the game throws out of its loop ends the run with a report rather than silently (#570):
+            //a shipped build has no console, so without this a player's crash left nothing behind
+            try
+            {
+                RunGame();
+            }
+            catch (Exception ex)
+            {
+                RunLog.Crash(ex, "the game loop threw");
+                Environment.ExitCode = 1;
+            }
+
+            void RunGame()
+            {
+                using var game = new BS3DGame(options);
+                game.Run();
+            }
+        }
+
+        /// <summary>
+        /// Everything a run does before the game object exists: the log, the <c>[build]</c> lines, the arguments, the
+        /// renderer and the player's folder. Apart from <see cref="Main"/> because the Android build (#1048) has no
+        /// <c>Main</c>: its activity calls this, then creates and runs the game itself, since there <c>Run</c> returns
+        /// at once and the activity owns the game's life.
+        /// </summary>
+        /// <returns>The run's options, or null when the run ends here (the exit code says why).</returns>
+        internal static LaunchOptions Start(string[] args)
+        {
             //The run's log and its last-chance handlers (#570), before the first line is printed - see RunLog
             RunLog.Install();
 
@@ -58,27 +89,11 @@ namespace BS3D
                 {
                     Console.WriteLine($"[capture] refused: {ex.Message}");
                     Environment.ExitCode = 2;
-                    return;
+                    return null;
                 }
             }
 
-            //Anything the game throws out of its loop ends the run with a report rather than silently (#570):
-            //a shipped build has no console, so without this a player's crash left nothing behind
-            try
-            {
-                RunGame();
-            }
-            catch (Exception ex)
-            {
-                RunLog.Crash(ex, "the game loop threw");
-                Environment.ExitCode = 1;
-            }
-
-            void RunGame()
-            {
-                using var game = new BS3DGame(options);
-                game.Run();
-            }
+            return options;
         }
     }
 }

@@ -386,7 +386,7 @@ namespace Prazsky.Core.Render
                 _graphicsDevice.Indices = _collarIndices;
                 _effect.CurrentTechnique = detail ? _collar : _collarReduced;
                 _effect.CurrentTechnique.Passes[0].Apply();
-                _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, _collarPrimitives, _collarCount);
+                _graphicsDevice.DrawInstanced(PrimitiveType.TriangleList, 0, 0, _collarPrimitives, _collarCount);
             }
 
             //The far stand, its spires wound clockwise from outside like every procedural mesh: the near ring's four tiers,
@@ -431,7 +431,7 @@ namespace Prazsky.Core.Render
                 int first = s;
                 while (s < STAND_SECTORS && SectorSeen(sectors, s)) s++;
                 int start = sectors.Start[first], count = sectors.Start[s - 1] + sectors.Count[s - 1] - start;
-                if (count > 0) _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, start, count);
+                if (count > 0) _graphicsDevice.DrawInstanced(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, start, count);
             }
         }
 

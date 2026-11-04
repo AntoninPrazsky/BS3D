@@ -108,7 +108,7 @@ namespace Prazsky.Core.Render
                 _technique.Passes[0].Apply();
                 InstanceBinding.Set(_device, _meshes[k].VertexBuffer, 0, _instances[k], 0);
                 _device.Indices = _meshes[k].IndexBuffer;
-                _device.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, _meshes[k].PrimitiveCount, _counts[k]);
+                _device.DrawInstanced(PrimitiveType.TriangleList, 0, 0, _meshes[k].PrimitiveCount, _counts[k]);
             }
 
             _effect.CurrentTechnique = technique;

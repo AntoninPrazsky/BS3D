@@ -950,11 +950,14 @@ namespace BS3D
 
             //Typed characters, for the one page that takes them (#548): the window's own text input rather than key
             //states, because it carries what the keyboard layout and a dead key composed — "ř" is one character here
-            //and three keys there. Raised on this thread, from the message pump.
+            //and three keys there. Raised on this thread, from the message pump. MonoGame's Android window has no such
+            //event: a phone types through the system's soft keyboard, which is #1052's to open (GameAndroid, #1048).
+#if !ANDROID
             Window.TextInput += (_, e) =>
             {
                 if (_screens?.Active is Screens.MenuPage { CapturesKeyboard: true } page) page.OnTextInput(e.Character);
             };
+#endif
 
             SetGraphics();
 

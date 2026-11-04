@@ -616,7 +616,7 @@ namespace Prazsky.Core.Render
 
                 InstanceBinding.Set(_graphicsDevice, bucket.Mesh.VertexBuffer, 0, bucket.Instances, 0);
                 _graphicsDevice.Indices = bucket.Mesh.IndexBuffer;
-                _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, bucket.Mesh.PrimitiveCount, bucket.Count);
+                _graphicsDevice.DrawInstanced(PrimitiveType.TriangleList, 0, 0, bucket.Mesh.PrimitiveCount, bucket.Count);
             }
 
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
@@ -684,7 +684,7 @@ namespace Prazsky.Core.Render
 
             InstanceBinding.Set(_graphicsDevice, mesh.VertexBuffer, 0, _acaciaInstanceBuffer, 0);
             _graphicsDevice.Indices = mesh.IndexBuffer;
-            _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, instances.Length);
+            _graphicsDevice.DrawInstanced(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, instances.Length);
         }
 
         /// <summary>The hearth stones' per-draw upload into the one dynamic instance buffer, grown as needed.</summary>
@@ -864,7 +864,7 @@ namespace Prazsky.Core.Render
 
                 InstanceBinding.Set(_graphicsDevice, bucket.Mesh.VertexBuffer, 0, bucket.Instances, 0);
                 _graphicsDevice.Indices = bucket.Mesh.IndexBuffer;
-                _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, bucket.Mesh.PrimitiveCount, bucket.Count);
+                _graphicsDevice.DrawInstanced(PrimitiveType.TriangleList, 0, 0, bucket.Mesh.PrimitiveCount, bucket.Count);
             }
 
             if (_hearthStoneInstances != null && _hearthStoneMeshes != null)
@@ -877,7 +877,7 @@ namespace Prazsky.Core.Render
                     IProceduralMesh mesh = _hearthStoneMeshes[fire % _hearthStoneMeshes.Length];
                     InstanceBinding.Set(_graphicsDevice, mesh.VertexBuffer, 0, _acaciaInstanceBuffer, 0);
                     _graphicsDevice.Indices = mesh.IndexBuffer;
-                    _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, instances.Length);
+                    _graphicsDevice.DrawInstanced(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, instances.Length);
                 }
             }
 

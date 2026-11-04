@@ -1652,7 +1652,7 @@ namespace Prazsky.Core.Render
 
                 _effect.CurrentTechnique.Passes[0].Apply();
 
-                _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, part.StartIndex, part.PrimitiveCount, instanceCount);
+                _graphicsDevice.DrawInstanced(PrimitiveType.TriangleList, 0, part.StartIndex, part.PrimitiveCount, instanceCount);
             }
 
             _effect.CurrentTechnique = _mainTechnique;
@@ -1676,7 +1676,7 @@ namespace Prazsky.Core.Render
 
                 effect.CurrentTechnique.Passes[0].Apply();
 
-                _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, part.StartIndex, part.PrimitiveCount, instanceCount);
+                _graphicsDevice.DrawInstanced(PrimitiveType.TriangleList, 0, part.StartIndex, part.PrimitiveCount, instanceCount);
             }
         }
 
@@ -1711,7 +1711,7 @@ namespace Prazsky.Core.Render
 
                 _effect.CurrentTechnique.Passes[0].Apply();
 
-                _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, part.StartIndex, part.PrimitiveCount, 1);
+                _graphicsDevice.DrawInstanced(PrimitiveType.TriangleList, 0, part.StartIndex, part.PrimitiveCount, 1);
             }
 
             _effect.CurrentTechnique = _mainTechnique;
@@ -1887,7 +1887,7 @@ namespace Prazsky.Core.Render
 
                 _effect.CurrentTechnique.Passes[0].Apply();
 
-                _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, part.StartIndex, part.PrimitiveCount, instanceCount);
+                _graphicsDevice.DrawInstanced(PrimitiveType.TriangleList, 0, part.StartIndex, part.PrimitiveCount, instanceCount);
             }
 
             _effect.CurrentTechnique = _mainTechnique;
@@ -2724,7 +2724,7 @@ namespace Prazsky.Core.Render
 
             _effect.CurrentTechnique.Passes[0].Apply();
 
-            _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, part.StartIndex, part.PrimitiveCount, count);
+            _graphicsDevice.DrawInstanced(PrimitiveType.TriangleList, 0, part.StartIndex, part.PrimitiveCount, count);
         }
 
         /// <summary>
@@ -2739,7 +2739,7 @@ namespace Prazsky.Core.Render
 
             _effect.CurrentTechnique.Passes[0].Apply();
 
-            _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, count);
+            _graphicsDevice.DrawInstanced(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, count);
         }
 
         /// <summary>
@@ -2800,7 +2800,7 @@ namespace Prazsky.Core.Render
 
             _effect.CurrentTechnique.Passes[0].Apply();
 
-            _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, primitives, count);
+            _graphicsDevice.DrawInstanced(PrimitiveType.TriangleList, 0, 0, primitives, count);
         }
 
         /// <summary>
@@ -2988,7 +2988,7 @@ namespace Prazsky.Core.Render
 
             _effect.CurrentTechnique.Passes[0].Apply();
 
-            _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, RimMesh.PrimitiveCount, instanceCount);
+            _graphicsDevice.DrawInstanced(PrimitiveType.TriangleList, 0, 0, RimMesh.PrimitiveCount, instanceCount);
 
             _graphicsDevice.BlendState = blend;
             _graphicsDevice.DepthStencilState = depth;
