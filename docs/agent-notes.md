@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-04 — #1047 #1048 Android: hra běží na telefonu — desktop (RDT-PC), Claude Code
+- Majitel: Android teď na OpenGL ES přes Potato, nečekat na Vulkan, vlastní fork MonoGame ne (#1047, výjimka ze zmrazení šíře). #251 drží jen pozdější Vulkan. Rozpad: #1048–#1053, dotykové ovládání je `owner-decision` (#1050).
+- Hotovo: `GameAndroid` (vzor GamePi a TW3D) na vivo X300 Ultra kreslí menu i levely v 3168x1440. Na CoreCLR drží Girandole a Cabinet 60 FPS i se střelbou, Mono jen ~42 (CPU).
+- ⚠ GLES MonoGame nechá dělitele instancí další SpriteBatch: zmizelo celé 2D. Každé instancované kreslení jde přes `InstancedDraws.DrawInstanced`.
+- ⚠ Herní režim vivo přepne displej 120 → 60 Hz za běhu, refresh se proto čte znovu každou sekundu. Logcat na tom telefonu občas vypadává, běh zopakuj.
+- Otevřené: #1048 hraní s ovladačem přes Bluetooth a zvuk (majitel), #1049–#1053.
+
 ## 2026-11-02 — #1046 #1045 hra vždy v reálném čase, čas ve skóre — desktop (RDT-PC), Claude Code
 - Hotovo: #1046 Cut už nemá hit-stop ani zpomalený pád, svět se krokuje vždy časem snímku (`WorldTimeScale` pryč). Body za Cut čekají `AwardZoom.CUT_WAIT` 0,9 s. `RealTimeSourceTests` odmítne škálování času světa kdekoli v `Game/`.
 - Majitel: #1015 obráceno, čas bude ve skóre (#1045). Rychlejší dohrání = víc bodů, hodiny stojí při každé animaci kamery, 4 hvězdy musí být těžší. A: „Hra má vždycky běžet v reálném čase. To zpomalování chceme úplně pryč.“ Zpomalení už nenavrhovat.
