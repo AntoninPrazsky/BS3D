@@ -36,6 +36,12 @@
     <EnableMGCBItems>false</EnableMGCBItems>
     <!--As in GamePi (#787): a Windows-only .NET API reached from a shared Game/ file is an error here.-->
     <WarningsAsErrors>$(WarningsAsErrors);CA1416</WarningsAsErrors>
+    <!--CoreCLR, not Mono (#1048): measured on the vivo X300 Ultra in Girandole (1204 balls) at 3168x1440, Mono held about
+    42 FPS (28 to 38 with shots falling) and the same at 720 rows, so the CPU, where CoreCLR held the display's 60 with shots
+    (Cabinet too). Mono offers no AdvSimd, and Bepu is written for the desktop's JIT. .NET 10 still calls CoreCLR on Android
+    experimental (warning XA1040), so a fault that looks like the runtime is checked against UseMonoRuntime=true first.-->
+    <UseMonoRuntime>false</UseMonoRuntime>
+    <NoWarn>$(NoWarn);XA1040</NoWarn>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(BS3DReleaseVersion)' != ''">
