@@ -1110,6 +1110,15 @@ namespace BS3D
             //A scale change is a monitor change more often than not, and the other monitor may have other bits (#859)
             RefreshBackBufferFormat();
 
+            //And another refresh, which the probes' floors and the limiter come off (#81). A phone's system also switches its
+            //own rate under a running game - vivo's game mode takes 120 Hz to 60 a few seconds in - and the Android build
+            //raises this for it (#1048): a floor left at 120's said the 60 the display presents was too slow, and the 3D was
+            //lowered to 720 rows for nothing
+            int refreshBefore = _displayRefreshHz;
+            SetQualityMinFpsFromRefresh();
+            if (_displayRefreshHz != refreshBefore)
+                Console.WriteLine($"[display] the refresh changed: {refreshBefore} Hz to {_displayRefreshHz} Hz");
+
             //Its own line rather than DisplayLine again: that one's mode is the primary display's, and a window dragged
             //onto a second monitor is not on it
             if (DisplayRefresh.TryGetScale(Window.Handle, out float scale, out _))

@@ -58,6 +58,12 @@ namespace BS3D
             //Before the first frame: MonoGame's GLES backend leaves an instanced draw's divisors to the next SpriteBatch
             Platform.GlesInstancing.Install();
 
+            //What the physics runs on (#1048): Bepu is written for wide SIMD, and the runtime on a phone is not the desktop's
+            Console.WriteLine($"[runtime] {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}, "
+                + $"Vector<float> {System.Numerics.Vector<float>.Count} wide, accelerated {System.Numerics.Vector.IsHardwareAccelerated}, "
+                + $"Vector128 accelerated {System.Runtime.Intrinsics.Vector128.IsHardwareAccelerated}, "
+                + $"AdvSimd {System.Runtime.Intrinsics.Arm.AdvSimd.IsSupported}, {System.Environment.ProcessorCount} cores");
+
             string line = Intent?.GetStringExtra("args");
             string[] args = string.IsNullOrWhiteSpace(line)
                 ? Array.Empty<string>()
@@ -71,6 +77,8 @@ namespace BS3D
             }
 
             _game = new BS3DGame(options);
+            //A refresh the system switches under the game (vivo's game mode), handed to the game's thread
+            _game.Components.Add(new Platform.DisplayWatch(_game));
             SetContentView((View)_game.Services.GetService(typeof(View)));
             HideSystemBars();
             _game.Run();
