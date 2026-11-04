@@ -183,7 +183,7 @@ namespace Prazsky.Core.Render
             _device.Indices = _boxIndices;
             _effect.CurrentTechnique = _march;
             _effect.CurrentTechnique.Passes[0].Apply();
-            _device.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, 12, Count);
+            _device.DrawInstanced(PrimitiveType.TriangleList, 0, 0, 12, Count);
 
             //Back to what was bound (the scene's target; preserved, #541), and the layer over it
             if (bound == 0) _device.SetRenderTarget(null);

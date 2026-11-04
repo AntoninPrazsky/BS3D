@@ -9,11 +9,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!--MonoGame: the runtime, both platform packages (the libraries and the plain-net10.0 tools compile against
-        DesktopGL privately, the executables and WindingCheck run WindowsDX) and the content build task. They
-        must move together.-->
+    <!--MonoGame: the runtime, the platform packages (the libraries and the plain-net10.0 tools compile against
+        DesktopGL privately, the executables and WindingCheck run WindowsDX, GamePi DesktopGL and GameAndroid
+        Android, #1048) and the content build task. They must move together.-->
     <PackageVersion Include="MonoGame.Framework.WindowsDX" Version="3.8.5" />
     <PackageVersion Include="MonoGame.Framework.DesktopGL" Version="3.8.5" />
+    <PackageVersion Include="MonoGame.Framework.Android" Version="3.8.5" />
     <PackageVersion Include="MonoGame.Content.Builder.Task" Version="3.8.5" />
 
     <!--Physics: Prazsky.BS3D.Physics and whatever builds a simulation of its own.-->

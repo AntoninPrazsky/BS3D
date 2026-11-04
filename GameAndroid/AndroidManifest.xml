@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <application android:label="@string/app_name" android:icon="@drawable/icon" android:appCategory="game" />
+  <!-- The Potato path draws its balls instanced and discards the scaled 3D's depth: both are OpenGL ES 3.0 -->
+  <uses-feature android:glEsVersion="0x00030000" android:required="true" />
+  <!-- The online scores and the note to the author; InternetCheck asks the network's state first -->
+  <uses-permission android:name="android.permission.INTERNET" />
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+</manifest>

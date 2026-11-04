@@ -103,7 +103,7 @@ namespace Prazsky.Core.Render
                 InstanceBinding.Set(_device, group.Drawn.Vertices, 0, group.Instances, 0);
                 _device.Indices = group.Drawn.Indices;
                 technique.Passes[0].Apply();
-                _device.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, group.Drawn.Primitives, group.Visible);
+                _device.DrawInstanced(PrimitiveType.TriangleList, 0, 0, group.Drawn.Primitives, group.Visible);
             }
 
             effect.CurrentTechnique = previous;

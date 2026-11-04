@@ -1,0 +1,95 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--The Game, built for Android phones on MonoGame's Android backend - OpenGL ES for the picture (#1047, #1048). Like
+  GamePi it is NOT a second game: it compiles Game/'s own sources and owns only what cannot be shared:
+
+  - this project file (net10.0-android, the Android package instead of WindowsDX, no WinForms);
+  - MainActivity, the app's one activity, which takes the place of Program.Main (it calls Program.Start, then creates
+    and runs the game, since on Android Run returns at once);
+  - Platform/, the namesakes of the Windows-only files of Game/Platform, as GamePi has them;
+  - AssetFiles, the spike's stand-in for #1049: the Game reads its levels, music and sound effects as files beside
+    the executable, and on Android they are assets inside the APK.
+
+  It draws through the Potato path with GamePi's nine SM 3.0 effects, the ones committed in GamePi/Shaders/Compiled:
+  MojoShader's OpenGL profile is the same on DesktopGL and Android. Its content (the logo, the HUD's font) is
+  GamePi's Content.mgcb built for Android.
+
+  Needs the Android workload (dotnet workload install android), the Android SDK (found in %LOCALAPPDATA%\Android\Sdk)
+  and JDK 17, named with -p:JavaSdkDirectory=... on the command line. No solution names it yet, so building the
+  others needs no Android tools.-->
+  <PropertyGroup>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <SupportedOSPlatformVersion>24</SupportedOSPlatformVersion>
+    <OutputType>Exe</OutputType>
+    <!--The Game's own names: the player's profile, the run log and the online client read these, and an assembly
+    called anything else would be a different game to all three.-->
+    <AssemblyName>BS3D</AssemblyName>
+    <RootNamespace>BS3D</RootNamespace>
+    <Copyright>Antonín Pražský</Copyright>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <!--The app's identity on a phone and in a store: never changed once a player has it, or the new app cannot update
+    the old one. The owner's other Android game is io.github.antoninprazsky.tw3d.-->
+    <ApplicationId>io.github.antoninprazsky.bs3d</ApplicationId>
+    <ApplicationTitle>BS3D</ApplicationTitle>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>0.1.0</ApplicationDisplayVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <EnableMGCBItems>false</EnableMGCBItems>
+    <!--As in GamePi (#787): a Windows-only .NET API reached from a shared Game/ file is an error here.-->
+    <WarningsAsErrors>$(WarningsAsErrors);CA1416</WarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(BS3DReleaseVersion)' != ''">
+    <AssemblyMetadata Include="BS3DReleaseVersion" Value="$(BS3DReleaseVersion)" />
+  </ItemGroup>
+
+  <!--Every source of the Game but the Windows-only Platform files this project replaces (GamePi's list).-->
+  <ItemGroup>
+    <Compile Include="..\Game\**\*.cs"
+             Exclude="..\Game\bin\**;..\Game\obj\**;..\Game\Content\bin\**;..\Game\Content\obj\**;..\Game\Platform\AudioBackend.cs;..\Game\Platform\CrashDialog.cs;..\Game\Platform\DisplayRefresh.cs;..\Game\Platform\KeyboardLights.cs;..\Game\Platform\PadMotors.cs;..\Game\Platform\QualityLock.cs;..\Game\Platform\TargetDiscard.cs;..\Game\Platform\WindowIcon.cs"
+             LinkBase="Game" />
+    <Compile Include="*.cs;Platform\**\*.cs" Exclude="bin\**;obj\**" />
+  </ItemGroup>
+
+  <!--GamePi's committed OpenGL effects, packed in the app at Content/Shaders, where Load<Effect>("Shaders/...") looks.-->
+  <ItemGroup>
+    <AndroidAsset Include="..\GamePi\Shaders\Compiled\*.xnb" Link="Assets\Content\Shaders\%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <!--GamePi's content build, for Android: the builds for each runtime run in parallel, so each gets its own folder.-->
+  <ItemGroup>
+    <MonoGameContentReference Include="..\GamePi\Content\Content.mgcb" Link="Content\Content.mgcb" OutputFolder="$(MSBuildProjectName)$(RuntimeIdentifier)" />
+  </ItemGroup>
+
+  <!--The levels, the music and the sound effects, packed in the app under the paths the Game reads them from beside
+  its executable; AssetFiles copies them out to a folder it makes the base directory (the stand-in for #1049).-->
+  <ItemGroup>
+    <AndroidAsset Include="..\Game\Levels\**\*.json" Exclude="..\Game\Levels\Prototypes\**" Link="Assets\Files\Levels\%(RecursiveDir)%(Filename)%(Extension)" />
+    <AndroidAsset Include="..\Game\Music\*.ogg" Link="Assets\Files\Music\%(Filename)%(Extension)" />
+    <AndroidAsset Include="..\Game\Music\Drums\*.ogg" Link="Assets\Files\Music\Drums\%(Filename)%(Extension)" />
+    <AndroidAsset Include="..\Game\Sfx\*.ogg" Link="Assets\Files\Sfx\%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <!--The menu's fonts, embedded under the names the Game's LoadEmbeddedFont asks for, as in GamePi.-->
+  <ItemGroup>
+    <EmbeddedResource Include="..\Game\Content\Fonts\Anton-Regular.ttf" Link="Content\Fonts\Anton-Regular.ttf" LogicalName="BS3D.Content.Fonts.Anton-Regular.ttf" />
+    <EmbeddedResource Include="..\Game\Content\Fonts\Inter-Regular.ttf" Link="Content\Fonts\Inter-Regular.ttf" LogicalName="BS3D.Content.Fonts.Inter-Regular.ttf" />
+    <EmbeddedResource Include="..\Game\Content\Fonts\Inter-Bold.ttf" Link="Content\Fonts\Inter-Bold.ttf" LogicalName="BS3D.Content.Fonts.Inter-Bold.ttf" />
+    <EmbeddedResource Include="..\Game\Content\Fonts\PromptFont.ttf" Link="Content\Fonts\PromptFont.ttf" LogicalName="BS3D.Content.Fonts.PromptFont.ttf" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BepuPhysics" />
+    <PackageReference Include="BepuUtilities" />
+    <PackageReference Include="FontStashSharp.MonoGame" />
+    <PackageReference Include="MonoGame.Content.Builder.Task" />
+    <PackageReference Include="MonoGame.Framework.Android" />
+    <PackageReference Include="Myra" />
+    <PackageReference Include="NVorbis" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BS3DLibs\Prazsky.BS3D.Physics\Prazsky.BS3D.Physics.csproj" />
+    <ProjectReference Include="..\BS3DLibs\Prazsky.BS3D\Prazsky.BS3D.csproj" />
+    <ProjectReference Include="..\BS3DLibs\Prazsky.Core\Prazsky.Core.csproj" />
+  </ItemGroup>
+</Project>
