@@ -42,6 +42,8 @@ sampler2D SceneSamplerLinear = sampler_state
 //One texel of the HDR source, and how many source texels make up one output pixel along each axis
 float2 SourceTexelSize;
 int SupersampleFactor;
+//The largest factor the Game and the Testbed set (both clamp to it), and so the GL loops' bound (COUNT_LOOP)
+#define MAX_SUPERSAMPLE 4
 
 //#298 PROBE: non-zero when the scene target is smaller than the back buffer, so the resolve magnifies.
 //A uniform, so the branch below is non-divergent, and there is no gradient op inside it.
@@ -246,9 +248,9 @@ float3 SampleSceneBox(float2 uv)
 {
     float3 color = 0;
 
-    for (int y = 0; y < SupersampleFactor; y++)
+    COUNT_LOOP(y, SupersampleFactor, MAX_SUPERSAMPLE)
     {
-        for (int x = 0; x < SupersampleFactor; x++)
+        COUNT_LOOP(x, SupersampleFactor, MAX_SUPERSAMPLE)
         {
             float2 offset = (float2(x, y) + 0.5 - SupersampleFactor * 0.5) * SourceTexelSize;
             color += tex2Dlod(SceneSampler, float4(uv + offset, 0, 0)).rgb;
@@ -289,9 +291,9 @@ float4 SampleForeground(float2 uv)
 {
     float4 layer = 0;
 
-    for (int y = 0; y < SupersampleFactor; y++)
+    COUNT_LOOP(y, SupersampleFactor, MAX_SUPERSAMPLE)
     {
-        for (int x = 0; x < SupersampleFactor; x++)
+        COUNT_LOOP(x, SupersampleFactor, MAX_SUPERSAMPLE)
         {
             float2 offset = (float2(x, y) + 0.5 - SupersampleFactor * 0.5) * SourceTexelSize;
             layer += tex2Dlod(ForegroundSampler, float4(uv + offset, 0, 0));
@@ -435,9 +437,9 @@ float4 SampleRefraction(float2 uv)
 {
     float4 bend = 0;
 
-    for (int y = 0; y < SupersampleFactor; y++)
+    COUNT_LOOP(y, SupersampleFactor, MAX_SUPERSAMPLE)
     {
-        for (int x = 0; x < SupersampleFactor; x++)
+        COUNT_LOOP(x, SupersampleFactor, MAX_SUPERSAMPLE)
         {
             float2 offset = (float2(x, y) + 0.5 - SupersampleFactor * 0.5) * SourceTexelSize;
             bend += tex2Dlod(RefractionSampler, float4(uv + offset, 0, 0));
@@ -457,9 +459,9 @@ float4 SampleSceneWithAlpha(float2 uv)
     if (MagnifyScene > 0 || SupersampleFactor == 2) scene = tex2Dlod(SceneSamplerLinear, float4(uv, 0, 0));
     else
     {
-        for (int y = 0; y < SupersampleFactor; y++)
+        COUNT_LOOP(y, SupersampleFactor, MAX_SUPERSAMPLE)
         {
-            for (int x = 0; x < SupersampleFactor; x++)
+            COUNT_LOOP(x, SupersampleFactor, MAX_SUPERSAMPLE)
             {
                 float2 offset = (float2(x, y) + 0.5 - SupersampleFactor * 0.5) * SourceTexelSize;
                 scene += tex2Dlod(SceneSampler, float4(uv + offset, 0, 0));

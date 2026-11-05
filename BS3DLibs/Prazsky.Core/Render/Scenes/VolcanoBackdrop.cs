@@ -272,14 +272,10 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// (Re)solves everything about the volcano that depends on its terrain — the rivers' bearings and
-        /// reaches, the vents the fountains are thrown from — and rebuilds the two particle buffers at the
-        /// config's counts. Deterministic: same config, same volcano, every run and in every executable.
-        /// </summary>
-        /// <summary>
-        /// The fountain's vents or fumaroles, <paramref name="name"/> the prefix of their uniforms: a place and a strength
-        /// array each, or under OpenGL ES one <c>&lt;name&gt;Data</c> array of both (#1057), which LavaFountain.fx declares there
-        /// because MojoShader's GLSL can index only one array a program. Set when the volcano is built, never a frame.
+        /// The fountain's vents or fumaroles, <paramref name="name"/> the prefix of their uniforms: a place and a
+        /// strength array each, or under OpenGL ES one <c>&lt;name&gt;Data</c> array of both (#1057), which
+        /// LavaFountain.fx declares there because MojoShader's GLSL can index only one array a program. Set when the
+        /// volcano is built, never a frame.
         /// </summary>
         private static void SetPlaces(Effect effect, string name, Vector3[] positions, float[] strengths)
         {
@@ -296,6 +292,11 @@ namespace Prazsky.Core.Render
             packed.SetValue(data);
         }
 
+        /// <summary>
+        /// (Re)solves everything about the volcano that depends on its terrain — the rivers' bearings and
+        /// reaches, the vents the fountains are thrown from — and rebuilds the two particle buffers at the
+        /// config's counts. Deterministic: same config, same volcano, every run and in every executable.
+        /// </summary>
         private void BuildVolcanoBuffers()
         {
             VolcanoSceneConfig volcano = _volcanoConfig;

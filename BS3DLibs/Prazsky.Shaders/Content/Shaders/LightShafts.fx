@@ -7,7 +7,7 @@
 //its own axis to face the lens. Additive, depth-read and never depth-write: light adds to what is behind it and hides
 //nothing, and the island in front of a shaft occludes it. Drawn only with the lens under the water (SeaLightShafts).
 //
-//Shader Model 5.0, no OPENGL branch.
+//Shader Model 5.0, and 3.0 for OpenGL ES (ShaderTarget.fxh).
 
 #include "ShaderTarget.fxh"
 

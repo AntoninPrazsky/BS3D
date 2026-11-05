@@ -154,6 +154,9 @@ sampler2D SceneSampler = sampler_state
 
 float2 TileSourceTexelSize;
 int TileSize;
+//TileSize's bound in the GL loops (COUNT_LOOP): Shader Model 3.0's longest rep. MotionBlur.cs sets 3 % of the
+//target's height, 44 at a phone's 1440 rows
+#define MAX_TILE_SIZE 255
 
 //The back buffer's size in pixels, and one pixel of it in UV
 float2 OutputSize;
@@ -196,8 +199,7 @@ float4 TileMaxXPS(VertexShaderOutput input) : COLOR
 
     float2 best = 0;
 
-    [loop]
-    for (int i = 0; i < TileSize; i++)
+    COUNT_LOOP(i, TileSize, MAX_TILE_SIZE)
     {
         float2 uv = float2((x0 + i + 0.5) * TileSourceTexelSize.x, v);
         best = VMax(best, tex2Dlod(TileSourceSampler, float4(uv, 0, 0)).xy);
@@ -214,8 +216,7 @@ float4 TileMaxYPS(VertexShaderOutput input) : COLOR
 
     float2 best = 0;
 
-    [loop]
-    for (int i = 0; i < TileSize; i++)
+    COUNT_LOOP(i, TileSize, MAX_TILE_SIZE)
     {
         float2 uv = float2(u, (y0 + i + 0.5) * TileSourceTexelSize.y);
         best = VMax(best, tex2Dlod(TileSourceSampler, float4(uv, 0, 0)).xy);

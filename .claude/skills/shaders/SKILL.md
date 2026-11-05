@@ -20,9 +20,9 @@ description: How to add and wire custom HLSL effects (.fx) in BS3D — content p
 3. All three executables are on **WindowsDX**, so everything builds for DirectX at **Shader Model 5.0**
    (`vs_5_0` / `ps_5_0`), and **the Android build compiles the same sources for OpenGL ES** at Shader Model 3.0
    through MojoShader (#1057). So a new `.fx` includes `ShaderTarget.fxh` first instead of defining its
-   profiles, and what SM 3.0 refuses (integers' bitwise operators, a branch with a derivative inside, a loop to a
-   uniform count over an array, two indexed arrays in one program, a sampler in a vertex shader, more than 224
-   constants) is written under `#if OPENGL` so the DirectX build compiles to the same bytes — read "The shared
+   profiles, and what SM 3.0 refuses or silently breaks (integers' bitwise operators, a branch with a derivative inside,
+   **any loop to a uniform `int` count** — it compiles and runs no times on a phone —, two indexed arrays in one
+   program, a sampler in a vertex shader, more than 224 constants) is written under `#if OPENGL` so the DirectX build compiles to the same bytes — read "The shared
    effects on OpenGL ES" in `docs/rendering.md`. Check a pixel shader for ps_3_0 in seconds through
    `d3dcompiler_47` with `OPENGL` defined; the GameAndroid build is the full check. They run with
    `GraphicsProfile.HiDef`. `Prazsky.Shaders.csproj` sets

@@ -2,8 +2,8 @@ namespace BS3D.Platform
 {
     /// <summary>
     /// The Android build's namesake of <c>Game/Platform/QualityLock.cs</c> (#1048): held at Potato, as GamePi is. The
-    /// phone's MonoGame backend is OpenGL ES through MojoShader, which stops at Shader Model 3.0, so the desktop's
-    /// effects do not exist here and Potato is the one renderer there is.
+    /// desktop's effects are in the package compiled for OpenGL ES (#1057), but nothing draws through them on a phone
+    /// yet: the desktop path at the phone's tiers is #1059 and #1060.
     /// </summary>
     internal static class QualityLock
     {

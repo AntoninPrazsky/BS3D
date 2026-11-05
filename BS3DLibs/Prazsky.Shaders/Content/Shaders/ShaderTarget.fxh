@@ -29,6 +29,13 @@
 //The body follows the macro as a loop's body would.
 #define ARRAY_LOOP(i, count, max) [unroll] for (int i = 0; i < max; i++) if (i < count)
 
+//A loop to a uniform count with no array to index. Shader Model 3.0 keeps such a count in an integer register, and
+//MonoGame's GL runtime never uploads one (it has glUniform4fv and no glUniform4iv), so under GL the count reads 0 and
+//the loop never runs: it compiles without a word, and the frame comes out black (Tonemap) or without what the loop
+//adds. Under GL the loop runs to `max`, a literal, and breaks at the count, which is a float comparison. `max` is at
+//most 255, Shader Model 3.0's longest rep. ARRAY_LOOP is the same cure for a loop that indexes an array.
+#define COUNT_LOOP(i, count, max) [loop] for (int i = 0; i < max; i++) if (i >= count) break; else
+
 #else
 
 #define VS_SHADERMODEL vs_5_0
@@ -40,5 +47,6 @@
 #define BRANCH_UNIFORM_GRADIENTS [branch]
 
 #define ARRAY_LOOP(i, count, max) [loop] for (int i = 0; i < count; i++)
+#define COUNT_LOOP(i, count, max) [loop] for (int i = 0; i < count; i++)
 
 #endif

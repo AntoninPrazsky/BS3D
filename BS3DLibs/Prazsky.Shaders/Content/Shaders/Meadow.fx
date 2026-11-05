@@ -6,7 +6,7 @@
 //
 //Real geometry like the desert and the mountains - a camera-centred grid (shared CreateGridMesh on the C#
 //side) displaced by a smooth rolling field, low around the arena and rising into hills with distance, its
-//normal taken by finite differences. Drawn in both executables, Shader Model 5.0, no OPENGL branch.
+//normal taken by finite differences. Drawn in both executables. Shader Model 5.0, and 3.0 for OpenGL ES (ShaderTarget.fxh).
 
 #include "ShaderTarget.fxh"
 

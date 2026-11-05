@@ -132,8 +132,7 @@ float4 ApplyKillPlaneFade(float4 shaded, float3 worldPosition)
 
 void AddSceneLights(float3 worldPosition, float3 worldNormal, float3 eyeVector, inout float3 diffuse, inout float3 specular)
 {
-    [loop]
-    for (int i = 0; i < SceneLightCount; i++)
+    ARRAY_LOOP(i, SceneLightCount, MAX_SCENE_LIGHTS)
     {
         float3 toLight = SceneLightPosition[i] - worldPosition;
         float dist = length(toLight);

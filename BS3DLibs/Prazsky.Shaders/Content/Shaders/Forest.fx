@@ -12,7 +12,7 @@
 //normal taken by finite differences. The scattered trees, rocks and stumps that stand ON this floor are
 //the Game's own instanced draws (ForestScatter over TerrainMirror.Forest, a CPU mirror of
 //TerrainHeight below - keep the two in one change), so the other two executables draw the bare clearing.
-//Drawn in all three executables, Shader Model 5.0, no OPENGL branch.
+//Drawn in all three executables. Shader Model 5.0, and 3.0 for OpenGL ES (ShaderTarget.fxh).
 
 #include "ShaderTarget.fxh"
 

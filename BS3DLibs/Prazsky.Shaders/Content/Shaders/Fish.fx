@@ -11,7 +11,7 @@
 //above as the water lights anything in it, with a flash where a silver flank turns the light from the surface back at
 //the eye; and faded into the water with distance, because the underwater post (Tonemap.fx) has no depth.
 //
-//Drawn in the Game and the Testbed through the shared SceneRenderer. Shader Model 5.0, no OPENGL branch.
+//Drawn in the Game and the Testbed through the shared SceneRenderer. Shader Model 5.0, and 3.0 for OpenGL ES (ShaderTarget.fxh).
 
 #include "ShaderTarget.fxh"
 

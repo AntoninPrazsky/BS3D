@@ -27,8 +27,8 @@
 //across drivers - Noise.fxh exists to end that) and it has no footprint band-limiting at all, relying on a
 //distance fade that would flatten near sand along with far.
 //
-//Shared between the game and the map editor (both build it for Shader Model 5.0, there being no OPENGL build
-//of any shader). It borrows the scene toolkit: the sky is the dome's two-color gradient in linear radiance,
+//Shared between the game and the map editor (built for Shader Model 5.0, and for 3.0 on OpenGL ES for Android,
+//ShaderTarget.fxh). It borrows the scene toolkit: the sky is the dome's two-color gradient in linear radiance,
 //every procedural feature band-limits against the pixel footprint, and the cloud shadow is the one shared
 //field in Clouds.fxh, so the sand darkens under the very cloud the sky shows overhead (the editor never sets
 //the cloud uniforms, so there CloudSunlight is a flat 1.0 - full sun, no shadow).

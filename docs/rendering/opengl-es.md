@@ -13,7 +13,8 @@ Every `.fx` includes it **in place of defining its profiles**, before anything e
 - `VS_SHADERMODEL` / `PS_SHADERMODEL`: `vs_5_0`/`ps_5_0`, or `vs_3_0`/`ps_3_0` under GL.
 - `FRONT_FACE(name)` among a pixel shader's parameters and `FRONT_FACE_BEGIN(name)` opening its body, for the side of a triangle: SM 5.0 hands a `bool` (`SV_IsFrontFace`), SM 3.0 a float (`VFACE`) whose both signs are non-zero, so a `bool` read straight from it is always true.
 - `BRANCH_UNIFORM_GRADIENTS`: `[branch]` on DirectX, `[flatten]` under GL, for a branch on a uniform with a derivative inside. SM 3.0 cannot tell a uniform from a varying there and refuses the branch (X3528, "can't force branch with gradients on non-inputs"); flattened, it pays for both sides. Acacia's leaf cards and its stone, bark and straw passes.
-- `ARRAY_LOOP(i, count, max)`: a walk over the live part of a uniform array. DirectX loops to the count (`[loop]`); GL unrolls to the array's size and gates each step by the count, so every index is a constant. Savanna's hearths and lights, Volcano's river and flows.
+- `ARRAY_LOOP(i, count, max)`: a walk over the live part of a uniform array. DirectX loops to the count (`[loop]`); GL unrolls to the array's size and gates each step by the count, so every index is a constant. Savanna's hearths and lights, Volcano's river and flows, Cavern's lights and the scene lights on every instanced draw (`Lighting.fxh`).
+- `COUNT_LOOP(i, count, max)`: a loop to a uniform count with no array to index. GL loops to `max`, a literal (at most 255, Shader Model 3.0's longest `rep`), and breaks at the count. The tonemap's supersample box (`MAX_SUPERSAMPLE` 4) and the motion blur's tile passes (`MAX_TILE_SIZE`).
 
 ## What Shader Model 3.0 and MojoShader refuse, and what is done instead
 
@@ -25,9 +26,10 @@ Every `.fx` includes it **in place of defining its profiles**, before anything e
 | a branch with a derivative inside | X3528 | `BRANCH_UNIFORM_GRADIENTS` |
 | a relative address MojoShader cannot translate | "relative address needs replicate swizzle" (Savanna, Volcano) | `ARRAY_LOOP`; an index computed in the loop (Savanna's nearest fire) is replaced by carrying its values out of the loop |
 | two uniform arrays indexed in one program | none: it compiles, and every slot reads another array's (GamePi's Fireworks and Blast, #789) | **one array**: `BlastData`, `ShellData` (GamePi's layouts, which `Blasts.cs` and `Fireworks.cs` fill when the effect has them), `VentData` and `FumaroleData` (a place and a strength in one `float4`, which `VolcanoBackdrop.SetPlaces` fills). Read through accessor macros that are the desktop's arrays on DirectX |
+| ⚠ a loop to an `int` uniform | none: it compiles, and the loop runs no times. Shader Model 3.0 keeps the count in an integer register (`uniform ivec4` in the GLSL), and MonoGame's GL runtime uploads only float vectors (`glUniform4fv`, never `glUniform4iv`), so the count reads 0: the tonemap's frame came out black, and the scene lights, Cavern's lights and the motion blur's tiles added nothing | `ARRAY_LOOP` or `COUNT_LOOP`. **Any `int` or `bool` uniform that reaches a GL program reads 0**; one used only in arithmetic sits in a float register and is safe |
 | a sampler in a vertex program (vertex texture fetch) | "invalid DCL register type for this shader model" | none: the aurora's snow is drawn without the mound map's height (its slope and open sky are still read per pixel). The planting still stands on the mounds, which the phone's aurora has to settle (#1062) |
 
-`GameAndroid`'s build fails on a GL program that indexes two arrays (the `FinishGlEffects` task in `GameAndroid.csproj`, GamePi's `compile.ps1` check over every effect), and CI's `gameandroid` job builds it, so both a refused construct and a second array stop a push.
+`GameAndroid`'s build fails on a GL program that indexes two arrays (GamePi's `compile.ps1` check over every effect), that declares an integer or boolean uniform, or a desktop effect left at mediump (the `FinishGlEffects` task in `GameAndroid.csproj`), and CI's `gameandroid` job builds it, so a refused construct and the three silent ones all stop a push.
 
 ## The integer hash's float twin (#1058)
 

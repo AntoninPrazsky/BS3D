@@ -19,7 +19,7 @@
 //            and this is all such a rotation needs, so the shader is never told where the line runs.
 //
 //Drawn in both executables through the shared SceneRenderer (the map editor builds this file out of this
-//directory too). Shader Model 5.0, no OPENGL branch.
+//directory too). Shader Model 5.0, and 3.0 for OpenGL ES (ShaderTarget.fxh).
 
 #include "ShaderTarget.fxh"
 
