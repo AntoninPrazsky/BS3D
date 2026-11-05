@@ -2023,7 +2023,7 @@ namespace Prazsky.Core.Render
             //Linear radiance like the target it feeds. A full-screen pass (the dream) runs with the depth state off and has
             //no edges, so it wants neither depth nor samples; a backdrop of meshes (the cavern, #958) wants both
             DepthFormat depth = backdrop.DisplayResolutionDepth ? DepthFormat.Depth24 : DepthFormat.None;
-            int samples = backdrop.DisplayResolutionMultiSampleCount;
+            int samples = GraphicsSupport.MultiSamples(backdrop.DisplayResolutionMultiSampleCount);
             if (width > 0 && height > 0 && (_backdropTarget == null || _backdropTarget.Width != width || _backdropTarget.Height != height
                 || _backdropTarget.DepthStencilFormat != depth || _backdropTarget.MultiSampleCount != samples))
             {

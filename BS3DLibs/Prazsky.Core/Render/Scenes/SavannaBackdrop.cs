@@ -201,9 +201,13 @@ namespace Prazsky.Core.Render
             _flameBoxIndexBuffer.SetData(boxIndices);
             _flameVolumeTechnique = _flameEffect.Techniques["FlameVolume"];
             int side = FLAME_NOISE_PERIOD * FLAME_NOISE_TEXELS_PER_UNIT;
-            _flameNoise = new Texture3D(_graphicsDevice, side, side, side, false, SurfaceFormat.Single);
-            _flameNoise.SetData(ProxyVolumes.GradientNoiseTexels(FLAME_NOISE_PERIOD, FLAME_NOISE_TEXELS_PER_UNIT, FLAME_NOISE_SEED));
-            _flameEffect.Parameters["FlameNoiseVolume"].SetValue(_flameNoise);
+            //No volume where the device has no 3D textures (#1059): the fire keeps its billboard flames, as below High
+            if (GraphicsSupport.VolumeTextures(_graphicsDevice))
+            {
+                _flameNoise = new Texture3D(_graphicsDevice, side, side, side, false, SurfaceFormat.Single);
+                _flameNoise.SetData(ProxyVolumes.GradientNoiseTexels(FLAME_NOISE_PERIOD, FLAME_NOISE_TEXELS_PER_UNIT, FLAME_NOISE_SEED));
+                _flameEffect.Parameters["FlameNoiseVolume"].SetValue(_flameNoise);
+            }
         }
 
         /// <inheritdoc/>
@@ -741,7 +745,7 @@ namespace Prazsky.Core.Render
             EffectParameter flameTime = _flameEffect.Parameters["FlameTime"];
 
             _flameEffect.CurrentTechnique = _flameTechnique;
-            bool volume = Services.FineMeshes;
+            bool volume = Services.FineMeshes && _flameNoise != null;
             float boxRadius = FLAME_VOLUME_RADIUS * _savannaConfig.Campfire.FlameSize + FLAME_VOLUME_CLEAR;
             float boxHeight = _savannaConfig.Campfire.FlameSize * _savannaConfig.Campfire.FlameHeightScale + FLAME_VOLUME_CLEAR;
             for (int fire = 0; fire < CampfireCount; fire++)

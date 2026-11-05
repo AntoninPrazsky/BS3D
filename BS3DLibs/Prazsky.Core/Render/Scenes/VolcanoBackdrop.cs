@@ -187,7 +187,8 @@ namespace Prazsky.Core.Render
             _volcanoEffect.Parameters["HorizonHazeDistance"].SetValue(MathF.Max(volcano.HorizonHazeDistance, 1f));
             _volcanoEffect.Parameters["HazeTint"].SetValue(volcano.HazeTint.ToVector3());
             _volcanoEffect.Parameters["HazeStrength"].SetValue(volcano.HazeStrength);
-            _volcanoEffect.Parameters["WindDirection"].SetValue(volcano.Wind.ToVector2());
+            //?. because Volcano.fx declares it and reads it nowhere: the OpenGL ES build drops such a uniform (#1059)
+            _volcanoEffect.Parameters["WindDirection"]?.SetValue(volcano.Wind.ToVector2());
 
             //The land past the field (#748): its shape's dials and its colours. The river's course is solved off the land, so
             //it is BuildVolcanoBuffers'.

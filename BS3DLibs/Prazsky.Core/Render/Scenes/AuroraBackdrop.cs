@@ -414,12 +414,12 @@ namespace Prazsky.Core.Render
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
-        //One draw per run of neighbouring sectors the lens sees, off the one buffer by its first instance
+        //One draw per run of neighbouring sectors the lens sees, off the one buffer bound from the run's first instance
+        //(not a base instance, which MonoGame's OpenGL ES backend refuses: InstancedDraws)
         private void DrawStand(AuroraStandMesh mesh, VertexBuffer instances, StandSectors sectors)
         {
             if (sectors.Total <= 0) return;
 
-            InstanceBinding.Set(_graphicsDevice, mesh.VertexBuffer, 0, instances, 0);
             _graphicsDevice.Indices = mesh.IndexBuffer;
             _effect.CurrentTechnique = _stand;
             _effect.CurrentTechnique.Passes[0].Apply();
@@ -431,7 +431,9 @@ namespace Prazsky.Core.Render
                 int first = s;
                 while (s < STAND_SECTORS && SectorSeen(sectors, s)) s++;
                 int start = sectors.Start[first], count = sectors.Start[s - 1] + sectors.Count[s - 1] - start;
-                if (count > 0) _graphicsDevice.DrawInstanced(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, start, count);
+                if (count <= 0) continue;
+                InstanceBinding.Set(_graphicsDevice, mesh.VertexBuffer, 0, instances, start);
+                _graphicsDevice.DrawInstanced(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, count);
             }
         }
 

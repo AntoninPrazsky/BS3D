@@ -21,7 +21,7 @@ Three rules govern most of it. **The scene renders in linear radiance and is ton
 - [Special ball kinds](rendering/ball-kinds.md): rock, clear glass, bomb, zap, acid, frozen, infectious, gravity, heavy, wildcard, and the crossings.
 - [Motion blur, resolution and aspect](rendering/motion-blur-and-resolution.md): the velocity pass, the shutter, the distance trap, the shot stretch, 16:9 to 21:9, what supersampling costs.
 - [The Potato path](rendering/potato-path.md): GamePi's forward path, its DirectX build, cost levers, drawn edges.
-- [The shared effects on OpenGL ES](rendering/opengl-es.md): the second build of every effect (Android), `ShaderTarget.fxh`'s macros, what Shader Model 3.0 and MojoShader refuse, the integer hash's float twin, highp over MonoGame's mediump.
+- [The shared effects on OpenGL ES](rendering/opengl-es.md): the second build of every effect (Android), `ShaderTarget.fxh`'s macros, what Shader Model 3.0 and MojoShader refuse, the integer hash's float twin, highp over MonoGame's mediump, and what the desktop path on a phone lacks (`desktop`, #1059).
 
 ## Where the old sections went
 

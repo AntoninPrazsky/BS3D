@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-05 — #1059 desktopová cesta na telefonu — desktop (RDT-PC), Claude Code
+- Hotovo: argument `desktop` kreslí na Androidu desktopovým rendererem; všech 21 scén běží. Na Low: louka a město 47–48 FPS nativně, 60 při 1080 i 720 řádcích; menu při 1080 řádcích 32–60 podle scény.
+- ⚠ MonoGame Android nemá Texture3D, resolve MSAA ani base instance; GL zahodí nepoužitou uniformu (`Parameters["X"].SetValue` pak na telefonu spadne při startu). Vše ošetřeno, tabulka v `docs/rendering/opengl-es.md`.
+- ⚠ Ovladač Adreno odmítl VFACE od MojoShaderu (globální inicializátor); build ho přepisuje. Odhalil to `glslangValidator` z emulátoru bez telefonu.
+- Otevřené: 3D šum přes 2D atlas (#1063), výška závějí (#1062), tiery a Auto (#1060).
+
 ## 2026-11-05 — #1057 #1058 sdílené shadery pro OpenGL ES — desktop (RDT-PC), Claude Code
 - Hotovo #1057: všech 49 efektů se překládá i pro GL (SM 3.0) v buildu GameAndroid; DirectX bajt po bajtu stejný (58 hashů). Pravidla: `docs/rendering/opengl-es.md`.
 - #1058: celočíselný hash má pod GL float dvojče; χ² 49–92, LatticeProbe jako u int hashe.

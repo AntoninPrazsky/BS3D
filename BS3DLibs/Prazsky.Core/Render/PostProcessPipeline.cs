@@ -192,7 +192,7 @@ namespace Prazsky.Core.Render
 
         //How many samples the targets below ssaa 2 carry, and what the scene target was last built with —
         //EnsureTarget compares both, so a change of samples alone rebuilds it. See MsaaSamples.
-        private int _msaaSamples = MSAA_SAMPLES;
+        private int _msaaSamples = GraphicsSupport.MultiSamples(MSAA_SAMPLES);
         private int _sceneTargetMsaa = -1;
 
         //#298 PROBE: the fraction of the back buffer the scene target is, below 1. See RenderScale.
@@ -480,7 +480,7 @@ namespace Prazsky.Core.Render
             get => _msaaSamples;
             set
             {
-                int wanted = Math.Clamp(value, 0, 8);
+                int wanted = GraphicsSupport.MultiSamples(Math.Clamp(value, 0, 8));
                 if (wanted == _msaaSamples) return;
 
                 _msaaSamples = wanted;
