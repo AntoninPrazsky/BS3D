@@ -182,6 +182,12 @@ namespace BS3D.Screens
             /// </summary>
             public string ToggleCaption, TogglePadCaption;
 
+            /// <summary>
+            /// The detail names a key ("Space fires too"), so it is the keyboard's alone: the pad's card draws none. Every
+            /// other detail names no control and is every hand's.
+            /// </summary>
+            public bool KeyboardDetail;
+
             //The touch caption with its sides swapped, made the first time it is asked for and kept
             private string _touchCaptionMirrored;
 
@@ -310,7 +316,7 @@ namespace BS3D.Screens
             new()
             {
                 Lesson = Lesson.Fire, Key = "fire", FromLevel = 0, Action = true,
-                Glyph = MOUSE_LEFT, Caption = "Click to fire", Detail = "Space fires too",
+                Glyph = MOUSE_LEFT, Caption = "Click to fire", Detail = "Space fires too", KeyboardDetail = true,
                 PadGlyph = PAD_RIGHT_TRIGGER, PadCaption = "Pull the right trigger to fire",
                 TouchGlyph = TOUCH_TAP, TouchCaption = "Tap on the right to fire",
                 Praise = "Boom!",
@@ -595,13 +601,16 @@ namespace BS3D.Screens
         private static (string Glyph, string Caption, string Detail) Words(Definition face, Device hand, bool aimOnRight,
             bool leanToggles) => hand switch
         {
-            Device.Gamepad when leanToggles && face.TogglePadCaption != null => (face.PadGlyph, face.TogglePadCaption, face.Detail),
-            Device.Gamepad => (face.PadGlyph ?? face.Glyph, face.PadCaption ?? face.Caption, face.Detail),
+            Device.Gamepad when leanToggles && face.TogglePadCaption != null => (face.PadGlyph, face.TogglePadCaption, PadDetail(face)),
+            Device.Gamepad => (face.PadGlyph ?? face.Glyph, face.PadCaption ?? face.Caption, PadDetail(face)),
             //A card with no touch words names no control (the rules, the score, the kinds), so its keyboard words are everyone's
             Device.Touch when face.TouchCaption != null => (face.TouchGlyph, face.TouchCaptionFor(aimOnRight), face.TouchDetail),
             Device.KeyboardMouse when leanToggles && face.ToggleCaption != null => (face.Glyph, face.ToggleCaption, face.Detail),
             _ => (face.Glyph, face.Caption, face.Detail),
         };
+
+        //The pad's small line: the card's own, unless it names a key
+        private static string PadDetail(Definition face) => face.KeyboardDetail ? null : face.Detail;
 
         /// <summary>A touch caption with its sides swapped (#1051): "on the left" for "on the right" and back.</summary>
         internal static string MirrorSides(string caption) =>
