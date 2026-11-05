@@ -39,6 +39,15 @@ namespace BS3D.Platform
         /// <summary>Whether a pad answers here, so the mixer can say once which route it takes.</summary>
         internal static bool HasPad => _pad != null;
 
+        /// <summary>The route as the rumble mixer's log names it.</summary>
+        internal static string Route => "Windows.Gaming.Input: body and trigger motors";
+
+        /// <summary>
+        /// False: when no pad answers here, MonoGame's own <c>SetVibration</c> (XInput) drives the body motors. Android's
+        /// namesake is the one that replaces it, because MonoGame's call there ignores the levels (#1048).
+        /// </summary>
+        internal static bool ReplacesSetVibration => false;
+
         /// <summary>
         /// Starts listening for the pad. Once, at startup; any failure leaves the game on XInput's two motors, which is
         /// what it had before.

@@ -11,6 +11,12 @@ namespace BS3D.Platform
         /// <summary>Never: there is no trigger route on Linux.</summary>
         internal static bool HasPad => false;
 
+        /// <summary>The route as the rumble mixer's log would name it; never taken here.</summary>
+        internal static string Route => "none";
+
+        /// <summary>False: MonoGame's own <c>SetVibration</c> (SDL) drives the body motors.</summary>
+        internal static bool ReplacesSetVibration => false;
+
         /// <summary>Nothing to start.</summary>
         internal static void Start() { }
 

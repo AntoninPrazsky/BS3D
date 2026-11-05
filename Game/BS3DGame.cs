@@ -2507,8 +2507,9 @@ namespace BS3D
         {
             //First, and unconditionally: vibration is a device state, not a frame state, and the pad does not
             //know the process is about to leave (#378). Direct rather than through the rumble mixer — there is no more
-            //frame for a mixer to decay over, only one last word to the device.
-            GamePad.SetVibration(PlayerIndex.One, 0f, 0f);
+            //frame for a mixer to decay over, only one last word to the device. Not where PadMotors replaces it: on Android
+            //MonoGame's call shakes the pad at full for half a second whatever it is asked, a zero included (#1048).
+            if (!PadMotors.ReplacesSetVibration) GamePad.SetVibration(PlayerIndex.One, 0f, 0f);
 
             //And the trigger motors, which only Windows.Gaming.Input reaches (#188)
             PadMotors.TrySet(0f, 0f, 0f, 0f);

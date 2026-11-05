@@ -5,21 +5,10 @@ using Microsoft.Xna.Framework;
 namespace BS3D.Platform
 {
     /// <summary>
-    /// The Android build's namesakes of the Windows files whose devices a phone does not have (#1048): an Xbox pad's
-    /// trigger motors through <c>Windows.Gaming.Input</c> (the rumble mixer falls back to MonoGame's own
-    /// <c>SetVibration</c>, as on the Pi), a backlit keyboard's lamps, and a window icon (the launcher's icon is the
-    /// APK's).
+    /// The Android build's namesakes of the Windows files whose devices a phone does not have (#1048): a backlit
+    /// keyboard's lamps, and a window icon (the launcher's icon is the APK's). The pad's motors have a namesake of their
+    /// own (<see cref="PadMotors"/>).
     /// </summary>
-    internal static class PadMotors
-    {
-        internal static bool HasPad => false;
-
-        internal static void Start() { }
-
-        internal static bool TrySet(float leftMotor, float rightMotor, float leftTrigger, float rightTrigger) => false;
-    }
-
-    /// <inheritdoc cref="PadMotors"/>
     internal static class KeyboardLights
     {
         internal static KeyLightLayout Layout => null;
@@ -33,7 +22,7 @@ namespace BS3D.Platform
         internal static void Submit(Vector3[] lamps, bool resend) { }
     }
 
-    /// <inheritdoc cref="PadMotors"/>
+    /// <inheritdoc cref="KeyboardLights"/>
     internal static class WindowIcon
     {
         internal static void Apply(IntPtr windowHandle) { }

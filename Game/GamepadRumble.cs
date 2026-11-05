@@ -21,7 +21,9 @@ namespace BS3D
     /// answers the shot, the left the aim. XInput has no trigger motors, so all four go out through
     /// <see cref="PadMotors"/> (Windows.Gaming.Input) whenever a pad answers there, and only the body's two through
     /// <see cref="GamePad.SetVibration(PlayerIndex, float, float)"/> when none does — never both on one frame, since two
-    /// APIs writing the same body motors would each overwrite the other.
+    /// APIs writing the same body motors would each overwrite the other. On Android <see cref="PadMotors"/> takes every
+    /// write (<c>PadMotors.ReplacesSetVibration</c>): MonoGame's own call there ignores the levels and shakes the pad at
+    /// full (#1048).
     /// </para>
     /// </summary>
     internal sealed class GamepadRumble
@@ -356,8 +358,8 @@ namespace BS3D
             {
                 _throughPadMotors = throughPadMotors;
                 Console.WriteLine(throughPadMotors
-                    ? "[pad] rumble through Windows.Gaming.Input: body and trigger motors"
-                    : "[pad] rumble through XInput: the body motors only");
+                    ? $"[pad] rumble through {PadMotors.Route}"
+                    : "[pad] rumble through MonoGame's SetVibration: the body motors only");
             }
 
             if (throughPadMotors)
