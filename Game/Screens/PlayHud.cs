@@ -2961,7 +2961,8 @@ namespace BS3D.Screens
             //Centred vertically in the gap between the FPS line and the balls-left readout, capped to fit.
             int maxHeight = viewport.Height - 2 * margin;
             int panelHeight = Math.Min(maxHeight, Scaled(PROFILE_HEIGHT));
-            int panelX = margin;
+            //Clear of a camera's cutout at the left edge, which stands at the panel's height (#1055)
+            int panelX = margin + Platform.DisplayRefresh.CutoutLeft;
             int panelTop = (viewport.Height - panelHeight) / 2;
             if (panelHeight <= width) return;
 

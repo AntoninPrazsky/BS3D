@@ -26,7 +26,7 @@ Pravidla:
 - ⚠ Posuvník omezený displejem se Myře změří jako „vejde se“, i když ořezává (`mustFit`, `ScrollShortfall`).
 - Review našel šest slabin na telefonu, opraveno před merge.
 - Majitel k velikosti: „Vypadá to dobře.“ Hotovo i psaní přes systémový dialog (`StepPhoneTyping`) a schované řádky Fullscreen, Keyboard lights a More keys (`OnPhone`). #1052 uzavřeno.
-- Otevřené: výřez kamery #1055.
+- Hotovo #1055: průstřel kamery (121 px do boční hrany). Panel se siluetou shluku a lupa se odsadí o bezpečný okraj Androidu (`DisplayRefresh.CutoutLeft/Right`).
 
 ## 2026-11-05 — #1054 přesné míření jako toggle; #1048 pád po výhře — desktop (RDT-PC), Claude Code
 - Majitel: chce toggle i na desktopu: „jeden stisk míření zahájí a zůstane tak, další ho vypne“. Hotovo pro pravé tlačítko i levou spoušť, v nastavení Precise aim: Toggle (výchozí) / Hold.

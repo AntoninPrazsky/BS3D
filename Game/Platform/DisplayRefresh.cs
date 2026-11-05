@@ -183,6 +183,15 @@ namespace BS3D.Platform
         }
 
         /// <summary>
+        /// How far the display's cutout reaches into the left and the right edge, in pixels (#1055): what a readout standing
+        /// at an edge keeps clear of. None on a monitor.
+        /// </summary>
+        internal static int CutoutLeft => 0;
+
+        /// <inheritdoc cref="CutoutLeft"/>
+        internal static int CutoutRight => 0;
+
+        /// <summary>
         /// The scale Windows sets for the monitor <paramref name="windowHandle"/> is on, its DPI over 96 (1.25 at 125 %),
         /// and whether the window is DPI-aware per monitor (#825). False on any failure, or before the window exists.
         /// <para>
