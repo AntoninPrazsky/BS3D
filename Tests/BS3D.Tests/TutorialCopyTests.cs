@@ -107,6 +107,23 @@ namespace BS3D.Tests
         }
 
         [Fact]
+        public void No_pad_or_touch_card_names_a_key_or_the_mouse()
+        {
+            //The fire card's "Space fires too" stood under the pad's "Pull the right trigger to fire" until 2026-11-05: a detail
+            //is every hand's unless it names a key, and then it is the keyboard's alone
+            //The key by its capitalised name ("empty space" is a place, not a key), the rest whatever their case
+            Regex keyboard = new(@"\bSpace\b|(?i:\b(click|right-click|mouse|keys?|esc|enter)\b)");
+            List<string> faults = Tutorial.Steps()
+                .Where(s => s.Hand != Tutorial.Device.KeyboardMouse)
+                .Where(s => keyboard.IsMatch(s.Caption ?? "") || keyboard.IsMatch(s.Detail ?? ""))
+                .Select(s => $"{s.Key} step {s.Step}, {s.Hand}: '{s.Caption}' / '{s.Detail}'")
+                .ToList();
+
+            Assert.True(faults.Count == 0, string.Join("\n", faults));
+            Assert.Contains(Tutorial.Steps(), s => s.Key == "fire" && s.Hand == Tutorial.Device.KeyboardMouse && s.Detail == "Space fires too");
+        }
+
+        [Fact]
         public void The_combination_is_two_steps_in_each_hand_and_every_other_card_is_one()
         {
             foreach (Tutorial.StepCopy step in Tutorial.Steps())
