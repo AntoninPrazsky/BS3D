@@ -293,11 +293,12 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void TheWayOutIsOneInstructingCardInBothHandsWithNoGlyph()
+        public void TheWayOutIsOneInstructingCardInEveryHandWithNoGlyph()
         {
             List<Tutorial.StepCopy> steps = Tutorial.Steps().Where(s => s.Key == "throwaway").ToList();
 
-            Assert.Equal(2, steps.Count);
+            //The keyboard's, the pad's and the touch screen's (#1051)
+            Assert.Equal(3, steps.Count);
             Assert.All(steps, s =>
             {
                 Assert.Equal((SEND_OFF, "Wasting a ball is fine", 0, true), (s.Caption, s.Detail, s.Step, s.Instructs));

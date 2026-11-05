@@ -640,6 +640,9 @@ namespace BS3D
         //The lean's own rung (#497), the same shape for the same reason
         private float _aimSensitivity = 1f;
 
+        //The touch screen's rung (#1051), the same again
+        private float _touchSensitivity = 1f;
+
         //The four volumes and the pad's row (#378) are read off _effective since #583: 1 is the authored mix,
         //and the "mute" argument holds the master at 0 without writing it (see EffectiveSettings).
 
@@ -926,6 +929,12 @@ namespace BS3D
         /// is used, as the general one is, for the same reason.
         /// </summary>
         internal float AimSensitivity => _aimSensitivity;
+
+        /// <summary>The player's dial on a finger's aim (#1051), read where it is used as the others are.</summary>
+        internal float TouchSensitivity => _touchSensitivity;
+
+        /// <summary>Whether the touch screen aims on its right side (#1050), read where it is used.</summary>
+        internal bool TouchAimOnRight => _settings.TouchAimOnRight;
 
         internal bool IsAberrationEnabled => _effective.Aberration;
         internal bool IsGrainEnabled => _effective.Grain;

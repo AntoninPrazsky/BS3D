@@ -928,6 +928,7 @@ namespace BS3D
             //to a rung from a value that is not on one.
             _mouseSensitivity = NearestSensitivityRung(_settings.Sensitivity);
             _aimSensitivity = NearestSensitivityRung(_settings.AimSensitivity);
+            _touchSensitivity = NearestSensitivityRung(_settings.TouchSensitivity);
 
             _uncappedFps = launch.UncappedFps ?? _settings.UncappedFps;
 

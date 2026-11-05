@@ -63,7 +63,7 @@ namespace BS3D.Screens
     /// literally those balls becoming those points.
     /// </para>
     /// </summary>
-    internal sealed class PlayHud
+    internal sealed partial class PlayHud
     {
         private readonly BS3DGame _game;
 
@@ -1371,7 +1371,7 @@ namespace BS3D.Screens
             if ((parts & HudParts.Field) != 0) DrawMagazine(queue, kinds, queueFrom, queueFade, score, viewport, margin);
             if ((parts & HudParts.Play) != 0)
             {
-                DrawSwap(swapCharges, brakeCharges, cutCharges, brakeBlock, cutBlocked, tutorial.OnGamepad, MultiplierOf(score), viewport, margin);
+                DrawSwap(swapCharges, brakeCharges, cutCharges, brakeBlock, cutBlocked, tutorial.OnGamepad, tutorial.OnTouch, MultiplierOf(score), viewport, margin);
 
                 //The card is given the score's left edge rather than measuring it again: it is what bounds the
                 //strip the card may stand in (#461), and one measurement cannot disagree with the other.
@@ -1395,7 +1395,7 @@ namespace BS3D.Screens
 
             //The "fire" chip for a player who has stopped (#925), over the aim point's own space: after the awards and the lost
             //streak's words, which cannot be up together with it (it needs ten seconds without a shot)
-            if ((parts & HudParts.Play) != 0) DrawFireHint(viewport, tutorial.OnGamepad);
+            if ((parts & HudParts.Play) != 0) DrawFireHint(viewport, tutorial.OnGamepad, tutorial.OnTouch);
 
             batch.End();
         }
@@ -2297,7 +2297,7 @@ namespace BS3D.Screens
         //Every keycap or button a chip draws, either device's (#694): the column is as wide as the widest of them, so
         //it holds when the hand moves between the keyboard and the pad
         private static readonly string[] CHIP_GLYPHS =
-            { SWAP_GLYPH_KEY, SWAP_GLYPH_PAD, BRAKE_GLYPH_KEY, BRAKE_GLYPH_PAD, CUT_GLYPH_KEY, CUT_GLYPH_PAD };
+            { SWAP_GLYPH_KEY, SWAP_GLYPH_PAD, BRAKE_GLYPH_KEY, BRAKE_GLYPH_PAD, CUT_GLYPH_KEY, CUT_GLYPH_PAD, TOUCH_TAP_GLYPH };
 
         //Every caption a chip can show, "×9" standing for any single-digit count (#694): the caption column is as
         //wide as the widest, so it holds when "Swap" becomes "Swap used" or "Swap · keep ×5". A wider one (a testing
@@ -2355,8 +2355,11 @@ namespace BS3D.Screens
         /// <param name="cutBlocked">Whether the round in the bore cannot be turned into a cutter now (#844).</param>
         /// <param name="streak">The streak the readout shows, which the Swap's hint names ("Swap · keep ×3", #845).</param>
         private void DrawSwap(int swapCharges, int brakeCharges, int cutCharges, BrakeBlock brakeBlock, bool cutBlocked, bool onGamepad,
-            int streak, Viewport viewport, int margin)
+            bool onTouch, int streak, Viewport viewport, int margin)
         {
+            //Last frame's chips are not this frame's buttons (#1051): each is recorded again as it is drawn
+            ForgetChipBounds();
+
             if (swapCharges < 0 && brakeCharges < 0 && cutCharges < 0) return;
 
             SpriteFontBase glyphFont = _game.HudFontChipPrompt;
@@ -2397,15 +2400,15 @@ namespace BS3D.Screens
             int row = 0;
 
             if (swapCharges >= 0)
-                DrawChip(row++, PowerupKind.Swap, onGamepad ? SWAP_GLYPH_PAD : SWAP_GLYPH_KEY, swapText, State(swapCharges, null), in layout,
+                DrawChip(row++, PowerupKind.Swap, onGamepad ? SWAP_GLYPH_PAD : onTouch ? TOUCH_TAP_GLYPH : SWAP_GLYPH_KEY, swapText, State(swapCharges, null), in layout,
                     viewport, margin, hint ? SwapHintGlow() : 0f);
 
             if (brakeCharges >= 0)
-                DrawChip(row++, PowerupKind.Brake, onGamepad ? BRAKE_GLYPH_PAD : BRAKE_GLYPH_KEY, _brakeText, State(brakeCharges, brakeNotNow),
+                DrawChip(row++, PowerupKind.Brake, onGamepad ? BRAKE_GLYPH_PAD : onTouch ? TOUCH_TAP_GLYPH : BRAKE_GLYPH_KEY, _brakeText, State(brakeCharges, brakeNotNow),
                     in layout, viewport, margin);
 
             if (cutCharges >= 0)
-                DrawChip(row, PowerupKind.Cut, onGamepad ? CUT_GLYPH_PAD : CUT_GLYPH_KEY, _cutText, State(cutCharges, cutNotNow), in layout,
+                DrawChip(row, PowerupKind.Cut, onGamepad ? CUT_GLYPH_PAD : onTouch ? TOUCH_TAP_GLYPH : CUT_GLYPH_KEY, _cutText, State(cutCharges, cutNotNow), in layout,
                     viewport, margin, _cutPulse.Heat, HUD_CUT_PULSE);
         }
 
@@ -2550,6 +2553,9 @@ namespace BS3D.Screens
 
             DrawString(glyphFont, glyph, glyphAt, glyphColour, 1f);
             DrawString(captionFont, text, captionAt, captionColour, 1f);
+
+            //Where a finger presses it (#1051): the keycap to the caption's end, a row's height, and a margin round it
+            NoteChipBounds(kind, glyphAt.X, top, captionAt.X + captionSize.X, top + height);
 
             //The pictogram (#991) between the keycap's column and the caption (#1030: key, picture, word), centred on the
             //keycap's ink, in the keycap's own colour and state: its soft backing, its offset shadow, then the picture, as the
@@ -3493,6 +3499,7 @@ namespace BS3D.Screens
         private const float SKIP_HINT_FADE = 0.35f;
         private const string SKIP_HINT_MOUSE = "Click or Space to skip";
         private const string SKIP_HINT_PAD = "to skip";
+        private const string SKIP_HINT_TOUCH = "Tap to skip";
         private const int HUD_SKIP_HINT_GAP = 10;
 
         private float _skipHintAlpha;
@@ -3546,14 +3553,15 @@ namespace BS3D.Screens
         //tutorial's detail font, faded by the hint's own presence. The glyph is the fire button's, since that is
         //what skips, in whichever device the tutorial last saw.
         private void DrawSkipHint(Tutorial tutorial, Viewport viewport, int margin) =>
-            DrawSkipHint(tutorial.OnGamepad, tutorial.SkipGlyph, viewport, margin);
+            DrawSkipHint(tutorial.OnGamepad, tutorial.SkipGlyph, viewport, margin, tutorial.OnTouch);
 
-        private void DrawSkipHint(bool onGamepad, string glyph, Viewport viewport, int margin)
+        private void DrawSkipHint(bool onGamepad, string glyph, Viewport viewport, int margin, bool onTouch = false)
         {
             float alpha = _skipHintAlpha;
             if (alpha <= 0.005f) return;
 
-            string caption = onGamepad ? SKIP_HINT_PAD : SKIP_HINT_MOUSE;
+            //On a touch screen any finger skips (#1051)
+            string caption = onGamepad ? SKIP_HINT_PAD : onTouch ? SKIP_HINT_TOUCH : SKIP_HINT_MOUSE;
 
             SpriteFontBase glyphFont = _game.HudFontPrompt;
             SpriteFontBase captionFont = _game.HudFontTutorialDetail;
@@ -3597,12 +3605,13 @@ namespace BS3D.Screens
             _fireHintAge = age;
         }
 
-        private void DrawFireHint(Viewport viewport, bool onGamepad)
+        private void DrawFireHint(Viewport viewport, bool onGamepad, bool onTouch)
         {
             float presence = _fireHintPresence;
             if (presence <= 0.01f) return;
 
-            string glyph = Tutorial.SkipGlyphFor(onGamepad);
+            //A finger's tap on a touch screen (#1051), the fire button's glyph everywhere else
+            string glyph = onTouch ? TouchControls.TAP_GLYPH : Tutorial.SkipGlyphFor(onGamepad);
             SpriteFontBase glyphFont = _game.HudFontPrompt;
             SpriteFontBase captionFont = _game.HudFontTutorial;
 

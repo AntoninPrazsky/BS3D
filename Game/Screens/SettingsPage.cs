@@ -98,6 +98,10 @@ namespace BS3D.Screens
 
         //The rows with two states, On and Off, as checkboxes (#816)
         private CheckRow _keyboardLightsCheck;
+
+        //The touch screen's two rows (#1051), built only where there is a touch screen: null everywhere else
+        private Label _touchSensitivityValue;
+        private CheckRow _touchSidesCheck;
         private CheckRow _fullscreenCheck, _adaptiveQualityCheck, _sceneryCheck, _fpsCheck, _aberrationCheck, _grainCheck, _motionBlurCheck, _tenBitCheck;
         private CheckRow _tutorialCheck, _introLogoCheck, _dropCinematicCheck, _unlockAllCheck;
 
@@ -482,6 +486,14 @@ namespace BS3D.Screens
             //them that answers the game. The reason beside it says when Windows lists no keyboard to light
             AddCheckRow(grid, 3, "Keyboard lights", Game.ToggleKeyboardLighting, out _keyboardLightsCheck);
 
+            //The touch screen's (#1051): how far a finger's drag turns the gun, and the two sides swapped for a player who
+            //aims with the other thumb (#1050). Only where a touch screen answers: a row with nothing to touch is a dead row
+            if (Microsoft.Xna.Framework.Input.Touch.TouchPanel.GetCapabilities().IsConnected)
+            {
+                AddRow(grid, 4, "Touch sensitivity", Game.CycleTouchSensitivity, out _touchSensitivityValue);
+                AddCheckRow(grid, 5, "Aim on the right", Game.ToggleTouchSides, out _touchSidesCheck);
+            }
+
             return grid;
         }
 
@@ -796,6 +808,8 @@ namespace BS3D.Screens
             //and lie, or "0.75×" and read as arithmetic).
             _sensitivityValue.Text = FormatSensitivity(Game.MouseSensitivity);
             _aimSensitivityValue.Text = FormatSensitivity(Game.AimSensitivity);
+            if (_touchSensitivityValue != null) _touchSensitivityValue.Text = FormatSensitivity(Game.TouchSensitivity);
+            _touchSidesCheck?.Show(Game.TouchAimOnRight);
             //In words, not the ★ glyph the picker uses: the value column is set in the display face like
             //every row here, and Anton simply has no star glyph — FontStashSharp would drop it and leave a
             //bare number (which is exactly how this line first rendered).

@@ -83,7 +83,8 @@ namespace BS3D.Screens
                 //the controls page names it.
                 if (Game.IsKeyEdge(keyboard, Keys.Escape)
                     || (pad.IsButtonDown(Buttons.Back) && !Game.PreviousPad.IsButtonDown(Buttons.Back))
-                    || (pad.IsButtonDown(Buttons.Start) && !Game.PreviousPad.IsButtonDown(Buttons.Start)))
+                    || (pad.IsButtonDown(Buttons.Start) && !Game.PreviousPad.IsButtonDown(Buttons.Start))
+                    || _touch.Pressed == TouchControls.Button.Pause)
                 {
                     Game.PreviousKeyboard = keyboard;
                     Game.PreviousPad = pad;
@@ -115,8 +116,10 @@ namespace BS3D.Screens
                 //the left mouse button and the pad's A), which are the ones the hand is already on.
                 if (CameraTakeoverEngaged)
                 {
+                    //A finger put down anywhere skips it too (#1051): on a phone the whole screen is the button
                     if (Game.IsKeyEdge(keyboard, Keys.Space)
-                        || (pad.IsButtonDown(Buttons.A) && !Game.PreviousPad.IsButtonDown(Buttons.A)))
+                        || (pad.IsButtonDown(Buttons.A) && !Game.PreviousPad.IsButtonDown(Buttons.A))
+                        || _touch.AnyPress)
                         SkipCameraTakeover();
 
                     Game.PreviousKeyboard = keyboard;
@@ -130,18 +133,22 @@ namespace BS3D.Screens
                 //direction and no muzzle. PressSwap asks CanActivate rather than assuming: a charge might be
                 //spent, the level might already be decided, or a camera takeover might have started the very
                 //frame this edge fired.
+                //And on a touch screen each chip is its own button (#1051)
                 if (Game.IsKeyEdge(keyboard, Keys.E)
-                    || (pad.IsButtonDown(Buttons.X) && !Game.PreviousPad.IsButtonDown(Buttons.X)))
+                    || (pad.IsButtonDown(Buttons.X) && !Game.PreviousPad.IsButtonDown(Buttons.X))
+                    || _touch.Pressed == TouchControls.Button.Swap)
                     PressSwap();
 
                 //Q (the pad's Y) is the ceiling's Brake (#213), the same kind of un-aimed action and asked the same way
                 if (Game.IsKeyEdge(keyboard, Keys.Q)
-                    || (pad.IsButtonDown(Buttons.Y) && !Game.PreviousPad.IsButtonDown(Buttons.Y)))
+                    || (pad.IsButtonDown(Buttons.Y) && !Game.PreviousPad.IsButtonDown(Buttons.Y))
+                    || _touch.Pressed == TouchControls.Button.Brake)
                     PressBrake();
 
                 //R (the pad's right bumper) is the anchor Cut (#213): the round in the bore becomes a cutter
                 if (Game.IsKeyEdge(keyboard, Keys.R)
-                    || (pad.IsButtonDown(Buttons.RightShoulder) && !Game.PreviousPad.IsButtonDown(Buttons.RightShoulder)))
+                    || (pad.IsButtonDown(Buttons.RightShoulder) && !Game.PreviousPad.IsButtonDown(Buttons.RightShoulder))
+                    || _touch.Pressed == TouchControls.Button.Cut)
                     PressCut();
             }
             else if (CameraTakeoverEngaged)
@@ -163,8 +170,17 @@ namespace BS3D.Screens
             float stickX = pad.IsConnected ? pad.ThumbSticks.Left.X : 0f;
             float stickY = pad.IsConnected ? pad.ThumbSticks.Left.Y : 0f;
 
-            float turn = keyboard.IsKeyDown(Keys.A) ? 1f : keyboard.IsKeyDown(Keys.D) ? -1f : -StickSpeed(stickX);
-            float walk = keyboard.IsKeyDown(Keys.W) ? 1f : keyboard.IsKeyDown(Keys.S) ? -1f : StickSpeed(stickY);
+            //The firing side's drag on a touch screen is the same stick (#1050), taken where the pad's is at rest. Its own
+            //pair, so the device note below still reads the pad's stick alone: a finger is not a hand on the pad
+            float moveX = stickX, moveY = stickY;
+            if (stickX == 0f && stickY == 0f && _touch.StickActive)
+            {
+                moveX = _touch.Stick.X;
+                moveY = _touch.Stick.Y;
+            }
+
+            float turn = keyboard.IsKeyDown(Keys.A) ? 1f : keyboard.IsKeyDown(Keys.D) ? -1f : -StickSpeed(moveX);
+            float walk = keyboard.IsKeyDown(Keys.W) ? 1f : keyboard.IsKeyDown(Keys.S) ? -1f : StickSpeed(moveY);
 
             if (turn != 0f) _cannon.Orbit(turn * CANNON_ORBIT_RATE);
             if (walk != 0f) _cannon.Advance(walk * CANNON_ADVANCE_RATE);
@@ -325,12 +341,24 @@ namespace BS3D.Screens
                 && mouse.LeftButton == ButtonState.Pressed && _previousMouse.LeftButton == ButtonState.Released)
                 Shoot();
 
+            //A finger's drag on the aiming side and a tap on the firing side (#1051), as the cursor and the left button
+            ApplyTouchAim(gameTime);
+            if (edgeInputAllowed && _touch.Fire) Shoot();
+
+            //The precise-aim button turns the lean on and off (#1050), and a lean toggled on is a lean held
+            if (edgeInputAllowed && _touch.Pressed == TouchControls.Button.PreciseAim) _touchPreciseAim = !_touchPreciseAim;
+
             //Precise aim is a hold, not an edge, so it is read straight off this frame's state — no
             //edge-input gate: leaning the camera in is not an action that can go off by accident. With the
             //cursor still free the right button is the desktop's, so only the pad's trigger can lean in: a
             //default MouseState reads every button released, which is exactly "ask the pad alone".
             _adsHeld = _cursorCaptured ? PreciseAim.ButtonHeld(mouse, pad) : PreciseAim.ButtonHeld(default, pad);
             _adsPull = _cursorCaptured ? PreciseAim.LeanAmount(mouse, pad) : PreciseAim.LeanAmount(default, pad);
+            if (_touchPreciseAim)
+            {
+                _adsHeld = true;
+                _adsPull = 1f;
+            }
 
             //The lean lesson waits on the hold (#189), and so does the precise-aim hint's card (#1012)
             float leanElapsed = (float)gameTime.ElapsedGameTime.TotalSeconds;

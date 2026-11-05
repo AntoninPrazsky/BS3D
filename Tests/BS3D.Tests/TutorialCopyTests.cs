@@ -37,7 +37,10 @@ namespace BS3D.Tests
         /// <summary>What is wrong with one step's words, or null if a glance can take it in.</summary>
         private static string Fault(string glyph, string caption, string detail)
         {
-            if (!string.IsNullOrEmpty(glyph) && glyph.Length > 1 && !KEY_PAIRS.Contains(glyph))
+            //Counted in what is drawn, not in UTF-16 units: the touch screen's hand and magnifier are one glyph each and two
+            //units (#1051)
+            if (!string.IsNullOrEmpty(glyph) && new System.Globalization.StringInfo(glyph).LengthInTextElements > 1
+                && !KEY_PAIRS.Contains(glyph))
                 return $"the glyph '{glyph}' names several controls";
 
             foreach ((string text, string what, int words) in new[] { (caption, "caption", MAX_CAPTION_WORDS), (detail, "detail", MAX_DETAIL_WORDS) })
@@ -66,7 +69,7 @@ namespace BS3D.Tests
 
                 checkedSteps++;
                 if (Fault(step.Glyph, step.Caption, step.Detail) is { } fault)
-                    faults.Add($"{step.Key} step {step.Step}, {(step.Pad ? "pad" : "keyboard")}: {fault}");
+                    faults.Add($"{step.Key} step {step.Step}, {step.Hand}: {fault}");
             }
 
             //Two hands of every instructing card at least: a Steps() that came back empty would pass the loop above
@@ -112,9 +115,9 @@ namespace BS3D.Tests
                 Assert.True(step.Step == 0 || combination, $"{step.Key} has a step {step.Step}");
             }
 
-            foreach (bool pad in new[] { false, true })
+            foreach (Tutorial.Device hand in new[] { Tutorial.Device.KeyboardMouse, Tutorial.Device.Gamepad, Tutorial.Device.Touch })
             {
-                List<Tutorial.StepCopy> steps = Tutorial.Steps().Where(s => s.Key == "combine" && s.Pad == pad).ToList();
+                List<Tutorial.StepCopy> steps = Tutorial.Steps().Where(s => s.Key == "combine" && s.Hand == hand).ToList();
                 Assert.Equal(2, steps.Count);
 
                 //Each step has a glyph and a caption of its own: the second is not the first said again

@@ -686,6 +686,17 @@ namespace BS3D.Screens
             //keys that are not play. The tab fits its frame with both (#997), as it did not with the price on every line
             column.Widgets.Add(Paragraph("Power-ups", $"Swap from chapter\u00A0{LevelSet.SWAP_FROM_BLOCK}, Brake from {LevelSet.BRAKE_FROM_BLOCK}, Cut from {LevelSet.CUT_FROM_BLOCK}. Each once a level."));
             column.Widgets.Add(Paragraph("More keys", "F11 fullscreen, F12 screenshot, F10 the frame-rate counter."));
+
+            //The touch screen's scheme (#1050, #1051), where there is one: in words rather than a third column of glyphs,
+            //because its precise aim is a toggle and its fire and walk share a side, which the table's lines cannot say.
+            //The sides as the player has them (Settings swaps them)
+            if (Microsoft.Xna.Framework.Input.Touch.TouchPanel.GetCapabilities().IsConnected)
+            {
+                string aim = Game.TouchAimOnRight ? "right" : "left", fire = Game.TouchAimOnRight ? "left" : "right";
+                column.Widgets.Add(Paragraph("Touch",
+                    $"Drag on the {aim} to aim. On the {fire}, tap to fire and drag to walk the gun. The magnifier turns "
+                    + "precise aim on and off, and tapping a power-up's chip uses it. Settings can swap the sides."));
+            }
         }
 
         /// <summary>

@@ -73,6 +73,27 @@ namespace BS3D
             _settingsPage.Refresh();
         }
 
+        /// <summary>The touch screen's rung (#1051), walked as <see cref="CycleSensitivity"/> walks the mouse's.</summary>
+        internal void CycleTouchSensitivity()
+        {
+            int rung = Array.IndexOf(SENSITIVITY_LADDER, _touchSensitivity);
+            _touchSensitivity = SENSITIVITY_LADDER[(rung + 1) % SENSITIVITY_LADDER.Length];
+
+            _settings.TouchSensitivity = _touchSensitivity;
+            SaveSettings();
+
+            _settingsPage.Refresh();
+        }
+
+        /// <summary>Swaps the touch screen's two sides (#1050).</summary>
+        internal void ToggleTouchSides()
+        {
+            _settings.TouchAimOnRight = !_settings.TouchAimOnRight;
+            SaveSettings();
+
+            _settingsPage.Refresh();
+        }
+
         /// <summary>
         /// The rung nearest <paramref name="stored"/> <b>by ratio</b>, which is the only comparison that means
         /// anything on a ladder whose steps are ratios. The general form rather than an example, because the
