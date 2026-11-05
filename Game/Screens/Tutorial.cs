@@ -101,8 +101,8 @@ namespace BS3D.Screens
             DeadWeight,
         }
 
-        /// <summary>What the player's hand was last on, which is what the card draws for.</summary>
-        internal enum Device { KeyboardMouse, Gamepad }
+        /// <summary>What the player's hand was last on, which is what the card draws for. <see cref="Touch"/> is a phone's screen (#1051).</summary>
+        internal enum Device { KeyboardMouse, Gamepad, Touch }
 
         /// <summary>
         /// How the tutorial is run. <see cref="Normal"/> is every player's: gated on the save, recorded to it.
@@ -167,6 +167,24 @@ namespace BS3D.Screens
             public string Caption, PadCaption;
             public string Detail;
             public string Praise;
+
+            /// <summary>
+            /// The touch screen's words (#1051), for every card whose keyboard words name a control. Its caption names the
+            /// side as the default layout has it (aim left, fire right) and is mirrored for a player who swapped them
+            /// (<see cref="TouchCaptionFor"/>). Its detail replaces the keyboard one whenever a touch caption is given, since
+            /// that detail may name a key ("Space fires too"); null there means none.
+            /// </summary>
+            public string TouchGlyph, TouchCaption, TouchDetail;
+
+            //The touch caption with its sides swapped, made the first time it is asked for and kept
+            private string _touchCaptionMirrored;
+
+            /// <summary>The touch caption for the player's layout: as written, or with left and right swapped.</summary>
+            public string TouchCaptionFor(bool aimOnRight)
+            {
+                if (!aimOnRight || TouchCaption == null) return TouchCaption;
+                return _touchCaptionMirrored ??= MirrorSides(TouchCaption);
+            }
 
             /// <summary>
             /// The lesson's <b>second step</b> (#930), or null for the one-step cards every other lesson is. A card that
@@ -246,6 +264,15 @@ namespace BS3D.Screens
         //U+2199 is PromptFont's RB (PlayHud's Cut chip draws the same)
         private const string PAD_RIGHT_BUMPER = "↙";
 
+        //The touch screen's (#1051): PromptFont's pointing hand for a tap, its arrows with a dot for a drag (any way, sideways,
+        //up and down) and its magnifier for the precise-aim button the card names
+        private const string TOUCH_TAP = TouchControls.TAP_GLYPH;
+        private const string TOUCH_DRAG = "⭨";
+        private const string TOUCH_DRAG_SIDEWAYS = "⭤";
+        private const string TOUCH_DRAG_UP_DOWN = "⭥";
+        private const string TOUCH_MAGNIFIER = TouchControls.PRECISE_GLYPH;
+        private const string LEAN_TOUCH_CAPTION = "Tap the magnifier to look down the barrel";
+
         //Where the line's card sits in its chapter, counted from the chapter's end (Saturn in the campaign): also the level
         //the net starts to be shown at (NetIsShownAt)
         private const int LINE_RULE_FROM_LEVEL = -3;
@@ -267,6 +294,7 @@ namespace BS3D.Screens
                 Lesson = Lesson.Aim, Key = "aim", FromLevel = 0, Action = true,
                 Glyph = MOUSE, Caption = "Move the mouse to aim",
                 PadGlyph = PAD_RIGHT_STICK, PadCaption = "Move the right stick to aim",
+                TouchGlyph = TOUCH_DRAG, TouchCaption = "Drag on the left to aim",
                 Praise = "Nice!",
             },
             new()
@@ -274,6 +302,7 @@ namespace BS3D.Screens
                 Lesson = Lesson.Fire, Key = "fire", FromLevel = 0, Action = true,
                 Glyph = MOUSE_LEFT, Caption = "Click to fire", Detail = "Space fires too",
                 PadGlyph = PAD_RIGHT_TRIGGER, PadCaption = "Pull the right trigger to fire",
+                TouchGlyph = TOUCH_TAP, TouchCaption = "Tap on the right to fire",
                 Praise = "Boom!",
             },
             new()
@@ -287,6 +316,7 @@ namespace BS3D.Screens
                 Lesson = Lesson.LeanIn, Key = "lean", FromLevel = 1, Action = true,
                 Glyph = MOUSE_RIGHT, Caption = LEAN_CAPTION,
                 PadGlyph = PAD_LEFT_TRIGGER, PadCaption = LEAN_PAD_CAPTION,
+                TouchGlyph = TOUCH_MAGNIFIER, TouchCaption = LEAN_TOUCH_CAPTION,
                 Praise = "Sharp!",
             },
             new()
@@ -304,6 +334,7 @@ namespace BS3D.Screens
                 Lesson = Lesson.Traverse, Key = "traverse", FromLevel = 3, Action = true,
                 Glyph = KEY_A + KEY_D, Caption = "Walk the gun round the field",
                 PadGlyph = PAD_LEFT_STICK_SIDEWAYS, PadCaption = "Push the left stick sideways to walk round",
+                TouchGlyph = TOUCH_DRAG_SIDEWAYS, TouchCaption = "Drag sideways on the right to walk round",
                 Praise = "Smooth!",
             },
             new()
@@ -311,6 +342,7 @@ namespace BS3D.Screens
                 Lesson = Lesson.Walk, Key = "walk", FromLevel = 4, Action = true,
                 Glyph = KEY_W + KEY_S, Caption = "Step closer to the cluster",
                 PadGlyph = PAD_LEFT_STICK_UP_DOWN, PadCaption = "Push the left stick up to step closer",
+                TouchGlyph = TOUCH_DRAG_UP_DOWN, TouchCaption = "Drag up on the right to step closer",
                 Praise = "Closer!",
             },
             new()
@@ -324,10 +356,12 @@ namespace BS3D.Screens
                 //words, the second the walk's, and the card turns from one to the other when the hold has been kept
                 Glyph = MOUSE_RIGHT, Caption = LEAN_CAPTION,
                 PadGlyph = PAD_LEFT_TRIGGER, PadCaption = LEAN_PAD_CAPTION,
+                TouchGlyph = TOUCH_MAGNIFIER, TouchCaption = LEAN_TOUCH_CAPTION,
                 Second = new Definition
                 {
                     Glyph = KEY_A + KEY_D, Caption = "Now walk the gun round",
                     PadGlyph = PAD_LEFT_STICK_SIDEWAYS, PadCaption = "Now push the left stick sideways",
+                    TouchGlyph = TOUCH_DRAG_SIDEWAYS, TouchCaption = "Now drag sideways on the right",
                 },
                 Praise = "Together!",
             },
@@ -394,6 +428,7 @@ namespace BS3D.Screens
                 Lesson = Lesson.Swap, Key = "swap", Tool = true, Action = true,
                 Glyph = KEY_E, Caption = "Swap the next two balls", Detail = "One swap a level",
                 PadGlyph = PAD_X,
+                TouchGlyph = TOUCH_TAP, TouchCaption = "Tap Swap to swap the next two balls", TouchDetail = "One swap a level",
                 Praise = "Swapped!",
             },
             new()
@@ -404,6 +439,7 @@ namespace BS3D.Screens
                 Lesson = Lesson.Brake, Key = "brake", Tool = true, Contextual = true, Action = true,
                 Glyph = KEY_Q, Caption = "Lift the glass back one step", Detail = "One brake a level",
                 PadGlyph = PAD_Y,
+                TouchGlyph = TOUCH_TAP, TouchCaption = "Tap Brake to lift the glass back", TouchDetail = "One brake a level",
                 Praise = "Lifted!",
             },
             new()
@@ -414,6 +450,7 @@ namespace BS3D.Screens
                 Lesson = Lesson.Cut, Key = "cut", Tool = true, Action = true,
                 Glyph = KEY_R, Caption = "Turn the next ball into a cutter", Detail = "One cut a level",
                 PadGlyph = PAD_RIGHT_BUMPER,
+                TouchGlyph = TOUCH_TAP, TouchCaption = "Tap Cut to make the next ball a cutter", TouchDetail = "One cut a level",
                 Praise = "Armed!",
             },
 
@@ -462,6 +499,7 @@ namespace BS3D.Screens
                 Lesson = Lesson.AimHint, Key = "aimhint", Hint = true, Contextual = true, Action = true,
                 Glyph = MOUSE_RIGHT, Caption = "Hold to aim precisely", Detail = "A close-up down the barrel",
                 PadGlyph = PAD_LEFT_TRIGGER, PadCaption = "Hold the left trigger to aim precisely",
+                TouchGlyph = TOUCH_MAGNIFIER, TouchCaption = "Tap the magnifier to aim precisely", TouchDetail = "A close-up down the barrel",
                 Praise = "Sharp!",
             },
 
@@ -500,13 +538,17 @@ namespace BS3D.Screens
         /// <summary>One step of a card as one hand draws it (<see cref="Steps"/>).</summary>
         /// <param name="Key">The lesson's save key.</param>
         /// <param name="Step">0 for the card's first step, 1 for its second (#930).</param>
-        /// <param name="Pad">The gamepad's words, not the keyboard and mouse's.</param>
+        /// <param name="Hand">Whose words: the keyboard and mouse's, the gamepad's or the touch screen's (#1051, its default layout).</param>
         /// <param name="Glyph">The prompt font's glyphs, or null for none (a kind card's is the ball itself).</param>
         /// <param name="Caption">The big line; the glass lesson's with its cadence put in.</param>
         /// <param name="Detail">The small line, or null.</param>
         /// <param name="Instructs">The card tells the player to <i>do</i> something: not a kind's card or the dead weight's,
         /// which say what a ball is.</param>
-        internal readonly record struct StepCopy(string Key, int Step, bool Pad, string Glyph, string Caption, string Detail, bool Instructs);
+        internal readonly record struct StepCopy(string Key, int Step, Device Hand, string Glyph, string Caption, string Detail, bool Instructs)
+        {
+            /// <summary>The gamepad's words.</summary>
+            public bool Pad => Hand == Device.Gamepad;
+        }
 
         /// <summary>
         /// Every step of every card, for each hand, exactly as the card draws it (#930): what <c>TutorialCopyTests</c> holds to
@@ -521,13 +563,13 @@ namespace BS3D.Screens
                 int step = 0;
 
                 for (Definition face = definition; face != null; face = face.Second, step++)
-                    foreach (bool pad in new[] { false, true })
+                    foreach (Device hand in new[] { Device.KeyboardMouse, Device.Gamepad, Device.Touch })
                     {
-                        (string glyph, string caption, string detail) = Words(face, pad);
+                        (string glyph, string caption, string detail) = Words(face, hand, aimOnRight: false);
                         if (definition.Lesson == Lesson.Ceiling)
                             caption = string.Format(CultureInfo.InvariantCulture, caption, 6);
 
-                        yield return new StepCopy(definition.Key, step, pad, glyph, caption, detail, instructs);
+                        yield return new StepCopy(definition.Key, step, hand, glyph, caption, detail, instructs);
                     }
             }
         }
@@ -537,9 +579,17 @@ namespace BS3D.Screens
         /// in them, and the tools', whose glyph already says which button), a pad glyph likewise. The small line is the
         /// hands' alike: it names no control, since #930 cut every one that explained why.
         /// </summary>
-        private static (string Glyph, string Caption, string Detail) Words(Definition face, bool pad) =>
-            pad ? (face.PadGlyph ?? face.Glyph, face.PadCaption ?? face.Caption, face.Detail)
-                : (face.Glyph, face.Caption, face.Detail);
+        private static (string Glyph, string Caption, string Detail) Words(Definition face, Device hand, bool aimOnRight) => hand switch
+        {
+            Device.Gamepad => (face.PadGlyph ?? face.Glyph, face.PadCaption ?? face.Caption, face.Detail),
+            //A card with no touch words names no control (the rules, the score, the kinds), so its keyboard words are everyone's
+            Device.Touch when face.TouchCaption != null => (face.TouchGlyph, face.TouchCaptionFor(aimOnRight), face.TouchDetail),
+            _ => (face.Glyph, face.Caption, face.Detail),
+        };
+
+        /// <summary>A touch caption with its sides swapped (#1051): "on the left" for "on the right" and back.</summary>
+        internal static string MirrorSides(string caption) =>
+            caption.Replace(" left", " \u0001").Replace(" right", " left").Replace(" \u0001", " right");
 
         /// <summary>How many kinds there are, for the per-kind colour table <see cref="BeginLevel"/> is handed.</summary>
         internal static readonly int KIND_COUNT = MaxKind() + 1;
@@ -780,14 +830,20 @@ namespace BS3D.Screens
         /// <summary>Whether the last input was the pad: what any prompt outside the cards asks to pick its glyph (#499).</summary>
         internal bool OnGamepad => _device == Device.Gamepad;
 
+        /// <summary>Whether the last input was a finger on the screen (#1051): what draws the touch controls.</summary>
+        internal bool OnTouch => _device == Device.Touch;
+
         /// <summary>The glyph for the button that skips a cinematic — the fire button, which is what skips (#499).</summary>
-        internal string SkipGlyph => SkipGlyphFor(_device == Device.Gamepad);
+        internal string SkipGlyph => _device == Device.Touch ? TOUCH_TAP : SkipGlyphFor(_device == Device.Gamepad);
 
         /// <summary>The skip's glyph for a hand, where no tutorial is watching the devices (#861: the Scene page's tour).</summary>
         internal static string SkipGlyphFor(bool gamepad) => gamepad ? PAD_RIGHT_TRIGGER : MOUSE_LEFT;
 
         /// <summary>The prompt font's glyphs for the card — a keycap, a mouse, a trigger — or null for none.</summary>
-        internal string Glyph => _card == null ? null : Words(Face, _device == Device.Gamepad).Glyph;
+        internal string Glyph => _card == null ? null : Words(Face, _device, TouchAimOnRight).Glyph;
+
+        /// <summary>Whether the touch screen's sides are swapped (#1050): which side the touch cards name. Set by the session each frame.</summary>
+        internal bool TouchAimOnRight { get; set; }
 
         /// <summary>The line of what to do. It stays up through the praise since #466 — see <see cref="Praise"/>.</summary>
         internal string Caption
@@ -797,12 +853,12 @@ namespace BS3D.Screens
                 if (_card == null) return null;
                 if (_card.Lesson == Lesson.Ceiling) return _ceilingCaption;
 
-                return Words(Face, _device == Device.Gamepad).Caption;
+                return Words(Face, _device, TouchAimOnRight).Caption;
             }
         }
 
         /// <summary>The smaller second line, or null for a one-line card. It stays up through the praise too (#466).</summary>
-        internal string Detail => _card == null ? null : Words(Face, _device == Device.Gamepad).Detail;
+        internal string Detail => _card == null ? null : Words(Face, _device, TouchAimOnRight).Detail;
 
         /// <summary>
         /// The words the card shows now (#930): the lesson's own, or its second step's once the first has been done. The

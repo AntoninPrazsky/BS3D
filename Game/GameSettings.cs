@@ -121,6 +121,21 @@ namespace BS3D
         public float AimSensitivity { get; set; } = 1.5f;
 
         /// <summary>
+        /// The touch screen's dial on a finger's aim (#1051): a rung of the mouse's ladder, multiplying
+        /// <c>TouchControls.AIM_RADIANS_PER_HEIGHT</c>. Its own row and not the mouse's, because a drag across glass and a
+        /// mouse's counts share no unit.
+        /// </summary>
+        [JsonPropertyName("touchSensitivity")]
+        public float TouchSensitivity { get; set; } = 1f;
+
+        /// <summary>
+        /// Whether the touch screen aims on its right side and fires and moves on its left (#1050, the owner: "maybe someone
+        /// will want to aim on the right side of the screen").
+        /// </summary>
+        [JsonPropertyName("touchAimOnRight")]
+        public bool TouchAimOnRight { get; set; }
+
+        /// <summary>
         /// The sky the front end comes up under, or 0 for "whatever the scene wants". It is seeded
         /// <b>before</b> <c>SetScene</c> runs rather than after, which is what keeps it from overriding the
         /// scenes that state a dome of their own (<c>SkyDome.SceneDefault</c>: the sea, the savanna, the tropics,

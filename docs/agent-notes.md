@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-05 — #1050 #1051 dotykové ovládání — desktop (RDT-PC), Claude Code
+- Majitel (#1050): vlevo touchpad na míření, vpravo ťuk = výstřel a tah = pohyb děla (plovoucí páčka), přesné míření jako toggle („jen ťuknout pro aktivaci a deaktivaci“), strany jdou prohodit v nastavení. Po vyzkoušení: „Ovládání působí dobře!“
+- Hotovo: `TouchControls` a `GameplayScreen.Touch`. Tutoriál má třetí ruku Touch s vlastními texty, nápověda odstavec Touch, nastavení Touch sensitivity a Aim on the right.
+- ⚠ Prst, který zmáčkl Resume, se zvedá v prvním snímku hry. `TouchControls.Adopt` ho nesmí vzít jako výstřel.
+- Otevřené: menu prstem (#1052).
+
 ## 2026-11-05 — #1049 Android čte soubory přímo z APK — desktop (RDT-PC), Claude Code
 - Hotovo: `Prazsky.Core.Tools.ShippedFiles` je jediné místo, kudy se čtou soubory dodávané vedle exe (levely, hudba, efekty, shadery). Na Windows a Pi jde o tytéž volání `File`/`Directory` jako dřív. Na Androidu odpovídá `AssetFiles` z assetů APK a nic se nekopíruje (dřív 361 MB navíc). Kopii ze spiku nový build smaže.
 - ⚠ Nový čtenář dodávaného souboru musí jít přes `ShippedFiles`, jinak na telefonu nic nenajde a hra jen ztichne.

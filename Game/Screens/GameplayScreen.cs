@@ -1389,6 +1389,9 @@ namespace BS3D.Screens
             _adsHeld = false;
             _adsPull = 0f;
 
+            //The finger that pressed Resume or Retry is still on the glass, or lifting: adopted, not read (#1051)
+            _touchLive = false;
+
             //A gamepad reports to an unfocused window and to a paused one; both triggers must be released
             //before they mean anything again. One poll on a state change, which is not a per-frame path.
             _padTriggerReleased = false;
@@ -1429,6 +1432,7 @@ namespace BS3D.Screens
             //UpdateUnderResult for which is which.
             if (!IsActive)
             {
+                _touchLive = false;
                 UpdateUnderResult(gameTime);
                 return;
             }
@@ -1472,6 +1476,9 @@ namespace BS3D.Screens
                     pad = padScript.WithPadPresses(WallClock, pad);
                 }
 
+                //The fingers (#1051), once for the frame, before the keys and the aim read what they asked
+                ReadTouch(elapsed);
+
                 //A pause takes effect at the top of the NEXT frame, because that is where ScreenManager applies
                 //stack changes — so without stopping here the rest of THIS frame would go on running against a
                 //session the player has just stopped (#79): the aim would take its delta and recentre the
@@ -1497,6 +1504,7 @@ namespace BS3D.Screens
                 Game.IsMouseVisible = true;
                 _cursorCaptured = false;
                 _mouseAim.Invalidate();
+                _touchLive = false;
 
                 //A trigger held while the window was away must be re-released before it fires
                 _padTriggerReleased = false;
@@ -2335,6 +2343,9 @@ namespace BS3D.Screens
             _crosshair.Draw(Game.OverlayBatch, _preciseAim.Blend,
                 _previewReachesCluster && !_previewHasCell && !CutterLoaded ? PREVIEW_REFUSED : null,
                 AimStrain, WallClock);
+
+            //And the touch controls over everything, while the hand is on the screen (#1051)
+            DrawTouchControls();
         }
 
     }

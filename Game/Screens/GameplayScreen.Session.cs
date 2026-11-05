@@ -117,7 +117,10 @@ namespace BS3D.Screens
             //"pad" never reached the motors, so a scripted run felt no shot, landing or ceiling step. No null check on the
             //mixer: a level is only ever built from Update, after LoadContent made the AudioDirector, and a silent "if"
             //is what hid this for five days.
-            _tutorial.NoteDevice(Game.PromptsForPad ? Tutorial.Device.Gamepad : Tutorial.Device.KeyboardMouse);
+            //On a phone the screen is the hand the menus did not name (#1051): a level started without the pad opens with the
+            //touch controls drawn and the cards' touch words, not a mouse nobody has
+            _tutorial.NoteDevice(Game.PromptsForPad ? Tutorial.Device.Gamepad
+                : OperatingSystem.IsAndroid() ? Tutorial.Device.Touch : Tutorial.Device.KeyboardMouse);
             Game.Rumble.HandOnPad = _tutorial.OnGamepad;
 
             //The benchmark's play (#1018) is taught nothing: no card is queued, so none is shown and no lesson is written.
@@ -159,6 +162,9 @@ namespace BS3D.Screens
 
             //Nor a swap's rounds still sliding (#871)
             _swapMotion.Cancel();
+
+            //A lean toggled on by the touch button (#1051) is the last level's: every level opens in the overview
+            _touchPreciseAim = false;
 
             //And a gun that dozed off over the last level wakes for this one (#230)
             _dozing.Reset();
