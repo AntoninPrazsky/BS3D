@@ -788,8 +788,12 @@ namespace BS3D
             _menuFontSmall = _menuFontSystem.GetFont(Scaled(MENU_FONT_SMALL));
             _menuFontLead = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_SMALL));
             _menuFontStrong = _menuFontSystemBold.GetFont(Scaled(MENU_FONT_SMALL));
-            _menuFontBody = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_BODY));
-            _menuFontPrompt = _menuFontSystemPrompt.GetFont(Scaled(MENU_FONT_BODY * 6 / 5));
+            //On an enlarged interface every entry and value is set at the front end's size (#1052, the owner: "the options on
+            //the sub-screens as large as on the main menu, so the size does not jump"); at the design's size the pages keep
+            //the body size their height budgets were measured against
+            int body = UiScale > 1f ? MENU_FONT_FRONT_ENTRY : MENU_FONT_BODY;
+            _menuFontBody = _menuFontSystemDisplay.GetFont(Scaled(body));
+            _menuFontPrompt = _menuFontSystemPrompt.GetFont(Scaled(body * 6 / 5));
             _focusPromptInkCentre = PromptGlyph.InkCentreY(_menuFontPrompt);
             _focusPromptPadWidth = _menuFontPrompt.MeasureString(PromptGlyph.PAD_A).X;
             _focusPromptKeysWidth = _menuFontPrompt.MeasureString(PromptGlyph.KEY_ENTER).X;
@@ -915,7 +919,10 @@ namespace BS3D
             Point size = new(viewport.Width, viewport.Height);
             if (page.LayoutFitFor != size)
             {
-                page.LayoutFit = 1f;
+                //Every page starts from the front end's scale, so a page that fits is drawn at the size the main menu is and
+                //none jumps above it; only a page that does not fit goes below (#1052, the owner's "as consistent as
+                //possible")
+                page.LayoutFit = page == _mainMenuPage ? 1f : MenuFit;
                 page.LayoutFitFor = size;
             }
 
@@ -947,6 +954,13 @@ namespace BS3D
                     return;
                 }
 
+                //A page with a long part scrolls it first and keeps the menus' size (#1052); only what that cannot take is shrunk
+                if (wide <= roomWide && page.ScrollTallPart(need.Y - room))
+                {
+                    pass--;
+                    continue;
+                }
+
                 float share = Math.Min(need.Y > room ? room / (float)need.Y : 1f, wide > roomWide ? roomWide / (float)wide : 1f);
                 float fit = Math.Max(FitFloor, page.LayoutFit * share);
 
@@ -968,6 +982,28 @@ namespace BS3D
 
         //How many times a page is measured and brought down at most: a font's sizes round, so one step can fall short
         private const int FIT_PASSES = 4;
+
+        //The front end's fit, and the viewport it was found for (#1052)
+        private float _menuFit = 1f;
+        private Point _menuFitFor;
+
+        /// <summary>
+        /// The share of the interface scale the menus are drawn at on an enlarged interface (#1052): the front end's own fit,
+        /// which every other page starts from. Found by fitting the front end, once per viewport, whichever page asks first.
+        /// </summary>
+        private float MenuFit
+        {
+            get
+            {
+                Point size = new(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+                if (_menuFitFor == size || UiScale <= 1f) return UiScale <= 1f ? 1f : _menuFit;
+
+                _menuFitFor = size;
+                FitPage(_mainMenuPage);
+                _menuFit = _mainMenuPage.LayoutFit;
+                return _menuFit;
+            }
+        }
 
         /// <summary>
         /// Bumped whenever the menu is laid out at a new size. A page holds the generation its tree was built
