@@ -26,8 +26,7 @@
 //edge-on to the eye. AuroraBackdrop knows where the arcs hang (their places and brightness are uniforms it writes),
 //which is how the light it throws on the snow and the wood moves with the curtains.
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 #include "Clouds.fxh"
 #include "Noise.fxh"

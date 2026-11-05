@@ -11,8 +11,7 @@
 //the sea scene, alpha-blended and depth-read (the waves and platform occlude it) but writing no depth.
 //Testbed-shared (the map editor builds it too, since SceneRenderer loads it), Shader Model 5.0.
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 float4x4 View;
 float4x4 Projection;

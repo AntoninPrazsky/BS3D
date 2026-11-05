@@ -12,8 +12,7 @@
 //so one mesh variant reads as several plants by colour as well as by size (#451).
 //Testbed-shared (the map editor and the game build it too), Shader Model 5.0.
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 //For the canopy's leaf mottle and the bark's fissures - 3D fields of world position, so they have no seam
 //and do not swim as the plant turns with its instance, the same reasoning the crown fields carry.
@@ -649,11 +648,11 @@ float4 AcaciaShade(AcaciaVertexOutput input, bool front, bool stone, bool barkRe
     return float4(color, 1.0);
 }
 
-float4 AcaciaPS(AcaciaVertexOutput input, bool front : SV_IsFrontFace) : COLOR { return AcaciaShade(input, front, false, false, false); }
-float4 AcaciaStonePS(AcaciaVertexOutput input, bool front : SV_IsFrontFace) : COLOR { return AcaciaShade(input, front, true, false, false); }
-float4 AcaciaBarkReliefPS(AcaciaVertexOutput input, bool front : SV_IsFrontFace) : COLOR { return AcaciaShade(input, front, false, true, false); }
-float4 AcaciaStrawPS(AcaciaVertexOutput input, bool front : SV_IsFrontFace) : COLOR { return AcaciaShade(input, front, false, false, true); }
-float4 AcaciaFullPS(AcaciaVertexOutput input, bool front : SV_IsFrontFace) : COLOR { return AcaciaShade(input, front, true, true, true); }
+float4 AcaciaPS(AcaciaVertexOutput input, FRONT_FACE(front)) : COLOR { FRONT_FACE_BEGIN(front) return AcaciaShade(input, front, false, false, false); }
+float4 AcaciaStonePS(AcaciaVertexOutput input, FRONT_FACE(front)) : COLOR { FRONT_FACE_BEGIN(front) return AcaciaShade(input, front, true, false, false); }
+float4 AcaciaBarkReliefPS(AcaciaVertexOutput input, FRONT_FACE(front)) : COLOR { FRONT_FACE_BEGIN(front) return AcaciaShade(input, front, false, true, false); }
+float4 AcaciaStrawPS(AcaciaVertexOutput input, FRONT_FACE(front)) : COLOR { FRONT_FACE_BEGIN(front) return AcaciaShade(input, front, false, false, true); }
+float4 AcaciaFullPS(AcaciaVertexOutput input, FRONT_FACE(front)) : COLOR { FRONT_FACE_BEGIN(front) return AcaciaShade(input, front, true, true, true); }
 
 technique Acacia
 {

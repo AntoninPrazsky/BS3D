@@ -34,8 +34,7 @@
 //(BoxMesh, LatheMesh, MeshBuilder), and the solids hold to it: plain rectangular prisms. Robert Abel and
 //Associates' circuit-patterned digital terrain flyovers are the direct ancestor of the Hilbert tracery below.
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 #include "Noise.fxh"
 

@@ -32,8 +32,7 @@
 //flame pixel can sit on an edge in any phase; the tongues themselves are unchanged in the world, and the
 //fire is pixel-for-pixel what it was inside the old rectangle.
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 //The body's turbulence: gradient-noise fBm scrolled upward, the same Noise.fxh field the terrain uses.
 #include "Noise.fxh"

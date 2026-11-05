@@ -34,8 +34,7 @@
 //
 //Testbed-shared (the map editor and the game build it too), Shader Model 5.0.
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 //For the fronds' leaf mottle - a 3D field of world position, so it has no seam and does not swim as
 //the frond turns with its tree (Acacia.fx's own reasoning).
@@ -305,8 +304,9 @@ float3 PalmSurface(float3 worldPosition, float3 N, float2 surface, float scar, f
     return color;
 }
 
-float4 PalmPS(PalmVertexOutput input, bool isFront : SV_IsFrontFace) : COLOR
+float4 PalmPS(PalmVertexOutput input, FRONT_FACE(isFront)) : COLOR
 {
+    FRONT_FACE_BEGIN(isFront)
     float3 N = normalize(input.WorldNormal);
 
     //The palms' leaves are drawn unculled and single-sided (#557), so the face the camera sees takes the

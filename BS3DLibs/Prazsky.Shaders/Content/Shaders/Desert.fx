@@ -33,8 +33,7 @@
 //field in Clouds.fxh, so the sand darkens under the very cloud the sky shows overhead (the editor never sets
 //the cloud uniforms, so there CloudSunlight is a flat 1.0 - full sun, no shadow).
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 #include "Clouds.fxh"
 //The sun's cast shadows (#469, in this scene since #471): SceneRenderer renders the map before the scene

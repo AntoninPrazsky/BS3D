@@ -8,8 +8,7 @@
 //side) displaced by a smooth rolling field, low around the arena and rising into hills with distance, its
 //normal taken by finite differences. Drawn in both executables, Shader Model 5.0, no OPENGL branch.
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 #include "Clouds.fxh"
 //The sun's cast shadows (#469, in this scene since #471): SceneRenderer renders the map before the scene

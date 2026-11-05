@@ -4,8 +4,7 @@
 //and hazed with the dunes; and the soft discs on the sand under and round them - a shadow, the burrow's hole, the puffs of
 //sand they throw - each a quad whose texture coordinate runs -1 to 1 across it.
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 float4x4 View;
 float4x4 Projection;

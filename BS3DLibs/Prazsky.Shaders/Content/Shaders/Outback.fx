@@ -29,8 +29,7 @@
 //shadow is the one shared field in Clouds.fxh (the map editor never sets the cloud uniforms, so there
 //CloudSunlight is a flat 1.0).
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 #include "Clouds.fxh"
 //The sun's cast shadows (#469, in this scene since #471): SceneRenderer renders the map before the scene

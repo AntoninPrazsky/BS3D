@@ -20,8 +20,7 @@
 //term is taken on the piece's own normal and made TWO-SIDED with abs(): confetti is printed on both faces and
 //is seen from both, and a one-sided term would blink half the pieces to black for half of every turn.
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 float4x4 View;
 float4x4 Projection;

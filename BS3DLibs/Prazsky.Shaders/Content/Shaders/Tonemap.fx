@@ -8,8 +8,7 @@
 //buffer. All three executables build this file out of this directory and resolve their HDR targets
 //through it (the editor leaves UnderwaterAmount at zero).
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 texture SceneTexture;
 sampler2D SceneSampler = sampler_state

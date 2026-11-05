@@ -11,8 +11,7 @@
 //Grass is dry gold-green, varied in patches and combed by the wind; the field takes the dome's mood and the
 //shared cloud shadows drift across it. Shader Model 5.0.
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 #include "Clouds.fxh"
 #include "Noise.fxh"

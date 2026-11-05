@@ -9,8 +9,7 @@
 //stay well under GLARE_THRESHOLD (ash that blooms is snow) while the ember colour is deliberately over it.
 //Depth-read, writing no depth. Shader Model 5.0, drawn in all three executables.
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 float4x4 View;
 float4x4 Projection;

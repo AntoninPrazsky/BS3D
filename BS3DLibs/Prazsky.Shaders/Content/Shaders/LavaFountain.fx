@@ -22,8 +22,7 @@
 //
 //Shader Model 5.0, drawn in all three executables out of the one copy in Prazsky.Shaders.
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 #include "Noise.fxh"
 

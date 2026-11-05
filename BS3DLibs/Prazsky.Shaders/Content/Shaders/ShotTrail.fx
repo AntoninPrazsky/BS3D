@@ -10,8 +10,7 @@
 //(TrailAlpha, set on the CPU), so it is a launch burst that leaves the ball crisp. Built by the Testbed
 //and the Game (the editor never shoots). SM 5.0.
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 float4x4 View;
 float4x4 Projection;

@@ -422,8 +422,9 @@ float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionD
     return ShadePixel(worldPosition, rawWorldNormal, occlusionData, texColor, keyShadow, cavity, DefaultSurfaceSpecular());
 }
 
-float4 MainPS(VertexShaderOutput input, bool isFrontFace : SV_IsFrontFace) : COLOR
+float4 MainPS(VertexShaderOutput input, FRONT_FACE(isFrontFace)) : COLOR
 {
+    FRONT_FACE_BEGIN(isFrontFace)
     //An open single-sided wall drawn CullNone shades its outside with the inside's normal unless told
     //otherwise - see TwoSidedNormals. A branchless select: the uniform is 0 on every closed mesh.
     float3 worldNormal = (TwoSidedNormals > 0 && !isFrontFace) ? -input.WorldNormal : input.WorldNormal;

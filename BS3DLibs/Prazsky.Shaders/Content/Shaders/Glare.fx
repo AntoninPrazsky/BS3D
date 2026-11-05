@@ -27,8 +27,7 @@
 //.rgb of what they write, so the pyramid is unchanged by it. OverlayComposite at the very foot lays that
 //layer, its sharp copy crossfaded into its blurred one, over the resolved frame.
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 texture SourceTexture;
 sampler2D SourceSampler = sampler_state

@@ -13,8 +13,7 @@
 //radiance driven well OVER the glare threshold - a firework is supposed to bloom. Driven over it in its OWN
 //hue, though (#612): the palette keeps one channel at zero so the tonemap's shoulder cannot bleach it. SM 5.0.
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 #define MAX_SHELLS 32
 

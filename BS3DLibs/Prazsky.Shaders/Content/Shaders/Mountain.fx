@@ -13,8 +13,7 @@
 //What decides how the peaks read is the FIELD, not the grid - see MountainField, and #86, which was filed
 //against the tessellation and turned out to be about the field the grid was oversampling ninefold.
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 #include "Clouds.fxh"
 //The sun's cast shadows (#469, in this scene since #471): SceneRenderer renders the map before the scene
