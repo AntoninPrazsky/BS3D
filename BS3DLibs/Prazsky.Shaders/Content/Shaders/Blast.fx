@@ -52,9 +52,22 @@ float3 CameraUp;
 //  BlastAxis.xyz    a blade's line (#767's verdict): level, unit, square to the shot, and cross(up, it) points back at
 //                   the gun (CutSlash.Axis)
 //  BlastAxis.w      where the slash's middle is along that line from the struck ball's centre, world units
+#if OPENGL
+//ONE array under GL (#1057), GamePi's layout, which Blasts.cs fills when the effect has it. MojoShader's GLSL reads
+//each array a program indexes from a base of its own, and with two or more those bases disagree with the block the
+//runtime uploads (GamePi/Shaders/compile.ps1), so every slot read another's.
+float4 BlastData[MAX_BLASTS * 3];
+#define BLAST_CENTRE(i) BlastData[(i) * 3]
+#define BLAST_SHAPE(i) BlastData[(i) * 3 + 1]
+#define BLAST_AXIS(i) BlastData[(i) * 3 + 2]
+#else
 float4 BlastCentre[MAX_BLASTS];
 float4 BlastShape[MAX_BLASTS];
 float4 BlastAxis[MAX_BLASTS];
+#define BLAST_CENTRE(i) BlastCentre[i]
+#define BLAST_SHAPE(i) BlastShape[i]
+#define BLAST_AXIS(i) BlastAxis[i]
+#endif
 
 //The three lifetimes. The C# side frees a slot at BlastSlots.LIFE_SECONDS, which has to cover the longest-lived
 //part below (a spark at the top of its jitter, SPARK_SECONDS * 1.45) or it would be cut off mid-fade.
@@ -168,8 +181,8 @@ BlastVertexOutput BlastVS(BlastVertexInput input)
     int blast = (int)(input.Slot.x + 0.5);
     int part = (int)(input.Slot.y + 0.5);
 
-    float4 centre = BlastCentre[blast];
-    float4 shape = BlastShape[blast];
+    float4 centre = BLAST_CENTRE(blast);
+    float4 shape = BLAST_SHAPE(blast);
 
     float age = centre.w;
 
@@ -222,7 +235,7 @@ BlastVertexOutput BlastVS(BlastVertexInput input)
         //shake rolls the frame round it rather than it with the frame. Its ribbon faces the lens about the line.
         if (age > SLASH_SECONDS) return Collapsed();
 
-        float4 axis = BlastAxis[blast];
+        float4 axis = BLAST_AXIS(blast);
         float3 lineAxis = axis.xyz;
 
         //It shoots out from the struck ball to both its ends, which need not be equally far (the storey's spread either side)
@@ -286,7 +299,7 @@ BlastVertexOutput BlastVS(BlastVertexInput input)
 
         if (blade)
         {
-            float4 axis = BlastAxis[blast];
+            float4 axis = BLAST_AXIS(blast);
             float place = input.Random.w;
 
             origin += axis.xyz * ((axis.w + place * shape.w) * BLADE_SPARK_REACH);

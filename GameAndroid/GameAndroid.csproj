@@ -9,9 +9,9 @@
   - AssetFiles, the APK's assets as the files the Game ships beside its executable (#1049): every reader goes through
     Prazsky.Core's ShippedFiles, and this answers it from the assets.
 
-  It draws through the Potato path with GamePi's nine SM 3.0 effects, the ones committed in GamePi/Shaders/Compiled:
-  MojoShader's OpenGL profile is the same on DesktopGL and Android. Its content (the logo, the HUD's font) is
-  GamePi's Content.mgcb built for Android.
+  It draws through the Potato path with GamePi's nine SM 3.0 effects, and carries every desktop effect compiled for
+  OpenGL ES beside them (#1057), both built here from their sources (below). Its other content (the logo, the HUD's
+  font) is GamePi's Content.mgcb built for Android.
 
   Needs the Android workload (dotnet workload install android), the Android SDK (found in %LOCALAPPDATA%\Android\Sdk)
   and JDK 17, named with -p:JavaSdkDirectory=... on the command line. No solution names it yet, so building the
@@ -56,15 +56,86 @@
     <Compile Include="*.cs;Platform\**\*.cs" Exclude="bin\**;obj\**" />
   </ItemGroup>
 
-  <!--GamePi's committed OpenGL effects, packed in the app at Content/Shaders, where Load<Effect>("Shaders/...") looks.-->
-  <ItemGroup>
-    <AndroidAsset Include="..\GamePi\Shaders\Compiled\*.xnb" Link="Assets\Content\Shaders\%(Filename)%(Extension)" />
-  </ItemGroup>
-
-  <!--GamePi's content build, for Android: the builds for each runtime run in parallel, so each gets its own folder.-->
+  <!--GamePi's content build and every shared effect's (#1057), for Android: the builds for each runtime run in parallel, so
+  each gets its own folder. Prazsky.Shaders' Shaders.mgcb compiles the desktop's effects for OpenGL ES to Content/Shaders
+  and the Potato path's nine to Content/Potato/Shaders, where PotatoContent looks first on a Potato run - so the phone
+  compiles from the sources GamePi's committed nine are built from, on Windows, as MojoShader needs.-->
   <ItemGroup>
     <MonoGameContentReference Include="..\GamePi\Content\Content.mgcb" Link="Content\Content.mgcb" OutputFolder="$(MSBuildProjectName)$(RuntimeIdentifier)" />
+    <MonoGameContentReference Include="..\BS3DLibs\Prazsky.Shaders\Content\Shaders.mgcb" Link="Content\Shaders.mgcb" OutputFolder="$(MSBuildProjectName)$(RuntimeIdentifier)" />
   </ItemGroup>
+
+  <!--What the effects' build leaves for the phone to fix (#1057), after it and before the effects are packed:
+
+  - MonoGame writes "precision mediump float;" at the head of every OpenGL ES pixel program, and an Adreno (the X300
+    Ultra's 840 among them) computes mediump in 16-bit floats: ten bits of mantissa, so a world position past 1024 units
+    is two units coarse and every noise field, the float hash (Noise.fxh) and the lighting with them come apart. The
+    desktop's effects are raised to highp, the same line at the same length, so nothing else in the file moves. The
+    Potato path's nine keep mediump: written for it, and measured at it on the phone.
+  - A GL program that indexes two uniform arrays reads each from the other's slots (GamePi/Shaders/compile.ps1, which
+    refuses the same for the committed nine): a build that makes one fails here, which is what makes CI say so.-->
+  <UsingTask TaskName="FinishGlEffects" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <Raise ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+      <Check ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Linq" />
+      <Using Namespace="System.Text" />
+      <Using Namespace="System.Text.RegularExpressions" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        byte[] from = Encoding.ASCII.GetBytes("precision mediump float;");
+        byte[] to = Encoding.ASCII.GetBytes("precision highp float;  ");
+        int raised = 0;
+        foreach (ITaskItem item in Raise)
+        {
+            byte[] bytes = File.ReadAllBytes(item.ItemSpec);
+            int found = 0;
+            for (int i = 0; i <= bytes.Length - from.Length; i++)
+            {
+                int j = 0;
+                while (j < from.Length && bytes[i + j] == from[j]) j++;
+                if (j < from.Length) continue;
+                Array.Copy(to, 0, bytes, i, to.Length);
+                i += from.Length - 1;
+                found++;
+            }
+            if (found == 0) continue;
+            //With the time the content build wrote: it rebuilds an output whose time is not the one it recorded, so a
+            //raised file would be compiled again on the next build, every effect every time
+            DateTime written = File.GetLastWriteTimeUtc(item.ItemSpec);
+            File.WriteAllBytes(item.ItemSpec, bytes);
+            File.SetLastWriteTimeUtc(item.ItemSpec, written);
+            raised++;
+        }
+        if (raised > 0) Log.LogMessage(MessageImportance.High, "GL effects: " + raised + " raised to highp");
+
+        foreach (ITaskItem item in Check)
+        {
+            string text = Encoding.GetEncoding(28591).GetString(File.ReadAllBytes(item.ItemSpec));
+            string[] programs = text.Split(new[] { "#ifdef GL_ES" }, StringSplitOptions.None);
+            for (int p = 1; p < programs.Length; p++)
+            {
+                string[] bases = Regex.Matches(programs[p], @"#define ARRAYBASE_\d+ \d+").Cast<Match>().Select(m => m.Value).Distinct().ToArray();
+                if (bases.Length > 1)
+                    Log.LogError(Path.GetFileName(item.ItemSpec) + ", program " + p + " indexes " + bases.Length + " uniform arrays (" + string.Join("; ", bases) + "): pack them into one under OPENGL (see Blast.fx)");
+            }
+        }
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="FinishGlEffects" AfterTargets="RunContentBuilder" Condition="'$(DesignTimeBuild)' != 'true'">
+    <PropertyGroup>
+      <_GlEffects>$(MSBuildThisFileDirectory)..\BS3DLibs\Prazsky.Shaders\Content\bin\$(MonoGamePlatform)\$(MSBuildProjectName)$(RuntimeIdentifier)</_GlEffects>
+    </PropertyGroup>
+    <ItemGroup>
+      <_GlRaise Include="$(_GlEffects)\Shaders\*.xnb" />
+      <_GlCheck Include="$(_GlEffects)\**\*.xnb" />
+    </ItemGroup>
+    <FinishGlEffects Raise="@(_GlRaise)" Check="@(_GlCheck)" />
+  </Target>
 
   <!--The levels, the music and the sound effects, packed at the asset root under the paths the Game reads them from
   beside its executable, as Content/ already is: AssetFiles answers a path under the base directory with the asset at

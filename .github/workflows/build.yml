@@ -292,7 +292,8 @@ jobs:
       - name: Install the Android workload
         run: dotnet workload install android
 
-      # GameAndroid's content build is GamePi's Content.mgcb built for Android, through its own manifest
+      # GameAndroid's content build is GamePi's Content.mgcb and Prazsky.Shaders' Shaders.mgcb built for Android, through its
+      # own manifest
       - name: Restore content tools (GameAndroid)
         run: dotnet tool restore
         working-directory: GameAndroid
@@ -303,7 +304,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "InstallAndroidDependencies failed (exit $LASTEXITCODE)" }
 
       # The APK and the files without which the game cannot start on a phone: the runtime (CoreCLR, not Mono) and OpenAL,
-      # the content (the logo, the HUD's font), every one of GamePi's committed GL effects, and the level set
+      # the content (the logo, the HUD's font), every effect compiled for OpenGL ES - the desktop's under Content/Shaders
+      # and the Potato path's under Content/Potato/Shaders (#1057) - and the level set. The build itself fails on an effect
+      # MojoShader cannot translate or a GL program that indexes two uniform arrays (FinishGlEffects in GameAndroid.csproj).
       - name: Build GameAndroid (Release, android-arm64) and check the APK
         run: |
           dotnet build GameAndroid/GameAndroid.csproj -c Release -p:RuntimeIdentifier=android-arm64 "-p:AndroidSdkDirectory=$env:ANDROID_HOME" "-p:JavaSdkDirectory=$env:JAVA_HOME"
@@ -318,7 +321,8 @@ jobs:
                          'assets/Content/Fonts/segoeui.xnb', 'assets/Levels/Levels.json') {
             if ($names -notcontains $f) { throw "The APK has no $f" }
           }
-          $effects = @(Get-ChildItem GamePi/Shaders/Compiled/*.xnb | ForEach-Object { "assets/Content/Shaders/$($_.Name)" })
+          $effects = @(Get-ChildItem BS3DLibs/Prazsky.Shaders/Content/Shaders/*.fx | ForEach-Object { "assets/Content/Shaders/$($_.BaseName).xnb" }) +
+                     @(Get-ChildItem GamePi/Shaders/*.fx | ForEach-Object { "assets/Content/Potato/Shaders/$($_.BaseName).xnb" })
           $missing = @($effects | Where-Object { $names -notcontains $_ })
           if ($missing.Count -gt 0) { throw "The APK lacks effects: $($missing -join ', ')" }
           "APK: $((Get-Item $apk).Length / 1MB) MB, $($names.Count) entries, $($effects.Count) effects"

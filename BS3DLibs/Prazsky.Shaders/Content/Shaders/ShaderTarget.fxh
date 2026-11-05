@@ -17,6 +17,18 @@
 #define FRONT_FACE(name) float name##Face : VFACE
 #define FRONT_FACE_BEGIN(name) bool name = name##Face > 0;
 
+//A branch on a uniform with a derivative inside it: Shader Model 5.0 branches, a uniform being one value across a quad;
+//3.0 cannot tell a uniform from a varying there and refuses to (X3528, "can't force branch with gradients on
+//non-inputs"), so it takes both sides and selects.
+#define BRANCH_UNIFORM_GRADIENTS [flatten]
+
+//A walk over the live part of a uniform array, `count` of its `max`: Shader Model 5.0 loops to the count; under GL the
+//loop is unrolled to the array's size and each step gated by the count, so every index is a constant. A loop to a
+//uniform count reads the array through a relative address, which MojoShader translates for one array of a program at
+//most (GamePi's rule) and in some programs not at all ("relative address needs replicate swizzle", the savanna's).
+//The body follows the macro as a loop's body would.
+#define ARRAY_LOOP(i, count, max) [unroll] for (int i = 0; i < max; i++) if (i < count)
+
 #else
 
 #define VS_SHADERMODEL vs_5_0
@@ -24,5 +36,9 @@
 
 #define FRONT_FACE(name) bool name : SV_IsFrontFace
 #define FRONT_FACE_BEGIN(name)
+
+#define BRANCH_UNIFORM_GRADIENTS [branch]
+
+#define ARRAY_LOOP(i, count, max) [loop] for (int i = 0; i < count; i++)
 
 #endif

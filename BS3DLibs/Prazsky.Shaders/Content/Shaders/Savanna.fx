@@ -144,6 +144,25 @@ float HearthMound(float2 xz, out float2 slope)
     if (r < HearthNear - MoundFoot || r > HearthFar + MoundFoot) return 0.0;
 
     float best = 1e30;
+#if OPENGL
+    //No index into the arrays after the walk under GL (ARRAY_LOOP): the nearest fire's lift and place are carried out of it
+    float lift = 0.0;
+    float2 firePosition = float2(0.0, 0.0);
+
+    ARRAY_LOOP(i, HearthCount, MAX_HEARTHS)
+    {
+        float2 delta = xz - HearthPosition[i].xz;
+        float d2 = dot(delta, delta);
+        bool closer = d2 < best;
+        best = closer ? d2 : best;
+        lift = closer ? HearthLift[i] : lift;
+        firePosition = closer ? HearthPosition[i].xz : firePosition;
+    }
+
+    float d = sqrt(best);
+    float span = MoundFoot - MoundTop;
+    float t = saturate((d - MoundTop) / span);
+#else
     float index = 0.0;
 
     [loop]
@@ -161,8 +180,10 @@ float HearthMound(float2 xz, out float2 slope)
     float span = MoundFoot - MoundTop;
     float t = saturate((d - MoundTop) / span);
     float lift = HearthLift[fire];
+    float2 firePosition = HearthPosition[fire].xz;
+#endif
 
-    slope = -lift * (6.0 * t * (1.0 - t) / span) * ((xz - HearthPosition[fire].xz) / max(d, 1e-4));
+    slope = -lift * (6.0 * t * (1.0 - t) / span) * ((xz - firePosition) / max(d, 1e-4));
     return lift * (1.0 - smoothstep(MoundTop, MoundFoot, d));
 }
 
@@ -253,8 +274,7 @@ float HearthBurn(float2 xz)
     if (r < HearthNear - HearthRadius || r > HearthFar + HearthRadius) return 0.0;
 
     float burn = 0.0;
-    [loop]
-    for (int i = 0; i < HearthCount; i++)
+    ARRAY_LOOP(i, HearthCount, MAX_HEARTHS)
     {
         float d = distance(xz, HearthPosition[i].xz);
         burn = max(burn, 1.0 - smoothstep(HearthRadius * 0.22, HearthRadius, d));
@@ -404,8 +424,7 @@ float4 SavannaField(SavannaVertexOutput input, bool detail)
 
     //Scene point lights (the campfire) warming the grass around them, on top of sun and sky
     float3 sceneLight = float3(0.0, 0.0, 0.0);
-    [loop]
-    for (int i = 0; i < SceneLightCount; i++)
+    ARRAY_LOOP(i, SceneLightCount, MAX_SCENE_LIGHTS)
     {
         float3 toL = SceneLightPosition[i] - worldPosition;
         float dist = length(toL);

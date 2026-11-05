@@ -276,6 +276,26 @@ namespace Prazsky.Core.Render
         /// reaches, the vents the fountains are thrown from — and rebuilds the two particle buffers at the
         /// config's counts. Deterministic: same config, same volcano, every run and in every executable.
         /// </summary>
+        /// <summary>
+        /// The fountain's vents or fumaroles, <paramref name="name"/> the prefix of their uniforms: a place and a strength
+        /// array each, or under OpenGL ES one <c>&lt;name&gt;Data</c> array of both (#1057), which LavaFountain.fx declares there
+        /// because MojoShader's GLSL can index only one array a program. Set when the volcano is built, never a frame.
+        /// </summary>
+        private static void SetPlaces(Effect effect, string name, Vector3[] positions, float[] strengths)
+        {
+            EffectParameter packed = effect.Parameters[name + "Data"];
+            if (packed == null)
+            {
+                effect.Parameters[name + "Position"].SetValue(positions);
+                effect.Parameters[name + "Strength"].SetValue(strengths);
+                return;
+            }
+
+            var data = new Vector4[positions.Length];
+            for (int i = 0; i < data.Length; i++) data[i] = new Vector4(positions[i], strengths[i]);
+            packed.SetValue(data);
+        }
+
         private void BuildVolcanoBuffers()
         {
             VolcanoSceneConfig volcano = _volcanoConfig;
@@ -296,8 +316,7 @@ namespace Prazsky.Core.Render
             float villageCourse = villageAcross + VolcanoCountry.MeanderAt(villageAlong);
             _volcanoEffect.Parameters["VillageRiver"].SetValue(new Vector2(villageAlong, villageCourse < 0f ? -1f : 1f));
 
-            _fountainEffect.Parameters["VentPosition"].SetValue(_lava.VentPosition);
-            _fountainEffect.Parameters["VentStrength"].SetValue(_lava.VentStrength);
+            SetPlaces(_fountainEffect, "Vent", _lava.VentPosition, _lava.VentStrength);
             _fountainEffect.Parameters["VentCount"].SetValue(_lava.VentCount);
 
             //--- The particles. One buffer for the fountains: its first slice is the plume and the rest are
@@ -371,8 +390,7 @@ namespace Prazsky.Core.Render
             _country?.Dispose();
             _country = new VolcanoCountryPlanting(_graphicsDevice, volcano, country, GroundHeight, 7480 + Services.SeedOffset);
 
-            _fountainEffect.Parameters["FumarolePosition"].SetValue(_fumarolePosition);
-            _fountainEffect.Parameters["FumaroleStrength"].SetValue(_fumaroleStrength);
+            SetPlaces(_fountainEffect, "Fumarole", _fumarolePosition, _fumaroleStrength);
             _fountainEffect.Parameters["FumaroleCount"].SetValue(Math.Max(fumaroles, 1));
             _steamQuads = fumaroles > 0 ? Math.Clamp(steam.ParticleCount, 0, MAX_BILLBOARD_PARTICLES) : 0;
             Services.BuildBillboardParticles(_steamQuads, 6792, ref _steamVertexBuffer, ref _steamIndexBuffer);

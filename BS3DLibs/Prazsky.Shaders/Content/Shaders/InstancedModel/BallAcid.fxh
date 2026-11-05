@@ -161,7 +161,7 @@ float4 AcidPS(PatternVertexShaderOutput input) : COLOR
     //on whole numbers that hash comes back every 100 cells in y, so the seethe ran the same loop every 59 seconds, and
     //the wall clock it reads never resets - by about fifty minutes into a session step * 7 * 456.21 is past float32's
     //whole numbers, the hash's fraction is gone and the foam stops seething.
-    uint foamSeed = HashSalt(HashCell(floor(foamCoord)), (uint)floor(PulseTime * AcidFoamRate));
+    HASH foamSeed = HashSalt(HashCell(floor(foamCoord)), HASH_SALT(floor(PulseTime * AcidFoamRate)));
     float foamFade = saturate(1.0 - footprint * AcidFoamCells * 0.6);
 
     //A bubble is a DISC in its cell, not the cell: the first cut lit whole cells and the front was tiled.

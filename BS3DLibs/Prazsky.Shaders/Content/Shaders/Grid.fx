@@ -87,7 +87,12 @@ float3 VoidColor;
 //an integer % measurably is not (HLSL X3556).
 int GridMod(int x, int n)
 {
+#if OPENGL
+    //Shader Model 3.0 has no bitwise operators (#1057): the floored modulus itself, exact on the whole numbers it is given
+    return x - n * (int)floor((float)x / n);
+#else
     return x & (n - 1);
+#endif
 }
 
 //The classic Hilbert-curve index of a node (Wikipedia's xy2d, unrolled to GRID_HILBERT_BITS iterations of
@@ -103,9 +108,17 @@ int GridHilbertIndex(int nodeX, int nodeZ)
     [unroll]
     for (int s = GRID_HILBERT_N / 2; s > 0; s /= 2)
     {
+#if OPENGL
+        //No bitwise operators in Shader Model 3.0 (#1057): x and y are folded non-negative, so a bit is its quotient's
+        //parity, and (3 * rx) ^ ry of two bits is the sum below
+        int rx = (x / s) % 2 > 0 ? 1 : 0;
+        int ry = (y / s) % 2 > 0 ? 1 : 0;
+        d += s * s * (3 * rx + ry - 2 * rx * ry);
+#else
         int rx = (x & s) > 0 ? 1 : 0;
         int ry = (y & s) > 0 ? 1 : 0;
         d += s * s * ((3 * rx) ^ ry);
+#endif
 
         //Rotate/flip the quadrant - the algorithm's own step, branchless in effect: rx/ry are per-pixel
         //data and this whole function already runs divergently across a wavefront, so a [branch] hint here
