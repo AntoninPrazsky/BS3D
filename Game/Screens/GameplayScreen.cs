@@ -1392,6 +1392,9 @@ namespace BS3D.Screens
             //The finger that pressed Resume or Retry is still on the glass, or lifting: adopted, not read (#1051)
             _touchLive = false;
 
+            //And a button or trigger still held from the menu is not a fresh press of the lean's toggle (#1054)
+            _leanButtonWasDown = true;
+
             //A gamepad reports to an unfocused window and to a paused one; both triggers must be released
             //before they mean anything again. One poll on a state change, which is not a per-frame path.
             _padTriggerReleased = false;

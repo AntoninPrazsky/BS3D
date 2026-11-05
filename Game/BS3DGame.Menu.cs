@@ -936,6 +936,9 @@ namespace BS3D
         /// <summary>Whether the touch screen aims on its right side (#1050), read where it is used.</summary>
         internal bool TouchAimOnRight => _settings.TouchAimOnRight;
 
+        /// <summary>Whether precise aim toggles rather than holds (#1054), read where it is used.</summary>
+        internal bool PreciseAimToggles => _settings.PreciseAimToggle;
+
         internal bool IsAberrationEnabled => _effective.Aberration;
         internal bool IsGrainEnabled => _effective.Grain;
 
