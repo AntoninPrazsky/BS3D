@@ -43,5 +43,13 @@ namespace Prazsky.Core.Render
         /// the phone has. Every multisampled target is asked for through this.
         /// </summary>
         public static int MultiSamples(int wanted) => OperatingSystem.IsAndroid() ? 0 : wanted;
+
+        /// <summary>
+        /// Whether a blend can take the smaller or larger of two values (<c>BlendFunction.Min</c>/<c>Max</c>): not under
+        /// MonoGame's Android backend, which throws an ArgumentException from <c>GetBlendEquationMode</c> on the first draw
+        /// with one (#1061), though OpenGL ES 3 has both. The sun's shadow map keeps its nearest caster by a min blend
+        /// on the desktop and by a depth buffer of its own here (<c>SunShadowMap</c>).
+        /// </summary>
+        public static bool MinMaxBlend => !OperatingSystem.IsAndroid();
     }
 }

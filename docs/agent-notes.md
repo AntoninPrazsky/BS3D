@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-05 — #1061 rozpočet tierů na telefonu — desktop (RDT-PC), Claude Code
+- Hotovo: tabulka v `docs/game-shell/quality-measurements.md`. 60 FPS drží jen Low při 1080 řádcích; Medium 47–52, High bez ssaa 44–54, High s ssaa 2 jen 10–17. Ultra na telefon nepatří.
+- Opraveno: stínová mapa padala od Medium (MonoGame Android nemá min blend); na telefonu má vlastní hloubkový buffer.
+- ⚠ Teplo: Low při 1080 drží 60 FPS devět minut a od 7. minuty má stav 2; Medium škrtí na 38 FPS po 7 minutách. Potato zůstal chladný. Měřit jen z chladného telefonu (stav 0, baterie pod 36 °C), z nahřátého vyjde o třetinu méně. Z přehřátí se zchladí za 15 min.
+- Otevřené: tiery a Auto (#1060) mají hlídat teplo, nejen snímky; skleněný strop na telefonu je růžový (#1063).
+
 ## 2026-11-05 — #1059 desktopová cesta na telefonu — desktop (RDT-PC), Claude Code
 - Hotovo: argument `desktop` kreslí na Androidu desktopovým rendererem; všech 21 scén běží. Na Low: louka a město 47–48 FPS nativně, 60 při 1080 i 720 řádcích; menu při 1080 řádcích 32–60 podle scény.
 - ⚠ MonoGame Android nemá Texture3D, resolve MSAA ani base instance; GL zahodí nepoužitou uniformu (`Parameters["X"].SetValue` pak na telefonu spadne při startu). Vše ošetřeno, tabulka v `docs/rendering/opengl-es.md`.

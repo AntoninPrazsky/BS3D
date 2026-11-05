@@ -66,3 +66,20 @@ Each chapter's heaviest level that is not its block's first (by balls; the city 
 - **The day's machine is not the code**: two DisplayLink monitors were attached, another session's JVM held four to nine cores for stretches (the frame barely moved with it: the APU is bound by its GPU here), and a pass-ordered sweep the same morning read the cheap levels up to 40 % lower in its first 25 minutes than the interleaved one did after (Pendulum on v0.5.0, 7.64 against 12.51 ms at `Low`). So a figure above is that afternoon's floor; **the steps are the comparison**. `colourcue=none` (the pre-#737 gores) is not the cheaper path on the APU: +2.5 ms on Girandole, +0.0 on Pendulum (2026-10-17).
 - ⚠ **`Low` keeps the far plane #551 asked for (the owner's ruling, 2026-09-29), so the mountain runs over** (0.6–0.9 ms in the table). With only `DEFAULT_FAR_PLANE_DISTANCE` back at 500, Spyglass read 15.68 ms on 2026-09-29. **Do not shorten it to win the time back.**
 - **Front end at `Low`** (2026-09-29, 55 s per scene, orbit spreads of 4–6 ms): five of twenty scenes miss 16.1 ms (Mars 17.88, savanna 17.57, tropical 16.83, outback 16.82, polar 16.18); **left by the owner's ruling: the menu is not worked on for `Low`.**
+
+## The phone: the vivo X300 Ultra through the desktop path (#1061)
+
+Adreno 840, 3168×1440 at 120 Hz (the game's limit 62), `desktop` with `quality=` and `render=`, the median of a run's last twelve `[fps]` lines. **Every run starts on a cool phone** (thermal status 0, battery under 36 °C). A warm one throttles and lies: a pass run back to back read the meadow at `Low` native at 31 FPS where a cool start reads 48.6.
+
+| FPS (cool start, 2026-11-05) | City, Girandole native | City at 1080 rows | Meadow, Cannonball native | Meadow at 1080 rows |
+|---|---|---|---|---|
+| `Low` | 47.6 | 60.2 | 48.6 | 60.2 |
+| `Medium` (shadow 2048, motion blur, the ceiling's refraction, full detail) | 37.5 | 52.1 | 33.3 | 47.2 |
+| `High` at `ssaa=1` (shadow 4096, fine meshes) | 36.7 | 54.2 | 30.9 | 44.3 |
+| `High` as it stands (`ssaa` 2) | | | neon city, Cabinet: 10.1 | 16.6 |
+
+- **Native is fill-bound**: only `Low` at 1080 rows holds the display's 60 in both scenes. 720 rows reads the same 60 at `Low`.
+- **`High`'s supersampling is out of reach** (four times the pixels), so a phone's `High` is `ssaa` 1, and Ultra (which adds a doubled shadow map to it) is not a phone tier.
+- **The heat decides more than the first minute does.** Charging over USB, from a cool start at 1080 rows, the city:
+  - `Low` held 60 for nine minutes and began to slip in the tenth (59.0, its low 47.3). It reached thermal status 2 by minute 7, the battery going from 35.7 to 42.3 °C.
+  - `Medium` reached status 2 by minute 5 and throttled from 53 to 37.7 FPS by minute 7, the battery going from 35.9 to 42.7 °C. About 25 minutes of runs at native resolution took the phone to status 3 (skin 45.5 °C), and it needed 15 minutes idle to return to status 0. The Potato path held status 0 and 60 FPS for ten minutes in Girandole (#1048, battery 32.5 to 33.4 °C).

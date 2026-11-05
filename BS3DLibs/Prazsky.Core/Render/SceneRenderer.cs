@@ -1840,9 +1840,11 @@ namespace Prazsky.Core.Render
 
             _graphicsDevice.SetRenderTarget(_sunShadowMap.Target);
             _graphicsDevice.Clear(Color.White);
-            //The nearest caster by the blend rather than by a depth test: the map has no depth buffer (#591)
-            _graphicsDevice.BlendState = ShadowCasterBlend;
-            _graphicsDevice.DepthStencilState = DepthStencilState.None;
+            //The nearest caster by the blend rather than by a depth test: the map has no depth buffer (#591). Where
+            //there is no min blend (the phone, GraphicsSupport.MinMaxBlend) it has one, and the test keeps the nearest.
+            bool minBlend = GraphicsSupport.MinMaxBlend;
+            _graphicsDevice.BlendState = minBlend ? ShadowCasterBlend : BlendState.Opaque;
+            _graphicsDevice.DepthStencilState = minBlend ? DepthStencilState.None : DepthStencilState.Default;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
 
             //The backdrop's own planting (#580's hook) — the savanna's and the beach's. The culling stays off
