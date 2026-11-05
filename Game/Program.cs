@@ -46,7 +46,7 @@ namespace BS3D
             //Two lines saying what this run IS, before anything else it prints (#372) — the exe's own write
             //time and hash, and the compiled shaders beside it, so a shot or an [fps] reading filed with the
             //log carries its own proof of which shader produced it.
-            BuildStamp.Report();
+            BuildStamp.Report(typeof(Program).Assembly);
 
             //Every argument, in one object (#583): the table of spellings, kinds and the reasons each exists is
             //LaunchOptions', and it prints an [args] Ignored line for anything it did not take (#574)

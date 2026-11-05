@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework.Audio;
+using Prazsky.Core.Tools;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -212,7 +213,11 @@ namespace BS3D.Audio
             string path = _tracks[index].Path;
             return Task.Run(() =>
             {
-                try { return OggTrack.DecodeMusic(path, SAMPLE_RATE); }
+                try
+                {
+                    using System.IO.Stream file = ShippedFiles.OpenRead(path);
+                    return OggTrack.DecodeMusic(file, SAMPLE_RATE);
+                }
                 catch (Exception exception)
                 {
                     Console.WriteLine($"[jukebox] '{path}' could not be read: {exception.Message}");

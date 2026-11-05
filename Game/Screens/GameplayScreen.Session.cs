@@ -368,7 +368,7 @@ namespace BS3D.Screens
 
                     //From the bytes of the file actually played, so a run pinned to another file (#332) hashes as
                     //the different level it is and would land on no shipped board
-                    _run.Identity = LevelIdentity.Of(levelSet.Levels[index], System.IO.File.ReadAllBytes(path));
+                    _run.Identity = LevelIdentity.Of(levelSet.Levels[index], Prazsky.Core.Tools.ShippedFiles.ReadAllBytes(path));
 
                     Console.WriteLine($"[levels] Loaded {index + 1}/{levelSet.Count} '{levelSet.DisplayName(index)}' "
                         + $"({levelSet.DescribeRules(index)}) from '{path}', board {_run.Identity}");

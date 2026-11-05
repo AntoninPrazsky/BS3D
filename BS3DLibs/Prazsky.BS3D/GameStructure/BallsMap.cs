@@ -1107,7 +1107,7 @@ namespace Prazsky.BS3D.GameStructure
         {
             if (string.IsNullOrEmpty(fileName)) throw new ArgumentNullException(nameof(fileName));
 
-            using FileStream stream = File.OpenRead(fileName);
+            using Stream stream = ShippedFiles.OpenRead(fileName);
             BallPositionTypes ballPositionTypes = JsonSerializer.Deserialize<BallPositionTypes>(stream);
 
             if (ballPositionTypes == null || ballPositionTypes.Balls == null) return;

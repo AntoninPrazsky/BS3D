@@ -150,7 +150,7 @@ namespace Prazsky.BS3D.Levels
         /// <summary>Loads and validates a level file. Throws (rather than returning a broken level) so a caller can leave its current state untouched on a bad file.</summary>
         public static Level Load(string path)
         {
-            using FileStream stream = File.OpenRead(path);
+            using Stream stream = ShippedFiles.OpenRead(path);
             Level level = JsonSerializer.Deserialize<Level>(stream, Options)
                 ?? throw new InvalidDataException($"'{path}' does not contain a level");
 
@@ -184,7 +184,7 @@ namespace Prazsky.BS3D.Levels
         {
             try
             {
-                using FileStream stream = File.OpenRead(path);
+                using Stream stream = ShippedFiles.OpenRead(path);
                 using JsonDocument doc = JsonDocument.Parse(stream);
                 return doc.RootElement.ValueKind == JsonValueKind.Object
                     && doc.RootElement.TryGetProperty("format", out JsonElement format)

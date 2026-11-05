@@ -62,10 +62,19 @@ namespace Prazsky.Core.Tools
         /// Writes the three lines. Call it first thing in <c>Main</c>, before the window: it needs no graphics
         /// device, and a run that dies during startup should still have said what it was.
         /// </summary>
-        public static void Report()
+        /// <param name="app">The executable's own assembly. Only a packaged build reads it (<see cref="ReportPackaged"/>),
+        /// where the entry assembly may be none.</param>
+        public static void Report(Assembly app = null)
         {
             try
             {
+                if (ShippedFiles.IsPackaged)
+                {
+                    ReportPackaged(app);
+                    ReportShaders();
+                    return;
+                }
+
                 ReportExecutable();
                 ReportLibraries();
                 ReportShaders();
@@ -155,6 +164,45 @@ namespace Prazsky.Core.Tools
         }
 
         /// <summary>
+        /// The first two lines for a build whose code and files are inside a package (Android, #1049): there is no
+        /// executable of its own to hash (the process is the system's) and no library beside it to date, so the code is
+        /// named by its assemblies' module version ids, which a deterministic build derives from the compiled content -
+        /// the same code, the same id. <c>[build] BS3D module 1a2b3c4d</c>, then <c>libraries 3 set ...</c> over the
+        /// names and ids of the <c>Prazsky.*</c> libraries it references. Not comparable with a desktop's line, whose
+        /// hash is over the files' bytes.
+        /// </summary>
+        private static void ReportPackaged(Assembly app)
+        {
+            app ??= Assembly.GetEntryAssembly();
+            if (app == null)
+            {
+                Console.WriteLine("[build] executable unknown (inside the package)");
+                return;
+            }
+
+            Console.WriteLine($"[build] {app.GetName().Name} module {ModuleId(app)} (inside the package)");
+
+            Assembly[] libraries = app.GetReferencedAssemblies()
+                .Where(name => name.Name != null && name.Name.StartsWith(LIBRARY_PREFIX, StringComparison.Ordinal))
+                .OrderBy(name => name.Name, StringComparer.Ordinal)
+                .Select(Assembly.Load)
+                .ToArray();
+
+            using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            foreach (Assembly library in libraries)
+            {
+                hash.AppendData(Encoding.UTF8.GetBytes(library.GetName().Name));
+                hash.AppendData(library.ManifestModule.ModuleVersionId.ToByteArray());
+            }
+
+            Console.WriteLine($"[build] libraries {libraries.Length} set "
+                + $"{Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant()[..HASH_CHARS]} (inside the package)");
+        }
+
+        private static string ModuleId(Assembly assembly) =>
+            assembly.ManifestModule.ModuleVersionId.ToString("N")[..HASH_CHARS];
+
+        /// <summary>
         /// One more line, for a run that draws with a second set of compiled shaders (#808): the Windows build's
         /// <c>potato</c> run takes its effects from <c>Content\Potato\Shaders</c>, which the third line does not look
         /// into - so a capture of the Pi's picture taken on a desktop would carry the fingerprint of forty-one effects
@@ -191,9 +239,26 @@ namespace Prazsky.Core.Tools
             string named = overlay == null ? CONTENT_SHADERS : $@"Content\{overlay}\Shaders";
             string label = overlay == null ? "shaders" : overlay.ToLowerInvariant() + " shaders";
 
-            if (!Directory.Exists(directory))
+            if (!ShippedFiles.DirectoryExists(directory))
             {
                 Console.WriteLine($"[build] no {named} beside the executable");
+                return;
+            }
+
+            //A package's files have no write times to name (#1049): the set hash alone, over the same names and bytes as
+            //below, so a package's figure equals a folder's of the same effects (GamePi's)
+            if (ShippedFiles.IsPackaged)
+            {
+                string[] files = ShippedFiles.GetFiles(directory, "*.xnb");
+                using IncrementalHash packaged = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+                foreach (string file in files.OrderBy(Path.GetFileName, StringComparer.Ordinal))
+                {
+                    packaged.AppendData(Encoding.UTF8.GetBytes(Path.GetFileName(file)));
+                    packaged.AppendData(ShippedFiles.ReadAllBytes(file));
+                }
+
+                Console.WriteLine($"[build] {label} {files.Length} set "
+                    + $"{Convert.ToHexString(packaged.GetHashAndReset()).ToLowerInvariant()[..HASH_CHARS]} (inside the package)");
                 return;
             }
 
