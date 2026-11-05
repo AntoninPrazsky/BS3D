@@ -80,8 +80,9 @@
   - A GL program that indexes two uniform arrays reads each from the other's slots (GamePi/Shaders/compile.ps1, which
     refuses the same for the committed nine), and one with an integer or boolean uniform reads it as zero: MonoGame's GL
     runtime uploads only float vectors, and Shader Model 3.0 keeps a loop's uniform count in an integer register, so the
-    loop never runs (the tonemap's supersample box came out black). A build that makes either fails here, which is what
-    makes CI say so; so does a desktop effect left at mediump.-->
+    loop never runs (the tonemap's supersample box came out black). So is a static const array read at a computed index:
+    MojoShader makes it a uniform, and the savanna's flames read zeros (#1063). A build that makes any of these fails here,
+    which is what makes CI say so; so does a desktop effect left at mediump.-->
   <UsingTask TaskName="FinishGlEffects" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
     <ParameterGroup>
       <Raise ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
@@ -147,6 +148,9 @@
                 string[] bases = Regex.Matches(programs[p], @"#define ARRAYBASE_\d+ \d+").Cast<Match>().Select(m => m.Value).Distinct().ToArray();
                 if (bases.Length > 1)
                     Log.LogError(Path.GetFileName(item.ItemSpec) + ", program " + p + " indexes " + bases.Length + " uniform arrays (" + string.Join("; ", bases) + "): pack them into one under OPENGL (see Blast.fx)");
+                Match table = Regex.Match(programs[p], @"uniform vec4 [vp]s_const_array_\w+");
+                if (table.Success)
+                    Log.LogError(Path.GetFileName(item.ItemSpec) + ", program " + p + " declares " + table.Value + ": a static const array read at a computed index, which MonoGame never fills (pick its entries at constant indices under OPENGL, see Flame.fx)");
                 Match integer = Regex.Match(programs[p], @"uniform [bi]vec4 \w+");
                 if (integer.Success)
                     Log.LogError(Path.GetFileName(item.ItemSpec) + ", program " + p + " declares " + integer.Value + ", which MonoGame never uploads: a loop to a uniform count runs no times (ARRAY_LOOP or COUNT_LOOP, ShaderTarget.fxh)");

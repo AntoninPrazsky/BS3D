@@ -51,5 +51,13 @@ namespace Prazsky.Core.Render
         /// on the desktop and by a depth buffer of its own here (<c>SunShadowMap</c>).
         /// </summary>
         public static bool MinMaxBlend => !OperatingSystem.IsAndroid();
+
+        /// <summary>
+        /// Whether the ceiling's glass bends a copy of the frame (#541): not under MonoGame's Android backend for now, where
+        /// the bent pane drew as an opaque, overexposed pink slab at Medium and up (#1063, cause not found yet: the target's
+        /// format, the copy's sampling and the screen convention all read right). There the plate draws as at Low, blended
+        /// over the frame, which reads correctly.
+        /// </summary>
+        public static bool CeilingRefraction => !OperatingSystem.IsAndroid();
     }
 }
