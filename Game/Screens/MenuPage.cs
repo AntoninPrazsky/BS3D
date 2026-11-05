@@ -116,6 +116,9 @@ namespace BS3D.Screens
                 _builtForLayout = Game.MenuLayoutGeneration;
                 ScrollShortfall = 0;
                 MustFitScrollers.Clear();
+                _tallPart = null;
+                _tallParent = null;
+                _tallScroller = null;
                 Game.PageBuilding = this;
                 try
                 {
@@ -543,6 +546,64 @@ namespace BS3D.Screens
             Game.FrontEndEntry(text, onClick, out label);
 
         protected VerticalStackPanel MenuColumn() => Game.MenuColumn();
+
+        //The page's long part and the widget it stands in (#1052, ScrollsWhenTall), and the scroller it was put in once it was
+        private Container _tallParent;
+        private Widget _tallPart;
+        private MenuScrollViewer _tallScroller;
+
+        /// <summary>
+        /// Names this page's long part (About's text, High Scores' rows), a child of <paramref name="parent"/>, as what scrolls
+        /// on an enlarged interface where the page would not fit the screen at the menus' scale (#1052): put in a scroller a
+        /// finger drags, as tall as the rest of the page leaves it, so the heading, the switches and Back stay the size the
+        /// main menu's entries are rather than the whole page being drawn smaller (the owner: "as consistent as possible").
+        /// Done by <c>BS3DGame.FitPage</c> (<see cref="ScrollTallPart"/>), which measures the page with this visit's content.
+        /// </summary>
+        protected void ScrollsWhenTall(Container parent, Widget part)
+        {
+            _tallParent = parent;
+            _tallPart = part;
+            _tallScroller = null;
+        }
+
+        /// <summary>
+        /// Takes <paramref name="overrun"/> pixels off the page's height by scrolling its long part (#1052), keeping at least
+        /// a few lines of it showing. False when the page has no such part or it can give no more.
+        /// </summary>
+        internal bool ScrollTallPart(int overrun)
+        {
+            if (_tallPart == null || overrun <= 0) return false;
+
+            int floor = TALL_PART_FLOOR_LINES * FontSmall.LineHeight;
+            if (_tallScroller == null)
+            {
+                int index = _tallParent.Widgets.IndexOf(_tallPart);
+                if (index < 0) return false;
+
+                int height = _tallPart.Measure(new Point(Game.GraphicsDevice.Viewport.Width, int.MaxValue / 2)).Y;
+                if (height <= floor) return false;
+
+                _tallParent.Widgets.RemoveAt(index);
+                _tallScroller = new MenuScrollViewer
+                {
+                    Content = _tallPart,
+                    ShowHorizontalScrollBar = false,
+                    Height = Math.Max(floor, height - overrun),
+                    HorizontalAlignment = _tallPart.HorizontalAlignment,
+                    VerticalAlignment = VerticalAlignment.Top,
+                };
+                _tallParent.Widgets.Insert(index, _tallScroller);
+                return true;
+            }
+
+            int now = _tallScroller.Height.GetValueOrDefault();
+            if (now <= floor) return false;
+            _tallScroller.Height = Math.Max(floor, now - overrun);
+            return true;
+        }
+
+        //The least of a scrolled long part that stays showing, in lines of the small face
+        private const int TALL_PART_FLOOR_LINES = 4;
 
         protected ScrollViewer MenuScroll(Widget content, int reservedDesignUnits, bool clearEdges = false, bool mustFit = false) =>
             Game.MenuScroll(content, reservedDesignUnits, clearEdges, mustFit);

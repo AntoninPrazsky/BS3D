@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-05 — #1052 jednotná velikost menu; #1056 plán grafiky pro Android — desktop (RDT-PC), Claude Code
+- Majitel: volby na podstránkách stejně velké jako v hlavním menu, velikost nemá skákat, pokud to není nutné. About a High Scores nebyly pro mobil. Hotovo: všechny stránky začínají na měřítku hlavního menu (1,31×), písmo voleb na telefonu 108. About a High Scores posouvají svou dlouhou část.
+- Měřeno (#1048): 10,5 min Girandole na telefonu drží 60 FPS, baterie 33,4 °C, žádný throttling.
+- Majitel: grafika na Androidu se má přiblížit desktopu, cíl 60 FPS, tiery Low/Medium/High a automatická kvalita. Plán #1056 (kroky #1057–#1064).
+- ⚠ Zkouška: 7 z 10 desktopových shaderů se přeloží pro GL jen přepnutím profilu na SM 3.0. Překážky: `SV_IsFrontFace`, celočíselný hash v `Noise.fxh` a jeden vzor indexování.
+
 ## 2026-11-05 — #1052 telefonní rozhraní — desktop (RDT-PC), Claude Code
 - Majitel: UI na telefonu „o něco větší určitě být musí“, využít šířku displeje (hraje se na šířku), konkrétní poměr nechal na mně.
 - Hotovo: `UiScale` = 4,5″ / fyzická výška displeje (X300 Ultra 1,59×), Windows a Pi beze změny. Stránka vyšší než displej se zmenší jen o tolik, kolik musí (`FitPage`). Výsledek levelu má na telefonu dva sloupce. Seznamy jdou posouvat tahem, gesto Zpět vrací o stránku, menu pro prst nekreslí ikony kláves.

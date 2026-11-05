@@ -247,10 +247,22 @@ namespace BS3D.Screens
 
             //The door to opting in, shown only while there is nothing to show without it
             _settingsButton = MenuButton("Settings", Game.OpenSettings);
-            column.Widgets.Add(_settingsButton);
+            if (Game.UiScale > 1f)
+            {
+                //Side by side on a phone (#1052): the width it has, and a line more of the levels above them
+                HorizontalStackPanel ways = new() { Spacing = Scaled(20), HorizontalAlignment = HorizontalAlignment.Center };
+                ways.Widgets.Add(_settingsButton);
+                ways.Widgets.Add(BackButton());
+                column.Widgets.Add(ways);
+            }
+            else
+            {
+                column.Widgets.Add(_settingsButton);
+                column.Widgets.Add(BackButton());
+            }
 
-            column.Widgets.Add(BackButton());
-
+            //On a phone the levels are dragged rather than the whole page drawn smaller (#1052)
+            ScrollsWhenTall(column, rows);
             return ScreenRoot(Plate(column));
         }
 
