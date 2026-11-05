@@ -61,6 +61,11 @@ namespace BS3D
             if (options.Desktop && !options.Potato && QualityLock.LeavePotato())
                 Console.WriteLine("[quality] desktop path: this run draws through the desktop's renderer and its OpenGL ES effects");
 
+            //A GPU that cannot carry the desktop's renderer (#1064, a phone without float render targets) is held at Potato
+            //whatever was chosen or named, and the run says what was missing
+            if (!GpuCaps.DesktopPath(options.GpuMissing, out string gpuWhy) && QualityLock.HoldForDevice(gpuWhy))
+                BuildStamp.ReportShaderOverlay(PotatoContent.OVERLAY);
+
             if (ScriptedPlay.Current != null) Console.WriteLine(ScriptedPlay.Current.Describe());
 
             if (!string.IsNullOrWhiteSpace(options.UserDataDirectory))
