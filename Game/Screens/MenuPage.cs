@@ -289,6 +289,22 @@ namespace BS3D.Screens
         /// </summary>
         internal virtual void OnTextInput(char character) { }
 
+        /// <summary>
+        /// What a phone's text dialog asks while this page has the keyboard (#1052): its title, a line under it, and the text
+        /// it opens on (what is typed so far). <c>BS3DGame.StepPhoneTyping</c> types the answer into the page through
+        /// <see cref="OnTextInput"/>, the window's own path.
+        /// </summary>
+        internal virtual (string Title, string Description, string Text) TypingDialog => ("", "", "");
+
+        /// <summary>
+        /// Whether the dialog's OK is the page's Enter (#1052): a nickname is kept by it; a note is not sent by it, since its
+        /// page still offers the screenshot and Send.
+        /// </summary>
+        internal virtual bool TypingDialogEnters => true;
+
+        /// <summary>The widget the typed text shows in (#1052): a finger on it opens the phone's text dialog again.</summary>
+        internal virtual Widget TypingField => null;
+
         /// <summary>The pad's A (<paramref name="keep"/>) and B (<paramref name="drop"/>) while the page is typing (#548).</summary>
         internal virtual void TypingButtons(bool keep, bool drop) { }
 

@@ -823,6 +823,82 @@ namespace BS3D
         /// </summary>
         private const float FIT_ROOM = 0.96f;
 
+        /// <summary>
+        /// Whether the game runs on a phone (#1052): no window to make fullscreen, no keyboard with keys F10 to F12 or lamps to
+        /// light. What the menus leave out there rather than show as a row that does nothing.
+        /// </summary>
+        internal static bool OnPhone => OperatingSystem.IsAndroid();
+
+        //The page a phone's text dialog was opened for, and the dialog's answer while it is up (#1052)
+        private MenuPage _typingDialogFor;
+        private System.Threading.Tasks.Task<string> _typingDialog;
+
+        /// <summary>
+        /// A phone's typing (#1052): the window sends no characters on Android, and Myra's text box opens no soft keyboard,
+        /// so a page that takes the keyboard (the nickname plate, the Settings nickname row, the note) gets the system's own
+        /// text dialog (<c>KeyboardInput.Show</c>), opening on what is typed so far. Its answer is typed into the page through
+        /// <c>OnTextInput</c>, the window's own path: the field cleared with backspaces, the text, and the page's Enter where
+        /// OK means it (<c>TypingDialogEnters</c>); a cancel is the page's Esc. Asked once per page until the page stops
+        /// taking the keyboard or a finger touches the screen again, so a name the page refuses is not asked for in a loop.
+        /// </summary>
+        private void StepPhoneTyping()
+        {
+            if (!OnPhone) return;
+
+            MenuPage page = _screens.Active as MenuPage;
+
+            if (_typingDialog != null)
+            {
+                if (!_typingDialog.IsCompleted) return;
+
+                string text = _typingDialog.Status == System.Threading.Tasks.TaskStatus.RanToCompletion ? _typingDialog.Result : null;
+                _typingDialog = null;
+
+                if (page == null || page != _typingDialogFor || !page.CapturesKeyboard) return;
+
+                if (text == null)
+                {
+                    page.OnTextInput('\x1b');
+                    return;
+                }
+
+                for (int i = 0; i < TYPING_DIALOG_CLEAR; i++) page.OnTextInput('\b');
+                foreach (char c in text) page.OnTextInput(c);
+                if (page.TypingDialogEnters) page.OnTextInput('\r');
+                return;
+            }
+
+            //Another page, or a finger on the field again, asks afresh: not a finger anywhere, which on the note is its Send
+            if (page == null || !page.CapturesKeyboard || page != _typingDialogFor || TouchOnTypingField(page))
+                _typingDialogFor = null;
+
+            if (page == null || !page.CapturesKeyboard || _typingDialogFor == page
+                || Microsoft.Xna.Framework.Input.KeyboardInput.IsVisible) return;
+
+            _typingDialogFor = page;
+            (string title, string description, string current) = page.TypingDialog;
+            _typingDialog = Microsoft.Xna.Framework.Input.KeyboardInput.Show(title, description, current);
+        }
+
+        /// <summary>Whether a finger is down on the page's typing field (#1052).</summary>
+        private static bool TouchOnTypingField(MenuPage page)
+        {
+            if (page.TypingField is not Widget field || !field.Visible) return false;
+
+            Microsoft.Xna.Framework.Input.Touch.TouchCollection touches = Microsoft.Xna.Framework.Input.Touch.TouchPanel.GetState();
+            if (touches.Count == 0) return false;
+
+            Rectangle box = field.ActualBounds;
+            Point corner = field.ToGlobal(new Point(box.X, box.Y));
+            Rectangle global = new(corner.X, corner.Y, box.Width, box.Height);
+            foreach (Microsoft.Xna.Framework.Input.Touch.TouchLocation touch in touches)
+                if (global.Contains((int)touch.Position.X, (int)touch.Position.Y)) return true;
+            return false;
+        }
+
+        //More backspaces than any field holds (a note is the longest), so the dialog's answer replaces what was there
+        private const int TYPING_DIALOG_CLEAR = 2000;
+
         /// <summary>The least a page's fit may take the interface down to: the design's own size, which every page fits.</summary>
         private float FitFloor => 1f / UiScale;
 
@@ -3191,6 +3267,9 @@ namespace BS3D
 
             //Before anything acts on them, so a press that changes the page is drawn with the hand that made it (#799)
             NotePromptHand(keyboard, pad, mouse);
+
+            //A phone types through the system's own text dialog (#1052)
+            StepPhoneTyping();
 
             //A page standing aside for a takeover (#861) is handed no menu input at all: a skip key goes to it, the
             //display keys still work, and the snapshots advance so nothing held through it fires when it comes back

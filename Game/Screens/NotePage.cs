@@ -330,6 +330,13 @@ namespace BS3D.Screens
             Refresh();
         }
 
+        internal override (string Title, string Description, string Text) TypingDialog =>
+            ("Write to the Author", "What you want the author to know", _draft.ToString());
+
+        internal override bool TypingDialogEnters => false;
+
+        internal override Widget TypingField => _field;
+
         internal override void OnTextInput(char character)
         {
             if (_state != State.Writing || Game.WallClock - _shotAt < INPUT_GRACE_SECONDS) return;

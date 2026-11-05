@@ -394,25 +394,27 @@ namespace BS3D.Screens
         {
             Grid grid = NewGroupGrid();
 
-            AddCheckRow(grid, 0, "Fullscreen", Game.ToggleFullscreen, out _fullscreenCheck);
+            int row = 0;
+            //Not on a phone (#1052), which has no window to make fullscreen
+            if (!BS3DGame.OnPhone) AddCheckRow(grid, row++, "Fullscreen", Game.ToggleFullscreen, out _fullscreenCheck);
             //The height the 3D is drawn at (#801), the menus and the HUD staying the display's: under Fullscreen, the other
             //half of what size the game is. Every rung keeps the display's aspect; on the Raspberry Pi it starts at Auto.
-            AddRow(grid, 1, "Resolution", Game.CycleRenderResolution, out _resolutionValue);
+            AddRow(grid, row++, "Resolution", Game.CycleRenderResolution, out _resolutionValue);
             //One bundled tier rather than the antialiasing dial it replaces (#63). Supersampling was never a
             //performance setting — it is tied to a look decision — and it was the only thing here that reached
             //the rest of the frame at all; the tier reaches the city's per-pixel work and its skyline too.
-            AddRow(grid, 2, "Quality", Game.CycleQuality, out _qualityValue);
+            AddRow(grid, row++, "Quality", Game.CycleQuality, out _qualityValue);
             //Whether the game may lower that tier by itself (#390). Directly under it, because it is the other
             //half of the same answer — and because picking a tier above turns it off, which the player should
             //see happen rather than have to know.
-            AddCheckRow(grid, 3, "Auto quality", Game.ToggleAdaptiveQuality, out _adaptiveQualityCheck);
+            AddCheckRow(grid, row++, "Auto quality", Game.ToggleAdaptiveQuality, out _adaptiveQualityCheck);
             //Whether the scene's scenery is drawn (#808): under the two rows it changes the meaning of, since turning it
             //off makes the Quality row read Custom. The Potato path never draws it, and says so here.
-            AddCheckRow(grid, 4, "Scenery", Game.ToggleScenery, out _sceneryCheck);
+            AddCheckRow(grid, row++, "Scenery", Game.ToggleScenery, out _sceneryCheck);
             //The presentation cap (#124): synced to the monitor's refresh (frames nobody can see cost only
             //heat) or unlimited — the "nocap" launch argument's toggle, in the menu so a benchmarking session
             //is not the only way to lift it. Two states, but not On and Off, so it keeps its words (#816)
-            AddRow(grid, 5, "FPS limit", Game.ToggleFpsLimit, out _fpsLimitValue);
+            AddRow(grid, row, "FPS limit", Game.ToggleFpsLimit, out _fpsLimitValue);
 
             return grid;
         }
@@ -486,18 +488,20 @@ namespace BS3D.Screens
             AddRow(grid, 2, "Rumble", Game.CycleRumbleStrength, out _rumbleValue);
 
             //The keyboard's lights (#987): with the hands, like the pad's motors, because a backlit keyboard is the other thing in
-            //them that answers the game. The reason beside it says when Windows lists no keyboard to light
-            AddCheckRow(grid, 3, "Keyboard lights", Game.ToggleKeyboardLighting, out _keyboardLightsCheck);
+            //them that answers the game. The reason beside it says when Windows lists no keyboard to light. Not on a phone
+            //(#1052), which has no keyboard to light
+            int row = 3;
+            if (!BS3DGame.OnPhone) AddCheckRow(grid, row++, "Keyboard lights", Game.ToggleKeyboardLighting, out _keyboardLightsCheck);
 
             //How the right button and the left trigger lean in (#1054): a press that stays, the owner's ask, or a hold
-            AddRow(grid, 4, "Precise aim", Game.TogglePreciseAimMode, out _preciseModeValue);
+            AddRow(grid, row++, "Precise aim", Game.TogglePreciseAimMode, out _preciseModeValue);
 
             //The touch screen's (#1051): how far a finger's drag turns the gun, and the two sides swapped for a player who
             //aims with the other thumb (#1050). Only where a touch screen answers: a row with nothing to touch is a dead row
             if (Microsoft.Xna.Framework.Input.Touch.TouchPanel.GetCapabilities().IsConnected)
             {
-                AddRow(grid, 5, "Touch sensitivity", Game.CycleTouchSensitivity, out _touchSensitivityValue);
-                AddCheckRow(grid, 6, "Aim on the right", Game.ToggleTouchSides, out _touchSidesCheck);
+                AddRow(grid, row++, "Touch sensitivity", Game.CycleTouchSensitivity, out _touchSensitivityValue);
+                AddCheckRow(grid, row, "Aim on the right", Game.ToggleTouchSides, out _touchSidesCheck);
             }
 
             return grid;
@@ -773,10 +777,11 @@ namespace BS3D.Screens
         /// <summary>Writes the current value onto each setting's button. Cheap, and only run on a change.</summary>
         internal override void Refresh()
         {
-            //A display hotkey works before this page has ever been opened, so there may be nothing to write onto
-            if (_fullscreenCheck == null) return;
+            //A display hotkey works before this page has ever been opened, so there may be nothing to write onto. Not read
+            //off the Fullscreen row, which a phone does not build (#1052)
+            if (_resolutionValue == null) return;
 
-            _fullscreenCheck.Show(Game.IsFullscreen);
+            _fullscreenCheck?.Show(Game.IsFullscreen);
             _resolutionValue.Text = Game.RenderResolutionLabel;
             //A locked build (GamePi, #788) says so on both rows rather than offering a click that does nothing
             _qualityValue.Text = Game.QualityLabel;
@@ -808,7 +813,7 @@ namespace BS3D.Screens
             _musicValue.Text = FormatVolume(Game.MusicVolume);
             _ambienceValue.Text = FormatVolume(Game.AmbienceVolume);
             _rumbleValue.Text = FormatVolume(Game.RumbleStrength);
-            _keyboardLightsCheck.Show(Game.IsKeyboardLightingEnabled, Game.IsKeyboardLightingEnabled && BS3D.Platform.KeyboardLights.NoneFound ? "none found" : null);
+            _keyboardLightsCheck?.Show(Game.IsKeyboardLightingEnabled, Game.IsKeyboardLightingEnabled && BS3D.Platform.KeyboardLights.NoneFound ? "none found" : null);
             //As a percentage of the shipped feel, the volume rows' own idiom, and exact at every rung — the
             //ladder is written so that it is (0.75 is "75 %", where a multiplier would have to print "0.8×"
             //and lie, or "0.75×" and read as arithmetic).
@@ -1133,6 +1138,11 @@ namespace BS3D.Screens
         /// character no nickname may hold does nothing, and nothing past the longest name is taken
         /// (<see cref="NicknameEntry.Type"/>).
         /// </summary>
+        internal override (string Title, string Description, string Text) TypingDialog =>
+            ("Nickname", "The name the online boards show for your scores", _entry.Draft);
+
+        internal override Widget TypingField => _nicknameValue;
+
         internal override void OnTextInput(char character)
         {
             if (!_typing) return;

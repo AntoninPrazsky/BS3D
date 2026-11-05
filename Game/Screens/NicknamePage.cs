@@ -154,6 +154,11 @@ namespace BS3D.Screens
         /// <summary>Whether the plate has been up long enough to be typed into - see <see cref="INPUT_GRACE_SECONDS"/>.</summary>
         internal bool InGrace => Game.WallClock - _arrivedAt < INPUT_GRACE_SECONDS;
 
+        internal override (string Title, string Description, string Text) TypingDialog =>
+            ("Nickname", "The name the online boards show for your scores", _entry.Draft);
+
+        internal override Widget TypingField => _field;
+
         internal override void OnTextInput(char character)
         {
             if (InGrace || _answered) return;
