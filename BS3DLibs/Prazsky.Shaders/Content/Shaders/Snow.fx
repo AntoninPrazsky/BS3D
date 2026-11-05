@@ -25,8 +25,7 @@
 //crosses pixel centres. One pixel and not less, because the mask is read at pixel centres only: at 0.6 a flake
 //centred on a pixel's corner reached no centre at all, and its coverage swung from nothing to full as it fell.
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 float4x4 View;
 float4x4 Projection;

@@ -16,10 +16,9 @@
 //sorting. ⚠ A dark crew on a dark cabin did not read at all. Over the crown a short antenna with a red tip.
 //
 //Drawn in the Game and the Testbed through the shared SceneRenderer (SpaceBackdrop), after the sky's quad and writing depth.
-//Shader Model 5.0, no OPENGL branch.
+//Shader Model 5.0, and 3.0 for OpenGL ES (ShaderTarget.fxh).
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 float4x4 World;
 float4x4 View;

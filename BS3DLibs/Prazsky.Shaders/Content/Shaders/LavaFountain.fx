@@ -22,8 +22,7 @@
 //
 //Shader Model 5.0, drawn in all three executables out of the one copy in Prazsky.Shaders.
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 #include "Noise.fxh"
 
@@ -38,8 +37,19 @@ float FountainTime;
 //Matched by MAX_VENTS in SceneRenderer. Vent 0 is the crater; the rest are side vents on the flank, each
 //with its own strength so they do not all throw the same fountain.
 #define MAX_VENTS 4
+#if OPENGL
+//ONE array a program under GL (#1057): a vent's place and strength in one float4, which VolcanoBackdrop fills when
+//the effect has it. MojoShader's GLSL reads each array a program indexes from a base of its own, and with two or more
+//those bases disagree with the block the runtime uploads (GamePi/Shaders/compile.ps1), so every slot read another's.
+float4 VentData[MAX_VENTS];
+#define VENT_POSITION(i) VentData[i].xyz
+#define VENT_STRENGTH(i) VentData[i].w
+#else
 float3 VentPosition[MAX_VENTS];
 float VentStrength[MAX_VENTS];
+#define VENT_POSITION(i) VentPosition[i]
+#define VENT_STRENGTH(i) VentStrength[i]
+#endif
 int VentCount;
 
 float LaunchSpeed;
@@ -116,12 +126,12 @@ FountainVertexOutput FountainVS(FountainVertexInput input)
     float tilt = LaunchSpread * sqrt(aim.y);
     float3 direction = float3(sin(tilt) * cos(azimuth), cos(tilt), sin(tilt) * sin(azimuth));
 
-    float speed = LaunchSpeed * VentStrength[vent] * (0.55 + 0.6 * shape.y) * (1.0 + Eruption * EruptionBoost);
+    float speed = LaunchSpeed * VENT_STRENGTH(vent) * (0.55 + 0.6 * shape.y) * (1.0 + Eruption * EruptionBoost);
 
     //Ballistic: launched, pulled down, and leaned over by the wind - the drag term grows as t² because a
     //blob has been in the air that much longer, which is what bends a tall jet downwind at its top and
     //leaves its base standing straight.
-    float3 world = VentPosition[vent] + direction * speed * t;
+    float3 world = VENT_POSITION(vent) + direction * speed * t;
     world.y -= 0.5 * BlobGravity * t * t;
     world.xz += WindDirection * WindDrag * t * t;
 
@@ -219,7 +229,7 @@ PlumeVertexOutput PlumeVS(FountainVertexInput input)
     float swirlRadius = PlumeSpread * (0.25 + 0.75 * aim.y) * spread;
     float drift = t * 1.6 + t * t * 0.1;
 
-    float3 world = VentPosition[0];
+    float3 world = VENT_POSITION(0);
     world.y += rise;
     world.x += cos(swirlAngle) * swirlRadius + WindDirection.x * drift;
     world.z += sin(swirlAngle) * swirlRadius + WindDirection.y * drift;
@@ -313,8 +323,17 @@ PlumeVertexOutput PlumeVSReduced(FountainVertexInput input)
 //from below near the ground by the cracks it rises out of and grey above. The plume's own pixel shader shades it:
 //a puff is the same lumpy sphere, only pale and slow. Premultiplied, under BlendState.AlphaBlend (#675's lesson).
 #define MAX_FUMAROLES 12
+#if OPENGL
+//As the vents' (#1057): a fumarole's place and strength in one float4
+float4 FumaroleData[MAX_FUMAROLES];
+#define FUMAROLE_POSITION(i) FumaroleData[i].xyz
+#define FUMAROLE_STRENGTH(i) FumaroleData[i].w
+#else
 float3 FumarolePosition[MAX_FUMAROLES];
 float FumaroleStrength[MAX_FUMAROLES];
+#define FUMAROLE_POSITION(i) FumarolePosition[i]
+#define FUMAROLE_STRENGTH(i) FumaroleStrength[i]
+#endif
 int FumaroleCount;
 float3 SteamColor;
 float SteamStrength;
@@ -334,7 +353,7 @@ PlumeVertexOutput SteamVS(FountainVertexInput input)
     ParticleRandoms(b, rand, aim, shape);
 
     int vent = min((int)(frac(rand * 7.31 + b.x) * FumaroleCount), FumaroleCount - 1);
-    float strength = FumaroleStrength[vent];
+    float strength = FUMAROLE_STRENGTH(vent);
 
     float life = SteamLife * (0.7 + 0.6 * shape.x);
     float t = frac((FountainTime + rand * 97.0) / life) * life;
@@ -348,7 +367,7 @@ PlumeVertexOutput SteamVS(FountainVertexInput input)
     float swirlRadius = SteamSize * (0.3 + 0.7 * aim.y) * (0.2 + 1.9 * age);
     float drift = t * 0.9 + t * t * 0.07;
 
-    float3 world = FumarolePosition[vent];
+    float3 world = FUMAROLE_POSITION(vent);
     world.y += rise;
     world.x += cos(swirlAngle) * swirlRadius + WindDirection.x * drift;
     world.z += sin(swirlAngle) * swirlRadius + WindDirection.y * drift;
@@ -384,7 +403,7 @@ FountainVertexOutput GlowVS(FountainVertexInput input)
 {
     FountainVertexOutput output;
 
-    float3 world = VentPosition[0] + float3(0.0, GlowSize * 0.25, 0.0)
+    float3 world = VENT_POSITION(0) + float3(0.0, GlowSize * 0.25, 0.0)
         + CameraRight * (input.Data.x * GlowSize) + CameraUp * (input.Data.y * GlowSize);
 
     output.Position = mul(mul(float4(world, 1.0), View), Projection);

@@ -132,8 +132,7 @@ float4 ApplyKillPlaneFade(float4 shaded, float3 worldPosition)
 
 void AddSceneLights(float3 worldPosition, float3 worldNormal, float3 eyeVector, inout float3 diffuse, inout float3 specular)
 {
-    [loop]
-    for (int i = 0; i < SceneLightCount; i++)
+    ARRAY_LOOP(i, SceneLightCount, MAX_SCENE_LIGHTS)
     {
         float3 toLight = SceneLightPosition[i] - worldPosition;
         float dist = length(toLight);
@@ -422,8 +421,9 @@ float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionD
     return ShadePixel(worldPosition, rawWorldNormal, occlusionData, texColor, keyShadow, cavity, DefaultSurfaceSpecular());
 }
 
-float4 MainPS(VertexShaderOutput input, bool isFrontFace : SV_IsFrontFace) : COLOR
+float4 MainPS(VertexShaderOutput input, FRONT_FACE(isFrontFace)) : COLOR
 {
+    FRONT_FACE_BEGIN(isFrontFace)
     //An open single-sided wall drawn CullNone shades its outside with the inside's normal unless told
     //otherwise - see TwoSidedNormals. A branchless select: the uniform is 0 on every closed mesh.
     float3 worldNormal = (TwoSidedNormals > 0 && !isFrontFace) ? -input.WorldNormal : input.WorldNormal;

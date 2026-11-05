@@ -14,8 +14,7 @@
 //shared field in Clouds.fxh, so the water darkens under the very cloud the sky shows overhead. Built for
 //Shader Model 5.0 and drawn through SceneRenderer in both executables (the map editor draws it too now).
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 #include "Clouds.fxh"
 #include "Noise.fxh"

@@ -27,8 +27,7 @@
 //
 //Built by all three executables out of this directory, Shader Model 5.0.
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 //The starfield lattice, its helpers (Hash33, BuildFrame, CubeChart/CubeJacobian, StarTint) and the star
 //uniforms — one copy shared with Moon.fx, the other sky with no atmosphere in it (#125). It is this file's

@@ -8,8 +8,7 @@
 //Built by the Testbed and the Game; the map editor builds InstancedModel.fx out of this directory but
 //not this file, so it gets no drawn clouds.
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 #include "Clouds.fxh"
 

@@ -13,8 +13,7 @@
 //radiance driven well OVER the glare threshold - a firework is supposed to bloom. Driven over it in its OWN
 //hue, though (#612): the palette keeps one channel at zero so the tonemap's shoulder cannot bleach it. SM 5.0.
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 #define MAX_SHELLS 32
 
@@ -32,11 +31,28 @@ float3 CameraUp;
 //  ShellShape.x     burst radius, .y spark life, .z flatten (1 = a sphere, <1 = a disc, seen edge-on as a ring)
 //  ShellShape.w     twinkle strength
 //  ShellColorB.rgb  the shell's SECOND colour; each spark takes one or the other (see Random.w)
+#if OPENGL
+//ONE array under GL (#1057), GamePi's layout, which Fireworks.cs fills when the effect has it. MojoShader's GLSL reads
+//each array a program indexes from a base of its own, and with two or more those bases disagree with the block the
+//runtime uploads (GamePi/Shaders/compile.ps1), so every slot read another's.
+float4 ShellData[MAX_SHELLS * 5];
+#define SHELL_ORIGIN(i) ShellData[(i) * 5]
+#define SHELL_BURST(i) ShellData[(i) * 5 + 1]
+#define SHELL_COLOR(i) ShellData[(i) * 5 + 2]
+#define SHELL_COLOR_B(i) ShellData[(i) * 5 + 3]
+#define SHELL_SHAPE(i) ShellData[(i) * 5 + 4]
+#else
 float4 ShellOrigin[MAX_SHELLS];
 float4 ShellBurst[MAX_SHELLS];
 float4 ShellColor[MAX_SHELLS];
 float4 ShellColorB[MAX_SHELLS];
 float4 ShellShape[MAX_SHELLS];
+#define SHELL_ORIGIN(i) ShellOrigin[i]
+#define SHELL_BURST(i) ShellBurst[i]
+#define SHELL_COLOR(i) ShellColor[i]
+#define SHELL_COLOR_B(i) ShellColorB[i]
+#define SHELL_SHAPE(i) ShellShape[i]
+#endif
 
 float SparkSize;      //world half-size of a rising shell's comet sparks
 float TrailWidth;     //world half-width of a burst spark's trail (Fireworks.TRAIL_WIDTH)
@@ -76,10 +92,10 @@ FireworkVertexOutput FireworkVS(FireworkVertexInput input)
 
     int shell = (int)input.Slot.x;
 
-    float4 origin = ShellOrigin[shell];
-    float4 burst = ShellBurst[shell];
-    float4 colour = ShellColor[shell];
-    float4 shape = ShellShape[shell];
+    float4 origin = SHELL_ORIGIN(shell);
+    float4 burst = SHELL_BURST(shell);
+    float4 colour = SHELL_COLOR(shell);
+    float4 shape = SHELL_SHAPE(shell);
 
     float age = burst.w;
     float life = shape.y;
@@ -205,7 +221,7 @@ FireworkVertexOutput FireworkVS(FireworkVertexInput input)
     //kinds are seen AS kinds. White at the palette's own luminance (SPARK_LUMINANCE), so it blooms as they do.
     float kind = input.Random.w;
     float3 shellColour = kind < WhiteShare ? float3(1.5, 1.5, 1.5)
-        : ((kind - WhiteShare) < 0.5 * (1.0 - WhiteShare) ? colour.rgb : ShellColorB[shell].rgb);
+        : ((kind - WhiteShare) < 0.5 * (1.0 - WhiteShare) ? colour.rgb : SHELL_COLOR_B(shell).rgb);
 
     //The hot core: a FRESH spark flashes towards white and shows its own colour as it cools - only a flash, and
     //only part of the way (#612): the palette's own zero channel is what keeps the rest of the life coloured.

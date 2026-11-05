@@ -20,8 +20,7 @@
 //Premultiplied alpha (BlendState.AlphaBlend) with an alpha of 0, so it ADDS to what is behind and leaves the target's
 //alpha alone; depth-read, writing no depth; linear radiance. SM 5.0. No Potato port: the Pi draws no rays.
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 float4x4 World;        //the quad's plane: the barrel's pose with the muzzle face's offset along the bore
 float4x4 View;

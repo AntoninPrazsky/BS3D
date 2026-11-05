@@ -6,9 +6,10 @@
 //Both the Testbed and the map editor build this for DirectX now and get Shader Model 5.0. The editor
 //used to build it for DesktopGL, where MojoShader capped shaders at 3.0 and everything 5.0-only had to
 //sit behind #if OPENGL; it has since moved onto WindowsDX so it can render the balls exactly as the game
-//does, tonemapping and all. There is no OPENGL build of this file any more, so nothing needs a fallback.
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+//does, tonemapping and all. Since #1057 it is compiled for OpenGL ES again, for Android: ShaderTarget.fxh and the
+//#if OPENGL branches in its includes keep the DirectX build what it was ("The shared effects on OpenGL ES",
+//docs/rendering.md).
+#include "ShaderTarget.fxh"
 
 //Every color that enters the lighting math - material colors, light colors, sky palette, texture
 //samples - is authored or stored in sRGB, which is a display encoding, not a quantity of light.

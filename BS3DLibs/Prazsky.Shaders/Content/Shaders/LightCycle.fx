@@ -10,10 +10,9 @@
 //THE TRAIL. A wall standing on the run behind the cycle, added over the frame and writing no depth: brightest along its top
 //and its foot, a translucent glow between, fading to nothing towards its tail.
 //
-//Drawn in the Game and the Testbed through the shared SceneRenderer (GridBackdrop). Shader Model 5.0, no OPENGL branch.
+//Drawn in the Game and the Testbed through the shared SceneRenderer (GridBackdrop). Shader Model 5.0, and 3.0 for OpenGL ES (ShaderTarget.fxh).
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 float4x4 World;
 float4x4 View;

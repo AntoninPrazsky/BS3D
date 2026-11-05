@@ -26,8 +26,7 @@
 //edge-on to the eye. AuroraBackdrop knows where the arcs hang (their places and brightness are uniforms it writes),
 //which is how the light it throws on the snow and the wood moves with the curtains.
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 #include "Clouds.fxh"
 #include "Noise.fxh"
@@ -138,6 +137,13 @@ float SnowBaseHeight(float2 p)
 //the map.
 float MoundHeight(float2 p)
 {
+#if OPENGL
+    //Under GL the snow is drawn without the mounds' height (#1057): MonoGame's MojoShader refuses a sampler in a vertex
+    //program ("invalid DCL register type for this shader model"), and the grids follow the eye, so no vertex can carry
+    //it. Their slope and open sky are still the map's, read per pixel. The planting's mirror on the CPU still stands
+    //everything on them; what the phone's aurora does about that is #1062's.
+    return 0.0;
+#else
     float2 t = (p - MoundOrigin) / MoundTexel - 0.5;
     float2 cell = floor(t);
     float2 f = t - cell;
@@ -151,6 +157,7 @@ float MoundHeight(float2 p)
     float d = tex2Dlod(MoundPoint, float4(uv + float2(texel, texel), 0.0, 0.0)).x;
 
     return lerp(lerp(a, b, f.x), lerp(c, d, f.x), f.y) * onMap;
+#endif
 }
 
 //The ground as drawn, and as the planting's mirror reads it with the mounds (SceneRenderer.AuroraGroundHeight)

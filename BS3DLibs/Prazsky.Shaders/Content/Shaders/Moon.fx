@@ -30,8 +30,7 @@
 //
 //Built by all three executables out of this directory, Shader Model 5.0.
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 //The shared starfield lattice and its uniforms (StarCellScale/Chance/Peak, StarSpread, StarFalloff, the
 //spike pair, SupersampleFactor), one copy with Space.fx.

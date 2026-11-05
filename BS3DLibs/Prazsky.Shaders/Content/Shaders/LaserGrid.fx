@@ -15,8 +15,7 @@
 //bloom red through the glare; depth-read but writing no depth, so the island, the gun and any ball in front
 //hide them. Loaded only by the Game (nothing else has a descending ceiling). SM 5.0.
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 float4x4 View;
 float4x4 Projection;

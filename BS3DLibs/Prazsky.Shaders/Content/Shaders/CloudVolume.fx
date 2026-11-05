@@ -12,8 +12,7 @@
 //the far layer. A volume stands where the deck's own weather says there is cloud, so what shades the ground is still
 //what is overhead.
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 float4x4 View;
 float4x4 Projection;

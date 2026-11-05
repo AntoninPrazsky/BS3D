@@ -203,7 +203,13 @@ float ZapTree(float3 direction, float3 rootAxis, float treeSeed, out float width
     float mask = 0.0;
     widthHere = ZapBoltWidthRoot;
 
+    //Shader Model 3.0 (#1057): unrolled, every bolt's folded constants took registers of their own and the two trees
+    //passed ps_3_0's 224, so the phone walks the bolts in a loop (nothing in it takes a derivative)
+#if OPENGL
+    [loop]
+#else
     [unroll]
+#endif
     for (int k = 0; k < 6; k++)
     {
         float seed = ZapHash(k + 1.0 + treeSeed);

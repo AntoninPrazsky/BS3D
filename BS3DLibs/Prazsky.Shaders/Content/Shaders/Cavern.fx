@@ -14,8 +14,7 @@
 //
 //Built by all three executables out of this directory, Shader Model 5.0.
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 #include "Noise.fxh"
 
@@ -140,8 +139,7 @@ float3 LightStone(float3 albedo, float3 p, float3 normal, float3 view, float occ
     float3 colour = albedo * occlusion * (AmbientTop * (0.30 + 0.70 * saturate(normal.y * 0.5 + 0.5))
         + WaterGlowColor * (saturate(0.5 - 0.5 * normal.y) * 0.8 + 0.2) * lowness * 4.0);
 
-    [loop]
-    for (int k = 0; k < LightCount; k++)
+    ARRAY_LOOP(k, LightCount, MAX_LIGHTS)
     {
         float3 toLight = LightPosition[k].xyz - p;
         float d2 = dot(toLight, toLight);
@@ -254,8 +252,7 @@ float3 SeenThroughWater(float3 bed, float3 bedColour, float2 pixel)
 
     //The crystals glint on the ripple: the lights' own highlights, which the mirrored picture holds only as broad glows
     float3 reflected = reflect(view, normal);
-    [loop]
-    for (int k = 0; k < LightCount; k++)
+    ARRAY_LOOP(k, LightCount, MAX_LIGHTS)
     {
         float3 toLight = LightPosition[k].xyz - surface;
         float d2 = dot(toLight, toLight);
@@ -591,8 +588,7 @@ float4 CrystalScene(CrystalOutput input, uniform bool mirrored)
     float fresnel = 0.04 + 0.96 * pow(1.0 - facing, 5.0);
     float3 reflected = reflect(view, normal);
     float3 specular = 0.0;
-    [loop]
-    for (int l = 0; l < LightCount; l++)
+    ARRAY_LOOP(l, LightCount, MAX_LIGHTS)
     {
         float3 toLight = LightPosition[l].xyz - p;
         float d2 = dot(toLight, toLight);

@@ -27,8 +27,7 @@
 //
 //Shader Model 5.0, drawn in all three executables out of the one copy in Prazsky.Shaders.
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 #include "Clouds.fxh"
 //The sun's cast shadows (#469, in this scene since #471): SceneRenderer renders the map before the scene
@@ -297,7 +296,7 @@ float3 RiverCourse(float2 p, out float2 direction, out float levelRate)
     float2 run = float2(1.0, 0.0);
     float fall = 0.0;
 
-    for (int i = 0; i < RiverPoints - 1; i++)
+    ARRAY_LOOP(i, RiverPoints - 1, MAX_RIVER_POINTS - 1)
     {
         float4 a = RiverPath[i];
         float4 b = RiverPath[i + 1];
@@ -576,7 +575,7 @@ RiverSample SampleRivers(float2 p, float footprint, uniform bool fullDetail)
     float edge = footprint * 0.5;
     float reach = RiverWidth * 1.2 * max(HaloWidth, 1.0) + edge;
 
-    for (int i = 0; i < RiverCount; i++)
+    ARRAY_LOOP(i, RiverCount, MAX_RIVERS)
     {
         //A flow wanders on the way down rather than running true - the wander is a function of the RADIUS,
         //so it bends the river's course and does not merely wobble its edges.

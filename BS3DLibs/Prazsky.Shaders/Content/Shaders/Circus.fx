@@ -28,8 +28,7 @@
 //
 //Built once by Prazsky.Shaders (#618), Shader Model 5.0.
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 #include "Noise.fxh"
 

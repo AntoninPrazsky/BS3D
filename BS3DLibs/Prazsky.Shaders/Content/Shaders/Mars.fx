@@ -31,8 +31,7 @@
 //Everything is written in LINEAR RADIANCE into the HDR target. Built by all three executables out of this
 //directory, Shader Model 5.0.
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 #include "Clouds.fxh"
 //The sun's cast shadows (#469, in this scene since #471): SceneRenderer renders the map before the scene

@@ -38,8 +38,7 @@
 //dome's gradient in linear radiance, band-limiting against the pixel footprint, and the one shared cloud
 //shadow field (the editor sets no cloud uniforms, so CloudSunlight is a flat 1.0 there).
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 #include "Clouds.fxh"
 //The sun's cast shadows (#469, in this scene since #471): SceneRenderer renders the map before the scene

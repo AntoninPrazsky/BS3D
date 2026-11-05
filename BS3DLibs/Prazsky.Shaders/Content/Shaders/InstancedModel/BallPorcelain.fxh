@@ -204,10 +204,19 @@ int HilbertIndex(int2 p)
     [unroll]
     for (int s = PorcelainHilbertN / 2; s > 0; s /= 2)
     {
+#if OPENGL
+        //Shader Model 3.0 has no bitwise operators (#1057): a bit of a cell index that is not negative is its quotient's
+        //parity, and (3 * rx) ^ ry of two bits is the sum below
+        int rx = (p.x / s) % 2 > 0 ? 1 : 0;
+        int ry = (p.y / s) % 2 > 0 ? 1 : 0;
+
+        d += s * s * (3 * rx + ry - 2 * rx * ry);
+#else
         int rx = (p.x & s) > 0 ? 1 : 0;
         int ry = (p.y & s) > 0 ? 1 : 0;
 
         d += s * s * ((3 * rx) ^ ry);
+#endif
         p = HilbertRotate(PorcelainHilbertN, p, rx, ry);
     }
 
@@ -222,6 +231,22 @@ int2 HilbertPoint(int d)
     //curve, 0 up to the last cell, so it is not negative where it is used, and for a non-negative number a divide by 2 or 4 is
     //the same signed or unsigned - the unsigned one is a shift. (The ?: at the call sites evaluates its unused arm too, so
     //d - 1 at the first cell and d + 1 past the last do reach this, and their results are thrown away either way.)
+#if OPENGL
+    //Shader Model 3.0 has no bitwise operators (#1057): the bits as parities, and ry's exclusive or of two bits as the
+    //distance between them. The unused arms' d - 1 = -1 gives a point that is thrown away, as on the desktop.
+    int t = d;
+
+    [unroll]
+    for (int s = 1; s < PorcelainHilbertN; s *= 2)
+    {
+        int rx = (t / 2) % 2;
+        int ry = abs(t % 2 - rx);
+
+        p = HilbertRotate(s, p, rx, ry);
+        p += s * int2(rx, ry);
+        t /= 4;
+    }
+#else
     uint t = (uint)d;
 
     [unroll]
@@ -234,6 +259,7 @@ int2 HilbertPoint(int d)
         p += s * int2(rx, ry);
         t /= 4u;
     }
+#endif
 
     return p;
 }

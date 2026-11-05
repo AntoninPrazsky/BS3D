@@ -19,10 +19,9 @@
 //            and this is all such a rotation needs, so the shader is never told where the line runs.
 //
 //Drawn in both executables through the shared SceneRenderer (the map editor builds this file out of this
-//directory too). Shader Model 5.0, no OPENGL branch.
+//directory too). Shader Model 5.0, and 3.0 for OpenGL ES (ShaderTarget.fxh).
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 float4x4 World;      //per bird: its place, its heading and its bank, with the wingspan folded in
 float4x4 View;
@@ -157,8 +156,9 @@ BirdVertexOutput BirdVS(BirdVertexInput input)
     return output;
 }
 
-float4 BirdPS(BirdVertexOutput input, bool isFrontFace : SV_IsFrontFace) : COLOR
+float4 BirdPS(BirdVertexOutput input, FRONT_FACE(isFrontFace)) : COLOR
 {
+    FRONT_FACE_BEGIN(isFrontFace)
     //Two-sided: the wings, the primaries and the tail are single sheets drawn with CullNone, so the side
     //that is lit is whichever one is turned towards the camera. A wing seen from underneath must take the
     //ground's dim half of the sky, not the sun that is on its back.

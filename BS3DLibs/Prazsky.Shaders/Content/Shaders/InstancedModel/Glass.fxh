@@ -15,8 +15,9 @@
 //thick crystal cup do. Blue channel: how edge-on the surface is, for the composite's darkening of the rim.
 float RefractionDepth;
 
-float4 RefractionPS(VertexShaderOutput input, bool isFrontFace : SV_IsFrontFace) : COLOR
+float4 RefractionPS(VertexShaderOutput input, FRONT_FACE(isFrontFace)) : COLOR
 {
+    FRONT_FACE_BEGIN(isFrontFace)
     float3 normal = normalize(input.WorldNormal) * (isFrontFace ? 1.0 : -1.0);
     float3 viewNormal = mul(normal, (float3x3)View);
     float viewDepth = max(-mul(float4(input.WorldPosition, 1.0), View).z, 0.05);
@@ -454,8 +455,9 @@ GlassVSOutput CrystalVS(VertexShaderInput input, InstanceInput instance)
     return GlassVS(input, instance);
 }
 
-float4 CrystalPS(GlassVSOutput input, bool isFrontFace : SV_IsFrontFace) : COLOR
+float4 CrystalPS(GlassVSOutput input, FRONT_FACE(isFrontFace)) : COLOR
 {
+    FRONT_FACE_BEGIN(isFrontFace)
     VertexShaderOutput main;
     main.Position = input.Position;
     main.WorldPosition = input.WorldPosition;
@@ -521,8 +523,9 @@ static const float DRAIN_CORD_STRENGTH = 0.06;
 static const float DRAIN_SEED_CELL = 0.7;
 static const float DRAIN_SEED_CHANCE = 0.05;
 
-float4 DrainGlassPS(GlassVSOutput input, bool isFrontFace : SV_IsFrontFace) : COLOR
+float4 DrainGlassPS(GlassVSOutput input, FRONT_FACE(isFrontFace)) : COLOR
 {
+    FRONT_FACE_BEGIN(isFrontFace)
     float3 p = input.LocalPosition;
 
     //Cord: the reflection waves a little where the glass flowed

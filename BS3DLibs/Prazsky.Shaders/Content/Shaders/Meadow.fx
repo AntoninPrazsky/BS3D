@@ -6,10 +6,9 @@
 //
 //Real geometry like the desert and the mountains - a camera-centred grid (shared CreateGridMesh on the C#
 //side) displaced by a smooth rolling field, low around the arena and rising into hills with distance, its
-//normal taken by finite differences. Drawn in both executables, Shader Model 5.0, no OPENGL branch.
+//normal taken by finite differences. Drawn in both executables. Shader Model 5.0, and 3.0 for OpenGL ES (ShaderTarget.fxh).
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 #include "Clouds.fxh"
 //The sun's cast shadows (#469, in this scene since #471): SceneRenderer renders the map before the scene
@@ -713,8 +712,8 @@ float LilyPad(float2 xz, float deep, float footprint, out float3 padColor)
 {
     float lilies = smoothstep(0.05, 0.35, GradientNoise2(xz * 0.09 + 11.0)) * saturate(deep * 2.0);
     float2 padCell = floor(xz / LILY_SPACING);
-    uint padSeed = HashSalt(HashCell(padCell), 11u);
-    uint padSeed2 = HashSalt(padSeed, 1u);
+    HASH padSeed = HashSalt(HashCell(padCell), 11u);
+    HASH padSeed2 = HashSalt(padSeed, 1u);
     float padRadius = 0.28 + 0.14 * HashBits(padSeed, 0u, 8u);
     float2 padCentre = (float2(HashBits(padSeed, 8u, 8u), HashBits(padSeed, 16u, 8u)) - 0.5) * (1.0 - 2.0 * padRadius);
     float2 dp = frac(xz / LILY_SPACING) - 0.5 - padCentre;
@@ -835,8 +834,8 @@ float4 MeadowField(float3 worldPosition, float3 worldNormal, float4 carve, bool 
     float density = FlowerDensity * (0.35 + 2.4 * driftField * driftField);
     //Every roll of a flower comes off two words of its cell's integer seed (#674): Hash21, which this rolled on, repeats
     //exactly every 50 x 100 cells on whole-number cells, so the flowers' layout came back in the same arrangement.
-    uint flowerSeed = HashCell(cell);
-    uint flowerSeed2 = HashSalt(flowerSeed, 1u);
+    HASH flowerSeed = HashCell(cell);
+    HASH flowerSeed2 = HashSalt(flowerSeed, 1u);
     float present = step(1.0 - density, HashBits(flowerSeed, 0u, 12u));
 
     float patchSpecies = floor(HashUnit(HashSalt(HashCell(floor(worldPosition.xz / FLOWER_PATCH)), 41u)) * FLOWER_SPECIES);
@@ -1036,7 +1035,7 @@ float4 MeadowField(float3 worldPosition, float3 worldNormal, float4 carve, bool 
         : (species < 1.5 ? float3(0.98, 0.82, 0.10)
         : (species < 2.5 ? float3(0.86, 0.09, 0.05)
         : (species < 3.5 ? float3(0.22, 0.34, 0.92)
-        : float3(0.78, 0.36, 0.62) * (0.8 + 0.4 * HashUnit(HashSalt(flowerSeed, 2u + (uint)dot(floor(within * 40.0), float2(1.0, 40.0))))))));
+        : float3(0.78, 0.36, 0.62) * (0.8 + 0.4 * HashUnit(HashSalt(flowerSeed, 2u + HASH_SALT(dot(floor(within * 40.0), float2(1.0, 40.0)))))))));
     petalColor *= shade;
     float3 eyeColor = species < 0.5 ? float3(0.98, 0.74, 0.12)
         : (species < 1.5 ? float3(0.80, 0.78, 0.20)
@@ -1077,8 +1076,8 @@ float4 MeadowField(float3 worldPosition, float3 worldNormal, float4 carve, bool 
         float2 smallWithin = frac(worldPosition.xz / SMALL_FLOWER_SPACING);
         //Two words of the cell's integer seed, salted apart from the big flowers' cells it shares coordinates with.
         //These repeated every 40 units on Hash21 (50 cells of 0.8), the plainest case of #674 in the game.
-        uint smallSeed = HashSalt(HashCell(smallCell), 7u);
-        uint smallSeed2 = HashSalt(smallSeed, 1u);
+        HASH smallSeed = HashSalt(HashCell(smallCell), 7u);
+        HASH smallSeed2 = HashSalt(smallSeed, 1u);
         //Their kind: the patch's where it is daisies or buttercups, three in four; otherwise daisy, buttercup or clover
         float smallKind = HashBits(smallSeed, 12u, 6u) < 0.75 && patchSpecies < 1.5 ? patchSpecies : floor(HashBits(smallSeed, 18u, 8u) * 2.99);
         float3 smallColor = smallKind < 0.5 ? float3(0.95, 0.95, 0.9) : (smallKind < 1.5 ? float3(0.98, 0.8, 0.1) : float3(0.78, 0.36, 0.62));

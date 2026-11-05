@@ -2,7 +2,7 @@
 
 How a frame is built: linear radiance in, one tonemap out. This area covers colour management and the post-process pipeline, the instanced effect and the ball shaders, the procedural city, scene lights, sun shadows, the weather, resolution and the Potato path. CLAUDE.md holds the project overview and conventions.
 
-Three rules govern most of it. **The scene renders in linear radiance and is tonemapped exactly once** (`PostProcessPipeline`); a colour added without linearising it is the recurring bug. **Every shader compiles once, in `Prazsky.Shaders`**, and the instanced effect's include order is its constant-buffer layout. **A cost figure here was measured on a named machine and pin**: compare like with like (same camera, `alt=` pairs in one process), with `nopost` on (and `nooverc` for colour) when judging a shader.
+Three rules govern most of it. **The scene renders in linear radiance and is tonemapped exactly once** (`PostProcessPipeline`); a colour added without linearising it is the recurring bug. **Every shader lives once, in `Prazsky.Shaders`**, and compiles there for DirectX and in the Android build for OpenGL ES from the same source (`ShaderTarget.fxh`, [OpenGL ES](rendering/opengl-es.md)); the instanced effect's include order is its constant-buffer layout. **A cost figure here was measured on a named machine and pin**: compare like with like (same camera, `alt=` pairs in one process), with `nopost` on (and `nooverc` for colour) when judging a shader.
 
 ## Sub-documents
 
@@ -21,6 +21,7 @@ Three rules govern most of it. **The scene renders in linear radiance and is ton
 - [Special ball kinds](rendering/ball-kinds.md): rock, clear glass, bomb, zap, acid, frozen, infectious, gravity, heavy, wildcard, and the crossings.
 - [Motion blur, resolution and aspect](rendering/motion-blur-and-resolution.md): the velocity pass, the shutter, the distance trap, the shot stretch, 16:9 to 21:9, what supersampling costs.
 - [The Potato path](rendering/potato-path.md): GamePi's forward path, its DirectX build, cost levers, drawn edges.
+- [The shared effects on OpenGL ES](rendering/opengl-es.md): the second build of every effect (Android), `ShaderTarget.fxh`'s macros, what Shader Model 3.0 and MojoShader refuse, the integer hash's float twin, highp over MonoGame's mediump.
 
 ## Where the old sections went
 

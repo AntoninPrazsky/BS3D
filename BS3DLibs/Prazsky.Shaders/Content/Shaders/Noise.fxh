@@ -49,7 +49,79 @@ float Hash21(float2 p)
 //whole-number input its frac(p * 123.34) and frac(p * 456.21) are frac(p * 0.34) and frac(p * 0.21): an exact period
 //of 50 cells in x and 100 in y, so a field laid out cell by cell through it repeats in exactly the same arrangement -
 //every 40 units across the meadow's small flowers, and six times across the city. These mix a cell's integer
-//coordinates instead and have no period any scene reaches. Shader Model 5 only (asuint, integer multiply).
+//coordinates instead and have no period any scene reaches.
+//
+//A seed is a HASH: a word on DirectX, a key under OpenGL ES (below). Callers hold it in a HASH and read it only through
+//HashUnit and HashBits, so the two builds share every caller and each its own arithmetic.
+
+#if OPENGL
+
+//OpenGL ES (#1058): Shader Model 3.0 has no integers, no asuint and no bitwise operators, so the phone's build cannot mix
+//a word, and a float hash of a float word does not work either. A highp float keeps 24 bits and the frac of a large
+//product keeps ten or fewer, so a seed hashed to a float and then salted or sliced came out coarse and lopsided: 64 bins
+//over four million cells held chi-squared 3,500 to 200,000 against the integer hash's 50 to 90.
+//
+//So here a seed is not hashed until it is read. It is its KEY - the cell (x, y), the salts so far (z) and, at a roll, the
+//bit slice asked for (w), all whole numbers a float holds exactly - and every roll hashes the whole key afresh: HashKey,
+//a four-lane "hash without sine" in Dave Hoskins' manner. Measured in float32 over 2048 x 2048 cells near the origin
+//and 6000 out (the 2026-11-05 model): chi-squared 49 to 92 over 64 bins, over 400,000 distinct values, neighbours and
+//two rolls of one seed correlated under 0.001, and Tools/LatticeProbe scoring the fields as it scores the integer hash's
+//(29 tiles over its null across twenty fields, against the integer hash's 42). Hoskins' own constants were not kept:
+//his 0.1030 is 103/1000, and a field through it repeated every 1000 cells in y (correlation 0.974); these repeat at no
+//distance under 10,000.
+//
+//A seed keeps its key, so it costs nothing until read, and each HashUnit or HashBits pays one HashKey (about a dozen
+//operations) where the desktop cuts its bits from one word. No CPU code runs this: City.FacadeRoll's integer twin is
+//the desktop's, and the facade's kind reaches the phone's shader in the instance, as it reaches the desktop's.
+#define HASH float4
+
+//A salt the caller computes, as HashSalt takes it: a float here (Shader Model 3.0 refuses a uint it cannot prove is not
+//negative), a uint on the desktop
+#define HASH_SALT(x) (x)
+
+static const float4 HASH_LANES = float4(0.10313, 0.11369, 0.13787, 0.09731);
+
+float HashKey(float4 key)
+{
+    float4 p = frac(key * HASH_LANES);
+    p = frac(p + dot(p, p.wzxy + 33.33));
+    return frac((p.x * 47.13 + p.y) * (p.z * 31.71 + p.w));
+}
+
+//The seed's own roll in [0,1)
+float HashUnit(HASH h)
+{
+    return HashKey(h);
+}
+
+//A roll quantised to `count` bits, one apart from every other `first` of the same seed (w carries the slice; a salt
+//never touches w, so no slice is any salt's roll)
+float HashBits(HASH h, float first, float count)
+{
+    float steps = exp2(count);
+    return floor(HashKey(h + float4(0.0, 0.0, 0.0, first + 1.0)) * steps) / steps;
+}
+
+//A cell's seed. The caller floor()s `cell`.
+HASH HashCell(float2 cell)
+{
+    return float4(cell, 0.0, 0.0);
+}
+
+//The salt joins z. The deepest chain any caller makes is two salts (the meadow's lily pads), whose key stays a whole
+//number a float holds exactly; the largest single salt is the city's window buzz (65521 under GL, City.fxh). No two
+//chains a caller makes land on one key.
+static const float HASH_SALT_STRIDE = 4099.0;
+
+HASH HashSalt(HASH seed, float salt)
+{
+    return float4(seed.xy, seed.z * HASH_SALT_STRIDE + salt + 1.0, seed.w);
+}
+
+#else
+
+#define HASH uint
+#define HASH_SALT(x) ((uint)(x))
 
 //Chris Wellons' lowbias32 finaliser: every output bit depends on every input bit. City.FacadeRoll runs the same
 //arithmetic on the CPU, which is what lets the city's generator and its shader roll one answer.
@@ -89,6 +161,8 @@ uint HashSalt(uint seed, uint salt)
 {
     return HashMix(seed ^ salt * 0xcb1ab31fu);
 }
+
+#endif
 
 //--- Gradient noise -----------------------------------------------------------------------------------
 //Perlin-style: a random unit-ish gradient per lattice corner, dotted with the offset and blended by a

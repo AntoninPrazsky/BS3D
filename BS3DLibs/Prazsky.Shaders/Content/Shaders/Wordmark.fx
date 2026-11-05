@@ -1,5 +1,4 @@
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 //THE GAME'S NAME ON HIGH AND ULTRA (#929): the 3D wordmark's letters, its badge's disc and their rims, shaded to
 //match the PNG logo (Images/logo) rather than lit by the scene. The logo was rendered as a studio piece - glossy

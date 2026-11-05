@@ -102,6 +102,34 @@ float3 WindowGlassColor;
 //pane behaves exactly as every polished surface elsewhere in the scene does.
 static const float WindowSmoothness = 1.0;
 
+#if OPENGL
+
+//OpenGL ES (#1058): the three below through Noise.fxh's key, which has no integer mix to call (see there). A window's key
+//is its cell offset by WINDOW_KEY_STRIDE cells per building id: a whole number a float holds exactly at every id the
+//city reaches, and every window of every tower apart while a facade has fewer cells than that along each axis (the
+//tallest skyline slab at the 2.2-unit pitch has about seventy). The buzz salt is not the desktop's 0x7fffffff, which a
+//float rounds to 2^31 and a key's lane then reads as salt 0; 65521 is still above any slot a window reaches (one every
+//four minutes or more: half a year).
+static const float WINDOW_KEY_STRIDE = 257.0;
+static const float WINDOW_BUZZ_SALT = 65521.0;
+
+float BuildingRoll(float2 buildingId, float salt)
+{
+    return HashUnit(HashSalt(HashCell(buildingId), salt));
+}
+
+HASH WindowSeed(float2 buildingId, float2 cell)
+{
+    return HashCell(cell + buildingId * WINDOW_KEY_STRIDE);
+}
+
+float WindowRoll(HASH seed, float salt)
+{
+    return HashUnit(HashSalt(seed, salt));
+}
+
+#else
+
 //One building's own roll in [0,1) for each salt (#674): an integer hash of its cell, the very mixer (Noise.fxh HashMix) City.FacadeRoll
 //runs on the CPU for the facade's kind. Hash21 is a float hash with an exact 50 x 100 period over integer ids - at
 //0.37 cells per world unit, 135 x 270 units - so the tone, the neon pick and hue, and the sign band and its height
@@ -135,6 +163,8 @@ float WindowRoll(uint seed, uint salt)
 {
     return HashUnit(HashSalt(seed, salt));
 }
+
+#endif
 
 //A fully saturated color from a hue in [0,1] - the neon signs' palette. Pure and bright; the brightness
 //that makes them bloom comes from CityWindowBrightness, not from here.
@@ -382,7 +412,7 @@ float4 CityPS(CityVSOutput input) : COLOR
     float window = shape.x * shape.y * hasGrid * inside.x * inside.y;
 
     float facadeY = input.WorldPosition.y;
-    uint windowSeed = WindowSeed(buildingId, cell);
+    HASH windowSeed = WindowSeed(buildingId, cell);
 
     //A window does not decide once and for all — SOME windows (#619). A restless few keep their own rhythm,
     //minutes of their own length and then a new decision, so now and then a lamp somewhere goes out and
@@ -395,8 +425,8 @@ float4 CityPS(CityVSOutput input) : COLOR
     float slot = restless * CityWindowTime / interval + rhythm * 37.0;
     float slotIndex = floor(slot);
 
-    float wasLit = step(1 - WindowLitFraction, WindowRoll(windowSeed, (uint)slotIndex));
-    float willBeLit = step(1 - WindowLitFraction, WindowRoll(windowSeed, (uint)slotIndex + 1u));
+    float wasLit = step(1 - WindowLitFraction, WindowRoll(windowSeed, HASH_SALT(slotIndex)));
+    float willBeLit = step(1 - WindowLitFraction, WindowRoll(windowSeed, HASH_SALT(slotIndex) + 1u));
 
     //The switch is a short fade rather than a cut: at this distance a lamp that vanishes between two
     //frames reads as a rendering glitch, one that dies over a moment reads as somebody leaving. Seconds,
@@ -710,8 +740,8 @@ float4 CityFarPS(CityVSOutput input) : COLOR
     float2 shape = smoothstep(fill + footprint, fill - footprint, withinCell);
     float window = shape.x * shape.y * gate;
 
-    uint windowSeed = WindowSeed(buildingId, cell);
-    float lit = step(1 - WindowLitFraction, WindowRoll(windowSeed, (uint)floor(HashBits(windowSeed, 20u, 12u) * 37.0)));
+    HASH windowSeed = WindowSeed(buildingId, cell);
+    float lit = step(1 - WindowLitFraction, WindowRoll(windowSeed, HASH_SALT(floor(HashBits(windowSeed, 20u, 12u) * 37.0))));
     float3 lampColor = lerp(WindowWarm, WindowCool, step(0.5, HashBits(windowSeed, 11u, 1u)));
     float coverage = lerp(fill.x * fill.y * WindowLitFraction * gate, window * lit, resolvable);
     float glass = lerp(fill.x * fill.y * gate, window, resolvable);

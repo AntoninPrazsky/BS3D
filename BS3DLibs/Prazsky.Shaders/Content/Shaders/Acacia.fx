@@ -12,8 +12,7 @@
 //so one mesh variant reads as several plants by colour as well as by size (#451).
 //Testbed-shared (the map editor and the game build it too), Shader Model 5.0.
 
-#define VS_SHADERMODEL vs_5_0
-#define PS_SHADERMODEL ps_5_0
+#include "ShaderTarget.fxh"
 
 //For the canopy's leaf mottle and the bark's fissures - 3D fields of world position, so they have no seam
 //and do not swim as the plant turns with its instance, the same reasoning the crown fields carry.
@@ -261,7 +260,7 @@ float BroadLeafMask(float2 uv, float round)
     {
         //Eight on alternate sides up the stem, leaning out towards the tip and shorter towards it; the last straight on
         bool tip = i == BROAD_LEAVES - 1;
-        float side = tip ? 0.0 : ((i & 1) ? -1.0 : 1.0);
+        float side = tip ? 0.0 : ((i % 2) ? -1.0 : 1.0);
         float2 dir = tip ? float2(1.0, 0.0) : float2(0.55, 0.835 * side);
         float2 centre = float2(tip ? 0.74 : 0.08 + 0.08 * i, 0.0) + dir * halfLength;
         float2 d = p - centre;
@@ -343,7 +342,7 @@ float CardMask(float2 uv, float2 seed)
 {
     //One return: an inlined early return inside a branch is the X4000 pattern Clouds.fxh records
     float mask;
-    [branch]
+    BRANCH_UNIFORM_GRADIENTS
     if (LeafStrength > 3.5)
         mask = TuftMask(uv, seed);
     else if (LeafStrength > 1.5)
@@ -417,7 +416,7 @@ float4 AcaciaShade(AcaciaVertexOutput input, bool front, bool stone, bool barkRe
     //by every pixel of a quad alike.
     float layerShade = 1.0;
     float leaf = 0.0;
-    [branch]
+    BRANCH_UNIFORM_GRADIENTS
     if (LeafStrength > 0.0)
     {
         clip(CardMask(input.UV, input.Seed));
@@ -431,7 +430,7 @@ float4 AcaciaShade(AcaciaVertexOutput input, bool front, bool stone, bool barkRe
     float3 albedo = lerp(DiffuseColor, DiffuseDry, saturate(input.Tint.x)) * (1.0 + input.Tint.y);
 
     //A rock's own surface (#777): the relief tilts N before anything is lit, the mottle and the dust go into the albedo
-    [branch]
+    BRANCH_UNIFORM_GRADIENTS
     if (stone && StoneStrength > 0.0)
     {
         float3 p = input.WorldPosition;
@@ -480,7 +479,7 @@ float4 AcaciaShade(AcaciaVertexOutput input, bool front, bool stone, bool barkRe
     }
 
     //The bark's relief (#980): see THE BARK'S RELIEF above
-    [branch]
+    BRANCH_UNIFORM_GRADIENTS
     if (barkRelief && BarkRelief > 0.0)
     {
         float3 p = input.WorldPosition;
@@ -512,7 +511,7 @@ float4 AcaciaShade(AcaciaVertexOutput input, bool front, bool stone, bool barkRe
     }
 
     //A round bale's straw (#971): see STRAW above
-    [branch]
+    BRANCH_UNIFORM_GRADIENTS
     if (straw && StrawStrength > 0.0)
     {
         float2 uv = input.UV;
@@ -649,11 +648,11 @@ float4 AcaciaShade(AcaciaVertexOutput input, bool front, bool stone, bool barkRe
     return float4(color, 1.0);
 }
 
-float4 AcaciaPS(AcaciaVertexOutput input, bool front : SV_IsFrontFace) : COLOR { return AcaciaShade(input, front, false, false, false); }
-float4 AcaciaStonePS(AcaciaVertexOutput input, bool front : SV_IsFrontFace) : COLOR { return AcaciaShade(input, front, true, false, false); }
-float4 AcaciaBarkReliefPS(AcaciaVertexOutput input, bool front : SV_IsFrontFace) : COLOR { return AcaciaShade(input, front, false, true, false); }
-float4 AcaciaStrawPS(AcaciaVertexOutput input, bool front : SV_IsFrontFace) : COLOR { return AcaciaShade(input, front, false, false, true); }
-float4 AcaciaFullPS(AcaciaVertexOutput input, bool front : SV_IsFrontFace) : COLOR { return AcaciaShade(input, front, true, true, true); }
+float4 AcaciaPS(AcaciaVertexOutput input, FRONT_FACE(front)) : COLOR { FRONT_FACE_BEGIN(front) return AcaciaShade(input, front, false, false, false); }
+float4 AcaciaStonePS(AcaciaVertexOutput input, FRONT_FACE(front)) : COLOR { FRONT_FACE_BEGIN(front) return AcaciaShade(input, front, true, false, false); }
+float4 AcaciaBarkReliefPS(AcaciaVertexOutput input, FRONT_FACE(front)) : COLOR { FRONT_FACE_BEGIN(front) return AcaciaShade(input, front, false, true, false); }
+float4 AcaciaStrawPS(AcaciaVertexOutput input, FRONT_FACE(front)) : COLOR { FRONT_FACE_BEGIN(front) return AcaciaShade(input, front, false, false, true); }
+float4 AcaciaFullPS(AcaciaVertexOutput input, FRONT_FACE(front)) : COLOR { FRONT_FACE_BEGIN(front) return AcaciaShade(input, front, true, true, true); }
 
 technique Acacia
 {
@@ -727,7 +726,7 @@ ShadowVertexOutput ShadowVS(AcaciaVertexInput input)
 float4 ShadowPS(ShadowVertexOutput input) : COLOR
 {
     //The leaf sprays cast their leaflets, not their cards (#610): the dapple under the umbrella
-    [branch]
+    BRANCH_UNIFORM_GRADIENTS
     if (LeafStrength > 0.0)
         clip(CardMask(input.UV, input.Seed));
 

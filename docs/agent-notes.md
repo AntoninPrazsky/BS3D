@@ -20,6 +20,15 @@ Pravidla:
 
 ---
 
+## 2026-11-05 — #1057 #1058 sdílené shadery pro OpenGL ES — desktop (RDT-PC), Claude Code
+- Hotovo #1057: všech 49 efektů se překládá i pro GL (SM 3.0) v buildu GameAndroid; DirectX bajt po bajtu stejný (58 hashů). Pravidla: `docs/rendering/opengl-es.md`.
+- #1058: celočíselný hash má pod GL float dvojče; χ² 49–92, LatticeProbe jako u int hashe.
+- ⚠ MonoGame píše do GLES pixel programů `mediump`, Adreno 840 ho počítá v 16 bitech; build zvedá desktopové efekty na `highp`.
+- ⚠ Smyčka do `int` uniformy se na GL přeloží a proběhne 0× (MonoGame nemá `glUniform4iv`): tonemap by byl černý. Našla to revize; build to teď odmítá.
+- ⚠ MojoShader neumí sampler ve vertex shaderu: polární záře bez výšky závějí (#1062).
+- ⚠ Přepis výstupu MGCB musí vrátit čas zápisu, jinak se vše přeloží znovu (10,6 min).
+- Otevřené: #1058 srovnání desktop × telefon čeká na #1059.
+
 ## 2026-11-05 — #1052 jednotná velikost menu; #1056 plán grafiky pro Android — desktop (RDT-PC), Claude Code
 - Majitel: volby na podstránkách stejně velké jako v hlavním menu, velikost nemá skákat, pokud to není nutné. About a High Scores nebyly pro mobil. Hotovo: všechny stránky začínají na měřítku hlavního menu (1,31×), písmo voleb na telefonu 108. About a High Scores posouvají svou dlouhou část.
 - Měřeno (#1048): 10,5 min Girandole na telefonu drží 60 FPS, baterie 33,4 °C, žádný throttling.
