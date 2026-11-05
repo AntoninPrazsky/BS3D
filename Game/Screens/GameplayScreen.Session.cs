@@ -120,7 +120,7 @@ namespace BS3D.Screens
             //On a phone the screen is the hand the menus did not name (#1051): a level started without the pad opens with the
             //touch controls drawn and the cards' touch words, not a mouse nobody has
             _tutorial.NoteDevice(Game.PromptsForPad ? Tutorial.Device.Gamepad
-                : OperatingSystem.IsAndroid() ? Tutorial.Device.Touch : Tutorial.Device.KeyboardMouse);
+                : Game.PromptsForTouch || OperatingSystem.IsAndroid() ? Tutorial.Device.Touch : Tutorial.Device.KeyboardMouse);
             Game.Rumble.HandOnPad = _tutorial.OnGamepad;
 
             //The benchmark's play (#1018) is taught nothing: no card is queued, so none is shown and no lesson is written.

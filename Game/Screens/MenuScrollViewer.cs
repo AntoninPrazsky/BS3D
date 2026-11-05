@@ -1,4 +1,6 @@
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Input.Touch;
+using Myra.Events;
 using Myra.Graphics2D;
 using Myra.Graphics2D.UI;
 using System;
@@ -20,6 +22,13 @@ namespace BS3D.Screens
     /// it, so a list that fits takes no wheel and leaves it to the page (<c>OnScrollWheel</c>).
     /// </para>
     /// <para>
+    /// <b>And a finger drags it</b> (#1052): Myra scrolls a list by touch only through its scrollbar's thumb, so a phone's
+    /// Help, High Scores and lists could not be read past their first screen. A finger put down on the list and moved
+    /// further than <see cref="DRAG_SLOP_SHARE"/> of the screen's height carries the list with it, and the press it began
+    /// on is not a click (<see cref="SwallowsClick"/>, which <c>MenuClickable</c> asks). Only a finger: the mouse's press
+    /// reaches Myra as a touch too, and the desktop's lists keep their wheel and their thumb.
+    /// </para>
+    /// <para>
     /// <b>And it clips its list at its own box</b> (#1002, <see cref="InternalRender"/>): Myra cuts a scroller's content at
     /// the edge of its margin, so the margin <c>MenuScroll</c> gives it to stand the cut clear of the tabs and of Back
     /// would otherwise fill with the very lines it is there to keep away (photographed: a line of Help drawn a margin past
@@ -37,6 +46,70 @@ namespace BS3D.Screens
         //The first wheel turn of a run says what a notch is worth, once: the figure that tells a log reader whether a
         //"the wheel is too slow" report was this step or something else
         private static bool _logged;
+
+        /// <summary>How far a finger travels, as a share of the screen's height, before it drags the list rather than presses.</summary>
+        internal const float DRAG_SLOP_SHARE = 0.02f;
+
+        //The part of the box at its right edge that is the scrollbar's, left to Myra's own drag of the thumb
+        private const float SCROLLBAR_SHARE = 0.06f;
+
+        //A drag under way: where the finger came down, where the list stood then, and the desktop its handlers are on (a
+        //tree thrown away mid-drag has no Desktop at the lift, and the handlers must still come off the one they are on)
+        private bool _dragging;
+        private int _dragFromY, _dragScrollY;
+        private Desktop _dragDesktop;
+
+        /// <summary>
+        /// Whether the last finger that went down has dragged a list: the press it began on is then not a click. Cleared by
+        /// the next finger going down anywhere.
+        /// </summary>
+        internal static bool SwallowsClick { get; private set; }
+
+        /// <summary>A finger went down somewhere: whatever the last one dragged, this one's press is its own.</summary>
+        internal static void NewGesture() => SwallowsClick = false;
+
+        public override void OnTouchDown()
+        {
+            base.OnTouchDown();
+
+            if (Desktop?.TouchPosition is not Point at || ScrollMaximum.Y <= 0) return;
+
+            //A finger, not the mouse, whose button Myra reads as a touch as well
+            if (TouchPanel.GetState().Count == 0) return;
+
+            Point local = ToLocal(at);
+            if (ShowVerticalScrollBar && local.X > ActualBounds.Width * (1f - SCROLLBAR_SHARE)) return;
+
+            _dragFromY = at.Y;
+            _dragScrollY = ScrollPosition.Y;
+            if (_dragging) return;
+
+            _dragging = true;
+            _dragDesktop = Desktop;
+            _dragDesktop.TouchMoved += OnDragMoved;
+            _dragDesktop.TouchUp += OnDragEnded;
+        }
+
+        private void OnDragMoved(object sender, MyraEventArgs args)
+        {
+            if (!_dragging || Desktop?.TouchPosition is not Point at) return;
+
+            int travel = at.Y - _dragFromY;
+            if (!SwallowsClick && Math.Abs(travel) < DRAG_SLOP_SHARE * Math.Max(1, TouchPanel.DisplayHeight)) return;
+
+            SwallowsClick = true;
+            int target = Math.Clamp(_dragScrollY - travel, 0, ScrollMaximum.Y);
+            if (target != ScrollPosition.Y) ScrollPosition = new Point(ScrollPosition.X, target);
+        }
+
+        private void OnDragEnded(object sender, MyraEventArgs args)
+        {
+            _dragging = false;
+            if (_dragDesktop == null) return;
+            _dragDesktop.TouchMoved -= OnDragMoved;
+            _dragDesktop.TouchUp -= OnDragEnded;
+            _dragDesktop = null;
+        }
 
         /// <summary>
         /// Draws the scroller with the scissor narrowed to its own box, margin excluded (#1002), and puts the scissor back.

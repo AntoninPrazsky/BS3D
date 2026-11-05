@@ -77,6 +77,9 @@ namespace BS3D.Screens
             _touch.Update(touches, viewport.Width, viewport.Height, elapsed, _touchButtonAt);
 
             if (_touch.AnyPress) NoteDevice(Tutorial.Device.Touch);
+
+            //A page opening over play draws for the hand that played (#1052)
+            Game.PlayHandIsTouch = _tutorial.OnTouch;
         }
 
         /// <summary>Which button, if any, a touch landing at <paramref name="point"/> is on.</summary>
@@ -125,7 +128,8 @@ namespace BS3D.Screens
         /// <summary>The touch controls over the HUD, while the hand is on the screen.</summary>
         private void DrawTouchControls()
         {
-            if (!_tutorial.OnTouch) return;
+            //Only over play: a page standing over it (the pause, the result) is pressed, not the game under it
+            if (!_tutorial.OnTouch || !IsActive) return;
 
             Viewport viewport = GraphicsDevice.Viewport;
             _hud.DrawTouchControls(_touch,

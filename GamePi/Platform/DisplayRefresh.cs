@@ -37,6 +37,16 @@ namespace BS3D.Platform
         }
 
         /// <summary>
+        /// The display's physical height in inches (#1052), which sizes the interface for a screen held close. Not answered
+        /// here: a monitor's or a television's interface is the design's own size.
+        /// </summary>
+        internal static bool TryGetPhysicalHeightInches(out float inches)
+        {
+            inches = 0f;
+            return false;
+        }
+
+        /// <summary>
         /// The Windows version's display scale and DPI awareness (#825), which this platform does not have: Windows
         /// virtualizes a DPI-unaware window's sizes, and nothing on the Pi's desktop does that to the game. Always no
         /// answer, so the run log's display line and a note's context leave the scale out.

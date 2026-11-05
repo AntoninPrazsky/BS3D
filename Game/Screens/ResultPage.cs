@@ -865,6 +865,10 @@ namespace BS3D.Screens
 
             VerticalStackPanel column = MenuColumn();
 
+            //On an enlarged interface (#1052) the score and the ways on stand in a column of their own beside the verdict,
+            //so the page is half as tall and can be drawn larger: a phone held landscape has the width and not the height
+            VerticalStackPanel actions = Split ? MenuColumn() : column;
+
             //CLEARED / FAILED / CAMPAIGN COMPLETE — a title's size, like the main menu's name, because this is
             //the line the screen exists to state.
             _heading = new ShadowedLabel(shadow)
@@ -1038,12 +1042,12 @@ namespace BS3D.Screens
             //inside the plate now; see BuildBreakdown.
             _breakdown.MinWidth = ColumnWidth;
 
-            column.Widgets.Add(_breakdown);
+            actions.Widgets.Add(_breakdown);
 
             //Built in this order — Retry, Next Level, Main Menu — which is also FAILED's own order and so
             //needs no runtime rearranging on a loss. A CLEAR reorders the two in Refresh (#263): Retry stays
             //a field for exactly that, not for anything read off it here.
-            column.Widgets.Add(_retryButton = MenuButton("Retry", Game.RetryLevel));
+            actions.Widgets.Add(_retryButton = MenuButton("Retry", Game.RetryLevel));
 
             //Absent rather than disabled when there is no next level to go to or the score did not clear the
             //gate. Retry stays: it is the one thing that always makes sense at a level's end.
@@ -1051,23 +1055,45 @@ namespace BS3D.Screens
             //Its caption is written in Refresh (#313), because it NAMES the level it leads to: the player used
             //to commit to starting one with no idea what it was called until it was already loading. The text
             //here is only what the button reads as before any result has been presented.
-            column.Widgets.Add(_nextLevelButton = MenuButton("Next Level", Game.AdvanceLevel, out _nextLevelLabel));
+            actions.Widgets.Add(_nextLevelButton = MenuButton("Next Level", Game.AdvanceLevel, out _nextLevelLabel));
 
             //The campaign's relief valve, under Retry on a failure and absent everywhere else (#347). Under
             //rather than over: retrying is what the player should try first, and a skip that sat above it
             //would be offering to spend their chapter's only skip before they had lost twice. It names the
             //level it leads to for #313's reason, and what it COSTS is said by the note above the buttons —
             //a button cannot carry a sentence.
-            column.Widgets.Add(_skipButton = MenuButton("Skip Level", Game.SkipLevel, out _skipLabel));
+            actions.Widgets.Add(_skipButton = MenuButton("Skip Level", Game.SkipLevel, out _skipLabel));
 
-            column.Widgets.Add(MenuButton("Main Menu", Game.EndSessionAndReturnToMainMenu));
+            actions.Widgets.Add(MenuButton("Main Menu", Game.EndSessionAndReturnToMainMenu));
 
             //The online boards (#547), BESIDE the column rather than in it: the column is the ending's own and stands
             //close to its height budget, while the width either side of it is empty at every landscape aspect — at 4:3
             //each side still holds about 940 design units, and the plate is BOARD_WIDTH of them.
             _boardsPlate = BuildBoards();
 
-            return ScreenRoot(column, _boardsPlate);
+            if (!Split) return ScreenRoot(column, _boardsPlate);
+
+            //The verdict against the seam, beside the score it explains: the cup stands at the frame's left (TrophyPodium's
+            //NDC_X), and on a phone's width a centred verdict stood half under it (photographed on the X300 Ultra)
+            foreach (Widget line in column.Widgets)
+            {
+                line.HorizontalAlignment = HorizontalAlignment.Right;
+                if (line is Label label) label.TextAlign = FontStashSharp.RichText.TextHorizontalAlignment.Right;
+            }
+
+            //The two columns side by side, each the menu column's width, centred together where the one column stood
+            column.Width = ColumnWidth;
+            actions.Width = ColumnWidth;
+            HorizontalStackPanel split = new()
+            {
+                Spacing = Scaled(SPLIT_GAP),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            split.Widgets.Add(column);
+            split.Widgets.Add(actions);
+
+            return ScreenRoot(split, _boardsPlate);
         }
 
         /// <summary>
@@ -1369,6 +1395,26 @@ namespace BS3D.Screens
         //rewrites the plate even when the service has said nothing new
         private bool _boardsRevealed;
 
+        /// <summary>
+        /// Whether the page stands as two columns (#1052): on an interface drawn larger than its design, where the verdict
+        /// beside the score and the ways on lets the page be drawn as large as a phone's height allows.
+        /// </summary>
+        private bool Split => Game.UiScale > 1f;
+
+        //Between the verdict's column and the score's, in design units
+        private const int SPLIT_GAP = 90;
+
+        /// <summary>The width the middle of the page takes: its one column, or the two side by side.</summary>
+        private int CentreWidth => Split ? 2 * ColumnWidth + Scaled(SPLIT_GAP) : ColumnWidth;
+
+        /// <summary>
+        /// Split, the page needs the two columns and a board at its floor either side's strip (#1052): what
+        /// <c>BS3DGame.FitPage</c> brings it down to, so the boards never cross the score.
+        /// </summary>
+        internal override int RequiredWidth => Split
+            ? CentreWidth + 2 * (Scaled(BOARD_MIN_WIDTH) + 2 * Scaled(BOARD_PADDING) + 2 * Math.Max(Scaled(BOARD_COLUMN_GAP), Scaled(BOARD_MIN_EDGE_MARGIN)))
+            : 0;
+
         private Panel BuildBoards()
         {
             //The strip beside the column, in pixels at the layout in force, and the plate centred in it (#701): as wide as
@@ -1376,7 +1422,7 @@ namespace BS3D.Screens
             //edge half of what is left. The column's plate is cut to ColumnWidth (MenuColumnPlateContentWidth), so its
             //right edge is the strip's left one; where the strip is narrower than the plate at its floor, the edge
             //margin holds its floor and the plate is what crosses the gap, as it always did
-            int beside = (Game.GraphicsDevice.PresentationParameters.BackBufferWidth - ColumnWidth) / 2;
+            int beside = (Game.GraphicsDevice.PresentationParameters.BackBufferWidth - CentreWidth) / 2;
             int padding = 2 * Scaled(BOARD_PADDING);
             int sideFloor = Math.Max(Scaled(BOARD_COLUMN_GAP), Scaled(BOARD_MIN_EDGE_MARGIN));
             //The ceiling is BOARD_WIDTH up to 16:9 and grows with the strip past it (#934): the margins stay the ones 16:9 has and

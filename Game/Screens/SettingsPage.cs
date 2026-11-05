@@ -970,6 +970,46 @@ namespace BS3D.Screens
 
             //A new tree's note is empty, whatever the last one said
             _noteSource = null;
+
+            ScrollOnlineNote();
+        }
+
+        /// <summary>
+        /// On a screen that draws the interface larger (#1052, <c>BS3DGame.UiScale</c>), the ONLINE tab's note in a scroller
+        /// a finger drags, as tall as the other tabs leave it: the privacy list was what made the whole page the tallest
+        /// (every tab is as tall as the tallest, so Back stands still), and on a phone it took the page down to its design
+        /// size. The rows of every tab then set the page's height, and the note is read by dragging it. At the design's
+        /// own size the note stands whole, as it always has.
+        /// </summary>
+        private void ScrollOnlineNote()
+        {
+            if (Game.UiScale <= 1f) return;
+
+            Point free = new(int.MaxValue / 2, int.MaxValue / 2);
+            int others = 0;
+            for (int i = 0; i < _pages.Length; i++)
+                if (i != TAB_ONLINE) others = Math.Max(others, _pages[i].Measure(free).Y);
+
+            Grid online = _pages[TAB_ONLINE];
+            int over = online.Measure(free).Y - others;
+            if (over <= 0) return;
+
+            //At least a few lines of it, however short the other tabs
+            int bound = Math.Max(_noteArea.Height.GetValueOrDefault() - over, 3 * FontSmall.LineHeight);
+
+            online.Widgets.Remove(_noteArea);
+            MenuScrollViewer scroller = new()
+            {
+                Content = _noteArea,
+                ShowHorizontalScrollBar = false,
+                Height = bound,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Top,
+            };
+            Grid.SetColumn(scroller, 0);
+            Grid.SetColumnSpan(scroller, 2);
+            Grid.SetRow(scroller, 3);
+            online.Widgets.Add(scroller);
         }
 
         /// <summary>

@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-05 — #1052 telefonní rozhraní — desktop (RDT-PC), Claude Code
+- Majitel: UI na telefonu „o něco větší určitě být musí“, využít šířku displeje (hraje se na šířku), konkrétní poměr nechal na mně.
+- Hotovo: `UiScale` = 4,5″ / fyzická výška displeje (X300 Ultra 1,59×), Windows a Pi beze změny. Stránka vyšší než displej se zmenší jen o tolik, kolik musí (`FitPage`). Výsledek levelu má na telefonu dva sloupce. Seznamy jdou posouvat tahem, gesto Zpět vrací o stránku, menu pro prst nekreslí ikony kláves.
+- ⚠ Posuvník omezený displejem se Myře změří jako „vejde se“, i když ořezává (`mustFit`, `ScrollShortfall`).
+- Review našel šest slabin na telefonu, opraveno před merge.
+- Otevřené #1052: softwarová klávesnice, schovat řádky, které na telefonu nedávají smysl, výřez kamery.
+
 ## 2026-11-05 — #1054 přesné míření jako toggle; #1048 pád po výhře — desktop (RDT-PC), Claude Code
 - Majitel: chce toggle i na desktopu: „jeden stisk míření zahájí a zůstane tak, další ho vypne“. Hotovo pro pravé tlačítko i levou spoušť, v nastavení Precise aim: Toggle (výchozí) / Hold.
 - ⚠ Hotovo #1048: MonoGame na Androidu hraje nejvýš 32 zvuků najednou a `SoundEffectInstance.Play` za limitem hází výjimku. Ohňostroj po výhře tím hru shazoval. Každé `Play` jde teď přes `VoiceBudget.TryPlay`.

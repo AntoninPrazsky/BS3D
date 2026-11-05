@@ -642,7 +642,9 @@ namespace BS3D.Screens
 
             //The grid scrolls; the heading, the detail line and Back do not — a campaign is as long as it is,
             //and the way out of the page must not be the thing that scrolled off the bottom
-            return MenuScroll(grid, _chaptered ? CHAPTER_SURROUNDINGS : LIST_SURROUNDINGS);
+            //A chapter's ten tiles are meant to stand whole (#1052): on a screen that draws the interface larger, the page is
+            //laid out as much smaller as their scroller would otherwise cut
+            return MenuScroll(grid, _chaptered ? CHAPTER_SURROUNDINGS : LIST_SURROUNDINGS, mustFit: _chaptered);
         }
 
         /// <summary>

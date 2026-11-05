@@ -46,6 +46,13 @@ The step is `delta / 120` notches (`WheelScroll.NOTCH`, Windows' `WHEEL_DELTA`),
 - A step is a fifth and not a third because a long body (Odd balls, 1267 px at 3840x1600) is then still read in screenfuls, with a spin as the way to cover it fast: a notch every 40 ms crosses the Scene list in four events instead of five, Odd balls in four instead of seven. The acceleration needs a run of events, so a single-detent scroller never meets it.
 - **The arithmetic is pure** (`WheelScroll.Pixels`, `Move`, `Momentum.Take`, the clock handed in) in `WheelScrollTests`, which holds the share across viewports, the independence of the content's length, the delta's scaling, the carry, the two ends, the boost's ramp, cap, pause and reversal, and the Scene list's slow and fast crossing at 1920x1080 and 3840x1600.
 
+## A finger (#1052)
+
+- **Myra presses an entry on a tap by itself** (`Desktop.UpdateTouchInput` reads `TouchPanel`), so the phone's menus work by touch with nothing of the game's.
+- **The menus have a third hand, the screen** (`BS3DGame.PromptsForTouch`): the note that moves `PromptsForPad` sets it when a touch is down, and then **no key and no button is drawn** (`PromptGlyph`, the focus prompt), since a finger presses the entry itself. A page opening over play (pause, result) takes play's hand (`PlayHandIsTouch`), so it is a finger's from its first frame. Reading `TouchPanel` a second time in a frame takes nothing from Myra: `GetState` ages a press to a move on every read, and Myra only asks whether a touch is down.
+- **A finger drags a list** (`MenuScrollViewer`): Myra scrolls by touch only through the scrollbar's thumb, so a phone's Help could not be read past its first screen. Past `DRAG_SLOP_SHARE` (2 % of the screen's height) the list follows the finger, and **the press the drag began on is not a click** (`SwallowsClick`, asked by `MenuClickable`, cleared by the next finger going down anywhere): the list moves with the finger, so the button it began on is still under it at the lift. Only a real touch, not the mouse's press, which Myra reads as a touch too.
+- **The back gesture is one page back** on Android: MonoGame reports it as the pad's Back, which the menus now take beside B. On the main menu it does nothing (no back there: a front end that closes on a gesture closes by accident, and quitting is a menu item); in play it pauses, as the pad's Back always did.
+
 ## The keys are drawn in the UI (#799)
 
 The binding is part of the UI, always visible beside what it does, never a legend elsewhere.

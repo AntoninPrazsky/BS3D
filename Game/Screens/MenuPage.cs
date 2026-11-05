@@ -65,6 +65,37 @@ namespace BS3D.Screens
         private Widget _root;
         private int _builtForLayout = -1;
 
+        /// <summary>
+        /// This page's share of the interface scale (#1052), 1 until it is found not to fit: on a screen that draws the
+        /// interface larger (<see cref="BS3DGame.UiScale"/>) a page taller than the screen is laid out smaller, by as much as
+        /// it needs and no more (<c>BS3DGame.FitPage</c>), for the viewport it was found for.
+        /// </summary>
+        internal float LayoutFit = 1f;
+
+        /// <summary>The viewport <see cref="LayoutFit"/> was found for; another one finds it again.</summary>
+        internal Point LayoutFitFor;
+
+        /// <summary>
+        /// How much of its content this page's scrollers that must not scroll cut off as built (#1052, the picker's chapter
+        /// of tiles): a scroller bounded by the screen reads as fitting when Myra measures it, so its cut is added to the
+        /// page's height when <c>BS3DGame.FitPage</c> asks whether the page fits.
+        /// </summary>
+        internal int ScrollShortfall;
+
+        /// <summary>
+        /// The scrollers of this page's tree that must show their whole content, with the content's own height (#1052): once
+        /// the page is found to fit with all of it, each is let out to that height (<c>BS3DGame.FitPage</c>), since the bound
+        /// a scroller takes from a fixed reserve of design units overstates what stands round it on a larger interface.
+        /// </summary>
+        internal readonly System.Collections.Generic.List<(ScrollViewer Scroller, int Natural)> MustFitScrollers = new();
+
+        /// <summary>
+        /// The width this page needs at the layout in force, where its widgets stand side by side in a way a measure does not
+        /// sum (a panel's children overlap); 0 for none. <c>BS3DGame.FitPage</c> brings a page down to fit it as it does a
+        /// height (#1052).
+        /// </summary>
+        internal virtual int RequiredWidth => 0;
+
         protected MenuPage(BS3DGame game) => Game = game;
 
         /// <summary>
@@ -83,7 +114,17 @@ namespace BS3D.Screens
                 if (_root != null && _builtForLayout == Game.MenuLayoutGeneration) return _root;
 
                 _builtForLayout = Game.MenuLayoutGeneration;
-                _root = BuildTree();
+                ScrollShortfall = 0;
+                MustFitScrollers.Clear();
+                Game.PageBuilding = this;
+                try
+                {
+                    _root = BuildTree();
+                }
+                finally
+                {
+                    Game.PageBuilding = null;
+                }
 
                 //A fresh tree starts at its authored defaults, and everything the page writes onto it — the
                 //resume entry, the setting values, the marked scene, the score — was written onto the tree
@@ -487,8 +528,8 @@ namespace BS3D.Screens
 
         protected VerticalStackPanel MenuColumn() => Game.MenuColumn();
 
-        protected ScrollViewer MenuScroll(Widget content, int reservedDesignUnits, bool clearEdges = false) =>
-            Game.MenuScroll(content, reservedDesignUnits, clearEdges);
+        protected ScrollViewer MenuScroll(Widget content, int reservedDesignUnits, bool clearEdges = false, bool mustFit = false) =>
+            Game.MenuScroll(content, reservedDesignUnits, clearEdges, mustFit);
 
         protected Label ScreenHeading(string text) => Game.ScreenHeading(text);
 
