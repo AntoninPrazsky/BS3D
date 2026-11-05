@@ -241,7 +241,13 @@ float3 SeenThroughWater(float3 bed, float3 bedColour, float2 pixel)
         for (int k = -3; k <= 3; k++)
         {
             float w = exp(-k * k / 5.0);
+#if OPENGL
+            //Through the sampler (#1062): read as a texture's method, MojoShader's effect names the texture parameter after
+            //the sampler, and CavernBackdrop's Parameters["Reflection"] came back null on the phone
+            sum += w * tex2Dlod(ReflectionSampler, float4(uv + float2(0.0, k * streak / 3.0), 0.0, 0.0)).rgb;
+#else
             sum += w * Reflection.SampleLevel(ReflectionSampler, uv + float2(0.0, k * streak / 3.0), 0).rgb;
+#endif
             weights += w;
         }
         mirrored = sum / weights;
