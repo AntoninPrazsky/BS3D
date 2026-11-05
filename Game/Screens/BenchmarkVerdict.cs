@@ -38,7 +38,9 @@ namespace BS3D.Screens
                 return tier > QualityLevel.Low ? tier - 1 : tier;
             }
 
-            return roomEverywhere && tier < QualityLevel.Ultra ? tier + 1 : tier;
+            //Never Ultra on a phone (#1060, PhoneTiers): its row has none
+            QualityLevel ceiling = PhoneTiers.OffersUltra ? QualityLevel.Ultra : QualityLevel.High;
+            return roomEverywhere && tier < ceiling ? tier + 1 : tier;
         }
     }
 }

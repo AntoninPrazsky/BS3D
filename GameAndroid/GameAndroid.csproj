@@ -9,8 +9,9 @@
   - AssetFiles, the APK's assets as the files the Game ships beside its executable (#1049): every reader goes through
     Prazsky.Core's ShippedFiles, and this answers it from the assets.
 
-  It draws through the Potato path with GamePi's nine SM 3.0 effects, and carries every desktop effect compiled for
-  OpenGL ES beside them (#1057), both built here from their sources (below). Its other content (the logo, the HUD's
+  It draws through the desktop's renderer with every shared effect compiled for OpenGL ES (#1057), at a phone's tiers
+  (#1060, PhoneTiers), and through the Potato path with GamePi's nine SM 3.0 effects when Potato is chosen on the
+  Quality row; both sets are built here from their sources (below). Its other content (the logo, the HUD's
   font) is GamePi's Content.mgcb built for Android.
 
   Needs the Android workload (dotnet workload install android), the Android SDK (found in %LOCALAPPDATA%\Android\Sdk)

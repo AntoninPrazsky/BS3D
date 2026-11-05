@@ -366,8 +366,8 @@ namespace BS3D
             //insurance rather than a live path, like the general step it guards.
             if (_quality is QualityLevel.Low or QualityLevel.Potato)
             {
-                //On a phone the ladder goes on below Low (#1060): Potato, a different renderer, so from the next start
-                if (_quality == QualityLevel.Low && PhoneTiers.Phone && !PotatoPath) FallToPotatoAtNextStart(fps, where);
+                //On a phone Potato is below Low (#1060), a different renderer that only a start can switch to: said, not stored
+                if (_quality == QualityLevel.Low && PhoneTiers.Phone && !PotatoPath) SuggestPotato(fps, where);
 
                 _qualitySettled = true;
                 return;
@@ -469,20 +469,23 @@ namespace BS3D
         /// </summary>
         private void ShowQualityNotice(QualityLevel quality, string reason = null) => _mainMenuPage.ShowQualityNotice(quality, reason);
 
-        /// <summary>
-        /// The probe's last step on a phone (#1060): Low itself missed the floor, and what is below it is the Potato path, a
-        /// different renderer that only a start can switch to. Stored as the player's choice from the Quality row would be
-        /// (#808), so the next start draws through it and the row reads it; the player puts it back there.
-        /// </summary>
-        private void FallToPotatoAtNextStart(float fps, string where)
-        {
-            Console.WriteLine($"[quality] {fps:F0} FPS in the {where} at Low (floor {_qualityMinFps:F0}) — Potato from the next start");
+        //Whether this run has said Potato would be smoother (#1060): once a run, however often Low is measured again
+        private bool _potatoSuggested;
 
-            _settings.Quality = QualityLevel.Potato;
-            _settings.Scenery = null;
-            _settings.AdaptiveQuality = false;
-            SaveSettings();
-            ShowQualityNotice(QualityLevel.Potato, "from the next start, for a smoother frame rate");
+        /// <summary>
+        /// The probe's last word on a phone (#1060): Low itself missed the floor, and what is below it is the Potato path, a
+        /// different renderer that only a start can switch to. Said on the main menu once a run and never stored: the probe's
+        /// verdict is never stored (the owner's ruling, "The probe's verdict is never stored" in
+        /// <c>docs/game-shell/adaptive-quality.md</c>), and one hot or heavy minute would otherwise put every later start on
+        /// Potato. The Quality row takes the player there.
+        /// </summary>
+        private void SuggestPotato(float fps, string where)
+        {
+            if (_potatoSuggested) return;
+            _potatoSuggested = true;
+
+            Console.WriteLine($"[quality] {fps:F0} FPS in the {where} at Low (floor {_qualityMinFps:F0}) — Potato on the Quality row would be smoother");
+            _mainMenuPage.ShowPotatoSuggestion();
         }
 
         //The heat watch's state (#1060): the status last seen, the time a step taken for heat keeps the next one off, and
@@ -532,6 +535,12 @@ namespace BS3D
             ApplyQuality(lowered);
             ShowQualityNotice(lowered, "while the device is hot");
             _heatStepHoldLeft = HEAT_STEP_HOLD_SECONDS;
+
+            //As the probe's own step does: a window that straddled the change would judge the new tier by the old one's frames
+            _qualityWarmupLeft = QUALITY_WARMUP_SECONDS;
+            _qualityWindowSeconds = 0f;
+            _qualityWindowFrames = 0;
+            _qualityPrevWindowFps = 0f;
         }
 
         /// <summary>
@@ -618,7 +627,8 @@ namespace BS3D
                 //after a restart. Before the pin is released, so ApplyQuality's page refresh is not the last word. And Potato
                 //waiting for a restart (#808, the review): the stored choice goes with the pin, so the next start is High
                 //and so is this run - left at Potato's preset, the row read a plain "Potato" over the desktop renderer.
-                if (_quality is QualityLevel.Ultra or QualityLevel.Potato) ApplyQuality(PhoneTiers.StartingTier);
+                if (_quality is QualityLevel.Ultra or QualityLevel.Potato || (_quality == QualityLevel.High && PhoneTiers.StartingTier != QualityLevel.High))
+                    ApplyQuality(PhoneTiers.StartingTier);
 
                 _qualityPinnedByPlayer = false;
                 ReopenQualityProbe();

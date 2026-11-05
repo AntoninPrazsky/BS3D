@@ -35,7 +35,7 @@ namespace BS3D.Platform
 
         /// <summary>Why the tier is held, for the line the run prints when it is.</summary>
         internal static string Why => ChosenInSettings
-            ? "chosen in Settings, so this run draws through the Raspberry Pi's renderer"
+            ? "chosen in Settings, so this run draws through the Potato renderer"
             : "held for this run by the potato argument";
 
         /// <summary>

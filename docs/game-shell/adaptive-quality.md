@@ -25,16 +25,17 @@ A measured tier is not written to `%LOCALAPPDATA%\BS3D\Settings.json`: the step 
 
 ## The Auto quality row (#390)
 
-It reads `!_qualityPinnedByPlayer`, so it cannot misreport: picking a tier flips it to Off, as does `quality=`/`ssaa=`. **Off** stores the tier shown with `"adaptiveQuality": false` (at startup that key pins as a stored tier does; with none stored the game plays `High`). **On** clears the stored tier and re-opens one window now. A file with a tier and no key reads Off, with neither On.
+It reads `!_qualityPinnedByPlayer`, so it cannot misreport: picking a tier flips it to Off, as does `quality=`/`ssaa=`. **Off** stores the tier shown with `"adaptiveQuality": false` (at startup that key pins as a stored tier does; with none stored the game plays `High`, a phone `Medium`). **On** clears the stored tier and re-opens one window now. A file with a tier and no key reads Off, with neither On.
 
 To test it pass **`userdata=<dir>`** (else the run writes the real `Settings.json`), and `fpscap=40` under a 75 Hz floor to trip it; an A/B must pass `quality=` or `ssaa=`.
 
 ## On a phone (#1060)
 
 - **The probe starts at Medium** (`PhoneTiers.StartingTier`) and steps down as on the desktop. It logs `[quality] 46 FPS in the level at Medium (floor 54) — lowering to Low`.
-- **Low is measured too.** On the desktop Low is the bottom; on a phone, Potato is below it from the next start. If Low misses the floor, `FallToPotatoAtNextStart` stores Potato as if it had been chosen on the row, logs it, and the main menu's notice says "from the next start".
+- **Low is measured too.** On the desktop Low is the bottom. On a phone, Potato is below it, but only from the next start. If Low misses the floor, `SuggestPotato` logs it and the main menu says once a run that Potato on the Quality row is smoother. **It stores nothing**: the probe's verdict is never stored (above). The first cut stored Potato, and the review of #1060 caught it.
 - **It watches the heat.** `Platform/DeviceHeat` reads the PowerManager's thermal status on Android and 0 elsewhere. The frame rate falls only after the heat has built: Medium at 1080 rows held 53 FPS for five minutes, then 38. So the phone's status is read as well as the frame, while Auto quality is on:
   - At moderate (2) the probe is opened again, and once a minute for as long as the status lasts, so the throttled frame is measured rather than trusted to an old verdict (`[quality] thermal status 2 ... measuring the frame again`). ⚠ Once is not enough: the throttle comes minutes after the status. Nine minutes of Girandole at the defaults reached moderate in minute 5, held 60 FPS to minute 8 and read 46 in minute 9.
-  - At severe (3) the tier steps down without waiting for it, one step at a time, at most once in 90 seconds, and no lower than Low.
+  - At severe (3) the tier steps down without waiting for it, one step at a time, at most once in 90 seconds, and no lower than Low. The step re-arms the probe's warmup, as the probe's own step does.
+  - Turning Auto quality on over a phone's High brings it down to Medium, the ceiling a next start would have.
   - Seen on the X300 Ultra, started warm (status 2) at the defaults in Girandole: `[quality] thermal status 2 ... measuring the frame again`, then `39 FPS in the level at Medium (floor 54) — lowering to Low`, after which Low held 60 FPS through status 3.
   - ⚠ The phone's first reading is logged (`[heat] thermal status N, from the PowerManager`). Its absence means the status is not being read. The first cut never read it (a `long.MinValue` start time overflowed the once-a-second check) and sat at Medium at 45 FPS for minutes.
