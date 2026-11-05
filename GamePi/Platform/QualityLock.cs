@@ -27,5 +27,8 @@ namespace BS3D.Platform
         /// <summary>The Android build's <c>desktop</c> argument (#1059): not here, where Potato is the only tier the Pi
         /// draws at 60 frames (#785). False, the run stays held.</summary>
         internal static bool LeavePotato() => false;
+
+        /// <summary>A GPU too weak for the desktop's renderer (#1064): nothing to do here, where Potato is the only tier.</summary>
+        internal static bool HoldForDevice(string why) => false;
     }
 }

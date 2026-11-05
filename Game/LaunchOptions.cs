@@ -100,6 +100,11 @@ namespace BS3D
         //stored (#808). What the Windows and Android builds draw anyway since #1060; the Pi stays held.
         internal bool Desktop { get; private set; }
 
+        //"gpumissing=<what>[,<what>]" (#1064, testing only): the Android build's GPU probe takes these extensions, or a
+        //GLES version (which then reads as 3.0), as missing, so the fall to Potato on a phone without float render targets
+        //can be seen firing on one that has them: gpumissing=3.2,EXT_color_buffer_float on a GLES 3.2 phone.
+        internal string GpuMissing { get; private set; }
+
         //Left null when "ssaa=" is absent, which is how the game tells "the player wants two" from "nobody
         //said" — only the latter may be lowered for a machine that cannot afford the default. An explicit
         //ssaa= is never overridden.
@@ -586,6 +591,7 @@ namespace BS3D
             //"potato" runs the Windows build through the Pi's renderer (#808); in GamePi it asks for what already is
             Row.Flag("potato", o => o.Potato = true),
             Row.Flag("desktop", o => o.Desktop = true),
+            Row.Text("gpumissing", (o, v) => o.GpuMissing = v),
             //"celebrate" fires the victory display at startup. Clearing a level is the only thing that
             //normally starts it, and clearing one cannot be scripted, so without this the fireworks can be
             //neither screenshotted nor measured — the same reason autoshoot and aimshoot exist.

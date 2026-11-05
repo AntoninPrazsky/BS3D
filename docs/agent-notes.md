@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-05 — #1063 #1064 efekty a slabé telefony — desktop (RDT-PC), Claude Code
+- #1063: na telefonu nebyly plameny ohňů. `static const` pole čtené proměnným indexem z něj MojoShader udělá uniformu, kterou MonoGame nikdy nenaplní (nuly). Opraveno a build to teď hlídá. Lom skleněného stropu se na Androidu kreslil jako růžový plát. Příčinu jsem nenašel, lom je tam zatím vypnutý.
+- #1064: `GpuCaps` se při startu zeptá EGL na verzi GLES a float render targety; telefon bez nich drží Potato a v logu je proč. Ověřeno s `gpumissing=3.2,EXT_color_buffer_float`.
+- ⚠ Revize #1060 našla uložený pád na Potato. To je proti pravidlu majitele (verdikt sondy se neukládá), změnil jsem ho na nabídku v menu.
+- Otevřené: příčina růžového skla, blast, wormhole a pohár na telefonu.
+
 ## 2026-11-05 — #1060 tiery a Auto kvalita na telefonu — desktop (RDT-PC), Claude Code
 - Hotovo: telefon kreslí desktopovou cestou a tier volí jako Windows (řádky Quality a Auto, Potato od příštího startu). `PhoneTiers`: start na Medium, nejvyšší příčka Resolution do 1080 řádků (na X300 je to 960), bez ssaa a bez Ultra.
 - Auto na telefonu měří i Low a pod ní ukládá Potato na příští start. `DeviceHeat` čte teplotní stav: od 2 přeměřuje jednou za minutu, při 3 sníží tier. Na zařízení viděno: Medium 39 FPS → Low.

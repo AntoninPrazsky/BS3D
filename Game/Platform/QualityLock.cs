@@ -36,7 +36,23 @@ namespace BS3D.Platform
         /// <summary>Why the tier is held, for the line the run prints when it is.</summary>
         internal static string Why => ChosenInSettings
             ? "chosen in Settings, so this run draws through the Potato renderer"
-            : "held for this run by the potato argument";
+            : _deviceWhy ?? "held for this run by the potato argument";
+
+        //Why the device holds the run at Potato (#1064), or null
+        private static string _deviceWhy;
+
+        /// <summary>
+        /// Holds this run at <see cref="QualityLevel.Potato"/> because the GPU cannot carry the desktop's renderer (#1064,
+        /// <c>GpuCaps</c>): as the <c>potato</c> argument does, the rows locked, with <paramref name="why"/> as the reason
+        /// the run prints. Called by <c>Program.Start</c> before the game object exists.
+        /// </summary>
+        internal static bool HoldForDevice(string why)
+        {
+            _deviceWhy = why;
+            ChosenInSettings = false;
+
+            return HoldAtPotato();
+        }
 
         /// <summary>
         /// Holds this run at <see cref="QualityLevel.Potato"/>: the <c>potato</c> argument. Called once, by
