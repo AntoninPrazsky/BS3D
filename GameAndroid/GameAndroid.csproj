@@ -48,10 +48,11 @@
     <AssemblyMetadata Include="BS3DReleaseVersion" Value="$(BS3DReleaseVersion)" />
   </ItemGroup>
 
-  <!--Every source of the Game but the Windows-only Platform files this project replaces (GamePi's list).-->
+  <!--Every source of the Game but the Platform files this project replaces: GamePi's list, less QualityLock (the phone
+  picks its tier as the desktop does, #1060) and with DeviceHeat (the phone's thermal status).-->
   <ItemGroup>
     <Compile Include="..\Game\**\*.cs"
-             Exclude="..\Game\bin\**;..\Game\obj\**;..\Game\Content\bin\**;..\Game\Content\obj\**;..\Game\Platform\AudioBackend.cs;..\Game\Platform\CrashDialog.cs;..\Game\Platform\DisplayRefresh.cs;..\Game\Platform\KeyboardLights.cs;..\Game\Platform\PadMotors.cs;..\Game\Platform\QualityLock.cs;..\Game\Platform\TargetDiscard.cs;..\Game\Platform\WindowIcon.cs"
+             Exclude="..\Game\bin\**;..\Game\obj\**;..\Game\Content\bin\**;..\Game\Content\obj\**;..\Game\Platform\AudioBackend.cs;..\Game\Platform\CrashDialog.cs;..\Game\Platform\DeviceHeat.cs;..\Game\Platform\DisplayRefresh.cs;..\Game\Platform\KeyboardLights.cs;..\Game\Platform\PadMotors.cs;..\Game\Platform\TargetDiscard.cs;..\Game\Platform\WindowIcon.cs"
              LinkBase="Game" />
     <Compile Include="*.cs;Platform\**\*.cs" Exclude="bin\**;obj\**" />
   </ItemGroup>

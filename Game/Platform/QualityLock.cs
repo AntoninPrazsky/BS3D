@@ -1,8 +1,9 @@
 namespace BS3D.Platform
 {
     /// <summary>
-    /// The quality tier this build is held at, which the player cannot change (#788): none here, in the Windows
-    /// build, where the Quality row, the probe and <c>quality=</c> decide as they always have. GamePi brings its own
+    /// The quality tier this build is held at, which the player cannot change (#788): none here, in the Windows build
+    /// and since #1060 the Android one, where the Quality row, the probe and <c>quality=</c> decide as they always have
+    /// (a phone's ladder: <c>PhoneTiers</c>). GamePi brings its own
     /// file of this name answering <see cref="QualityLevel.Potato"/>, the Raspberry Pi's only tier (#785) - a
     /// platform seam like <see cref="CrashDialog"/>'s rather than an <c>#if</c>, so neither build compiles the
     /// other's answer and the Windows one stays what it was.
@@ -62,8 +63,8 @@ namespace BS3D.Platform
         }
 
         /// <summary>
-        /// The Android build's <c>desktop</c> argument (#1059) asks for what this build draws anyway: false, nothing was
-        /// switched.
+        /// The <c>desktop</c> argument (#1059) asks for what these builds draw anyway: false, nothing was switched. What it
+        /// still does is in <c>Program.Start</c>: a Potato stored from the Quality row is not taken up for that run.
         /// </summary>
         internal static bool LeavePotato() => false;
     }

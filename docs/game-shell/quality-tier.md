@@ -33,3 +33,12 @@ One bundled **`Quality: Low / Medium / High / Ultra`** setting (#63) replaced th
 ## The Scenery row (#808)
 
 `GameSettings.Scenery` (`"scenery"`, stored only as `false`). Off, the frame keeps sky, island, drain, cluster and gun and drops the setting's own world and its shadows (`SceneryShown`); sky-replacing scenes stand under the dome. **The scene's light and events stay**, with the sound that answers them (lamps, storm flashes, the eruption's surge, thunder, rumble): the light is seen, so the sound is not one nobody can place. The Quality row reads `Custom` while off; picking a tier turns scenery back on; on the Potato path the row reads `On (Potato)`, ticked and held: that path draws its own low-poly scenery (`PotatoBackdrop`, `docs/rendering/potato-path.md`) and the row cannot turn it off.
+
+## On a phone (#1060)
+
+The Android build picks its tier as the desktop does: the Quality and Auto quality rows, `quality=`, and Potato chosen on the row and drawn from the next start (#808). It compiles the Windows `QualityLock`; only the Pi is held. What differs is `PhoneTiers`, set from #1061's measurements on the X300 Ultra ("The phone" in [the measurements](quality-measurements.md)):
+
+- **The 3D is drawn at the tallest Resolution rung at or under 1080 rows** until the player picks another, because only Low at 1080 rows held 60 FPS there. A 3168×1440 display has 1200 and 960, so it is 960. The Potato path keeps the display's own size.
+- **No supersampling, and no Ultra.** High's ssaa 2 read 10–17 FPS, so a phone's High is ssaa 1 (the shadow map at 4096 and the fine meshes). The row goes Low, Medium, High, Potato (restart). A stored or named Ultra is High there.
+- **A first run starts at Medium**, and Auto quality measures it, as the desktop's starts at High. The X300 Ultra steps to Low in the city at native and keeps Medium at 960 rows.
+- ⚠ **MonoGame's Android backend has no MSAA resolve, no min blend and no 3D texture**, so no tier there multisamples, the shadow map uses a depth test, and the cloud volumes are not drawn ("The desktop path on a phone" in `docs/rendering.md`).

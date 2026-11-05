@@ -849,7 +849,9 @@ namespace BS3D
             if (launch.WindowWidth > 0 && launch.WindowHeight > 0)
                 _windowedSize = new Point(launch.WindowWidth, launch.WindowHeight);
 
-            _renderHeight = launch.RenderHeight ?? _settings.RenderHeight ?? 0;
+            //A phone's desktop path draws at 1080 rows until someone chooses (#1060, PhoneTiers); the Potato path and
+            //everything else at the display's own
+            _renderHeight = launch.RenderHeight ?? _settings.RenderHeight ?? (PotatoPath ? 0 : PhoneTiers.DefaultRenderHeight);
             _renderHeightChosen = launch.RenderHeight.HasValue || _settings.RenderHeight.HasValue;
             _renderHeightFromLaunch = launch.RenderHeight.HasValue;
             _launchRims = launch.Rims;
@@ -898,6 +900,9 @@ namespace BS3D
             //overrides that one entry of it — the expert override the benchmark and the screenshot harness use.
             //The rest of the tier is applied in LoadContent, once the city it also sizes exists.
             if (chosenQuality.HasValue) _quality = chosenQuality.Value;
+
+            //No Ultra on a phone (#1060): a stored or named one is High there
+            if (_quality == QualityLevel.Ultra && !PhoneTiers.OffersUltra) _quality = QualityLevel.High;
             _supersampleFactor = QualityPreset.Presets[(int)_quality].SupersampleFactor;
 
             //Kept as well as applied: the tier is applied again in LoadContent (and again on every adaptive
@@ -905,7 +910,7 @@ namespace BS3D
             //Not on a locked build (#788): the factor is the tier's there, and the tier is not the line's to move.
             if (launch.SupersampleFactor.HasValue && !QualityLock.Tier.HasValue)
             {
-                _supersampleOverride = Math.Clamp(launch.SupersampleFactor.Value, 1, 4);
+                _supersampleOverride = Math.Clamp(launch.SupersampleFactor.Value, 1, PhoneTiers.MaxSupersample);
                 _supersampleFactor = _supersampleOverride.Value;
             }
 
@@ -1306,7 +1311,28 @@ namespace BS3D
         private int EffectiveRenderHeight =>
             _renderHeight <= 0 ? 0
             : _renderHeightFromLaunch ? _renderHeight & ~1
+            : !_renderHeightChosen ? TallestRungAtMost(_renderHeight)
             : RenderResolution.Nearest(_renderLadder, _renderHeight);
+
+        /// <summary>
+        /// The build's own default height on the display's ladder (#1060, a phone's <see cref="PhoneTiers.PHONE_RENDER_HEIGHT"/>):
+        /// the tallest rung that is not taller, so the default never costs more than it was measured at, and the
+        /// Resolution row shows one of its own steps (a 3168x1440 display has 1200 and 960, not 1080). The lowest rung when
+        /// none is that short.
+        /// </summary>
+        private int TallestRungAtMost(int height)
+        {
+            if (_renderLadder == null || _renderLadder.Length == 0) return height & ~1;
+
+            int best = 0, lowest = int.MaxValue;
+            foreach (int rung in _renderLadder)
+            {
+                if (rung <= height && rung > best) best = rung;
+                if (rung < lowest) lowest = rung;
+            }
+
+            return best > 0 ? best : lowest;
+        }
 
         /// <summary>
         /// Whether the resolution is still the build's to set rather than the player's (#801): on the Raspberry Pi only,
