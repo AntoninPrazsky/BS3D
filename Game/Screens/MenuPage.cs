@@ -89,6 +89,13 @@ namespace BS3D.Screens
         /// </summary>
         internal readonly System.Collections.Generic.List<(ScrollViewer Scroller, int Natural)> MustFitScrollers = new();
 
+        /// <summary>
+        /// The width this page needs at the layout in force, where its widgets stand side by side in a way a measure does not
+        /// sum (a panel's children overlap); 0 for none. <c>BS3DGame.FitPage</c> brings a page down to fit it as it does a
+        /// height (#1052).
+        /// </summary>
+        internal virtual int RequiredWidth => 0;
+
         protected MenuPage(BS3DGame game) => Game = game;
 
         /// <summary>

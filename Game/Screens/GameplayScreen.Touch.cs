@@ -128,7 +128,8 @@ namespace BS3D.Screens
         /// <summary>The touch controls over the HUD, while the hand is on the screen.</summary>
         private void DrawTouchControls()
         {
-            if (!_tutorial.OnTouch) return;
+            //Only over play: a page standing over it (the pause, the result) is pressed, not the game under it
+            if (!_tutorial.OnTouch || !IsActive) return;
 
             Viewport viewport = GraphicsDevice.Viewport;
             _hud.DrawTouchControls(_touch,

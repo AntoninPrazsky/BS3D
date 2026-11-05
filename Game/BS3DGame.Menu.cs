@@ -851,7 +851,8 @@ namespace BS3D
                 Point need = page.Root.Measure(new Point(viewport.Width, viewport.Height * 4));
                 need.Y += page.ScrollShortfall;
                 int room = (int)(viewport.Height * FIT_ROOM);
-                if (need.Y <= room)
+                int wide = page.RequiredWidth, roomWide = (int)(viewport.Width * FIT_ROOM);
+                if (need.Y <= room && wide <= roomWide)
                 {
                     //It fits with every must-fit scroller's whole content: let each out to it
                     //Myra counts a widget's margin inside its height, so the scroller's own bands go on top of its content
@@ -863,9 +864,10 @@ namespace BS3D
                     return;
                 }
 
-                float fit = Math.Max(FitFloor, page.LayoutFit * room / need.Y);
-                Console.WriteLine($"[ui] {page.GetType().Name} is {need.Y} px tall on a {viewport.Height} px screen: laid out at "
-                    + $"{UiScale * fit:0.00}x");
+                float share = Math.Min(need.Y > room ? room / (float)need.Y : 1f, wide > roomWide ? roomWide / (float)wide : 1f);
+                float fit = Math.Max(FitFloor, page.LayoutFit * share);
+                Console.WriteLine($"[ui] {page.GetType().Name} is {need.Y} px tall and needs {wide} px across on a "
+                    + $"{viewport.Width}x{viewport.Height} screen: laid out at {UiScale * fit:0.00}x");
                 page.LayoutFit = fit;
             }
         }
