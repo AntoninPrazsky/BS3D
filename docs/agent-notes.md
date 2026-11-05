@@ -20,6 +20,10 @@ Pravidla:
 
 ---
 
+## 2026-11-05 — #1053 Android v CI — desktop (RDT-PC), Claude Code
+- Hotovo: `build.yml` má třetí job `gameandroid` (windows-latest, workload android, JDK 17, Release android-arm64), asi 6,5 min. Kontroluje, že APK nese CoreCLR, OpenAL, obsah, všech 9 GL efektů a sadu levelů. Windows-only API ve sdíleném `Game/` ho shodí na CA1416 (ověřeno lokálně podstrčeným voláním).
+- Otevřené: #1053 podepsané APK v `release.yml` čeká na majitelův klíč.
+
 ## 2026-11-05 — #1048 Android: vibrace ovladače — desktop (RDT-PC), Claude Code
 - Majitel: ovladač přes Bluetooth funguje, ale vibruje tak silně, že mu „skoro vypadává z rukou“.
 - ⚠ MonoGame.Framework.Android 3.8.5 ignoruje síly v `SetVibration`: každé volání, i nula, spustí 500ms pulz výchozí silou. Na Androidu ho proto nikdo nevolá (`PadMotors.ReplacesSetVibration`).
