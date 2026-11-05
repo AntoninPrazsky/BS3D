@@ -903,7 +903,7 @@ namespace BS3D
 
             //No Ultra on a phone (#1060): a stored or named one is High there
             if (_quality == QualityLevel.Ultra && !PhoneTiers.OffersUltra) _quality = QualityLevel.High;
-            _supersampleFactor = QualityPreset.Presets[(int)_quality].SupersampleFactor;
+            _supersampleFactor = Math.Min(QualityPreset.Presets[(int)_quality].SupersampleFactor, PhoneTiers.MaxSupersample);
 
             //Kept as well as applied: the tier is applied again in LoadContent (and again on every adaptive
             //step), and each of those would otherwise put the tier's factor back over this one.
@@ -1346,7 +1346,7 @@ namespace BS3D
         /// Whether this run's Resolution row has an Auto at all (#801, #808): the Raspberry Pi and the <c>potato</c>
         /// argument, and not a Windows player's chosen Potato, which keeps the display's own size.
         /// </summary>
-        internal bool ResolutionHasAuto => PotatoPath && !QualityLock.ChosenInSettings;
+        internal bool ResolutionHasAuto => PotatoPath && (!QualityLock.ChosenInSettings || PhoneTiers.Phone);
 
         /// <summary>What the Resolution row shows (#801): the size the 3D is drawn at now, and whether that is native or automatic.</summary>
         internal string RenderResolutionLabel

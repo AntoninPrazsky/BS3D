@@ -162,8 +162,19 @@ namespace BS3D.Screens
         {
             //Names the tier rather than the supersample factor it used to name: a tier step turns down more than
             //antialiasing now, and saying "antialiasing" would be telling the player the wrong thing. The reason is the
-            //frame rate's unless the caller says otherwise: a phone's heat (#1060), or Potato waiting for the next start.
+            //frame rate's unless the caller says otherwise: a phone's heat (#1060).
             _noticeText = $"Quality lowered to {quality} {reason ?? "for a smoother frame rate"} — change it in Settings.";
+
+            Refresh();
+        }
+
+        /// <summary>
+        /// A phone where even Low misses the frame rate (#1060): the step below is the Potato renderer, which only a start
+        /// can switch to, so it is offered rather than taken (the probe's verdict is never stored).
+        /// </summary>
+        internal void ShowPotatoSuggestion()
+        {
+            _noticeText = "Even Low is not smooth here — Potato on the Quality row is, from the next start.";
 
             Refresh();
         }
