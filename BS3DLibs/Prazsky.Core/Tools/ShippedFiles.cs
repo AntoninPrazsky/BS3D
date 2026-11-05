@@ -85,7 +85,8 @@ namespace Prazsky.Core.Tools
         {
             if (!TryShipped(directory, out IStore store, out string relative)) return Directory.GetFiles(directory, searchPattern);
 
-            string[] names = store.List(relative);
+            //A copy: the store may hand out the listing it keeps, which another thread may be searching
+            string[] names = (string[])store.List(relative).Clone();
             string[] written = Directory.Exists(directory) ? Directory.GetFiles(directory, searchPattern) : Array.Empty<string>();
 
             System.Collections.Generic.List<string> paths = new(names.Length + written.Length);
@@ -116,8 +117,18 @@ namespace Prazsky.Core.Tools
             relative = null;
             if (string.IsNullOrEmpty(path)) return false;
 
-            string full = Path.GetFullPath(path);
-            string root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(baseDirectory));
+            string full, root;
+            try
+            {
+                full = Path.GetFullPath(path);
+                root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(baseDirectory));
+            }
+            catch (Exception)
+            {
+                //A path no file can have (File.Exists answers false for it rather than throwing): the file system's to refuse
+                return false;
+            }
+
             if (!full.StartsWith(root, StringComparison.Ordinal)) return false;
             if (full.Length > root.Length && full[root.Length] != Path.DirectorySeparatorChar) return false;
 

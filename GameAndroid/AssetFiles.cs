@@ -20,10 +20,10 @@ namespace BS3D
     /// the executable at run time (a screenshot) lands there, and <see cref="ShippedFiles"/> finds it after the assets.
     /// </para>
     /// <para>
-    /// <b>The spike's copy is removed.</b> Until #1049 the assets were copied into that folder on every install
+    /// <b>The spike's copy is removed once.</b> Until #1049 the assets were copied into that folder on every install
     /// (<c>Levels</c>, <c>Music</c>, <c>Sfx</c> and a <c>.installed</c> stamp); a phone that ran such a build still has them,
-    /// so those go wherever they are found (the game writes none of them there). Only those: <c>Screenshots</c> beside
-    /// them is the player's. A line says what the folder holds after it.
+    /// so they go when the stamp is found, and only then: the same folders are the store's fallback, where a file put by
+    /// hand must survive. <c>Screenshots</c> beside them is the player's. A line says what the folder holds after it.
     /// </para>
     /// <para>
     /// A folder's listing is asked of the <see cref="AssetManager"/> once and kept (a listing is a call into Java, and the
@@ -62,34 +62,31 @@ namespace BS3D
         {
             try
             {
-                bool removed = false;
-                foreach (string folder in COPIED)
-                {
-                    string path = Path.Combine(target, folder);
-                    if (!Directory.Exists(path)) continue;
-                    Directory.Delete(path, recursive: true);
-                    removed = true;
-                }
-
+                //Only where the stamp says the spike's copy is there: the same folders are the store's fallback, and a file put
+                //there by hand (a level pushed with adb) must survive the next start
                 string stamp = Path.Combine(target, STAMP);
                 if (File.Exists(stamp))
                 {
+                    foreach (string folder in COPIED)
+                    {
+                        string path = Path.Combine(target, folder);
+                        if (Directory.Exists(path)) Directory.Delete(path, recursive: true);
+                    }
+
                     File.Delete(stamp);
-                    removed = true;
+                    Console.WriteLine("[files] removed the copy of the APK's files an earlier build made");
                 }
 
-                if (removed) Console.WriteLine("[files] removed the copy of the APK's files an earlier build made");
+                //What is left beside the shipped files, so a log says whether anything but the player's own is still there
+                string[] left = Directory.GetFileSystemEntries(target);
+                Array.Sort(left, StringComparer.Ordinal);
+                Console.WriteLine($"[files] the shipped files are the APK's assets; the base directory '{target}' holds "
+                    + (left.Length == 0 ? "nothing" : string.Join(", ", Array.ConvertAll(left, Path.GetFileName))));
             }
             catch (Exception exception)
             {
-                Console.WriteLine($"[files] the copy an earlier build made could not be removed: {exception.Message}");
+                Console.WriteLine($"[files] the base directory could not be tidied: {exception.Message}");
             }
-
-            //What is left beside the shipped files, so a log says whether anything but the player's own is still there
-            string[] left = Directory.GetFileSystemEntries(target);
-            Array.Sort(left, StringComparer.Ordinal);
-            Console.WriteLine($"[files] the shipped files are the APK's assets; the base directory '{target}' holds "
-                + (left.Length == 0 ? "nothing" : string.Join(", ", Array.ConvertAll(left, Path.GetFileName))));
         }
 
         public bool FileExists(string relativePath)
