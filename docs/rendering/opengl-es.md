@@ -46,3 +46,21 @@ So under GL a seed is a `HASH` that is **its key**, not a hash: `float4(cell x, 
 ## Precision: highp, not MonoGame's mediump
 
 **MonoGame writes `precision mediump float;` at the head of every OpenGL ES pixel program**, and an Adreno (the X300 Ultra's 840) computes mediump in 16-bit floats: ten bits of mantissa, so a world position past 1024 units is two units coarse, and the noise, the float hash and the lighting come apart with it. `FinishGlEffects` rewrites that line to `precision highp float;` in the desktop's effects (the same length, so nothing else in the file moves; 183 pixel programs across the 49). The Potato path's nine keep mediump, which they were written for and measured at.
+
+## The desktop path on a phone (#1059)
+
+The Android build draws through the desktop's renderer when started with **`desktop`** (`QualityLock.LeavePotato` in `GameAndroid/Platform`); without it, it stays on the Potato path. The Windows build ignores the argument and the Pi stays held. MonoGame's Android backend lacks some things the desktop takes for granted, **whatever OpenGL ES the phone has**. Each is handled where the desktop path meets it:
+
+| Missing | Symptom | Handled by |
+|---|---|---|
+| a uniform no program reads | GL drops it, DirectX keeps it in the constant buffer, so `Parameters["X"]` is null and `.SetValue` throws a NullReferenceException (the outback, the volcano) | `?.SetValue` where an effect declares a uniform it never reads. CloudField and TerrainPass already did. ⚠ **A new `Parameters["X"].SetValue` on a uniform the shader does not read crashes the phone at start** (every backdrop is built at load) |
+| `Texture3D` | "OpenGL ES 2.0 doesn't support 3D textures" | `GraphicsSupport.VolumeTextures`: the cloud volumes are not built and the savanna fire keeps its billboard flames. A 2D slice atlas for both is #1063 |
+| resolving a multisampled target | a NullReferenceException in `SetRenderTarget` (MonoGame never loads `glBlitFramebuffer`) | `GraphicsSupport.MultiSamples`: every multisampled target asks through it, and on Android it is 0 |
+| a base instance | "requires at least OpenGL 4.2" (the aurora's spruce stand) | none needed: `InstancedDraws` has no base-instance overload, and a draw from the middle of a buffer binds it from that instance (`InstanceBinding.Set`'s `firstInstance`) |
+| a global initialised from `gl_FrontFacing` | the driver refuses the program ("non-constant global initializer"): MojoShader writes VFACE that way | `FinishGlEffects` rewrites it to a `#define` |
+
+A GL program the phone's driver would refuse can be found without the phone: pull the GLSL out of the `.xnb` (it starts at `#extension GL_OES_standard_derivatives` or `#ifdef GL_ES`) and run the Android emulator's `glslangValidator` (`%LOCALAPPDATA%\Android\Sdk\emulator\lib64\vulkan`) on it with `#version 100` in front. That is how the VFACE fault was found in 11 programs at once.
+
+**Measured** on the X300 Ultra at Low, 2026-11-05:
+- In play, Cannonball (meadow) and Girandole (city, 1,204 balls): about 48 and 47 FPS at native 3168×1440 (20.7 and 21.2 ms), and the display's 60 at 1080 and at 720 rows (`render=`).
+- The front end at 1080 rows, every scene: 60 in the city, the sea and the grid; between 32 (Mars) and 53 (the aurora) in the others.

@@ -168,7 +168,8 @@ namespace Prazsky.Core.Render
             _outbackEffect.Parameters["HazeTint"].SetValue(air.HazeTint.ToVector3());
             _outbackEffect.Parameters["DustStrength"].SetValue(air.DustStrength);
             _outbackEffect.Parameters["HazeDistance"].SetValue(MathF.Max(air.HazeDistance, 1f));
-            _outbackEffect.Parameters["HorizonHazeDistance"].SetValue(air.HorizonHazeDistance);
+            //?. because Outback.fx declares it and reads it nowhere: the OpenGL ES build drops such a uniform (#1059)
+            _outbackEffect.Parameters["HorizonHazeDistance"]?.SetValue(air.HorizonHazeDistance);
             _outbackEffect.Parameters["HeatShimmer"].SetValue(air.HeatShimmer);
             _outbackEffect.Parameters["WindDirection"].SetValue(air.Wind.ToVector2());
         }

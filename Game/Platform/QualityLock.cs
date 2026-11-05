@@ -60,5 +60,11 @@ namespace BS3D.Platform
 
             return HoldAtPotato();
         }
+
+        /// <summary>
+        /// The Android build's <c>desktop</c> argument (#1059) asks for what this build draws anyway: false, nothing was
+        /// switched.
+        /// </summary>
+        internal static bool LeavePotato() => false;
     }
 }

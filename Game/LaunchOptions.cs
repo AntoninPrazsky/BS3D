@@ -96,6 +96,12 @@ namespace BS3D
         //cycle, which is why it is not "quality=potato" (that is the tier's preset row on the desktop path, and stays).
         internal bool Potato { get; private set; }
 
+        //"desktop" (#1059): the Android build draws this run through the desktop's renderer - the scene target, the
+        //backdrops, the post-process pipeline, the shared effects compiled for OpenGL ES (#1057) - instead of the Potato
+        //path it is otherwise held at. Potato's opposite, and as young: a switch until the phone's tiers and Auto
+        //quality decide it (#1060). Asks for what the Windows build already is, and the Pi stays held.
+        internal bool Desktop { get; private set; }
+
         //Left null when "ssaa=" is absent, which is how the game tells "the player wants two" from "nobody
         //said" — only the latter may be lowered for a machine that cannot afford the default. An explicit
         //ssaa= is never overridden.
@@ -581,6 +587,7 @@ namespace BS3D
             Row.Value<QualityLevel>("quality", TryParseQuality, (o, v) => o.Quality = v),
             //"potato" runs the Windows build through the Pi's renderer (#808); in GamePi it asks for what already is
             Row.Flag("potato", o => o.Potato = true),
+            Row.Flag("desktop", o => o.Desktop = true),
             //"celebrate" fires the victory display at startup. Clearing a level is the only thing that
             //normally starts it, and clearing one cannot be scripted, so without this the fireworks can be
             //neither screenshotted nor measured — the same reason autoshoot and aimshoot exist.

@@ -390,7 +390,8 @@ namespace BS3D
                     (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY,
                     seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
 
-                _cloudVolumes = new CloudVolumes(GraphicsDevice, Content);
+                //Not where the device has no 3D textures (#1059, the phone): the sky keeps its deck, as below the tier that shows them
+                if (GraphicsSupport.VolumeTextures(GraphicsDevice)) _cloudVolumes = new CloudVolumes(GraphicsDevice, Content);
             }
 
             //Note the glass the cluster hangs from is NOT built here: its footprint is the loaded level's

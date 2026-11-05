@@ -72,6 +72,9 @@
     is two units coarse and every noise field, the float hash (Noise.fxh) and the lighting with them come apart. The
     desktop's effects are raised to highp, the same line at the same length, so nothing else in the file moves. The
     Potato path's nine keep mediump: written for it, and measured at it on the phone.
+  - MojoShader writes the side a pixel is on (VFACE, FRONT_FACE in ShaderTarget.fxh) as a global initialised from
+    gl_FrontFacing, which desktop GL takes and OpenGL ES 1.00 refuses ("non-constant global initializer"): the phone's
+    driver failed every program with one, the acacia's first (#1059). It becomes a #define of the same expression.
   - A GL program that indexes two uniform arrays reads each from the other's slots (GamePi/Shaders/compile.ps1, which
     refuses the same for the committed nine), and one with an integer or boolean uniform reads it as zero: MonoGame's GL
     runtime uploads only float vectors, and Shader Model 3.0 keeps a loop's uniform count in an integer register, so the
@@ -88,21 +91,30 @@
       <Using Namespace="System.Text" />
       <Using Namespace="System.Text.RegularExpressions" />
       <Code Type="Fragment" Language="cs"><![CDATA[
-        byte[] from = Encoding.ASCII.GetBytes("precision mediump float;");
-        byte[] to = Encoding.ASCII.GetBytes("precision highp float;  ");
+        //Each rewrite the same length as what it replaces, so the lengths the effect file records around the text stay true
+        string[][] rewrites =
+        {
+            new[] { "precision mediump float;", "precision highp float;  " },
+            new[] { "float ps_vFace = gl_FrontFacing ? 1.0 : -1.0;", "#define ps_vFace (gl_FrontFacing?1.0:-1.0)   " },
+        };
         int raised = 0;
         foreach (ITaskItem item in Raise)
         {
             byte[] bytes = File.ReadAllBytes(item.ItemSpec);
             int found = 0;
-            for (int i = 0; i <= bytes.Length - from.Length; i++)
+            foreach (string[] rewrite in rewrites)
             {
-                int j = 0;
-                while (j < from.Length && bytes[i + j] == from[j]) j++;
-                if (j < from.Length) continue;
-                Array.Copy(to, 0, bytes, i, to.Length);
-                i += from.Length - 1;
-                found++;
+                byte[] from = Encoding.ASCII.GetBytes(rewrite[0]);
+                byte[] to = Encoding.ASCII.GetBytes(rewrite[1]);
+                for (int i = 0; i <= bytes.Length - from.Length; i++)
+                {
+                    int j = 0;
+                    while (j < from.Length && bytes[i + j] == from[j]) j++;
+                    if (j < from.Length) continue;
+                    Array.Copy(to, 0, bytes, i, to.Length);
+                    i += from.Length - 1;
+                    found++;
+                }
             }
             if (found > 0)
             {
@@ -119,8 +131,10 @@
             string raisedText = Encoding.GetEncoding(28591).GetString(bytes);
             if (!raisedText.Contains("precision highp float;  ") || raisedText.Contains("precision mediump float"))
                 Log.LogError(Path.GetFileName(item.ItemSpec) + " has a pixel program not raised to highp: the line MonoGame writes is no longer \"precision mediump float;\"");
+            if (raisedText.Contains("ps_vFace ="))
+                Log.LogError(Path.GetFileName(item.ItemSpec) + " initialises ps_vFace at global scope in a form this task does not rewrite: OpenGL ES 1.00 refuses it");
         }
-        if (raised > 0) Log.LogMessage(MessageImportance.High, "GL effects: " + raised + " raised to highp");
+        if (raised > 0) Log.LogMessage(MessageImportance.High, "GL effects: " + raised + " finished for OpenGL ES");
 
         foreach (ITaskItem item in Check)
         {

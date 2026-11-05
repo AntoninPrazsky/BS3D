@@ -26,19 +26,16 @@ namespace Prazsky.Core.Render
         /// </summary>
         public static Action<GraphicsDevice> AfterEach { get; set; }
 
-        /// <summary><c>DrawInstancedPrimitives</c>, then <see cref="AfterEach"/>.</summary>
+        /// <summary>
+        /// <c>DrawInstancedPrimitives</c>, then <see cref="AfterEach"/>. There is deliberately no overload with a base
+        /// instance (#1059): MonoGame's OpenGL ES backend throws for any above 0 ("requires at least OpenGL 4.2"), so a
+        /// draw of instances from the middle of a buffer binds the buffer from its first one instead
+        /// (<c>InstanceBinding.Set</c>'s <c>firstInstance</c>), which every backend takes.
+        /// </summary>
         public static void DrawInstanced(this GraphicsDevice device, PrimitiveType primitiveType, int baseVertex, int startIndex,
             int primitiveCount, int instanceCount)
         {
             device.DrawInstancedPrimitives(primitiveType, baseVertex, startIndex, primitiveCount, instanceCount);
-            AfterEach?.Invoke(device);
-        }
-
-        /// <summary><c>DrawInstancedPrimitives</c> from <paramref name="baseInstance"/>, then <see cref="AfterEach"/>.</summary>
-        public static void DrawInstanced(this GraphicsDevice device, PrimitiveType primitiveType, int baseVertex, int startIndex,
-            int primitiveCount, int baseInstance, int instanceCount)
-        {
-            device.DrawInstancedPrimitives(primitiveType, baseVertex, startIndex, primitiveCount, baseInstance, instanceCount);
             AfterEach?.Invoke(device);
         }
     }

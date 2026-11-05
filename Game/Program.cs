@@ -57,6 +57,10 @@ namespace BS3D
             //for the effects such a run draws with are not the ones the third line fingerprinted
             if (options.Potato && QualityLock.HoldAtPotato()) BuildStamp.ReportShaderOverlay(PotatoContent.OVERLAY);
 
+            //"desktop" (#1059): the Android build's way off the Potato path, for the same reason and at the same moment
+            if (options.Desktop && !options.Potato && QualityLock.LeavePotato())
+                Console.WriteLine("[quality] desktop path: this run draws through the desktop's renderer and its OpenGL ES effects");
+
             if (ScriptedPlay.Current != null) Console.WriteLine(ScriptedPlay.Current.Describe());
 
             if (!string.IsNullOrWhiteSpace(options.UserDataDirectory))
@@ -68,7 +72,7 @@ namespace BS3D
             //A player who chose Potato on the Quality row (#808): the same renderer as the argument's, read from the file
             //here because the renderer is chosen before the game object exists, and only here because userdata= has to
             //have said where the file lives. The line outranks the file, as quality= outranks a stored tier.
-            if (!options.Potato && options.Quality == null
+            if (!options.Potato && !options.Desktop && options.Quality == null
                 && GameSettings.ChoosesPotato(UserData.PathTo(GameSettings.DefaultFileName)) && QualityLock.ChooseAtPotato())
                 BuildStamp.ReportShaderOverlay(PotatoContent.OVERLAY);
 
