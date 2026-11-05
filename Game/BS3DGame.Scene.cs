@@ -1405,7 +1405,8 @@ namespace BS3D
         /// Whether the ceiling's glass bends what is behind it this frame (#541): the tier's answer
         /// (<see cref="QualityPreset.CeilingRefraction"/>), unless the run said "plainceiling".
         /// </summary>
-        internal bool RefractsCeiling => !_plainCeiling && QualityPreset.Presets[(int)_quality].CeilingRefraction;
+        internal bool RefractsCeiling => !_plainCeiling && QualityPreset.Presets[(int)_quality].CeilingRefraction
+            && GraphicsSupport.CeilingRefraction;
 
         /// <summary>
         /// Tells the host that everything drawn so far stands <b>behind</b> the ceiling's glass hanging at

@@ -96,6 +96,15 @@ static const float SUBFLAME_SCALE[SUBFLAME_COUNT] = { 1.0, 0.62, 0.55 };
 //same fire share a turbulence any more than two different fires do.
 static const float SUBFLAME_SEED_OFFSET[SUBFLAME_COUNT] = { 0.0, 1.7, 3.1 };
 
+//A sub-flame's entry of the three tables above. Under GL each is picked at constant indices (#1063): a static const array
+//read at a computed index is a uniform in MojoShader's GLSL that MonoGame never fills, so every sub-flame read zero and
+//the fires had no flames at all on the phone. FinishGlEffects in GameAndroid.csproj refuses such a uniform.
+#if OPENGL
+#define SUBFLAME_PICK(table, sub) ((sub) < 1 ? table[0] : ((sub) < 2 ? table[1] : table[2]))
+#else
+#define SUBFLAME_PICK(table, sub) table[sub]
+#endif
+
 struct FlameVertexInput
 {
     float4 Position : POSITION0; //the fire quad: X is which sub-flame (#481), 0..SUBFLAME_COUNT-1; a spark: its three randoms
@@ -127,8 +136,9 @@ FlameVertexOutput FlameVS(FlameVertexInput input)
     //two sit a fraction of FlameSize away in world XZ and stand smaller, so head-on the fire still reads as
     //the one shape it was tuned as, with two lesser licks either side of it.
     int sub = (int)input.Position.x;
-    float3 subPosition = FlamePosition + float3(SUBFLAME_OFFSET[sub].x, 0.0, SUBFLAME_OFFSET[sub].y) * FlameSize;
-    float scale = SUBFLAME_SCALE[sub];
+    float2 subOffset = SUBFLAME_PICK(SUBFLAME_OFFSET, sub);
+    float3 subPosition = FlamePosition + float3(subOffset.x, 0.0, subOffset.y) * FlameSize;
+    float scale = SUBFLAME_PICK(SUBFLAME_SCALE, sub);
 
     float w = FlameSize * scale;
     float h = FlameSize * FlameHeightScale * scale;
@@ -140,7 +150,7 @@ FlameVertexOutput FlameVS(FlameVertexInput input)
     output.Position = mul(mul(float4(world, 1.0), View), Projection);
     output.UV = float2(u, input.Data.y);
     output.Fade = 1.0;
-    output.SeedOffset = SUBFLAME_SEED_OFFSET[sub];
+    output.SeedOffset = SUBFLAME_PICK(SUBFLAME_SEED_OFFSET, sub);
 
     return output;
 }
