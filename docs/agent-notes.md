@@ -24,7 +24,7 @@ Pravidla:
 - Majitel: chce toggle i na desktopu: „jeden stisk míření zahájí a zůstane tak, další ho vypne“. Hotovo pro pravé tlačítko i levou spoušť, v nastavení Precise aim: Toggle (výchozí) / Hold.
 - ⚠ Hotovo #1048: MonoGame na Androidu hraje nejvýš 32 zvuků najednou a `SoundEffectInstance.Play` za limitem hází výjimku. Ohňostroj po výhře tím hru shazoval. Každé `Play` jde teď přes `VoiceBudget.TryPlay`.
 - `padpress=` umí `lt`: toggle se dá ověřit skriptem.
-- Otevřené: karta výstřelu pro ovladač ukazuje „Space fires too“.
+- Hotovo i karta výstřelu pro ovladač: už neukazuje „Space fires too“ (`Definition.KeyboardDetail`).
 
 ## 2026-11-05 — #1050 #1051 dotykové ovládání — desktop (RDT-PC), Claude Code
 - Majitel (#1050): vlevo touchpad na míření, vpravo ťuk = výstřel a tah = pohyb děla (plovoucí páčka), přesné míření jako toggle („jen ťuknout pro aktivaci a deaktivaci“), strany jdou prohodit v nastavení. Po vyzkoušení: „Ovládání působí dobře!“
