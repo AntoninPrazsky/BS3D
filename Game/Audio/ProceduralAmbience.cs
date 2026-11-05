@@ -175,7 +175,7 @@ namespace BS3D.Audio
                 _to = bed.CreateInstance();
                 _to.IsLooped = true;
                 _to.Volume = 0f;
-                _to.Play();
+                VoiceBudget.TryPlay(_to);
 
                 //From silence (first scene of the run) the bed fades IN over the same window; between scenes
                 //the weights pick up where the outgoing bed's volume leaves them.
