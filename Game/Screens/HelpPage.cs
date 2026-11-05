@@ -690,7 +690,9 @@ namespace BS3D.Screens
             //Under the table, one line each: when the three power-ups arrive and their price, said once for the three, and the
             //keys that are not play. The tab fits its frame with both (#997), as it did not with the price on every line
             column.Widgets.Add(Paragraph("Power-ups", $"Swap from chapter\u00A0{LevelSet.SWAP_FROM_BLOCK}, Brake from {LevelSet.BRAKE_FROM_BLOCK}, Cut from {LevelSet.CUT_FROM_BLOCK}. Each once a level."));
-            column.Widgets.Add(Paragraph("More keys", "F11 fullscreen, F12 screenshot, F10 the frame-rate counter."));
+            //Not on a phone (#1052), which has no such keys and no window
+            if (!BS3DGame.OnPhone)
+                column.Widgets.Add(Paragraph("More keys", "F11 fullscreen, F12 screenshot, F10 the frame-rate counter."));
 
             //The touch screen's scheme (#1050, #1051), where there is one: in words rather than a third column of glyphs,
             //because its precise aim is a toggle and its fire and walk share a side, which the table's lines cannot say.
