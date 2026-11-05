@@ -59,5 +59,14 @@ namespace Prazsky.Core.Render
         /// over the frame, which reads correctly.
         /// </summary>
         public static bool CeilingRefraction => !OperatingSystem.IsAndroid();
+
+        /// <summary>
+        /// Whether the motion blur runs (#402): not under MonoGame's Android backend for now, where the result page's camera
+        /// move smeared screen-tile blocks of the wrong part of the frame across the island at Medium and up (#1063). The
+        /// likely cause: a pixel shader's screen position counts rows from the bottom under GL (MojoShader's vPos is
+        /// gl_FragCoord) and from the top on DirectX, and the vertical tile pass addresses rows by it. Off until a flip is
+        /// written; a phone also gives up a full-screen pass a frame.
+        /// </summary>
+        public static bool MotionBlur => !OperatingSystem.IsAndroid();
     }
 }

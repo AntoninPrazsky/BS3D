@@ -1228,7 +1228,7 @@ namespace BS3D
         /// cannot afford the passes gives them up whatever the row says. Read by the session each frame.
         /// </summary>
         internal bool MotionBlurActive => _effective.MotionBlur && QualityPreset.Presets[(int)_quality].MotionBlur
-            && ScriptedPlay.Current?.MotionBlurFlippedOff(_wallClock) != true;
+            && GraphicsSupport.MotionBlur && ScriptedPlay.Current?.MotionBlurFlippedOff(_wallClock) != true;
         internal bool IsDropCinematicEnabled => _effective.DropCinematic;
 
         //The tutorial's switch (#189), read by the session every frame on MouseSensitivity's argument: the row
