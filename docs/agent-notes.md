@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-05 — #1060 tiery a Auto kvalita na telefonu — desktop (RDT-PC), Claude Code
+- Hotovo: telefon kreslí desktopovou cestou a tier volí jako Windows (řádky Quality a Auto, Potato od příštího startu). `PhoneTiers`: start na Medium, nejvyšší příčka Resolution do 1080 řádků (na X300 je to 960), bez ssaa a bez Ultra.
+- Auto na telefonu měří i Low a pod ní ukládá Potato na příští start. `DeviceHeat` čte teplotní stav: od 2 přeměřuje jednou za minutu, při 3 sníží tier. Na zařízení viděno: Medium 39 FPS → Low.
+- ⚠ `long.MinValue` jako čas posledního dotazu přetekl a stav se nikdy nečetl. `adb logcat -G 8M` umlčel výstup hry, výchozí buffer funguje.
+- Otevřené: verdikt majitele na tiery (`verdict-eye`).
+
 ## 2026-11-05 — #1061 rozpočet tierů na telefonu — desktop (RDT-PC), Claude Code
 - Hotovo: tabulka v `docs/game-shell/quality-measurements.md`. 60 FPS drží jen Low při 1080 řádcích; Medium 47–52, High bez ssaa 44–54, High s ssaa 2 jen 10–17. Ultra na telefon nepatří.
 - Opraveno: stínová mapa padala od Medium (MonoGame Android nemá min blend); na telefonu má vlastní hloubkový buffer.

@@ -22,12 +22,12 @@ namespace BS3D
 
         /// <summary>
         /// Which bundle of detail the frame is being drawn at, and the setting the player sees. It starts at
-        /// <see cref="QualityLevel.High"/> — the look the game is authored at — and only ever comes down, either
+        /// <see cref="QualityLevel.High"/> — the look the game is authored at; Medium on a phone (<see cref="PhoneTiers"/>) — and only ever comes down, either
         /// because the player asked or because <see cref="TuneQualityToFrameRate"/> measured this machine. The one
         /// way up is the player's: <see cref="QualityLevel.Ultra"/> (#484) is reached only through the Quality row
         /// or <c>quality=ultra</c>, both of which pin the tier and so shut the probe.
         /// </summary>
-        private QualityLevel _quality = QualityLevel.High;
+        private QualityLevel _quality = PhoneTiers.StartingTier;
 
         internal QualityLevel Quality => _quality;
 
@@ -256,6 +256,8 @@ namespace BS3D
         /// </param>
         internal void TuneQualityToFrameRate(float elapsed, string where)
         {
+            WatchDeviceHeat(elapsed, where);
+
             //Nor under a running benchmark (#988), which measures the tier the player has and lets the frame run free
             if (_qualitySettled || _benchmarking) return;
 
@@ -364,6 +366,9 @@ namespace BS3D
             //insurance rather than a live path, like the general step it guards.
             if (_quality is QualityLevel.Low or QualityLevel.Potato)
             {
+                //On a phone the ladder goes on below Low (#1060): Potato, a different renderer, so from the next start
+                if (_quality == QualityLevel.Low && PhoneTiers.Phone && !PotatoPath) FallToPotatoAtNextStart(fps, where);
+
                 _qualitySettled = true;
                 return;
             }
@@ -393,8 +398,9 @@ namespace BS3D
             _qualityWarmupLeft = QUALITY_WARMUP_SECONDS;
             _qualityPrevWindowFps = 0f;
 
-            //Nothing left to give: Low is the bottom of the ladder.
-            if (_quality == QualityLevel.Low) _qualitySettled = true;
+            //Nothing left to give: Low is the bottom of the ladder. Not on a phone (#1060), where Potato is below it from the
+            //next start: Low is measured too, and the bottom branch above takes that step if it misses
+            if (_quality == QualityLevel.Low && !(PhoneTiers.Phone && !PotatoPath)) _qualitySettled = true;
         }
 
         /// <summary>
@@ -461,7 +467,72 @@ namespace BS3D
         /// the front end (longer on a machine that ramps slowly), but a level's own verdict lands while they are
         /// playing and the notice waits on the menu for them.
         /// </summary>
-        private void ShowQualityNotice(QualityLevel quality) => _mainMenuPage.ShowQualityNotice(quality);
+        private void ShowQualityNotice(QualityLevel quality, string reason = null) => _mainMenuPage.ShowQualityNotice(quality, reason);
+
+        /// <summary>
+        /// The probe's last step on a phone (#1060): Low itself missed the floor, and what is below it is the Potato path, a
+        /// different renderer that only a start can switch to. Stored as the player's choice from the Quality row would be
+        /// (#808), so the next start draws through it and the row reads it; the player puts it back there.
+        /// </summary>
+        private void FallToPotatoAtNextStart(float fps, string where)
+        {
+            Console.WriteLine($"[quality] {fps:F0} FPS in the {where} at Low (floor {_qualityMinFps:F0}) — Potato from the next start");
+
+            _settings.Quality = QualityLevel.Potato;
+            _settings.Scenery = null;
+            _settings.AdaptiveQuality = false;
+            SaveSettings();
+            ShowQualityNotice(QualityLevel.Potato, "from the next start, for a smoother frame rate");
+        }
+
+        //The heat watch's state (#1060): the status last seen, the time a step taken for heat keeps the next one off, and
+        //the time to the next measurement while the device stays warm
+        private int _deviceHeatSeen;
+        private float _heatStepHoldLeft;
+        private float _heatRemeasureLeft;
+
+        //How long after a step for heat the next may come: the step's own effect on the heat takes minutes to show
+        private const float HEAT_STEP_HOLD_SECONDS = 90f;
+
+        //How often the frame is measured again while the device stays at moderate: the throttle comes minutes after the
+        //status does (#1061: Medium at 1080 rows reached moderate in minute 5 and fell from 53 to 38 FPS in minute 7, and
+        //the run of #1060 held 60 to minute 8 and read 46 in minute 9), so one measurement at the change is not enough
+        private const float HEAT_REMEASURE_SECONDS = 60f;
+
+        /// <summary>
+        /// Auto quality on a device that says how hot it is (#1060; only a phone does, <see cref="DeviceHeat"/>). The
+        /// frame rate falls only after the heat has built (#1061: Medium at 1080 rows held 53 FPS for five minutes, then
+        /// 38), so the heat is read as well as the frame. At moderate the probe is opened again, so a throttled frame is
+        /// measured rather than trusted to an old verdict; at severe the tier steps down without waiting for it, one step
+        /// at a time, no lower than Low. Only while Auto quality is the player's choice, and never on the Potato path.
+        /// </summary>
+        private void WatchDeviceHeat(float elapsed, string where)
+        {
+            if (_qualityPinnedByPlayer || PotatoPath || _benchmarking) return;
+
+            if (_heatStepHoldLeft > 0f) _heatStepHoldLeft -= elapsed;
+
+            int heat = DeviceHeat.Status;
+            int seen = _deviceHeatSeen;
+            _deviceHeatSeen = heat;
+            if (heat < DeviceHeat.MODERATE) return;
+
+            _heatRemeasureLeft -= elapsed;
+            if (seen < DeviceHeat.MODERATE || (_heatRemeasureLeft <= 0f && _qualitySettled))
+            {
+                if (seen < DeviceHeat.MODERATE) Console.WriteLine($"[quality] thermal status {heat} in the {where} at {_quality}: measuring the frame again, then once a minute while it lasts");
+                ReopenQualityProbe();
+                _heatRemeasureLeft = HEAT_REMEASURE_SECONDS;
+            }
+
+            if (heat < DeviceHeat.SEVERE || _heatStepHoldLeft > 0f || _quality is QualityLevel.Low or QualityLevel.Potato) return;
+
+            QualityLevel lowered = _quality == QualityLevel.Ultra ? QualityLevel.High : (QualityLevel)((int)_quality - 1);
+            Console.WriteLine($"[quality] thermal status {heat} in the {where} at {_quality} — lowering to {lowered}");
+            ApplyQuality(lowered);
+            ShowQualityNotice(lowered, "while the device is hot");
+            _heatStepHoldLeft = HEAT_STEP_HOLD_SECONDS;
+        }
 
         /// <summary>
         /// Steps the quality tier, which is the setting the player sees. Wraps Low → Medium → High → Ultra → Potato → Low
@@ -547,7 +618,7 @@ namespace BS3D
                 //after a restart. Before the pin is released, so ApplyQuality's page refresh is not the last word. And Potato
                 //waiting for a restart (#808, the review): the stored choice goes with the pin, so the next start is High
                 //and so is this run - left at Potato's preset, the row read a plain "Potato" over the desktop renderer.
-                if (_quality is QualityLevel.Ultra or QualityLevel.Potato) ApplyQuality(QualityLevel.High);
+                if (_quality is QualityLevel.Ultra or QualityLevel.Potato) ApplyQuality(PhoneTiers.StartingTier);
 
                 _qualityPinnedByPlayer = false;
                 ReopenQualityProbe();
@@ -669,7 +740,7 @@ namespace BS3D
         /// </summary>
         private void SetSupersampleFactor(int factor)
         {
-            _supersampleFactor = Math.Clamp(factor, 1, 4);
+            _supersampleFactor = Math.Clamp(factor, 1, PhoneTiers.MaxSupersample);
 
             //The pipeline's setter writes the tonemap uniform and recreates the scene target in one move —
             //the factor is the target's size, so changing it is exactly what makes the recreate happen

@@ -96,10 +96,8 @@ namespace BS3D
         //cycle, which is why it is not "quality=potato" (that is the tier's preset row on the desktop path, and stays).
         internal bool Potato { get; private set; }
 
-        //"desktop" (#1059): the Android build draws this run through the desktop's renderer - the scene target, the
-        //backdrops, the post-process pipeline, the shared effects compiled for OpenGL ES (#1057) - instead of the Potato
-        //path it is otherwise held at. Potato's opposite, and as young: a switch until the phone's tiers and Auto
-        //quality decide it (#1060). Asks for what the Windows build already is, and the Pi stays held.
+        //"desktop" (#1059): this run draws through the desktop's renderer even where a Potato chosen on the Quality row is
+        //stored (#808). What the Windows and Android builds draw anyway since #1060; the Pi stays held.
         internal bool Desktop { get; private set; }
 
         //Left null when "ssaa=" is absent, which is how the game tells "the player wants two" from "nobody

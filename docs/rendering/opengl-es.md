@@ -49,7 +49,7 @@ So under GL a seed is a `HASH` that is **its key**, not a hash: `float4(cell x, 
 
 ## The desktop path on a phone (#1059)
 
-The Android build draws through the desktop's renderer when started with **`desktop`** (`QualityLock.LeavePotato` in `GameAndroid/Platform`); without it, it stays on the Potato path. The Windows build ignores the argument and the Pi stays held. MonoGame's Android backend lacks some things the desktop takes for granted, **whatever OpenGL ES the phone has**. Each is handled where the desktop path meets it:
+The Android build draws through the desktop's renderer, its tier picked as on the desktop (#1060, "On a phone" in `docs/game-shell/quality-tier.md`); Potato is a choice on the Quality row. It was a launch argument, `desktop`, while the path was young (#1059). MonoGame's Android backend lacks some things the desktop takes for granted, **whatever OpenGL ES the phone has**. Each is handled where the desktop path meets it:
 
 | Missing | Symptom | Handled by |
 |---|---|---|

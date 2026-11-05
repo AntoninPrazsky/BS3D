@@ -136,6 +136,7 @@
     <Compile Include="..\..\Game\PlayStatsSession.cs" />
     <Compile Include="..\..\Game\BuildVersion.cs" />
     <Compile Include="..\..\Game\QualityLevel.cs" />
+    <Compile Include="..\..\Game\PhoneTiers.cs" />
     <!--#495: the drums layer's mix, pure arithmetic over 16-bit buffers-->
     <Compile Include="..\..\Game\Audio\DrumLayer.cs" />
     <!--#811: the aim stop's creak and puff, pure arithmetic whose spectrum the tests measure-->
