@@ -53,9 +53,11 @@ namespace BS3D.Screens
         //The part of the box at its right edge that is the scrollbar's, left to Myra's own drag of the thumb
         private const float SCROLLBAR_SHARE = 0.06f;
 
-        //A drag under way: where the finger came down and where the list stood then
+        //A drag under way: where the finger came down, where the list stood then, and the desktop its handlers are on (a
+        //tree thrown away mid-drag has no Desktop at the lift, and the handlers must still come off the one they are on)
         private bool _dragging;
         private int _dragFromY, _dragScrollY;
+        private Desktop _dragDesktop;
 
         /// <summary>
         /// Whether the last finger that went down has dragged a list: the press it began on is then not a click. Cleared by
@@ -78,11 +80,14 @@ namespace BS3D.Screens
             Point local = ToLocal(at);
             if (ShowVerticalScrollBar && local.X > ActualBounds.Width * (1f - SCROLLBAR_SHARE)) return;
 
-            _dragging = true;
             _dragFromY = at.Y;
             _dragScrollY = ScrollPosition.Y;
-            Desktop.TouchMoved += OnDragMoved;
-            Desktop.TouchUp += OnDragEnded;
+            if (_dragging) return;
+
+            _dragging = true;
+            _dragDesktop = Desktop;
+            _dragDesktop.TouchMoved += OnDragMoved;
+            _dragDesktop.TouchUp += OnDragEnded;
         }
 
         private void OnDragMoved(object sender, MyraEventArgs args)
@@ -100,9 +105,10 @@ namespace BS3D.Screens
         private void OnDragEnded(object sender, MyraEventArgs args)
         {
             _dragging = false;
-            if (Desktop == null) return;
-            Desktop.TouchMoved -= OnDragMoved;
-            Desktop.TouchUp -= OnDragEnded;
+            if (_dragDesktop == null) return;
+            _dragDesktop.TouchMoved -= OnDragMoved;
+            _dragDesktop.TouchUp -= OnDragEnded;
+            _dragDesktop = null;
         }
 
         /// <summary>

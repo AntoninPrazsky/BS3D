@@ -843,34 +843,55 @@ namespace BS3D
                 page.LayoutFitFor = size;
             }
 
-            for (int pass = 0; pass < 3; pass++)
+            for (int pass = 0; pass < FIT_PASSES; pass++)
             {
                 ApplyMenuLayout(page.LayoutFit);
                 if (UiScale <= 1f || page.LayoutFit <= FitFloor) return;
 
-                Point need = page.Root.Measure(new Point(viewport.Width, viewport.Height * 4));
+                //Measured with what this visit shows (a result's clear or fail, the resume entry), not the last visit's: a
+                //tree kept from before still carries what Refresh wrote onto it then
+                Widget root = page.Root;
+                page.Refresh();
+
+                Point need = root.Measure(new Point(viewport.Width, viewport.Height * 4));
                 need.Y += page.ScrollShortfall;
                 int room = (int)(viewport.Height * FIT_ROOM);
                 int wide = page.RequiredWidth, roomWide = (int)(viewport.Width * FIT_ROOM);
                 if (need.Y <= room && wide <= roomWide)
                 {
-                    //It fits with every must-fit scroller's whole content: let each out to it
-                    //Myra counts a widget's margin inside its height, so the scroller's own bands go on top of its content
+                    //It fits with every must-fit scroller's whole content: let each out to it. Myra counts a widget's margin
+                    //inside its height, so the scroller's own bands go on top of its content. Let out, they cut nothing: a
+                    //tree kept for the next visit must not be measured with this one's cut added again
                     foreach ((ScrollViewer scroller, int natural) in page.MustFitScrollers)
                     {
                         int whole = natural + scroller.Margin.Top + scroller.Margin.Bottom;
                         if (scroller.MaxHeight is int bound && whole > bound) scroller.MaxHeight = whole;
                     }
+                    page.ScrollShortfall = 0;
                     return;
                 }
 
                 float share = Math.Min(need.Y > room ? room / (float)need.Y : 1f, wide > roomWide ? roomWide / (float)wide : 1f);
                 float fit = Math.Max(FitFloor, page.LayoutFit * share);
+
+                //A step inside the layout's rebuild quantum would change nothing, and the same tree measured again would be
+                //shrunk again: the next quantum down at least
+                int layout = MenuLayoutHeight;
+                if ((int)(layout * fit) / MENU_REBUILD_QUANTUM == (int)(layout * page.LayoutFit) / MENU_REBUILD_QUANTUM)
+                    fit = Math.Max(FitFloor, ((int)(layout * page.LayoutFit) / MENU_REBUILD_QUANTUM * MENU_REBUILD_QUANTUM - 1)
+                        / (float)layout);
+
                 Console.WriteLine($"[ui] {page.GetType().Name} is {need.Y} px tall and needs {wide} px across on a "
                     + $"{viewport.Width}x{viewport.Height} screen: laid out at {UiScale * fit:0.00}x");
                 page.LayoutFit = fit;
             }
+
+            //The last pass's fit, laid out now rather than at the next Draw
+            ApplyMenuLayout(page.LayoutFit);
         }
+
+        //How many times a page is measured and brought down at most: a font's sizes round, so one step can fall short
+        private const int FIT_PASSES = 4;
 
         /// <summary>
         /// Bumped whenever the menu is laid out at a new size. A page holds the generation its tree was built
@@ -999,7 +1020,8 @@ namespace BS3D
                 || pad.Triggers.Left > NAV_STICK_DEADZONE || pad.Triggers.Right > NAV_STICK_DEADZONE;
 
             for (int i = 0; !padTouched && i < PROMPT_PAD_BUTTONS.Length; i++)
-                padTouched = pad.IsButtonDown(PROMPT_PAD_BUTTONS[i]);
+                //On Android the pad's Back is the system's back gesture (#1052), a finger's as often as a pad's
+                padTouched = pad.IsButtonDown(PROMPT_PAD_BUTTONS[i]) && !(OperatingSystem.IsAndroid() && PROMPT_PAD_BUTTONS[i] == Buttons.Back);
 
             if (padTouched)
             {
@@ -2866,7 +2888,8 @@ namespace BS3D
 
             //A scroller that is meant to show its whole content tells the page how much it cuts (#1052), so a page laid out
             //larger than its design can find it does not fit (FitPage), and is let out to its content once it does
-            if (mustFit && natural > bound && PageBuilding != null) PageBuilding.ScrollShortfall += natural - bound;
+            if (mustFit && natural > bound && PageBuilding != null)
+                PageBuilding.ScrollShortfall += natural + 2 * Scaled(MENU_SCROLL_EDGE_GAP) - bound;
 
             MenuScrollViewer scroller = new()
             {
