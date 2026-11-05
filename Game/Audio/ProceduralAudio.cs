@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Audio;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.Scoring;
 using Prazsky.Core.Camera;
+using Prazsky.Core.Tools;
 using System;
 using System.IO;
 
@@ -3161,11 +3162,12 @@ namespace BS3D.Audio
         private static float[] TryLoadSfx(string name)
         {
             string path = Path.Combine(AppContext.BaseDirectory, SFX_DIRECTORY, name + ".ogg");
-            if (!File.Exists(path)) return null;
+            if (!ShippedFiles.Exists(path)) return null;
 
             try
             {
-                byte[] pcm = OggTrack.Decode(path, SAMPLE_RATE);
+                byte[] pcm;
+                using (Stream file = ShippedFiles.OpenRead(path)) pcm = OggTrack.Decode(file, SAMPLE_RATE);
                 float[] signal = new float[pcm.Length / 4];
                 for (int i = 0; i < signal.Length; i++)
                     signal[i] = (short)(pcm[i * 4] | (pcm[i * 4 + 1] << 8)) / 32768f;

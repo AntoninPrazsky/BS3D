@@ -53,8 +53,8 @@ namespace BS3D
             }
             Window.Attributes = attributes;
 
-            //Before Program.Start: its [build] lines and the Game's readers look in the base directory
-            AssetFiles.Prepare(this);
+            //Before Program.Start: its [build] lines and the Game's readers ask for the shipped files, which are the APK's
+            AssetFiles.Install(this);
             //Before the first frame: MonoGame's GLES backend leaves an instanced draw's divisors to the next SpriteBatch
             Platform.GlesInstancing.Install();
 

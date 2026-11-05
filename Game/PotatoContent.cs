@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework.Content;
+using Prazsky.Core.Tools;
 using System;
 using System.IO;
 
@@ -35,7 +36,7 @@ namespace BS3D
             //working directory, which a shortcut or a script may have set to anything
             string overlaid = Path.Combine(AppContext.BaseDirectory, RootDirectory, OVERLAY, assetName + ".xnb");
 
-            return File.Exists(overlaid) ? File.OpenRead(overlaid) : base.OpenStream(assetName);
+            return ShippedFiles.Exists(overlaid) ? ShippedFiles.OpenRead(overlaid) : base.OpenStream(assetName);
         }
     }
 }

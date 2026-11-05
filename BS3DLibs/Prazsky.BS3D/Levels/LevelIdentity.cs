@@ -40,7 +40,7 @@ namespace Prazsky.BS3D.Levels
 
         /// <summary>The identity of the entry at <paramref name="index"/>, read off the set's own file for it.</summary>
         public static LevelIdentity Of(LevelSet set, int index) =>
-            Of(set.Levels[index], System.IO.File.ReadAllBytes(set.ResolvePath(index)));
+            Of(set.Levels[index], Prazsky.Core.Tools.ShippedFiles.ReadAllBytes(set.ResolvePath(index)));
 
         /// <summary>
         /// The identity of <paramref name="entry"/> as played from <paramref name="levelBytes"/> — the bytes of the

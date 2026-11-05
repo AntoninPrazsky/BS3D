@@ -2,6 +2,7 @@ using BS3D.Audio;
 using Microsoft.Xna.Framework;
 using Myra.Graphics2D.UI;
 using Prazsky.BS3D.Levels;
+using Prazsky.Core.Tools;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -455,8 +456,8 @@ namespace BS3D.Screens
             List<RecordingPlayer.Track> menus = new();
             string menu = Path.Combine(directory, MENU_TRACK + ".ogg");
             string pause = Path.Combine(directory, PAUSE_TRACK + ".ogg");
-            if (File.Exists(menu)) menus.Add(new RecordingPlayer.Track { Path = menu, Title = "Main menu", Group = "Menus" });
-            if (File.Exists(pause)) menus.Add(new RecordingPlayer.Track { Path = pause, Title = "Pause", Group = "Menus" });
+            if (ShippedFiles.Exists(menu)) menus.Add(new RecordingPlayer.Track { Path = menu, Title = "Main menu", Group = "Menus" });
+            if (ShippedFiles.Exists(pause)) menus.Add(new RecordingPlayer.Track { Path = pause, Title = "Pause", Group = "Menus" });
             if (menus.Count > 0)
             {
                 _groups.Add(new Group("Menus", tracks.Count, menus.Count));
@@ -482,9 +483,9 @@ namespace BS3D.Screens
         private static Dictionary<string, List<string>> ReadFamilies(string directory)
         {
             Dictionary<string, List<string>> families = new(StringComparer.OrdinalIgnoreCase);
-            if (!Directory.Exists(directory)) return families;
+            if (!ShippedFiles.DirectoryExists(directory)) return families;
 
-            string[] files = Directory.GetFiles(directory, "*.ogg");
+            string[] files = ShippedFiles.GetFiles(directory, "*.ogg");
             Array.Sort(files, StringComparer.Ordinal);
 
             foreach (string file in files)

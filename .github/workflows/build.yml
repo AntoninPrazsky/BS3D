@@ -315,7 +315,7 @@ jobs:
           $names = @($zip.Entries | ForEach-Object { $_.FullName })
           $zip.Dispose()
           foreach ($f in 'lib/arm64-v8a/libcoreclr.so', 'lib/arm64-v8a/libopenal.so', 'assets/Content/Images/Logo.xnb',
-                         'assets/Content/Fonts/segoeui.xnb', 'assets/Files/Levels/Levels.json') {
+                         'assets/Content/Fonts/segoeui.xnb', 'assets/Levels/Levels.json') {
             if ($names -notcontains $f) { throw "The APK has no $f" }
           }
           $effects = @(Get-ChildItem GamePi/Shaders/Compiled/*.xnb | ForEach-Object { "assets/Content/Shaders/$($_.Name)" })

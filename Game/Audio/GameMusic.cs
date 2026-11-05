@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework.Audio;
+using Prazsky.Core.Tools;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -276,19 +277,19 @@ namespace BS3D.Audio
             //The pause's loop after it (#668). A missing file is not an error: the pause then keeps the theme, as it
             //always did, rather than falling silent
             string pause = Path.Combine(directory, PAUSE_TRACK + TRACK_EXTENSION);
-            if (audible && File.Exists(pause)) _pauseLoad = Load(pause);
+            if (audible && ShippedFiles.Exists(pause)) _pauseLoad = Load(pause);
 
             string victory = Path.Combine(AppContext.BaseDirectory, SFX_DIRECTORY, VICTORY_FILE + TRACK_EXTENSION);
-            if (audible && File.Exists(victory)) _victoryLoad = LoadVictory(victory);
+            if (audible && ShippedFiles.Exists(victory)) _victoryLoad = LoadVictory(victory);
 
             string defeat = Path.Combine(AppContext.BaseDirectory, SFX_DIRECTORY, DEFEAT_FILE + TRACK_EXTENSION);
-            if (audible && File.Exists(defeat)) _defeatLoad = LoadVictory(defeat);
+            if (audible && ShippedFiles.Exists(defeat)) _defeatLoad = LoadVictory(defeat);
 
             //Every recording in the folder, grouped into families by the name before its first dash (#486): the
             //file names only — nothing is decoded until a family is asked for.
-            if (Directory.Exists(directory))
+            if (ShippedFiles.DirectoryExists(directory))
             {
-                string[] files = Directory.GetFiles(directory, "*" + TRACK_EXTENSION);
+                string[] files = ShippedFiles.GetFiles(directory, "*" + TRACK_EXTENSION);
                 Array.Sort(files, StringComparer.Ordinal);
 
                 Dictionary<string, List<string>> grouped = new(StringComparer.OrdinalIgnoreCase);
@@ -324,7 +325,7 @@ namespace BS3D.Audio
                     for (int i = 0; i < drums.Length; i++)
                     {
                         string layer = Path.Combine(directory, DRUMS_DIRECTORY, names[i]);
-                        if (File.Exists(layer)) drums[i] = layer;
+                        if (ShippedFiles.Exists(layer)) drums[i] = layer;
                     }
 
                     _families[family] = new Family
@@ -953,7 +954,8 @@ namespace BS3D.Audio
         {
             try
             {
-                byte[] pcm = OggTrack.Decode(path, ProceduralMusic.SAMPLE_RATE);
+                byte[] pcm;
+                using (Stream file = ShippedFiles.OpenRead(path)) pcm = OggTrack.Decode(file, ProceduralMusic.SAMPLE_RATE);
                 float[] samples = new float[pcm.Length / 2];
                 for (int i = 0; i < samples.Length; i++)
                     samples[i] = (short)(pcm[i * 2] | (pcm[i * 2 + 1] << 8)) / 32768f;
@@ -977,7 +979,8 @@ namespace BS3D.Audio
         {
             try
             {
-                return OggTrack.DecodeMusic(path, SAMPLE_RATE);
+                using Stream file = ShippedFiles.OpenRead(path);
+                return OggTrack.DecodeMusic(file, SAMPLE_RATE);
             }
             catch (Exception exception)
             {

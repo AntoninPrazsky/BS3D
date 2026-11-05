@@ -67,7 +67,7 @@ namespace Prazsky.BS3D.Levels
         /// </summary>
         public static LevelSet Load(string path)
         {
-            using (FileStream stream = File.OpenRead(path))
+            using (Stream stream = ShippedFiles.OpenRead(path))
             {
                 LevelSet set = JsonSerializer.Deserialize<LevelSet>(stream, Options)
                     ?? throw new InvalidDataException($"'{path}' does not contain a level set");
@@ -303,7 +303,7 @@ namespace Prazsky.BS3D.Levels
         {
             try
             {
-                using (FileStream stream = File.OpenRead(path))
+                using (Stream stream = ShippedFiles.OpenRead(path))
                 using (JsonDocument doc = JsonDocument.Parse(stream))
                 {
                     return doc.RootElement.ValueKind == JsonValueKind.Object
