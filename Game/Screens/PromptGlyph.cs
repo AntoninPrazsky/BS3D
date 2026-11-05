@@ -98,6 +98,9 @@ namespace BS3D.Screens
 
         public override void InternalRender(RenderContext context)
         {
+            //A finger presses what the glyph stands beside (#1052)
+            if (_game.PromptsForTouch) return;
+
             bool pad = _game.PromptsForPad;
             string text = pad ? _pad : _keys;
             float width = pad ? _padWidth : _keysWidth;

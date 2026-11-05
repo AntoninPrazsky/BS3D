@@ -470,7 +470,46 @@ namespace BS3D
             get
             {
                 Microsoft.Xna.Framework.Graphics.Viewport viewport = GraphicsDevice.Viewport;
-                return Math.Min(viewport.Height, viewport.Width * MENU_DESIGN_HEIGHT / MENU_MIN_DESIGN_WIDTH);
+                //A screen held close draws the interface larger (#1052, UiScale), but never wider than the widest page holds
+                return Math.Min((int)(viewport.Height * UiScale), viewport.Width * MENU_DESIGN_HEIGHT / MENU_MIN_DESIGN_WIDTH);
+            }
+        }
+
+        /// <summary>
+        /// The physical height, in inches, of the screen the interface is sized for at the design's own size (#1052): about
+        /// a laptop's. A shorter screen, which is held closer, gets the interface larger in proportion
+        /// (<see cref="UiScale"/>).
+        /// </summary>
+        private const float UI_REFERENCE_HEIGHT_INCHES = 4.5f;
+
+        /// <summary>The most a small screen enlarges the interface (#1052).</summary>
+        private const float UI_SCALE_MAX = 1.8f;
+
+        private float _uiScale = -1f;
+
+        /// <summary>
+        /// How much larger than its design the interface is drawn on this display (#1052): 1 on a monitor, a television or
+        /// any display whose physical size is not known, and on a phone held landscape the reference height over the
+        /// screen's own, at most <see cref="UI_SCALE_MAX"/>. The vivo X300 Ultra's screen is about 2.8 inches tall, so its
+        /// menus and HUD are drawn about 1.6 times their design size: what reads at arm's length on a monitor reads at a
+        /// phone's distance. It multiplies the layout height every size is resolved from, so the menus, the HUD and the
+        /// fonts grow together; a page that then overruns the screen is laid out for the width instead.
+        /// </summary>
+        internal float UiScale
+        {
+            get
+            {
+                if (_uiScale < 0f)
+                {
+                    _uiScale = 1f;
+                    if (Platform.DisplayRefresh.TryGetPhysicalHeightInches(out float inches))
+                        _uiScale = Math.Clamp(UI_REFERENCE_HEIGHT_INCHES / inches, 1f, UI_SCALE_MAX);
+                    Console.WriteLine(_uiScale > 1f
+                        ? $"[ui] the screen is {inches:0.0} in tall: the interface is drawn at {_uiScale:0.00}x"
+                        : "[ui] the interface is drawn at its design size");
+                }
+
+                return _uiScale;
             }
         }
 
@@ -675,6 +714,9 @@ namespace BS3D
 
             _desktop = new Desktop();
 
+            //Every finger that goes down is a gesture of its own (#1052): a drag of a list swallows only its own press
+            _desktop.TouchDown += (_, _) => MenuScrollViewer.NewGesture();
+
             //Held for the life of the game rather than made per navigation: nothing is allocated on a button
             //press, and Contains<PausePage>() — which is how a shared page knows it is over a stopped game —
             //means something only if there is one pause page rather than a new one each time.
@@ -719,10 +761,20 @@ namespace BS3D
         /// </summary>
         private void EnsureMenuLayout()
         {
-            int height = MenuLayoutHeight;
+            MenuPage page = _screens.Active as MenuPage;
+            if (ApplyMenuLayout(page?.LayoutFit ?? 1f) && page != null) ShowPage(page);
+        }
+
+        /// <summary>
+        /// Resolves the menu's scale and fonts for the layout height times <paramref name="fit"/>, the page's own share
+        /// (#1052). True when it changed anything, which is what a tree is rebuilt on (<see cref="MenuLayoutGeneration"/>).
+        /// </summary>
+        private bool ApplyMenuLayout(float fit)
+        {
+            int height = (int)(MenuLayoutHeight * fit);
             int quantized = height / MENU_REBUILD_QUANTUM;
 
-            if (quantized == _menuBuiltForHeight) return;
+            if (quantized == _menuBuiltForHeight) return false;
 
             _menuBuiltForHeight = quantized;
             _menuScale = height / (float)MENU_DESIGN_HEIGHT;
@@ -757,10 +809,65 @@ namespace BS3D
             //for one, against this generation (MenuLayoutGeneration). A page the player never opens never
             //builds a tree at all, where this used to rebuild all eight on every step of a window drag.
             //
-            //Re-asserts the page the player was on, which is what pulls its tree through at the new size, and
-            //with it everything ShowPage keeps in step. Not a menu page while a level is being played, when
-            //this is not called at all.
-            if (_screens.Active is MenuPage page) ShowPage(page);
+            //The caller re-asserts the page the player was on (EnsureMenuLayout), which is what pulls its tree through
+            //at the new size, and with it everything ShowPage keeps in step.
+            return true;
+        }
+
+        /// <summary>The page whose tree is being built, so a scroller can tell it what it cuts (#1052); null otherwise.</summary>
+        internal Screens.MenuPage PageBuilding { get; set; }
+
+        /// <summary>
+        /// The share of the screen's height a fitted page may fill (#1052): a little short of all of it, so a page brought down
+        /// to fit does not stand against the screen's edges with its heading and Back.
+        /// </summary>
+        private const float FIT_ROOM = 0.96f;
+
+        /// <summary>The least a page's fit may take the interface down to: the design's own size, which every page fits.</summary>
+        private float FitFloor => 1f / UiScale;
+
+        /// <summary>
+        /// Lays <paramref name="page"/> out at the interface scale and, where that makes it taller than the screen, at the
+        /// smaller scale it fits (#1052): the page measured as Myra lays it out, its share brought down by the overrun, at
+        /// most three passes since a font's sizes round. Only where the interface is drawn larger than its design
+        /// (<see cref="UiScale"/>): at the design's size every page fits by construction, and a monitor's menus are left
+        /// exactly as they were.
+        /// </summary>
+        private void FitPage(MenuPage page)
+        {
+            Microsoft.Xna.Framework.Graphics.Viewport viewport = GraphicsDevice.Viewport;
+            Point size = new(viewport.Width, viewport.Height);
+            if (page.LayoutFitFor != size)
+            {
+                page.LayoutFit = 1f;
+                page.LayoutFitFor = size;
+            }
+
+            for (int pass = 0; pass < 3; pass++)
+            {
+                ApplyMenuLayout(page.LayoutFit);
+                if (UiScale <= 1f || page.LayoutFit <= FitFloor) return;
+
+                Point need = page.Root.Measure(new Point(viewport.Width, viewport.Height * 4));
+                need.Y += page.ScrollShortfall;
+                int room = (int)(viewport.Height * FIT_ROOM);
+                if (need.Y <= room)
+                {
+                    //It fits with every must-fit scroller's whole content: let each out to it
+                    //Myra counts a widget's margin inside its height, so the scroller's own bands go on top of its content
+                    foreach ((ScrollViewer scroller, int natural) in page.MustFitScrollers)
+                    {
+                        int whole = natural + scroller.Margin.Top + scroller.Margin.Bottom;
+                        if (scroller.MaxHeight is int bound && whole > bound) scroller.MaxHeight = whole;
+                    }
+                    return;
+                }
+
+                float fit = Math.Max(FitFloor, page.LayoutFit * room / need.Y);
+                Console.WriteLine($"[ui] {page.GetType().Name} is {need.Y} px tall on a {viewport.Height} px screen: laid out at "
+                    + $"{UiScale * fit:0.00}x");
+                page.LayoutFit = fit;
+            }
         }
 
         /// <summary>
@@ -857,6 +964,21 @@ namespace BS3D
         internal bool PromptsForPad => _promptsForPad;
 
         /// <summary>
+        /// Whether the menus' last input was a finger on the screen (#1052): then no key and no button is drawn beside an
+        /// entry, since the entry itself is what a finger presses. Set by the same note as <see cref="PromptsForPad"/>.
+        /// </summary>
+        internal bool PromptsForTouch => _promptsForTouch;
+
+        private bool _promptsForTouch;
+
+        /// <summary>
+        /// Whether play's hand was the screen on its last frame (#1052), written by the session while it runs: a page that
+        /// opens over play (the pause, the result) is then drawn for a finger from its first frame, where the menus' own note
+        /// would wait for the next touch and show a keyboard's Esc meanwhile.
+        /// </summary>
+        internal bool PlayHandIsTouch { get; set; }
+
+        /// <summary>
         /// Moves <see cref="PromptsForPad"/> to whichever device gave input this frame: a pad button, a stick or a trigger
         /// past its dead zone is the pad; a key held, a mouse button or the pointer moving further than the walk's own
         /// wake distance is the keyboard and mouse. The pad is asked first, so a frame with both says pad - the one that
@@ -877,9 +999,24 @@ namespace BS3D
             for (int i = 0; !padTouched && i < PROMPT_PAD_BUTTONS.Length; i++)
                 padTouched = pad.IsButtonDown(PROMPT_PAD_BUTTONS[i]);
 
-            if (padTouched) _promptsForPad = true;
+            if (padTouched)
+            {
+                _promptsForPad = true;
+                _promptsForTouch = false;
+            }
             else if (pointerMoved || keyboard.GetPressedKeyCount() > 0
-                || mouse.LeftButton == ButtonState.Pressed || mouse.RightButton == ButtonState.Pressed) _promptsForPad = false;
+                     || mouse.LeftButton == ButtonState.Pressed || mouse.RightButton == ButtonState.Pressed)
+            {
+                _promptsForPad = false;
+                _promptsForTouch = false;
+            }
+            //A finger on the screen (#1052). Myra reads the touches too and only asks whether one is down, so a second read
+            //here takes nothing from it (TouchPanel ages a press to a move on every read)
+            else if (Microsoft.Xna.Framework.Input.Touch.TouchPanel.GetState().Count > 0)
+            {
+                _promptsForPad = false;
+                _promptsForTouch = true;
+            }
         }
 
         /// <summary>
@@ -1739,6 +1876,17 @@ namespace BS3D
         /// </summary>
         internal void ShowPage(MenuPage page)
         {
+            //At the scale it fits (#1052), before anything reads its tree
+            FitPage(page);
+
+            //Over play that a finger was playing, the menus are a finger's too (#1052), once
+            if (PlayHandIsTouch && !_promptsPinned)
+            {
+                _promptsForTouch = true;
+                _promptsForPad = false;
+            }
+            PlayHandIsTouch = false;
+
             //Everything that has to agree with the game's state — the resume entry, the setting values, the
             //marked scene, the score just earned — is re-read here rather than per frame, because a page can
             //only change while nobody is looking at it.
@@ -1978,6 +2126,9 @@ namespace BS3D
             Button entry = _navEntries[_navIndex];
             if (entry.Content is PromptedContent || !entry.Enabled) return;
 
+            //A finger presses the entry itself (#1052): no key, no button
+            if (_promptsForTouch) return;
+
             if (entry.Bounds.Width < Scaled(MENU_BUTTON_WIDTH) * FOCUS_PROMPT_MIN_SHARE) return;
 
             Rectangle content = entry.ActualBounds;
@@ -2111,8 +2262,11 @@ namespace BS3D
 
             //B is Escape. Read before A, since backing out changes the screen the accept below would act on. On the pause
             //the Menu button that paused the game resumes it as well (#799) - a pad player's pause is one button, both ways.
+            //And on Android the system's back gesture, which MonoGame reports as the pad's Back (#1052): one page back, as on
+            //every phone; the main menu has no back, so the gesture there does nothing rather than close the game
             if ((pad.IsButtonDown(Buttons.B) && !_previousPad.IsButtonDown(Buttons.B))
-                || (_screens.Active is PausePage && IsPadEdge(pad, Buttons.Start)))
+                || (_screens.Active is PausePage && IsPadEdge(pad, Buttons.Start))
+                || (OperatingSystem.IsAndroid() && IsPadEdge(pad, Buttons.Back)))
             {
                 _audioDirector.Rumble.UiBack();
                 MenuBack();
@@ -2697,7 +2851,7 @@ namespace BS3D
         /// <param name="clearEdges">Whether the clear band is kept whether or not the content is cut: a page whose
         /// scrollers stand in one frame (Help's six tabs, #729) keeps it on all of them, or a tab that fits would start its
         /// text a band higher than one that scrolls.</param>
-        internal ScrollViewer MenuScroll(Widget content, int reservedDesignUnits, bool clearEdges = false)
+        internal ScrollViewer MenuScroll(Widget content, int reservedDesignUnits, bool clearEdges = false, bool mustFit = false)
         {
             //Floored, so a window too short for the reserve gives a usable scroller rather than a zero-height
             //one that hides the list completely
@@ -2705,9 +2859,14 @@ namespace BS3D
             int bound = Math.Max(Scaled(MENU_SCROLL_MIN_HEIGHT), available);
 
             //The content's own height, laid out unbounded: once, when the tree is built
-            bool cut = clearEdges || content.Measure(new Point(int.MaxValue / 2, int.MaxValue / 2)).Y > bound;
+            int natural = content.Measure(new Point(int.MaxValue / 2, int.MaxValue / 2)).Y;
+            bool cut = clearEdges || natural > bound;
 
-            return new MenuScrollViewer
+            //A scroller that is meant to show its whole content tells the page how much it cuts (#1052), so a page laid out
+            //larger than its design can find it does not fit (FitPage), and is let out to its content once it does
+            if (mustFit && natural > bound && PageBuilding != null) PageBuilding.ScrollShortfall += natural - bound;
+
+            MenuScrollViewer scroller = new()
             {
                 Content = content,
                 ShowHorizontalScrollBar = false,
@@ -2718,6 +2877,10 @@ namespace BS3D
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
             };
+
+            if (mustFit) PageBuilding?.MustFitScrollers.Add((scroller, natural));
+
+            return scroller;
         }
 
         /// <summary>The least a <see cref="MenuScroll"/> may be bounded to, however short the window.</summary>
@@ -2952,7 +3115,11 @@ namespace BS3D
                 onClick();
             };
 
-            button.Click += (_, _) => pressed();
+            //Not after a finger dragged a list (#1052): the press the drag began on was a hold of the list, not a choice
+            button.Click += (_, _) =>
+            {
+                if (!MenuScrollViewer.SwallowsClick) pressed();
+            };
 
             //The pad and the arrow keys find their entries by walking the widget tree, which has no way back
             //to this delegate — so it rides on the widget itself. See ActivateNavEntry.

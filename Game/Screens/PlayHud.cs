@@ -103,7 +103,7 @@ namespace BS3D.Screens
         /// </summary>
         internal int StreakShown(ScoreKeeper score) => MultiplierOf(score);
 
-        private int Scaled(int designUnits) => _game.Scaled(designUnits);
+        private int Scaled(int designUnits) => _game.HudScaled(designUnits);
 
         /// <summary>The HUD's own 1×1 white texel, created on first use.</summary>
         private Texture2D Pixel

@@ -60,6 +60,23 @@ namespace BS3D.Platform
             if (_changed != null && TryRead(out int hz) && hz != _lastHz) _changed();
         }
 
+        /// <summary>
+        /// The display's physical height in inches (#1052): the short side's pixels over its dots per inch, the phone being
+        /// held landscape. What sizes the interface for a screen held close (<c>BS3DGame.UiScale</c>).
+        /// </summary>
+        internal static bool TryGetPhysicalHeightInches(out float inches)
+        {
+            inches = 0f;
+            Android.Util.DisplayMetrics metrics = Game.Activity?.Resources?.DisplayMetrics;
+            if (metrics == null || metrics.Ydpi < 50f || metrics.Xdpi < 50f) return false;
+
+            //The short side, whichever way the metrics are read, at its own axis's density
+            float shortPixels = Math.Min(metrics.WidthPixels, metrics.HeightPixels);
+            float dpi = metrics.HeightPixels <= metrics.WidthPixels ? metrics.Ydpi : metrics.Xdpi;
+            inches = shortPixels / dpi;
+            return inches > 0.5f;
+        }
+
         private static bool TryRead(out int hz)
         {
             hz = 0;

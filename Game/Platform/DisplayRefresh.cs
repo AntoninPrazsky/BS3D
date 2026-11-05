@@ -173,6 +173,16 @@ namespace BS3D.Platform
         private const int DPI_AWARENESS_PER_MONITOR_AWARE = 2;
 
         /// <summary>
+        /// The display's physical height in inches (#1052), which sizes the interface for a screen held close. Not answered
+        /// here: a monitor's or a television's interface is the design's own size.
+        /// </summary>
+        internal static bool TryGetPhysicalHeightInches(out float inches)
+        {
+            inches = 0f;
+            return false;
+        }
+
+        /// <summary>
         /// The scale Windows sets for the monitor <paramref name="windowHandle"/> is on, its DPI over 96 (1.25 at 125 %),
         /// and whether the window is DPI-aware per monitor (#825). False on any failure, or before the window exists.
         /// <para>

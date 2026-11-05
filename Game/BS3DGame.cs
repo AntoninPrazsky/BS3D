@@ -659,6 +659,13 @@ namespace BS3D
         private SpriteFontBase _hudFontChipDetail, _hudFontChipPrompt;
         private int _hudFontsForHeight = -1;
 
+        //The HUD's own scale (#1052): the layout height's, never a menu page's fit, so a page shrinking itself to the
+        //screen cannot move what play draws under it
+        private float _hudScale = 1f;
+
+        /// <summary>A 2160p design figure at the HUD's size: the viewport's, times the interface scale. Never below one pixel.</summary>
+        internal int HudScaled(int designUnits) => Math.Max(1, (int)MathF.Round(designUnits * _hudScale));
+
         internal SpriteFontBase HudFontScore => _hudFontScore;
         internal SpriteFontBase HudFontLabel => _hudFontLabel;
         internal SpriteFontBase HudFontPopup => _hudFontPopup;
@@ -693,20 +700,20 @@ namespace BS3D
             if (quantized == _hudFontsForHeight) return;
 
             _hudFontsForHeight = quantized;
-            _menuScale = height / (float)MENU_DESIGN_HEIGHT;
+            _hudScale = height / (float)MENU_DESIGN_HEIGHT;
 
-            _hudFontScore = _menuFontSystemDisplay.GetFont(Scaled(HUD_FONT_SCORE));
-            _hudFontLabel = _menuFontSystemDisplay.GetFont(Scaled(HUD_FONT_LABEL));
-            _hudFontPopup = _menuFontSystemDisplay.GetFont(Scaled(HUD_FONT_POPUP));
-            _hudFontPopupLarge = _menuFontSystemDisplay.GetFont(Scaled(HUD_FONT_POPUP_LARGE));
-            _hudFontPopupPeak = _menuFontSystemDisplay.GetFont(Scaled(HUD_FONT_POPUP_PEAK));
-            _hudFontScoreLoud = _menuFontSystemDisplay.GetFont(Scaled((int)(HUD_FONT_SCORE * HUD_LOW_EMPHASIS)));
-            _hudFontLabelLoud = _menuFontSystemDisplay.GetFont(Scaled((int)(HUD_FONT_LABEL * HUD_LOW_EMPHASIS)));
-            _hudFontTutorial = _menuFontSystemDisplay.GetFont(Scaled(HUD_FONT_TUTORIAL));
-            _hudFontTutorialDetail = _menuFontSystemDisplay.GetFont(Scaled(HUD_FONT_TUTORIAL_DETAIL));
-            _hudFontPrompt = _menuFontSystemPrompt.GetFont(Scaled(HUD_FONT_PROMPT));
-            _hudFontChipDetail = _menuFontSystemDisplay.GetFont(Scaled(HUD_FONT_CHIP_DETAIL));
-            _hudFontChipPrompt = _menuFontSystemPrompt.GetFont(Scaled(HUD_FONT_CHIP_PROMPT));
+            _hudFontScore = _menuFontSystemDisplay.GetFont(HudScaled(HUD_FONT_SCORE));
+            _hudFontLabel = _menuFontSystemDisplay.GetFont(HudScaled(HUD_FONT_LABEL));
+            _hudFontPopup = _menuFontSystemDisplay.GetFont(HudScaled(HUD_FONT_POPUP));
+            _hudFontPopupLarge = _menuFontSystemDisplay.GetFont(HudScaled(HUD_FONT_POPUP_LARGE));
+            _hudFontPopupPeak = _menuFontSystemDisplay.GetFont(HudScaled(HUD_FONT_POPUP_PEAK));
+            _hudFontScoreLoud = _menuFontSystemDisplay.GetFont(HudScaled((int)(HUD_FONT_SCORE * HUD_LOW_EMPHASIS)));
+            _hudFontLabelLoud = _menuFontSystemDisplay.GetFont(HudScaled((int)(HUD_FONT_LABEL * HUD_LOW_EMPHASIS)));
+            _hudFontTutorial = _menuFontSystemDisplay.GetFont(HudScaled(HUD_FONT_TUTORIAL));
+            _hudFontTutorialDetail = _menuFontSystemDisplay.GetFont(HudScaled(HUD_FONT_TUTORIAL_DETAIL));
+            _hudFontPrompt = _menuFontSystemPrompt.GetFont(HudScaled(HUD_FONT_PROMPT));
+            _hudFontChipDetail = _menuFontSystemDisplay.GetFont(HudScaled(HUD_FONT_CHIP_DETAIL));
+            _hudFontChipPrompt = _menuFontSystemPrompt.GetFont(HudScaled(HUD_FONT_CHIP_PROMPT));
         }
 
         #endregion

@@ -77,6 +77,9 @@ namespace BS3D.Screens
             _touch.Update(touches, viewport.Width, viewport.Height, elapsed, _touchButtonAt);
 
             if (_touch.AnyPress) NoteDevice(Tutorial.Device.Touch);
+
+            //A page opening over play draws for the hand that played (#1052)
+            Game.PlayHandIsTouch = _tutorial.OnTouch;
         }
 
         /// <summary>Which button, if any, a touch landing at <paramref name="point"/> is on.</summary>
