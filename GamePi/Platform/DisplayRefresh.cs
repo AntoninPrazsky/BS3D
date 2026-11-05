@@ -47,6 +47,15 @@ namespace BS3D.Platform
         }
 
         /// <summary>
+        /// How far the display's cutout reaches into the left and the right edge, in pixels (#1055): what a readout standing
+        /// at an edge keeps clear of. None on a monitor.
+        /// </summary>
+        internal static int CutoutLeft => 0;
+
+        /// <inheritdoc cref="CutoutLeft"/>
+        internal static int CutoutRight => 0;
+
+        /// <summary>
         /// The Windows version's display scale and DPI awareness (#825), which this platform does not have: Windows
         /// virtualizes a DPI-unaware window's sizes, and nothing on the Pi's desktop does that to the game. Always no
         /// answer, so the run log's display line and a note's context leave the scale out.

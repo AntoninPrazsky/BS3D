@@ -43,7 +43,9 @@ namespace BS3D.Screens
         /// <summary>The precise-aim toggle: on the firing side's outer edge, between the score and the magazine.</summary>
         internal static Vector2 TouchPreciseCentre(int width, int height, bool aimOnRight)
         {
-            float inset = height * (TOUCH_PRECISE_RADIUS + 0.05f);
+            //Clear of a camera's cutout on its edge (#1055), which stands near the button's height
+            float inset = height * (TOUCH_PRECISE_RADIUS + 0.05f)
+                + (aimOnRight ? Platform.DisplayRefresh.CutoutLeft : Platform.DisplayRefresh.CutoutRight);
             return new Vector2(aimOnRight ? inset : width - inset, height * TOUCH_PRECISE_Y);
         }
 

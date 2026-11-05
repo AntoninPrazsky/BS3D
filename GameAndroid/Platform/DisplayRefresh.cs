@@ -57,7 +57,32 @@ namespace BS3D.Platform
             if (_sinceWatch < WATCH_SECONDS) return;
             _sinceWatch = 0f;
 
+            ReadCutout();
+
             if (_changed != null && TryRead(out int hz) && hz != _lastHz) _changed();
+        }
+
+        /// <summary>
+        /// How far the camera's cutout reaches into the left and the right edge, in pixels (#1055): the window's own safe
+        /// insets, read with the refresh once a second (<see cref="Watch"/>), since the phone held the other way round
+        /// moves the hole to the other edge. The vivo X300 Ultra's punch-hole is 121 px deep at the middle of the edge.
+        /// </summary>
+        internal static int CutoutLeft { get; private set; }
+
+        /// <inheritdoc cref="CutoutLeft"/>
+        internal static int CutoutRight { get; private set; }
+
+        private static void ReadCutout()
+        {
+            if (!OperatingSystem.IsAndroidVersionAtLeast(28)) return;
+
+            DisplayCutout cutout = Game.Activity?.Window?.DecorView?.RootWindowInsets?.DisplayCutout;
+            int left = cutout?.SafeInsetLeft ?? 0, right = cutout?.SafeInsetRight ?? 0;
+            if (left == CutoutLeft && right == CutoutRight) return;
+
+            CutoutLeft = left;
+            CutoutRight = right;
+            Console.WriteLine($"[display] the camera's cutout reaches {left} px into the left edge and {right} px into the right");
         }
 
         /// <summary>
