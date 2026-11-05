@@ -163,8 +163,10 @@ namespace BS3D.Screens
             //Nor a swap's rounds still sliding (#871)
             _swapMotion.Cancel();
 
-            //A lean toggled on by the touch button (#1051) is the last level's: every level opens in the overview
-            _touchPreciseAim = false;
+            //A lean toggled on (#1051, #1054) is the last level's: every level opens in the overview. And the cards say the
+            //mode Settings has from the level's first frame
+            _preciseAimToggled = false;
+            _tutorial.LeanToggles = Game.PreciseAimToggles;
 
             //And a gun that dozed off over the last level wakes for this one (#230)
             _dozing.Reset();

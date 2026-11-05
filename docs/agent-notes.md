@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-05 — #1054 přesné míření jako toggle; #1048 pád po výhře — desktop (RDT-PC), Claude Code
+- Majitel: chce toggle i na desktopu: „jeden stisk míření zahájí a zůstane tak, další ho vypne“. Hotovo pro pravé tlačítko i levou spoušť, v nastavení Precise aim: Toggle (výchozí) / Hold.
+- ⚠ Hotovo #1048: MonoGame na Androidu hraje nejvýš 32 zvuků najednou a `SoundEffectInstance.Play` za limitem hází výjimku. Ohňostroj po výhře tím hru shazoval. Každé `Play` jde teď přes `VoiceBudget.TryPlay`.
+- `padpress=` umí `lt`: toggle se dá ověřit skriptem.
+- Otevřené: karta výstřelu pro ovladač ukazuje „Space fires too“.
+
 ## 2026-11-05 — #1050 #1051 dotykové ovládání — desktop (RDT-PC), Claude Code
 - Majitel (#1050): vlevo touchpad na míření, vpravo ťuk = výstřel a tah = pohyb děla (plovoucí páčka), přesné míření jako toggle („jen ťuknout pro aktivaci a deaktivaci“), strany jdou prohodit v nastavení. Po vyzkoušení: „Ovládání působí dobře!“
 - Hotovo: `TouchControls` a `GameplayScreen.Touch`. Tutoriál má třetí ruku Touch s vlastními texty, nápověda odstavec Touch, nastavení Touch sensitivity a Aim on the right.

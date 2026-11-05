@@ -766,6 +766,24 @@ namespace BS3D.Tests
         }
 
         [Fact]
+        public void WhilePreciseAimTogglesTheLeanCardsSayAPressNotAHold()
+        {
+            //#1054: the right button and the left trigger lean in on a press that stays, so "Hold" would tell the player to
+            //do what the game no longer asks. The same card, both hands, and the hold's words back when the mode is Hold
+            Tutorial tutorial = CombinationCard(new HashSet<string>());
+
+            tutorial.LeanToggles = true;
+            Assert.Equal((MOUSE_RIGHT, "Right-click to look down the barrel"), (tutorial.Glyph, tutorial.Caption));
+            tutorial.NoteDevice(Tutorial.Device.Gamepad);
+            Assert.Equal("Pull the left trigger to look down the barrel", tutorial.Caption);
+
+            tutorial.LeanToggles = false;
+            Assert.Equal("Hold the left trigger to look down the barrel", tutorial.Caption);
+            tutorial.NoteDevice(Tutorial.Device.KeyboardMouse);
+            Assert.Equal(LEAN, tutorial.Caption);
+        }
+
+        [Fact]
         public void TheCombinationAsksTheCloseUpFirstAndTheWalkOnceItIsDone()
         {
             HashSet<string> save = new();

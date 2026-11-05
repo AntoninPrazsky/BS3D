@@ -99,6 +99,9 @@ namespace BS3D.Screens
         //The rows with two states, On and Off, as checkboxes (#816)
         private CheckRow _keyboardLightsCheck;
 
+        //Precise aim's mode (#1054): Toggle or Hold
+        private Label _preciseModeValue;
+
         //The touch screen's two rows (#1051), built only where there is a touch screen: null everywhere else
         private Label _touchSensitivityValue;
         private CheckRow _touchSidesCheck;
@@ -486,12 +489,15 @@ namespace BS3D.Screens
             //them that answers the game. The reason beside it says when Windows lists no keyboard to light
             AddCheckRow(grid, 3, "Keyboard lights", Game.ToggleKeyboardLighting, out _keyboardLightsCheck);
 
+            //How the right button and the left trigger lean in (#1054): a press that stays, the owner's ask, or a hold
+            AddRow(grid, 4, "Precise aim", Game.TogglePreciseAimMode, out _preciseModeValue);
+
             //The touch screen's (#1051): how far a finger's drag turns the gun, and the two sides swapped for a player who
             //aims with the other thumb (#1050). Only where a touch screen answers: a row with nothing to touch is a dead row
             if (Microsoft.Xna.Framework.Input.Touch.TouchPanel.GetCapabilities().IsConnected)
             {
-                AddRow(grid, 4, "Touch sensitivity", Game.CycleTouchSensitivity, out _touchSensitivityValue);
-                AddCheckRow(grid, 5, "Aim on the right", Game.ToggleTouchSides, out _touchSidesCheck);
+                AddRow(grid, 5, "Touch sensitivity", Game.CycleTouchSensitivity, out _touchSensitivityValue);
+                AddCheckRow(grid, 6, "Aim on the right", Game.ToggleTouchSides, out _touchSidesCheck);
             }
 
             return grid;
@@ -808,6 +814,7 @@ namespace BS3D.Screens
             //and lie, or "0.75×" and read as arithmetic).
             _sensitivityValue.Text = FormatSensitivity(Game.MouseSensitivity);
             _aimSensitivityValue.Text = FormatSensitivity(Game.AimSensitivity);
+            _preciseModeValue.Text = Game.PreciseAimToggles ? "Toggle" : "Hold";
             if (_touchSensitivityValue != null) _touchSensitivityValue.Text = FormatSensitivity(Game.TouchSensitivity);
             _touchSidesCheck?.Show(Game.TouchAimOnRight);
             //In words, not the ★ glyph the picker uses: the value column is set in the display face like

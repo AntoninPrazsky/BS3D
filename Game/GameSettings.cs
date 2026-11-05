@@ -136,6 +136,14 @@ namespace BS3D
         public bool TouchAimOnRight { get; set; }
 
         /// <summary>
+        /// Whether precise aim toggles (#1054): the right button or the pad's left trigger pressed once leans in and the
+        /// lean stays until the next press. The owner's ask, after the touch screen's toggle (#1051). False is the hold it
+        /// was, the pad's lean following the trigger's pull (#520).
+        /// </summary>
+        [JsonPropertyName("preciseAimToggle")]
+        public bool PreciseAimToggle { get; set; } = true;
+
+        /// <summary>
         /// The sky the front end comes up under, or 0 for "whatever the scene wants". It is seeded
         /// <b>before</b> <c>SetScene</c> runs rather than after, which is what keeps it from overriding the
         /// scenes that state a dome of their own (<c>SkyDome.SceneDefault</c>: the sea, the savanna, the tropics,

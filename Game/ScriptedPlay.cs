@@ -31,7 +31,7 @@ namespace BS3D
     /// <item><c>padpress=&lt;start&gt;:&lt;step&gt;:&lt;name,name,…&gt;</c> — presses pad buttons one after another, the first at
     /// <c>start</c> and each <c>step</c> seconds after the one before, each held for half a step (#818): <c>up</c>,
     /// <c>down</c>, <c>left</c>, <c>right</c> on the D-pad, <c>a</c>, <c>b</c>, <c>x</c>, <c>y</c>, <c>lb</c>, <c>rb</c>,
-    /// <c>start</c>, <c>back</c>, and <c>lsup</c>, <c>lsdown</c>, <c>lsleft</c>, <c>lsright</c> for the left stick pushed
+    /// <c>start</c>, <c>back</c>, <c>lt</c> (the left trigger pulled all the way, #1054), and <c>lsup</c>, <c>lsdown</c>, <c>lsleft</c>, <c>lsright</c> for the left stick pushed
     /// all the way. Written into the frame's pad state like <c>padrt=</c>, in the menus and in play, so everything
     /// downstream of the XInput read sees a real press; while one is down it stands in for the pad's buttons and left
     /// stick. Several accumulate. Written when the owner's Konami code did nothing on a pad and no pad here can be
@@ -264,6 +264,8 @@ namespace BS3D
                 "y" => Buttons.Y,
                 "lb" => Buttons.LeftShoulder,
                 "rb" => Buttons.RightShoulder,
+                //The left trigger pulled all the way (#1054): precise aim's press, which a toggle needs a real one of
+                "lt" => Buttons.LeftTrigger,
                 "start" => Buttons.Start,
                 "back" => Buttons.Back,
                 _ => 0,
@@ -379,7 +381,8 @@ namespace BS3D
 
         /// <summary>
         /// The frame's pad with <c>padpress=</c>'s presses written in: unchanged while none is down, and while one is, its
-        /// buttons and left stick in place of the pad's own (the triggers and the right stick stay the pad's).
+        /// buttons and left stick in place of the pad's own, and the left trigger when <c>lt</c> is down (the right trigger and the
+        /// right stick stay the pad's).
         /// </summary>
         internal GamePadState WithPadPresses(float clock, GamePadState pad)
         {
@@ -405,7 +408,9 @@ namespace BS3D
             GamePadDPad dpad = new(Down(buttons, Buttons.DPadUp), Down(buttons, Buttons.DPadDown),
                 Down(buttons, Buttons.DPadLeft), Down(buttons, Buttons.DPadRight));
 
-            return new GamePadState(new GamePadThumbSticks(stick, pad.ThumbSticks.Right), pad.Triggers, new GamePadButtons(buttons), dpad);
+            GamePadTriggers triggers = (buttons & Buttons.LeftTrigger) != 0 ? new GamePadTriggers(1f, pad.Triggers.Right) : pad.Triggers;
+
+            return new GamePadState(new GamePadThumbSticks(stick, pad.ThumbSticks.Right), triggers, new GamePadButtons(buttons), dpad);
         }
 
         /// <summary>Whether precise aim is held at this instant.</summary>

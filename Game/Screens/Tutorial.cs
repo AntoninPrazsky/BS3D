@@ -176,6 +176,12 @@ namespace BS3D.Screens
             /// </summary>
             public string TouchGlyph, TouchCaption, TouchDetail;
 
+            /// <summary>
+            /// The keyboard's and the pad's captions while precise aim toggles (#1054), for the cards whose own words say
+            /// "Hold": a press that stays is not a hold. Null on every other card.
+            /// </summary>
+            public string ToggleCaption, TogglePadCaption;
+
             //The touch caption with its sides swapped, made the first time it is asked for and kept
             private string _touchCaptionMirrored;
 
@@ -273,6 +279,10 @@ namespace BS3D.Screens
         private const string TOUCH_MAGNIFIER = TouchControls.PRECISE_GLYPH;
         private const string LEAN_TOUCH_CAPTION = "Tap the magnifier to look down the barrel";
 
+        //And the lean's words while it toggles (#1054): a press, not a hold
+        private const string LEAN_TOGGLE_CAPTION = "Right-click to look down the barrel";
+        private const string LEAN_TOGGLE_PAD_CAPTION = "Pull the left trigger to look down the barrel";
+
         //Where the line's card sits in its chapter, counted from the chapter's end (Saturn in the campaign): also the level
         //the net starts to be shown at (NetIsShownAt)
         private const int LINE_RULE_FROM_LEVEL = -3;
@@ -316,6 +326,7 @@ namespace BS3D.Screens
                 Lesson = Lesson.LeanIn, Key = "lean", FromLevel = 1, Action = true,
                 Glyph = MOUSE_RIGHT, Caption = LEAN_CAPTION,
                 PadGlyph = PAD_LEFT_TRIGGER, PadCaption = LEAN_PAD_CAPTION,
+                ToggleCaption = LEAN_TOGGLE_CAPTION, TogglePadCaption = LEAN_TOGGLE_PAD_CAPTION,
                 TouchGlyph = TOUCH_MAGNIFIER, TouchCaption = LEAN_TOUCH_CAPTION,
                 Praise = "Sharp!",
             },
@@ -357,6 +368,7 @@ namespace BS3D.Screens
                 Glyph = MOUSE_RIGHT, Caption = LEAN_CAPTION,
                 PadGlyph = PAD_LEFT_TRIGGER, PadCaption = LEAN_PAD_CAPTION,
                 TouchGlyph = TOUCH_MAGNIFIER, TouchCaption = LEAN_TOUCH_CAPTION,
+                ToggleCaption = LEAN_TOGGLE_CAPTION, TogglePadCaption = LEAN_TOGGLE_PAD_CAPTION,
                 Second = new Definition
                 {
                     Glyph = KEY_A + KEY_D, Caption = "Now walk the gun round",
@@ -499,6 +511,7 @@ namespace BS3D.Screens
                 Lesson = Lesson.AimHint, Key = "aimhint", Hint = true, Contextual = true, Action = true,
                 Glyph = MOUSE_RIGHT, Caption = "Hold to aim precisely", Detail = "A close-up down the barrel",
                 PadGlyph = PAD_LEFT_TRIGGER, PadCaption = "Hold the left trigger to aim precisely",
+                ToggleCaption = "Right-click to aim precisely", TogglePadCaption = "Pull the left trigger to aim precisely",
                 TouchGlyph = TOUCH_MAGNIFIER, TouchCaption = "Tap the magnifier to aim precisely", TouchDetail = "A close-up down the barrel",
                 Praise = "Sharp!",
             },
@@ -565,7 +578,7 @@ namespace BS3D.Screens
                 for (Definition face = definition; face != null; face = face.Second, step++)
                     foreach (Device hand in new[] { Device.KeyboardMouse, Device.Gamepad, Device.Touch })
                     {
-                        (string glyph, string caption, string detail) = Words(face, hand, aimOnRight: false);
+                        (string glyph, string caption, string detail) = Words(face, hand, aimOnRight: false, leanToggles: true);
                         if (definition.Lesson == Lesson.Ceiling)
                             caption = string.Format(CultureInfo.InvariantCulture, caption, 6);
 
@@ -579,11 +592,14 @@ namespace BS3D.Screens
         /// in them, and the tools', whose glyph already says which button), a pad glyph likewise. The small line is the
         /// hands' alike: it names no control, since #930 cut every one that explained why.
         /// </summary>
-        private static (string Glyph, string Caption, string Detail) Words(Definition face, Device hand, bool aimOnRight) => hand switch
+        private static (string Glyph, string Caption, string Detail) Words(Definition face, Device hand, bool aimOnRight,
+            bool leanToggles) => hand switch
         {
+            Device.Gamepad when leanToggles && face.TogglePadCaption != null => (face.PadGlyph, face.TogglePadCaption, face.Detail),
             Device.Gamepad => (face.PadGlyph ?? face.Glyph, face.PadCaption ?? face.Caption, face.Detail),
             //A card with no touch words names no control (the rules, the score, the kinds), so its keyboard words are everyone's
             Device.Touch when face.TouchCaption != null => (face.TouchGlyph, face.TouchCaptionFor(aimOnRight), face.TouchDetail),
+            Device.KeyboardMouse when leanToggles && face.ToggleCaption != null => (face.Glyph, face.ToggleCaption, face.Detail),
             _ => (face.Glyph, face.Caption, face.Detail),
         };
 
@@ -840,7 +856,13 @@ namespace BS3D.Screens
         internal static string SkipGlyphFor(bool gamepad) => gamepad ? PAD_RIGHT_TRIGGER : MOUSE_LEFT;
 
         /// <summary>The prompt font's glyphs for the card — a keycap, a mouse, a trigger — or null for none.</summary>
-        internal string Glyph => _card == null ? null : Words(Face, _device, TouchAimOnRight).Glyph;
+        internal string Glyph => _card == null ? null : Words(Face, _device, TouchAimOnRight, LeanToggles).Glyph;
+
+        /// <summary>
+        /// Whether precise aim toggles (#1054): the lean cards then say a press, not a hold. Set by the session at a level's
+        /// start and on every frame of play, from Settings; a tutorial nobody tells is the hold's.
+        /// </summary>
+        internal bool LeanToggles { get; set; }
 
         /// <summary>Whether the touch screen's sides are swapped (#1050): which side the touch cards name. Set by the session each frame.</summary>
         internal bool TouchAimOnRight { get; set; }
@@ -853,12 +875,12 @@ namespace BS3D.Screens
                 if (_card == null) return null;
                 if (_card.Lesson == Lesson.Ceiling) return _ceilingCaption;
 
-                return Words(Face, _device, TouchAimOnRight).Caption;
+                return Words(Face, _device, TouchAimOnRight, LeanToggles).Caption;
             }
         }
 
         /// <summary>The smaller second line, or null for a one-line card. It stays up through the praise too (#466).</summary>
-        internal string Detail => _card == null ? null : Words(Face, _device, TouchAimOnRight).Detail;
+        internal string Detail => _card == null ? null : Words(Face, _device, TouchAimOnRight, LeanToggles).Detail;
 
         /// <summary>
         /// The words the card shows now (#930): the lesson's own, or its second step's once the first has been done. The

@@ -85,6 +85,15 @@ namespace BS3D
             _settingsPage.Refresh();
         }
 
+        /// <summary>Precise aim between a toggle and a hold (#1054).</summary>
+        internal void TogglePreciseAimMode()
+        {
+            _settings.PreciseAimToggle = !_settings.PreciseAimToggle;
+            SaveSettings();
+
+            _settingsPage.Refresh();
+        }
+
         /// <summary>Swaps the touch screen's two sides (#1050).</summary>
         internal void ToggleTouchSides()
         {

@@ -651,11 +651,15 @@ namespace BS3D.Screens
         //three power-ups, and the Menu button pauses. Each line is the action's name and what the key does, and nothing
         //more (#997): the mechanics behind a power-up are the Cutter's entry on ODD BALLS and THE GLASS's brake, and the
         //chapter it arrives in is LevelSet's own constant, so a moved power-up cannot leave a stale chapter here
+        //Precise aim's line as Settings has it (#1054): the table's words are the hold's, and a toggle's replace them
+        private const string PRECISE_AIM = "Precise aim";
+        private const string PRECISE_AIM_TOGGLE = "Press it to look down the barrel, and again to come back.";
+
         private static readonly (string Keys, string Pad, string Name, string What)[] CONTROLS =
         {
             (MOUSE, PromptGlyph.PAD_RIGHT_STICK, "Aim", ""),
             (MOUSE_LEFT, PromptGlyph.PAD_RT, "Fire", "Space fires too."),
-            (MOUSE_RIGHT, PromptGlyph.PAD_LT, "Precise aim", "Hold it to look down the barrel."),
+            (MOUSE_RIGHT, PromptGlyph.PAD_LT, PRECISE_AIM, "Hold it to look down the barrel."),
             (KEY_A + KEY_D, PromptGlyph.PAD_LEFT_STICK_SIDEWAYS, "Walk", "Move the gun round the field."),
             (KEY_W + KEY_S, PromptGlyph.PAD_LEFT_STICK_UP_DOWN, "Step", "In and out: closer means a steeper shot."),
             (KEY_E, PromptGlyph.PAD_X, "Swap", "The next two balls change places."),
@@ -680,7 +684,8 @@ namespace BS3D.Screens
             }
 
             foreach ((string keys, string pad, string name, string what) in CONTROLS)
-                column.Widgets.Add(KeyLine(keys, pad, name, what, keyWidth, padWidth, nameWidth));
+                column.Widgets.Add(KeyLine(keys, pad, name, name == PRECISE_AIM && Game.PreciseAimToggles ? PRECISE_AIM_TOGGLE : what,
+                    keyWidth, padWidth, nameWidth));
 
             //Under the table, one line each: when the three power-ups arrive and their price, said once for the three, and the
             //keys that are not play. The tab fits its frame with both (#997), as it did not with the price on every line
