@@ -668,7 +668,7 @@ namespace BS3D.Audio
                     //behind belonged to that instance, which is disposed a few lines down.
                     _fanfareFade.Reset();
                     _fanfare.Volume = FANFARE_VOLUME * _gain;
-                    _fanfare.Play();
+                    VoiceBudget.TryPlay(_fanfare);
 
                     old?.Dispose();
                     if (oldTrack != _victoryTrack && oldTrack != _defeatTrack) oldTrack?.Dispose();

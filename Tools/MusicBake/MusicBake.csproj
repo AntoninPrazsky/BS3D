@@ -17,6 +17,9 @@
     <!--A streamed render's progress (#464): ProceduralMusic.Render takes one, so the type has to be in scope
         to compile even though this tool always passes null and never touches it.-->
     <Compile Include="..\..\Game\Audio\RenderProgress.cs" />
+    <!--The door the fanfare in that file plays through (#1048), which drops a voice the platform has no room for: in scope to
+        compile, never reached by a bake.-->
+    <Compile Include="..\..\Game\Audio\VoiceBudget.cs" />
     <!--The fade the fanfare in that file walks, and the FFT this tool's band table shares with the About page's
         visualizer: plain arithmetic too, each in a file of its own only because the game shares it.-->
     <Compile Include="..\..\Game\Audio\MusicFade.cs" />

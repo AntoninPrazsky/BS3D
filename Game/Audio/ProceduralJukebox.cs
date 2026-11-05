@@ -320,7 +320,7 @@ namespace BS3D.Audio
 
             //Started on the first chunk. Paused is the player's own state and is left alone: Stopped is only ever
             //the voice before its first Play.
-            if (_submittedFrames > 0 && _voice.State == SoundState.Stopped) _voice.Play();
+            if (_submittedFrames > 0 && _voice.State == SoundState.Stopped) VoiceBudget.TryPlay(_voice);
         }
 
         private void Release()

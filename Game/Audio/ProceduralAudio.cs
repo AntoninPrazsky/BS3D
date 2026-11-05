@@ -1093,7 +1093,7 @@ namespace BS3D.Audio
                 voice.Pan = 0f;
                 voice.Volume = MathHelper.Clamp(volume * NON_SPATIAL_TRIM, 0f, 1f);
                 voice.Pitch = MathHelper.Clamp(pitch, -1f, 1f);
-                voice.Play();
+                VoiceBudget.TryPlay(voice);
                 return;
             }
 
@@ -1108,7 +1108,7 @@ namespace BS3D.Audio
             if (Platform.AudioBackend.PlacesAfterPlay)
             {
                 voice.Pitch = MathHelper.Clamp(pitch, -1f, 1f);
-                voice.Play();
+                VoiceBudget.TryPlay(voice);
                 voice.Apply3D(_listener, _emitter);
                 return;
             }
@@ -1119,7 +1119,7 @@ namespace BS3D.Audio
             //where Play's overload would not: this is the file where a pitch written as a multiplier once put
             //the entire game an octave sharp, and the guard rail that caught it is gone.
             voice.Pitch = MathHelper.Clamp(pitch, -1f, 1f);
-            voice.Play();
+            VoiceBudget.TryPlay(voice);
         }
 
         /// <summary>
@@ -2901,8 +2901,8 @@ namespace BS3D.Audio
             float volume = MathHelper.Clamp(LINE_HUM_LEVEL * Level * shaped * 0.7071f, 0f, 1f);
             _lineHumVoiceA.Volume = volume;
             _lineHumVoiceB.Volume = volume;
-            if (_lineHumVoiceA.State != SoundState.Playing) _lineHumVoiceA.Play();
-            if (_lineHumVoiceB.State != SoundState.Playing) _lineHumVoiceB.Play();
+            if (_lineHumVoiceA.State != SoundState.Playing) VoiceBudget.TryPlay(_lineHumVoiceA);
+            if (_lineHumVoiceB.State != SoundState.Playing) VoiceBudget.TryPlay(_lineHumVoiceB);
         }
 
         private static SoundEffectInstance Looped(SoundEffect effect)
