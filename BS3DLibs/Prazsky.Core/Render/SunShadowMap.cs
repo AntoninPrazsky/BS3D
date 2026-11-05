@@ -29,7 +29,9 @@ namespace Prazsky.Core.Render
     /// the caster pass draws with <c>BlendFunction.Min</c> (<c>SceneRenderer.ShadowCasterBlend</c>), so each texel
     /// keeps the smallest depth anything wrote to it, in whatever order — exactly what a less-equal test against a
     /// depth buffer kept, and what the red channel holds anyway. The buffer that test needed was a D24S8 the size of
-    /// the map, used for nothing else: 64 MB at High's 4096 and 256 MB at Ultra's 8192.
+    /// the map, used for nothing else: 64 MB at High's 4096 and 256 MB at Ultra's 8192. ⚠ Except under MonoGame's Android
+    /// backend, which has no min blend (<c>GraphicsSupport.MinMaxBlend</c>): there the map has a 24-bit depth buffer and
+    /// the casters a depth test, as before #591 (#1061).
     /// </para>
     /// </summary>
     public sealed class SunShadowMap : IDisposable
@@ -50,8 +52,9 @@ namespace Prazsky.Core.Render
         public SunShadowMap(GraphicsDevice device, int size)
         {
             Size = size;
-            Target = new RenderTarget2D(device, size, size, false, SurfaceFormat.Single, DepthFormat.None,
-                0, RenderTargetUsage.DiscardContents);
+            //A depth buffer only where no min blend can keep the nearest caster (GraphicsSupport.MinMaxBlend: the phone)
+            Target = new RenderTarget2D(device, size, size, false, SurfaceFormat.Single,
+                GraphicsSupport.MinMaxBlend ? DepthFormat.None : DepthFormat.Depth24, 0, RenderTargetUsage.DiscardContents);
         }
 
         /// <summary>
