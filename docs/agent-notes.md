@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-05 — #1048 Android: vibrace ovladače — desktop (RDT-PC), Claude Code
+- Majitel: ovladač přes Bluetooth funguje, ale vibruje tak silně, že mu „skoro vypadává z rukou“.
+- ⚠ MonoGame.Framework.Android 3.8.5 ignoruje síly v `SetVibration`: každé volání, i nula, spustí 500ms pulz výchozí silou. Na Androidu ho proto nikdo nevolá (`PadMotors.ReplacesSetVibration`).
+- Hotovo (`1328ed19`): `GameAndroid/Platform/PadMotors` posílá do `VibratorManager` ovladače úrovně z mixéru, vibrátor 0 je těžký motor, 1 lehký. Co motory dostávají, ukáže `adb shell dumpsys input` (Vibrator Input Mapper). Výstřel teď dává 120/56 z 255.
+- Otevřené: majitelova ruka na telefonu, dál #1048 zvuk a zahřívání, #1049–#1053.
+
 ## 2026-11-04 — #1047 #1048 Android: hra běží na telefonu — desktop (RDT-PC), Claude Code
 - Majitel: Android teď na OpenGL ES přes Potato, nečekat na Vulkan, vlastní fork MonoGame ne (#1047, výjimka ze zmrazení šíře). #251 drží jen pozdější Vulkan. Rozpad: #1048–#1053, dotykové ovládání je `owner-decision` (#1050).
 - Hotovo: `GameAndroid` (vzor GamePi a TW3D) na vivo X300 Ultra kreslí menu i levely v 3168x1440. Na CoreCLR drží Girandole a Cabinet 60 FPS i se střelbou, Mono jen ~42 (CPU).
