@@ -82,14 +82,17 @@
     refuses the same for the committed nine), and one with an integer or boolean uniform reads it as zero: MonoGame's GL
     runtime uploads only float vectors, and Shader Model 3.0 keeps a loop's uniform count in an integer register, so the
     loop never runs (the tonemap's supersample box came out black). So is a static const array read at a computed index:
-    MojoShader makes it a uniform, and the savanna's flames read zeros (#1063). A build that makes any of these fails here,
-    which is what makes CI say so; so does a desktop effect left at mediump.-->
+    MojoShader makes it a uniform, and the savanna's flames read zeros (#1063). So is a matrix a program reads in part:
+    MojoShader keeps only the registers it reads, MonoGame copies the whole matrix and throws past the end of the program's
+    uniforms on the first draw (every bomb crashed the phone, #1063). A build that makes any of these fails here, which is
+    what makes CI say so; so does a desktop effect left at mediump.-->
   <UsingTask TaskName="FinishGlEffects" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
     <ParameterGroup>
       <Raise ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
       <Check ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
     </ParameterGroup>
     <Task>
+      <Using Namespace="System.Collections.Generic" />
       <Using Namespace="System.IO" />
       <Using Namespace="System.Linq" />
       <Using Namespace="System.Text" />
@@ -156,6 +159,101 @@
                 if (integer.Success)
                     Log.LogError(Path.GetFileName(item.ItemSpec) + ", program " + p + " declares " + integer.Value + ", which MonoGame never uploads: a loop to a uniform count runs no times (ARRAY_LOOP or COUNT_LOOP, ShaderTarget.fxh)");
             }
+        }
+
+        //⚠ A uniform MonoGame copies past the end of its program's uniforms (#1063). MojoShader keeps only the registers a
+        //program reads, so a matrix read in part (a bone's .xyz, a projection's _11 and _22) is shorter there than the whole
+        //matrix ConstantBuffer.SetParameter copies into it, and the first EffectPass.Apply throws ArgumentException: every
+        //level with a bomb crashed on the phone. Read off each effect as MonoGame 3.8.5's Effect.ReadEffect reads it.
+        (int Registers, int End) Footprint(int cls, int rows, int columns, List<(int Registers, int End)> elements)
+        {
+            if (elements.Count > 0)
+            {
+                int registers = 0, end = 0;
+                foreach (var element in elements)
+                {
+                    end = Math.Max(end, registers * 16 + element.End);
+                    registers += element.Registers;
+                }
+                return (registers, end);
+            }
+            //SetParameter: a matrix goes as ColumnCount rows of RowCount, anything else as RowCount rows of ColumnCount
+            int n = cls == 2 ? columns : rows, m = cls == 2 ? rows : columns;
+            if (n == 1 && m == 1) return (n, 4);
+            if (n == 1 || (n == 4 && m == 4)) return (n, n * m * 4);
+            return (n, 16 * (n - 1) + m * 4);
+        }
+        List<(int Registers, int End, string Name)> ReadParameters(BinaryReader r)
+        {
+            var list = new List<(int Registers, int End, string Name)>();
+            int count = r.ReadInt32();
+            for (int i = 0; i < count; i++)
+            {
+                int cls = r.ReadByte(), type = r.ReadByte();
+                string name = r.ReadString();
+                r.ReadString();
+                if (r.ReadInt32() != 0) throw new InvalidDataException("an annotation");
+                int rows = r.ReadByte(), columns = r.ReadByte();
+                var elements = ReadParameters(r);
+                var members = ReadParameters(r);
+                bool data = elements.Count == 0 && members.Count == 0;
+                if (data && type >= 1 && type <= 3) r.ReadBytes(rows * columns * 4);
+                var footprint = members.Count > 0 && elements.Count == 0 ? (0, 0)
+                    : Footprint(cls, rows, columns, elements.Select(e => (e.Registers, e.End)).ToList());
+                list.Add((footprint.Item1, footprint.Item2, name));
+            }
+            return list;
+        }
+        foreach (ITaskItem item in Check)
+        {
+            byte[] fx = File.ReadAllBytes(item.ItemSpec);
+            int start = -1;
+            for (int i = 0; i + 4 <= fx.Length && start < 0; i++)
+                if (fx[i] == 'M' && fx[i + 1] == 'G' && fx[i + 2] == 'F' && fx[i + 3] == 'X') start = i;
+            if (start < 0) continue;
+            int version = fx[start + 4];
+            using var r = new BinaryReader(new MemoryStream(fx, start + 10, fx.Length - start - 10));
+            int bufferCount = r.ReadInt32();
+            var sizes = new int[bufferCount];
+            var placed = new List<(int Index, int Offset)>[bufferCount];
+            var users = new List<string>[bufferCount];
+            for (int b = 0; b < bufferCount; b++)
+            {
+                r.ReadString();
+                sizes[b] = r.ReadInt16();
+                placed[b] = new List<(int, int)>();
+                users[b] = new List<string>();
+                int members = r.ReadInt32();
+                for (int k = 0; k < members; k++) placed[b].Add((r.ReadInt32(), r.ReadUInt16()));
+            }
+            int shaderCount = r.ReadInt32();
+            for (int s = 0; s < shaderCount; s++)
+            {
+                r.ReadBoolean();
+                string entry = "";
+                if (version > 10) { r.ReadString(); entry = r.ReadString(); }
+                int length = r.ReadInt32();
+                r.ReadBytes(length);
+                int samplers = r.ReadByte();
+                for (int k = 0; k < samplers; k++)
+                {
+                    r.ReadBytes(3);
+                    if (r.ReadBoolean()) r.ReadBytes(20);
+                    r.ReadString();
+                    r.ReadByte();
+                }
+                int buffers = r.ReadByte();
+                for (int k = 0; k < buffers; k++) users[r.ReadByte()].Add(entry);
+                int attributes = r.ReadByte();
+                for (int k = 0; k < attributes; k++) { r.ReadString(); r.ReadBytes(4); }
+            }
+            var parameters = ReadParameters(r);
+            for (int b = 0; b < bufferCount; b++)
+                foreach (var (index, offset) in placed[b])
+                    if (offset + parameters[index].End > sizes[b])
+                        Log.LogError(Path.GetFileName(item.ItemSpec) + ": " + parameters[index].Name + " is copied to byte " + (offset + parameters[index].End)
+                            + " of a " + sizes[b] + "-byte uniform block (" + string.Join(", ", users[b].Distinct()) + "), and MonoGame throws on its first draw:"
+                            + " the program reads the matrix in part, so MojoShader keeps only some of its registers (read all four columns under OPENGL, see BallBomb.fxh)");
         }
       ]]></Code>
     </Task>

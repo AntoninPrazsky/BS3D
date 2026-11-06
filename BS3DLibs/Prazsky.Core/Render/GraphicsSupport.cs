@@ -74,6 +74,10 @@ namespace Prazsky.Core.Render
         /// target so its rows match DirectX's, and the tile passes draw into targets. Off until it is found; a phone also
         /// gives up a full-screen pass a frame.
         /// </summary>
-        public static bool MotionBlur => !OperatingSystem.IsAndroid();
+        public static bool MotionBlur => ForceMotionBlur || !OperatingSystem.IsAndroid();
+
+        /// <summary>Runs the motion blur where <see cref="MotionBlur"/> leaves it off: the Game's <c>motionblur</c>, to look for
+        /// #1063's cause on the phone.</summary>
+        public static bool ForceMotionBlur { get; set; }
     }
 }

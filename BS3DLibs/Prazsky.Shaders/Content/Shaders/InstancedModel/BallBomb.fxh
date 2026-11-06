@@ -309,6 +309,12 @@ PatternVertexShaderOutput BombVS(VertexShaderInput input, InstanceInput instance
     float4x4 world = float4x4(instance.WorldRow1, instance.WorldRow2, instance.WorldRow3, instance.WorldRow4);
 
     float4 bonePosition = mul(input.Position, Bone);
+#if OPENGL
+    //⚠ All four of Bone's columns, or MojoShader keeps only the three .xyz reads and MonoGame copies the whole matrix
+    //past the end of the program's uniforms: an ArgumentException on the first bomb drawn (#1063). A bone is affine, so
+    //w is 1 and this changes nothing; FinishGlEffects refuses any program left like that.
+    bonePosition.xyz /= bonePosition.w;
+#endif
     float radius = max(length(bonePosition.xyz), 1e-5);
     float3 direction = bonePosition.xyz / radius;
 

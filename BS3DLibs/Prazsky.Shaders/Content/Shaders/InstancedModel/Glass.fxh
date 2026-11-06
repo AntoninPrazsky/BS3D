@@ -22,7 +22,15 @@ float4 RefractionPS(VertexShaderOutput input, FRONT_FACE(isFrontFace)) : COLOR
     float3 viewNormal = mul(normal, (float3x3)View);
     float viewDepth = max(-mul(float4(input.WorldPosition, 1.0), View).z, 0.05);
 
+#if OPENGL
+    //⚠ All four of Projection's columns (see BombVS): (1, 1, 0, 0) through it is (_11, _22, 0, 0) for a perspective,
+    //whose _21, _12, _13, _23, _14 and _24 are 0, so the last factor is 1 - but read, and MonoGame's copy of the whole
+    //matrix stays inside the program's uniforms (#1063)
+    float4 lensScale = mul(float4(1, 1, 0, 0), Projection);
+    float2 shift = viewNormal.xy * (RefractionDepth / viewDepth) * (lensScale.xy * (1 + lensScale.z * lensScale.w)) * 0.5;
+#else
     float2 shift = viewNormal.xy * (RefractionDepth / viewDepth) * float2(Projection._11, Projection._22) * 0.5;
+#endif
 
     return float4(shift, saturate(1.0 - abs(viewNormal.z)), 1.0);
 }
