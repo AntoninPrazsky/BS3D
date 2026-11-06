@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-06 — #1063 pád na bombě, efekty na telefonu — desktop (RDT-PC), Claude Code
+- Hotovo (6a038e48): každý level s bombou na telefonu padal. `BombVS` čte `Bone` jen jako `.xyz`, MojoShader nechá 3 registry a MonoGame zkopíruje celou matici za konec bufferu. Pod OPENGL se teď čtou všechny sloupce (i u `RefractionPS`). `FinishGlEffects` takové přetečení odmítne, ověřeno, že zabere.
+- Na telefonu ověřen výbuch bomby (58-60 FPS) a čočka přesného míření.
+- ⚠ Na GL uloží `SetValue(int)` float, takže `int` uniforma použitá v aritmetice je v pořádku. Matice pixel shaderu dorazí správně.
+- Otevřené: příčina rozmazání pohybu (`motionblur motionview=1..5`, příště Debug APK se `shot=`) a růžové desky skla. Obojí na Androidu vypnuto.
+
 ## 2026-11-06 — #1065 odrazy věží v oknech — desktop (RDT-PC), Claude Code
 - Hotovo (86ef3c30, opravy z revize 7f29b438). High a Ultra: okno do 40 jednotek od kamery pošle odražený paprsek přes mapu města (`CityReflectionMap`). Nová technika `InstancedCityReflect`, ostatní programy se nezměnily. Z hrací kamery +0,02 ms, v ulici +0,5 až +0,75 ms (3840x1600, ssaa 2).
 - ⚠ Hradlo podle footprintu pustilo skoro všechno a z ostrova to stálo +4,9 ms. Správně je podle vzdálenosti od kamery.
