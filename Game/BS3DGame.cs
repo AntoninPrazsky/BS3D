@@ -771,12 +771,17 @@ namespace BS3D
         private static bool FinsLess(LaunchOptions launch, string part) =>
             launch.FinsLess != null && Array.IndexOf(launch.FinsLess.Split(','), part) >= 0;
 
+        //"motionview=": what the motion blur's passes saw, drawn in place of the blurred frame (#1063)
+        private readonly int _motionView;
+
         internal BS3DGame(LaunchOptions launch)
         {
             //The scene's procedural roll (see _sceneSeedOffset): rolled once per launch unless the command
             //line pins it, and printed either way - a frame of a city nobody can generate twice is a frame
             //nobody can compare against.
             _finaleMessage = launch.FinaleMessage;
+            _motionView = launch.MotionView;
+            if (launch.MotionBlur) GraphicsSupport.ForceMotionBlur = true;
 
             _sceneSeedOffset = launch.SceneSeed ?? Random.Shared.Next();
             Console.WriteLine($"[sceneseed] {_sceneSeedOffset}"
@@ -1464,7 +1469,7 @@ namespace BS3D
 
                 //The motion blur (#402), the Game's alone: its shader is built only by this content project, and it costs
                 //nothing on a frame whose session opens no velocity pass — the menus, a paused level, a tier without it.
-                _pipeline.EnableMotionBlur(Content.Load<Effect>("Shaders/MotionBlur"));
+                _pipeline.EnableMotionBlur(Content.Load<Effect>("Shaders/MotionBlur")).DebugView = _motionView;
             }
 
             //Off the shared instanced effect, because one push of the scene's lights has to reach the balls, the

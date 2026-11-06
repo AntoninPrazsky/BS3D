@@ -372,6 +372,73 @@ float4 ReconstructPS(VertexShaderOutput input) : COLOR
     return float4(sum / weight, 1);
 }
 
+//WHAT THE PASSES SAW, for a diagnosis (#1063: on the phone a camera move smeared whole tiles of the wrong part of the
+//frame): drawn in place of the reconstruction when MotionBlur.DebugView is set. A velocity is shown as red and green
+//about a middle grey (0.5 is still, MaxHalfVelocity either way the ends), its blue the mode's third figure.
+//  1 - the velocity target: blue 1 where a moving object covered the pixel
+//  2 - the neighbour max, the widest smear the tile passes found reaching the pixel's tile
+//  3 - the velocity the reconstruction gives the pixel itself (the object's, or the background's reprojection)
+//  4 - both at once on black, as lengths: red the neighbour max, green the pixel's own, blue where an object is; so
+//      the tiles round a moving object can be seen in the same frame as the object, where they belong
+float DebugMode;
+
+float4 DebugPS(VertexShaderOutput input) : COLOR
+{
+    float2 uv = input.TexCoord;
+    float2 velocity;
+    float third;
+
+    if (DebugMode < 1.5)
+    {
+        float4 sampled = tex2Dlod(VelocitySampler, float4(uv, 0, 0));
+        velocity = sampled.xy;
+        third = sampled.a;
+    }
+    else if (DebugMode < 2.5)
+    {
+        velocity = tex2Dlod(NeighborSampler, float4(uv, 0, 0)).xy;
+        third = 0;
+    }
+    else if (DebugMode < 3.5)
+    {
+        float depth;
+        Surface(uv, velocity, depth);
+        third = depth < BACKGROUND_DEPTH ? 1 : 0;
+    }
+    else if (DebugMode > 4.5)
+    {
+        //5: the background's velocity reprojected through the matrix as it is (green) and transposed (red), and the
+        //depth it is reprojected at (blue): which of the two is the small one says how the matrix arrived
+        float2 ndc = float2(uv.x * 2 - 1, 1 - uv.y * 2);
+        float4 asIs = mul(float4(ndc, BackgroundDepthNdc, 1), BackgroundReproject);
+        float4 turned = mul(BackgroundReproject, float4(ndc, BackgroundDepthNdc, 1));
+        float2 toPixels = float2(OutputSize.x * 0.25, -OutputSize.y * 0.25);
+        float scale = 1.0 / max(MaxHalfVelocity, 1e-3);
+        return float4(saturate(length((ndc - turned.xy / turned.w) * toPixels) * scale),
+            saturate(length((ndc - asIs.xy / asIs.w) * toPixels) * scale), saturate(BackgroundDepthNdc), 1);
+    }
+    else
+    {
+        float depth;
+        float2 own;
+        Surface(uv, own, depth);
+        float scale = 1.0 / max(MaxHalfVelocity, 1e-3);
+        return float4(saturate(length(tex2Dlod(NeighborSampler, float4(uv, 0, 0)).xy) * scale),
+            saturate(length(own) * scale), depth < BACKGROUND_DEPTH ? 0.6 : 0, 1);
+    }
+
+    return float4(saturate(0.5 + 0.5 * velocity / max(MaxHalfVelocity, 1e-3)), third, 1);
+}
+
+technique Debug
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL FullScreenVS();
+        PixelShader = compile PS_SHADERMODEL DebugPS();
+    }
+};
+
 technique TileMaxX
 {
     pass P0

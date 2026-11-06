@@ -55,6 +55,16 @@ namespace Prazsky.Core.Render
         private readonly EffectTechnique _tileMaxYTechnique;
         private readonly EffectTechnique _neighborMaxTechnique;
         private readonly EffectTechnique _reconstructTechnique;
+        private readonly EffectTechnique _debugTechnique;
+        private readonly EffectParameter _debugModeParam;
+
+        /// <summary>
+        /// Draws what the passes saw in place of the blurred frame (#1063), a diagnosis: 1 the velocity target, 2 the
+        /// neighbour max, 3 the velocity the reconstruction gives each pixel, 4 the neighbour max and the pixel's own as two colours
+        /// in one frame, 5 the background's reprojection through its matrix as it is and transposed. 0, the default, is the blur. See
+        /// <c>MotionBlur.fx</c>'s <c>DebugPS</c> for the colours.
+        /// </summary>
+        public int DebugView { get; set; }
 
         private readonly EffectParameter _viewProjectionParam;
         private readonly EffectParameter _shutterViewProjectionParam;
@@ -98,6 +108,8 @@ namespace Prazsky.Core.Render
             _tileMaxYTechnique = effect.Techniques["TileMaxY"];
             _neighborMaxTechnique = effect.Techniques["NeighborMax"];
             _reconstructTechnique = effect.Techniques["Reconstruct"];
+            _debugTechnique = effect.Techniques["Debug"];
+            _debugModeParam = effect.Parameters["DebugMode"];
 
             _viewProjectionParam = effect.Parameters["ViewProjection"];
             _shutterViewProjectionParam = effect.Parameters["ShutterViewProjection"];
@@ -222,7 +234,12 @@ namespace Prazsky.Core.Render
             _velocityTextureParam.SetValue(_velocityTarget);
             _neighborTextureParam.SetValue(_neighbors);
             _sceneTextureParam.SetValue(scene);
-            DrawQuad(_reconstructTechnique);
+            if (DebugView > 0 && _debugTechnique != null)
+            {
+                _debugModeParam?.SetValue((float)DebugView);
+                DrawQuad(_debugTechnique);
+            }
+            else DrawQuad(_reconstructTechnique);
 
             return _output;
         }
