@@ -8,7 +8,7 @@ The default of the twenty-one settings: the round stone island ([The island](isl
 
 - **The city stands over the arena** and does not fall away under it: no camera looks down the funnel's throat far enough to see a shaft there (#275). ⚠ `CitySceneConfig.RooflineY` sits well above the play surface; with the roofline below the floor no tower was seen against the sky and the roofs read as holes in a white plain (it was reported as inverted normals).
 - **No assets.** One 1x1x1 `BoxMesh` under a different instance matrix per building, one instanced draw fed a frustum-culled near-to-far array ("Drawing the city near to far" in `docs/rendering.md`). Non-uniform scale is safe because the boxes are axis-aligned: `normalize` in the pixel shader recovers the normal without an inverse transpose.
-- **Windows are laid out relative to each building**, not on a world grid (which jammed windows into corners): `CityVS` hands the pixel shader the offset from the building's centre and its world size; `CityPS` keeps `WindowMargin` clear at every edge and solves the floor and column count from the size against `WindowPitchX/Y`, nudging the pitch so a whole number fits. `buildingId` comes from the tower's centre. Coverage is band-limited so a far tower is a dim block, not a moire.
+- **Windows are laid out relative to each building**, not on a world grid (which jammed windows into corners): `CityVS` hands the pixel shader the offset from the building's centre and its world size; `CityPS` keeps `WindowMargin` clear at every edge and solves the floor and column count from the size against `WindowPitchX/Y`, nudging the pitch so a whole number fits. `buildingId` comes from the tower's **anchor**, the plot's centre, which every box of the tower carries in its instance's `Style.zw` (#1066): a wing or a leaning tier stands off the centre and would otherwise be a building of another tone. Coverage is band-limited so a far tower is a dim block, not a moire.
 - **Specular ambient is not multiplied by albedo**, so at grazing angles (nearly every facade) it washes a skyline in sky colour; the city runs the term at 0.07.
 
 ## Window rhythm (#619)
@@ -19,12 +19,31 @@ Windows keep their own rhythm off `CityWindowTime` (wall clock: a city's lamps d
 
 The audit found every tower was one box. Each step is rolled from data the layout does not share, so **block layout, gaps and heights are the same city as before**.
 
-- **Setbacks.** A tower over `SETBACK_MIN_HEIGHT` rises in two or three tiers (chance `SETBACK_CHANCE`), each 0.66-0.82 of the one below, all reaching the same top; tiers are rolled from the plot's own seed. Each tier is its own box laying out its own windows; all share the tower's centre, hue and pattern.
+- **Setbacks.** A tower over `SETBACK_MIN_HEIGHT` rises in two or three tiers (chance `SETBACK_CHANCE`), each 0.66-0.82 of the one below, all reaching the same top; tiers are rolled from the plot's own seed. Each tier is its own box laying out its own windows, and shares the tower's hue and pattern through its anchor. A stack may lean (below).
 - **Facade kinds**, rolled once per tower and carried to `CityPS` in `Style.x`: classic punched windows (half), glass curtain wall (18 %), ribbon (16 %), piers (16 %). All of a tower's faces, tiers and cornice share the roll; frames, sills, lit share and distance fade read the kind's `fill` and `pitch`.
 - **Cornices** crown every tier of every classic-windowed tower: a slab `CORNICE_OUT` wider, `CORNICE_HEIGHT` tall, its top `CORNICE_OVER_ROOF` over the roof. It is solid over the whole roof, so it raises the roof and rooftop equipment stands on it (`City.RoofRise`). The profile is **painted** (`Style.y` marks the slab; `CityPS` gives a lit crown, pale fascia and dark cove), because the slab faces the wall's way in the wall's stone and vanished into the blank band under the roof.
   - ⚠ **Cornices come after the towers in `City.Buildings`; `City.TowerCount` says where the towers end.** Anything standing on a roof or reading a roofline (`CityRooftops`, the intro's rooftop run) walks the towers alone, or a cornice would be dressed as a roof and carry a second set of dishes.
 - ⚠ **Integer inputs use an integer mixer, never `Hash21`** (#674): on integer input it repeats every 50 cells in x and 100 in y, six copies across the city. The facade kind is `City.FacadeRoll` (a murmur finaliser, CPU only: a copy on each side of the CPU/GPU line stays right only while both are kept in step); the other rolls use `BuildingRoll` in `City.fxh` (one salt each) and each window one integer seed (`WindowSeed`).
 - **Cost** (the Game, 1920x1080, `nocap`, `level=Bolt`/`Cabinet`): each step at most about +0.1 ms at High; cornices at Low on Cabinet +0.12 ms (1,432 more boxes through the cull and sort).
+
+## Tower plans (#1066)
+
+The owner: every tower was squarish. A plot's footprint was one rectangle (sides within 1.33 : 1), and every setback shrank about the same centre. Each tower now rolls a **plan** off the plot's own seed salted with `PLAN_SALT`. The layout's generator and the tiers' stream are drawn exactly as before, so every block, gap and height is the same city. The plans:
+
+- a plain box (`PLAN_BOX`, a third of the towers);
+- a **slab**: one side narrowed to 0.48-0.62 of itself, and slid along it;
+- an **L**: a main block across one side of the footprint and a lower wing down the other. The wing stands `WING_INSET` back from the main block's wall and is no taller than its first tier;
+- a tower on a **podium**: a base over the whole footprint, 10-20 % of the height, with the tower (0.5-0.72 of the footprint) standing off-centre on it;
+- **twin** towers on one podium, on footprints at least `TWIN_MIN_SIDE` long. One reaches the top, the other 0.75-0.95 of the way.
+
+A setback stack may also **lean** (`LEAN_SHARE`): each tier slides towards a side or a corner by what its step leaves over `TIER_STEP_MIN`, so the setbacks climb one face.
+
+- ⚠ **Every box stays inside the plot's old footprint and no higher than its old top**, and the tallest box reaches it. The chapter intros' flights, the menu orbit, `OpenRadius` and the streets were laid among the old boxes, so they stay clear by construction. `CityPlanTests` holds this, comparing the plots with a city built without plans (`variedPlans: false`).
+- ⚠ **No two boxes of one tower share a wall.** Each box lays out its own window grid, so two flush walls would meet in a doubled blank margin with their columns out of line. That is why the wing stands back from the main block and a leaning tier keeps `TIER_STEP_MIN`. The test checks every pair of boxes that stand side by side.
+- ⚠ **The anchor rides in `Style.zw`, and the Potato path keeps it.** Its facade program (`PotatoModel.fx`) used to hand the custom vector to its lighting as the occluder, so `PotatoBackdrop` overwrote the city's vectors with the open one (`Opened`), and every box rolled its lamp and tile off its own centre. The program now hands its lighting the open vector `(0, 0, 0, 1)` itself, as `CityPS` does, and the city keeps its vectors. ⚠ A zero vector is not "no occlusion" there: its `w` of 0 reads as buried and darkens every wall.
+- Every box is a roof: `CityRooftops` dresses a wing's or a podium's roof as its own, and the rooftop shots pick among the new roofs. `CityRooftopsTests`' layout fingerprint pins the dressing of these roofs.
+- Boxes, cornices included (`sceneseed=1066`): the day city 4,447 → 5,678, the neon city 5,884 → 7,155.
+- **Cost** (the Game, 1920x1080, `nocap`, `sceneseed=1066`, three rounds each way): Bolt at High 4.45 → 4.44 ms; Cabinet at High 4.41 → 4.25 ms, cheaper, because the slimmer plans leave more sky in view and `CityPS` pays by the pixel; Cabinet at Low 1.94 → 2.03 ms, the extra boxes through the cull, the sort and the shadow pass.
 
 ## The far skyline (#774)
 

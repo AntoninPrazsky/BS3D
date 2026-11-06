@@ -1374,8 +1374,9 @@ namespace Prazsky.Core.Render
 
             //The same generator and seed as the host's own City, so the skyline is the one the desktop would stand under
             //this launch; its own instance, since the host's is the other city until SetScene's EnsureCityLayout runs
+            //⚠ NOT Opened: the facade program hands its lighting the open vector itself and reads the tower's anchor out of each
+            //box's custom vector (#1066), which Opened would overwrite
             var city = new City(config, neon, ArenaIsland.RADIUS);
-            Opened(city.Buildings);
             backdrop.OpenRadius = city.OpenRadius;
 
             //The near blocks only, sorted near to far from the island (#829): a tower beyond the near ranks shows only its

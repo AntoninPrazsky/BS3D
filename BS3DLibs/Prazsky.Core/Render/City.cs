@@ -66,6 +66,12 @@ namespace Prazsky.Core.Render
         private readonly bool[] _crowned;
 
         /// <summary>
+        /// Every plot the generator built on, in generator order, with its plan and the run of <see cref="Buildings"/> its
+        /// tower's boxes take (#1066). For the tests: each plan stays inside its plot and reaches the plot's top.
+        /// </summary>
+        internal IReadOnlyList<CityPlot> Plots { get; }
+
+        /// <summary>
         /// The layout this city was built on, taken from its config at construction (#399). The street level
         /// reads these rather than the config itself, so a config edited after the build — the map editor's
         /// live panel — cannot draw streets through towers the city has not been rebuilt to match.
@@ -136,6 +142,33 @@ namespace Prazsky.Core.Render
         private const float CLASSIC_FACADE_SHARE = 0.5f;
         private const uint FACADE_SALT = 678u;
 
+        //THE PLANS (#1066). The owner: every tower was squarish. A plot's footprint was one rectangle, its sides within
+        //1.33 : 1 of each other, and every setback tier shrank about the same centre, so from any height the city was
+        //square boxes. Now each tower rolls a plan, off the plot's own seed with this salt (the layout's generator and the
+        //tiers' stream are drawn exactly as before, so every block, gap and height stays):
+        //  - a plain box (PLAN_BOX), as before;
+        //  - a SLAB: one side narrowed to SLAB_NARROW of itself and slid along the other;
+        //  - an L: a main block across one side of the footprint and a lower wing down the other, set back WING_INSET
+        //    from the main block's wall, so no two of a building's walls stand in one plane and lay their window grids
+        //    side by side (each box lays out its own: two flush walls would meet in a doubled blank margin);
+        //  - a tower on a PODIUM: a low base over the whole footprint and the tower standing off-centre on it;
+        //  - TWIN towers on one podium, on footprints long enough to stand two.
+        //and a stack of setback tiers may LEAN: each tier slides towards a side or a corner by what the step leaves over
+        //TIER_STEP_MIN, so the setbacks climb up one face instead of round the middle.
+        //⚠ Every box stays inside the plot's old footprint and no higher than its old top: the chapter intros' flights,
+        //the menu orbit and the arena's clearing were laid among those boxes and stay clear of their parts by construction.
+        private const int PLAN_SALT = 0x10_66;
+        private const float PLAN_BOX = 0.34f, PLAN_SLAB = 0.18f, PLAN_ELL = 0.18f, PLAN_PODIUM = 0.18f;   //the twins take the rest
+        private const float SLAB_NARROW_MIN = 0.48f, SLAB_NARROW_SPREAD = 0.14f;
+        private const float WING_INSET = 1.5f;          //how far an L's wing stands back from its main block's wall
+        private const float WING_OVERLAP = 0.5f;        //how far the wing reaches into the main block, so the join has no crack
+        private const float ELL_MIN_SIDE = 9f;          //the footprint's long side an L needs, or the wing is a sliver
+        private const float TWIN_MIN_SIDE = 14f;        //the long side two towers need, a street's gap between them
+        private const float PODIUM_MIN_TOWER = 40f;     //the height a tower needs to stand on a podium at all
+        private const float PODIUM_MIN_HEIGHT = 7f;     //a podium's least height: three floors
+        private const float TIER_STEP_MIN = 1.5f;       //the least step a leaning tier, a podium's tower or a twin keeps from the edge below
+        private const float LEAN_SHARE = 0.55f;         //how many of the stacks lean
+
         /// <param name="config">The scene's own dials — both cities' layouts live on it (block pitch, radius,
         /// roofline, taper, base, and the layout seed: the same seed always gives the same city).</param>
         /// <param name="neon">Which of the two this is. <b>They are different cities, not one city relit</b>
@@ -145,13 +178,20 @@ namespace Prazsky.Core.Render
         /// The clearing the island stands in: half-width of the play surface. Blocks whose footprint would reach
         /// into it are left out, so the arena sits in a clearing rather than inside a building.
         /// </param>
-        public City(CitySceneConfig config, bool neon, float arenaHalfExtent)
+        public City(CitySceneConfig config, bool neon, float arenaHalfExtent) : this(config, neon, arenaHalfExtent, variedPlans: true)
+        {
+        }
+
+        /// <param name="variedPlans">False builds every tower on its plain footprint, as before #1066: the tests compare the
+        /// two cities' plots, which is how they show the plans changed no block, gap or height.</param>
+        internal City(CitySceneConfig config, bool neon, float arenaHalfExtent, bool variedPlans)
         {
             CityLayout layout = config.LayoutFor(neon);
             Random random = new(layout.Seed);
             List<ModelInstance> buildings = new();
             List<ModelInstance> cornices = new();
             List<int> crowned = new();
+            List<CityPlot> plots = new();
 
             float buildable = layout.BlockPitch - layout.StreetWidth;
 
@@ -211,8 +251,8 @@ namespace Prazsky.Core.Render
                             //three TIERS, each narrower than the one under it, to the same top: the skyline's heights
                             //stay exactly what they were and only the silhouettes change. Rolled from the plot's own
                             //seed, never the layout's generator, so every block, gap and height is the same city as
-                            //before. Each tier is its own box and lays out its own windows (City.fxh does it per box),
-                            //and all of a tower's tiers share its centre, so they share its hue and its pattern.
+                            //before. Each tier is its own box and lays out its own windows (City.fxh does it per box);
+                            //every box of a tower carries its anchor (below), so they share its hue and its pattern.
                             Random shape = new(unchecked(layout.Seed * 31 + (blockX + 97) * 7919 + (blockZ + 89) * 104729 + sx * 13 + sz * 7));
                             int tiers = height > SETBACK_MIN_HEIGHT && shape.NextDouble() < SETBACK_CHANCE
                                 ? (shape.NextDouble() < 0.4 ? 3 : 2) : 1;
@@ -222,53 +262,30 @@ namespace Prazsky.Core.Render
                             //the no-occlusion vector itself. It was rolled in the shader first, on the tower's centre, with a
                             //copy here deciding the cornices; the two agreed tower for tower when checked, but a copy on
                             //each side of the CPU/GPU line stays right only while both are kept in step, and one roll in one
-                            //place cannot disagree at all. Every tier and the cornices share it, so a tower is one kind and
-                            //one tone from its foot to its cornice.
-                            float kind = FacadeRoll(blockCenter.X + offsetX, blockCenter.Y + offsetZ);
-                            Vector4 style = new(kind, 0f, 0f, 0f);
+                            //place cannot disagree at all. Every box and the cornices share it, so a tower is one kind and
+                            //one tone from its foot to its cornice. The plot's centre rides in (z, w), the building's
+                            //identity: its tone, its neon and its windows' rhythm are one building's whatever box they
+                            //are drawn on (#1066), which an off-centre box's own centre would not give.
+                            Vector2 anchor = new(blockCenter.X + offsetX, blockCenter.Y + offsetZ);
+                            float kind = FacadeRoll(anchor.X, anchor.Y);
 
-                            float bottom = layout.BaseY, tierX = sizeX, tierZ = sizeZ;
-                            for (int tier = 0; tier < tiers; tier++)
-                            {
-                                float share = tiers == 2 ? 0.5f + 0.22f * (float)shape.NextDouble()
-                                    : tier == 0 ? 0.42f + 0.14f * (float)shape.NextDouble() : 0.5f + 0.2f * (float)shape.NextDouble();
-                                float tierTop = tier == tiers - 1 ? top : bottom + (top - bottom) * share;
-
-                                Vector3 center = new(
-                                    blockCenter.X + offsetX,
-                                    (bottom + tierTop) * 0.5f,
-                                    blockCenter.Y + offsetZ);
-
-                                //Scale then translate: no rotation, so the box stays axis-aligned and its
-                                //normals survive the non-uniform scale
-                                Matrix world = Matrix.CreateScale(tierX, tierTop - bottom, tierZ) * Matrix.CreateTranslation(center);
-                                buildings.Add(new ModelInstance(world, style));
-
-                                //CORNICES (#678's third step). A stone building ends in a moulded cornice, and a box ended
-                                //in a knife edge: the one silhouette the play camera sees of every tower
-                                //round the arena is its top against the sky. Only the towers of the classic punched
-                                //windows, and every tier of them, the way an Art Deco setback is finished at each step. A
-                                //slab wider than the tier: it has no windows of its own because it is shorter than two wall
-                                //margins, so it draws as stone in the tower's own tone (it carries the tower's roll), moulded
-                                //by City.fxh (the 1 in y marks it), and its underside throws the sun's shadow down the wall.
-                                if (kind < CLASSIC_FACADE_SHARE)
-                                {
-                                    Vector3 cornice = new(center.X, tierTop + CORNICE_OVER_ROOF - CORNICE_HEIGHT * 0.5f, center.Z);
-                                    crowned.Add(buildings.Count - 1);
-                                    cornices.Add(new ModelInstance(
-                                        Matrix.CreateScale(tierX + 2f * CORNICE_OUT, CORNICE_HEIGHT, tierZ + 2f * CORNICE_OUT)
-                                            * Matrix.CreateTranslation(cornice), new Vector4(kind, 1f, 0f, 0f)));
-                                }
-
-                                bottom = tierTop;
-                                tierX *= 0.66f + 0.16f * (float)shape.NextDouble();
-                                tierZ *= 0.66f + 0.16f * (float)shape.NextDouble();
-                            }
+                            //ITS PLAN (#1066), off a generator of its own (the plot's seed with PLAN_SALT), so the shape's
+                            //stream above - the tiers and their shares - is drawn exactly as it was
+                            var tower = new TowerBuilder(buildings, cornices, crowned, shape, anchor, kind);
+                            int firstBox = buildings.Count;
+                            CityPlan plan = CityPlan.Box;
+                            if (variedPlans)
+                                plan = tower.AddPlan(new Random(unchecked(layout.Seed * 31 + (blockX + 97) * 7919 + (blockZ + 89) * 104729
+                                    + sx * 13 + sz * 7) ^ PLAN_SALT), sizeX, sizeZ, layout.BaseY, top, tiers);
+                            else
+                                tower.AddStack(anchor, sizeX, sizeZ, layout.BaseY, top, tiers, Vector2.Zero);
+                            plots.Add(new CityPlot(anchor, plot, top, plan, firstBox, buildings.Count - firstBox));
                             BlockBuilt[(blockZ + layout.RadiusBlocks) * blocksPerSide + blockX + layout.RadiusBlocks] = true;
                         }
                 }
 
             TowerCount = buildings.Count;
+            Plots = plots;
             _crowned = new bool[TowerCount];
             foreach (int box in crowned) _crowned[box] = true;
             buildings.AddRange(cornices);
@@ -312,6 +329,188 @@ namespace Prazsky.Core.Render
             //edge and looking at the other. Beyond that everything lands in the last bucket, which is correct
             //— those are the farthest buildings and belong last.
             _bucketScale = DEPTH_BUCKETS / (2f * farthest);
+        }
+
+        //One tower's boxes, from its plan (#1066): every box wears the tower's facade kind, carries its anchor and, under the
+        //classic punched windows, a cornice. Built and dropped per plot at construction.
+        private readonly struct TowerBuilder
+        {
+            private readonly List<ModelInstance> _boxes, _cornices;
+            private readonly List<int> _crowned;
+            private readonly Random _shape;
+            private readonly Vector2 _anchor;
+            private readonly float _kind;
+
+            public TowerBuilder(List<ModelInstance> boxes, List<ModelInstance> cornices, List<int> crowned, Random shape,
+                Vector2 anchor, float kind)
+            {
+                _boxes = boxes; _cornices = cornices; _crowned = crowned; _shape = shape; _anchor = anchor; _kind = kind;
+            }
+
+            public CityPlan AddPlan(Random roll, float sizeX, float sizeZ, float bottom, float top, int tiers)
+            {
+                float height = top - bottom;
+                float longSide = MathF.Max(sizeX, sizeZ);
+
+                //The lean of any stack this tower raises: a side or a corner, or none
+                Vector2 lean = Vector2.Zero;
+                if (roll.NextDouble() < LEAN_SHARE)
+                {
+                    int way = roll.Next(8);
+                    lean = way < 4 ? new Vector2(way < 2 ? (way == 0 ? 1f : -1f) : 0f, way < 2 ? 0f : (way == 2 ? 1f : -1f))
+                        : new Vector2((way & 1) == 0 ? 1f : -1f, (way & 2) == 0 ? 1f : -1f);
+                }
+
+                double pick = roll.NextDouble();
+                CityPlan plan = pick < PLAN_BOX ? CityPlan.Box
+                    : pick < PLAN_BOX + PLAN_SLAB ? CityPlan.Slab
+                    : pick < PLAN_BOX + PLAN_SLAB + PLAN_ELL ? CityPlan.Ell
+                    : pick < PLAN_BOX + PLAN_SLAB + PLAN_ELL + PLAN_PODIUM ? CityPlan.Podium
+                    : CityPlan.Twin;
+                if (plan == CityPlan.Twin && longSide < TWIN_MIN_SIDE) plan = CityPlan.Podium;
+                if (plan is CityPlan.Podium or CityPlan.Twin && height < PODIUM_MIN_TOWER) plan = CityPlan.Box;
+                if (plan == CityPlan.Ell && longSide < ELL_MIN_SIDE) plan = CityPlan.Slab;
+
+                switch (plan)
+                {
+                    case CityPlan.Slab:
+                    {
+                        //One side keeps its length and the other narrows, the slab slid somewhere along the narrowed side
+                        bool longAlongX = roll.Next(2) == 0;
+                        float narrow = SLAB_NARROW_MIN + SLAB_NARROW_SPREAD * (float)roll.NextDouble();
+                        float slide = (float)roll.NextDouble() * 2f - 1f;
+                        float w = longAlongX ? sizeX : sizeX * narrow, d = longAlongX ? sizeZ * narrow : sizeZ;
+                        Vector2 at = _anchor + (longAlongX ? new Vector2(0f, slide * (sizeZ - d) * 0.5f) : new Vector2(slide * (sizeX - w) * 0.5f, 0f));
+                        AddStack(at, w, d, bottom, top, tiers, lean);
+                        break;
+                    }
+                    case CityPlan.Ell:
+                    {
+                        //Worked in the footprint's own (u, v), a half-size a by b, then turned into the world: the main block
+                        //takes the far band of v across the whole of u, the wing runs down the near rest of v at the far end
+                        //of u, WING_INSET short of the main block's wall at u = a
+                        bool swap = roll.Next(2) == 0;
+                        float su = roll.Next(2) == 0 ? 1f : -1f, sv = roll.Next(2) == 0 ? 1f : -1f;
+                        float a = (swap ? sizeZ : sizeX) * 0.5f, b = (swap ? sizeX : sizeZ) * 0.5f;
+                        float mainDepth = 2f * b * (0.5f + 0.15f * (float)roll.NextDouble());
+                        float wingWidth = 2f * a * (0.38f + 0.17f * (float)roll.NextDouble());
+                        float wingShare = 0.32f + 0.38f * (float)roll.NextDouble();
+
+                        Vector2 anchor = _anchor;
+                        Vector2 World(float u, float v) => anchor + (swap ? new Vector2(v * sv, u * su) : new Vector2(u * su, v * sv));
+                        Vector2 Size(float u, float v) => swap ? new Vector2(v, u) : new Vector2(u, v);
+
+                        Vector2 mainSize = Size(2f * a, mainDepth);
+                        float firstTop = AddStack(World(0f, b - mainDepth * 0.5f), mainSize.X, mainSize.Y, bottom, top, tiers, lean);
+
+                        //The wing is lower than the main block's first tier, so its roof meets a wall and never the sky over a setback
+                        float wingTop = MathF.Min(bottom + height * wingShare, firstTop);
+                        float wingFrom = -b, wingTo = b - mainDepth + WING_OVERLAP;
+                        Vector2 wingSize = Size(wingWidth, wingTo - wingFrom);
+                        AddBox(World(a - WING_INSET - wingWidth * 0.5f, (wingFrom + wingTo) * 0.5f), wingSize.X, wingSize.Y, bottom, wingTop);
+                        break;
+                    }
+                    case CityPlan.Podium:
+                    {
+                        float podiumTop = bottom + MathF.Max(PODIUM_MIN_HEIGHT, height * (0.1f + 0.1f * (float)roll.NextDouble()));
+                        AddBox(_anchor, sizeX, sizeZ, bottom, podiumTop);
+
+                        //The tower on it, off-centre wherever the lean says (a podium's tower leans even when its tiers do not)
+                        float towerX = sizeX * (0.5f + 0.22f * (float)roll.NextDouble());
+                        float towerZ = sizeZ * (0.5f + 0.22f * (float)roll.NextDouble());
+                        Vector2 standLean = lean == Vector2.Zero ? new Vector2(roll.Next(3) - 1, roll.Next(3) - 1) : lean;
+                        Vector2 at = _anchor + new Vector2(
+                            standLean.X * MathF.Max(0f, (sizeX - towerX) * 0.5f - TIER_STEP_MIN),
+                            standLean.Y * MathF.Max(0f, (sizeZ - towerZ) * 0.5f - TIER_STEP_MIN));
+                        AddStack(at, towerX, towerZ, podiumTop, top, tiers, lean);
+                        break;
+                    }
+                    case CityPlan.Twin:
+                    {
+                        float podiumTop = bottom + MathF.Max(PODIUM_MIN_HEIGHT, height * (0.08f + 0.08f * (float)roll.NextDouble()));
+                        AddBox(_anchor, sizeX, sizeZ, bottom, podiumTop);
+
+                        //Two towers along the long side, a gap between them and TIER_STEP_MIN to each end; one reaches the
+                        //plot's top and the other stops short of it, which of the two by the roll
+                        bool longAlongX = sizeX >= sizeZ;
+                        float length = longAlongX ? sizeX : sizeZ, across = longAlongX ? sizeZ : sizeX;
+                        float room = length - 2f * TIER_STEP_MIN;
+                        float width = room * (0.36f + 0.06f * (float)roll.NextDouble());
+                        float depth = across * (0.55f + 0.25f * (float)roll.NextDouble());
+                        float apart = (room - 2f * width) * 0.5f + width * 0.5f;
+                        float shift = ((float)roll.NextDouble() * 2f - 1f) * MathF.Max(0f, (across - depth) * 0.5f - TIER_STEP_MIN);
+                        float shorterTop = podiumTop + (top - podiumTop) * (0.75f + 0.2f * (float)roll.NextDouble());
+                        bool firstTall = roll.Next(2) == 0;
+                        for (int twin = 0; twin < 2; twin++)
+                        {
+                            float along = twin == 0 ? -apart : apart;
+                            Vector2 at = _anchor + (longAlongX ? new Vector2(along, shift) : new Vector2(shift, along));
+                            float twinTop = (twin == 0) == firstTall ? top : shorterTop;
+                            AddBox(at, longAlongX ? width : depth, longAlongX ? depth : width, podiumTop, twinTop);
+                        }
+                        break;
+                    }
+                    default:
+                        AddStack(_anchor, sizeX, sizeZ, bottom, top, tiers, lean);
+                        break;
+                }
+                return plan;
+            }
+
+            /// <summary>
+            /// A stack of setback tiers over the rectangle centred on <paramref name="centre"/> (#678): a tall enough tower
+            /// rises in two or three, each narrower than the one under it, all reaching <paramref name="top"/>. Off the
+            /// plot's shape stream, drawn in the order it always was. A tier slides towards <paramref name="lean"/> by
+            /// what its step leaves over <c>TIER_STEP_MIN</c>. Returns the first tier's top.
+            /// </summary>
+            public float AddStack(Vector2 centre, float sizeX, float sizeZ, float bottom, float top, int tiers, Vector2 lean)
+            {
+                float firstTop = top, tierX = sizeX, tierZ = sizeZ;
+                for (int tier = 0; tier < tiers; tier++)
+                {
+                    float share = tiers == 2 ? 0.5f + 0.22f * (float)_shape.NextDouble()
+                        : tier == 0 ? 0.42f + 0.14f * (float)_shape.NextDouble() : 0.5f + 0.2f * (float)_shape.NextDouble();
+                    float tierTop = tier == tiers - 1 ? top : bottom + (top - bottom) * share;
+                    if (tier == 0) firstTop = tierTop;
+
+                    AddBox(centre, tierX, tierZ, bottom, tierTop);
+
+                    bottom = tierTop;
+                    float nextX = tierX * (0.66f + 0.16f * (float)_shape.NextDouble());
+                    float nextZ = tierZ * (0.66f + 0.16f * (float)_shape.NextDouble());
+                    centre += new Vector2(lean.X * MathF.Max(0f, (tierX - nextX) * 0.5f - TIER_STEP_MIN),
+                        lean.Y * MathF.Max(0f, (tierZ - nextZ) * 0.5f - TIER_STEP_MIN));
+                    tierX = nextX;
+                    tierZ = nextZ;
+                }
+                return firstTop;
+            }
+
+            //One box from bottom to top over the rectangle centred on `centre`
+            public void AddBox(Vector2 centre, float sizeX, float sizeZ, float bottom, float top)
+            {
+                Vector3 middle = new(centre.X, (bottom + top) * 0.5f, centre.Y);
+
+                //Scale then translate: no rotation, so the box stays axis-aligned and its normals survive the
+                //non-uniform scale
+                _boxes.Add(new ModelInstance(Matrix.CreateScale(sizeX, top - bottom, sizeZ) * Matrix.CreateTranslation(middle),
+                    new Vector4(_kind, 0f, _anchor.X, _anchor.Y)));
+
+                //CORNICES (#678's third step). A stone building ends in a moulded cornice, and a box ended in a knife edge:
+                //the one silhouette the play camera sees of every tower round the arena is its top against the sky. Only
+                //the towers of the classic punched windows, and every box of them, the way an Art Deco setback is finished
+                //at each step. A slab wider than the box: it has no windows of its own because it is shorter than two wall
+                //margins, so it draws as stone in the tower's own tone (it carries the tower's roll), moulded by City.fxh
+                //(the 1 in y marks it), and its underside throws the sun's shadow down the wall.
+                if (_kind < CLASSIC_FACADE_SHARE)
+                {
+                    Vector3 cornice = new(middle.X, top + CORNICE_OVER_ROOF - CORNICE_HEIGHT * 0.5f, middle.Z);
+                    _crowned.Add(_boxes.Count - 1);
+                    _cornices.Add(new ModelInstance(
+                        Matrix.CreateScale(sizeX + 2f * CORNICE_OUT, CORNICE_HEIGHT, sizeZ + 2f * CORNICE_OUT)
+                            * Matrix.CreateTranslation(cornice), new Vector4(_kind, 1f, _anchor.X, _anchor.Y)));
+                }
+            }
         }
 
         //THE FAR SKYLINE (#774): rows of slabs round the grid past its last block, so a street's view ends in a city and
@@ -368,7 +567,8 @@ namespace Prazsky.Core.Render
                         centre.Y = layout.BaseY + height * 0.5f;
 
                         float kind = FacadeRoll(centre.X, centre.Z);
-                        slabs.Add(new ModelInstance(Matrix.CreateScale(size) * Matrix.CreateTranslation(centre), new Vector4(kind, 0f, 0f, 0f)));
+                        slabs.Add(new ModelInstance(Matrix.CreateScale(size) * Matrix.CreateTranslation(centre),
+                            new Vector4(kind, 0f, centre.X, centre.Z)));
                         along += width + gap;
                     }
                 }
@@ -469,4 +669,20 @@ namespace Prazsky.Core.Render
             return bucket;
         }
     }
+
+    /// <summary>A tower's plan (#1066): what its footprint was made of. See <c>City</c>'s <c>PLAN_SALT</c>.</summary>
+    internal enum CityPlan
+    {
+        Box,
+        Slab,
+        Ell,
+        Podium,
+        Twin,
+    }
+
+    /// <summary>
+    /// One built plot (#1066): its centre (the tower's anchor), the side of its square, the top its tower reaches, its plan,
+    /// and the run of <see cref="City.Buildings"/> its tower's boxes take (cornices not included).
+    /// </summary>
+    internal readonly record struct CityPlot(Vector2 Anchor, float Side, float Top, CityPlan Plan, int FirstBox, int BoxCount);
 }
