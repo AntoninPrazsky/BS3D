@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-06 — #1066 půdorysy věží ve městě — desktop (RDT-PC), Claude Code
+- Hotovo (99c697ab, opravy z revize 98e1c9b5). Věže mají plány: kvádr, deska, L s nižším křídlem, věž na podnoži, dvojčata. Ustupující patra se mohou naklánět ke straně. Bloky, ulice a výšky zůstaly, test připíná město bez plánů proti hashi z mainu. Na High je to beze změny, na Low +0,08 ms.
+- ⚠ Potato přepisoval custom vektor města na otevřený (`Opened`), protože ho facade program bral jako okluzi. Nulový vektor ztmaví zdi (w = 0 znamená zahrabaný). Teď facade dává osvětlení `(0,0,0,1)` sám a čte kotvu ze `zw`.
+- ⚠ Testbed losuje `sceneseed` při každém spuštění a s ním i rozložení města. Páry před/po bez `sceneseed=` nejsou srovnatelné.
+- Revizní agent našel jehlové věže a koplanární střechy, obojí opraveno.
+- Otevřené: verdikt majitele (stránka CQx2JsqNLanQKmk76zm2ZZ), záběr z telefonu (byl zamčený).
+
 ## 2026-11-06 — #1062 #1067 #1068 #1069 poznámky majitele ze 6. 11. — desktop (RDT-PC), Claude Code
 - majitel: verdikty OK u #1054 a #1060, Vrať u #1062: „Mraky v bouři vypadají jako sněhové vločky, měly by vypadat spíš jako vata.“
 - #1062: na desktopu to bylo stejné, šlo o shader, ne o GL. Pravidelné laloky `|cos|` od středu kreslily do každého obláčku květ. Teď jsou na okraji nepravidelné boule (šum po jednotkové kružnici směru) a obrys má jedno oktávové chvění. Shader má 223 slotů místo 248. Sloučeno f59a7ab2.
