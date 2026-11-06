@@ -167,6 +167,8 @@ namespace Prazsky.Core.Render
         private const float PODIUM_MIN_TOWER = 40f;     //the height a tower needs to stand on a podium at all
         private const float PODIUM_MIN_HEIGHT = 7f;     //a podium's least height: three floors
         private const float TIER_STEP_MIN = 1.5f;       //the least step a leaning tier, a podium's tower or a twin keeps from the edge below
+        private const float TIER_MIN_SIDE = 2.5f;       //the narrowest a setback tier may be (the plain towers' narrowest was 2.74)
+        private const float WING_BELOW = 2.2f;          //how far an L's wing stays under its main block's first roof: a floor
         private const float LEAN_SHARE = 0.55f;         //how many of the stacks lean
 
         /// <param name="config">The scene's own dials — both cities' layouts live on it (block pitch, radius,
@@ -404,7 +406,9 @@ namespace Prazsky.Core.Render
                         float firstTop = AddStack(World(0f, b - mainDepth * 0.5f), mainSize.X, mainSize.Y, bottom, top, tiers, lean);
 
                         //The wing is lower than the main block's first tier, so its roof meets a wall and never the sky over a setback
-                        float wingTop = MathF.Min(bottom + height * wingShare, firstTop);
+                        //(at least a floor lower: level with it, the two roofs and their cornices lay in one plane over
+                        //the overlap and fought for the same pixels)
+                        float wingTop = MathF.Min(bottom + height * wingShare, firstTop - WING_BELOW);
                         float wingFrom = -b, wingTo = b - mainDepth + WING_OVERLAP;
                         Vector2 wingSize = Size(wingWidth, wingTo - wingFrom);
                         AddBox(World(a - WING_INSET - wingWidth * 0.5f, (wingFrom + wingTo) * 0.5f), wingSize.X, wingSize.Y, bottom, wingTop);
@@ -468,16 +472,23 @@ namespace Prazsky.Core.Render
                 float firstTop = top, tierX = sizeX, tierZ = sizeZ;
                 for (int tier = 0; tier < tiers; tier++)
                 {
+                    //The draws in the order they always were: the share, then the next tier's two sides
                     float share = tiers == 2 ? 0.5f + 0.22f * (float)_shape.NextDouble()
                         : tier == 0 ? 0.42f + 0.14f * (float)_shape.NextDouble() : 0.5f + 0.2f * (float)_shape.NextDouble();
-                    float tierTop = tier == tiers - 1 ? top : bottom + (top - bottom) * share;
+                    float nextX = tierX * (0.66f + 0.16f * (float)_shape.NextDouble());
+                    float nextZ = tierZ * (0.66f + 0.16f * (float)_shape.NextDouble());
+
+                    //⚠ A tier narrower than TIER_MIN_SIDE is not raised: this one goes to the top instead. A slab's or a
+                    //podium's tower shrinks twice more as it steps back, and three tiers on a small plot ended 1.4 wide, a
+                    //needle whose roof the dressing split into cells of negative size (its pieces mirrored)
+                    bool last = tier == tiers - 1 || MathF.Min(nextX, nextZ) < TIER_MIN_SIDE;
+                    float tierTop = last ? top : bottom + (top - bottom) * share;
                     if (tier == 0) firstTop = tierTop;
 
                     AddBox(centre, tierX, tierZ, bottom, tierTop);
+                    if (last) break;
 
                     bottom = tierTop;
-                    float nextX = tierX * (0.66f + 0.16f * (float)_shape.NextDouble());
-                    float nextZ = tierZ * (0.66f + 0.16f * (float)_shape.NextDouble());
                     centre += new Vector2(lean.X * MathF.Max(0f, (tierX - nextX) * 0.5f - TIER_STEP_MIN),
                         lean.Y * MathF.Max(0f, (tierZ - nextZ) * 0.5f - TIER_STEP_MIN));
                     tierX = nextX;

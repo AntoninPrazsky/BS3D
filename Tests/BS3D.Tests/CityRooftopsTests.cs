@@ -84,8 +84,8 @@ namespace BS3D.Tests
         //#1066, whose tower plans give the city other roofs (wings, podiums, twins; 29,056 and 38,003 pieces before); a
         //later change that means to leave the dressing alone must leave these alone
         private const int FINGERPRINT_ROLLS = 4;
-        private const int DAY_PIECES = 36324, NEON_PIECES = 45299;
-        private const uint DAY_FINGERPRINT = 3488432833u, NEON_FINGERPRINT = 151548289u;
+        private const int DAY_PIECES = 35812, NEON_PIECES = 43240;
+        private const uint DAY_FINGERPRINT = 3295420047u, NEON_FINGERPRINT = 2550363457u;
 
         [Fact]
         public void SplittingTheBeaconsMovedNoPieceOfTheLayout()
