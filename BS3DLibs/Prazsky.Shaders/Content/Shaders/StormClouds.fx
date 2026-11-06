@@ -83,16 +83,19 @@ float HorizonHazeDistance;
 
 //Where the field thins out towards the band's edges (#551): in from the narrowest one, the band's 560 across the
 //wind, by more than any Game camera stands off the arena.
-//THE BILLOWS (#953). The owner: "the clouds still have visible circles - they do not look like real clouds". The outline's
-//wobble below runs two noise octaves round a disc: a softer disc, still a disc, and a cell of them read as a heap of
-//cotton balls, where every reference (953-zimage, 953-klein) draws the cauliflower of a cumulonimbus, round lobes along
-//every edge with dark creases between them. So each puff's rim is SCALLOPED: BILLOW_LOBES_MIN to that plus three round
-//lobes, on its own seed, pushing the edge out at each lobe and in at each crease, the creases in shade. Analytic, one
-//atan2 and a cosine: a 3D noise on the puff's sphere did it too and cost the storm's frame 3.5 ms, the puffs' overdraw
-//being what it is.
-static const float BILLOW_LOBES_MIN = 5.0;
-static const float BILLOW_EDGE = 0.2;       //how far the lobes push the fringe out and the creases pull it in, in r squared
-static const float BILLOW_CREASE = 0.32;    //how dark a crease between lobes goes
+//THE BILLOWS (#953, #1062). A puff's outline wobbled by noise over the disc is still a disc, and a field of them showed
+//"visible circles", so the rim is BUMPED: a gradient noise run round the unit circle of the puff's own direction (periodic
+//by construction, on the puff's seed) pushes the edge out at a bump and pulls it in between, the dips in a little shade.
+//⚠ The bumps must be IRREGULAR and only at the RIM. Regular round lobes (an |cos| of the angle, five to eight a puff)
+//felt from the middle drew a petal in every puff and dark lines between them running in to its heart; the owner: "the
+//clouds look a bit like snowflakes, they should look more like cotton wool". A second, odd harmonic over a cosine is
+//irregular but cuts pointed tips, a star again. Noise on the direction gives soft bumps of uneven size, and with the
+//outline's wobble cut to one octave the pixel shader is 223 slots against the lobes' 248. ⚠ A 3D noise on the puff's
+//reconstructed sphere did the same and cost the storm's frame 3.5 ms, the puffs' overdraw being what it is.
+static const float BILLOW_FREQUENCY = 1.8;  //noise cells per unit of the direction: about eleven round the rim, five or six bumps
+static const float BILLOW_EDGE = 0.28;      //how far a bump pushes the fringe out and a dip pulls it in, in r squared
+static const float BILLOW_RIM = 0.3;        //the r squared from which the bumps begin to be felt, all of it at the edge
+static const float BILLOW_CREASE = 0.08;    //how dark a dip between bumps goes
 
 static const float STORM_FAR_THIN_START = 380.0;
 static const float STORM_FAR_THIN_END = 460.0;
@@ -216,9 +219,9 @@ float4 CloudPS(CloudVertexOutput input) : COLOR
     //⚠ THE OUTLINE HAS TO BE BROKEN OR EVERY PUFF IS A DISC, and a field of discs reads as sprites however
     //well it is shaded. One turn of gradient noise around the quad, on the puff's own seed, so no two are
     //cut the same way. It runs on the CORNER and not on world space: the noise then rides with the billboard
-    //instead of swimming across it as the camera turns.
-    float wobble = GradientNoise2(corner * 1.9 + seed * 53.0) * 0.55
-                 + GradientNoise2(corner * 4.7 + seed * 91.0) * 0.22;
+    //instead of swimming across it as the camera turns. One octave: the billows below break the rim finer, and a
+    //second octave here (corner * 4.7) added nothing they do not, at 61 of the 284 instruction slots it made.
+    float wobble = GradientNoise2(corner * 1.9 + seed * 53.0) * 0.6;
     float r2 = dot(corner, corner) * (1.0 + wobble);
 
     //--- The puff as a sphere -------------------------------------------------------------------------
@@ -230,12 +233,12 @@ float4 CloudPS(CloudVertexOutput input) : COLOR
     float z = sqrt(saturate(1.0 - saturate(r2)));
     float3 sphere = normalize(CameraRight * corner.x + CameraUp * corner.y + towardsEye * z);
 
-    //The billows (#953): see BILLOW_LOBES_MIN above. -1 in a crease, +1 at a lobe's crown, felt only towards the rim
-    //|cos| of half the angle: ROUND crowns and sharp narrow creases, the profile of a cauliflower's lobes. A plain cosine
-    //cut lobes and creases alike, and seen from most angles the puffs came out as stars and flowers
-    float lobes = BILLOW_LOBES_MIN + floor(frac(seed * 7.31) * 4.0);
-    float billow = (abs(cos(atan2(corner.y, corner.x) * lobes * 0.5 + seed * 19.0)) * 2.0 - 1.3) * saturate(r2 * 1.6);
-    r2 -= billow * BILLOW_EDGE * saturate(r2);
+    //The billows (#953, #1062): see BILLOW_FREQUENCY above. -1 in a dip, +1 at a bump's crown, felt only towards the
+    //rim. The direction is undefined at the very middle, where `rim` is 0.
+    float2 rimDirection = corner * rsqrt(max(dot(corner, corner), 1e-6));
+    float billow = GradientNoise2(rimDirection * BILLOW_FREQUENCY + seed * float2(17.0, 29.0)) * 2.0;
+    float rim = smoothstep(BILLOW_RIM, 1.0, r2);
+    r2 -= billow * BILLOW_EDGE * rim;
 
     //The soft edge. `EdgeSoftness` is where the falloff STARTS, so under it the puff has a solid middle and
     //over it it is all fringe: this is the dial that decides body against wisp.
@@ -262,8 +265,8 @@ float4 CloudPS(CloudVertexOutput input) : COLOR
 
     float3 color = cloud * (SunColor * ndotl + skyAmbient * AmbientStrength);
 
-    //The creases between the billows hold shade: the sun and the sky both see less of a fold (#953)
-    color *= 1.0 - BILLOW_CREASE * saturate(-billow * 1.6);
+    //The dips between the billows hold a little shade: the sun and the sky both see less of a fold (#953)
+    color *= 1.0 - BILLOW_CREASE * saturate(-billow * 1.5) * rim;
 
     //Where the puff stands in the layer. A storm is dark UNDERNEATH because the cloud above it is in the
     //way, and that is a property of the whole field rather than of any one puff - so it is taken from the
