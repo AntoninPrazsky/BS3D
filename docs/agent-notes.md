@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-06 — #1065 #1066 města na referenčním APU — notebook (ThinkPad), Claude Code
+- Hotovo: změřena cena, kterou desktop nemohl ověřit. Odrazy (#1065, Testbed 1600x900, ssaa 2, `alt=cityreflect=0;cityreflect=1`, 72 párů na pózu): denní ulice +3,86 ms na 42,19, neonová +2,32 na 53,11, z arény v šumu (+0,21 a +0,39). Je to stejný podíl snímku jako na desktopu. `Low` a `Medium` neodrážejí.
+- Půdorysy (#1066) na `Low` ve hře: Girandole 12,36 → 12,24 ms, Turbine 10,94 → 10,86. Merge odrazů `Low` nepohnuly. Čísla jsou v `city.md` (rendering i scenes) a v `quality-measurements.md`.
+- ⚠ Ghost na `Low` se mezi běhy jednoho buildu liší o 2–3,5 ms, když měření běží přes 20 minut. Krok pod ~1 ms tam neber vážně.
+- Otevřené: nic.
+
 ## 2026-11-06 — #1063 pád na bombě, efekty na telefonu — desktop (RDT-PC), Claude Code
 - Hotovo (6a038e48): každý level s bombou na telefonu padal. `BombVS` čte `Bone` jen jako `.xyz`, MojoShader nechá 3 registry a MonoGame zkopíruje celou matici za konec bufferu. Pod OPENGL se teď čtou všechny sloupce (i u `RefractionPS`). `FinishGlEffects` takové přetečení odmítne, ověřeno, že zabere.
 - Na telefonu ověřen výbuch bomby (58-60 FPS) a čočka přesného míření.
