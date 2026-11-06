@@ -67,6 +67,15 @@ namespace BS3D.Effects
         private const float SCORPION_STAND = 3.4f, SCORPION_CLEARANCE = 0.85f, SCORPION_PUSH = 0.7f;
         private const float SCORPION_INNER = 42f, SCORPION_OUTER = 70f;
         private const float SCORPION_ONSET = 0.4f, SCORPION_SECONDS = 4.4f;
+        //The pyramids (#1068, the owner: "the shot of the pyramids is missing"): a run this far out from Khufu to this far,
+        //low over the dunes, on the arena's side of the group and turned off the line to the arena by a roll in this range,
+        //so the three stand staggered rather than one behind another; the lens between Khufu and Khafre, this share up
+        //Khufu's height. The arena stays behind the lens: it is the far side of the whole run.
+        private const float PYRAMIDS_FROM = 560f, PYRAMIDS_TO = 400f;
+        private const float PYRAMIDS_CLEARANCE = 7f;
+        private const float PYRAMIDS_TURN_MIN = 0.3f, PYRAMIDS_TURN_MAX = 0.6f;
+        private const float PYRAMIDS_LOOK_FRACTION = 0.3f;
+        private const float PYRAMIDS_SECONDS = 4.2f;
 
         /// <summary>The prologue for the desert being drawn, or null when there is no desert config.</summary>
         public static IntroShot[] Build(SceneRenderer scenes, Func<float> clock, float fieldOfView, Random random)
@@ -76,11 +85,41 @@ namespace BS3D.Effects
             float Ground(float x, float z) => TerrainMirror.Desert(x, z, desert);
 
             IntroShot erg = Erg(Ground, fieldOfView, random);
+            IntroShot pyramids = PyramidsShot(desert, Ground, fieldOfView, random);
             IntroShot scorpion = Scorpion(scenes, clock, Ground, fieldOfView, random);
             IntroShot crest = Crest(desert, Ground, fieldOfView, random);
             IntroShot flock = Flock(desert, Ground, fieldOfView, random);
 
-            return flock == null ? new[] { erg, scorpion, crest } : new[] { erg, scorpion, crest, flock };
+            var shots = new System.Collections.Generic.List<IntroShot> { erg };
+            if (pyramids != null) shots.Add(pyramids);
+            shots.Add(scorpion);
+            shots.Add(crest);
+            if (flock != null) shots.Add(flock);
+            return shots.ToArray();
+        }
+
+        /// <summary>
+        /// The Giza group from the sand (#1068): low over the dunes towards Khufu from the arena's side, turned off the line to
+        /// the arena so Khafre stands beside Khufu rather than behind it, the lens a little up their faces.
+        /// </summary>
+        private static IntroShot PyramidsShot(DesertSceneConfig desert, Func<float, float, float> ground, float fieldOfView, Random random)
+        {
+            var placement = TerrainMirror.DesertPyramids(desert);
+            if (placement.Count < 2) return null;
+
+            Vector3 khufu = placement[0].Centre, khafre = placement[1].Centre;
+            var foot = new Vector2(khufu.X, khufu.Z);
+            Vector2 towardsArena = foot.LengthSquared() > 1e-4f ? -Vector2.Normalize(foot) : Vector2.UnitX;
+            float side = random.Next(2) == 0 ? 1f : -1f;
+            Vector2 outward = AridIntroPaths.Bearing(MathF.Atan2(towardsArena.Y, towardsArena.X)
+                + side * AridIntroPaths.Roll(random, PYRAMIDS_TURN_MIN, PYRAMIDS_TURN_MAX));
+
+            Vector2 from = foot + outward * PYRAMIDS_FROM, to = foot + outward * PYRAMIDS_TO;
+            Vector3[] path = AridIntroPaths.Hug(AridIntroPaths.Line(from, to), ground, PYRAMIDS_CLEARANCE, 3f, 4);
+
+            Vector3 between = Vector3.Lerp(khufu, khafre, 0.35f);
+            var lookAt = new Vector3(between.X, khufu.Y + placement[0].Height * PYRAMIDS_LOOK_FRACTION, between.Z);
+            return new IntroShot("the pyramids", path, PYRAMIDS_SECONDS, fieldOfView, lookAt: lookAt);
         }
 
         /// <summary>
