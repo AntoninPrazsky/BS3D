@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-06 — #1065 odrazy věží v oknech — desktop (RDT-PC), Claude Code
+- Hotovo (86ef3c30, opravy z revize 7f29b438). High a Ultra: okno do 40 jednotek od kamery pošle odražený paprsek přes mapu města (`CityReflectionMap`). Nová technika `InstancedCityReflect`, ostatní programy se nezměnily. Z hrací kamery +0,02 ms, v ulici +0,5 až +0,75 ms (3840x1600, ssaa 2).
+- ⚠ Hradlo podle footprintu pustilo skoro všechno a z ostrova to stálo +4,9 ms. Správně je podle vzdálenosti od kamery.
+- ⚠ Pochod po texelech nedosáhne přes ulici z šikmého okna, a tam sklo odráží nejvíc. Pomohly skoky podle distance field.
+- ⚠ Městský tlumič 0,07 patří jen obloze. Věž přes něj nebyla vidět.
+- Otevřené: verdikt majitele (stránka CQx2JsqNLanQKmk76zm2ZZ), měření na APU.
+
 ## 2026-11-06 — #1066 půdorysy věží ve městě — desktop (RDT-PC), Claude Code
 - Hotovo (99c697ab, opravy z revize 98e1c9b5). Věže mají plány: kvádr, deska, L s nižším křídlem, věž na podnoži, dvojčata. Ustupující patra se mohou naklánět ke straně. Bloky, ulice a výšky zůstaly, test připíná město bez plánů proti hashi z mainu. Na High je to beze změny, na Low +0,08 ms.
 - ⚠ Potato přepisoval custom vektor města na otevřený (`Opened`), protože ho facade program bral jako okluzi. Nulový vektor ztmaví zdi (w = 0 znamená zahrabaný). Teď facade dává osvětlení `(0,0,0,1)` sám a čte kotvu ze `zw`.
