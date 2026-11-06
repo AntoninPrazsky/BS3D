@@ -73,11 +73,12 @@ float CityReflectMarch(float3 origin, float3 faceNormal, float3 dir, out float3 
     hitNormal = 0;
     hitTexel = 0;
 
-    //Out from the pane a texel and a half along its normal before the first look, so the march starts outside the
-    //pane's own tower. A ray running almost along the facade never gets out of it, and keeps the sky.
+    //A texel and a half out from the pane, ALONG ITS NORMAL, before the first look, so the march starts outside the pane's
+    //own tower. ⚠ Not along the ray: for a grazing ray a texel and a half out that way was tens of units down the street,
+    //past every nearer neighbour. A ray running almost along the facade keeps the sky.
     float away = dot(dir.xz, faceNormal.xz);
     if (away < 0.02) return 0;
-    float3 start = origin + dir * (CityReflectTexel * 1.5 / away);
+    float3 start = origin + float3(faceNormal.x, 0, faceNormal.z) * (CityReflectTexel * 1.5);
 
     float2 perUnit = dir.xz / CityReflectTexel;                 //texels crossed a unit of the ray, each axis
     float across = max(max(abs(perUnit.x), abs(perUnit.y)), 1e-5);
@@ -213,24 +214,30 @@ float4 CityReflectPS(CityVSOutput input) : COLOR
             float travelled = distance(hitPosition, input.WorldPosition);
             float3 met = CityReflectedFacade(hitPosition, hitNormal, hitTexel, facade.Footprint * (1.0 + travelled / eyeDistance));
 
-            //What ShadePixel mirrored for this pane, the sky along the same ray, swapped for the tower it meets, over the
-            //same roughness and Fresnel: a pane head-on shows little and one at a grazing angle a whole facade, as glass
-            //does. ⚠ The tower is mirrored as GLASS mirrors (Fresnel alone), and only the sky it replaces keeps the city's
-            //dimmer (SpecularAmbientStrength, 0.07, times WindowReflectionBoost): that dimmer exists so a bright sky does
-            //not bleach a thousand grazing facades, and a tower, darker than the sky by day, cannot. Through the dimmer the
-            //tower was a hundredth of itself and could not be seen at all.
-            float roughness = saturate(lerp(1.0, sqrt(2.0 / (SpecularPower + 2.0)), WindowSmoothness));
+            //What ShadePixel mirrored for this pane, the sky along the same ray, swapped for the tower it meets: a pane head-on
+            //shows little and one at a grazing angle a whole facade, as glass does. The sky taken away is exactly what
+            //ShadePixel added for this pixel, with ITS blend of plaster and glass (the smoothness and the environment boost
+            //lerped by the glass share, as CityShade's SurfaceSpecular was), so a pixel only partly glass loses no more sky
+            //than it was given. ⚠ The tower is mirrored as GLASS mirrors (Fresnel alone), and only the sky keeps the city's
+            //dimmer (SpecularAmbientStrength, 0.07): that dimmer exists so a bright sky does not bleach a thousand grazing
+            //facades, and a tower, darker than the sky by day, cannot. Through the dimmer it was a hundredth of itself.
             float3 linearSpecular = SrgbToLinear(SpecularColor);
-            float3 fresnel = FresnelSchlick(lerp(DielectricF0 * linearSpecular, linearSpecular, Metalness),
-                dot(facade.Normal, eye), WindowSmoothness);
-            float3 sky = SkyRadiance(dir);
+            float3 f0 = lerp(DielectricF0 * linearSpecular, linearSpecular, Metalness);
+            float facing = dot(facade.Normal, eye);
+            float sharp = 1.0 - saturate(lerp(1.0, sqrt(2.0 / (SpecularPower + 2.0)), WindowSmoothness));
 
-            //Faded out over the last third of the reach, so where the march stops is not a line across the city
+            float blendedSmoothness = lerp(FacadeSmoothness, WindowSmoothness, facade.Glass);
+            float blendedSharp = 1.0 - saturate(lerp(1.0, sqrt(2.0 / (SpecularPower + 2.0)), blendedSmoothness));
+            float3 skyGiven = SkyRadiance(dir) * FresnelSchlick(f0, facing, blendedSmoothness)
+                * (blendedSharp * SpecularAmbientStrength * lerp(1.0, WindowReflectionBoost, facade.Glass));
+
+            //Faded out over the last third of the reach, so where the march stops is not a line across the city; and
+            //CityReflectStrength under 1 blends towards the plain pane, the sky it keeps and the tower it shows alike
             float near = saturate(3.0 - 3.0 * eyeDistance / CityReflectReach);
-            float3 mirror = fresnel * ((1.0 - roughness) * facade.Glass * facade.Cavity * near);
+            float swap = facade.Cavity * near * saturate(CityReflectStrength);
             float coating = facade.Kind >= 0.5 && facade.Kind < 0.68 ? CITY_REFLECT_CURTAIN_COATING : 1.0;
-            shaded.rgb += met * min(mirror * (coating * CityReflectStrength), 1.0)
-                - mirror * (sky * (SpecularAmbientStrength * WindowReflectionBoost));
+            float3 mirror = FresnelSchlick(f0, facing, WindowSmoothness) * (sharp * facade.Glass * coating * max(CityReflectStrength, 1.0));
+            shaded.rgb += (met * min(mirror, 1.0) - skyGiven) * swap;
         }
     }
 
