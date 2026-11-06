@@ -55,6 +55,17 @@ namespace Prazsky.Core.Render
         private const float SET_BLEND = 0.35f;
 
         /// <summary>World Y of the sand at a world XZ, as <c>Desert.fx</c>'s <c>DesertHeight</c> displaces it.</summary>
+        /// <summary>
+        /// The desert's pyramids as <c>Pyramids</c> stands them (#1068): each one's centre at its foot, its side and its
+        /// height, Khufu first, then Khafre, Menkaure and the queens. For the desert's intro shot of them.
+        /// </summary>
+        public static List<(Vector3 Centre, float Side, float Height)> DesertPyramids(DesertSceneConfig config)
+        {
+            var list = new List<(Vector3 Centre, float Side, float Height)>();
+            foreach ((Vector3 centre, float side, float height, float _) in Pyramids.Placement(config)) list.Add((centre, side, height));
+            return list;
+        }
+
         public static float Desert(float x, float z, DesertSceneConfig config)
         {
             Vector2 p = new(x, z);
