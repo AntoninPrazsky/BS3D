@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-06 — #1065 #1066 města na referenčním APU — notebook (ThinkPad), Claude Code
+- Hotovo: změřena cena, kterou desktop nemohl ověřit. Odrazy (#1065, Testbed 1600x900, ssaa 2, `alt=cityreflect=0;cityreflect=1`, 72 párů na pózu): denní ulice +3,86 ms na 42,19, neonová +2,32 na 53,11, z arény v šumu (+0,21 a +0,39). Je to stejný podíl snímku jako na desktopu. `Low` a `Medium` neodrážejí.
+- Půdorysy (#1066) na `Low` ve hře: Girandole 12,36 → 12,24 ms, Turbine 10,94 → 10,86. Merge odrazů `Low` nepohnuly. Čísla jsou v `city.md` (rendering i scenes) a v `quality-measurements.md`.
+- ⚠ Ghost na `Low` se mezi běhy jednoho buildu liší o 2–3,5 ms, když měření běží přes 20 minut. Krok pod ~1 ms tam neber vážně.
+- Otevřené: nic.
+
 ## 2026-11-06 — #1065 odrazy věží v oknech — desktop (RDT-PC), Claude Code
 - Hotovo (86ef3c30, opravy z revize 7f29b438). High a Ultra: okno do 40 jednotek od kamery pošle odražený paprsek přes mapu města (`CityReflectionMap`). Nová technika `InstancedCityReflect`, ostatní programy se nezměnily. Z hrací kamery +0,02 ms, v ulici +0,5 až +0,75 ms (3840x1600, ssaa 2).
 - ⚠ Hradlo podle footprintu pustilo skoro všechno a z ostrova to stálo +4,9 ms. Správně je podle vzdálenosti od kamery.
