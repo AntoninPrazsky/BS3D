@@ -310,7 +310,7 @@ namespace BS3D
         /// Whether the city's windows mirror the towers round them (#1065): the towers' draw takes <c>InstancedCityReflect</c>
         /// over a map of the city, and a pane within <c>InstancedModelRenderer.CityReflectionReach</c> of the lens shows
         /// the tower across the street where it showed only the sky. <b>High and Ultra only</b>, as the owner asked. It is
-        /// near the lens that it reads and that it costs: a view down a street +0.5 to +0.8 ms at 3840x1600 with
+        /// near the lens that it reads and that it costs: a view down a street +0.5 to +0.75 ms at 3840x1600 with
         /// supersampling 2, the play camera nothing (no pane is that close). See "Window reflections" in
         /// docs/rendering/city.md.
         /// </summary>

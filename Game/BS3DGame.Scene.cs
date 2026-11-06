@@ -1158,16 +1158,18 @@ namespace BS3D
             RebuildCityReflection();
         }
 
-        //The map of the towers the windows mirror (#1065), with each city the scene builds. None under OpenGL ES, whose
-        //reflect technique is the plain program (GraphicsSupport.CityReflections)
+        //The map of the towers the windows mirror (#1065), with each city the scene builds, while the tier reflects (High and
+        //Ultra): 12 MB the other tiers would never read. None under OpenGL ES, whose reflect technique is the plain program
+        //(GraphicsSupport.CityReflections)
         private CityReflectionMap _cityReflection;
 
         private void RebuildCityReflection()
         {
-            if (_cityRenderer == null || !GraphicsSupport.CityReflections) return;
+            if (_cityRenderer == null) return;
 
             _cityReflection?.Dispose();
-            _cityReflection = new CityReflectionMap(GraphicsDevice, _city);
+            _cityReflection = GraphicsSupport.CityReflections && QualityPreset.Presets[(int)_quality].CityReflections
+                ? new CityReflectionMap(GraphicsDevice, _city) : null;
             _cityRenderer.CityReflection = _cityReflection;
         }
 

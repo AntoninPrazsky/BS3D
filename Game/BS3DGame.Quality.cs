@@ -688,8 +688,13 @@ namespace BS3D
             }
             else _cityConfig.RadiusBlocks = preset.CityRadiusBlocks;
 
-            //The windows mirroring the towers round them (#1065): High and Ultra. Picked per draw, so nothing is rebuilt
-            if (_cityRenderer != null) _cityRenderer.CityReflectionStrength = preset.CityReflections ? 1f : 0f;
+            //The windows mirroring the towers round them (#1065): High and Ultra, the technique picked per draw. The map is
+            //built the first time a tier wants it and dropped when one does not, 12 MB the lower tiers would never read
+            if (_cityRenderer != null)
+            {
+                _cityRenderer.CityReflectionStrength = preset.CityReflections ? 1f : 0f;
+                if ((_cityReflection != null) != (preset.CityReflections && GraphicsSupport.CityReflections)) RebuildCityReflection();
+            }
 
             //The forest floor's two expensive extras: the authored look at High, and given up below it. The
             //first thing in this project a tier changes INSIDE a scene shader rather than around it — until
