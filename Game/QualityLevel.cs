@@ -306,10 +306,21 @@ namespace BS3D
         /// </summary>
         public readonly bool FineMeshes;
 
+        /// <summary>
+        /// Whether the city's windows mirror the towers round them (#1065): the towers' draw takes <c>InstancedCityReflect</c>
+        /// over a map of the city, and a pane within <c>InstancedModelRenderer.CityReflectionReach</c> of the lens shows
+        /// the tower across the street where it showed only the sky. <b>High and Ultra only</b>, as the owner asked. It is
+        /// near the lens that it reads and that it costs: a view down a street +0.5 to +0.8 ms at 3840x1600 with
+        /// supersampling 2, the play camera nothing (no pane is that close). See "Window reflections" in
+        /// docs/rendering/city.md.
+        /// </summary>
+        public readonly bool CityReflections;
+
         public QualityPreset(int supersampleFactor, float facadeGrainStrength, float windowFrameWidth, int cityRadiusBlocks,
             int msaaSamples, int shadowMapCap, bool ceilingRefraction, bool motionBlur, int shadowMapScale = 1,
-            bool clusterWind = true, bool fineMeshes = false)
+            bool clusterWind = true, bool fineMeshes = false, bool cityReflections = false)
         {
+            CityReflections = cityReflections;
             FineMeshes = fineMeshes;
             ShadowMapScale = shadowMapScale;
             CeilingRefraction = ceilingRefraction;
@@ -378,7 +389,7 @@ namespace BS3D
             new(supersampleFactor: 1, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: 4, shadowMapCap: 2048, ceilingRefraction: true, motionBlur: true, clusterWind: false),
 
             //High — the look the game was authored at, and the finer meshes (#758, #733).
-            new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES, shadowMapCap: 0, ceilingRefraction: true, motionBlur: true, fineMeshes: true),
+            new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES, shadowMapCap: 0, ceilingRefraction: true, motionBlur: true, fineMeshes: true, cityReflections: true),
 
             //Ultra (#484) — High, and the sun shadow map at twice the scene's authored size (8192). The one
             //rung ABOVE the authored look, so it is the player's alone: the probe starts at High and only steps
@@ -386,7 +397,7 @@ namespace BS3D
             //on High (full scene detail, full stone cap, full city, the ceiling's refraction), and the one dial
             //that could go further — supersampling 3 — is 2.25x High's shaded pixels at 3840x1600, the whole
             //frame's biggest cost bought for relief detail High already resolves. See ShadowMapScale.
-            new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES, shadowMapCap: 0, ceilingRefraction: true, motionBlur: true, shadowMapScale: 2, fineMeshes: true),
+            new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES, shadowMapCap: 0, ceilingRefraction: true, motionBlur: true, shadowMapScale: 2, fineMeshes: true, cityReflections: true),
             //Potato (#788) — Low with the last of its multisampling gone, for the Raspberry Pi build (GamePi), where
             //it is the only tier. A placeholder of the desktop pipeline's own dials and nothing more: what the tier
             //actually draws is its own OpenGL shader set and render path (#789), which GamePi needs because none of

@@ -1272,6 +1272,18 @@ namespace Testbed
             _city = new City(_cityConfig, neon, ArenaIsland.RADIUS);
             _rooftops.Rebuild(_city, _cityConfig);
             _streets.Rebuild(_city);
+            RebuildCityReflection();
+        }
+
+        //The map of the towers the windows mirror (#1065), built with the city and with each city the scene switches to;
+        //the renderer takes it while cityreflect= says so
+        private CityReflectionMap _cityReflection;
+
+        private void RebuildCityReflection()
+        {
+            _cityReflection?.Dispose();
+            _cityReflection = new CityReflectionMap(GraphicsDevice, _city);
+            _cityRenderer.CityReflection = _cityReflection;
         }
 
         /// <summary>
@@ -1358,6 +1370,9 @@ namespace Testbed
                 SpecularAmbientStrength = 0.07f
             };
 
+            RebuildCityReflection();
+            _cityRenderer.CityReflectionStrength = _options.CityReflect;
+
             _rooftops = new CityRooftops(GraphicsDevice, _instancingEffect, _city, _cityConfig, SCENE_AMBIENT_INTENSITY,
                 CityRooftops.DEFAULT_SEED + _sceneSeedOffset);
             Console.WriteLine($"[city] {_rooftops.Total} pieces of rooftop equipment");
@@ -1389,7 +1404,7 @@ namespace Testbed
         /// or a setter whose whole effect lands in the same frame.
         /// </summary>
         private static readonly string[] ALTERNATION_DIALS =
-            { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "finemeshes", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano", "aurora", "cavern", "meadow", "mountain" };
+            { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "finemeshes", "cityreflect", "cityreflectreach", "cityreflectsteps", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano", "aurora", "cavern", "meadow", "mountain" };
 
         /// <summary>
         /// Prints the sweep's plan before the first window, and names anything it will not switch. A pin that
@@ -1481,6 +1496,20 @@ namespace Testbed
                     //High's finer meshes or Low and Medium's (#758): read per draw, so nothing carries across the switch
                     case "finemeshes":
                         _sceneRenderer.FineMeshes = pin.Value is not ("0" or "false" or "off");
+                        break;
+
+                    //The windows mirroring the towers (#1065): the technique is picked per draw, so nothing carries across
+                    case "cityreflect":
+                        if (float.TryParse(pin.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out float reflect)) _cityRenderer.CityReflectionStrength = MathF.Max(0f, reflect);
+                        break;
+
+                    //Where the panes stop marching, and how far a ray goes (#1065's pricing)
+                    case "cityreflectreach":
+                        if (float.TryParse(pin.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out float reach)) _cityRenderer.CityReflectionReach = reach;
+                        break;
+
+                    case "cityreflectsteps":
+                        if (int.TryParse(pin.Value, out int steps)) _cityRenderer.CityReflectionSteps = steps;
                         break;
 
                     //Nothing is carried across this switch: the map is rebuilt from scratch every frame and

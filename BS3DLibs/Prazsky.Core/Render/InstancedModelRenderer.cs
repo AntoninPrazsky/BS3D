@@ -316,8 +316,32 @@ namespace Prazsky.Core.Render
         private EffectParameter _stoneGrainContrastParam;
         private EffectParameter _stoneRoughnessParam;
         private EffectParameter _stoneShapeDepthParam;
-        private EffectTechnique _cityTechnique, _cityFarTechnique;
+        private EffectTechnique _cityTechnique, _cityFarTechnique, _cityReflectTechnique;
         private EffectParameter _cityWindowBrightnessParam;
+
+        /// <summary>
+        /// The city's towers from above (#1065): with it, and <see cref="CityReflectionStrength"/> over 0, the towers'
+        /// draw takes <c>InstancedCityReflect</c>, whose panes mirror the tower across the street where they mirrored
+        /// only the sky. Null (the MapEditor, the Testbed with <c>cityreflect=0</c>, the Game below High) is the plain
+        /// technique. Not the far facades' draw (<see cref="CityFar"/>), which is under a pixel a pane.
+        /// </summary>
+        public CityReflectionMap CityReflection { get; set; }
+
+        /// <summary>How much of the sky the tower met replaces in a pane's mirror: 1 all of it, 0 the plain technique.</summary>
+        public float CityReflectionStrength { get; set; } = 1f;
+
+        /// <summary>How far from the lens, in world units, a pane mirrors the towers round it; past it a pane keeps only the
+        /// sky. Close to a facade is where a reflection reads (the chapter intros' flights between the towers); from the play
+        /// camera a window is a few pixels, and the march there was most of the cost (#1065).</summary>
+        public float CityReflectionReach { get; set; } = 40f;
+
+        /// <summary>How many steps a mirror ray takes before it gives up and keeps the sky: a jump across empty texels
+        /// or a texel beside a tower each (CityReflection.fxh's march).</summary>
+        public int CityReflectionSteps { get; set; } = 16;
+
+        //The reflect technique's own uniforms. Null on OpenGL ES, where the technique is the plain program and declares none
+        private EffectParameter _cityReflectMapParam, _cityReflectOriginParam, _cityReflectSizeParam, _cityReflectTexelParam,
+            _cityReflectTopParam, _cityReflectGroundParam, _cityReflectStrengthParam, _cityReflectReachParam, _cityReflectStepsParam;
 
         /// <summary>
         /// With <see cref="CityWindowBrightness"/> over 0, draws the city's far facades (#774): the window grid, the lamps,
@@ -1435,6 +1459,16 @@ namespace Prazsky.Core.Render
             _stoneShapeDepthParam = _effect.Parameters["StoneShapeDepth"];
             _cityTechnique = _effect.Techniques["InstancedCity"];
             _cityFarTechnique = _effect.Techniques["InstancedCityFar"];
+            _cityReflectTechnique = _effect.Techniques["InstancedCityReflect"];
+            _cityReflectMapParam = _effect.Parameters["CityReflectMap"];
+            _cityReflectOriginParam = _effect.Parameters["CityReflectOrigin"];
+            _cityReflectSizeParam = _effect.Parameters["CityReflectSize"];
+            _cityReflectTexelParam = _effect.Parameters["CityReflectTexel"];
+            _cityReflectTopParam = _effect.Parameters["CityReflectTop"];
+            _cityReflectGroundParam = _effect.Parameters["CityReflectGround"];
+            _cityReflectStrengthParam = _effect.Parameters["CityReflectStrength"];
+            _cityReflectReachParam = _effect.Parameters["CityReflectReach"];
+            _cityReflectStepsParam = _effect.Parameters["CityReflectSteps"];
             _cityWindowBrightnessParam = _effect.Parameters["CityWindowBrightness"];
             _cityWindowTimeParam = _effect.Parameters["CityWindowTime"];
             _cityNeonParam = _effect.Parameters["CityNeon"];
@@ -1902,8 +1936,23 @@ namespace Prazsky.Core.Render
         {
             if (CityWindowBrightness > 0f)
             {
-                //A city building: no texture, no UVs, its facade drawn from world position
-                _effect.CurrentTechnique = CityFar ? _cityFarTechnique : _cityTechnique;
+                //A city building: no texture, no UVs, its facade drawn from world position. The panes mirror the towers
+                //round them where a map of the city is given (#1065)
+                bool reflect = !CityFar && CityReflection != null && CityReflectionStrength > 0f && _cityReflectTechnique != null;
+                _effect.CurrentTechnique = CityFar ? _cityFarTechnique : reflect ? _cityReflectTechnique : _cityTechnique;
+                if (reflect)
+                {
+                    CityReflectionMap map = CityReflection;
+                    _cityReflectMapParam?.SetValue(map.Texture);
+                    _cityReflectOriginParam?.SetValue(map.Origin);
+                    _cityReflectSizeParam?.SetValue(map.Size);
+                    _cityReflectTexelParam?.SetValue(CityReflectionMap.TEXEL);
+                    _cityReflectTopParam?.SetValue(map.Top);
+                    _cityReflectGroundParam?.SetValue(map.Ground);
+                    _cityReflectStrengthParam?.SetValue(CityReflectionStrength);
+                    _cityReflectReachParam?.SetValue(CityReflectionReach);
+                    _cityReflectStepsParam?.SetValue((float)CityReflectionSteps);
+                }
                 _cityWindowBrightnessParam.SetValue(CityWindowBrightness);
                 _cityWindowTimeParam.SetValue(CityWindowTime);
                 _cityNeonParam.SetValue(CityNeon);

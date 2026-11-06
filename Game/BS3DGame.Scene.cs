@@ -310,6 +310,10 @@ namespace BS3D
                     SpecularAmbientStrength = 0.07f
                 };
 
+                //The towers from above, for the windows' reflections (#1065); taken by the draw at High and Ultra
+                RebuildCityReflection();
+                _cityRenderer.CityReflectionStrength = QualityPreset.Presets[(int)_quality].CityReflections ? 1f : 0f;
+
                 //The equipment on the roofs (#436), placed on the buildings the city above just made
                 ShowLoading();
                 _rooftops = new CityRooftops(GraphicsDevice, _instancingEffect, _city, _cityConfig, SCENE_AMBIENT_INTENSITY,
@@ -1151,6 +1155,20 @@ namespace BS3D
             _city = new City(_cityConfig, neon, ArenaIsland.RADIUS);
             _rooftops.Rebuild(_city, _cityConfig);
             _streets?.Rebuild(_city);
+            RebuildCityReflection();
+        }
+
+        //The map of the towers the windows mirror (#1065), with each city the scene builds. None under OpenGL ES, whose
+        //reflect technique is the plain program (GraphicsSupport.CityReflections)
+        private CityReflectionMap _cityReflection;
+
+        private void RebuildCityReflection()
+        {
+            if (_cityRenderer == null || !GraphicsSupport.CityReflections) return;
+
+            _cityReflection?.Dispose();
+            _cityReflection = new CityReflectionMap(GraphicsDevice, _city);
+            _cityRenderer.CityReflection = _cityReflection;
         }
 
         /// <summary>

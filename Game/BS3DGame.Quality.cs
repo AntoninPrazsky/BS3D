@@ -684,8 +684,12 @@ namespace BS3D
                 //towers the two cities share keep exactly the equipment they had
                 _rooftops?.Rebuild(_city, _cityConfig);
                 _streets?.Rebuild(_city);
+                RebuildCityReflection();
             }
             else _cityConfig.RadiusBlocks = preset.CityRadiusBlocks;
+
+            //The windows mirroring the towers round them (#1065): High and Ultra. Picked per draw, so nothing is rebuilt
+            if (_cityRenderer != null) _cityRenderer.CityReflectionStrength = preset.CityReflections ? 1f : 0f;
 
             //The forest floor's two expensive extras: the authored look at High, and given up below it. The
             //first thing in this project a tier changes INSIDE a scene shader rather than around it — until
