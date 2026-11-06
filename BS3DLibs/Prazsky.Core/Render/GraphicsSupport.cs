@@ -53,6 +53,13 @@ namespace Prazsky.Core.Render
         public static bool MinMaxBlend => !OperatingSystem.IsAndroid();
 
         /// <summary>
+        /// Whether the city's windows mirror the towers round them (#1065): not under OpenGL ES, where the effect compiles
+        /// the reflect technique as the towers' plain program (the march is a dynamic loop over a texture, the desktop's).
+        /// There the map it would read is not built at all.
+        /// </summary>
+        public static bool CityReflections => !OperatingSystem.IsAndroid();
+
+        /// <summary>
         /// Whether the ceiling's glass bends a copy of the frame (#541): not under MonoGame's Android backend for now, where
         /// the bent pane drew as an opaque, overexposed pink slab at Medium and up (#1063, cause not found yet: the target's
         /// format, the copy's sampling and the screen convention all read right). There the plate draws as at Low, blended

@@ -102,3 +102,5 @@ float3 SrgbToLinear(float3 color)
 #include "InstancedModel/PolishedMetal.fxh"
 //The colour cue's uniforms and its programs, one per ball style (#737), after everything so no existing layout moves.
 #include "InstancedModel/BallColourCueTechniques.fxh"
+//The city's window reflections (#1065), last of all for the same reason: their uniforms close the buffer.
+#include "InstancedModel/CityReflection.fxh"

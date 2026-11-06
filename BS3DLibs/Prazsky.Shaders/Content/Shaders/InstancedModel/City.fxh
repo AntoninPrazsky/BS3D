@@ -353,7 +353,19 @@ CityVSOutput CityVS(VertexShaderInput input, InstanceInput instance)
 //is held at every edge and the windows are spread evenly across the interior, so none is jammed into a
 //corner and every tower carries the same border. The count is solved from the building's world size against
 //the target pitch, so a taller tower still gets more floors and a wider one more columns.
-float4 CityPS(CityVSOutput input) : COLOR
+//What the window reflections (#1065, CityReflection.fxh) need of a facade pixel CityShade has shaded:
+//the face's own normal, how much of the pixel is glass, the cavity the lighting took, and the pixel's extent across
+//the facade in world units. CityPS throws it away, and the compiler with it.
+struct CityReflectInputs
+{
+    float3 Normal;
+    float Glass;
+    float Cavity;
+    float Footprint;
+    float Kind;
+};
+
+float4 CityShade(CityVSOutput input, out CityReflectInputs reflectInputs)
 {
     float3 worldNormal = normalize(input.WorldNormal);
 
@@ -693,7 +705,19 @@ float4 CityPS(CityVSOutput input) : COLOR
     shaded.rgb += coverage * lampColor * CityWindowBrightness * windowFlicker;
     shaded.rgb += signEmission;
 
+    reflectInputs.Normal = worldNormal;
+    reflectInputs.Glass = glass * vertical;
+    reflectInputs.Cavity = cavity;
+    reflectInputs.Footprint = max(facadeFootprint.x, facadeFootprint.y);
+    reflectInputs.Kind = facadeKind;
+
     return shaded;
+}
+
+float4 CityPS(CityVSOutput input) : COLOR
+{
+    CityReflectInputs unused;
+    return CityShade(input, unused);
 }
 
 technique InstancedCity

@@ -7,7 +7,7 @@ Three rules govern most of it. **The scene renders in linear radiance and is ton
 ## Sub-documents
 
 - [The noise library and shared headers](rendering/noise-and-shared-headers.md): `Noise.fxh`, the guarded `PerturbNormalFromHeight`, the shared-header rules.
-- [The city](rendering/city.md): why it is drawn near to far, and its windows at distance.
+- [The city](rendering/city.md): why it is drawn near to far, its windows at distance, and their reflections of the towers round them.
 - [Scene point lights](rendering/scene-lights.md): shader slots, `SceneLights`, which scenes carry lights, a blast's flash.
 - [Sun shadows](rendering/sun-shadows.md): the map, its fit, bias and cost, which scenes have it, the city, the ceiling glass's analytic shadow, photographing a shadow.
 - [The weather](rendering/weather.md): the flat cloud deck, five skies, the sun disc and per-dome sun, the rejected vertical-extent deck.
