@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-06 — #1062 #1067 #1068 #1069 poznámky majitele ze 6. 11. — desktop (RDT-PC), Claude Code
+- majitel: verdikty OK u #1054 a #1060, Vrať u #1062: „Mraky v bouři vypadají jako sněhové vločky, měly by vypadat spíš jako vata.“
+- #1062: na desktopu to bylo stejné, šlo o shader, ne o GL. Pravidelné laloky `|cos|` od středu kreslily do každého obláčku květ. Teď jsou na okraji nepravidelné boule (šum po jednotkové kružnici směru) a obrys má jedno oktávové chvění. Shader má 223 slotů místo 248. Sloučeno f59a7ab2.
+- #1067: na telefonu tap přeskočí prohlídku scény a nápověda říká Tap. #1069: motorky v mřížce už se neotáčejí o 180°, test počítá nulu. #1068: poušť má v prohlídce záběr na pyramidy.
+- ⚠ Stránka verdiktů z 5. 11. zmizela (rotace účtu). Nová je https://claude.ai/artifact/CQx2JsqNLanQKmk76zm2ZZ (#1062, #1068), mlčení platí do 13. 11.
+- Otevřené: #1063 (příčina skla a rozmazání pohybu).
+
 ## 2026-11-05 — #1063 #1064 efekty a slabé telefony — desktop (RDT-PC), Claude Code
 - #1063: na telefonu nebyly plameny ohňů. `static const` pole čtené proměnným indexem z něj MojoShader udělá uniformu, kterou MonoGame nikdy nenaplní (nuly). Opraveno a build to teď hlídá. Lom skleněného stropu se na Androidu kreslil jako růžový plát. Příčinu jsem nenašel, lom je tam zatím vypnutý.
 - #1064: `GpuCaps` se při startu zeptá EGL na verzi GLES a float render targety; telefon bez nich drží Potato a v logu je proč. Ověřeno s `gpumissing=3.2,EXT_color_buffer_float`.
