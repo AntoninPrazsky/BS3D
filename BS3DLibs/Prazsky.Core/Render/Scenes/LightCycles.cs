@@ -192,7 +192,10 @@ namespace Prazsky.Core.Render
             private Vector2 Node(long index) => _nodes[(int)(index % KEPT)];
 
             //The next node: on straight or a right angle, by the rider's hash at this place in the run, never back and never
-            //out of the ring (the way back only when nothing else is left)
+            //out of the ring. The rolled move first, then the other two (#1069: the first picker tried two of the three and
+            //then went back the way it came, so a cycle at the ring's edge turned round - 3119 times over 200 riders' 10,000
+            //units, LightCycleRouteTests). Of the three, the first that stays in the ring with a way on from where it lands,
+            //so no node is a dead end; the first that only stays in when none has; back only when no move stays in at all.
             private void MakeNext()
             {
                 Vector2 last = Node(_made - 1), before = Node(_made - 2);
@@ -203,15 +206,28 @@ namespace Prazsky.Core.Render
                 float roll = (h & 0xFFFF) / 65535f;
 
                 Vector2 first = roll < STRAIGHT_SHARE ? ahead : (roll < 0.5f + STRAIGHT_SHARE * 0.5f ? left : -left);
-                Vector2 next = last + first;
-                if (!InRing(next))
-                {
-                    Vector2 second = first == ahead ? (roll < 0.8f ? left : -left) : ahead;
-                    next = last + second;
-                    if (!InRing(next)) next = InRing(last - second) && second != ahead ? last - second : last - ahead;
-                }
+                Vector2 second = first == ahead ? (roll < 0.8f ? left : -left) : ahead;
+                Vector2 third = first == ahead ? -second : -first;
+
+                Vector2 next;
+                if (Onward(last + first, first)) next = last + first;
+                else if (Onward(last + second, second)) next = last + second;
+                else if (Onward(last + third, third)) next = last + third;
+                else if (InRing(last + first)) next = last + first;
+                else if (InRing(last + second)) next = last + second;
+                else if (InRing(last + third)) next = last + third;
+                else next = last - ahead;
+
                 _nodes[(int)(_made % KEPT)] = next;
                 _made++;
+            }
+
+            //Whether a node in the ring, reached by moving along `move`, leaves a way on that is not back
+            private static bool Onward(Vector2 node, Vector2 move)
+            {
+                if (!InRing(node)) return false;
+                var side = new Vector2(-move.Y, move.X);
+                return InRing(node + move) || InRing(node + side) || InRing(node - side);
             }
 
             private static bool InRing(Vector2 p)
