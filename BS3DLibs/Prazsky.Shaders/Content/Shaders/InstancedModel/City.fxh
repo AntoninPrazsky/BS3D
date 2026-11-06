@@ -320,7 +320,8 @@ struct CityVSOutput
     float3 WorldPosition : TEXCOORD0;
     float3 WorldNormal : TEXCOORD1;
     //The instance's custom vector, which the city uses for itself (City.cs, #678): x is the tower's facade-kind roll,
-    //y is 1 on a cornice. The city has no neighbour occlusion, so CityPS hands the lighting the no-occlusion vector.
+    //y is 1 on a cornice, zw the tower's anchor (#1066). The city has no neighbour occlusion, so CityPS hands the
+    //lighting the no-occlusion vector.
     float4 Style : TEXCOORD2;
     float3 PosFromCenter : TEXCOORD3;
     float3 BuildingSize : TEXCOORD4;
@@ -367,10 +368,11 @@ float4 CityPS(CityVSOutput input) : COLOR
     //Roofs and the ground faces get no windows
     float vertical = 1 - step(0.5, abs(worldNormal.y));
 
-    //The building this facade belongs to, taken from the tower's own centre so it is one value across the
-    //whole tower (neon hue per tower, and a window pattern that belongs to the building not the world grid).
-    //Every setback tier of a tower stands on its centre (City.cs, #678), so a tower's tiers are one building.
-    float2 buildingId = floor((input.WorldPosition.xz - input.PosFromCenter.xz) * 0.37);
+    //The building this facade belongs to: the tower's anchor, which every box of it carries in Style.zw (City.cs), so
+    //it is one value across the whole tower (neon hue per tower, and a window pattern that belongs to the building
+    //not the world grid). A box's own centre was it until #1066: an L's wing, a podium's tower and a leaning tier
+    //stand off the tower's centre and would each have been a building of another tone.
+    float2 buildingId = floor(input.Style.zw * 0.37);
 
     //ITS KIND OF FACADE (#678's second step). Every tower wore the same punched windows, so the city was one
     //building ~1800 times over; the #671 audit's references draw a downtown of kinds. Half keep the punched wall
@@ -717,7 +719,7 @@ float4 CityFarPS(CityVSOutput input) : COLOR
     float2 posFromCenter = float2(lerp(input.PosFromCenter.x, input.PosFromCenter.z, facingX), input.PosFromCenter.y);
     float2 halfSize = float2(lerp(input.BuildingSize.x, input.BuildingSize.z, facingX), input.BuildingSize.y) * 0.5;
     float vertical = 1 - step(0.5, abs(worldNormal.y));
-    float2 buildingId = floor((input.WorldPosition.xz - input.PosFromCenter.xz) * 0.37);
+    float2 buildingId = floor(input.Style.zw * 0.37);
 
     //The tower's kind of facade, as CityPS reads it
     float facadeKind = input.Style.x;

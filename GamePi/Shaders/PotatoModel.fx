@@ -1908,10 +1908,14 @@ FacadeOutput PotatoFacadeVS(VertexInput input, InstanceInput instance)
 
     FacadeOutput output;
     output.Position = lit.Position;
-    output.Surface = ToScreen(Shade(lit.WorldPosition, lit.WorldNormal, instance.Custom, 1, lit.SceneDiffuse, lit.SceneSpecular, false));
+    //⚠ A city box's custom vector is not an occluder: City.cs carries the facade kind, the cornice flag and the tower's
+    //anchor in it (#1066). The lighting gets the open vector (0, 0, 0, 1) here, as the desktop's CityPS hands its own;
+    //the city's instances were overwritten with it before (PotatoBackdrop.Opened), which lost the anchor.
+    output.Surface = ToScreen(Shade(lit.WorldPosition, lit.WorldNormal, float4(0, 0, 0, 1), 1, lit.SceneDiffuse, lit.SceneSpecular, false));
 
     //A tower is the unit box scaled and placed: its centre is the instance's translation and its size the lengths of
-    //the three axes. Every setback tier stands on the tower's centre, so the tiers share one roll
+    //the three axes. The windows are laid out on the box; the roll is the building's, off the anchor every box of the
+    //tower carries in Custom.zw (#1066), so an L's wing, a podium's tower and a leaning tier share it
     float3 centre = instance.WorldRow4.xyz;
     float3 size = float3(length(instance.WorldRow1.xyz), length(instance.WorldRow2.xyz), length(instance.WorldRow3.xyz));
 
@@ -1932,7 +1936,7 @@ FacadeOutput PotatoFacadeVS(VertexInput input, InstanceInput instance)
     //Roofs carry none, and a face too small for one window none. The tower's roll picks its neon lamp and moves its tile
     //by whole cells
     float vertical = 1.0 - step(0.5, abs(normal.y));
-    float roll = FacadeRoll(floor(centre.xz * 0.37));
+    float roll = FacadeRoll(floor(instance.Custom.zw * 0.37));
     output.Building = float4(step(1.0, count.x) * step(1.0, count.y) * vertical, step(0.5, roll),
         floor(roll * 64.0), floor(frac(roll * 13.0) * 64.0));
     output.Haze = HazeAt(lit.WorldPosition);

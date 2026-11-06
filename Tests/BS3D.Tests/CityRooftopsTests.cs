@@ -78,12 +78,14 @@ namespace BS3D.Tests
 
         //#902 ----------------------------------------------------------------------------------------------------------
 
-        //What the layout's pieces hashed to on the commit before #902 (origin/main c6d12638), four rolls of each city: the
-        //kind, the foot's three floats and the neon flag of every piece in order, FNV-1a. A beacon cluster drawn from the
-        //roof's random stream would have shifted every later roll and with them most of these
+        //What the layout's pieces hash to, four rolls of each city: the kind, the foot's three floats and the neon flag of
+        //every piece in order, FNV-1a. First taken on the commit before #902 (origin/main c6d12638): a beacon cluster drawn
+        //from the roof's random stream would have shifted every later roll and with them most of these. Taken again for
+        //#1066, whose tower plans give the city other roofs (wings, podiums, twins; 29,056 and 38,003 pieces before); a
+        //later change that means to leave the dressing alone must leave these alone
         private const int FINGERPRINT_ROLLS = 4;
-        private const int DAY_PIECES = 29056, NEON_PIECES = 38003;
-        private const uint DAY_FINGERPRINT = 3123092905u, NEON_FINGERPRINT = 4000610961u;
+        private const int DAY_PIECES = 36324, NEON_PIECES = 45299;
+        private const uint DAY_FINGERPRINT = 3488432833u, NEON_FINGERPRINT = 151548289u;
 
         [Fact]
         public void SplittingTheBeaconsMovedNoPieceOfTheLayout()
