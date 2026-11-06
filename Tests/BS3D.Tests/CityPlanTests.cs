@@ -40,6 +40,34 @@ namespace BS3D.Tests
                 centre.Y - half.Y, centre.Y + half.Y);
         }
 
+        //The default cities as the code before #1066 built them (origin/main cc5fcf45): the box count and an FNV-1a hash of
+        //every box's size and centre, in order. The city built without plans must still be exactly this, which is what says
+        //the layout's generator and the tiers' stream are drawn as they were (a comparison with the plain city alone could
+        //not: both are built by the same code)
+        private const int DAY_BOXES_BEFORE = 4328, NEON_BOXES_BEFORE = 5716;
+        private const uint DAY_HASH_BEFORE = 4269295069u, NEON_HASH_BEFORE = 2169540085u;
+
+        [Fact]
+        public void The_city_without_plans_is_the_city_before_them()
+        {
+            foreach (bool neon in new[] { false, true })
+            {
+                var plain = new City(new CitySceneConfig(), neon, ArenaIsland.RADIUS, variedPlans: false);
+                uint h = 2166136261u;
+                unchecked
+                {
+                    foreach (ModelInstance box in plain.Buildings)
+                    {
+                        Matrix m = box.World;
+                        foreach (float f in new[] { m.M11, m.M22, m.M33, m.M41, m.M42, m.M43 })
+                            h = (h ^ (uint)BitConverter.SingleToInt32Bits(f)) * 16777619u;
+                    }
+                }
+                Assert.Equal(neon ? NEON_BOXES_BEFORE : DAY_BOXES_BEFORE, plain.Buildings.Length);
+                Assert.Equal(neon ? NEON_HASH_BEFORE : DAY_HASH_BEFORE, h);
+            }
+        }
+
         [Fact]
         public void The_plots_and_their_tops_are_the_city_without_plans()
         {
@@ -85,7 +113,8 @@ namespace BS3D.Tests
                                 && box.Max.X <= footprint.Max.X + EPSILON && box.Max.Y <= footprint.Max.Y + EPSILON,
                                 $"{where}: {box.Min}-{box.Max} leaves the footprint {footprint.Min}-{footprint.Max}");
                             Assert.True(box.Top <= plot.Top + EPSILON, $"{where}: its top {box.Top} is over the plot's {plot.Top}");
-                            Assert.True(box.Max.X - box.Min.X > 1f && box.Max.Y - box.Min.Y > 1f && box.Top - box.Bottom > 1f,
+                            //No needle: a roof under 1.8 across splits into cells of negative size in the dressing
+                            Assert.True(box.Max.X - box.Min.X > 2f && box.Max.Y - box.Min.Y > 2f && box.Top - box.Bottom > 1f,
                                 $"{where}: a sliver {box.Max - box.Min} by {box.Top - box.Bottom}");
                             highest = MathF.Max(highest, box.Top);
                         }
@@ -107,6 +136,13 @@ namespace BS3D.Tests
                             {
                                 var a = Extent(city.Buildings[i].World);
                                 var b = Extent(city.Buildings[j].World);
+
+                                //Two roofs in one plane where the boxes overlap fight for the same pixels (an L's wing level
+                                //with its main block's roof did, over the strip it reaches into it)
+                                bool overlapInPlan = MathF.Min(a.Max.X, b.Max.X) - MathF.Max(a.Min.X, b.Min.X) > EPSILON
+                                    && MathF.Min(a.Max.Y, b.Max.Y) - MathF.Max(a.Min.Y, b.Min.Y) > EPSILON;
+                                Assert.False(overlapInPlan && MathF.Abs(a.Top - b.Top) < 0.05f,
+                                    $"roll {roll}, neon {neon}, a {plot.Plan} at {plot.Anchor}: boxes {i - plot.FirstBox} and {j - plot.FirstBox} share a roof at {a.Top}");
 
                                 //Boxes one over the other only touch; walls side by side need an overlap in height
                                 if (MathF.Min(a.Top, b.Top) - MathF.Max(a.Bottom, b.Bottom) <= EPSILON) continue;

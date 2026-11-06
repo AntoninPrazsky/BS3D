@@ -32,18 +32,18 @@ The owner: every tower was squarish. A plot's footprint was one rectangle (sides
 
 - a plain box (`PLAN_BOX`, a third of the towers);
 - a **slab**: one side narrowed to 0.48-0.62 of itself, and slid along it;
-- an **L**: a main block across one side of the footprint and a lower wing down the other. The wing stands `WING_INSET` back from the main block's wall and is no taller than its first tier;
+- an **L**: a main block across one side of the footprint and a lower wing down the other. The wing stands `WING_INSET` back from the main block's wall and stays at least a floor (`WING_BELOW`) under the main block's first roof: level with it, the two roofs and their cornices lay in one plane over the strip where the wing reaches in;
 - a tower on a **podium**: a base over the whole footprint, 10-20 % of the height, with the tower (0.5-0.72 of the footprint) standing off-centre on it;
 - **twin** towers on one podium, on footprints at least `TWIN_MIN_SIDE` long. One reaches the top, the other 0.75-0.95 of the way.
 
-A setback stack may also **lean** (`LEAN_SHARE`): each tier slides towards a side or a corner by what its step leaves over `TIER_STEP_MIN`, so the setbacks climb one face.
+A setback stack may also **lean** (`LEAN_SHARE`): each tier slides towards a side or a corner by what its step leaves over `TIER_STEP_MIN`, so the setbacks climb one face. ⚠ A tier narrower than `TIER_MIN_SIDE` is not raised, and the one under it goes to the top instead: a slab's or a podium's tower shrinks twice more as it steps back, and on a small plot it ended 1.4 wide, a needle whose roof the dressing split into cells of negative size.
 
-- ⚠ **Every box stays inside the plot's old footprint and no higher than its old top**, and the tallest box reaches it. The chapter intros' flights, the menu orbit, `OpenRadius` and the streets were laid among the old boxes, so they stay clear by construction. `CityPlanTests` holds this, comparing the plots with a city built without plans (`variedPlans: false`).
+- ⚠ **Every box stays inside the plot's old footprint and no higher than its old top**, and the tallest box reaches it. The chapter intros' flights, the menu orbit, `OpenRadius` and the streets were laid among the old boxes, so they stay clear by construction. `CityPlanTests` holds this, comparing the plots with a city built without plans (`variedPlans: false`), and pins that city against the one the code before the plans built (a hash of every box), which is what says the generators are drawn as they were.
 - ⚠ **No two boxes of one tower share a wall.** Each box lays out its own window grid, so two flush walls would meet in a doubled blank margin with their columns out of line. That is why the wing stands back from the main block and a leaning tier keeps `TIER_STEP_MIN`. The test checks every pair of boxes that stand side by side.
 - ⚠ **The anchor rides in `Style.zw`, and the Potato path keeps it.** Its facade program (`PotatoModel.fx`) used to hand the custom vector to its lighting as the occluder, so `PotatoBackdrop` overwrote the city's vectors with the open one (`Opened`), and every box rolled its lamp and tile off its own centre. The program now hands its lighting the open vector `(0, 0, 0, 1)` itself, as `CityPS` does, and the city keeps its vectors. ⚠ A zero vector is not "no occlusion" there: its `w` of 0 reads as buried and darkens every wall.
 - Every box is a roof: `CityRooftops` dresses a wing's or a podium's roof as its own, and the rooftop shots pick among the new roofs. `CityRooftopsTests`' layout fingerprint pins the dressing of these roofs.
-- Boxes, cornices included (`sceneseed=1066`): the day city 4,447 → 5,678, the neon city 5,884 → 7,155.
-- **Cost** (the Game, 1920x1080, `nocap`, `sceneseed=1066`, three rounds each way): Bolt at High 4.45 → 4.44 ms; Cabinet at High 4.41 → 4.25 ms, cheaper, because the slimmer plans leave more sky in view and `CityPS` pays by the pixel; Cabinet at Low 1.94 → 2.03 ms, the extra boxes through the cull, the sort and the shadow pass.
+- Boxes, cornices included (`sceneseed=1066`): the day city 4,447 → 5,612, the neon city 5,884 → 6,832.
+- **Cost** (the Game, 1920x1080, `nocap`, `sceneseed=1066`, three rounds each way): Bolt at High 4.45 → 4.41 ms; Cabinet at High 4.41 → 4.26 ms, cheaper, because the slimmer plans leave more sky in view and `CityPS` pays by the pixel; Cabinet at Low 1.93 → 2.01 ms, the extra boxes through the cull, the sort and the shadow pass.
 
 ## The far skyline (#774)
 
