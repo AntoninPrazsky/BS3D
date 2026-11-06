@@ -3532,21 +3532,27 @@ namespace BS3D.Screens
         /// The hint and nothing else, into the overlay batch: the chapter's tour hides the whole HUD (#693), and the
         /// hint is the one line of it that belongs over the tour (#699).
         /// </summary>
-        internal void DrawSkipHintAlone(Tutorial tutorial) => DrawSkipHintAlone(tutorial.OnGamepad, tutorial.SkipGlyph);
+        internal void DrawSkipHintAlone(Tutorial tutorial) => DrawSkipHintAlone(tutorial.OnGamepad, tutorial.SkipGlyph, tutorial.OnTouch);
 
         /// <summary>
         /// The same hint over a takeover no session owns (#861: the Scene page's replayed tour), in the hand the menus last
         /// saw: the very line the chapter's own flythrough shows, so the two read as one thing.
         /// </summary>
-        internal void DrawSkipHintAlone(bool onGamepad) => DrawSkipHintAlone(onGamepad, Tutorial.SkipGlyphFor(onGamepad));
+        /// A finger's wording on a touch screen (#1067): where the menus last saw a finger, or on a phone no pad has spoken on
+        /// yet, since a tour can start before the first touch.
+        internal void DrawSkipHintAlone(bool onGamepad)
+        {
+            bool onTouch = !onGamepad && (_game.PromptsForTouch || BS3DGame.OnPhone);
+            DrawSkipHintAlone(onGamepad, Tutorial.SkipGlyphFor(onGamepad, onTouch), onTouch);
+        }
 
-        private void DrawSkipHintAlone(bool onGamepad, string glyph)
+        private void DrawSkipHintAlone(bool onGamepad, string glyph, bool onTouch = false)
         {
             _game.EnsureHudFonts();
 
             SpriteBatch batch = _game.OverlayBatch;
             batch.Begin();
-            DrawSkipHint(onGamepad, glyph, _game.GraphicsDevice.Viewport, Scaled(HUD_MARGIN));
+            DrawSkipHint(onGamepad, glyph, _game.GraphicsDevice.Viewport, Scaled(HUD_MARGIN), onTouch);
             batch.End();
         }
 

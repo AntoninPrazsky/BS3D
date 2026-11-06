@@ -862,7 +862,7 @@ namespace BS3D.Screens
         internal string SkipGlyph => _device == Device.Touch ? TOUCH_TAP : SkipGlyphFor(_device == Device.Gamepad);
 
         /// <summary>The skip's glyph for a hand, where no tutorial is watching the devices (#861: the Scene page's tour).</summary>
-        internal static string SkipGlyphFor(bool gamepad) => gamepad ? PAD_RIGHT_TRIGGER : MOUSE_LEFT;
+        internal static string SkipGlyphFor(bool gamepad, bool touch = false) => touch ? TOUCH_TAP : gamepad ? PAD_RIGHT_TRIGGER : MOUSE_LEFT;
 
         /// <summary>The prompt font's glyphs for the card — a keycap, a mouse, a trigger — or null for none.</summary>
         internal string Glyph => _card == null ? null : Words(Face, _device, TouchAimOnRight, LeanToggles).Glyph;

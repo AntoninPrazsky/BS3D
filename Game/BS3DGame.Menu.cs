@@ -2510,6 +2510,9 @@ namespace BS3D
         //clicks itself, but it is fed nothing then
         private bool _menuMouseWasDown;
 
+        //Whether a finger was on the screen at the menus' last frame (#1067): a landing finger skips a page standing aside
+        private bool _menuTouchWasDown;
+
         //How far the right trigger is pulled before it counts as a press in the menus (#861: it skips a tour, as it skips
         //the chapter's own flythrough in play)
         private const float NAV_TRIGGER_PULL = 0.5f;
@@ -3311,6 +3314,12 @@ namespace BS3D
             //display keys still work, and the snapshots advance so nothing held through it fires when it comes back
             bool clicked = mouse.LeftButton == ButtonState.Pressed && !_menuMouseWasDown;
             _menuMouseWasDown = mouse.LeftButton == ButtonState.Pressed;
+
+            //A finger landing (#1067): a phone has no mouse and no keys, and MonoGame reports touches only through TouchPanel.
+            //Read by the count, not a touch's Pressed state, which an earlier read this frame has already aged to Moved
+            bool fingerDown = Microsoft.Xna.Framework.Input.Touch.TouchPanel.GetState().Count > 0;
+            bool tapped = fingerDown && !_menuTouchWasDown;
+            _menuTouchWasDown = fingerDown;
             if (_screens.Active is MenuPage { StandsAside: true } aside)
             {
                 if (EdgeInputAllowed)
@@ -3318,7 +3327,7 @@ namespace BS3D
                     if (IsKeyEdge(keyboard, Keys.Space) || IsKeyEdge(keyboard, Keys.Enter) || IsKeyEdge(keyboard, Keys.Escape)
                         || IsPadEdge(pad, Buttons.A) || IsPadEdge(pad, Buttons.B)
                         || (pad.Triggers.Right > NAV_TRIGGER_PULL && _previousPad.Triggers.Right <= NAV_TRIGGER_PULL)
-                        || (clicked && IsInsideViewport(mouse)))
+                        || (clicked && IsInsideViewport(mouse)) || tapped)
                         aside.SkipPressed();
 
                     if (IsKeyEdge(keyboard, Keys.F10)) ToggleFpsOverlay();
