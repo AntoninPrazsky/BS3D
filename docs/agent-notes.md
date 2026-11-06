@@ -25,7 +25,8 @@ Pravidla:
 - ⚠ Hradlo podle footprintu pustilo skoro všechno a z ostrova to stálo +4,9 ms. Správně je podle vzdálenosti od kamery.
 - ⚠ Pochod po texelech nedosáhne přes ulici z šikmého okna, a tam sklo odráží nejvíc. Pomohly skoky podle distance field.
 - ⚠ Městský tlumič 0,07 patří jen obloze. Věž přes něj nebyla vidět.
-- Otevřené: verdikt majitele (stránka CQx2JsqNLanQKmk76zm2ZZ), měření na APU.
+- majitel 6. 11.: OK na #1062, #1065, #1066 a #1068 (na stránce i v chatu), vše zavřeno.
+- Otevřené: měření odrazů na APU.
 
 ## 2026-11-06 — #1066 půdorysy věží ve městě — desktop (RDT-PC), Claude Code
 - Hotovo (99c697ab, opravy z revize 98e1c9b5). Věže mají plány: kvádr, deska, L s nižším křídlem, věž na podnoži, dvojčata. Ustupující patra se mohou naklánět ke straně. Bloky, ulice a výšky zůstaly, test připíná město bez plánů proti hashi z mainu. Na High je to beze změny, na Low +0,08 ms.
