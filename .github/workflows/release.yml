@@ -418,9 +418,11 @@ jobs:
           if (-not $apksigner) { throw "No apksigner under $env:ANDROID_HOME/build-tools" }
           $report = & $apksigner.FullName verify --print-certs $apk
           if ($LASTEXITCODE -ne 0) { $report; throw "apksigner refused the APK's signature (exit $LASTEXITCODE)" }
-          $match = $report | Select-String 'Signer #1 certificate SHA-256 digest: ([0-9a-f]{64})'
-          if (-not $match) { $report; throw "apksigner named no certificate" }
-          $digest = $match.Matches[0].Groups[1].Value
+          # "Signer #1 certificate SHA-256 digest: ..." from one apksigner and "V3.0 Signer: certificate SHA-256
+          # digest: ..." from another, one line per signature scheme: every one of them must name the same certificate
+          $digests = @($report | Select-String 'certificate SHA-256 digest: ([0-9a-f]{64})' | ForEach-Object { $_.Matches[0].Groups[1].Value } | Sort-Object -Unique)
+          if ($digests.Count -ne 1) { $report; throw "apksigner named $($digests.Count) certificates where one signs the APK" }
+          $digest = $digests[0]
           "Signed by $digest ($env:SIGNING)"
 
           $pinnedPath = 'GameAndroid/release-certificate.sha256'
