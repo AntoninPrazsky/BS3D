@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-09 — #1070 Android: 120 Hz drží telefon, ne hra — desktop (RDT-PC), Claude Code
+- Majitel: BS3D má na Androidu umět 120 FPS jako TW3D; na vysoké grafice to nečeká, na nižších ano.
+- ⚠ vivo drží aplikaci na 60 Hz, dokud ji hráč nepovolí v telefonu (Obnovovací frekvence obrazovky > Aplikace běžící s vysokou obnovovací frekvencí). Z aplikace to nejde: devět sestavení (kategorie hry, manifest TW3D, `setFrameRate`, Potato, bez vsync, holá MonoGame, Mono) skončilo na 60. ⚠ Instalace přes aplikaci povolení zruší: před měřením čti `mActiveModeId`.
+- Hotovo: při 120 Hz drží Potato (nativně) a Low na 720 řádcích 120 FPS, Low na 960 řádcích 85–87, Medium 61–73. Auto quality na telefonu drží laťku 60 (`PhoneTiers.FloorRefresh`), jinak by při 120 Hz šla na Low a Potato. Řádek FPS limit na telefonu čte „60 Hz (phone setting)“.
+- Otevřené: teplo dlouhé hry při 120 Hz; benchmark (#988) dál počítá rozpočet z obnovovací frekvence displeje.
+
 ## 2026-11-06 — #1065 #1066 města na referenčním APU — notebook (ThinkPad), Claude Code
 - Hotovo: změřena cena, kterou desktop nemohl ověřit. Odrazy (#1065, Testbed 1600x900, ssaa 2, `alt=cityreflect=0;cityreflect=1`, 72 párů na pózu): denní ulice +3,86 ms na 42,19, neonová +2,32 na 53,11, z arény v šumu (+0,21 a +0,39). Je to stejný podíl snímku jako na desktopu. `Low` a `Medium` neodrážejí.
 - Půdorysy (#1066) na `Low` ve hře: Girandole 12,36 → 12,24 ms, Turbine 10,94 → 10,86. Merge odrazů `Low` nepohnuly. Čísla jsou v `city.md` (rendering i scenes) a v `quality-measurements.md`.
