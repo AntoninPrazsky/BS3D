@@ -15,14 +15,17 @@ name: Release
 # with the score ceiling table it writes beside the zip (#549) later - and a failure in any stops the job before
 # anything is released.
 #
-# Three jobs since #793, one tag and one score-ceilings table for all of them:
+# Four jobs (three since #793, the Android one since #1053), one tag and one score-ceilings table for all of them:
 #   * release - the Windows zip and the ceilings, behind the three gates (and the check that GamePi's committed GL
 #     effects are what their sources compile to, since the Raspberry Pi package ships them);
 #   * release-linux-arm64 - GamePi (the Game on Linux ARM64, a Raspberry Pi 5) published self-contained on a native
 #     ARM64 runner and packed as a tar.gz, because only a tar keeps the executable bit;
-#   * publish - waits for both, writes ONE SHA256SUMS over everything and, on a tag, creates the release. Either
-#     package failing stops it, so a tag publishes both or nothing. A manual run ends here without a release and
-#     leaves SHA256SUMS beside the two packages as artifacts.
+#   * release-android - GameAndroid (the Game on Android phones, OpenGL ES) as one arm64 APK, signed with the
+#     owner's key when its secrets are set; with none, a manual run signs a rehearsal with a key made on the spot
+#     and a tag makes no APK at all (the job's own header has the three cases);
+#   * publish - waits for all three, writes ONE SHA256SUMS over everything and, on a tag, creates the release. Any
+#     package failing stops it, so a tag publishes all of them or nothing. A manual run ends here without a release
+#     and leaves SHA256SUMS beside the packages as artifacts.
 #
 # It costs nothing: this repository is public, and GitHub bills neither standard-runner minutes nor
 # release storage and bandwidth for public repositories. (Windows minutes are billed at twice the Linux
@@ -287,8 +290,166 @@ jobs:
           # Already compressed (a tar.gz of ogg): a second pass would cost time and save nothing
           compression-level: 0
 
-  # Waits for both packages, writes the one SHA256SUMS over everything and - on a tag only - publishes (#793). Either
-  # job failing stops this one, so a tag publishes both packages or nothing. The notes open with a picture of this
+  # The Android package (#1053): GameAndroid, the Game's own sources on OpenGL ES, as one arm64 APK a phone installs
+  # from its downloads. Built on Windows, as build.yml's gameandroid job builds it (MojoShader's compile of the effects
+  # needs it), with the same version rules as the two packages above, so the same ceilings table whitelists its scores
+  # (the Android mark is display only, BuildVersion.DisplayName).
+  #
+  # WHO SIGNS IT decides what this job makes, and an Android app's signature is its identity: a phone refuses an
+  # update signed with another key, so the key is the owner's, made once (Tools/android-signing-key.cmd) and never
+  # changed. It reaches this job as two secrets, ANDROID_KEYSTORE_BASE64 and ANDROID_KEYSTORE_PASSWORD, and its
+  # certificate's SHA-256 is committed in GameAndroid/release-certificate.sha256:
+  #   * the secrets are set - the APK is signed with the owner's key and its certificate must be the committed one,
+  #     so a key that was replaced fails here instead of reaching a player who can then never update;
+  #   * no secrets, a manual run - a rehearsal: the APK is signed with a key made on the spot and kept as an
+  #     artifact like the other two packages, so the whole job can be tried before the owner's key exists;
+  #   * no secrets, a tag - no Android package: the release carries the Windows zip and the Pi tarball as it always
+  #     did, and the log says so. Once the certificate is committed that is a failure instead: a release that used
+  #     to carry the APK must not quietly lose it.
+  release-android:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.2xx'
+
+      # The JDK the Android build tools run on: 17, the one the owner builds with
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install the Android workload
+        run: dotnet workload install android
+
+      - name: Restore content tools (GameAndroid)
+        run: dotnet tool restore
+        working-directory: GameAndroid
+
+      - name: Install the Android SDK parts the build asks for
+        run: |
+          dotnet build GameAndroid/GameAndroid.csproj -t:InstallAndroidDependencies "-p:AndroidSdkDirectory=$env:ANDROID_HOME" "-p:JavaSdkDirectory=$env:JAVA_HOME" -p:AcceptAndroidSDKLicenses=True
+          if ($LASTEXITCODE -ne 0) { throw "InstallAndroidDependencies failed (exit $LASTEXITCODE)" }
+
+      # The same naming rule as the other two jobs: a tag names itself, a manual run is "dev-<short sha>"
+      - name: Name this build
+        run: |
+          $version = if ('${{ github.ref_type }}' -eq 'tag') { '${{ github.ref_name }}' } else { 'dev-' + '${{ github.sha }}'.Substring(0, 7) }
+          Add-Content -Path $env:GITHUB_ENV -Value "BUILD_VERSION=$version" -Encoding utf8
+          Add-Content -Path $env:GITHUB_ENV -Value "BUILD_NAME=BS3D-$version-android-arm64" -Encoding utf8
+
+      # The three cases of the job's header. The key file never touches the workspace: it is written under the
+      # runner's temp folder, which is gone with the runner.
+      - name: Decide who signs
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          $pinned = Test-Path 'GameAndroid/release-certificate.sha256'
+          $tag = '${{ github.ref_type }}' -eq 'tag'
+          $store = Join-Path $env:RUNNER_TEMP 'bs3d-signing.keystore'
+          if ($env:ANDROID_KEYSTORE_BASE64) {
+            [System.IO.File]::WriteAllBytes($store, [System.Convert]::FromBase64String($env:ANDROID_KEYSTORE_BASE64))
+            $signing = 'owner'
+          }
+          elseif ($tag) {
+            if ($pinned) { throw "GameAndroid/release-certificate.sha256 is committed, so releases carry an Android package, but the ANDROID_KEYSTORE_BASE64 secret is not set: this tag publishes nothing" }
+            Write-Host "::notice::No Android signing key is set (Tools/android-signing-key.cmd makes one), so this release carries no Android package."
+            $signing = 'none'
+          }
+          else {
+            & "$env:JAVA_HOME/bin/keytool" -genkeypair -keystore $store -storetype PKCS12 -alias bs3d -keyalg RSA -keysize 2048 -validity 30 -storepass rehearsal -dname 'CN=BS3D rehearsal'
+            if ($LASTEXITCODE -ne 0) { throw "keytool could not make the rehearsal key (exit $LASTEXITCODE)" }
+            $signing = 'rehearsal'
+          }
+          "Signing: $signing"
+          Add-Content -Path $env:GITHUB_ENV -Value "SIGNING=$signing" -Encoding utf8
+          Add-Content -Path $env:GITHUB_ENV -Value "SIGNING_KEYSTORE=$store" -Encoding utf8
+
+      # The version a phone reads is not the assembly's: versionName is what its settings show and versionCode an
+      # integer every update must not go under, so a plain numeric tag sets both - v0.5.1 is 0.5.1 and 5001
+      # (major x 1 000 000 + minor x 1000 + patch), and a suffixed tag keeps its numbers' code. The passwords reach
+      # the build as "env:" names, never as text on a command line the log prints.
+      - name: Build the APK (Release, android-arm64, signed)
+        if: env.SIGNING != 'none'
+        env:
+          SIGNING_PASSWORD: ${{ env.SIGNING == 'owner' && secrets.ANDROID_KEYSTORE_PASSWORD || 'rehearsal' }}
+        run: |
+          $buildArgs = @('build', 'GameAndroid/GameAndroid.csproj', '-c', 'Release', '-p:RuntimeIdentifier=android-arm64',
+            "-p:AndroidSdkDirectory=$env:ANDROID_HOME", "-p:JavaSdkDirectory=$env:JAVA_HOME", '-p:DebugType=embedded',
+            '-p:AndroidKeyStore=true', "-p:AndroidSigningKeyStore=$env:SIGNING_KEYSTORE", '-p:AndroidSigningKeyAlias=bs3d',
+            '-p:AndroidSigningStorePass=env:SIGNING_PASSWORD', '-p:AndroidSigningKeyPass=env:SIGNING_PASSWORD')
+          if ($env:BUILD_VERSION -match '^v(\d+)\.(\d+)(?:\.(\d+))?(?:\.\d+)?(-.*)?$') {
+            $code = [int]$Matches[1] * 1000000 + [int]$Matches[2] * 1000 + [int]("0" + $Matches[3])
+            $buildArgs += "-p:ApplicationVersion=$code"
+            $buildArgs += "-p:ApplicationDisplayVersion=$($env:BUILD_VERSION.Substring(1))"
+          }
+          if ($env:BUILD_VERSION -match '^v(\d+(\.\d+){1,3})$') { $buildArgs += "-p:Version=$($Matches[1])" }
+          if ('${{ github.ref_type }}' -eq 'tag') { $buildArgs += "-p:BS3DReleaseVersion=$env:BUILD_VERSION" }
+          dotnet @buildArgs
+          if ($LASTEXITCODE -ne 0) { throw "GameAndroid failed to build (exit $LASTEXITCODE)" }
+
+      # What a phone cannot start the game without (build.yml's list: the runtime, OpenAL, the content, every effect
+      # compiled for OpenGL ES, the level set), then the signature itself, read back off the APK by the SDK's own
+      # verifier: the owner's key must be the one whose certificate is committed.
+      - name: Check the APK and who signed it
+        if: env.SIGNING != 'none'
+        run: |
+          $apk = 'GameAndroid/bin/Release/net10.0-android/android-arm64/io.github.antoninprazsky.bs3d-Signed.apk'
+          if (-not (Test-Path $apk)) { throw "The build wrote no $apk" }
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $zip = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path $apk).Path)
+          $names = @($zip.Entries | ForEach-Object { $_.FullName })
+          $zip.Dispose()
+          foreach ($f in 'lib/arm64-v8a/libcoreclr.so', 'lib/arm64-v8a/libopenal.so', 'assets/Content/Images/Logo.xnb',
+                         'assets/Content/Fonts/segoeui.xnb', 'assets/Levels/Levels.json') {
+            if ($names -notcontains $f) { throw "The APK has no $f" }
+          }
+          $effects = @(Get-ChildItem BS3DLibs/Prazsky.Shaders/Content/Shaders/*.fx | ForEach-Object { "assets/Content/Shaders/$($_.BaseName).xnb" }) +
+                     @(Get-ChildItem GamePi/Shaders/*.fx | ForEach-Object { "assets/Content/Potato/Shaders/$($_.BaseName).xnb" })
+          $missing = @($effects | Where-Object { $names -notcontains $_ })
+          if ($missing.Count -gt 0) { throw "The APK lacks effects: $($missing -join ', ')" }
+          if (-not ($names | Where-Object { $_ -like 'assets/Music/*.ogg' })) { throw "The APK has no music" }
+          if (-not ($names | Where-Object { $_ -like 'assets/Sfx/*.ogg' })) { throw "The APK has no sound effects" }
+
+          $apksigner = Get-ChildItem "$env:ANDROID_HOME/build-tools/*/apksigner.bat" | Sort-Object { [version]$_.Directory.Name } | Select-Object -Last 1
+          if (-not $apksigner) { throw "No apksigner under $env:ANDROID_HOME/build-tools" }
+          $report = & $apksigner.FullName verify --print-certs $apk
+          if ($LASTEXITCODE -ne 0) { $report; throw "apksigner refused the APK's signature (exit $LASTEXITCODE)" }
+          # "Signer #1 certificate SHA-256 digest: ..." from one apksigner and "V3.0 Signer: certificate SHA-256
+          # digest: ..." from another, one line per signature scheme: every one of them must name the same certificate
+          $digests = @($report | Select-String 'certificate SHA-256 digest: ([0-9a-f]{64})' | ForEach-Object { $_.Matches[0].Groups[1].Value } | Sort-Object -Unique)
+          if ($digests.Count -ne 1) { $report; throw "apksigner named $($digests.Count) certificates where one signs the APK" }
+          $digest = $digests[0]
+          "Signed by $digest ($env:SIGNING)"
+
+          $pinnedPath = 'GameAndroid/release-certificate.sha256'
+          if ($env:SIGNING -eq 'owner') {
+            if (Test-Path $pinnedPath) {
+              $pinned = (Get-Content -Raw $pinnedPath).Trim().ToLowerInvariant()
+              if ($digest -ne $pinned) { throw "The APK is signed by $digest, and $pinnedPath says ${pinned}: a phone with the game installed would refuse this update. The key must never change." }
+            }
+            elseif ('${{ github.ref_type }}' -eq 'tag') { throw "The signing key is set but $pinnedPath is not committed: commit the line '$digest' there first, so a changed key can never go unnoticed" }
+            else { Write-Host "::notice::$pinnedPath is not committed yet; this key's line is $digest" }
+          }
+
+          Copy-Item $apk "$env:BUILD_NAME.apk"
+          "{0}.apk: {1:N1} MB, {2:N0} entries" -f $env:BUILD_NAME, ((Get-Item "$env:BUILD_NAME.apk").Length / 1MB), $names.Count
+
+      - name: Keep the APK as a workflow artifact
+        if: env.SIGNING != 'none'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.BUILD_NAME }}
+          path: ${{ env.BUILD_NAME }}.apk
+          retention-days: 90
+          # An APK is a zip of ogg and compressed natives: a second pass would cost time and save nothing
+          compression-level: 0
+
+  # Waits for every package, writes the one SHA256SUMS over everything and - on a tag only - publishes (#793). Any
+  # job failing stops this one, so a tag publishes all its packages or nothing. The notes open with a picture of this
   # version when one was committed, then lead with what the download needs and what Windows will say about it,
   # because an unsigned exe surprises people; GitHub's generated list of what changed since the previous tag is
   # appended underneath by --generate-notes.
@@ -306,11 +467,11 @@ jobs:
   # length is the scroll to the download - about a dozen one-line bullets of what changes play and one closing
   # line, the rule in "The workflows and the release" in docs/build-and-release.md.
   publish:
-    needs: [release, release-linux-arm64]
+    needs: [release, release-linux-arm64, release-android]
     runs-on: ubuntu-latest
 
     steps:
-      # For Images/releases/ and nothing else
+      # For Images/releases/, the website's data the notes quote and the Android certificate's pin, nothing else
       - uses: actions/checkout@v7
 
       - name: Name this build
@@ -319,7 +480,7 @@ jobs:
           $version = if ('${{ github.ref_type }}' -eq 'tag') { '${{ github.ref_name }}' } else { 'dev-' + '${{ github.sha }}'.Substring(0, 7) }
           Add-Content -Path $env:GITHUB_ENV -Value "BUILD_VERSION=$version" -Encoding utf8
 
-      # Both packages and the ceilings table, side by side in dist/: each package job named its artifact BS3D-<...>
+      # Every package and the ceilings table, side by side in dist/: each package job named its artifact BS3D-<...>
       - name: Download the packages
         uses: actions/download-artifact@v8
         with:
@@ -335,6 +496,12 @@ jobs:
         run: |
           $files = @("BS3D-$env:BUILD_VERSION-win-x64.zip", "BS3D-$env:BUILD_VERSION-linux-arm64.tar.gz", "BS3D-$env:BUILD_VERSION-ceilings.json")
           foreach ($f in $files) { if (-not (Test-Path "dist/$f")) { throw "dist/$f was not produced" } }
+          # The Android package (#1053) is there when someone signed one: the owner's key, or a rehearsal's. Once the
+          # key's certificate is committed a tag without it is refused here as well as in its own job.
+          $apk = "BS3D-$env:BUILD_VERSION-android-arm64.apk"
+          if (Test-Path "dist/$apk") { $files += $apk }
+          elseif ('${{ github.ref_type }}' -eq 'tag' -and (Test-Path 'GameAndroid/release-certificate.sha256')) { throw "dist/$apk was not produced" }
+          else { Write-Host "::notice::No Android package in this run." }
           $lines = foreach ($f in $files) { '{0}  {1}' -f (Get-FileHash -Algorithm SHA256 -LiteralPath "dist/$f").Hash.ToLowerInvariant(), $f }
           [System.IO.File]::WriteAllText("$PWD/dist/SHA256SUMS", (($lines -join "`n") + "`n"))
           Get-Content dist/SHA256SUMS
@@ -344,7 +511,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "sha256sum -c refused the file it just wrote" }
           Pop-Location
 
-      # The checksums stay with a manual run's artifacts, beside the two packages above: the rehearsal is
+      # The checksums stay with a manual run's artifacts, beside the packages above: the rehearsal is
       # downloaded and checked exactly as a release would be
       - name: Keep the checksums as a workflow artifact
         uses: actions/upload-artifact@v7
@@ -393,8 +560,30 @@ jobs:
 
           Progress and settings live in `~/.local/share/BS3D`, not in the game's folder.
 
-          `SHA256SUMS` lists a checksum for every file below; check a download with `sha256sum -c SHA256SUMS`.
           '@
+          # The Android section (#1053), in a release that carries the APK and in no other
+          $android = @'
+          ### Android (phones and tablets, 64-bit ARM)
+
+          `BS3D-...-android-arm64.apk` is the same game, from the same tag, for Android 7 or newer with OpenGL ES 3.0,
+          played by touch or with a gamepad. It draws the Windows picture at a phone's settings (Low, Medium and High,
+          and Potato for a weak phone), without supersampling, motion blur, the glass ceiling's refraction and the
+          volumetric clouds, and shows `Android` beside its version in the menu.
+
+          1. Download the `BS3D-...-android-arm64.apk` below on the phone and open it. It does not come from a store,
+             so Android asks once to allow the browser or the file manager to install apps.
+          2. Start **BS3D**.
+
+          A phone may hold the game at 60 FPS until you allow it a high refresh rate in the phone's own display
+          settings; Settings > SCREEN > FPS limit reads `60 Hz (phone setting)` while it does, and an update can
+          switch it off again.
+
+          Progress and settings live in the app's own storage, so uninstalling the app deletes them; installing a
+          newer release over it keeps them.
+
+          '@
+          if (-not (Test-Path "dist/BS3D-$env:BUILD_VERSION-android-arm64.apk")) { $android = '' }
+          $checksums = "``SHA256SUMS`` lists a checksum for every file below; check a download with ``sha256sum -c SHA256SUMS``."
           # What the Pi's picture lacks and keeps is stated once, in the website's data (#947): the page prints the
           # same words. PiPictureCopyTests refuses a hand-typed copy here and a placeholder that is gone.
           $piPicture = (Get-Content -Raw -Encoding utf8 'Web/src/_data/site.json' | ConvertFrom-Json).piPicture
@@ -414,11 +603,14 @@ jobs:
           $writtenPath = "Images/releases/$env:BUILD_VERSION.md"
           if (Test-Path $writtenPath) { $written = (Get-Content -Raw -Encoding utf8 $writtenPath).TrimEnd() + "`n`n" }
           else { Write-Host "::notice::No $writtenPath was committed, so the release notes carry no written section." }
-          Set-Content -Path release-notes.md -Value ($picture + $written + $notes) -Encoding utf8
-          $releaseArgs = @('release', 'create', $env:BUILD_VERSION,
-            "dist/BS3D-$env:BUILD_VERSION-win-x64.zip", "dist/BS3D-$env:BUILD_VERSION-linux-arm64.tar.gz",
-            "dist/BS3D-$env:BUILD_VERSION-ceilings.json", 'dist/SHA256SUMS',
-            '--title', "BS3D $env:BUILD_VERSION", '--notes-file', 'release-notes.md', '--generate-notes')
+          # The sections, a blank line between each: a here-string ends where its last line does
+          $body = (@($notes.TrimEnd(), $android.TrimEnd(), $checksums) | Where-Object { $_ }) -join "`n`n"
+          Set-Content -Path release-notes.md -Value ($picture + $written + $body) -Encoding utf8
+          $assets = @("dist/BS3D-$env:BUILD_VERSION-win-x64.zip", "dist/BS3D-$env:BUILD_VERSION-linux-arm64.tar.gz")
+          if ($android) { $assets += "dist/BS3D-$env:BUILD_VERSION-android-arm64.apk" }
+          $assets += @("dist/BS3D-$env:BUILD_VERSION-ceilings.json", 'dist/SHA256SUMS')
+          $releaseArgs = @('release', 'create', $env:BUILD_VERSION) + $assets +
+            @('--title', "BS3D $env:BUILD_VERSION", '--notes-file', 'release-notes.md', '--generate-notes')
           # A tag carrying a suffix ("v0.2.0-beta") is a prerelease and GitHub should label it as one.
           if ($env:BUILD_VERSION -match '-') { $releaseArgs += '--prerelease' }
           gh @releaseArgs

@@ -38,12 +38,18 @@ namespace BS3D
 
         /// <summary>
         /// <see cref="Name"/> as the menu shows it: with <c> ARM64</c> after it in an ARM64 process (#788) - the
-        /// Raspberry Pi build, GamePi, which the owner asked the menu to mark (#785). <b>Display only</b>: Name is
-        /// also the <c>gameVersion</c> and the User-Agent the score server reads, and the ARM build submits under the
-        /// same name as the Windows one, being the same release (#793).
+        /// Raspberry Pi build, GamePi, which the owner asked the menu to mark (#785) - and with <c> Android</c> on a
+        /// phone (#1053), whose processor is ARM64 too and says less about the build than its system does.
+        /// <b>Display only</b>: Name is also the <c>gameVersion</c> and the User-Agent the score server reads, and
+        /// both builds submit under the same name as the Windows one, being the same release (#793).
         /// </summary>
-        internal static string DisplayName { get; } =
-            RuntimeInformation.ProcessArchitecture == Architecture.Arm64 ? Name + " ARM64" : Name;
+        internal static string DisplayName { get; } = Marked(Name, System.OperatingSystem.IsAndroid(), RuntimeInformation.ProcessArchitecture);
+
+        /// <inheritdoc cref="DisplayName"/>
+        internal static string Marked(string name, bool android, Architecture architecture) =>
+            android ? name + " Android"
+            : architecture == Architecture.Arm64 ? name + " ARM64"
+            : name;
 
         private static string ReadRelease()
         {

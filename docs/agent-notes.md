@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-09 — #1053 Android ve vydání: podepsané APK — desktop (RDT-PC), Claude Code
+- Majitel: pokračovat tím, co Android ještě potřebuje.
+- Hotovo: `release.yml` má čtvrtou úlohu `release-android`. APK podepíše majitelovým klíčem, když jsou nastavená tajemství `ANDROID_KEYSTORE_BASE64` a `ANDROID_KEYSTORE_PASSWORD`; otisk certifikátu hlídá `GameAndroid/release-certificate.sha256`. Bez klíče ruční běh podepíše zkušebním klíčem a tag APK nevydá. Menu značí build „Android“.
+- ⚠ PowerShell čte `"$jmeno: text"` jako proměnnou s oborem a skript spadne při parsování: piš `${jmeno}:`. Kroky workflow jdou vytáhnout z YAML a pustit lokálně.
+- ⚠ Build nainstalovaný přes USB je podepsaný debug klíčem, vydané APK přes něj nejde nainstalovat (napřed odinstalovat, uložená hra zmizí).
+- Otevřené: majitel pustí `Tools\android-signing-key.cmd` (klíč vzniká jednou), commit otisku, ruční běh Release. Web a první poznámky k vydání pro Android.
+
 ## 2026-11-09 — #1070 Android: 120 Hz drží telefon, ne hra — desktop (RDT-PC), Claude Code
 - Majitel: BS3D má na Androidu umět 120 FPS jako TW3D; na vysoké grafice to nečeká, na nižších ano.
 - ⚠ vivo drží aplikaci na 60 Hz, dokud ji hráč nepovolí v telefonu (Obnovovací frekvence obrazovky > Aplikace běžící s vysokou obnovovací frekvencí). Z aplikace to nejde: devět sestavení (kategorie hry, manifest TW3D, `setFrameRate`, Potato, bez vsync, holá MonoGame, Mono) skončilo na 60. ⚠ Instalace přes aplikaci povolení zruší: před měřením čti `mActiveModeId`.
