@@ -261,6 +261,15 @@
             {
                 var defines = Regex.Matches(program.Code, @"#define (?:vs|ps)_c(\d+) (?:vs|ps)_uniforms_vec4\[(\d+)\]").Cast<Match>()
                     .Select(m => (Register: int.Parse(m.Groups[1].Value), Slot: int.Parse(m.Groups[2].Value))).OrderBy(d => d.Register).ToList();
+                //The whole of it first: the GLSL's array has a slot per register read, the block a register per parameter's
+                //register, and the two agree in every program without a hole (314 of 314 on 2026-11-09); the walk below then
+                //names the parameter when the hole is between two reads
+                Match declared = Regex.Match(program.Code, @"uniform vec4 (?:vs|ps)_uniforms_vec4\[(\d+)\]");
+                int blockRegisters = program.Buffers.Sum(b => sizes[b]) / 16;
+                if (declared.Success && int.Parse(declared.Groups[1].Value) != blockRegisters)
+                    Log.LogError(Path.GetFileName(item.ItemSpec) + ": " + program.Entry + " declares " + declared.Groups[1].Value + " uniform registers where its block holds "
+                        + blockRegisters + ": a register of a parameter is never read, so under GL every uniform after it arrives one slot late (#1063):"
+                        + " read the register with KEEP_READ (ShaderTarget.fxh), see Glass.fxh");
                 for (int k = 0; k + 1 < defines.Count; k++)
                 {
                     if (defines[k + 1].Register - defines[k].Register <= 1 || defines[k + 1].Slot - defines[k].Slot != 1) continue;

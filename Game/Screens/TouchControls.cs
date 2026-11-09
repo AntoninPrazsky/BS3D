@@ -222,14 +222,17 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// Takes every finger on the screen as spoken for until it lifts (#1072): the finger that skipped a camera takeover
-        /// must not fire the shot it lifts on. The tap had skipped the level's opening move and shot at once, because its
-        /// track stayed a tap and the lift came within a tap's time. <see cref="Fire"/> and <see cref="Pressed"/> of this
-        /// frame are withdrawn too, for a finger that went down and up between two frames.
+        /// Takes the fingers that went down THIS frame as spoken for until they lift (#1072): the finger that skipped a camera
+        /// takeover must not fire the shot it lifts on. The tap had skipped the level's opening move and shot at once, because
+        /// its track stayed a tap and the lift came within a tap's time. A finger already down - a thumb resting on the aiming
+        /// side - keeps its role: it did not skip anything. <see cref="Fire"/> and <see cref="Pressed"/> of this frame are
+        /// withdrawn too, for a finger that went down and up between two frames.
         /// </summary>
         public void Consume()
         {
-            for (int i = 0; i < _count; i++) _tracks[i].Role = Role.Ignored;
+            //A track's age is zero through the frame it was made in and counts from the next (Update)
+            for (int i = 0; i < _count; i++)
+                if (_tracks[i].Age <= 0f) _tracks[i].Role = Role.Ignored;
             Fire = false;
             Pressed = Button.None;
         }
