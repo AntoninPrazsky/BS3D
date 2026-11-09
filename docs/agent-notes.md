@@ -23,14 +23,16 @@ Pravidla:
 ## 2026-11-09 — #1063 růžové sklo a rozmazání pohybu na telefonu: jedna příčina — desktop (RDT-PC), Claude Code
 - Hotovo: obě vady měly jednu příčinu. MojoShader dává poli uniform jen sloty registrů, které program čte; MonoGame plní pole podle celých parametrů. Registr vynechaný UPROSTŘED (z řádek projekce u `GlassPS`, u `ReconstructPS` reprojekční matice) posune všechny další uniformy o slot: sklo četlo oko místo barvy. `KEEP_READ(x)` (ShaderTarget.fxh) registr přečte, DirectX bajty beze změny; `FinishGlEffects` díru odmítá (vystřelilo přesně na ty dva z 314). Sklo i rozmazání na Androidu zase běží.
 - ⚠ Ladicí uniforma, která v shaderu čte 0, je příznak posunutých slotů. Mapu registr→slot dá `#define ps_cN ps_uniforms_vec4[M]` v GLSL uvnitř .xnb.
-- Otevřené: přeměřit Medium a High při 120 Hz (sklo a rozmazání stojí asi 2 ms); výsledková stránka na telefonu okem majitele.
+- Přeměřeno při 120 Hz: Medium 62,6/55,3, High 62,0/48,5 (město/louka, 960 řádků); sklo a rozmazání stojí asi 2 ms.
+- Otevřené: oko majitele na sklo a rozmazání na telefonu (`verdict-eye`), wormhole na telefonu, 3D atlas šumu.
 
 ## 2026-11-09 — #1053 Android ve vydání: podepsané APK — desktop (RDT-PC), Claude Code
 - Majitel: pokračovat tím, co Android ještě potřebuje.
 - Hotovo: `release.yml` má čtvrtou úlohu `release-android`. APK podepíše majitelovým klíčem, když jsou nastavená tajemství `ANDROID_KEYSTORE_BASE64` a `ANDROID_KEYSTORE_PASSWORD`; otisk certifikátu hlídá `GameAndroid/release-certificate.sha256`. Bez klíče ruční běh podepíše zkušebním klíčem a tag APK nevydá. Menu značí build „Android“.
 - ⚠ PowerShell čte `"$jmeno: text"` jako proměnnou s oborem a skript spadne při parsování: piš `${jmeno}:`. Kroky workflow jdou vytáhnout z YAML a pustit lokálně.
 - ⚠ Build nainstalovaný přes USB je podepsaný debug klíčem, vydané APK přes něj nejde nainstalovat (napřed odinstalovat, uložená hra zmizí).
-- Otevřené: majitel pustí `Tools\android-signing-key.cmd` (klíč vzniká jednou), commit otisku, ruční běh Release. Web a první poznámky k vydání pro Android.
+- Majitel klíč vyrobil týž den (`%USERPROFILE%\BS3D-signing`, tajemství nastavená); otisk commitnut, ruční běh Release podepsal majitelovým klíčem (běh 42698567285). #1053 zavřeno.
+- Otevřené: web s androidovou sekcí až s prvním vydáním, které APK nese (#1071).
 
 ## 2026-11-09 — #1070 Android: 120 Hz drží telefon, ne hra — desktop (RDT-PC), Claude Code
 - Majitel: BS3D má na Androidu umět 120 FPS jako TW3D; na vysoké grafice to nečeká, na nižších ano.
