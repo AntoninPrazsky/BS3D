@@ -27,6 +27,20 @@ namespace BS3D.Tests
         public void OnlyLowAndPotatoDropTheSceneDetail(QualityLevel quality, bool drops) =>
             Assert.Equal(drops, quality.DropsSceneDetail());
 
+        [Theory]
+        //A phone's floors stop at its 60 FPS target (#1070): the X300 Ultra's display at 120 Hz, and its 144 Hz mode
+        [InlineData(120f, true, 60f)]
+        [InlineData(144f, true, 60f)]
+        //Under the target they follow the display, as a 60 Hz phone's always did, and one that reports nothing stays unknown
+        [InlineData(60f, true, 60f)]
+        [InlineData(48f, true, 48f)]
+        [InlineData(0f, true, 0f)]
+        //The desktop and the Pi follow the monitor at every rate
+        [InlineData(144f, false, 144f)]
+        [InlineData(75f, false, 75f)]
+        public void APhonesFloorsStopAtItsTarget(float refreshHz, bool phone, float expected) =>
+            Assert.Equal(expected, PhoneTiers.FloorRefresh(refreshHz, phone));
+
         [Fact]
         public void PotatoTurnsDownNoLessThanLow()
         {

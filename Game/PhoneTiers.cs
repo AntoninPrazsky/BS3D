@@ -13,6 +13,8 @@ namespace BS3D
     /// <item>A first run starts at Medium and Auto quality measures it, as the desktop's starts at High: the X300 Ultra's
     /// 47-52 FPS there is under its floor, so it steps to Low; a stronger phone keeps Medium, and a weaker one goes on
     /// from Low to Potato, from the next start. A weak phone is never left on High, which only the row reaches.</item>
+    /// <item>Auto quality holds <see cref="TARGET_FPS"/> whatever the display refreshes at (#1070): a 120 Hz display
+    /// raises the frame rate where a frame has the time, and never costs a tier or rows.</item>
     /// </list>
     /// </summary>
     internal static class PhoneTiers
@@ -33,5 +35,18 @@ namespace BS3D
 
         /// <summary>Whether the Quality row offers Ultra.</summary>
         internal static bool OffersUltra => !Phone;
+
+        /// <summary>
+        /// The frame rate a phone's Auto quality holds (the owner's target for a phone's look, #1056). Off the display's
+        /// 120 Hz the floors would be 108 and 114 FPS, which no tier of the desktop's renderer holds on the X300 Ultra:
+        /// the probe would step a phone that draws Medium at 60 down to Low and ask for Potato.
+        /// </summary>
+        internal const int TARGET_FPS = 60;
+
+        /// <summary>The refresh Auto quality's floors come off: the display's, and on a phone at most <see cref="TARGET_FPS"/>.</summary>
+        internal static float FloorRefresh(float refreshHz) => FloorRefresh(refreshHz, Phone);
+
+        /// <inheritdoc cref="FloorRefresh(float)"/>
+        internal static float FloorRefresh(float refreshHz, bool phone) => phone ? Math.Min(refreshHz, TARGET_FPS) : refreshHz;
     }
 }
