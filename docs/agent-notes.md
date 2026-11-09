@@ -25,6 +25,7 @@ Pravidla:
 - Hotovo: #1072 prst po přeskočení kamery je do zvednutí ignorovaný (`TouchControls.Consume`, test). #1073 `FitBreakdownFaces` zmenší písma rozpisu, kde by připnuté sloupce přesáhly desku. Oboje ověřeno jen na desktopu: nový testovací argument `inches=2.8` rozloží rozhraní jako na telefonu.
 - ⚠ Rozhraní telefonu jde ladit bez telefonu: `nosplash windowed width=3168 height=1440 inches=2.8 result stars=3 level=…`.
 - Review dnešních sloučení (Sonnet): nic vážného; opraveno, že po přeskočení kamery se ignorují jen prsty položené v tom snímku (palec, který už mířil, míří dál), nejrychlejší režim displeje se čte jednou, a kontrola děr v uniformách má i obecné pravidlo (délka pole GLSL proti bloku, 314/314 shodných).
+- Ostatní stránky v rozložení telefonu (menu, všech šest karet Nastavení, čtyři karty Nápovědy, About, High Scores, Top Players, Extras, Jukebox, Scéna) se vejdou; přetékala jen výsledková. Řádek `[display]` na Androidu místo `0x0` jmenuje velikost okna.
 - Otevřené: ověřit obě na telefonu (nabíjí se); #1074 rozhodnutí majitele o snímkové frekvenci na telefonu (řádek FPS limit, 960 vs 720 řádků pro Low, teplo).
 
 ## 2026-11-09 — #1063 růžové sklo a rozmazání pohybu na telefonu: jedna příčina — desktop (RDT-PC), Claude Code
