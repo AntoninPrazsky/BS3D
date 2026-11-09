@@ -1001,7 +1001,10 @@ namespace BS3D
         private string DisplayLine()
         {
             DisplayMode display = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode;
-            string line = $"[display] {display.Width}x{display.Height}{(_displayRefreshHz > 0 ? $" at {_displayRefreshHz} Hz" : "")}";
+            //MonoGame's Android backend reports no display mode (0x0): the window's own size is the display's there
+            int width = display.Width, height = display.Height;
+            if ((width <= 0 || height <= 0) && Window != null) (width, height) = (Window.ClientBounds.Width, Window.ClientBounds.Height);
+            string line = $"[display] {width}x{height}{(_displayRefreshHz > 0 ? $" at {_displayRefreshHz} Hz" : "")}";
             if (!DisplayRefresh.TryGetScale(Window.Handle, out float scale, out bool aware)) return line;
 
             return aware
