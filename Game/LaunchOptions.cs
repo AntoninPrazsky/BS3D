@@ -76,6 +76,9 @@ namespace BS3D
 
         //Zero when "exposure=" is absent: the game then takes the settings file's, and then its own default
         internal float Exposure { get; private set; }
+
+        //"inches=<f>": the screen's physical height the interface is sized for, 0 to ask the display (#1073)
+        internal float ScreenInches { get; private set; }
         internal int MotionView { get; private set; }
 
         //Left null when absent, so the game keeps doing what it normally does: a random one of the fifteen
@@ -571,6 +574,10 @@ namespace BS3D
             //"ssaa=<n>" trades sharpness against fill rate; "exposure=<f>" is the renderer's shutter speed
             Row.Int("ssaa", (o, v) => o.SupersampleFactor = v),
             Row.Float("exposure", (o, v) => o.Exposure = v),
+            //"inches=<f>" is the screen's physical height, which sizes the interface for a screen held close (#1052,
+            //BS3DGame.UiScale): a phone's 2.8 on a monitor lays the menus and the HUD out as the phone does, so a page
+            //that overflows there can be seen and fixed without the phone (#1073). Testing only
+            Row.Float("inches", (o, v) => o.ScreenInches = v, v => v > 0.5f),
             //"motionview=<1..5>" draws what the motion blur's passes saw in place of the blurred frame: the velocity target, the
             //neighbour max, each pixel's own velocity (MotionBlur.DebugView, #1063). A diagnosis, not a look
             Row.Int("motionview", (o, v) => o.MotionView = v, v => v >= 0 && v <= 5),

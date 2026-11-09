@@ -774,6 +774,9 @@ namespace BS3D
         //"motionview=": what the motion blur's passes saw, drawn in place of the blurred frame (#1063)
         private readonly int _motionView;
 
+        //"inches=": the screen's physical height named on the command line, 0 to ask the display (#1073, UiScale)
+        private readonly float _screenInches;
+
         internal BS3DGame(LaunchOptions launch)
         {
             //The scene's procedural roll (see _sceneSeedOffset): rolled once per launch unless the command
@@ -781,6 +784,7 @@ namespace BS3D
             //nobody can compare against.
             _finaleMessage = launch.FinaleMessage;
             _motionView = launch.MotionView;
+            _screenInches = launch.ScreenInches;
 
             _sceneSeedOffset = launch.SceneSeed ?? Random.Shared.Next();
             Console.WriteLine($"[sceneseed] {_sceneSeedOffset}"
