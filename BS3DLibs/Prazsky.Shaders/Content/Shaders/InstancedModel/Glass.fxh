@@ -363,7 +363,9 @@ float4 GlassPS(GlassVSOutput input) : COLOR
     float4 seenClip = mul(mul(float4(seen, 1.0), View), Projection);
     float4 hereClip = mul(mul(float4(input.WorldPosition, 1.0), View), Projection);
 
-    float2 here = hereClip.xy / hereClip.w * float2(0.5, -0.5) + 0.5;
+    //⚠ Projection's z row as well (KEEP_READ, ShaderTarget.fxh): a clip position's z is not needed here, and a program that
+    //never reads the row had every uniform after it one slot late under GL - the pink slab of #1063
+    float2 here = (hereClip.xy / hereClip.w * float2(0.5, -0.5) + 0.5) KEEP_READ(hereClip.z);
     float2 there = seenClip.xy / max(seenClip.w, 1e-3) * float2(0.5, -0.5) + 0.5;
     float2 shift = seenClip.w > 1e-3 ? there - here : 0;
 

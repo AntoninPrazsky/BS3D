@@ -781,7 +781,6 @@ namespace BS3D
             //nobody can compare against.
             _finaleMessage = launch.FinaleMessage;
             _motionView = launch.MotionView;
-            if (launch.MotionBlur) GraphicsSupport.ForceMotionBlur = true;
 
             _sceneSeedOffset = launch.SceneSeed ?? Random.Shared.Next();
             Console.WriteLine($"[sceneseed] {_sceneSeedOffset}"

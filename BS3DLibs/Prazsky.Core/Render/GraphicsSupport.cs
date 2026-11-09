@@ -58,26 +58,5 @@ namespace Prazsky.Core.Render
         /// There the map it would read is not built at all.
         /// </summary>
         public static bool CityReflections => !OperatingSystem.IsAndroid();
-
-        /// <summary>
-        /// Whether the ceiling's glass bends a copy of the frame (#541): not under MonoGame's Android backend for now, where
-        /// the bent pane drew as an opaque, overexposed pink slab at Medium and up (#1063, cause not found yet: the target's
-        /// format, the copy's sampling and the screen convention all read right). There the plate draws as at Low, blended
-        /// over the frame, which reads correctly.
-        /// </summary>
-        public static bool CeilingRefraction => !OperatingSystem.IsAndroid();
-
-        /// <summary>
-        /// Whether the motion blur runs (#402): not under MonoGame's Android backend for now, where the result page's camera
-        /// move smeared screen-tile blocks of the wrong part of the frame across the island at Medium and up (#1063). The
-        /// cause is not found. Not the screen position's row order, as first suspected: MonoGame flips rendering into a
-        /// target so its rows match DirectX's, and the tile passes draw into targets. Off until it is found; a phone also
-        /// gives up a full-screen pass a frame.
-        /// </summary>
-        public static bool MotionBlur => ForceMotionBlur || !OperatingSystem.IsAndroid();
-
-        /// <summary>Runs the motion blur where <see cref="MotionBlur"/> leaves it off: the Game's <c>motionblur</c>, to look for
-        /// #1063's cause on the phone.</summary>
-        public static bool ForceMotionBlur { get; set; }
     }
 }

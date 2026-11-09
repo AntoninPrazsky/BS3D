@@ -567,8 +567,8 @@ jobs:
 
           `BS3D-...-android-arm64.apk` is the same game, from the same tag, for Android 7 or newer with OpenGL ES 3.0,
           played by touch or with a gamepad. It draws the Windows picture at a phone's settings (Low, Medium and High,
-          and Potato for a weak phone), without supersampling, motion blur, the glass ceiling's refraction and the
-          volumetric clouds, and shows `Android` beside its version in the menu.
+          and Potato for a weak phone), without supersampling, the volumetric clouds and the city windows' reflections,
+          and shows `Android` beside its version in the menu.
 
           1. Download the `BS3D-...-android-arm64.apk` below on the phone and open it. It does not come from a store,
              so Android asks once to allow the browser or the file manager to install apps.
