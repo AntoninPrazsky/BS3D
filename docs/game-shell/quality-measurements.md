@@ -70,7 +70,7 @@ Each chapter's heaviest level that is not its block's first (by balls; the city 
 
 ## The phone: the vivo X300 Ultra through the desktop path (#1061)
 
-Adreno 840, 3168×1440 at 120 Hz (the game's limit 62), `desktop` with `quality=` and `render=`, the median of a run's last twelve `[fps]` lines. **Every run starts on a cool phone** (thermal status 0, battery under 36 °C). A warm one throttles and lies: a pass run back to back read the meadow at `Low` native at 31 FPS where a cool start reads 48.6.
+Adreno 840, 3168×1440, the display held at 60 Hz by the phone (the game's limit 62, so 60 in the table is the display's and not the tier's; at 120 Hz see below), `desktop` with `quality=` and `render=`, the median of a run's last twelve `[fps]` lines. **Every run starts on a cool phone** (thermal status 0, battery under 36 °C). A warm one throttles and lies: a pass run back to back read the meadow at `Low` native at 31 FPS where a cool start reads 48.6.
 
 | FPS (cool start, 2026-11-05) | City, Girandole native | City at 1080 rows | Meadow, Cannonball native | Meadow at 1080 rows |
 |---|---|---|---|---|
@@ -84,3 +84,19 @@ Adreno 840, 3168×1440 at 120 Hz (the game's limit 62), `desktop` with `quality=
 - **The heat decides more than the first minute does.** Charging over USB, from a cool start at 1080 rows, the city:
   - `Low` held 60 for nine minutes and began to slip in the tenth (59.0, its low 47.3). It reached thermal status 2 by minute 7, the battery going from 35.7 to 42.3 °C.
   - `Medium` reached status 2 by minute 5 and throttled from 53 to 37.7 FPS by minute 7, the battery going from 35.9 to 42.7 °C. About 25 minutes of runs at native resolution took the phone to status 3 (skin 45.5 °C), and it needed 15 minutes idle to return to status 0. The Potato path held status 0 and 60 FPS for ten minutes in Girandole (#1048, battery 32.5 to 33.4 °C).
+
+### The phone at the display's 120 Hz (#1070)
+
+With BS3D allowed a high refresh rate in the phone's settings ("GameAndroid" in `docs/build-and-release.md`) the display stays at 120 Hz and the limiter reads `limit 124 (refresh)`. Measured 2026-11-09 as above, each run 36 s from thermal status 0 with the battery at 35.3-37.2 °C (it idles at 36.3 on USB), a scratch profile (`userdata=`), the levels as they load.
+
+| FPS at 120 Hz | City, Girandole | Meadow, Cannonball |
+|---|---|---|
+| Potato, native 3168×1440 | 120.4 | 120.4 |
+| `Low` at 720 rows (`render=720`) | 120.3 | |
+| `Low` at 960 rows (a phone's default) | 87.0 and 86.7 | 84.8 |
+| `Medium` at 960 rows | 72.8 | 60.9 |
+| `High` at 960 rows | 77.9 | |
+
+- **The display's 120 is held by Potato at native and by `Low` at 720 rows**; a frame's elapsed there spreads 0.4-0.6 ms (`[pace]` sd).
+- **Between 60 and 120 the frames are uneven**: the display shows each for one refresh or two, so `Low` at 960 rows reads 87 FPS with a spread of 1.2-1.7 ms (9-27 ms a frame), where a frame held at the display's 60 Hz spreads about 0.8 (the menu at `Medium`, 60.2 FPS).
+- **Two runs of Girandole at `Low` seven runs apart agree** (87.0 and 86.7), so the warmth of the session did not move the rest.

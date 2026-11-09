@@ -795,8 +795,9 @@ namespace BS3D.Screens
             //is empty with the reason beside it, whatever the setting says (#859)
             _tenBitCheck.Show(Game.IsTenBitColourEnabled && Game.TenBitHeldBy == null, Game.TenBitHeldBy);
             //"Monitor", not a number: the cap is whatever the panel refreshes at, and naming the rate here
-            //would go stale the moment the window lands on another monitor
-            _fpsLimitValue.Text = Game.IsFpsUncapped ? "Unlimited" : "Monitor";
+            //would go stale the moment the window lands on another monitor. A phone names its one display's rate, and
+            //says when the phone itself is what holds it at 60 (#1070, PhoneTiers.FpsLimitLabel)
+            _fpsLimitValue.Text = Game.FpsLimitLabel;
             //A build with no resolve (the Potato path, #796) has neither look, and says so as the motion blur's row does
             //rather than reading "On" over a click that changes nothing
             _aberrationCheck.Show(BS3DGame.HasLensLooks && Game.IsAberrationEnabled, BS3DGame.HasLensLooks ? null : "tier");

@@ -41,7 +41,8 @@ namespace BS3D
             if (OperatingSystem.IsAndroidVersionAtLeast(28))
                 attributes.LayoutInDisplayCutoutMode = LayoutInDisplayCutoutMode.ShortEdges;
             //The display's fastest mode at its own resolution, as the desktop follows the monitor: Android would hold
-            //the game at 60 Hz otherwise
+            //the game at 60 Hz otherwise. A phone may hold it there all the same until its player allows the app a high
+            //refresh rate (#1070, DisplayRefresh): this asks, and the phone's own setting decides
             if (OperatingSystem.IsAndroidVersionAtLeast(30) && Display != null)
             {
                 Display.Mode current = Display.GetMode();
@@ -77,7 +78,7 @@ namespace BS3D
             }
 
             _game = new BS3DGame(options);
-            //A refresh the system switches under the game (vivo's game mode), handed to the game's thread
+            //A refresh the phone switches under the game (60 Hz until its player allows more, #1070), handed to the game's thread
             _game.Components.Add(new Platform.DisplayWatch(_game));
             SetContentView((View)_game.Services.GetService(typeof(View)));
             HideSystemBars();

@@ -213,6 +213,8 @@ namespace BS3D
         /// so a limiter-capped machine does not trip it on the jitter of its own cap. The floor is clamped to
         /// <see cref="QUALITY_MIN_FPS_FLOOR"/> so a headless or remote adapter that reports no refresh keeps the
         /// old fixed number rather than settling at zero (which would make every run "fast enough" instantly).
+        /// On a phone the floors come off at most <see cref="PhoneTiers.TARGET_FPS"/> (<see cref="PhoneTiers.FloorRefresh(float)"/>),
+        /// while the limiter still follows the display.
         /// </summary>
         private void SetQualityMinFpsFromRefresh()
         {
@@ -221,6 +223,9 @@ namespace BS3D
             //that cannot be resolved yet reads as Zero there and falls back to the primary display.
             float refresh = 0f;
             if (DisplayRefresh.TryGetForWindow(Window?.Handle ?? IntPtr.Zero, out int hz)) refresh = hz;
+
+            //A phone's floors stop at its target (#1070): a display at 120 Hz raises the limiter below, never these
+            refresh = PhoneTiers.FloorRefresh(refresh);
             _qualityMinFps = Math.Max(refresh * (1f - QUALITY_REFRESH_MARGIN), QUALITY_MIN_FPS_FLOOR);
             _resolutionMinFps = Math.Max(refresh * (1f - RESOLUTION_REFRESH_MARGIN), QUALITY_MIN_FPS_FLOOR);
 
