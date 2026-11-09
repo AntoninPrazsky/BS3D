@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-11-09 — #1063 růžové sklo a rozmazání pohybu na telefonu: jedna příčina — desktop (RDT-PC), Claude Code
+- Hotovo: obě vady měly jednu příčinu. MojoShader dává poli uniform jen sloty registrů, které program čte; MonoGame plní pole podle celých parametrů. Registr vynechaný UPROSTŘED (z řádek projekce u `GlassPS`, u `ReconstructPS` reprojekční matice) posune všechny další uniformy o slot: sklo četlo oko místo barvy. `KEEP_READ(x)` (ShaderTarget.fxh) registr přečte, DirectX bajty beze změny; `FinishGlEffects` díru odmítá (vystřelilo přesně na ty dva z 314). Sklo i rozmazání na Androidu zase běží.
+- ⚠ Ladicí uniforma, která v shaderu čte 0, je příznak posunutých slotů. Mapu registr→slot dá `#define ps_cN ps_uniforms_vec4[M]` v GLSL uvnitř .xnb.
+- Otevřené: přeměřit Medium a High při 120 Hz (sklo a rozmazání stojí asi 2 ms); výsledková stránka na telefonu okem majitele.
+
 ## 2026-11-09 — #1053 Android ve vydání: podepsané APK — desktop (RDT-PC), Claude Code
 - Majitel: pokračovat tím, co Android ještě potřebuje.
 - Hotovo: `release.yml` má čtvrtou úlohu `release-android`. APK podepíše majitelovým klíčem, když jsou nastavená tajemství `ANDROID_KEYSTORE_BASE64` a `ANDROID_KEYSTORE_PASSWORD`; otisk certifikátu hlídá `GameAndroid/release-certificate.sha256`. Bez klíče ruční běh podepíše zkušebním klíčem a tag APK nevydá. Menu značí build „Android“.

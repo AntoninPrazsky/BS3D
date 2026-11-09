@@ -227,13 +227,14 @@
                 for (int k = 0; k < members; k++) placed[b].Add((r.ReadInt32(), r.ReadUInt16()));
             }
             int shaderCount = r.ReadInt32();
+            var programs = new List<(string Entry, string Code, List<byte> Buffers)>();
             for (int s = 0; s < shaderCount; s++)
             {
                 r.ReadBoolean();
                 string entry = "";
                 if (version > 10) { r.ReadString(); entry = r.ReadString(); }
                 int length = r.ReadInt32();
-                r.ReadBytes(length);
+                string code = Encoding.GetEncoding(28591).GetString(r.ReadBytes(length));
                 int samplers = r.ReadByte();
                 for (int k = 0; k < samplers; k++)
                 {
@@ -243,11 +244,38 @@
                     r.ReadByte();
                 }
                 int buffers = r.ReadByte();
-                for (int k = 0; k < buffers; k++) users[r.ReadByte()].Add(entry);
+                var bufferIds = new List<byte>();
+                for (int k = 0; k < buffers; k++) { byte b = r.ReadByte(); bufferIds.Add(b); users[b].Add(entry); }
                 int attributes = r.ReadByte();
                 for (int k = 0; k < attributes; k++) { r.ReadString(); r.ReadBytes(4); }
+                programs.Add((entry, code, bufferIds));
             }
             var parameters = ReadParameters(r);
+
+            //⚠ A register never read in the MIDDLE of a parameter (#1063, the glass's pink slab and the motion blur's tiles).
+            //MojoShader's GLSL maps each D3D register the program reads to the next slot of its uniform array
+            //("#define ps_c31 ps_uniforms_vec4[30]"), and MonoGame fills the array by the layout of whole parameters, so a
+            //skipped register puts every uniform after it one slot late. A skipped register shows as a jump in the register
+            //numbers against consecutive slots; an indexed array is placed first and jumps the other way, which is not one.
+            foreach (var program in programs)
+            {
+                var defines = Regex.Matches(program.Code, @"#define (?:vs|ps)_c(\d+) (?:vs|ps)_uniforms_vec4\[(\d+)\]").Cast<Match>()
+                    .Select(m => (Register: int.Parse(m.Groups[1].Value), Slot: int.Parse(m.Groups[2].Value))).OrderBy(d => d.Register).ToList();
+                for (int k = 0; k + 1 < defines.Count; k++)
+                {
+                    if (defines[k + 1].Register - defines[k].Register <= 1 || defines[k + 1].Slot - defines[k].Slot != 1) continue;
+                    int hole = defines[k].Slot + 1;
+                    string owner = "a parameter";
+                    foreach (byte b in program.Buffers)
+                        foreach (var (index, offset) in placed[b])
+                            if (offset / 16 <= hole && hole < offset / 16 + parameters[index].Registers)
+                                owner = parameters[index].Name + " (register " + (hole - offset / 16) + " of its " + parameters[index].Registers + ")";
+                    Log.LogError(Path.GetFileName(item.ItemSpec) + ": " + program.Entry + " never reads " + owner + ", so under GL every uniform after it arrives"
+                        + " one slot late (MojoShader gives the program's array a slot per register READ, MonoGame fills it by whole parameters, #1063):"
+                        + " read the register with KEEP_READ (ShaderTarget.fxh), see Glass.fxh");
+                    break;
+                }
+            }
             for (int b = 0; b < bufferCount; b++)
                 foreach (var (index, offset) in placed[b])
                     if (offset + parameters[index].End > sizes[b])

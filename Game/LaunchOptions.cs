@@ -76,7 +76,6 @@ namespace BS3D
 
         //Zero when "exposure=" is absent: the game then takes the settings file's, and then its own default
         internal float Exposure { get; private set; }
-        internal bool MotionBlur { get; private set; }
         internal int MotionView { get; private set; }
 
         //Left null when absent, so the game keeps doing what it normally does: a random one of the fifteen
@@ -572,10 +571,8 @@ namespace BS3D
             //"ssaa=<n>" trades sharpness against fill rate; "exposure=<f>" is the renderer's shutter speed
             Row.Int("ssaa", (o, v) => o.SupersampleFactor = v),
             Row.Float("exposure", (o, v) => o.Exposure = v),
-            //"motionblur" runs the motion blur where the platform leaves it off (Android, #1063), and "motionview=<1..5>" draws
-            //what its passes saw in place of the blurred frame: the velocity target, the neighbour max, each pixel's own
-            //velocity (MotionBlur.DebugView). Diagnoses, not looks
-            Row.Flag("motionblur", o => o.MotionBlur = true),
+            //"motionview=<1..5>" draws what the motion blur's passes saw in place of the blurred frame: the velocity target, the
+            //neighbour max, each pixel's own velocity (MotionBlur.DebugView, #1063). A diagnosis, not a look
             Row.Int("motionview", (o, v) => o.MotionView = v, v => v >= 0 && v <= 5),
             //"logfps" writes one frame-rate line a second to stdout — and beside it, since #634, a [pace] line
             //with the spread of the frame's elapsed over that second (mean, standard deviation, min-max), which

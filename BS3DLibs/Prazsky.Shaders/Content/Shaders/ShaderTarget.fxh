@@ -36,6 +36,16 @@
 //most 255, Shader Model 3.0's longest rep. ARRAY_LOOP is the same cure for a loop that indexes an array.
 #define COUNT_LOOP(i, count, max) [loop] for (int i = 0; i < max; i++) if (i >= count) break; else
 
+//A register of a uniform the program would otherwise never read. MojoShader gives a GL program's uniform array a slot
+//for each REGISTER its instructions read, and MonoGame fills the array by the layout of whole parameters, so a register
+//skipped in the MIDDLE of a parameter - a clip position's z row, when only x, y and w are used - puts every uniform
+//after it one slot late (#1063: the ceiling glass read the eye where its colour should be and drew a pink slab, the
+//motion blur read its tile size wrong). `expression KEEP_READ(x)` multiplies the expression by exactly 1 computed
+//from x (1 for every finite x; a NaN would have spoilt the expression anyway), so the register counts as read and
+//nothing else changes. On DirectX it is nothing. FinishGlEffects (GameAndroid.csproj) refuses a program left with
+//such a hole; a register skipped at the END of a parameter it refused already (BombVS, #1063).
+#define KEEP_READ(x) * step(-1e20, (x))
+
 #else
 
 #define VS_SHADERMODEL vs_5_0
@@ -48,5 +58,7 @@
 
 #define ARRAY_LOOP(i, count, max) [loop] for (int i = 0; i < count; i++)
 #define COUNT_LOOP(i, count, max) [loop] for (int i = 0; i < count; i++)
+
+#define KEEP_READ(x)
 
 #endif

@@ -87,15 +87,15 @@ Adreno 840, 3168×1440, the display held at 60 Hz by the phone (the game's limit
 
 ### The phone at the display's 120 Hz (#1070)
 
-With BS3D allowed a high refresh rate in the phone's settings ("GameAndroid" in `docs/build-and-release.md`) the display stays at 120 Hz and the limiter reads `limit 124 (refresh)`. Measured 2026-11-09 as above, each run 36 s from thermal status 0 with the battery at 35.3-37.2 °C (it idles at 36.3 on USB), a scratch profile (`userdata=`), the levels as they load.
+With BS3D allowed a high refresh rate in the phone's settings ("GameAndroid" in `docs/build-and-release.md`) the display stays at 120 Hz and the limiter reads `limit 124 (refresh)`. Measured 2026-11-09 as above, each run 36 s from thermal status 0 with the battery at 35.3-38.4 °C (it idles at 36.3 on USB), a scratch profile (`userdata=`), the levels as they load. `Medium` and `High` draw the ceiling's refraction and the motion blur, which #1063's fix brought back to the phone the same day (without them `Medium` had read 72.8 and 60.9, `High` 77.9 in the city: about 2 ms a frame).
 
 | FPS at 120 Hz | City, Girandole | Meadow, Cannonball |
 |---|---|---|
 | Potato, native 3168×1440 | 120.4 | 120.4 |
 | `Low` at 720 rows (`render=720`) | 120.3 | |
 | `Low` at 960 rows (a phone's default) | 87.0 and 86.7 | 84.8 |
-| `Medium` at 960 rows | 72.8 | 60.9 |
-| `High` at 960 rows | 77.9 | |
+| `Medium` at 960 rows | 62.6 | 55.3 |
+| `High` at 960 rows | 62.0 | 48.5 |
 
 - **The display's 120 is held by Potato at native and by `Low` at 720 rows**; a frame's elapsed there spreads 0.4-0.6 ms (`[pace]` sd).
 - **Between 60 and 120 the frames are uneven**: the display shows each for one refresh or two, so `Low` at 960 rows reads 87 FPS with a spread of 1.2-1.7 ms (9-27 ms a frame), where a frame held at the display's 60 Hz spreads about 0.8 (the menu at `Medium`, 60.2 FPS).

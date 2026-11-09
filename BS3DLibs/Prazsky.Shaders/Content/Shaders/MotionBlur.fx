@@ -290,7 +290,10 @@ float2 BackgroundVelocity(float2 uv)
 
     if (then.w <= 1e-3) return 0;
 
-    float2 velocity = (ndc - then.xy / then.w) * float2(OutputSize.x * 0.25, -OutputSize.y * 0.25);
+    //⚠ The matrix's z row as well (KEEP_READ, ShaderTarget.fxh): the reprojected z is not needed, and a program that never
+    //reads the row had every uniform after it one slot late under GL - the tile size among them, which smeared whole
+    //tiles of the result page over the island (#1063)
+    float2 velocity = (ndc - then.xy / then.w) * float2(OutputSize.x * 0.25, -OutputSize.y * 0.25) KEEP_READ(then.z);
 
     float speed = length(velocity);
     return speed > MaxHalfVelocity ? velocity * (MaxHalfVelocity / speed) : velocity;
