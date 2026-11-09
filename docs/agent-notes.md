@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-09 — #1072 #1073 #1074 večerní hlášení z telefonu — desktop (RDT-PC), Claude Code
+- Majitel: ťuknutí, které přeskočí úvodní průlet, hned vystřelí; skóre na výsledkové stránce přetéká z boxu. Přes noc pokračovat.
+- Hotovo: #1072 prst po přeskočení kamery je do zvednutí ignorovaný (`TouchControls.Consume`, test). #1073 `FitBreakdownFaces` zmenší písma rozpisu, kde by připnuté sloupce přesáhly desku. Oboje ověřeno jen na desktopu: nový testovací argument `inches=2.8` rozloží rozhraní jako na telefonu.
+- ⚠ Rozhraní telefonu jde ladit bez telefonu: `nosplash windowed width=3168 height=1440 inches=2.8 result stars=3 level=…`.
+- Otevřené: ověřit obě na telefonu (nabíjí se); #1074 rozhodnutí majitele o snímkové frekvenci na telefonu (řádek FPS limit, 960 vs 720 řádků pro Low, teplo).
+
 ## 2026-11-09 — #1063 růžové sklo a rozmazání pohybu na telefonu: jedna příčina — desktop (RDT-PC), Claude Code
 - Hotovo: obě vady měly jednu příčinu. MojoShader dává poli uniform jen sloty registrů, které program čte; MonoGame plní pole podle celých parametrů. Registr vynechaný UPROSTŘED (z řádek projekce u `GlassPS`, u `ReconstructPS` reprojekční matice) posune všechny další uniformy o slot: sklo četlo oko místo barvy. `KEEP_READ(x)` (ShaderTarget.fxh) registr přečte, DirectX bajty beze změny; `FinishGlEffects` díru odmítá (vystřelilo přesně na ty dva z 314). Sklo i rozmazání na Androidu zase běží.
 - ⚠ Ladicí uniforma, která v shaderu čte 0, je příznak posunutých slotů. Mapu registr→slot dá `#define ps_cN ps_uniforms_vec4[M]` v GLSL uvnitř .xnb.
