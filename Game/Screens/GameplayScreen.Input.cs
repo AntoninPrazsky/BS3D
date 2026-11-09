@@ -116,11 +116,15 @@ namespace BS3D.Screens
                 //the left mouse button and the pad's A), which are the ones the hand is already on.
                 if (CameraTakeoverEngaged)
                 {
-                    //A finger put down anywhere skips it too (#1051): on a phone the whole screen is the button
+                    //A finger put down anywhere skips it too (#1051): on a phone the whole screen is the button. And that
+                    //finger is then spoken for (#1072): left a tap, it fired the shot it lifted on, right after the skip
                     if (Game.IsKeyEdge(keyboard, Keys.Space)
                         || (pad.IsButtonDown(Buttons.A) && !Game.PreviousPad.IsButtonDown(Buttons.A))
                         || _touch.AnyPress)
+                    {
+                        if (_touch.AnyPress) _touch.Consume();
                         SkipCameraTakeover();
+                    }
 
                     Game.PreviousKeyboard = keyboard;
                     return false;

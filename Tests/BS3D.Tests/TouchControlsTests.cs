@@ -174,5 +174,30 @@ namespace BS3D.Tests
             Step(controls, Up(3, FIRE));
             Assert.True(controls.Fire);
         }
+
+        [Fact]
+        public void TheFingerThatSkippedATakeoverFiresNothingWhenItLifts()
+        {
+            TouchControls controls = new();
+            //The tap that skips the level's opening camera move (#1072): the screen sees it go down, the play consumes it
+            Step(controls, Down(1, FIRE));
+            Assert.True(controls.AnyPress);
+            controls.Consume();
+
+            Step(controls, Move(1, FIRE));
+            Step(controls, Up(1, FIRE));
+            Assert.False(controls.Fire);
+
+            //A finger that went down and up between two frames is withdrawn the same way
+            Step(controls, Up(2, FIRE));
+            Assert.True(controls.Fire);
+            controls.Consume();
+            Assert.False(controls.Fire);
+
+            //And the next tap is a shot again
+            Step(controls, Down(3, FIRE));
+            Step(controls, Up(3, FIRE));
+            Assert.True(controls.Fire);
+        }
     }
 }

@@ -221,6 +221,19 @@ namespace BS3D.Screens
             AnyPress = false;
         }
 
+        /// <summary>
+        /// Takes every finger on the screen as spoken for until it lifts (#1072): the finger that skipped a camera takeover
+        /// must not fire the shot it lifts on. The tap had skipped the level's opening move and shot at once, because its
+        /// track stayed a tap and the lift came within a tap's time. <see cref="Fire"/> and <see cref="Pressed"/> of this
+        /// frame are withdrawn too, for a finger that went down and up between two frames.
+        /// </summary>
+        public void Consume()
+        {
+            for (int i = 0; i < _count; i++) _tracks[i].Role = Role.Ignored;
+            Fire = false;
+            Pressed = Button.None;
+        }
+
         /// <summary>Whether a point is on the aiming side.</summary>
         public bool OnAimingSide(Vector2 point, int width) => (point.X < width * 0.5f) != AimOnRight;
 

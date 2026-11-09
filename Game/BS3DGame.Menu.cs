@@ -502,7 +502,9 @@ namespace BS3D
                 if (_uiScale < 0f)
                 {
                     _uiScale = 1f;
-                    if (Platform.DisplayRefresh.TryGetPhysicalHeightInches(out float inches))
+                    //The command line's height first (inches=, #1073): a phone's on a monitor shows the phone's layout
+                    float inches = _screenInches;
+                    if (inches > 0f || Platform.DisplayRefresh.TryGetPhysicalHeightInches(out inches))
                         _uiScale = Math.Clamp(UI_REFERENCE_HEIGHT_INCHES / inches, 1f, UI_SCALE_MAX);
                     Console.WriteLine(_uiScale > 1f
                         ? $"[ui] the screen is {inches:0.0} in tall: the interface is drawn at {_uiScale:0.00}x"
