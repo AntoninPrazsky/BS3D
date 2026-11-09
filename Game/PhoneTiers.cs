@@ -48,5 +48,34 @@ namespace BS3D
 
         /// <inheritdoc cref="FloorRefresh(float)"/>
         internal static float FloorRefresh(float refreshHz, bool phone) => phone ? Math.Min(refreshHz, TARGET_FPS) : refreshHz;
+
+        /// <summary>The slowest refresh that counts as a high one: a display offering it and running at 60 is being held.</summary>
+        internal const int HIGH_REFRESH_HZ = 90;
+
+        /// <summary>
+        /// What the FPS limit row reads (#124, #1070). A monitor's cap is "Monitor", never a number, which would go stale
+        /// the moment the window lands on another one. A phone has one display and names its rate, because the rate is
+        /// what its player can change: a phone holds an app at 60 Hz until the player allows it a high refresh rate in the
+        /// phone's own settings (measured on the vivo X300 Ultra: nothing the app declares or asks for lifts it), and the
+        /// row is the one place in the game that says where the 60 comes from.
+        /// </summary>
+        /// <param name="uncapped">The player's own choice of no limit.</param>
+        /// <param name="phone">Whether this is a phone (<see cref="Phone"/>).</param>
+        /// <param name="refreshHz">The display's refresh now, 0 when it does not say.</param>
+        /// <param name="fastestHz">The fastest refresh among the display's modes, 0 when it does not say.</param>
+        internal static string FpsLimitLabel(bool uncapped, bool phone, int refreshHz, int fastestHz)
+        {
+            if (uncapped) return "Unlimited";
+            if (!phone || refreshHz <= 0) return "Monitor";
+
+            return HeldByPhone(phone, refreshHz, fastestHz) ? $"{refreshHz} Hz (phone setting)" : $"{refreshHz} Hz";
+        }
+
+        /// <summary>
+        /// Whether the phone itself holds the game under what its display offers (#1070): a refresh at or under
+        /// <see cref="TARGET_FPS"/> on a display with a mode of <see cref="HIGH_REFRESH_HZ"/> or more.
+        /// </summary>
+        internal static bool HeldByPhone(bool phone, int refreshHz, int fastestHz) =>
+            phone && refreshHz > 0 && refreshHz <= TARGET_FPS && fastestHz >= HIGH_REFRESH_HZ;
     }
 }

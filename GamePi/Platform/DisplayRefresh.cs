@@ -47,6 +47,12 @@ namespace BS3D.Platform
         }
 
         /// <summary>
+        /// The fastest refresh among the display's modes at its size, where a system may hold an app under it (#1070: a
+        /// phone, until its player allows the app a high refresh rate). 0 here: a monitor's refresh is its own.
+        /// </summary>
+        internal static int FastestHz => 0;
+
+        /// <summary>
         /// How far the display's cutout reaches into the left and the right edge, in pixels (#1055): what a readout standing
         /// at an edge keeps clear of. None on a monitor.
         /// </summary>

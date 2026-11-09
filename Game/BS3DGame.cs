@@ -1128,14 +1128,24 @@ namespace BS3D
             //A scale change is a monitor change more often than not, and the other monitor may have other bits (#859)
             RefreshBackBufferFormat();
 
-            //And another refresh, which the probes' floors and the limiter come off (#81). A phone's system also switches its
-            //own rate under a running game - vivo's game mode takes 120 Hz to 60 a few seconds in - and the Android build
-            //raises this for it (#1048): a floor left at 120's said the 60 the display presents was too slow, and the 3D was
-            //lowered to 720 rows for nothing
+            //And another refresh, which the probes' floors and the limiter come off (#81). A phone also switches its own
+            //rate under a running game - a vivo takes 120 Hz to 60 about a second in, until its player allows the app a
+            //high refresh rate (#1070) - and the Android build raises this for it (#1048): a floor left at 120's said the 60
+            //the display presents was too slow, and the 3D was lowered to 720 rows for nothing
             int refreshBefore = _displayRefreshHz;
             SetQualityMinFpsFromRefresh();
             if (_displayRefreshHz != refreshBefore)
-                Console.WriteLine($"[display] the refresh changed: {refreshBefore} Hz to {_displayRefreshHz} Hz");
+            {
+                //Said with the reason where the phone is the one holding it (#1070), which no other line of a run names
+                int fastest = DisplayRefresh.FastestHz;
+                Console.WriteLine($"[display] the refresh changed: {refreshBefore} Hz to {_displayRefreshHz} Hz"
+                    + (PhoneTiers.HeldByPhone(PhoneTiers.Phone, _displayRefreshHz, fastest)
+                        ? $" (the display offers {fastest} Hz: the phone holds this app there until its player allows it a high refresh rate)"
+                        : ""));
+
+                //The FPS limit row names a phone's rate (#1070), and may be on screen as it changes
+                _settingsPage?.Refresh();
+            }
 
             //Its own line rather than DisplayLine again: that one's mode is the primary display's, and a window dragged
             //onto a second monitor is not on it

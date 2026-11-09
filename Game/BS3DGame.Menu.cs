@@ -1178,7 +1178,10 @@ namespace BS3D
         internal int BrightnessPercent => BrightnessLadder.PercentOf(_exposure);
         internal byte SkyDomeNumber => _skyDome;
         internal bool IsFpsOverlayVisible => _info.Visible;
-        internal bool IsFpsUncapped => _uncappedFps;
+
+        /// <summary>What the FPS limit row reads: "Monitor" or "Unlimited", and on a phone the display's rate (#1070).</summary>
+        internal string FpsLimitLabel => PhoneTiers.FpsLimitLabel(_uncappedFps, PhoneTiers.Phone, _displayRefreshHz, Platform.DisplayRefresh.FastestHz);
+
         internal float MasterVolume => _effective.MasterVolume;
         internal float SfxVolume => _effective.SfxVolume;
         internal float MusicVolume => _effective.MusicVolume;

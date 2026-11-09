@@ -41,6 +41,26 @@ namespace BS3D.Tests
         public void APhonesFloorsStopAtItsTarget(float refreshHz, bool phone, float expected) =>
             Assert.Equal(expected, PhoneTiers.FloorRefresh(refreshHz, phone));
 
+        [Theory]
+        //A monitor's cap is never a number (#124), whatever the monitor says
+        [InlineData(false, false, 75, 0, "Monitor")]
+        [InlineData(false, false, 144, 144, "Monitor")]
+        //The player's own choice of no limit reads the same everywhere
+        [InlineData(true, false, 75, 0, "Unlimited")]
+        [InlineData(true, true, 60, 144, "Unlimited")]
+        //A phone names its display's rate, and says when the phone holds it at 60 under a display that offers more (#1070:
+        //the X300 Ultra offers 144 and held BS3D at 60 until the app was allowed a high refresh rate, then ran it at 120)
+        [InlineData(false, true, 60, 144, "60 Hz (phone setting)")]
+        [InlineData(false, true, 60, 90, "60 Hz (phone setting)")]
+        [InlineData(false, true, 120, 144, "120 Hz")]
+        //A 60 Hz phone is not held, and one whose modes do not answer is not accused of it
+        [InlineData(false, true, 60, 60, "60 Hz")]
+        [InlineData(false, true, 60, 0, "60 Hz")]
+        //A display that says nothing has no rate to name
+        [InlineData(false, true, 0, 0, "Monitor")]
+        public void TheFpsLimitRowNamesAPhonesRateAndWhoHoldsIt(bool uncapped, bool phone, int refreshHz, int fastestHz, string expected) =>
+            Assert.Equal(expected, PhoneTiers.FpsLimitLabel(uncapped, phone, refreshHz, fastestHz));
+
         [Fact]
         public void PotatoTurnsDownNoLessThanLow()
         {

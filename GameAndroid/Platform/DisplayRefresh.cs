@@ -10,12 +10,14 @@ namespace BS3D.Platform
     /// to report and no bit depth the Game asks about.
     /// </summary>
     /// <remarks>
-    /// <b>The rate moves under a running game.</b> vivo's game mode takes the display from 120 Hz to 60 a few seconds after
-    /// start, so a refresh read once at start is wrong for the rest of the run: the resolution probe's floor stayed at
-    /// 120's, called the 60 the display presented too slow and lowered the 3D to 720 rows for nothing. So the refresh is
-    /// read again once a second (<see cref="DisplayWatch"/>, on the game's own thread), and a change raises the callback
-    /// the Game hands <see cref="WatchScale"/>, its hook for "the display under the window changed", which reads it again.
-    /// A display listener was tried first and missed a switch made before it was registered.
+    /// <b>The rate moves under a running game.</b> A vivo holds an app at 60 Hz until its player allows it a high refresh
+    /// rate in the phone's settings, and switches the display from 120 Hz about a second after the app starts (#1070;
+    /// nothing the app declares or asks for lifts it, "GameAndroid" in <c>docs/build-and-release.md</c>). So a refresh
+    /// read once at start is wrong for the rest of the run: the limiter aimed at 124 FPS on a display presenting 60, and
+    /// the resolution probe's floor, then at 120's, called that 60 too slow and lowered the 3D to 720 rows for nothing.
+    /// So the refresh is read again once a second (<see cref="DisplayWatch"/>, on the game's own thread), and a change
+    /// raises the callback the Game hands <see cref="WatchScale"/>, its hook for "the display under the window changed",
+    /// which reads it again. A display listener was tried first and missed a switch made before it was registered.
     /// </remarks>
     internal static class DisplayRefresh
     {
@@ -102,13 +104,36 @@ namespace BS3D.Platform
             return inches > 0.5f;
         }
 
+        /// <summary>
+        /// The fastest refresh among the display's modes at its current size, 0 until a display answers (#1070). What the
+        /// phone would run the game at if its player allowed the app a high refresh rate: a refresh of 60 under a
+        /// <c>FastestHz</c> of 120 is the phone's own hold, and the FPS limit row says so (<c>PhoneTiers.FpsLimitLabel</c>).
+        /// </summary>
+        internal static int FastestHz { get; private set; }
+
         private static bool TryRead(out int hz)
         {
             hz = 0;
             Display display = CurrentDisplay();
             if (display == null || display.RefreshRate < 10f) return false;
             hz = (int)MathF.Round(display.RefreshRate);
+
+            //Once: a display's modes do not change under a run, and the list is an allocation
+            if (FastestHz == 0) FastestHz = ReadFastest(display);
             return true;
+        }
+
+        private static int ReadFastest(Display display)
+        {
+            Display.Mode current = display.GetMode();
+            Display.Mode[] modes = display.GetSupportedModes();
+            if (current == null || modes == null) return 0;
+
+            float fastest = 0f;
+            foreach (Display.Mode mode in modes)
+                if (mode.PhysicalWidth == current.PhysicalWidth && mode.PhysicalHeight == current.PhysicalHeight && mode.RefreshRate > fastest)
+                    fastest = mode.RefreshRate;
+            return (int)MathF.Round(fastest);
         }
 
         private static Display CurrentDisplay()
