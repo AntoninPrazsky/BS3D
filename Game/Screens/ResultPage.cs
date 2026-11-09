@@ -779,7 +779,7 @@ namespace BS3D.Screens
         /// </summary>
         private void SetBreakdownFigures()
         {
-            SpriteFontBase body = FontBody;
+            SpriteFontBase body = _figuresBody;
 
             _matchedDetailSet = FontFigures.Tabular(_matchedDetailText, body);
             _matchedValueSet = FontFigures.Tabular(_matchedValueText, body);
@@ -788,8 +788,56 @@ namespace BS3D.Screens
             _streakValueSet = FontFigures.Tabular(_streakValueText, body);
             _unusedDetailSet = FontFigures.Tabular(_unusedDetailText, body);
             _unusedValueSet = FontFigures.Tabular(_unusedValueText, body);
-            _totalValueSet = FontFigures.Tabular(_totalValueText, Game.MenuFontHeading);
+            _totalValueSet = FontFigures.Tabular(_totalValueText, _figuresHeading);
         }
+
+        //The faces the breakdown's rows and total are set in (#1073): the body's and the heading's, or both scaled down by
+        //one factor where the pinned columns would run past the plate's content width
+        private SpriteFontBase _figuresBody, _figuresHeading;
+
+        /// <summary>
+        /// Chooses the faces of the breakdown's rows and total so the pinned columns fit the plate (#1073). On a phone every
+        /// entry is set at the front end's size (#1052) against the same menu column, and a total of four figures in the
+        /// heading face ran out of the plate's right edge on the X300 Ultra; the desktop's sizes fit by construction, so
+        /// there this changes nothing. The captions, the details, the values and the total all shrink by the one factor
+        /// that fits the widest line, so the grid stays one piece; the two notes under them wrap or are measured apart
+        /// (see <see cref="PinBreakdownColumns"/>). Before <see cref="SetBreakdownFigures"/>, whose figure sets are set for
+        /// these faces.
+        /// </summary>
+        private void FitBreakdownFaces()
+        {
+            SpriteFontBase body = FontBody, heading = Game.MenuFontHeading;
+
+            float gaps = 2f * _breakdownGrid.ColumnSpacing;
+            float needed = BreakdownWidth(body, heading);
+            float available = Game.MenuColumnPlateContentWidth - gaps;
+            if (needed > available)
+            {
+                float fit = available / needed;
+                body = Game.DisplayFontAt(body.FontSize * fit);
+                heading = Game.DisplayFontAt(heading.FontSize * fit);
+            }
+
+            _figuresBody = body;
+            _figuresHeading = heading;
+
+            //Rows 0 to 3 are the captions, details and values, row 4 the total; the notes below keep their own faces
+            foreach (Widget widget in _breakdownGrid.Widgets)
+            {
+                if (widget is not Label label) continue;
+                int row = Grid.GetRow(label);
+                if (row <= 3) label.Font = body;
+                else if (row == 4) label.Font = heading;
+            }
+        }
+
+        /// <summary>The three pinned columns' width in the given faces, without the gaps between them (<see cref="PinBreakdownColumns"/>'s sum).</summary>
+        private float BreakdownWidth(SpriteFontBase body, SpriteFontBase heading) =>
+            Widest(body, "matched", "detached", "streak bonus", "balls unused")
+            + WidestFigures(body, _matchedDetailText, _orphanedDetailText, _unusedDetailText)
+            + MathF.Max(
+                WidestFigures(body, PENDING_MARK, _matchedValueText, _orphanedValueText, _streakValueText, _unusedValueText),
+                WidestFigures(heading, PENDING_MARK, _totalValueText));
 
         /// <summary>
         /// Fixes the breakdown grid's three columns at the width of their <b>final</b> contents, so the layout is
@@ -816,8 +864,8 @@ namespace BS3D.Screens
         {
             if (_breakdownGrid == null || !_result.ShowsBreakdown) return;
 
-            SpriteFontBase body = FontBody;
-            SpriteFontBase heading = Game.MenuFontHeading;
+            SpriteFontBase body = _figuresBody;
+            SpriteFontBase heading = _figuresHeading;
 
             float caption = Widest(body, "matched", "detached", "streak bonus", "balls unused");
             float detail = WidestFigures(body, _matchedDetailText, _orphanedDetailText, _unusedDetailText);
@@ -1318,6 +1366,7 @@ namespace BS3D.Screens
 
                 //The figures set for this tree's faces (#806), then the columns at their final widths before anything of
                 //the reveal is written (#665), and after the two notes above, whose widths they take account of
+                FitBreakdownFaces();
                 SetBreakdownFigures();
                 PinBreakdownColumns();
             }
