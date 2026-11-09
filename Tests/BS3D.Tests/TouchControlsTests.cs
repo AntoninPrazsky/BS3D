@@ -199,5 +199,23 @@ namespace BS3D.Tests
             Step(controls, Up(3, FIRE));
             Assert.True(controls.Fire);
         }
+
+        [Fact]
+        public void AThumbAlreadyAimingKeepsAimingWhenAnotherFingersSkipIsConsumed()
+        {
+            TouchControls controls = new();
+            Step(controls, Down(1, AIM));
+            Step(controls, Move(1, AIM + new Vector2(10f, 0f)));
+
+            //The other thumb skips the takeover: only it is spoken for
+            Step(controls, Move(1, AIM + new Vector2(20f, 0f)), Down(2, FIRE));
+            controls.Consume();
+
+            Step(controls, Move(1, AIM + new Vector2(50f, 0f)), Move(2, FIRE));
+            Assert.Equal(new Vector2(30f, 0f), controls.AimDelta);
+
+            Step(controls, Up(1, AIM + new Vector2(50f, 0f)), Up(2, FIRE));
+            Assert.False(controls.Fire);
+        }
     }
 }

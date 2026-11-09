@@ -111,6 +111,8 @@ namespace BS3D.Platform
         /// </summary>
         internal static int FastestHz { get; private set; }
 
+        private static bool _fastestRead;
+
         private static bool TryRead(out int hz)
         {
             hz = 0;
@@ -118,8 +120,12 @@ namespace BS3D.Platform
             if (display == null || display.RefreshRate < 10f) return false;
             hz = (int)MathF.Round(display.RefreshRate);
 
-            //Once: a display's modes do not change under a run, and the list is an allocation
-            if (FastestHz == 0) FastestHz = ReadFastest(display);
+            //Once, whatever it answers: a display's modes do not change under a run, and the list is an allocation
+            if (!_fastestRead)
+            {
+                FastestHz = ReadFastest(display);
+                _fastestRead = true;
+            }
             return true;
         }
 
