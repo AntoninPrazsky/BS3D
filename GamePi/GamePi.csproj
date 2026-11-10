@@ -47,6 +47,15 @@
     (city 146 -> 32 ms, aurora 145 -> 26 ms); the steady frame no slower anywhere. It costs 4 MB of the tarball (414 ->
     418 MB) and 9 MB unpacked. It applies to publish only, so a build or a run from the IDE is unchanged.-->
     <PublishReadyToRun>true</PublishReadyToRun>
+    <!--No quick JIT (#1085): a method ReadyToRun did not precompile is JIT-compiled optimised the first time it runs, not
+    at tier 0 first. ReadyToRun cannot precompile Bepu's solver as the game instantiates it (generic over the session's
+    own callback types, in another assembly), so at every level's release (ReleaseCluster, the first step of the world)
+    the Pi ran the solver unoptimised for about two seconds: 15-30 ms a step, four steps a frame, 50-100 ms frames.
+    Measured on the Pi 5 off-screen, ReadyToRun publish: the windows after the release go from 27 54 52 33 ms to 26 18
+    19 18 (mountain), 26 101 91 80 to 27 25 20 19 (cavern); what is left is one longer first step, 140-165 -> 290-340 ms,
+    once a launch. The steady frame and the time to the first level are unchanged (12.05 ms; 4.4-4.8 s). Precompiled
+    code still tiers up, which is why this and not TieredCompilation off (12.23 ms steady).-->
+    <TieredCompilationQuickJit>false</TieredCompilationQuickJit>
   </PropertyGroup>
 
   <!--Which release this build is, exactly as in Game.csproj (#546): release.yml passes the tag, and a build without
