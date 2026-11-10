@@ -55,6 +55,8 @@ namespace BS3D.Platform
         /// <summary>Reads the refresh again once every <see cref="WATCH_SECONDS"/> and raises the Game's callback on a change.</summary>
         internal static void Watch(float elapsed)
         {
+            if (_askPending) ApplyAsk();
+
             _sinceWatch += elapsed;
             if (_sinceWatch < WATCH_SECONDS) return;
             _sinceWatch = 0f;
@@ -140,6 +142,59 @@ namespace BS3D.Platform
                 if (mode.PhysicalWidth == current.PhysicalWidth && mode.PhysicalHeight == current.PhysicalHeight && mode.RefreshRate > fastest)
                     fastest = mode.RefreshRate;
             return (int)MathF.Round(fastest);
+        }
+
+        /// <summary>
+        /// Asks the display for the mode at its size whose refresh is nearest <paramref name="hz"/>, 0 for its fastest
+        /// (#1074: the FPS limit row's own 60 Hz on a phone), through the window's preferred display mode, as
+        /// <c>MainActivity</c> asks for the fastest before the game exists. The phone may still hold the app under it
+        /// (#1070). Written on the activity's thread, where the window's attributes belong; what the display then
+        /// presents is read by <see cref="Watch"/> within a second and the Game re-derives its floors and limiter from it.
+        /// </summary>
+        internal static void AskRefresh(int hz)
+        {
+            //Kept for the next Watch, on the game's thread: at the game's construction the activity's window is not up yet,
+            //and the toggle's ask lands within a frame either way
+            _askedHz = hz;
+            _askPending = true;
+        }
+
+        private static int _askedHz;
+        private static bool _askPending;
+
+        private static void ApplyAsk()
+        {
+            Android.App.Activity activity = Game.Activity;
+            if (activity == null || !OperatingSystem.IsAndroidVersionAtLeast(30)) return;
+            _askPending = false;
+            int hz = _askedHz;
+
+            activity.RunOnUiThread(() =>
+            {
+                //Asked again inside: the analyzer (CA1416, an error here) does not carry the guard above into the lambda
+                if (!OperatingSystem.IsAndroidVersionAtLeast(30)) return;
+
+                Display display = activity.Display;
+                Display.Mode current = display?.GetMode();
+                Display.Mode[] modes = display?.GetSupportedModes();
+                if (current == null || modes == null) return;
+
+                Display.Mode chosen = null;
+                foreach (Display.Mode mode in modes)
+                {
+                    if (mode.PhysicalWidth != current.PhysicalWidth || mode.PhysicalHeight != current.PhysicalHeight) continue;
+                    bool nearer = chosen == null
+                        || (hz <= 0 ? mode.RefreshRate > chosen.RefreshRate
+                                    : Math.Abs(mode.RefreshRate - hz) < Math.Abs(chosen.RefreshRate - hz));
+                    if (nearer) chosen = mode;
+                }
+                if (chosen == null) return;
+
+                WindowManagerLayoutParams attributes = activity.Window.Attributes;
+                attributes.PreferredDisplayModeId = chosen.ModeId;
+                activity.Window.Attributes = attributes;
+                Console.WriteLine($"[display] asked for the display's {MathF.Round(chosen.RefreshRate)} Hz mode{(hz <= 0 ? " (its fastest)" : "")}");
+            });
         }
 
         private static Display CurrentDisplay()

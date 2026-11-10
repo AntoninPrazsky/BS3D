@@ -198,6 +198,12 @@ namespace BS3D.Platform
         internal static int CutoutRight => 0;
 
         /// <summary>
+        /// Asks the display for the mode whose refresh is nearest <paramref name="hz"/>, 0 for its fastest (#1074): a phone's
+        /// FPS limit row. Nothing here: a monitor's refresh is its own, and the row there is Monitor or Unlimited.
+        /// </summary>
+        internal static void AskRefresh(int hz) { }
+
+        /// <summary>
         /// The scale Windows sets for the monitor <paramref name="windowHandle"/> is on, its DPI over 96 (1.25 at 125 %),
         /// and whether the window is DPI-aware per monitor (#825). False on any failure, or before the window exists.
         /// <para>

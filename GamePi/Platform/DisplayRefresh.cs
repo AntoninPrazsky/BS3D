@@ -62,6 +62,12 @@ namespace BS3D.Platform
         internal static int CutoutRight => 0;
 
         /// <summary>
+        /// Asks the display for the mode whose refresh is nearest <paramref name="hz"/>, 0 for its fastest (#1074): a phone's
+        /// FPS limit row. Nothing here: a monitor's refresh is its own, and the row there is Monitor or Unlimited.
+        /// </summary>
+        internal static void AskRefresh(int hz) { }
+
+        /// <summary>
         /// The Windows version's display scale and DPI awareness (#825), which this platform does not have: Windows
         /// virtualizes a DPI-unaware window's sizes, and nothing on the Pi's desktop does that to the game. Always no
         /// answer, so the run log's display line and a note's context leave the scale out.

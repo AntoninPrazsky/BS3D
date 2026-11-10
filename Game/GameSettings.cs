@@ -202,6 +202,14 @@ namespace BS3D
         [JsonPropertyName("uncappedFps")]
         public bool UncappedFps { get; set; }
 
+        /// <summary>
+        /// A phone's own 60 Hz (#1074, the owner's choice): the FPS limit row there asks the display for its 60 Hz mode in
+        /// place of its fastest, a cooler phone and a clean frame under vsync where a tier cannot hold 120. Nothing on a
+        /// monitor, where the row is Monitor or Unlimited.
+        /// </summary>
+        [JsonPropertyName("phoneSixtyHz")]
+        public bool PhoneSixtyHz { get; set; }
+
         [JsonPropertyName("aberration")]
         public bool Aberration { get; set; } = true;
 

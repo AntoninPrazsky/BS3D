@@ -59,13 +59,16 @@ namespace BS3D
         /// phone's own settings (measured on the vivo X300 Ultra: nothing the app declares or asks for lifts it), and the
         /// row is the one place in the game that says where the 60 comes from.
         /// </summary>
-        /// <param name="uncapped">The player's own choice of no limit.</param>
+        /// <param name="uncapped">The player's own choice of no limit; nothing on a phone, which presents with vsync.</param>
         /// <param name="phone">Whether this is a phone (<see cref="Phone"/>).</param>
         /// <param name="refreshHz">The display's refresh now, 0 when it does not say.</param>
         /// <param name="fastestHz">The fastest refresh among the display's modes, 0 when it does not say.</param>
-        internal static string FpsLimitLabel(bool uncapped, bool phone, int refreshHz, int fastestHz)
+        /// <param name="sixtyHz">A phone's own choice of its 60 Hz mode (#1074): the row's second state there, read as the
+        /// choice even in the second before the display follows it, and never as the phone's hold.</param>
+        internal static string FpsLimitLabel(bool uncapped, bool phone, int refreshHz, int fastestHz, bool sixtyHz = false)
         {
-            if (uncapped) return "Unlimited";
+            if (phone && sixtyHz) return $"{TARGET_FPS} Hz";
+            if (uncapped && !phone) return "Unlimited";
             if (!phone || refreshHz <= 0) return "Monitor";
 
             return HeldByPhone(phone, refreshHz, fastestHz) ? $"{refreshHz} Hz (phone setting)" : $"{refreshHz} Hz";

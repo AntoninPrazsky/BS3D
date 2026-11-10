@@ -85,6 +85,10 @@ namespace BS3D
         //FrameLimiter's own doc for the measurement that moved it.
         private bool _uncappedFps;
 
+        //A phone's FPS limit row (#1074): the display asked for its 60 Hz mode in place of its fastest. The row's second
+        //state there, where Unlimited means nothing (Android presents with vsync, so a frame never passes the display's rate)
+        private bool _phoneSixtyHz;
+
         //fpscap=N: an explicit frame limit for a measurement, overriding both the display's refresh and
         //"nocap". The Testbed has had it since #250 and the Game had not, which left the one executable that
         //can load a LEVEL measurable only flat out or by vsync, which quantized every reading to the refresh
@@ -953,7 +957,11 @@ namespace BS3D
             _aimSensitivity = NearestSensitivityRung(_settings.AimSensitivity);
             _touchSensitivity = NearestSensitivityRung(_settings.TouchSensitivity);
 
-            _uncappedFps = launch.UncappedFps ?? _settings.UncappedFps;
+            //A phone has no Unlimited (#1074): its row's second state is the display's 60 Hz mode, asked for here when the
+            //settings say so, as MainActivity asked for the fastest before the game existed
+            _uncappedFps = launch.UncappedFps ?? (_settings.UncappedFps && !PhoneTiers.Phone);
+            _phoneSixtyHz = PhoneTiers.Phone && _settings.PhoneSixtyHz;
+            if (_phoneSixtyHz) DisplayRefresh.AskRefresh(PhoneTiers.TARGET_FPS);
 
             //The 10-bit back buffer (#859): the settings' answer, or the run's ("tenbit"/"tenbit=off"), which also
             //overrides what the panel reports so the 10-bit path can be driven on an 8-bit laptop
@@ -1148,7 +1156,9 @@ namespace BS3D
                 //Said with the reason where the phone is the one holding it (#1070), which no other line of a run names
                 int fastest = DisplayRefresh.FastestHz;
                 Console.WriteLine($"[display] the refresh changed: {refreshBefore} Hz to {_displayRefreshHz} Hz"
-                    + (PhoneTiers.HeldByPhone(PhoneTiers.Phone, _displayRefreshHz, fastest)
+                    + (_phoneSixtyHz && _displayRefreshHz <= PhoneTiers.TARGET_FPS
+                        ? " (the FPS limit row asked for 60 Hz)"
+                        : PhoneTiers.HeldByPhone(PhoneTiers.Phone, _displayRefreshHz, fastest)
                         ? $" (the display offers {fastest} Hz: the phone holds this app there until its player allows it a high refresh rate)"
                         : ""));
 
