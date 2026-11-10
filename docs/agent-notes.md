@@ -20,6 +20,15 @@ Pravidla:
 
 ---
 
+## 2026-11-10 — #1080 #1085 Bookworm, X11 a paměť na Pi — Pi (BS3DServer), Claude Code
+- Body 2, 3 a 5 z #1080 jsou zodpovězené (čísla v issue).
+  - Bookworm: tarball v0.6.0 v userlandu oficiální image (bwrap, bez roota) jede stejně jako na Trixie, ±1 ms. GL 3.1 a GLES 3.1 jsou v obou Mesách.
+  - X11: SDL x11 přes Xwayland jede na celé obrazovce i v okně.
+  - Paměť: nejvýš ~0,4 GB RAM a 0,14 GB GPU, takže se hra vejde i do Pi 5 se 2 GB.
+- Nové #1085: start každého levelu na Pi spadne zhruba na 2 s na ~9 FPS během odhalení laserové sítě. Na JIT ani na systému nezáleží.
+- ⚠ `benchmark` se bez zapnutého online nespustí, protože výsledek posílá autorovi.
+- Otevřené: Pi 4 (nemáme), teplo bez chladiče (souhlas majitele), relativní myš a skutečná X11 session.
+
 ## 2026-11-10 — #1084 řádek FPS písmem Inter — desktop (RDT-PC), Claude Code
 - Majitel: „Ten text FPS změň na Inter jako na Pi“ a po porovnání „Inter dokonce vypadá lépe než Segoe“.
 - Hotovo: `Game/Content/Fonts/segoeui.spritefont` se staví z `Inter-Regular.ttf`, jméno assetu zůstalo. Segoe UI od Microsoftu už v zipu není.
