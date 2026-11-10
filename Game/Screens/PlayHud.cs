@@ -3455,7 +3455,8 @@ namespace BS3D.Screens
         //How much of the top strip the card leaves between itself and the corner readouts (#461). The card is
         //CENTRED, so what bounds it is the nearer top corner mirrored about the centre — and that corner is the
         //score's, not the FPS line's: the score is the wider of the two at every size the game runs (five
-        //digits of the display face measure 237 design units against the FPS line's ~145 of Segoe UI), so a
+        //digits of the display face measure 237 design units against the FPS line's ~165 of Inter: Segoe UI's ~145 before
+        //#1084, times Inter's wider advance for "FPS: 75", 1.14 off the two fonts' own tables), so a
         //card that clears the score clears the line as well. Stated as a distance rather than as an aspect, so
         //the owner's 21.6:9 panel simply gets a wider strip than 16:9 does and a narrow window a tighter one.
         private const int HUD_TUTORIAL_CLEARANCE = 80;

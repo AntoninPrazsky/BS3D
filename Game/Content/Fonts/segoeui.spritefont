@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <XnaContent xmlns:Graphics="Microsoft.Xna.Framework.Content.Pipeline.Graphics">
+  <!--The InfoRenderer's font (the FPS line), built from Inter, the menu's small print, as GamePi's always was (#1084):
+  Segoe UI is Microsoft's, licensed with Windows, and an atlas of its glyphs in the zip was its glyphs shipped without a
+  licence to. The asset keeps its old name, which the Game, GamePi and GameAndroid all load.-->
   <Asset Type="Graphics:FontDescription">
-    <FontName>Segoe UI</FontName>
+    <FontName>Inter-Regular.ttf</FontName>
     <Size>48</Size>
     <Spacing>0</Spacing>
     <UseKerning>true</UseKerning>

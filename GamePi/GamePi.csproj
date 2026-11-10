@@ -7,7 +7,8 @@
   - Platform/, the few classes whose Windows implementation is nothing but Win32, WinForms or WinRT (PadMotors, the
     trigger motors through Windows.Gaming.Input, #188), KeyboardLights (the keyboard's lamps through LampArray, #987), and QualityLock, the tier the build is held at (Potato, #788). Each is a file of Game/Platform left out of the compile below and
     replaced here by one with the same name and the same members;
-  - Content/Content.mgcb, because the Game's builds a "Segoe UI" spritefont, which no Linux machine has.
+  - Content/Content.mgcb, its own content build for DesktopGL (the Game's built a "Segoe UI" spritefont, which no
+    Linux machine has, until #1084 moved it to Inter as well).
 
   Game.csproj does not know this project exists, so the Windows build is the one it was. A change to Game/ reaches
   both; WinForms added to a shared file fails this build, and so does any other Windows-only .NET API (CA1416, made
