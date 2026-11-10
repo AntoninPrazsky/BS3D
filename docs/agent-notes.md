@@ -25,7 +25,7 @@ Pravidla:
 - Hotovo: tag `v0.6.0` na 0a6e980e, běh Release 42829148036 zelený (Windows zip 422 MB, linux-arm64 403 MB, APK 393 MB podepsané majitelovým klíčem = otisk v repu, ceilings, SHA256SUMS ověřeny; stažený exe hlásí v0.6.0). Web (#1071, 5bdeee02): sekce Android s fotkou z telefonu, věta o obrazu `androidPicture` v `site.json` citovaná `release.yml` jako `piPicture` (test). Poznámky `Images/releases/v0.6.0.md`.
 - ⚠ Pi: session s Remote Control udělala snapshot, ale klasifikátor auto-režimu odmítl `update-ceilings.sh` jako „Production Deploy“ (jako `update.sh` 26. 10.); příkaz spouští majitel sám. Dvě zkoušky release workflow před tagem (jedna se starým, jedna s novým `release.yml`) — `build.yml` má `cancel-in-progress`, release ne.
 - Pi hotovo 15:35 CET: majitel spustil `update-ceilings.sh` sám (added BS3D-v0.6.0-ceilings.json, 9 tabulek, restart); health 183 boardů před i po (žádný nový level); tabulka v0.6.0 nese starFloors.
-- Otevřené: publikace webu (heslo majitele) → pak zavřít #1071; majitel nainstaluje APK (dev build pryč, jiný podpis) a povolí 120 Hz.
+- Web publikován majitelem ~15:30 CET (sekce Android živá, oba nové blogposty také) → #1071 zavřeno. Podepsané APK nainstalováno na telefon přes `adb install` (versionName 0.6.0); majitel znovu povolí 120 Hz.
 
 ## 2026-11-10 — #1074 #1075 #1076 odpoledne: 60 Hz na telefonu, volley, verdikty — desktop (RDT-PC), Claude Code
 - Majitel: #1063 OK (sklo, rozmazání), #1048 OK (zvuk) → zavřeno i s plánem #1056. #1074: 1 b, 2 a, 3 a. Vydání později; „(no server)“ na telefonu je záměr lokálního buildu (#548), vyřeší APK z vydání.
