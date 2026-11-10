@@ -283,12 +283,28 @@ namespace BS3D
         /// measurement, and capping floors it at the refresh, which the probe's floor sits comfortably under
         /// by construction (<c>SetQualityMinFpsFromRefresh</c>).
         /// </para>
+        /// <para>
+        /// <b>On a phone the second state is 60 Hz, not Unlimited</b> (#1074, the owner's choice): Android presents with
+        /// vsync, so no limit means nothing there, and the row instead asks the display for its 60 Hz mode
+        /// (<see cref="Platform.DisplayRefresh.AskRefresh"/>) - a cooler phone and a clean frame where a tier cannot hold
+        /// 120 - and for its fastest again on the next click. The display answers within a second, and the refresh watch
+        /// (<c>OnWindowScaleChanged</c>) re-derives the floors and the limiter from what it presents, as it does when the
+        /// phone itself switches the rate (#1070).
+        /// </para>
         /// </summary>
         internal void ToggleFpsLimit()
         {
-            _uncappedFps = !_uncappedFps;
-
-            _settings.UncappedFps = _uncappedFps;
+            if (PhoneTiers.Phone)
+            {
+                _phoneSixtyHz = !_phoneSixtyHz;
+                _settings.PhoneSixtyHz = _phoneSixtyHz;
+                Platform.DisplayRefresh.AskRefresh(_phoneSixtyHz ? PhoneTiers.TARGET_FPS : 0);
+            }
+            else
+            {
+                _uncappedFps = !_uncappedFps;
+                _settings.UncappedFps = _uncappedFps;
+            }
             SaveSettings();
 
             _settingsPage.Refresh();

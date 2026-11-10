@@ -47,7 +47,9 @@ namespace BS3D.Tests
         [InlineData(false, false, 144, 144, "Monitor")]
         //The player's own choice of no limit reads the same everywhere
         [InlineData(true, false, 75, 0, "Unlimited")]
-        [InlineData(true, true, 60, 144, "Unlimited")]
+        //and on a phone never: Android presents with vsync, so Unlimited would change nothing there (#1074)
+        [InlineData(true, true, 60, 144, "60 Hz (phone setting)")]
+        [InlineData(true, true, 120, 144, "120 Hz")]
         //A phone names its display's rate, and says when the phone holds it at 60 under a display that offers more (#1070:
         //the X300 Ultra offers 144 and held BS3D at 60 until the app was allowed a high refresh rate, then ran it at 120)
         [InlineData(false, true, 60, 144, "60 Hz (phone setting)")]
@@ -60,6 +62,25 @@ namespace BS3D.Tests
         [InlineData(false, true, 0, 0, "Monitor")]
         public void TheFpsLimitRowNamesAPhonesRateAndWhoHoldsIt(bool uncapped, bool phone, int refreshHz, int fastestHz, string expected) =>
             Assert.Equal(expected, PhoneTiers.FpsLimitLabel(uncapped, phone, refreshHz, fastestHz));
+
+        [Theory]
+        //A phone's own 60 Hz (#1074) reads as the choice: in the second before the display follows it, and at 60 under a display
+        //that offers more, where without the choice the row would call it the phone's hold
+        [InlineData(true, 120, 144, "60 Hz")]
+        [InlineData(true, 60, 144, "60 Hz")]
+        [InlineData(true, 60, 60, "60 Hz")]
+        //Without it the row reads as before, whatever the uncapped flag says
+        [InlineData(false, 120, 144, "120 Hz")]
+        [InlineData(false, 60, 144, "60 Hz (phone setting)")]
+        public void APhonesOwnSixtyHzReadsAsItsChoice(bool sixtyHz, int refreshHz, int fastestHz, string expected)
+        {
+            Assert.Equal(expected, PhoneTiers.FpsLimitLabel(uncapped: false, phone: true, refreshHz, fastestHz, sixtyHz));
+            Assert.Equal(expected, PhoneTiers.FpsLimitLabel(uncapped: true, phone: true, refreshHz, fastestHz, sixtyHz));
+        }
+
+        [Fact]
+        public void AMonitorKeepsItsOwnTwoStates() =>
+            Assert.Equal("Unlimited", PhoneTiers.FpsLimitLabel(uncapped: true, phone: false, 144, 0, sixtyHz: true));
 
         [Fact]
         public void PotatoTurnsDownNoLessThanLow()

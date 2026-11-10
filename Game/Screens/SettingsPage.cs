@@ -1222,6 +1222,8 @@ namespace BS3D.Screens
                     case "resolution": ShowTab(TAB_SCREEN); KeepOrDropTyping(); Game.CycleRenderResolution(); break;
                     case "quality": ShowTab(TAB_SCREEN); KeepOrDropTyping(); Game.CycleQuality(); break;
                     case "auto": ShowTab(TAB_SCREEN); KeepOrDropTyping(); Game.ToggleAdaptiveQuality(); break;
+                    //The FPS limit (#1074): on a phone the display asked for its 60 Hz mode, which only a run on the phone can show
+                    case "fps": ShowTab(TAB_SCREEN); KeepOrDropTyping(); Game.ToggleFpsLimit(); break;
                     case "scenery": ShowTab(TAB_SCREEN); KeepOrDropTyping(); Game.ToggleScenery(); break;
                     case "nickname": ShowTab(TAB_ONLINE); OnNickname(); break;
                     case "remove" when UserData.IsTestingDirectory: ShowTab(TAB_ONLINE); KeepOrDropTyping(); OnRemove(); break;

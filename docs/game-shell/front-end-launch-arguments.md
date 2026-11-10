@@ -6,7 +6,7 @@ A locked desktop takes no keystrokes, a synthetic one lands in whichever window 
 
 ## Pages at boot
 
-- `settings` / `settings=<row,...>` / `settings=tab:<name>`: the Settings page (#189). Rows (`online`, `nickname`, `remove`, `intro`, `brightness`, `resolution`, `quality`, `auto`, `scenery`) are activated through the page's own handlers, each putting up the page that holds it first; `tab:<name>` puts up a page by its tab (`settings=tab:audio`). ⚠ `remove` is refused outside `userdata=`: it would take the player's scores off the server.
+- `settings` / `settings=<row,...>` / `settings=tab:<name>`: the Settings page (#189). Rows (`online`, `nickname`, `remove`, `intro`, `brightness`, `resolution`, `quality`, `auto`, `scenery`, `fps` - the FPS limit, #1074) are activated through the page's own handlers, each putting up the page that holds it first; `tab:<name>` puts up a page by its tab (`settings=tab:audio`). ⚠ `remove` is refused outside `userdata=`: it would take the player's scores off the server.
 - `pick` / `pick=<chapter>`: the level picker, on that chapter (#273).
 - `pickfocus=<level>@<s>`: rests the picker's pointer on that level's tile at that wall-clock second (#684), so the detail line, preview and boards plate follow.
 - `about` / `about=play` / `about=<n>`: the About page, `play` also starting the original-score player and opening the player's page, the last (#443; pair with `shot=` past the piece's render time), a number opening it on that page of five (#807, #1034); `about=2:play` takes both.
