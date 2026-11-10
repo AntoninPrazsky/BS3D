@@ -19,7 +19,7 @@ they install. They are copied into a fork of Botspot/pi-apps only when the owner
 
 1. It refuses a Raspberry Pi older than the Pi 5, and a Jetson, until #1080 has measured them. A computer it cannot
    identify gets a warning and installs anyway: Pi-Apps' own CI runs in a chroot that reports no model.
-2. It makes ICU a dependency through `install_packages` (`libicu76`, `74`, `72` or `70`). .NET needs ICU, and the
+2. It makes ICU a dependency through `install_packages` (`libicu78`, `77`, `76`, `74`, `72` or `70`: Ubuntu 26.04 Resolute has 78, and the first test_build.yml run failed there without it). .NET needs ICU, and the
    desktop images of Raspberry Pi OS already carry it.
 3. It downloads `BS3D-v<version>-linux-arm64.tar.gz` and the release's `SHA256SUMS` into `/var/tmp`, which is on
    disk; Trixie keeps `/tmp` in memory. It checks the tarball against its line in `SHA256SUMS`, and the download
