@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-10 — #1071 vydání v0.6.0, první s Androidem — desktop (RDT-PC), Claude Code
+- Majitel: „Uděláme release nové verze hry. Bude to verze 0.6.0“; obrázek vybral 3 (Balloon z telefonu). Vydání později → dnes.
+- Hotovo: tag `v0.6.0` na 0a6e980e, běh Release 42829148036 zelený (Windows zip 422 MB, linux-arm64 403 MB, APK 393 MB podepsané majitelovým klíčem = otisk v repu, ceilings, SHA256SUMS ověřeny; stažený exe hlásí v0.6.0). Web (#1071, 5bdeee02): sekce Android s fotkou z telefonu, věta o obrazu `androidPicture` v `site.json` citovaná `release.yml` jako `piPicture` (test). Poznámky `Images/releases/v0.6.0.md`.
+- ⚠ Pi: session s Remote Control udělala snapshot, ale klasifikátor auto-režimu odmítl `update-ceilings.sh` jako „Production Deploy“ (jako `update.sh` 26. 10.); příkaz spouští majitel sám. Dvě zkoušky release workflow před tagem (jedna se starým, jedna s novým `release.yml`) — `build.yml` má `cancel-in-progress`, release ne.
+- Otevřené: publikace webu (`Web\publish.ps1 -Protocol ftps`, heslo majitele) → pak zavřít #1071; majitel nainstaluje APK (dev build pryč, jiný podpis) a povolí 120 Hz.
+
 ## 2026-11-10 — #1074 #1075 #1076 odpoledne: 60 Hz na telefonu, volley, verdikty — desktop (RDT-PC), Claude Code
 - Majitel: #1063 OK (sklo, rozmazání), #1048 OK (zvuk) → zavřeno i s plánem #1056. #1074: 1 b, 2 a, 3 a. Vydání později; „(no server)“ na telefonu je záměr lokálního buildu (#548), vyřeší APK z vydání.
 - Hotovo: #1074 řádek FPS limit na telefonu přepíná 120 Hz ↔ 60 Hz přes `PreferredDisplayModeId` (`DisplayRefresh.AskRefresh`, `GameSettings.PhoneSixtyHz`, `settings=fps`); ověřeno na displeji (režim 1 ↔ 4). #1075 zásobník se během volley vyprazdňuje (`MagazineBallsShown`); #1076 rozhodnutý level pustí přesné míření (`ReleaseLean`). Obojí z majitelových postřehů, ověřeno na pětikuličkovém levelu s bombou (`levelfile=` ve scratchpadu, `detonate=2.5 rmb=0.5:30`).
