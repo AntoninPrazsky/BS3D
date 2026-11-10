@@ -20,6 +20,16 @@ Pravidla:
 
 ---
 
+## 2026-11-10 — #858 #1078 #1079 #1080 #1081 Pi-Apps: rizika a práce — desktop (RDT-PC), Claude Code
+- Majitel: „Myslíš, že hru můžeme zveřejnit pro RaspberryPi na těch Pi-apps? Jaká jsou rizika?“ a pak „doplň tohle do issues nebo založ nové“; z README pryč „built mostly to learn“ (hotovo, merge).
+- Rozbor rizik je v komentáři na #858. Nové issues:
+  - #1078 balíček: install-64, uninstall, updater, README pro Pi;
+  - #1079 ReadyToRun;
+  - #1080 libicu, Bookworm, X11, Pi 4, paměť, teplo;
+  - #1081 THIRD-PARTY-NOTICES a About „DirectX 11“ i na Pi a Androidu.
+- ⚠ Pi-Apps má vlastní updater (`get_release`): po přijetí dojde každý náš tag hráčům na Pi sám a jméno tarballu je kontrakt.
+- Otevřené: #1078–#1081, většina se dá ověřit jen na Pi. Fork pi-apps a PR až na pokyn majitele.
+
 ## 2026-11-10 — #none useknutý klip push v článku o LCD — desktop (RDT-PC), Claude Code
 - Majitel: video status-push.mp4 na blogu trvá vteřinu a přejezd se nedokončí.
 - Příčina v BS3D-LCD: `status/shots.py` snímal 0,6–2,2 s, slide začínal v 1,6 s a trvá 1,0 s. Nový GIF je celá smyčka (server → push → aktivita → push zpět, 4,8 s = dva údery tečky `strip.BEAT`); šev se liší jen dvojtečkou hodin. Web: `status-push-loop.{webm,mp4}` přes `Tools/web-capture-encode.py`, nové jméno kvůli cache Cloudflare.
