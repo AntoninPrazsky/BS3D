@@ -27,7 +27,7 @@ Pravidla:
   - Ukáže se před dotazem na přezdívku.
   - Parametr `welcome` ho ukáže kdekoli.
   - Vyfoceno v 1280×720 i 1920×1080.
-- Text jsem napsal sám: „one of its very first releases“, protože „vůbec první“ neplatí (tarball pro Pi vychází od v0.3.6). Čeká na verdikt majitele (`verdict-eye`).
+- Text jsem napsal sám: „one of its very first releases“, protože „vůbec první“ neplatí (tarball pro Pi vychází od v0.3.6). Majitel: „Text schvaluju.“
 - Otevřené: ověřit na Pi ruční zavření a druhé spuštění.
 
 ## 2026-11-10 — #1082 F12 do složky jen pro čtení — Pi (BS3DServer), Claude Code
