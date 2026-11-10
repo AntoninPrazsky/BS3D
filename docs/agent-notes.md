@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-10 — #none useknutý klip push v článku o LCD — desktop (RDT-PC), Claude Code
+- Majitel: video status-push.mp4 na blogu trvá vteřinu a přejezd se nedokončí.
+- Příčina v BS3D-LCD: `status/shots.py` snímal 0,6–2,2 s, slide začínal v 1,6 s a trvá 1,0 s. Nový GIF je celá smyčka (server → push → aktivita → push zpět, 4,8 s = dva údery tečky `strip.BEAT`); šev se liší jen dvojtečkou hodin. Web: `status-push-loop.{webm,mp4}` přes `Tools/web-capture-encode.py`, nové jméno kvůli cache Cloudflare.
+- ⚠ Stránka 2,5 s = 62,5 snímku: push se zpozdí o snímek a smyčka ujíždí; `page_time` o půl snímku kratší.
+- Otevřené: commit v BS3D-LCD (auto režim odmítl push do jeho mainu, čeká na majitele); publikace webu (majitel).
+
 ## 2026-11-10 — #1071 vydání v0.6.0, první s Androidem — desktop (RDT-PC), Claude Code
 - Majitel: „Uděláme release nové verze hry. Bude to verze 0.6.0“; obrázek vybral 3 (Balloon z telefonu). Vydání později → dnes.
 - Hotovo: tag `v0.6.0` na 0a6e980e, běh Release 42829148036 zelený (Windows zip 422 MB, linux-arm64 403 MB, APK 393 MB podepsané majitelovým klíčem = otisk v repu, ceilings, SHA256SUMS ověřeny; stažený exe hlásí v0.6.0). Web (#1071, 5bdeee02): sekce Android s fotkou z telefonu, věta o obrazu `androidPicture` v `site.json` citovaná `release.yml` jako `piPicture` (test). Poznámky `Images/releases/v0.6.0.md`.
