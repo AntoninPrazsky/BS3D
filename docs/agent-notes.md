@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-10 — #1085 zásek při startu levelu na Pi — Pi (BS3DServer), Claude Code
+- Příčina není laserová síť (s vypnutým kreslením i odhalením je zásek stejný), ale Bepu: svět se poprvé krokuje v `ReleaseCluster` na konci průletu. Řešič, generický nad našimi callbacky, ReadyToRun nepředkompiluje, a tak ~2 s běžel v tier-0 kódu (15–30 ms na krok, 4 kroky na snímek).
+- Hotovo: `TieredCompilationQuickJit=false` v GamePi.csproj. Okna po uvolnění: mountain 27/54/52 → 26/18/19 ms, cavern 26/101/91/80 → 27/25/20 ms. Ustálený snímek i start beze změny.
+- Zůstává jeden delší první krok, ~0,3 s jednou za spuštění. Zahřátí řešiče při načítání je samostatné issue.
+- ⚠ Dočasné přepínače přes env (`BS3D_X_*`) a `DOTNET_TC_QuickJit=0` / `DOTNET_TieredCompilation=0` rozliší JIT od práce bez nového buildu.
+
 ## 2026-11-10 — #1083 dotaz na přezdívku přes vzkaz — desktop (RDT-PC), Claude Code
 - Na buildu se serverem vyskočil dotaz na přezdívku nad vzkazem. `Push` se provede až v dalším snímku, takže v tom samém snímku bylo aktivní pořád hlavní menu.
 - Na Pi to nebylo vidět: dev build tam nemá server.
