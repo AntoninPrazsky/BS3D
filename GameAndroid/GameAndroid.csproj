@@ -43,6 +43,11 @@
     experimental (warning XA1040), so a fault that looks like the runtime is checked against UseMonoRuntime=true first.-->
     <UseMonoRuntime>false</UseMonoRuntime>
     <NoWarn>$(NoWarn);XA1040</NoWarn>
+    <!--An APK and nothing else. The SDK's Release default is "aab;apk", and with the bundle as the main format its Install
+    target (_DeployAppBundle) UNINSTALLS the app before installing it, and on the vivo X300 Ultra that took the player's
+    save, settings and nickname with it (2026-11-10). The APK's install (_DeployApk) is "adb install -r", which keeps them.
+    The release ships the APK anyway; a store bundle, if ever, is a decision of its own.-->
+    <AndroidPackageFormats>apk</AndroidPackageFormats>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(BS3DReleaseVersion)' != ''">
