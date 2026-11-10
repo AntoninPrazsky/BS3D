@@ -30,7 +30,7 @@ Full list: `Game/LaunchOptions.cs`.
 
 ## Saving frames: `F12`, `shot=<t1,t2,...>`
 
-`Prazsky.Core.Render.ScreenshotWriter` (shared; "Saving a frame" in `docs/testbed.md`) writes the presented frame to `Screenshots/` beside the exe and prints `[shot] <path>`. **The schedule is the whole point**: every external capture route can silently return the wrong picture (the lock screen, a covering window, a blank `PrintWindow`), and on a locked desktop no keystroke arrives. `F10` hides the overlay first. A capture is a ~0.1 s edge, never per-frame.
+`Prazsky.Core.Render.ScreenshotWriter` (shared; "Saving a frame" in `docs/testbed.md`) writes the presented frame to `Screenshots/` beside the exe and prints `[shot] <path>`. **When that folder cannot be written to** (the Pi-Apps install in root's `/opt/bs3d`, a copy under Program Files), the Game's shots go to the player's `Pictures/BS3D`, or to `Screenshots/` in the user-data folder when there is no Pictures folder, and to `Screenshots/` in the `userdata=` folder for a scripted run; one `[shot] … cannot be written to …` line says so, once per run (#1082). **The schedule is the whole point**: every external capture route can silently return the wrong picture (the lock screen, a covering window, a blank `PrintWindow`), and on a locked desktop no keystroke arrives. `F10` hides the overlay first. A capture is a ~0.1 s edge, never per-frame.
 
 ## Capture: filming the game (#946)
 
