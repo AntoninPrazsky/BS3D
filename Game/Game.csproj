@@ -130,6 +130,13 @@
   <ItemGroup>
     <Content Include="Sfx\*.ogg" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <!--What every package carries besides the game (#1081): each third-party component, its version, its licence and the
+  licence's full text - MonoGame's Ms-PL, Bepu's Apache 2.0, the MIT ones, and in the Pi and Android packages OpenAL
+  Soft's LGPL. One file for all three builds (GamePi and GameAndroid link this one), beside the exe in the zip; each
+  package check in release.yml asserts it is there.-->
+  <ItemGroup>
+    <Content Include="THIRD-PARTY-NOTICES.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\BS3DLibs\Prazsky.BS3D.Physics\Prazsky.BS3D.Physics.csproj" />
     <ProjectReference Include="..\BS3DLibs\Prazsky.BS3D\Prazsky.BS3D.csproj" />

@@ -1,4 +1,5 @@
 using BS3D.Screens;
+using System;
 using System.Linq;
 using Xunit;
 
@@ -27,19 +28,25 @@ namespace BS3D.Tests
             "Claude", "Anthropic", "Claude Code", "ACE-Step 1.5", "Z-Image-Turbo", "RealESRGAN", "Gemma", "nomic-embed",
         };
 
-        [Fact]
-        public void Every_string_is_set_by_the_rules()
+        //The three builds by name: a public test method cannot take the internal enum
+        public static TheoryData<string> Builds => new(Enum.GetNames<AboutCopy.Build>());
+
+        private static AboutCopy.Build Parse(string build) => Enum.Parse<AboutCopy.Build>(build);
+
+        [Theory]
+        [MemberData(nameof(Builds))]
+        public void Every_string_is_set_by_the_rules(string build)
         {
             int checkedStrings = 0;
 
-            foreach (string text in AboutCopy.Copy(TITLE))
+            foreach (string text in AboutCopy.Copy(TITLE, Parse(build)))
             {
                 Assert.Null(CopyRules.Fault(text) is { } fault ? $"'{text}': {fault}" : null);
                 checkedStrings++;
             }
 
             //Four names, four blocks of prose and two credit lists: an accessor that came back short would pass the loop
-            Assert.True(checkedStrings >= 8 + 2 * (AboutCopy.LIBRARIES.Length + AboutCopy.GENERATED.Length),
+            Assert.True(checkedStrings >= 8 + 2 * (AboutCopy.Libraries(Parse(build)).Length + AboutCopy.GENERATED.Length),
                 $"only {checkedStrings} strings came back from AboutCopy.Copy");
         }
 
@@ -47,19 +54,42 @@ namespace BS3D.Tests
         [MemberData(nameof(Credits))]
         public void No_credit_is_dropped(string credit)
         {
-            //A tie is drawn as a space, so the page says "MonoGame 3.8.5" whichever of the two holds it together
-            string page = string.Join("\n", AboutCopy.Copy(TITLE)).Replace(SpaceWrap.TIE, ' ');
+            //Every build keeps every credit, but DirectX 11 is the Windows build's alone (#1081): the Pi's and the phone's
+            //name the API they draw through, which Each_build_names_its_own_graphics_API holds
+            foreach (AboutCopy.Build build in Enum.GetValues<AboutCopy.Build>())
+            {
+                if (credit == "DirectX 11" && build != AboutCopy.Build.Windows) continue;
 
-            Assert.Contains(credit, page);
+                //A tie is drawn as a space, so the page says "MonoGame 3.8.5" whichever of the two holds it together
+                string page = string.Join("\n", AboutCopy.Copy(TITLE, build)).Replace(SpaceWrap.TIE, ' ');
+
+                Assert.True(page.Contains(credit, StringComparison.Ordinal), $"the {build} build's About has no '{credit}'");
+            }
         }
 
-        [Fact]
-        public void A_version_is_tied_to_its_name()
+        [Theory]
+        [InlineData("Windows", "MonoGame 3.8.5 (DirectX 11)", "OpenGL|SDL|OpenAL")]
+        [InlineData("Linux", "MonoGame 3.8.5 (OpenGL)|SDL 2|OpenAL Soft", "DirectX|OpenGL ES")]
+        [InlineData("Android", "MonoGame 3.8.5 (OpenGL ES)|OpenAL Soft", "DirectX|SDL")]
+        public void Each_build_names_its_own_graphics_API(string build, string named, string absent)
+        {
+            //#1081: About said DirectX 11 on the Pi and the phone, which draw through OpenGL and OpenGL ES, and named
+            //neither of the native libraries those two packages carry (SDL on the Pi, OpenAL Soft on both)
+            string page = string.Join("\n", AboutCopy.Copy(TITLE, Parse(build))).Replace(SpaceWrap.TIE, ' ');
+
+            foreach (string name in named.Split('|')) Assert.True(page.Contains(name, StringComparison.Ordinal), $"the {build} build's About has no '{name}'");
+            foreach (string name in absent.Split('|')) Assert.False(page.Contains(name, StringComparison.Ordinal), $"the {build} build's About names '{name}'");
+        }
+
+        [Theory]
+        [MemberData(nameof(Builds))]
+        public void A_version_is_tied_to_its_name(string build)
         {
             //"Typesetting" in docs/game-shell/menu-look.md: a name keeps its version on its line. A credit list's name never
             //breaks today, but a role does, and the licence sits in one
-            string[] tied = { "MonoGame\u00A03.8.5", "DirectX\u00A011", "BepuPhysics\u00A02.5", "SIL\u00A0OFL\u00A01.1", "ACE-Step\u00A01.5", ".NET\u00A010" };
-            string page = string.Join("\n", AboutCopy.Copy(TITLE));
+            string api = AboutCopy.GraphicsApi(Parse(build));
+            string[] tied = { "MonoGame\u00A03.8.5", api, "BepuPhysics\u00A02.5", "SIL\u00A0OFL\u00A01.1", "ACE-Step\u00A01.5", ".NET\u00A010" };
+            string page = string.Join("\n", AboutCopy.Copy(TITLE, Parse(build)));
 
             foreach (string name in tied) Assert.Contains(name, page);
         }

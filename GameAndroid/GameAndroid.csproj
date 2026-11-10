@@ -320,6 +320,8 @@
     <AndroidAsset Include="..\Game\Music\*.ogg" Link="Assets\Music\%(Filename)%(Extension)" />
     <AndroidAsset Include="..\Game\Music\Drums\*.ogg" Link="Assets\Music\Drums\%(Filename)%(Extension)" />
     <AndroidAsset Include="..\Game\Sfx\*.ogg" Link="Assets\Sfx\%(Filename)%(Extension)" />
+    <!--The Game's third-party notices (#1081), at the asset root: the APK carries OpenAL Soft (LGPL) as libopenal.so.-->
+    <AndroidAsset Include="..\Game\THIRD-PARTY-NOTICES.txt" Link="Assets\THIRD-PARTY-NOTICES.txt" />
   </ItemGroup>
 
   <!--The menu's fonts, embedded under the names the Game's LoadEmbeddedFont asks for, as in GamePi.-->
