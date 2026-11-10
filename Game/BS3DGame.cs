@@ -885,8 +885,11 @@ namespace BS3D
             _shotSchedule = launch.ShotSeconds;
             _noFpsOverlay = launch.NoFpsOverlay;
             _noSplash = launch.NoSplash;
-            //"pad" pins the menus' prompts to the pad for the run as it pins the session's (#799)
-            _promptsForPad = _promptsPinned = launch.PadPrompts;
+            //"pad" pins the menus' prompts to the pad for the run as it pins the session's (#799); "touch" pins them to a
+            //finger's, and stands in for the touch screen the monitor has not (TouchScreenPresent)
+            _promptsForPad = launch.PadPrompts;
+            _promptsForTouch = _touchPinned = launch.TouchPrompts && !launch.PadPrompts;
+            _promptsPinned = launch.PadPrompts || launch.TouchPrompts;
             _nickPrompt = launch.NickPrompt;
             _noInternet = launch.NoInternet;
             Birthday = launch.Birthday || IsBirthday(DateTime.Now);

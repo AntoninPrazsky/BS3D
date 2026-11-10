@@ -1108,6 +1108,16 @@ namespace BS3D
 
         private bool _promptsForTouch;
 
+        //The "touch" argument (testing only): the hand pinned to the screen, and a touch screen said to be there
+        private bool _touchPinned;
+
+        /// <summary>
+        /// Whether there is a touch screen to play on: the panel the window reports, or the <c>touch</c> argument standing
+        /// in for one on a monitor, so the rows and the Help paragraph only a finger gets (<i>Touch sensitivity</i>, <i>Aim
+        /// on the right</i>, Help's touch scheme) are laid out where they can be photographed without the phone (#1073).
+        /// </summary>
+        internal bool TouchScreenPresent => _touchPinned || Microsoft.Xna.Framework.Input.Touch.TouchPanel.GetCapabilities().IsConnected;
+
         /// <summary>
         /// Whether play's hand was the screen on its last frame (#1052), written by the session while it runs: a page that
         /// opens over play (the pause, the result) is then drawn for a finger from its first frame, where the menus' own note
