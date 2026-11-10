@@ -249,6 +249,7 @@ jobs:
       # "dev-<sha>" and every local build never land on the public boards. NOT a single file, unlike the Windows
       # one: the SDL2 and OpenAL natives and the runtime sit beside the executable, a layout the Pi has been
       # measured to run from (#785); a single-file Linux layout is a separate experiment.
+      # ReadyToRun comes from GamePi.csproj (#1079): it saves a Pi about 1.5 s at every scene's first level, and costs 4 MB
       - name: Publish GamePi (self-contained, linux-arm64)
         run: |
           args=(publish GamePi/GamePi.csproj -c Release -r linux-arm64 --self-contained true -p:DebugType=embedded -o "publish/$BUILD_NAME")

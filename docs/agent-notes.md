@@ -20,6 +20,10 @@ Pravidla:
 
 ---
 
+## 2026-11-10 — #1079 GamePi publikuje ReadyToRun — Pi (BS3DServer), Claude Code
+- Hotovo: `PublishReadyToRun` v `GamePi.csproj`, takže je předkompilovaný každý publish (release i kontrola v build.yml). Čísla jsou v #1079, v csproj a v docs/build-and-release.md: start do menu 4,6 → 3,6 s, první level každé scény v průměru o 1,5 s dřív, ustálený snímek beze změny, tarball +4 MB.
+- ⚠ Maximum v `[pace]` je oříznuté na 500 ms (elapsed od MonoGame), takže delší záseky je potřeba měřit od spuštění procesu.
+
 ## 2026-11-10 — #1083 vzkaz autora při prvním spuštění na Pi — desktop (RDT-PC), Claude Code
 - Majitel: „po prvním spuštění hry na Pi 5 by se mohla zobrazit nějaká osobní hláška“: hra je ve vývoji, jde o projekt jednoho člověka, server je Raspberry Pi, hra může mít chyby, poděkování a Write to the Author.
 - Hotovo: `WelcomePage` a `WelcomeNote`.
