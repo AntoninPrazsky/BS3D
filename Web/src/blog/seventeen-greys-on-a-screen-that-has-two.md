@@ -89,11 +89,11 @@ A page with nothing to say is left out.
 Each page is pushed out by the next with a slide that starts slowly and brakes at the end. The curve is smootherstep, 6u⁵ − 15u⁴ + 10u³, whose speed and acceleration are both zero at either end, so the page neither jolts as it starts nor as it stops. Antonín picked it, over 1.0 s, from the variants the tool showed on the panel. At 200 frames a second, the fastest frame of that slide moves the page by about 1.2 pixels, so it can move in whole pixels and still look smooth.
 
 <figure>
-<video class="clip" width="710" height="454" muted loop playsinline controls preload="none" poster="/video/blog/seventeen-greys-on-a-screen-that-has-two/status-push-poster.png" aria-label="The server page slides out to the left while the activity page, a bar chart of the last 24 hours, slides in from the right under the status strip.">
-<source src="/video/blog/seventeen-greys-on-a-screen-that-has-two/status-push.webm" type="video/webm">
-<source src="/video/blog/seventeen-greys-on-a-screen-that-has-two/status-push.mp4" type="video/mp4">
+<video class="clip" width="710" height="454" muted loop playsinline controls preload="none" poster="/video/blog/seventeen-greys-on-a-screen-that-has-two/status-push-loop-poster.png" aria-label="The server page slides out to the left while the activity page, a bar chart of the last 24 hours, slides in from the right under the status strip. A moment later the server page pushes it out the same way.">
+<source src="/video/blog/seventeen-greys-on-a-screen-that-has-two/status-push-loop.webm" type="video/webm">
+<source src="/video/blog/seventeen-greys-on-a-screen-that-has-two/status-push-loop.mp4" type="video/mp4">
 </video>
-<figcaption>One page pushing out another under the status strip, simulated with made-up data.</figcaption>
+<figcaption>Two pages pushing each other out under the status strip, simulated with made-up data. The pages turn faster than on the panel, where a page stays 8 s.</figcaption>
 </figure>
 
 The top players roll like the credits of a film, at 8 pixels a second, Antonín's pick again, because anything faster blurs on the slow liquid crystal. The nicknames are why the fonts are what they are. Pillow's bitmap fonts stop at 256 characters, and a player may well write an Š or a ů. So the panel draws the public-domain X11 misc-fixed fonts, read from their BDF files, which carry every Latin letter up to U+017F. Text stays 1-bit and sits on whole pixels, because greys blur small letters.
