@@ -89,7 +89,10 @@ The Raspberry Pi build greets a new player with a personal note before anything 
   - only on the Pi build (`OperatingSystem.IsLinux()`; Windows and Android never);
   - only while `welcomeShown` is absent from `Settings.json`;
   - never in a run a script drives (`userdata=` or a `StartupScript` lever), the nickname question's gate.
-- **It comes before the nickname question.** `ShowWelcomeOnce` runs on the same frame as `AskForNicknameOnce`, the first time the main menu is the page up. It goes first, so the question finds the note on top and waits for the main menu to come back.
+- **It comes before the nickname question.** `ShowWelcomeOnce` runs first, the first time the main menu is the page up.
+  - ⚠ The frame that opens the note does not ask the question (`if (!ShowWelcomeOnce()) AskForNicknameOnce();`). A push is applied on the next frame, so on that frame the main menu is still `Active`, and both pages went up with the NICKNAME plate on top. That was seen on a build with a score server.
+  - From the next frame on, the question finds the note on top and waits for the main menu to come back.
+  - Reproduce it with `welcome nickprompt userdata=<dir>` and `"server": "http://localhost:5000"` in that profile's `Settings.json`: the shot shows the note, and once the note is left, the question.
 - **Let's play is the page's `NavArrival`** and its Back. Escape and the pad's B do the same. ⚠ **Nothing pressed in its first 0.8 s counts**, as on the nickname plate: the key that skipped the title card would otherwise close the note unread.
 - **Leaving it, however it is left, writes `welcomeShown`** (`Leave` → `MarkWelcomeShown`). A run that ends with the note still up has not shown it.
 - **`welcome`** puts it up on any build and in a scripted run, for a capture: `nosplash windowed width=1280 height=720 welcome userdata=<dir> shot=14`. It fits at 1280x720 and at 1920x1080 (captured).

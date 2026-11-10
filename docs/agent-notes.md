@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-10 — #1083 dotaz na přezdívku přes vzkaz — desktop (RDT-PC), Claude Code
+- Na buildu se serverem vyskočil dotaz na přezdívku nad vzkazem. `Push` se provede až v dalším snímku, takže v tom samém snímku bylo aktivní pořád hlavní menu.
+- Na Pi to nebylo vidět: dev build tam nemá server.
+- Oprava: `if (!ShowWelcomeOnce()) AskForNicknameOnce();`. Ověřeno zachycením se `server` v Settings.json, předtím a potom.
+- ⚠ Dvě stránky otevřené z jednoho snímku nesmí obě testovat `Active` hlavního menu.
+
 ## 2026-11-10 — #1080 #1085 Bookworm, X11 a paměť na Pi — Pi (BS3DServer), Claude Code
 - Body 2, 3 a 5 z #1080 jsou zodpovězené (čísla v issue).
   - Bookworm: tarball v0.6.0 v userlandu oficiální image (bwrap, bez roota) jede stejně jako na Trixie, ±1 ms. GL 3.1 a GLES 3.1 jsou v obou Mesách.

@@ -2271,9 +2271,9 @@ namespace BS3D
             _startupScript.Step(this);
 
             //The Pi's first-launch note (#1083), then the first launch's one question, once the front end is the page the
-            //player is on (#763): the question waits for the main menu to be on top, so it follows the note
-            ShowWelcomeOnce();
-            AskForNicknameOnce();
+            //player is on (#763). Not both on one frame: a push is applied on the next one, so on the frame the note is
+            //opened the main menu is still Active and the question would go up over it (it did, on a build with a server)
+            if (!ShowWelcomeOnce()) AskForNicknameOnce();
 
             //A page that has just arrived must not be handed a mouse button that was already held down when it
             //did. Myra keeps its own previous-state and is only fed input while a menu page is on top, so the
