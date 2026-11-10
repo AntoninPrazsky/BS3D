@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-11-10 — #1084 řádek FPS písmem Inter — desktop (RDT-PC), Claude Code
+- Majitel: „Ten text FPS změň na Inter jako na Pi“ a po porovnání „Inter dokonce vypadá lépe než Segoe“.
+- Hotovo: `Game/Content/Fonts/segoeui.spritefont` se staví z `Inter-Regular.ttf`, jméno assetu zůstalo. Segoe UI od Microsoftu už v zipu není.
+- Inter je pro „FPS: 75“ 1,14× širší (asi 165 jednotek). Skóre má 237, takže odstup tutoriálové karty platí dál.
+
 ## 2026-11-10 — #1079 GamePi publikuje ReadyToRun — Pi (BS3DServer), Claude Code
 - Hotovo: `PublishReadyToRun` v `GamePi.csproj`, takže je předkompilovaný každý publish (release i kontrola v build.yml). Čísla jsou v #1079, v csproj a v docs/build-and-release.md: start do menu 4,6 → 3,6 s, první level každé scény v průměru o 1,5 s dřív, ustálený snímek beze změny, tarball +4 MB.
 - ⚠ Maximum v `[pace]` je oříznuté na 500 ms (elapsed od MonoGame), takže delší záseky je potřeba měřit od spuštění procesu.
