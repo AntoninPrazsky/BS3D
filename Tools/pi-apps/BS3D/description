@@ -6,6 +6,8 @@ It needs a Raspberry Pi 5. The Pi draws a simpler picture than the Windows versi
 Online leaderboards are optional. They stay off until you choose a nickname and turn them on in Settings, and the whole game can be played offline.
 Your progress and settings are saved in ~/.local/share/BS3D, so updating or uninstalling the game keeps them.
 
+F12 saves a screenshot into ~/Pictures/BS3D.
+
 To run: Menu -> Games -> BS3D
 To run in a terminal: bs3d
 
