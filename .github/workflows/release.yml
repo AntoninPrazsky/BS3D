@@ -154,7 +154,8 @@ jobs:
       # (#618), copied in through the project reference, so this is also the check that the copy really
       # reaches a publish.
       #
-      # And the way in (#714): the top level is BS3D.exe and the four folders, nothing else. The runtime check
+      # And the way in (#714): the top level is BS3D.exe and the four folders, nothing else but the third-party
+      # notices every package carries (#1081: the licences of what the game is built on). The runtime check
       # is the exe's size, since a single-file self-contained exe carries it (116 MB; a framework-dependent or
       # unbundled one is a few hundred KB), and a stray item at the top - a DLL, a second exe, a folder of
       # translations - is exactly the wall of files this layout exists to remove, so it fails the build.
@@ -165,8 +166,9 @@ jobs:
           $missing = @()
           if (-not (Test-Path "$root/BS3D.exe")) { $missing += 'BS3D.exe' }
           elseif ((Get-Item "$root/BS3D.exe").Length -lt 50MB) { $missing += 'the .NET runtime inside BS3D.exe - is this really a self-contained single-file publish?' }
-          $stray = @(Get-ChildItem $root | Where-Object { $_.Name -notin 'BS3D.exe', 'Content', 'Levels', 'Music', 'Sfx' } | ForEach-Object Name)
+          $stray = @(Get-ChildItem $root | Where-Object { $_.Name -notin 'BS3D.exe', 'Content', 'Levels', 'Music', 'Sfx', 'THIRD-PARTY-NOTICES.txt' } | ForEach-Object Name)
           if ($stray.Count -gt 0) { $missing += "nothing else at the top level, but found: $($stray -join ', ')" }
+          if (-not (Test-Path "$root/THIRD-PARTY-NOTICES.txt")) { $missing += 'THIRD-PARTY-NOTICES.txt (#1081)' }
           if (-not (Test-Path "$root/Content/Shaders/InstancedModel.xnb")) { $missing += 'the compiled shaders' }
           # The Potato tier's effects for a run started with "potato" (#808): a second set, in a folder of its own
           if (-not (Test-Path "$root/Content/Potato/Shaders/PotatoModel.xnb")) { $missing += "the Potato tier's effects (Content/Potato/Shaders)" }
@@ -254,13 +256,14 @@ jobs:
       # What a Pi player cannot start without: the executable apphost (a lost mode bit is a "Permission denied" nobody
       # can explain), the runtime beside it, the SDL and OpenAL natives the DesktopGL package carries for
       # linux-arm64, GamePi's own compiled GL effects (the Potato path loads PotatoModel at its first frame), the two
-      # content assets, the levels, the music and the sounds.
+      # content assets, the levels, the music and the sounds - and the third-party notices (#1081), which name the
+      # LGPL OpenAL Soft this package carries.
       - name: Check the published folder is playable
         run: |
           root="publish/$BUILD_NAME"
           missing=()
           for f in BS3D libcoreclr.so libSDL2-2.0.so.0 libopenal.so Content/Images/Logo.xnb Content/Fonts/segoeui.xnb \
-                   Content/Shaders/PotatoModel.xnb Content/Shaders/PotatoSky.xnb Levels/Levels.json; do
+                   Content/Shaders/PotatoModel.xnb Content/Shaders/PotatoSky.xnb Levels/Levels.json THIRD-PARTY-NOTICES.txt; do
             [ -e "$root/$f" ] || missing+=("$f")
           done
           [ -x "$root/BS3D" ] || missing+=("BS3D executable (mode bit)")
@@ -392,7 +395,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "GameAndroid failed to build (exit $LASTEXITCODE)" }
 
       # What a phone cannot start the game without (build.yml's list: the runtime, OpenAL, the content, every effect
-      # compiled for OpenGL ES, the level set), then the signature itself, read back off the APK by the SDK's own
+      # compiled for OpenGL ES, the level set, the third-party notices of #1081), then the signature itself, read back off the APK by the SDK's own
       # verifier: the owner's key must be the one whose certificate is committed.
       - name: Check the APK and who signed it
         if: env.SIGNING != 'none'
@@ -404,7 +407,7 @@ jobs:
           $names = @($zip.Entries | ForEach-Object { $_.FullName })
           $zip.Dispose()
           foreach ($f in 'lib/arm64-v8a/libcoreclr.so', 'lib/arm64-v8a/libopenal.so', 'assets/Content/Images/Logo.xnb',
-                         'assets/Content/Fonts/segoeui.xnb', 'assets/Levels/Levels.json') {
+                         'assets/Content/Fonts/segoeui.xnb', 'assets/Levels/Levels.json', 'assets/THIRD-PARTY-NOTICES.txt') {
             if ($names -notcontains $f) { throw "The APK has no $f" }
           }
           $effects = @(Get-ChildItem BS3DLibs/Prazsky.Shaders/Content/Shaders/*.fx | ForEach-Object { "assets/Content/Shaders/$($_.BaseName).xnb" }) +

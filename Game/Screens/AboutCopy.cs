@@ -9,7 +9,7 @@ namespace BS3D.Screens
     /// (<c>AboutCopyTests</c>). One idea a page, each short enough to read without deciding to; whatever does not fit
     /// belongs in the repository, not on the page.
     /// <para>
-    /// <b>The page draws <see cref="Pages"/> and nothing else</b>: each page is its name and a list of blocks, and
+    /// <b>The page draws <see cref="Pages(string)"/> and nothing else</b>: each page is its name and a list of blocks, and
     /// <c>AboutPage</c> sets every block it is handed, in order, and throws on a kind it has no way to set. So what the test
     /// reads is what the player sees: a credit list, the privacy list or the player cannot leave the page without leaving
     /// this list, where the test sees it go.
@@ -66,13 +66,17 @@ namespace BS3D.Screens
         /// off a 1600x900 window (photographed). One idea a page, as #807 has it, so the list has its page.
         /// </para>
         /// </summary>
-        internal static Page[] Pages(string title) => new Page[]
+        internal static Page[] Pages(string title) => Pages(title, ThisBuild);
+
+        /// <summary>The pages as <paramref name="build"/> shows them, so a test on any one system can read all three.</summary>
+        internal static Page[] Pages(string title, Build build) => new Page[]
         {
             new("THE GAME", new Block[] { new(BlockKind.Paragraph, Game(title)) }),
             new("PRIVACY", new Block[] { new(BlockKind.Privacy) }),
             new("BUILT ON", new Block[]
             {
-                new(BlockKind.Paragraph, BUILT_ON), new(BlockKind.Logos), new(BlockKind.Credits, Credits: LIBRARIES),
+                new(BlockKind.Paragraph, BUILT_ON), new(BlockKind.Logos),
+                new(BlockKind.Credits, Credits: build == ThisBuild ? LIBRARIES : Libraries(build)),
             }),
             new("MADE WITH", new Block[]
             {
@@ -99,16 +103,53 @@ namespace BS3D.Screens
         internal const string BUILT_ON =
             "Everything you see — from the spheres to the city — is procedural: no 3D models, only code.";
 
-        /// <summary>What the game is built on, with the typefaces' licence, as a list rather than one 50-word sentence.</summary>
-        internal static readonly Credit[] LIBRARIES =
+        /// <summary>
+        /// The three builds that compile this file, for the credits that differ between them (#1081): the graphics API
+        /// MonoGame draws through, and the native libraries only the OpenGL builds carry. The Windows build used to name
+        /// DirectX 11 on the Pi and the phone as well.
+        /// </summary>
+        internal enum Build { Windows, Linux, Android }
+
+        /// <summary>
+        /// The build this process is, read off the system as <c>BuildVersion</c> reads ARM64: GamePi is the one Linux
+        /// build. A property rather than a field, so <see cref="LIBRARIES"/>' initializer cannot run before it.
+        /// </summary>
+        internal static Build ThisBuild => System.OperatingSystem.IsAndroid() ? Build.Android
+            : System.OperatingSystem.IsWindows() ? Build.Windows : Build.Linux;
+
+        /// <summary>What this build is built on: <see cref="Libraries"/> for <see cref="ThisBuild"/>.</summary>
+        internal static readonly Credit[] LIBRARIES = Libraries(ThisBuild);
+
+        /// <summary>
+        /// What a build is built on, with the typefaces' licence, as a list rather than one 50-word sentence. The Pi's adds
+        /// SDL and OpenAL Soft and the phone's OpenAL Soft, the native libraries under MonoGame that only those packages
+        /// carry. Every licence, and every library too small to credit here, is in THIRD-PARTY-NOTICES.txt beside the game.
+        /// </summary>
+        internal static Credit[] Libraries(Build build)
         {
-            new(".NET\u00A010", "the runtime"),
-            new("MonoGame\u00A03.8.5 (DirectX\u00A011)", "graphics, sound and input"),
-            new("BepuPhysics\u00A02.5", "the physics"),
-            new("Myra", "the interface"),
-            new("FontStashSharp", "the text"),
-            new("NVorbis", "the music"),
-            new("Anton, Inter, PromptFont", "the typefaces, all SIL\u00A0OFL\u00A01.1"),
+            var credits = new List<Credit>
+            {
+                new(".NET\u00A010", "the runtime"),
+                new("MonoGame\u00A03.8.5 (" + GraphicsApi(build) + ")", "graphics, sound and input"),
+            };
+
+            if (build == Build.Linux) credits.Add(new("SDL\u00A02", "the window and the input"));
+            if (build != Build.Windows) credits.Add(new("OpenAL\u00A0Soft", "the sound"));
+
+            credits.Add(new("BepuPhysics\u00A02.5", "the physics"));
+            credits.Add(new("Myra", "the interface"));
+            credits.Add(new("FontStashSharp", "the text"));
+            credits.Add(new("NVorbis", "the music"));
+            credits.Add(new("Anton, Inter, PromptFont", "the typefaces, all SIL\u00A0OFL\u00A01.1"));
+            return credits.ToArray();
+        }
+
+        /// <summary>The graphics API a build's MonoGame draws through: WindowsDX, DesktopGL or MonoGame's Android backend.</summary>
+        internal static string GraphicsApi(Build build) => build switch
+        {
+            Build.Windows => "DirectX\u00A011",
+            Build.Linux => "OpenGL",
+            _ => "OpenGL\u00A0ES",
         };
 
         /// <summary>
@@ -131,12 +172,15 @@ namespace BS3D.Screens
         };
 
         /// <summary>
-        /// Every string the pages draw of their own, read off <see cref="Pages"/> — the names, the lines and paragraphs, and
+        /// Every string the pages draw of their own, read off <see cref="Pages(string)"/> — the names, the lines and paragraphs, and
         /// every credit list's names and roles — so it is what the test holds to the rules and searches for the credits.
         /// </summary>
-        internal static IEnumerable<string> Copy(string title)
+        internal static IEnumerable<string> Copy(string title) => Copy(title, ThisBuild);
+
+        /// <summary><see cref="Copy(string)"/> as <paramref name="build"/> shows it.</summary>
+        internal static IEnumerable<string> Copy(string title, Build build)
         {
-            foreach (Page page in Pages(title))
+            foreach (Page page in Pages(title, build))
             {
                 yield return page.Title;
 
