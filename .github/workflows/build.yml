@@ -248,12 +248,12 @@ jobs:
 
       # The folder a Pi player would run, self-contained, and the files without which it cannot start: the apphost
       # (executable - a lost mode bit is a "Permission denied" nobody can explain), the SDL and OpenAL natives the
-      # DesktopGL package carries for linux-arm64, the two content assets and the level set. No shaders: GamePi has
-      # none until #789.
+      # DesktopGL package carries for linux-arm64, the two content assets, the level set and the third-party notices
+      # (#1081). No shaders: GamePi has none until #789.
       - name: Publish GamePi (linux-arm64, self-contained) and check the folder
         run: |
           dotnet publish GamePi/GamePi.csproj -c Release -r linux-arm64 --self-contained -o publish
-          for f in BS3D libSDL2-2.0.so.0 libopenal.so Content/Images/Logo.xnb Content/Fonts/segoeui.xnb Levels/Levels.json; do
+          for f in BS3D libSDL2-2.0.so.0 libopenal.so Content/Images/Logo.xnb Content/Fonts/segoeui.xnb Levels/Levels.json THIRD-PARTY-NOTICES.txt; do
             test -e "publish/$f" || { echo "The published folder has no $f"; exit 1; }
           done
           test -x publish/BS3D || { echo "publish/BS3D is not executable"; exit 1; }
@@ -307,6 +307,7 @@ jobs:
       # the content (the logo, the HUD's font), every effect compiled for OpenGL ES - the desktop's under Content/Shaders
       # and the Potato path's under Content/Potato/Shaders (#1057) - and the level set. The build itself fails on an effect
       # MojoShader cannot translate or a GL program that indexes two uniform arrays (FinishGlEffects in GameAndroid.csproj).
+      # And the third-party notices (#1081): the APK carries OpenAL Soft, which is LGPL.
       - name: Build GameAndroid (Release, android-arm64) and check the APK
         run: |
           dotnet build GameAndroid/GameAndroid.csproj -c Release -p:RuntimeIdentifier=android-arm64 "-p:AndroidSdkDirectory=$env:ANDROID_HOME" "-p:JavaSdkDirectory=$env:JAVA_HOME"
@@ -318,7 +319,7 @@ jobs:
           $names = @($zip.Entries | ForEach-Object { $_.FullName })
           $zip.Dispose()
           foreach ($f in 'lib/arm64-v8a/libcoreclr.so', 'lib/arm64-v8a/libopenal.so', 'assets/Content/Images/Logo.xnb',
-                         'assets/Content/Fonts/segoeui.xnb', 'assets/Levels/Levels.json') {
+                         'assets/Content/Fonts/segoeui.xnb', 'assets/Levels/Levels.json', 'assets/THIRD-PARTY-NOTICES.txt') {
             if ($names -notcontains $f) { throw "The APK has no $f" }
           }
           $effects = @(Get-ChildItem BS3DLibs/Prazsky.Shaders/Content/Shaders/*.fx | ForEach-Object { "assets/Content/Shaders/$($_.BaseName).xnb" }) +

@@ -20,6 +20,15 @@ Pravidla:
 
 ---
 
+## 2026-11-10 — #1081 licence třetích stran a About podle buildu — desktop (RDT-PC), Claude Code
+- Hotovo:
+  - `Game/THIRD-PARTY-NOTICES.txt` jede v zipu, v tarballu i v APK; GamePi a GameAndroid ho linkují.
+  - Kontroly balíčků v release.yml i build.yml selžou bez něj.
+  - `ThirdPartyNoticesTests` selže, když hra začne odkazovat na balíček, který soubor nejmenuje.
+  - About uvádí API buildu: DirectX 11, OpenGL nebo OpenGL ES. Na Pi navíc SDL 2 a OpenAL Soft, na Androidu OpenAL Soft.
+- ⚠ Sdílený checkout jsem přepnul pod bs3d-6b a jeho commit do deníku spadl na mou větev. Opravila to peer session. Pravidlo: při živé peer session na stroji nejdřív vlastní worktree.
+- Otevřené: Windows build pečí `segoeui.xnb` z Segoe UI od Microsoftu (fonty na licenci Windows); GamePi už používá Inter. Rozhodnutí majitele je na #1084.
+
 ## 2026-11-10 — #1078 balíček pro Pi-Apps — Pi (BS3DServer), Claude Code
 - Hotovo: `Tools/pi-apps/` (install-64, uninstall, metadata, ikony, updater `updates/BS3D.sh`, README s mapou do forku), sekce Raspberry Pi 5 v README, kontrakt jména tarballu v release.yml a docs/build-and-release.md.
 - Program jde do `/opt/bs3d`, ne do `~/BS3D`: tam leží klon repa a reinstalace by ho smazala. Uninstall nesahá na `~/.local/share/BS3D` (update v Pi-Apps = uninstall + install).

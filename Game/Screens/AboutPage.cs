@@ -22,7 +22,7 @@ namespace BS3D.Screens
     /// #463 had grown to some 160 words of running text plus the privacy sentence, in one face, one colour, with nothing to
     /// say where to start. About opens on what the game is; then what online scores send (#1034), what it is built on and
     /// what it was made with; and <b>the player last</b>, the owner's ruling (2026-10-12): it is a small easter egg, waiting
-    /// at the end for whoever turns that far. <b>What each page holds, in what order, is <see cref="AboutCopy.Pages"/></b>, and this page
+    /// at the end for whoever turns that far. <b>What each page holds, in what order, is <see cref="AboutCopy.Pages(string)"/></b>, and this page
     /// sets every block it is handed (<see cref="BuildBody"/>), so the test that holds the words to the typesetting rules,
     /// the credits to the full list and the player to the last page reads what is drawn.
     /// </para>
@@ -83,7 +83,7 @@ namespace BS3D.Screens
 
         /// <summary>
         /// The page the player stands on, 1-based as the page counts itself — the last since the owner's ruling (2026-10-12),
-        /// read off <see cref="AboutCopy.Pages"/> rather than restated — for <c>about=play</c>, whose piece is only worth a
+        /// read off <see cref="AboutCopy.Pages(string)"/> rather than restated — for <c>about=play</c>, whose piece is only worth a
         /// shot on the page that draws it. Declared after <see cref="PAGES"/>, which it reads as the type is initialised.
         /// </summary>
         internal static int PlayerPage { get; } =
@@ -241,7 +241,7 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// One page's body: every block <see cref="AboutCopy.Pages"/> gives it, in its order, and nothing else — so what
+        /// One page's body: every block <see cref="AboutCopy.Pages(string)"/> gives it, in its order, and nothing else — so what
         /// <c>AboutCopyTests</c> reads is what is drawn. A kind with no way to be set here throws rather than leave its
         /// block off the page unseen: a credit list dropped quietly is the one thing a reader of the old page could not
         /// see was gone.
