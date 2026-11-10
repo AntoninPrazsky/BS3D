@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-10 — #1074 #1075 #1076 odpoledne: 60 Hz na telefonu, volley, verdikty — desktop (RDT-PC), Claude Code
+- Majitel: #1063 OK (sklo, rozmazání), #1048 OK (zvuk) → zavřeno i s plánem #1056. #1074: 1 b, 2 a, 3 a. Vydání později; „(no server)“ na telefonu je záměr lokálního buildu (#548), vyřeší APK z vydání.
+- Hotovo: #1074 řádek FPS limit na telefonu přepíná 120 Hz ↔ 60 Hz přes `PreferredDisplayModeId` (`DisplayRefresh.AskRefresh`, `GameSettings.PhoneSixtyHz`, `settings=fps`); ověřeno na displeji (režim 1 ↔ 4). #1075 zásobník se během volley vyprazdňuje (`MagazineBallsShown`); #1076 rozhodnutý level pustí přesné míření (`ReleaseLean`). Obojí z majitelových postřehů, ověřeno na pětikuličkovém levelu s bombou (`levelfile=` ve scratchpadu, `detonate=2.5 rmb=0.5:30`).
+- ⚠ Po reinstalaci zmizí BS3D ze seznamu vysoké obnovovací frekvence vivo: zpět ho dá Ultra herní režim + jedno spuštění ikonou; každá další instalace povolení shodí (ne ze seznamu). `adb shell am start` z PowerShellu: celý příkaz v jednom řetězci, jinak dojde jen první slovo argumentů.
+- Otevřené: vydání s APK (majitel: později); #1071 web; #1051 a #1070 čekají na hráče.
+
 ## 2026-11-10 — #1072 #1073 ráno s telefonem, instalace smazala uložení — desktop (RDT-PC), Claude Code
 - Hotovo: argument `touch` (d43ca6c2) připne ruku na obrazovku jako `pad` na gamepad; s `inches=2.8` jsou na monitoru karty s dotykovými slovy, dotyková tlačítka, řádky Nastavení a odstavec Nápovědy jen pro dotyk. Projito: nic nepřetéká. #1072 a #1073 ověřeny na telefonu a zavřeny (`[skip] chapter intro`, 30 koulí zůstalo; celkem 4 820 uvnitř desky).
 - ⚠ **`-t:Install` v Release balíček nejdřív odinstaloval i s daty** (`PACKAGE_FULLY_REMOVED`, `firstInstallTime` posunut): výchozí formát SDK je `aab;apk` a cíl `_DeployAppBundle` dělá `adb uninstall`. Majitelovo uložení na telefonu je pryč. Oprava: `AndroidPackageFormats=apk` v csproj (d043d784), instalace je pak `adb install -r` a ověřeně data nechá. Detail v `docs/build-and-release.md`, GameAndroid.
