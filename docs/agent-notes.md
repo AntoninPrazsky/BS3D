@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-10 — #1083 dotaz na přezdívku přes vzkaz — desktop (RDT-PC), Claude Code
+- Na buildu se serverem vyskočil dotaz na přezdívku nad vzkazem. `Push` se provede až v dalším snímku, takže v tom samém snímku bylo aktivní pořád hlavní menu.
+- Na Pi to nebylo vidět: dev build tam nemá server.
+- Oprava: `if (!ShowWelcomeOnce()) AskForNicknameOnce();`. Ověřeno zachycením se `server` v Settings.json, předtím a potom.
+- ⚠ Dvě stránky otevřené z jednoho snímku nesmí obě testovat `Active` hlavního menu.
+
 ## 2026-11-10 — #1084 řádek FPS písmem Inter — desktop (RDT-PC), Claude Code
 - Majitel: „Ten text FPS změň na Inter jako na Pi“ a po porovnání „Inter dokonce vypadá lépe než Segoe“.
 - Hotovo: `Game/Content/Fonts/segoeui.spritefont` se staví z `Inter-Regular.ttf`, jméno assetu zůstalo. Segoe UI od Microsoftu už v zipu není.

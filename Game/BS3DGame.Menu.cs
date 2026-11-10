@@ -1882,13 +1882,20 @@ namespace BS3D
 
         /// <summary>
         /// The author's note on the Raspberry Pi build's first launch (#1083): put up over the front end once a run, the
-        /// first time it is the page the player is on, and on the same frame before <see cref="AskForNicknameOnce"/>, which
-        /// then finds the note on top and waits for the main menu to come back. When it shows is
+        /// first time it is the page the player is on, before <see cref="AskForNicknameOnce"/>. When it shows is
         /// <see cref="WelcomeNote.ShouldShow"/>'s answer, said in the log either way.
+        /// <para>
+        /// ⚠ <b>Returns true on the frame it opens the note, and that frame must not ask the question.</b>
+        /// <c>ScreenManager.Push</c> is applied on the next frame. Until then the main menu is still <c>Active</c>, and
+        /// <see cref="AskForNicknameOnce"/> would push the question over the note: seen on a build with a server, where
+        /// the NICKNAME plate came up first. From the next frame on, the note is on top, and the question waits for the
+        /// main menu to come back.
+        /// </para>
         /// </summary>
-        private void ShowWelcomeOnce()
+        /// <returns>Whether the note was opened on this frame.</returns>
+        private bool ShowWelcomeOnce()
         {
-            if (_welcomeDecided || _screens.Active != _mainMenuPage) return;
+            if (_welcomeDecided || _screens.Active != _mainMenuPage) return false;
 
             _welcomeDecided = true;
 
@@ -1896,9 +1903,15 @@ namespace BS3D
             bool scripted = UserData.IsTestingDirectory || _startupScript.Drives;
 
             if (WelcomeNote.ShouldShow(piBuild, _settings.WelcomeShown, scripted, _welcomeForced))
+            {
                 OpenPage(_welcomePage);
-            else if (piBuild)
+                return true;
+            }
+
+            if (piBuild)
                 Console.WriteLine($"[welcome] Not shown: {(_settings.WelcomeShown ? "shown on an earlier launch" : "a scripted run")}");
+
+            return false;
         }
 
         /// <summary>The note has been read and left (#1083): written once, so it never shows again.</summary>
