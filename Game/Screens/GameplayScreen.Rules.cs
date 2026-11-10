@@ -1327,6 +1327,12 @@ namespace BS3D.Screens
 
             _phase = next;
 
+            //A decided level lets the lean go (#1076, the owner: the lens coming back into precise aim once the level is over
+            //looks wrong): released here, at the decision, and held released by UpdateInput for as long as the level stays
+            //decided, so the lens eases out under the drop camera or the volley's wait and the volley pulls out from the
+            //overview - whatever the button or the toggle still says. Shoot refuses from the same moment (#177)
+            if (next != LevelPhase.Playing) ReleaseLean();
+
             //Rare by construction — a handful of lines a level — so it goes to the log the way [level] does
             Console.WriteLine($"[phase] {previous} -> {next}");
 

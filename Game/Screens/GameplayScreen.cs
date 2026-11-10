@@ -145,6 +145,17 @@ namespace BS3D.Screens
         private readonly PreciseAim _preciseAim = new();
         private bool _adsHeld;
 
+        /// <summary>
+        /// Lets precise aim go: the hold, its pull and the toggle (#1076). At a level's decision and every frame after it, and
+        /// where the screen is covered or the window loses focus, which clear the same three.
+        /// </summary>
+        private void ReleaseLean()
+        {
+            _adsHeld = false;
+            _adsPull = 0f;
+            _preciseAimToggled = false;
+        }
+
         //How far the lean is asked for, 0 to 1 (#520): the left trigger's pull, or 1 for the right button. What the
         //lens follows; _adsHeld is the yes-or-no the lessons and the dozing gun ask of it. Cleared wherever it is.
         private float _adsPull;

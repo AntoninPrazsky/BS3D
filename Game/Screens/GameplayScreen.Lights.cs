@@ -15,7 +15,7 @@ namespace BS3D.Screens
         /// </summary>
         internal void FillKeyLights(ref KeyLightInput input, Vector3[] queue)
         {
-            int shown = _run.Score.ShotsRemaining is int shotsLeft ? Math.Min(Magazine.SIZE, shotsLeft) : Magazine.SIZE;
+            int shown = MagazineBallsShown;
 
             input.HasLoaded = shown > 0;
             input.Loaded = shown > 0 ? LoadedTint(0) : Vector3.Zero;

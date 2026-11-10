@@ -154,6 +154,18 @@ namespace BS3D.Screens
         /// <summary>Whether the round in the bore is an anchor cutter (#213): the ghost is hidden and the aim is not "refused" (the beam's and the crosshair's tint both read this).</summary>
         private bool CutterLoaded => _magazine.Slot(0).Kind == BallKind.Cutter;
 
+        /// <summary>
+        /// How many rounds the bore and the keyboard's queue show: never more than there are shots left to take - the same
+        /// truth the HUD's magazine strip holds (<c>PlayHud.DrawMagazine</c>) - and once the unused balls' volley fires them
+        /// off (#881), those less the balls already launched (#1075), so the queue drains with the volley and the last spare
+        /// ball leaves an empty bore. The queue itself never empties (Magazine's own invariant: Advance always deals a real
+        /// colour into the tail), so without the clamp the barrel went on showing five loaded rounds for balls that could
+        /// never be fired, and after the volley for balls that already had been.
+        /// </summary>
+        private int MagazineBallsShown => _run.Score.ShotsRemaining is int shotsLeft
+            ? Math.Min(Magazine.SIZE, Math.Max(0, shotsLeft - _spareVolley.Launched))
+            : Magazine.SIZE;
+
         /// <summary>Whether a fired cutter is still in the air (#767): the preview it was fired on stays lit until it strikes.</summary>
         private bool CutterInFlight
         {
@@ -560,11 +572,7 @@ namespace BS3D.Screens
             //translation written straight into its fourth row rather than multiplied in (see BorePose.SlotWorld).
             BorePose pose = _magazine.Pose(_cannon, Game.CannonRig.PivotToFrontBall);
 
-            //Never more rounds in the bore than there are shots left to take — the same truth the HUD's
-            //magazine strip already holds (PlayHud.DrawMagazine). The queue itself never empties (Magazine's
-            //own invariant: Advance always deals a real colour into the tail), so without this clamp the
-            //barrel goes on showing a full five loaded rounds for balls that can never be fired.
-            int shown = _run.Score.ShotsRemaining is int shotsLeft ? Math.Min(Magazine.SIZE, shotsLeft) : Magazine.SIZE;
+            int shown = MagazineBallsShown;
 
             for (int i = 0; i < shown; i++)
             {
