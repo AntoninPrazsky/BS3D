@@ -391,6 +391,10 @@ namespace BS3D
         //handlers the keys and the button run: type:<text>, enter, esc, skip. Naming steps asks the question too. Null for none.
         internal string NickPromptSteps { get; private set; }
 
+        //Testing only: "welcome" (#1083) - put the author's note the Raspberry Pi build shows on its first launch up on this
+        //run, on any build and in a scripted run too, so it can be photographed and judged on Windows.
+        internal bool Welcome { get; private set; }
+
         //Testing only: "note=<seconds>:<steps>" (#813) - at that wall-clock second, with a level being played, pause it and
         //open the note page as its button does; once the page is past its picture, run the steps through the very handlers
         //the keys and the buttons run: type:<text>, newline, untick, send, back. Null when absent.
@@ -808,6 +812,8 @@ namespace BS3D
             Row.Flag("nickprompt", o => o.NickPrompt = true),
             Row.Text("nickprompt", (o, v) => { o.NickPrompt = true; o.NickPromptSteps = v; }),
             Row.Flag("nointernet", o => o.NoInternet = true),
+            //"welcome" puts the Pi's first-launch note up on any build (#1083)
+            Row.Flag("welcome", o => o.Welcome = true),
             //"note=<seconds>:<steps>" (#813): the seconds before the first colon, the steps after it
             Row.Text("note", (o, v) =>
             {

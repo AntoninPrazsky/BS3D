@@ -339,6 +339,14 @@ namespace BS3D
         public int NicknameDismissed { get; set; }
 
         /// <summary>
+        /// Whether the author's note the Raspberry Pi build shows on its first launch has been shown and left (#1083,
+        /// <c>WelcomePage</c>). Absent while false, so a Windows or Android player's file never carries it.
+        /// </summary>
+        [JsonPropertyName("welcomeShown")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public bool WelcomeShown { get; set; }
+
+        /// <summary>
         /// The score service to submit to, overriding the built-in one (#546). <b>No settings row shows it,
         /// deliberately</b>: it is for pointing a build at a local run of the API
         /// (<c>http://localhost:5000</c>) or at a test host, and a player has no reason to see it. It is also
