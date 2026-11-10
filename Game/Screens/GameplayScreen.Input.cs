@@ -384,6 +384,10 @@ namespace BS3D.Screens
                 _adsPull = _cursorCaptured ? PreciseAim.LeanAmount(mouse, pad) : PreciseAim.LeanAmount(default, pad);
             }
 
+            //And none of it once the level is decided (#1076): the lean was let go at the decision (EnterPhase), and a button
+            //still held or a toggle still on must not take it back between one takeover and the next
+            if (LevelDecided) ReleaseLean();
+
             //The lean lesson waits on the hold (#189), and so does the precise-aim hint's card (#1012)
             float leanElapsed = (float)gameTime.ElapsedGameTime.TotalSeconds;
             _tutorial.NoteHold(Tutorial.Lesson.LeanIn, _adsHeld, leanElapsed);
