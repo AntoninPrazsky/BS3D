@@ -62,6 +62,7 @@ namespace BS3D
         private QuitConfirmPage _quitConfirmPage;
         private SettingsPage _settingsPage;
         private NicknamePage _nicknamePage;
+        private WelcomePage _welcomePage;
         private LevelBoardPage _levelBoardPage;
         private HighScoresPage _highScoresPage;
         private TopPlayersPage _topPlayersPage;
@@ -728,6 +729,7 @@ namespace BS3D
             _quitConfirmPage = new QuitConfirmPage(this);
             _settingsPage = new SettingsPage(this);
             _nicknamePage = new NicknamePage(this);
+            _welcomePage = new WelcomePage(this);
             _levelSelectPage = new LevelSelectPage(this);
             _scenePage = new ScenePage(this);
             _extrasPage = new ExtrasPage(this);
@@ -1876,6 +1878,36 @@ namespace BS3D
             bool scripted = !_nickPrompt && (UserData.IsTestingDirectory || _startupScript.Drives);
 
             if (_online.DecideNicknameQuestion(scripted, _noInternet) == NicknameAsk.Ask) OpenPage(_nicknamePage);
+        }
+
+        /// <summary>
+        /// The author's note on the Raspberry Pi build's first launch (#1083): put up over the front end once a run, the
+        /// first time it is the page the player is on, and on the same frame before <see cref="AskForNicknameOnce"/>, which
+        /// then finds the note on top and waits for the main menu to come back. When it shows is
+        /// <see cref="WelcomeNote.ShouldShow"/>'s answer, said in the log either way.
+        /// </summary>
+        private void ShowWelcomeOnce()
+        {
+            if (_welcomeDecided || _screens.Active != _mainMenuPage) return;
+
+            _welcomeDecided = true;
+
+            bool piBuild = OperatingSystem.IsLinux();
+            bool scripted = UserData.IsTestingDirectory || _startupScript.Drives;
+
+            if (WelcomeNote.ShouldShow(piBuild, _settings.WelcomeShown, scripted, _welcomeForced))
+                OpenPage(_welcomePage);
+            else if (piBuild)
+                Console.WriteLine($"[welcome] Not shown: {(_settings.WelcomeShown ? "shown on an earlier launch" : "a scripted run")}");
+        }
+
+        /// <summary>The note has been read and left (#1083): written once, so it never shows again.</summary>
+        internal void MarkWelcomeShown()
+        {
+            if (_settings.WelcomeShown) return;
+
+            _settings.WelcomeShown = true;
+            SaveSettings();
         }
 
         //What StartupScript asks of the stack (#583), which it does not hold: whether the title card is still up

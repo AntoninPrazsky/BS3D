@@ -20,6 +20,16 @@ Pravidla:
 
 ---
 
+## 2026-11-10 — #1083 vzkaz autora při prvním spuštění na Pi — desktop (RDT-PC), Claude Code
+- Majitel: „po prvním spuštění hry na Pi 5 by se mohla zobrazit nějaká osobní hláška“: hra je ve vývoji, jde o projekt jednoho člověka, server je Raspberry Pi, hra může mít chyby, poděkování a Write to the Author.
+- Hotovo: `WelcomePage` a `WelcomeNote`.
+  - Ukáže se jen na Pi build a jen jednou; po zavření se zapíše `welcomeShown`.
+  - Ukáže se před dotazem na přezdívku.
+  - Parametr `welcome` ho ukáže kdekoli.
+  - Vyfoceno v 1280×720 i 1920×1080.
+- Text jsem napsal sám: „one of its very first releases“, protože „vůbec první“ neplatí (tarball pro Pi vychází od v0.3.6). Čeká na verdikt majitele (`verdict-eye`).
+- Otevřené: ověřit na Pi ruční zavření a druhé spuštění.
+
 ## 2026-11-10 — #1078 balíček pro Pi-Apps — Pi (BS3DServer), Claude Code
 - Hotovo: `Tools/pi-apps/` (install-64, uninstall, metadata, ikony, updater `updates/BS3D.sh`, README s mapou do forku), sekce Raspberry Pi 5 v README, kontrakt jména tarballu v release.yml a docs/build-and-release.md.
 - Program jde do `/opt/bs3d`, ne do `~/BS3D`: tam leží klon repa a reinstalace by ho smazala. Uninstall nesahá na `~/.local/share/BS3D` (update v Pi-Apps = uninstall + install).
