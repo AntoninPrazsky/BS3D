@@ -40,6 +40,13 @@
     in a build nobody watches is a crash on the Pi found weeks later. It is what found InternetCheck's COM call (#786);
     the Windows build is net10.0-windows and never sees it.-->
     <WarningsAsErrors>$(WarningsAsErrors);CA1416</WarningsAsErrors>
+    <!--Every publish is ReadyToRun (#1079): the assemblies are precompiled for the target, so the Pi does not JIT at
+    tier 0 the first time any path runs. Measured on the Pi 5 (2026-11-10, the same commit published both ways, off-screen,
+    medians of four alternated runs): launch to the menu 4.6 s -> 3.6 s; launch to the first frame of each scene's first
+    level 1.5 s sooner on average (0.9 to 2.1 s, all fourteen scenes); the first second of play's mean frame about halved
+    (city 146 -> 32 ms, aurora 145 -> 26 ms); the steady frame no slower anywhere. It costs 4 MB of the tarball (414 ->
+    418 MB) and 9 MB unpacked. It applies to publish only, so a build or a run from the IDE is unchanged.-->
+    <PublishReadyToRun>true</PublishReadyToRun>
   </PropertyGroup>
 
   <!--Which release this build is, exactly as in Game.csproj (#546): release.yml passes the tag, and a build without

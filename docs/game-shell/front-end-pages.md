@@ -75,6 +75,25 @@ The game's one "are you sure" page, and it reverses #383's "no confirm dialog" f
 - Left alone on purpose: Restart (two entries clear of Resume already), and the window's close button and Alt+F4 (the operating system's gestures).
 - `quitconfirm=` drives it: "The command line" in `docs/game-shell.md`.
 
+## The author's note on the Pi's first launch (#1083)
+
+The Raspberry Pi build greets a new player with a personal note before anything else asks for something. The owner wanted it for the Pi-Apps release (#858). `WelcomePage` stands on a prose plate over the main menu, and `WelcomeNote` holds its words and its gate.
+
+- **What it says** (the owner's points):
+  - an early release, still being made;
+  - one person's project, so bugs are possible;
+  - the score server is itself a Raspberry Pi;
+  - testing and reports through **Write to the Author**, whose words are set strong in the sentence and are also the sea-teal entry under it;
+  - thanks for the download and the play, signed "— Antonín".
+- **When it shows** (`WelcomeNote.ShouldShow`, said on a `[welcome]` line):
+  - only on the Pi build (`OperatingSystem.IsLinux()`; Windows and Android never);
+  - only while `welcomeShown` is absent from `Settings.json`;
+  - never in a run a script drives (`userdata=` or a `StartupScript` lever), the nickname question's gate.
+- **It comes before the nickname question.** `ShowWelcomeOnce` runs on the same frame as `AskForNicknameOnce`, the first time the main menu is the page up. It goes first, so the question finds the note on top and waits for the main menu to come back.
+- **Let's play is the page's `NavArrival`** and its Back. Escape and the pad's B do the same. ⚠ **Nothing pressed in its first 0.8 s counts**, as on the nickname plate: the key that skipped the title card would otherwise close the note unread.
+- **Leaving it, however it is left, writes `welcomeShown`** (`Leave` → `MarkWelcomeShown`). A run that ends with the note still up has not shown it.
+- **`welcome`** puts it up on any build and in a scripted run, for a capture: `nosplash windowed width=1280 height=720 welcome userdata=<dir> shot=14`. It fits at 1280x720 and at 1920x1080 (captured).
+
 ## The scene is a real setting
 
 `SetScene` is the one place a scene changes, shared by the random pick at startup and the Scene page, and what the player picks is what they then play in. It switches the city's day/neon lighting (a flag and a brightness on the renderer: neither city goes through `SceneRenderer`), applies the sea's and savanna's default domes as the Testbed does, and ends in `ApplySkyLighting`, so nothing may derive the light rig before it. Scene lights are per-frame (the savanna's campfire flickers) through `SceneLights.Apply`, one copy with the Testbed (#75). The dark pit shaft behind the drain and `TerrainHoleRadius` serve the solid-terrain scenes, classified by `SceneRenderer.IsSolidTerrainScene`.

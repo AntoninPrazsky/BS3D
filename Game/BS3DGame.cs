@@ -386,6 +386,12 @@ namespace BS3D
         private readonly bool _nickPrompt, _noInternet;
         private bool _nicknameDecided;
 
+        //The Raspberry Pi build's first-launch note (#1083): the welcome lever that puts it up on any run, and whether it
+        //has been decided this run - once, the first time the front end stands on its own, before the nickname question.
+        //See ShowWelcomeOnce.
+        private readonly bool _welcomeForced;
+        private bool _welcomeDecided;
+
         //One SpriteBatch for everything drawn over the resolve: the gameplay screen's HUD and its crosshair
         //both go into this one. The white texel that used to sit beside it went with the crosshair in #76 —
         //Prazsky.Core.Render.Crosshair makes its own, and it was the texel's only consumer, so the host no
@@ -896,6 +902,7 @@ namespace BS3D
             _promptsPinned = launch.PadPrompts || launch.TouchPrompts;
             _nickPrompt = launch.NickPrompt;
             _noInternet = launch.NoInternet;
+            _welcomeForced = launch.Welcome;
             Birthday = launch.Birthday || IsBirthday(DateTime.Now);
 
             //A capture run (#946) films itself; every other run holds null here and asks it nothing
@@ -2263,7 +2270,9 @@ namespace BS3D
             //celebrations, then the pages held back past the title card. See StartupScript.
             _startupScript.Step(this);
 
-            //The first launch's one question, once the front end is the page the player is on (#763)
+            //The Pi's first-launch note (#1083), then the first launch's one question, once the front end is the page the
+            //player is on (#763): the question waits for the main menu to be on top, so it follows the note
+            ShowWelcomeOnce();
             AskForNicknameOnce();
 
             //A page that has just arrived must not be handed a mouse button that was already held down when it

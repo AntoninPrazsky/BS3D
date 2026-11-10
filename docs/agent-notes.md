@@ -20,6 +20,20 @@ Pravidla:
 
 ---
 
+## 2026-11-10 — #1079 GamePi publikuje ReadyToRun — Pi (BS3DServer), Claude Code
+- Hotovo: `PublishReadyToRun` v `GamePi.csproj`, takže je předkompilovaný každý publish (release i kontrola v build.yml). Čísla jsou v #1079, v csproj a v docs/build-and-release.md: start do menu 4,6 → 3,6 s, první level každé scény v průměru o 1,5 s dřív, ustálený snímek beze změny, tarball +4 MB.
+- ⚠ Maximum v `[pace]` je oříznuté na 500 ms (elapsed od MonoGame), takže delší záseky je potřeba měřit od spuštění procesu.
+
+## 2026-11-10 — #1083 vzkaz autora při prvním spuštění na Pi — desktop (RDT-PC), Claude Code
+- Majitel: „po prvním spuštění hry na Pi 5 by se mohla zobrazit nějaká osobní hláška“: hra je ve vývoji, jde o projekt jednoho člověka, server je Raspberry Pi, hra může mít chyby, poděkování a Write to the Author.
+- Hotovo: `WelcomePage` a `WelcomeNote`.
+  - Ukáže se jen na Pi build a jen jednou; po zavření se zapíše `welcomeShown`.
+  - Ukáže se před dotazem na přezdívku.
+  - Parametr `welcome` ho ukáže kdekoli.
+  - Vyfoceno v 1280×720 i 1920×1080.
+- Text jsem napsal sám: „one of its very first releases“, protože „vůbec první“ neplatí (tarball pro Pi vychází od v0.3.6). Majitel: „Text schvaluju.“
+- Otevřené: ověřit na Pi ruční zavření a druhé spuštění.
+
 ## 2026-11-10 — #1082 F12 do složky jen pro čtení — Pi (BS3DServer), Claude Code
 - Hotovo: `ScreenshotWriter` dostal záložní složku. Když do `Screenshots/` vedle exe nejde zapisovat (Pi-Apps instaluje do rootova `/opt/bs3d`), hra ukládá do `~/Pictures/BS3D`, bez Pictures do `Screenshots/` v uživatelských datech a při `userdata=` do jeho složky. Zapisovatelná složka zůstává beze změny, takže skripty a skilly snímky dál najdou vedle exe. Testbed žádnou zálohu nemá.
 - Ověřeno na Pi off-screen se složkou jen pro čtení a falešným HOME ve všech čtyřech případech. Hláška o přepnutí se vypíše jednou za běh.
