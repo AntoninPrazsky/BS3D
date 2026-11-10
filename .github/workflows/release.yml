@@ -238,6 +238,9 @@ jobs:
         run: |
           if [ "${{ github.ref_type }}" = "tag" ]; then version="${{ github.ref_name }}"; else version="dev-${GITHUB_SHA::7}"; fi
           echo "BUILD_VERSION=$version" >> "$GITHUB_ENV"
+          # A contract with Pi-Apps (#1078, Tools/pi-apps): its updater builds the URL of
+          # BS3D-v<version>-linux-arm64.tar.gz from our newest tag, and install-64 checks that name in SHA256SUMS and
+          # unpacks its one top folder. Renaming the asset breaks the next update on every Pi that installed the game.
           echo "BUILD_NAME=BS3D-$version-linux-arm64" >> "$GITHUB_ENV"
 
       # Self-contained, not trimmed (Myra, FontStashSharp and the content pipeline reflect), the debug info embedded so

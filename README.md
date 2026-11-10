@@ -26,6 +26,13 @@ OpenGL ES 3.0), played by touch or with a gamepad over Bluetooth: download `BS3D
 release on the phone and open it. It does not come from a store, so Android asks once to allow the browser or
 the file manager to install apps.
 
+**Raspberry Pi 5 (from v0.3.6).** The same game for a Raspberry Pi 5 on 64-bit Raspberry Pi OS. It draws at one
+plainer graphics tier, Potato: no shadows and no post effects, but every chapter keeps its scenery and its clouds.
+Nothing to install, because the .NET runtime, SDL2 and OpenAL travel inside it: download `BS3D-…-linux-arm64.tar.gz`
+from the release, extract it (`tar xzf BS3D-*-linux-arm64.tar.gz`) and, from the desktop, run `./BS3D` in the
+extracted folder. Progress and settings live in `~/.local/share/BS3D`, not in the game's folder. Older Raspberry Pi
+models have not been tried.
+
 **Online scores (from v0.3.0).** Every level has an online leaderboard, this month's and all time, but it is off
 until you turn it on: open **Settings** (it opens on its ONLINE page), set a **Nickname** and switch **Online
 scores** on. Nothing is sent before that, and **Remove scores** on the same page deletes it all again.

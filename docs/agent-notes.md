@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-10 — #1078 balíček pro Pi-Apps — Pi (BS3DServer), Claude Code
+- Hotovo: `Tools/pi-apps/` (install-64, uninstall, metadata, ikony, updater `updates/BS3D.sh`, README s mapou do forku), sekce Raspberry Pi 5 v README, kontrakt jména tarballu v release.yml a docs/build-and-release.md.
+- Program jde do `/opt/bs3d`, ne do `~/BS3D`: tam leží klon repa a reinstalace by ho smazala. Uninstall nesahá na `~/.local/share/BS3D` (update v Pi-Apps = uninstall + install).
+- Ověřeno nanečisto bez sudo (cesty přesměrované do scratchpadu): install v0.5.1, kontrola SHA256SUMS i odmítnutí vadného souboru, odmítnutí Pi 4, varování u neznámého stroje, spuštění z Exec menu, update na v0.6.0. Shellcheck čistý.
+- ⚠ Hra spuštěná z shellu Clauda na Pi jde na skutečný displej (`WAYLAND_DISPLAY=wayland-0`) a do profilu majitele: vždy headless labwc a `userdata=`.
+- Otevřené: skutečný běh přes Pi-Apps se sudo (majitel), F12 do `/opt/bs3d` nezapíše.
+
 ## 2026-11-10 — #858 #1078 #1079 #1080 #1081 Pi-Apps: rizika a práce — desktop (RDT-PC), Claude Code
 - Majitel: „Myslíš, že hru můžeme zveřejnit pro RaspberryPi na těch Pi-apps? Jaká jsou rizika?“ a pak „doplň tohle do issues nebo založ nové“; z README pryč „built mostly to learn“ (hotovo, merge).
 - Rozbor rizik je v komentáři na #858. Nové issues:
@@ -34,7 +41,8 @@ Pravidla:
 - Majitel: video status-push.mp4 na blogu trvá vteřinu a přejezd se nedokončí.
 - Příčina v BS3D-LCD: `status/shots.py` snímal 0,6–2,2 s, slide začínal v 1,6 s a trvá 1,0 s. Nový GIF je celá smyčka (server → push → aktivita → push zpět, 4,8 s = dva údery tečky `strip.BEAT`); šev se liší jen dvojtečkou hodin. Web: `status-push-loop.{webm,mp4}` přes `Tools/web-capture-encode.py`, nové jméno kvůli cache Cloudflare.
 - ⚠ Stránka 2,5 s = 62,5 snímku: push se zpozdí o snímek a smyčka ujíždí; `page_time` o půl snímku kratší.
-- Otevřené: commit v BS3D-LCD (auto režim odmítl push do jeho mainu, čeká na majitele); publikace webu (majitel).
+- BS3D-LCD `bd1cfa7` na jeho mainu (majitel: „Povoluji ti push do mainu repozitáře“; auto režim ho napoprvé odmítl).
+- Otevřené: publikace webu (majitel).
 
 ## 2026-11-10 — #1071 vydání v0.6.0, první s Androidem — desktop (RDT-PC), Claude Code
 - Majitel: „Uděláme release nové verze hry. Bude to verze 0.6.0“; obrázek vybral 3 (Balloon z telefonu). Vydání později → dnes.
