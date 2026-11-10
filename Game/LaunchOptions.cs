@@ -178,6 +178,12 @@ namespace BS3D
         //this the pad's half of every prompt is unphotographable.
         internal bool PadPrompts { get; private set; }
 
+        //Testing only: the phone's hand on a monitor - every prompt a finger's for the whole run (the cards' touch words,
+        //the tap glyphs, the touch controls over the HUD, no key beside a menu entry) and the rows and the Help paragraph
+        //a touch screen alone gets. With inches= it lays the phone's play out on the desktop, where a HUD or a card that
+        //overflows there can be seen and fixed without the phone (#1073). "pad" outranks it where both are given.
+        internal bool TouchPrompts { get; private set; }
+
         //Testing only: start with the master volume at zero. A scripted screenshot or benchmark run has
         //no business making noise. There IS a settings file since #354, and this deliberately does not
         //touch it — mute is a run's instruction, so it silences this run and is never written back. The
@@ -648,6 +654,8 @@ namespace BS3D
             Row.Text("tutorial", (o, v) => o.Tutorial = v),
             //"pad" draws the prompts for a pad from the first frame - see the property's own note
             Row.Flag("pad", o => o.PadPrompts = true),
+            //"touch" draws them for a finger, and the touch screen's own rows and controls - see the property's own note
+            Row.Flag("touch", o => o.TouchPrompts = true),
             //"mute" starts silent, for the harnesses; the settings rows can still raise it.
             Row.Flag("mute", o => o.Mute = true),
             //"nofps" hides the FPS overlay for this run, for a picture somebody else will look at (#452).

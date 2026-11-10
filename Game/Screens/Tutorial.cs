@@ -1537,8 +1537,8 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// Testing only (the <c>pad</c> argument): the prompts drawn for <paramref name="device"/> for the whole run,
-        /// whatever is touched. A run nobody plays still sees a mouse — the pointer resting off the centre the capture
+        /// Testing only (the <c>pad</c> and <c>touch</c> arguments): the prompts drawn for <paramref name="device"/> for the
+        /// whole run, whatever is touched. A run nobody plays still sees a mouse — the pointer resting off the centre the capture
         /// recentres to reads as a hand on it — so a device merely noted at the start is gone by the first card.
         /// </summary>
         internal void PinDevice(Device device)

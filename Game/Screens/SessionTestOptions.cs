@@ -69,6 +69,8 @@ namespace BS3D.Screens
     /// the cell the landing ghost promised when it was fired. One line a shot, so only on request.</param>
     /// <param name="PadPrompts">The <c>pad</c> argument: the session draws the pad's prompts for the whole run, whatever
     /// is touched (<see cref="Tutorial.PinDevice"/>).</param>
+    /// <param name="TouchPrompts">The <c>touch</c> argument: the session draws a finger's prompts and the touch controls for
+    /// the whole run, as on a phone, whatever is touched (<see cref="Tutorial.PinDevice"/>); <c>pad</c> outranks it.</param>
     /// <param name="LogTilt">The <c>logtilt</c> argument (#720): print the overview's tilt with the aim, the camera's
     /// pitch and where the muzzle and the beam's end sit in the frame, once a frame. Only on request.</param>
     /// <param name="CutShotSeconds">The <c>cutshot=</c> argument (#767): seconds after a cutter strikes at which the frame is
@@ -96,6 +98,7 @@ namespace BS3D.Screens
         int? Seed,
         bool LogShots = false,
         bool PadPrompts = false,
+        bool TouchPrompts = false,
         bool LogTilt = false,
         IReadOnlyList<float> CutShotSeconds = null,
         IReadOnlyList<float> SwapShotSeconds = null,
@@ -123,6 +126,7 @@ namespace BS3D.Screens
             Seed: launch.Seed,
             LogShots: launch.LogShots,
             PadPrompts: launch.PadPrompts,
+            TouchPrompts: launch.TouchPrompts,
             LogTilt: launch.LogTilt,
             CutShotSeconds: launch.CutShotSeconds ?? Array.Empty<float>(),
             SwapShotSeconds: launch.SwapShotSeconds ?? Array.Empty<float>(),

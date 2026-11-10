@@ -1314,10 +1314,12 @@ namespace BS3D.Screens
             //and writes nothing.
             _tutorial = new Tutorial(game.WasLessonTaught, game.RecordLessonTaught, test.TutorialMode);
 
-            //The "pad" argument pins the tutorial's hand for the whole run. Which hand a LEVEL starts from - the menus' for
-            //the glyphs (#799), the same for the rumble (#817) - is said in BuildLevel, per level: this screen is built once,
-            //before the mixer exists, so a line here reached neither the second level nor the motors at all (#852).
+            //The "pad" argument pins the tutorial's hand for the whole run, and "touch" pins it to the screen (the phone's play
+            //on a monitor, #1073). Which hand a LEVEL starts from - the menus' for the glyphs (#799), the same for the rumble
+            //(#817) - is said in BuildLevel, per level: this screen is built once, before the mixer exists, so a line here
+            //reached neither the second level nor the motors at all (#852).
             if (test.PadPrompts) _tutorial.PinDevice(Tutorial.Device.Gamepad);
+            else if (test.TouchPrompts) _tutorial.PinDevice(Tutorial.Device.Touch);
 
             _cannon = NewCannon();
 

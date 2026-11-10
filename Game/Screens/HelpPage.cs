@@ -696,8 +696,9 @@ namespace BS3D.Screens
 
             //The touch screen's scheme (#1050, #1051), where there is one: in words rather than a third column of glyphs,
             //because its precise aim is a toggle and its fire and walk share a side, which the table's lines cannot say.
-            //The sides as the player has them (Settings swaps them)
-            if (Microsoft.Xna.Framework.Input.Touch.TouchPanel.GetCapabilities().IsConnected)
+            //The sides as the player has them (Settings swaps them). Where a touch screen answers, or the "touch" argument stands in
+            //for one (BS3DGame.TouchScreenPresent)
+            if (Game.TouchScreenPresent)
             {
                 string aim = Game.TouchAimOnRight ? "right" : "left", fire = Game.TouchAimOnRight ? "left" : "right";
                 column.Widgets.Add(Paragraph("Touch",

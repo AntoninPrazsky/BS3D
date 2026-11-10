@@ -497,8 +497,9 @@ namespace BS3D.Screens
             AddRow(grid, row++, "Precise aim", Game.TogglePreciseAimMode, out _preciseModeValue);
 
             //The touch screen's (#1051): how far a finger's drag turns the gun, and the two sides swapped for a player who
-            //aims with the other thumb (#1050). Only where a touch screen answers: a row with nothing to touch is a dead row
-            if (Microsoft.Xna.Framework.Input.Touch.TouchPanel.GetCapabilities().IsConnected)
+            //aims with the other thumb (#1050). Only where a touch screen answers (or the "touch" argument stands in for one,
+            //BS3DGame.TouchScreenPresent): a row with nothing to touch is a dead row
+            if (Game.TouchScreenPresent)
             {
                 AddRow(grid, row++, "Touch sensitivity", Game.CycleTouchSensitivity, out _touchSensitivityValue);
                 AddCheckRow(grid, row, "Aim on the right", Game.ToggleTouchSides, out _touchSidesCheck);
