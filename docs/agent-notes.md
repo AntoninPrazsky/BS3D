@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-10 — #1072 #1073 ráno s telefonem, instalace smazala uložení — desktop (RDT-PC), Claude Code
+- Hotovo: argument `touch` (d43ca6c2) připne ruku na obrazovku jako `pad` na gamepad; s `inches=2.8` jsou na monitoru karty s dotykovými slovy, dotyková tlačítka, řádky Nastavení a odstavec Nápovědy jen pro dotyk. Projito: nic nepřetéká. #1072 a #1073 ověřeny na telefonu a zavřeny (`[skip] chapter intro`, 30 koulí zůstalo; celkem 4 820 uvnitř desky).
+- ⚠ **`-t:Install` v Release balíček nejdřív odinstaloval i s daty** (`PACKAGE_FULLY_REMOVED`, `firstInstallTime` posunut): výchozí formát SDK je `aab;apk` a cíl `_DeployAppBundle` dělá `adb uninstall`. Majitelovo uložení na telefonu je pryč. Oprava: `AndroidPackageFormats=apk` v csproj (d043d784), instalace je pak `adb install -r` a ověřeně data nechá. Detail v `docs/build-and-release.md`, GameAndroid.
+- ⚠ `adb shell am start --es args "a b c"` z PowerShellu předá jen `a`: celý příkaz pro shell telefonu patří do jednoho řetězce s vnitřními apostrofy. Konzole telefonu: `adb logcat -d -s DOTNET` hned, buffer se protočí za minuty.
+- Otevřené: #1074 rozhodnutí o snímkové frekvenci; majitel znovu povolit vysokou obnovovací frekvenci po instalaci; #1063 oko majitele; #1048 zvuk na telefonu uchem majitele.
+
 ## 2026-11-09 — #1072 #1073 #1074 večerní hlášení z telefonu — desktop (RDT-PC), Claude Code
 - Majitel: ťuknutí, které přeskočí úvodní průlet, hned vystřelí; skóre na výsledkové stránce přetéká z boxu. Přes noc pokračovat.
 - Hotovo: #1072 prst po přeskočení kamery je do zvednutí ignorovaný (`TouchControls.Consume`, test). #1073 `FitBreakdownFaces` zmenší písma rozpisu, kde by připnuté sloupce přesáhly desku. Oboje ověřeno jen na desktopu: nový testovací argument `inches=2.8` rozloží rozhraní jako na telefonu.
