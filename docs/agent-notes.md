@@ -20,6 +20,10 @@ Pravidla:
 
 ---
 
+## 2026-11-10 — #1082 F12 do složky jen pro čtení — Pi (BS3DServer), Claude Code
+- Hotovo: `ScreenshotWriter` dostal záložní složku. Když do `Screenshots/` vedle exe nejde zapisovat (Pi-Apps instaluje do rootova `/opt/bs3d`), hra ukládá do `~/Pictures/BS3D`, bez Pictures do `Screenshots/` v uživatelských datech a při `userdata=` do jeho složky. Zapisovatelná složka zůstává beze změny, takže skripty a skilly snímky dál najdou vedle exe. Testbed žádnou zálohu nemá.
+- Ověřeno na Pi off-screen se složkou jen pro čtení a falešným HOME ve všech čtyřech případech. Hláška o přepnutí se vypíše jednou za běh.
+
 ## 2026-11-10 — #1081 licence třetích stran a About podle buildu — desktop (RDT-PC), Claude Code
 - Hotovo:
   - `Game/THIRD-PARTY-NOTICES.txt` jede v zipu, v tarballu i v APK; GamePi a GameAndroid ho linkují.

@@ -1,4 +1,6 @@
 using Prazsky.Core.Render;
+using System;
+using System.IO;
 
 namespace BS3D
 {
@@ -32,7 +34,39 @@ namespace BS3D
         private ScreenshotWriter _shots;
 
         /// <summary>Built in <c>LoadContent</c>, once the device the readback needs is there.</summary>
-        private void CreateScreenshotWriter() => _shots = new ScreenshotWriter(GraphicsDevice, "bs3d", _shotSchedule);
+        private void CreateScreenshotWriter() =>
+            _shots = new ScreenshotWriter(GraphicsDevice, "bs3d", _shotSchedule, fallbackDirectory: ShotFallbackDirectory());
+
+        /// <summary>
+        /// Where F12 saves when the game's own folder cannot be written to (#1082): the Pi-Apps package installs
+        /// into <c>/opt/bs3d</c>, which root owns, and so would a Windows copy unpacked under Program Files.
+        /// <para>
+        /// <b>The player's Pictures folder</b>, in <c>BS3D</c> under it (<c>~/Pictures/BS3D</c> on a Pi), because
+        /// that is where a player looks for a picture. Not the game's folder made writable: a Pi-Apps update deletes
+        /// the program folder and would take the pictures with it. Only when there is no Pictures folder, the
+        /// player's data folder (<see cref="UserData"/>), which every update leaves alone. A <c>userdata=</c> run
+        /// keeps its shots in its own folder, so a script never writes into the player's pictures.
+        /// </para>
+        /// </summary>
+        private static string ShotFallbackDirectory()
+        {
+            const string FOLDER = "Screenshots";
+            if (UserData.IsTestingDirectory) return Path.Combine(UserData.Directory, FOLDER);
+
+            string pictures = null;
+            try
+            {
+                //Without DoNotVerify: a folder that does not exist answers empty, and then the data folder is used
+                pictures = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
+            }
+            catch (PlatformNotSupportedException)
+            {
+            }
+
+            return string.IsNullOrEmpty(pictures)
+                ? Path.Combine(UserData.Directory, FOLDER)
+                : Path.Combine(pictures, "BS3D");
+        }
 
         /// <summary>Asks for a shot of the frame about to be drawn. Wired to F12 in both input paths.</summary>
         internal void RequestScreenshot() => _shots?.Request();

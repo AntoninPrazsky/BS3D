@@ -48,6 +48,11 @@ namespace Prazsky.Core.Render
         private readonly GraphicsDevice _device;
         private readonly string _prefix;
 
+        //Where a shot goes when the folder beside the executable cannot be written to, and the folder in use now:
+        //ShotDirectory until a write there fails once, the fallback from then on (#1082)
+        private readonly string _fallbackDirectory;
+        private string _directory = ShotDirectory;
+
         //The two schedules and how far down each one the run has got. Null when the argument was absent, which
         //is every run but a scripted one — null rather than empty, so a run that asked for nothing tests nothing.
         private readonly float[] _seconds;
@@ -72,15 +77,26 @@ namespace Prazsky.Core.Render
         /// </param>
         /// <param name="seconds">The <c>shot=</c> schedule, or null for none.</param>
         /// <param name="frames">The <c>shotframe=</c> schedule, or null for none.</param>
-        public ScreenshotWriter(GraphicsDevice device, string prefix, float[] seconds = null, int[] frames = null)
+        /// <param name="fallbackDirectory">
+        /// Where the shots go when <see cref="ShotDirectory"/> cannot be written to, or null to report that failure
+        /// and keep nothing (#1082). The Pi-Apps package installs the Game into a folder root owns, and an F12
+        /// that silently saved nothing was all a player got there.
+        /// </param>
+        public ScreenshotWriter(GraphicsDevice device, string prefix, float[] seconds = null, int[] frames = null,
+            string fallbackDirectory = null)
         {
             _device = device;
             _prefix = prefix;
             _seconds = seconds;
             _frames = frames;
+            _fallbackDirectory = fallbackDirectory;
         }
 
-        /// <summary>Where the shots land: <c>Screenshots\</c> beside the executable.</summary>
+        /// <summary>
+        /// Where the shots land: <c>Screenshots\</c> beside the executable, unless that folder cannot be written to
+        /// and the host named a fallback (#1082). Every run that can write there keeps this path, so the scripts and
+        /// skills that look for a shot beside the exe still find it.
+        /// </summary>
         public static string ShotDirectory => Path.Combine(AppContext.BaseDirectory, SHOT_DIRECTORY);
 
         /// <summary>Asks for a shot of the frame about to be drawn. The host wires this to its own key.</summary>
@@ -189,8 +205,6 @@ namespace Prazsky.Core.Render
 
             try
             {
-                System.IO.Directory.CreateDirectory(ShotDirectory);
-
                 //Through BackBufferPixels, not GetBackBufferData straight (#859): a 10-bit back buffer read as Colors is
                 //its packed words misread as bytes, and a shot of it was a picture of the wrong colours
                 Color[] pixels = new Color[width * height];
@@ -199,10 +213,20 @@ namespace Prazsky.Core.Render
                 using Texture2D frame = new(_device, width, height);
                 frame.SetData(pixels);
 
-                string path = NextShotPath(label);
-
-                using FileStream file = File.Create(path);
-                frame.SaveAsPng(file, width, height);
+                string path;
+                try
+                {
+                    path = WriteShot(_directory, frame, width, height, label);
+                }
+                catch (Exception e) when (e is UnauthorizedAccessException or IOException
+                    && _fallbackDirectory != null && _directory != _fallbackDirectory)
+                {
+                    //Once per run: every later shot goes straight to the fallback rather than failing first
+                    Console.WriteLine($"[shot] '{_directory}' cannot be written to ({e.Message}); "
+                        + $"shots go to '{_fallbackDirectory}'");
+                    _directory = _fallbackDirectory;
+                    path = WriteShot(_directory, frame, width, height, label);
+                }
 
                 //One line, the shape [fps], [level] and [cinematic] already use, so a script can find what it
                 //has just taken without guessing the name
@@ -220,14 +244,28 @@ namespace Prazsky.Core.Render
         /// takes a suffix rather than overwriting: a diagnostic that quietly replaced the shot before it would
         /// be worse than no diagnostic.
         /// </summary>
-        private string NextShotPath(string label)
+        private string NextShotPath(string directory, string label)
         {
             string stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
-            string path = Path.Combine(ShotDirectory, $"{_prefix}-{stamp}-{label}.png");
+            string path = Path.Combine(directory, $"{_prefix}-{stamp}-{label}.png");
 
             for (int i = 2; File.Exists(path); i++)
-                path = Path.Combine(ShotDirectory, $"{_prefix}-{stamp}-{label}-{i}.png");
+                path = Path.Combine(directory, $"{_prefix}-{stamp}-{label}-{i}.png");
 
+            return path;
+        }
+
+        /// <summary>
+        /// Encodes the frame into a new file in <paramref name="directory"/>, made on demand. A folder that cannot
+        /// be written to throws here, from the directory or the file being created, before any byte is written.
+        /// </summary>
+        private string WriteShot(string directory, Texture2D frame, int width, int height, string label)
+        {
+            System.IO.Directory.CreateDirectory(directory);
+            string path = NextShotPath(directory, label);
+
+            using FileStream file = File.Create(path);
+            frame.SaveAsPng(file, width, height);
             return path;
         }
     }
