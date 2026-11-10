@@ -1,8 +1,9 @@
 
 #----------------------------- Global Properties ----------------------------#
 # GamePi's content: the Game's two assets, built for DesktopGL. Its own file rather than Game/Content/Content.mgcb
-# because that one builds the InfoRenderer's font from "Segoe UI", which no Linux machine has; the font here is
-# built from Inter, the menu's own small print, under the asset name the Game loads (Fonts/segoeui). The task passes
+# because that one built the InfoRenderer's font from "Segoe UI", which no Linux machine has; the font here is
+# built from Inter, the menu's own small print, under the asset name the Game loads (Fonts/segoeui), and since #1084
+# the Game's is built from the same Inter. The task passes
 # /platform:$(MonoGamePlatform) after the line below, so DesktopGL's package is what decides either way.
 
 /outputDir:bin/$(Platform)/Content

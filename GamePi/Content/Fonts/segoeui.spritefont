@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <XnaContent xmlns:Graphics="Microsoft.Xna.Framework.Content.Pipeline.Graphics">
-  <!--GamePi: the Game's spritefont with Inter in place of Segoe UI, which Linux does not have (see Content.mgcb).-->
+  <!--GamePi: the Game's spritefont, from the same Inter the Game's is built from since #1084 (see Content.mgcb).-->
   <Asset Type="Graphics:FontDescription">
     <FontName>../../../Game/Content/Fonts/Inter-Regular.ttf</FontName>
     <Size>48</Size>

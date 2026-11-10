@@ -98,8 +98,8 @@
   PromptFont (#189, v1.15, shinmera.com/promptfont) draws the tutorial's keycaps, mouse buttons and gamepad
   triggers - glyphs rather than bitmaps, so they scale with the HUD and nothing goes through the content
   pipeline for them. All three are SIL OFL 1.1, so redistribution is permitted and each ships with its
-  licence beside it; Segoe UI (the InfoRenderer's spritefont source) is not, and neither is Impact, which is
-  why the Impact look is Anton. Embedded so no on-disk path has to exist at runtime and nothing flows through
+  licence beside it; Segoe UI is not (the InfoRenderer's spritefont was built from it until #1084 moved it to
+  Inter), and neither is Impact, which is why the Impact look is Anton. Embedded so no on-disk path has to exist at runtime and nothing flows through
   the MGCB content pipeline.-->
   <ItemGroup>
     <EmbeddedResource Include="Content\Fonts\Anton-Regular.ttf" />

@@ -189,7 +189,7 @@ namespace BS3D
         //TWO TYPEFACES BY ROLE, not by weight. Anton is a display face — condensed, black, one weight — and it
         //is what everything meant to be loud is set in: the title, the menu entries and the HUD. It is the
         //shippable form of the Impact look (Impact itself is bundled with Windows and not redistributable,
-        //which is the same rule that keeps Segoe UI out of this assembly). Inter stays for the small print —
+        //which is the same rule that took Segoe UI out of the FPS line's font, #1084). Inter stays for the small print —
         //About's paragraphs, a level's rules, the adaptive-quality note — because a display face is drawn for
         //headlines and turns to mush at body sizes, which is exactly where those live.
         //
