@@ -19,7 +19,7 @@ npx eleventy                # the plain files in Web\_site, which is all the hos
 
 | File | Holds |
 |---|---|
-| `src/index.njk` | The page: the logo and pitch, the big picture, how it plays, the numbers, the live cannon, the gallery, what else is in it, the download steps for Windows and the Raspberry Pi 5 |
+| `src/index.njk` | The page: the logo and pitch, the big picture, how it plays, the numbers, the live cannon, the gallery, what else is in it, the download steps for Windows, Android (#1071: its own picture from the phone, and the phone's picture sentence `androidPicture` in `site.json`, which `release.yml` quotes into the notes' Android section as it quotes `piPicture`) and the Raspberry Pi 5 |
 | `src/_data/site.json` | The links (the newest release, the repository), the description the search engines and link previews show, the counts the page prints (levels, chapters, scenes) and the video slot |
 | `src/_data/gallery.json` | The gallery's pictures in order, each with its level, chapter, caption and the moment and camera `Tools/web-gallery.ps1` takes it with |
 | `src/_data/built.js` | The day of the build (Prague time), which the footer prints as "Last updated" |
