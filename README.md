@@ -2,8 +2,7 @@
 
 A 3D take on the Puzzle-Bobble/bubble-shooter formula: a cluster of coloured balls hangs above a stone
 island, jiggling under real physics, and you fire balls up at it from a cannon to match three-or-more of
-the same colour and bring pieces of it down. It's a solo hobby project, built mostly to learn and try
-things out — nothing here is trying to be groundbreaking, it's just a small game being built in the open.
+the same colour and bring pieces of it down. It's a solo project, built in the open.
 
 ## Screenshot
 
