@@ -99,6 +99,31 @@ namespace BS3D.Tests
             }
         }
 
+        /// <summary>
+        /// The phone's picture is stated the same way (#1071): <c>androidPicture</c> in <c>site.json</c>, printed by the page's
+        /// Android section and read by <c>release.yml</c> into <c>@@ANDROID_PICTURE@@</c> in the notes' Android section.
+        /// </summary>
+        [Fact]
+        public void ThePhonesPictureIsQuotedTheSameWay()
+        {
+            using JsonDocument site = JsonDocument.Parse(Text("Web", "src", "_data", "site.json"));
+            Assert.True(site.RootElement.TryGetProperty("androidPicture", out JsonElement element), "site.json has no androidPicture");
+            string picture = element.GetString();
+            Assert.False(string.IsNullOrWhiteSpace(picture));
+            Assert.DoesNotContain('\n', picture);
+            Assert.DoesNotContain(picture, c => "<>*`@{}|".Contains(c));
+
+            string page = Text("Web", "src", "index.njk");
+            string workflow = Text(".github", "workflows", "release.yml");
+            Assert.Contains("{{ site.androidPicture }}", page);
+            Assert.Contains("@@ANDROID_PICTURE@@", workflow);
+            Assert.Contains("androidPicture", workflow);
+
+            string flatWorkflow = Regex.Replace(workflow, @"\s+", " ");
+            Assert.DoesNotContain(picture, page);
+            Assert.DoesNotContain(picture, flatWorkflow);
+        }
+
         [Fact]
         public void NoPageOfTheSiteSaysThePiHasNoScenery()
         {

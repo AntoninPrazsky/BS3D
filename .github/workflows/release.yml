@@ -566,9 +566,8 @@ jobs:
           ### Android (phones and tablets, 64-bit ARM)
 
           `BS3D-...-android-arm64.apk` is the same game, from the same tag, for Android 7 or newer with OpenGL ES 3.0,
-          played by touch or with a gamepad. It draws the Windows picture at a phone's settings (Low, Medium and High,
-          and Potato for a weak phone), without supersampling, the volumetric clouds and the city windows' reflections,
-          and shows `Android` beside its version in the menu.
+          played by touch or with a gamepad. It draws @@ANDROID_PICTURE@@ (Low, Medium and High, and Potato for a weak
+          phone), and shows `Android` beside its version in the menu.
 
           1. Download the `BS3D-...-android-arm64.apk` below on the phone and open it. It does not come from a store,
              so Android asks once to allow the browser or the file manager to install apps.
@@ -583,6 +582,11 @@ jobs:
 
           '@
           if (-not (Test-Path "dist/BS3D-$env:BUILD_VERSION-android-arm64.apk")) { $android = '' }
+          # The phone's picture, like the Pi's: one sentence in the website's data, printed by the page and by these notes
+          $androidPicture = (Get-Content -Raw -Encoding utf8 'Web/src/_data/site.json' | ConvertFrom-Json).androidPicture
+          if (-not $androidPicture) { throw "Web/src/_data/site.json has no androidPicture for the Android section of the notes" }
+          if ($android -and -not $android.Contains('@@ANDROID_PICTURE@@')) { throw "The Android notes lost the @@ANDROID_PICTURE@@ placeholder" }
+          $android = $android.Replace('@@ANDROID_PICTURE@@', $androidPicture)
           $checksums = "``SHA256SUMS`` lists a checksum for every file below; check a download with ``sha256sum -c SHA256SUMS``."
           # What the Pi's picture lacks and keeps is stated once, in the website's data (#947): the page prints the
           # same words. PiPictureCopyTests refuses a hand-typed copy here and a placeholder that is gone.

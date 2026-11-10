@@ -17,9 +17,10 @@ layout: base.njk
       <p class="tagline">A bubble shooter in three dimensions. The cluster hangs from a sheet of glass and sways when you hit it, and whatever you cut loose falls.</p>
       <div class="cta">
         <a class="button" href="{{ site.download }}">Download for Windows</a>
+        <a class="button" href="#android">Download for Android</a>
         <a class="button button-quiet" href="#download">Raspberry Pi 5, and how to run it</a>
       </div>
-      <p class="cta-note">Free · Windows 10 and 11, 64-bit · about 400&nbsp;MB · nothing to install. Windows warns you the first time you run it: <a href="#download">why, and what to click</a>.</p>
+      <p class="cta-note">Free · Windows 10 and 11, 64-bit · Android 7 and newer · about 400&nbsp;MB · nothing to install. Windows warns you the first time you run it: <a href="#download">why, and what to click</a>.</p>
     </div>
     <figure class="hero-shot wrap-wide">
       <img src="/img/shots/meander-1600.jpg" srcset="/img/shots/meander-800.jpg 800w, /img/shots/meander-1600.jpg 1600w"
@@ -159,6 +160,22 @@ layout: base.njk
             <p class="note"><strong>Windows will warn you the first time.</strong> The game is not code-signed (a signing certificate is the one part of this that costs money), so SmartScreen says “Windows protected your PC”. Choose <em>More info</em>, then <em>Run anyway</em>.</p>
             <p>Your progress and settings live in <code>%LOCALAPPDATA%\BS3D</code>, not in the game's folder, so a new version can replace the old folder without losing your save.</p>
             <p><a class="button" href="{{ site.download }}">Download for Windows</a></p>
+          </article>
+          <article class="platform" id="android">
+            <h3>Android</h3>
+            <p>Phones and tablets with a 64-bit ARM chip, Android 7 or newer and OpenGL&nbsp;ES&nbsp;3.0. The same game and the same online boards, played by touch or with a gamepad over Bluetooth, drawn with {{ site.androidPicture }}.</p>
+            <ol>
+              <li>On the phone, download <code>BS3D-…-android-arm64.apk</code> from the <a href="{{ site.download }}">newest release</a> and open it. It does not come from a store, so Android asks once to allow the browser or the file manager to install apps.</li>
+              <li>Start <strong>BS3D</strong>.</li>
+            </ol>
+            <figure class="platform-shot">
+              <img src="/img/shots/android-girandole-800.jpg" srcset="/img/shots/android-girandole-800.jpg 800w, /img/shots/android-girandole-1600.jpg 1600w"
+                   sizes="(max-width: 859px) 100vw, 30vw" width="1600" height="727" loading="lazy"
+                   alt="The game on a phone held sideways: a cluster of red, black and magenta balls hangs over a city of towers, the cannon below it, the touch controls at the edges of the screen.">
+              <figcaption>Girandole, in The City, on a phone.</figcaption>
+            </figure>
+            <p class="note">A phone may hold the game at 60 FPS until you allow it a high refresh rate in the phone's own display settings; Settings → SCREEN → FPS limit reads <code>60 Hz (phone setting)</code> while it does, and an update can switch it off again.</p>
+            <p><a class="button" href="{{ site.download }}">Download for Android</a></p>
           </article>
           <article class="platform">
             <h3>Raspberry Pi 5</h3>

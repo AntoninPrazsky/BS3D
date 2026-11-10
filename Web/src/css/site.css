@@ -218,7 +218,11 @@ h3 { font-size: 1.45rem; }
 
 .download { background: var(--bg-sunken); border-top: 1px solid var(--line); }
 .platforms { display: grid; gap: 20px; }
-@media (min-width: 860px) { .platforms { grid-template-columns: 3fr 2fr; } }
+@media (min-width: 860px) { .platforms { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 1100px) { .platforms { grid-template-columns: 3fr 3fr 2fr; } }
+.platform-shot { margin: 14px 0; }
+.platform-shot img { width: 100%; height: auto; border-radius: var(--radius); display: block; }
+.platform-shot figcaption { color: var(--muted); font-size: 0.9rem; margin-top: 6px; }
 .platform { min-width: 0; background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; }
 .platform ol { padding-left: 1.3em; }
 .platform li { margin-bottom: 0.4em; }

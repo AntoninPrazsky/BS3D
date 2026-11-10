@@ -22,6 +22,11 @@ exe is not code-signed, so SmartScreen says "Windows protected your PC" the firs
 anyway**. Progress and settings live in `%LOCALAPPDATA%\BS3D` rather than in the game's folder, so that
 folder can be replaced or deleted without losing a save.
 
+**Android (from v0.6.0).** The same game for phones and tablets with a 64-bit ARM chip (Android 7 or newer,
+OpenGL ES 3.0), played by touch or with a gamepad over Bluetooth: download `BS3D-…-android-arm64.apk` from the
+release on the phone and open it. It does not come from a store, so Android asks once to allow the browser or
+the file manager to install apps.
+
 **Online scores (from v0.3.0).** Every level has an online leaderboard, this month's and all time, but it is off
 until you turn it on: open **Settings** (it opens on its ONLINE page), set a **Nickname** and switch **Online
 scores** on. Nothing is sent before that, and **Remove scores** on the same page deletes it all again.

@@ -1,7 +1,7 @@
 {
   "title": "Bubble Shooter 3D",
   "url": "https://bs3d.winphonew.eu",
-  "description": "A free bubble shooter in three dimensions for Windows and the Raspberry Pi 5: fire at a cluster that hangs from a glass ceiling and sways under real physics, and whatever you cut loose falls. 140 levels in 14 chapters, each in a scene of its own.",
+  "description": "A free bubble shooter in three dimensions for Windows, Android and the Raspberry Pi 5: fire at a cluster that hangs from a glass ceiling and sways under real physics, and whatever you cut loose falls. 140 levels in 14 chapters, each in a scene of its own.",
   "author": "Antonín Pražský",
   "authorUrl": "https://github.com/AntoninPrazsky",
   "repo": "https://github.com/AntoninPrazsky/BS3D",
@@ -10,5 +10,6 @@
   "chapters": 14,
   "scenes": 21,
   "piPicture": "no shadows and no post effects, but every chapter still has its scenery behind the island and its clouds overhead, in a simpler form",
+  "androidPicture": "the Windows picture at a phone's settings, without supersampling, the volumetric clouds and the city windows' reflections",
   "video": null
 }
