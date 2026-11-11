@@ -180,6 +180,9 @@ namespace BS3D.Audio
             //The line's hum under a lost level's page (#702), held only by a frame that asked for it
             _audio.UpdateLineHum(paused, elapsed);
 
+            //What the voice limit cost (#1077), said once it has been quiet, never on the frame it happened
+            VoiceBudget.Update();
+
             //Right after the bed, on the same wall clock, and for the same reason it is: the scene stages its
             //events whether or not a session stands, so a strike seen from the pause menu is heard from it.
             //The clock handed over is the one the SCENE draws from (BuildSceneFrame), which is what lets the

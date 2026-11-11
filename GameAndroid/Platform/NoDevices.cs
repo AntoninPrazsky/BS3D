@@ -44,5 +44,12 @@ namespace BS3D.Platform
     internal static class AudioBackend
     {
         internal static bool PlacesAfterPlay => true;
+
+        /// <summary>
+        /// How many sounds play at once (#1077): 32, a constant of MonoGame's Android assembly in both
+        /// <c>SoundEffectInstancePool.SoundsAvailable</c> and <c>OpenALSoundController.MAX_NUMBER_OF_SOURCES</c>. The victory
+        /// reaches it, so <c>VoiceBudget</c> shares the voices out and takes one for a sound that outranks it.
+        /// </summary>
+        internal static int VoiceLimit => 32;
     }
 }

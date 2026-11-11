@@ -12,5 +12,11 @@ namespace BS3D.Platform
     {
         /// <summary>Whether a voice must be placed after <c>Play</c> rather than before it. True: see the class doc.</summary>
         internal static bool PlacesAfterPlay => true;
+
+        /// <summary>
+        /// How many sounds OpenAL plays at once here (#1077): MonoGame DesktopGL's pool and source count, 256, read in its
+        /// 3.8.5 assembly. Far above what the game asks, so <c>VoiceBudget</c> never takes a voice on the Pi.
+        /// </summary>
+        internal static int VoiceLimit => 256;
     }
 }

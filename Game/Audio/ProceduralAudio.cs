@@ -264,6 +264,9 @@ namespace BS3D.Audio
         private readonly VoiceRing _launchRing;
         private readonly VoiceRing _burstRing;
 
+        //The volley's count ticks on a platform whose voices run out (#1077); null elsewhere, where they are fire-and-forget
+        private readonly VoiceRing _volleyTickRing;
+
         /// <inheritdoc cref="_wormholeOpen"/>
         private readonly VoiceRing _wormholeOpenRing;
         private readonly VoiceRing _wormholePopRing;
@@ -382,6 +385,17 @@ namespace BS3D.Audio
         //is a 4 s file whose sound is over in under two: a boom and a short tail, see "The sound".)
         private const int BURST_VOICES = 32;   //Fireworks.MAX_SHELLS
 
+        //What the display may hold of a platform whose voices run out (#1077, Android's 32; VoiceBudget.Share): ten
+        //reports and two whistles, so the fanfare, the volley and the result page keep their voices without having to
+        //take one. The ring then cuts its own oldest report early, which in a barrage is a boom's tail, and a phone's
+        //speaker plays little of a boom (96 % of it is under 200 Hz).
+        private const int BURST_SHARE = 10, LAUNCH_SHARE = 2;
+
+        //The volley's count ticks there (#1077): up to forty a second, each the star chime (0.8 s, twice that an octave
+        //down), so fire-and-forget they could fill every voice the phone has. Six voices keep every tick's onset, which
+        //is the count, and cut the oldest one's ring.
+        private const int VOLLEY_TICK_SHARE = 6;
+
         //The burst's loudness and its softening (#552). The report used to take 0.30 RMS, the bake's own figure, and
         //with a voice per shell that stacked into a pounding wall: measured through a replica of the display's
         //schedule (scratch harness, K-weighted after BS.1770), the stream after the fanfare ran at −4.8 LUFS short-
@@ -476,28 +490,33 @@ namespace BS3D.Audio
 
             //The voices, all of them, here — an XAudio2 source voice apiece and a few ms of load. The popper,
             //the thunder and the dry cues need none: they never reach an emitter.
-            _shootRing = new VoiceRing(_shoot, SHOOT_VOICES);
-            _releaseRing = new VoiceRing(_release, RELEASE_VOICES);
-            _iceBreakRing = new VoiceRing(_iceBreak, ICE_BREAK_VOICES);
-            _ceilingRing = new VoiceRing(_ceilingStep, CEILING_VOICES);
-            _ceilingFeedRing = new VoiceRing(_ceilingFeed, CEILING_FEED_VOICES);
-            _lineLossRing = new VoiceRing(_lineLoss, LINE_LOSS_VOICES);
-            _lineTouchRing = new VoiceRing(_lineTouch, LINE_TOUCH_VOICES);
-            _blastRing = new VoiceRing(_blast, BLAST_VOICES);
-            _launchRing = new VoiceRing(_fireworkLaunch, LAUNCH_VOICES);
-            _burstRing = new VoiceRing(_fireworkBurst, BURST_VOICES);
-            _eruptionRing = new VoiceRing(_eruption, ERUPTION_VOICES);
+            //Each with what it is worth when the platform's voices run out (#1077, VoiceClass) and its name in the
+            //[audio] line that says so.
+            _shootRing = new VoiceRing(_shoot, SHOOT_VOICES, VoiceClass.Play, "shot");
+            _releaseRing = new VoiceRing(_release, RELEASE_VOICES, VoiceClass.Play, "release");
+            _iceBreakRing = new VoiceRing(_iceBreak, ICE_BREAK_VOICES, VoiceClass.Play, "ice-break");
+            _ceilingRing = new VoiceRing(_ceilingStep, CEILING_VOICES, VoiceClass.Event, "ceiling-step");
+            _ceilingFeedRing = new VoiceRing(_ceilingFeed, CEILING_FEED_VOICES, VoiceClass.Event, "ceiling-feed");
+            _lineLossRing = new VoiceRing(_lineLoss, LINE_LOSS_VOICES, VoiceClass.Event, "line-loss");
+            _lineTouchRing = new VoiceRing(_lineTouch, LINE_TOUCH_VOICES, VoiceClass.Event, "line-touch");
+            _blastRing = new VoiceRing(_blast, BLAST_VOICES, VoiceClass.Play, "blast");
+            _launchRing = new VoiceRing(_fireworkLaunch, VoiceBudget.Share(LAUNCH_VOICES, LAUNCH_SHARE), VoiceClass.Crowd, "firework-launch");
+            _burstRing = new VoiceRing(_fireworkBurst, VoiceBudget.Share(BURST_VOICES, BURST_SHARE), VoiceClass.Crowd, "firework-burst");
+            _eruptionRing = new VoiceRing(_eruption, ERUPTION_VOICES, VoiceClass.Play, "eruption");
+
+            //Only where voices run out: elsewhere the ticks stay fire-and-forget, as many as the volley asks
+            if (VoiceBudget.Tight) _volleyTickRing = new VoiceRing(_starEarned, VOLLEY_TICK_SHARE, VoiceClass.Crowd, "volley-tick");
 
             //One Cut a level (#213), so a voice each is plenty; two for the slice, for powerups=cut:n runs
-            _cutChargeRing = new VoiceRing(_cutCharge, 1);
-            _cutSliceRing = new VoiceRing(_cutSlice, 2);
+            _cutChargeRing = new VoiceRing(_cutCharge, 1, VoiceClass.Play, "cut-charge");
+            _cutSliceRing = new VoiceRing(_cutSlice, 2, VoiceClass.Play, "cut-slice");
 
             //Two voices: a second press can come while the first is still dying away, and a Swap is cheap to repeat
-            _swapRing = new VoiceRing(_swap, 2);
+            _swapRing = new VoiceRing(_swap, 2, VoiceClass.Play, "swap");
 
             //One hole at a time (Wormhole), so one voice each
-            _wormholeOpenRing = new VoiceRing(_wormholeOpen, 1);
-            _wormholePopRing = new VoiceRing(_wormholePop, 1);
+            _wormholeOpenRing = new VoiceRing(_wormholeOpen, 1, VoiceClass.Play, "wormhole-open");
+            _wormholePopRing = new VoiceRing(_wormholePop, 1, VoiceClass.Play, "wormhole-pop");
         }
 
         /// <summary>
@@ -547,7 +566,7 @@ namespace BS3D.Audio
             for (int type = 1; type <= BallTypes.Count; type++)
             {
                 effects[type] = _landedSfx != null ? LandedFromSfx(type, material) : BakeLanded(type, material);
-                rings[type] = new VoiceRing(effects[type], LANDED_VOICES);
+                rings[type] = new VoiceRing(effects[type], LANDED_VOICES, VoiceClass.Play, "landing");
             }
 
             //Rings before effects, so a row is never visible half-built: PlayLanded reads _landed[row] as its
@@ -744,7 +763,7 @@ namespace BS3D.Audio
         /// </summary>
         public void PlayPartyPopper()
         {
-            _partyPopper.Play(0.9f * Level * NON_SPATIAL_TRIM, NextPitch(0.08f), 0f);
+            VoiceBudget.TryPlay(_partyPopper, 0.9f * Level * NON_SPATIAL_TRIM, NextPitch(0.08f), 0f, VoiceClass.Event, "party-popper");
         }
 
         /// <summary>
@@ -756,7 +775,7 @@ namespace BS3D.Audio
         /// </summary>
         public void PlaySnore()
         {
-            _snore.Play(SNORE_LEVEL * Level * NON_SPATIAL_TRIM, NextPitch(0.06f), 0f);
+            VoiceBudget.TryPlay(_snore, SNORE_LEVEL * Level * NON_SPATIAL_TRIM, NextPitch(0.06f), 0f, VoiceClass.Play, "snore");
         }
 
         /// <summary>How loud a snore plays, against the party popper's 0.9 — see <see cref="PlaySnore"/>.</summary>
@@ -806,8 +825,8 @@ namespace BS3D.Audio
 
             float volume = (0.32f + 0.42f * size) * (0.45f + 0.55f * near);
 
-            _thunder.Play(MathHelper.Clamp(volume * WeatherGain * NON_SPATIAL_TRIM, 0f, 1f),
-                MathHelper.Clamp(-0.34f + 0.42f * near + NextPitch(0.06f), -1f, 1f), 0f);
+            VoiceBudget.TryPlay(_thunder, MathHelper.Clamp(volume * WeatherGain * NON_SPATIAL_TRIM, 0f, 1f),
+                MathHelper.Clamp(-0.34f + 0.42f * near + NextPitch(0.06f), -1f, 1f), 0f, VoiceClass.Play, "thunder");
         }
 
         /// <summary>
@@ -842,7 +861,7 @@ namespace BS3D.Audio
         /// </summary>
         public void PlayUiClick()
         {
-            _uiClick.Play(UI_CLICK_VOLUME * Level * NON_SPATIAL_TRIM, NextPitch(0.03f), 0f);
+            VoiceBudget.TryPlay(_uiClick, UI_CLICK_VOLUME * Level * NON_SPATIAL_TRIM, NextPitch(0.03f), 0f, VoiceClass.Event, "ui-click");
         }
 
         /// <summary>
@@ -851,13 +870,13 @@ namespace BS3D.Audio
         /// </summary>
         public void PlayUiTick()
         {
-            _uiClick.Play(UI_TICK_VOLUME * Level * NON_SPATIAL_TRIM, 0.55f + NextPitch(0.03f), 0f);
+            VoiceBudget.TryPlay(_uiClick, UI_TICK_VOLUME * Level * NON_SPATIAL_TRIM, 0.55f + NextPitch(0.03f), 0f, VoiceClass.Event, "ui-tick");
         }
 
         /// <summary>Backing out — Escape or B: the click pitched down, so leaving sounds lower than entering.</summary>
         public void PlayUiBack()
         {
-            _uiClick.Play(UI_CLICK_VOLUME * Level * NON_SPATIAL_TRIM, -0.3f + NextPitch(0.03f), 0f);
+            VoiceBudget.TryPlay(_uiClick, UI_CLICK_VOLUME * Level * NON_SPATIAL_TRIM, -0.3f + NextPitch(0.03f), 0f, VoiceClass.Event, "ui-back");
         }
 
         /// <summary>
@@ -870,7 +889,7 @@ namespace BS3D.Audio
         /// </summary>
         public void PlayShotRefused()
         {
-            _shotRefused.Play(SHOT_REFUSED_VOLUME * Level * NON_SPATIAL_TRIM, NextPitch(0.02f), 0f);
+            VoiceBudget.TryPlay(_shotRefused, SHOT_REFUSED_VOLUME * Level * NON_SPATIAL_TRIM, NextPitch(0.02f), 0f, VoiceClass.Event, "shot-refused");
         }
 
         /// <summary>
@@ -883,7 +902,7 @@ namespace BS3D.Audio
         /// </summary>
         public void PlayAimStop()
         {
-            _aimStop.Play(AIM_STOP_VOLUME * Level * NON_SPATIAL_TRIM, NextPitch(0.02f), 0f);
+            VoiceBudget.TryPlay(_aimStop, AIM_STOP_VOLUME * Level * NON_SPATIAL_TRIM, NextPitch(0.02f), 0f, VoiceClass.Event, "aim-stop");
         }
 
         /// <summary>
@@ -944,7 +963,9 @@ namespace BS3D.Audio
             float above = Math.Clamp(BS3D.Screens.StreakCues.Severity(lost) * 2f - 1f, 0f, 1f);
             float level = STREAK_BREAK_LOW_LEVEL + (1f - STREAK_BREAK_LOW_LEVEL) * above;
 
-            _streakBreak[index]?.Play(STREAK_BREAK_VOLUME * level * Level * NON_SPATIAL_TRIM, NextPitch(0.02f), 0f);
+            SoundEffect run = _streakBreak[index];
+            if (run != null)
+                VoiceBudget.TryPlay(run, STREAK_BREAK_VOLUME * level * Level * NON_SPATIAL_TRIM, NextPitch(0.02f), 0f, VoiceClass.Event, "streak-break");
         }
 
         /// <summary>
@@ -952,7 +973,8 @@ namespace BS3D.Audio
         /// word lands. Dry and unplaced like the star chimes it follows, and in their key, with a small pitch nudge.
         /// </summary>
         public void PlayNewBest() =>
-            _newBest.Play(MathHelper.Clamp(NEW_BEST_VOLUME * Level * NON_SPATIAL_TRIM, 0f, 1f), NextPitch(0.01f), 0f);
+            VoiceBudget.TryPlay(_newBest, MathHelper.Clamp(NEW_BEST_VOLUME * Level * NON_SPATIAL_TRIM, 0f, 1f), NextPitch(0.01f), 0f,
+                VoiceClass.Event, "new-best");
 
         /// <summary>
         /// One of the unused balls counted (#881), <paramref name="progress"/> of the way through the volley: the star chime,
@@ -964,7 +986,20 @@ namespace BS3D.Audio
             //is heard rising as the figure does, in the band the owner's monitor speakers carry (it is the result page's chime)
             float semitones = MathHelper.Lerp(-12f, 7f, MathHelper.Clamp(progress, 0f, 1f));
             float pitch = MathHelper.Clamp(semitones / 12f + NextPitch(0.01f), -1f, 1f);
-            _starEarned.Play(MathHelper.Clamp(VOLLEY_TICK_VOLUME * Level * NON_SPATIAL_TRIM, 0f, 1f), pitch, 0f);
+            float volume = MathHelper.Clamp(VOLLEY_TICK_VOLUME * Level * NON_SPATIAL_TRIM, 0f, 1f);
+
+            //Where voices run out, from a ring of its own share (#1077): never placed, so its Pan is the centre's
+            if (_volleyTickRing != null)
+            {
+                SoundEffectInstance voice = _volleyTickRing.Take();
+                voice.Pan = 0f;
+                voice.Volume = volume;
+                voice.Pitch = pitch;
+                _volleyTickRing.Play(voice);
+                return;
+            }
+
+            VoiceBudget.TryPlay(_starEarned, volume, pitch, 0f, VoiceClass.Crowd, "volley-tick");
         }
 
         /// <summary>The unused balls' count (#881): a tick each, quieter than a star, as many as thirty a second.</summary>
@@ -1000,7 +1035,7 @@ namespace BS3D.Audio
             //only thing that separates the fourth star of a four-star clear from the third of a three.
             float volume = STAR_VOLUME * (index == total - 1 ? STAR_FINAL_LIFT : 1f);
 
-            _starEarned.Play(MathHelper.Clamp(volume * Level * NON_SPATIAL_TRIM, 0f, 1f), pitch, 0f);
+            VoiceBudget.TryPlay(_starEarned, MathHelper.Clamp(volume * Level * NON_SPATIAL_TRIM, 0f, 1f), pitch, 0f, VoiceClass.Event, "star");
         }
 
         #region Where the ear is, and where the sound is
@@ -1093,7 +1128,7 @@ namespace BS3D.Audio
                 voice.Pan = 0f;
                 voice.Volume = MathHelper.Clamp(volume * NON_SPATIAL_TRIM, 0f, 1f);
                 voice.Pitch = MathHelper.Clamp(pitch, -1f, 1f);
-                VoiceBudget.TryPlay(voice);
+                ring.Play(voice);
                 return;
             }
 
@@ -1108,7 +1143,7 @@ namespace BS3D.Audio
             if (Platform.AudioBackend.PlacesAfterPlay)
             {
                 voice.Pitch = MathHelper.Clamp(pitch, -1f, 1f);
-                VoiceBudget.TryPlay(voice);
+                ring.Play(voice);
                 voice.Apply3D(_listener, _emitter);
                 return;
             }
@@ -1119,7 +1154,7 @@ namespace BS3D.Audio
             //where Play's overload would not: this is the file where a pitch written as a multiplier once put
             //the entire game an octave sharp, and the guard rail that caught it is gone.
             voice.Pitch = MathHelper.Clamp(pitch, -1f, 1f);
-            VoiceBudget.TryPlay(voice);
+            ring.Play(voice);
         }
 
         /// <summary>
@@ -2901,8 +2936,8 @@ namespace BS3D.Audio
             float volume = MathHelper.Clamp(LINE_HUM_LEVEL * Level * shaped * 0.7071f, 0f, 1f);
             _lineHumVoiceA.Volume = volume;
             _lineHumVoiceB.Volume = volume;
-            if (_lineHumVoiceA.State != SoundState.Playing) VoiceBudget.TryPlay(_lineHumVoiceA);
-            if (_lineHumVoiceB.State != SoundState.Playing) VoiceBudget.TryPlay(_lineHumVoiceB);
+            if (_lineHumVoiceA.State != SoundState.Playing) VoiceBudget.TryPlay(_lineHumVoiceA, VoiceClass.Event, "line-hum");
+            if (_lineHumVoiceB.State != SoundState.Playing) VoiceBudget.TryPlay(_lineHumVoiceB, VoiceClass.Event, "line-hum");
         }
 
         private static SoundEffectInstance Looped(SoundEffect effect)
@@ -3288,6 +3323,7 @@ namespace BS3D.Audio
             _blastRing?.Dispose();
             _launchRing?.Dispose();
             _burstRing?.Dispose();
+            _volleyTickRing?.Dispose();
             _eruptionRing?.Dispose();
             _wormholeOpenRing?.Dispose();
             _wormholePopRing?.Dispose();

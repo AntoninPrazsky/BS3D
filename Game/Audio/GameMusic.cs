@@ -438,7 +438,7 @@ namespace BS3D.Audio
                 {
                     _pauseFade.Arrive(PAUSE_FADE_SECONDS);
                     _pause.Volume = PauseVolume;
-                    VoiceBudget.TryPlay(_pause);
+                    VoiceBudget.TryPlay(_pause, VoiceClass.Music, "pause-music");
                 }
             }
         }
@@ -576,7 +576,7 @@ namespace BS3D.Audio
                 //Update's own arrival covers it the same way once it has, on its own frame rather than this one.
                 _menuFade.Arrive(MENU_ARRIVAL_SECONDS);
                 _menu.Volume = MenuVolume;
-                VoiceBudget.TryPlay(_menu);
+                VoiceBudget.TryPlay(_menu, VoiceClass.Music, "menu-music");
             }
 
             //else: the file has not loaded yet. Update's load-completion branch plays it once it has, and
@@ -652,7 +652,7 @@ namespace BS3D.Audio
                         {
                             _menuFade.Arrive(MENU_ARRIVAL_SECONDS);
                             _menu.Volume = MenuVolume;
-                            VoiceBudget.TryPlay(_menu);
+                            VoiceBudget.TryPlay(_menu, VoiceClass.Music, "menu-music");
                         }
                     }
                 }
@@ -681,7 +681,7 @@ namespace BS3D.Audio
                         {
                             _pauseFade.Arrive(PAUSE_FADE_SECONDS);
                             _pause.Volume = PauseVolume;
-                            VoiceBudget.TryPlay(_pause);
+                            VoiceBudget.TryPlay(_pause, VoiceClass.Music, "pause-music");
                         }
                     }
                     else _pauseDuck.To(1f, PAUSE_FADE_SECONDS);
@@ -933,7 +933,7 @@ namespace BS3D.Audio
                     //Disposed only once the replacement exists, so a failure part-way leaves the old chain playable
                     old?.Dispose();
 
-                    VoiceBudget.TryPlay(_voice);
+                    VoiceBudget.TryPlay(_voice, VoiceClass.Music, "theme");
                     return;
                 }
             }

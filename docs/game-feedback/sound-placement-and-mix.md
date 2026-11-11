@@ -17,6 +17,23 @@ Part of [The game: feedback](../game-feedback.md).
 - ⚠ **Every `Take()` stops the slot it hands back**, because `SoundEffectInstance.Play()` returns early on an instance that is already playing: a still-sounding slot would swallow the new sound.
 - **The firework rings are sized by the opening barrage**, not the steady state: all 32 shells report inside one 2.6 s window. ⚠ The burst ring has no margin. A longer burst bake or a shorter shell life clips tails silently.
 
+## The voice limit: which sound gives way (#1048, #1077)
+
+**Every sound plays through `Audio/VoiceBudget`**, a ring's through `VoiceRing.Play` and a fire-and-forget buffer through `VoiceBudget.TryPlay(effect, …)`, and each names a `VoiceClass` and a name. `VoiceLedgerTests` fails on a `.Play(` anywhere else under `Game/`.
+
+- ⚠ **MonoGame on Android plays at most 32 sounds at once**, and the number cannot be raised without a fork. It is a constant in both `SoundEffectInstancePool.SoundsAvailable` and `OpenALSoundController.MAX_NUMBER_OF_SOURCES` of its Android assembly. Past it an instance's `Play` throws `InstancePlayLimitException` and `SoundEffect.Play` answers false. Each platform states its limit as `Platform/AudioBackend.VoiceLimit`: Windows has none, the Pi 256, Android 32. A `DynamicSoundEffectInstance` (the theme, the Jukebox) holds its OpenAL source from construction to disposal, playing or not.
+- **The classes, lowest first.**
+  - **Crowd:** the fireworks' reports and whistles, the volley's ticks.
+  - **Play:** the shot, the landings, the releases, the power-ups, the blasts, the weather.
+  - **Event:** the line's cut, hum and touch, the ceiling's step, the chimes, the clicks, the party popper, the scene's bed.
+  - **Music:** the theme, the menu and pause loops, the fanfares, the Jukebox.
+
+  At the limit a sound takes the voice of the **oldest playing voice of the lowest class below its own** (`VoiceLedger.Victim`). A sound with nothing below it is dropped, so a Crowd sound never takes a voice. A fire-and-forget sound cannot be stopped, so it never gives way.
+- ⚠ **A stopped voice still counts until `FrameworkDispatcher.Update`**, which `Game` runs at the top of every frame. `Stop` gives the OpenAL source back, but the pool lists the voice until the next update, and that includes the slot every `VoiceRing.Take` stops. So a refused sound first has the pool updated and is tried again, and a stolen voice is stopped and the pool updated before the second try. Nothing here listens to `BufferNeeded`, the one event that update raises.
+- **A sound that found no voice holds its class and every class below it off for `BACKOFF_MS`** (100 ms) without trying, so a burst at the limit does not throw once a sound. A higher class still tries. Until #1077 the backoff held every sound off, the fanfare included.
+- **The loud moments keep to a share where voices run out** (`VoiceBudget.Tight`, a limit of 64 or under, so Android): `VoiceBudget.Share` gives 10 of 32 voices to the reports (`BURST_SHARE`) and 2 to the whistles (`LAUNCH_SHARE`). The volley's ticks get a ring of 6 (`VOLLEY_TICK_SHARE`). Fire-and-forget, they had filled every voice: up to forty a second, each the 0.8 s star chime and twice as long an octave down. Each ring then cuts its own oldest voice short. On Windows and the Pi the rings keep their sizes and the ticks stay fire-and-forget.
+- **What the limit cost is one `[audio]` line**, written once the limit has been quiet for `REPORT_QUIET_MS` (1.5 s, `VoiceBudget.Update` once a frame): how long it lasted, the tracked voices of each class playing as it began, what was stopped for what and what was dropped, with counts. A report that a sound did not play can be checked against it.
+
 ## The call order around `Apply3D`
 
 Each way of getting it wrong is silent.

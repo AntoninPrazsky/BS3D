@@ -13,5 +13,11 @@ namespace BS3D.Platform
         /// Whether a voice must be placed (<c>Apply3D</c>) after <c>Play</c> rather than before it. False here.
         /// </summary>
         internal static bool PlacesAfterPlay => false;
+
+        /// <summary>
+        /// How many sounds the engine plays at once (#1077): XAudio2 sets no limit (MonoGame WindowsDX's
+        /// <c>MAX_PLAYING_INSTANCES</c> is <see cref="int.MaxValue"/>), so <c>VoiceBudget</c> never takes a voice here.
+        /// </summary>
+        internal static int VoiceLimit => int.MaxValue;
     }
 }

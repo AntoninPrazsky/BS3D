@@ -38,13 +38,21 @@ namespace BS3D.Audio
     {
         private readonly SoundEffectInstance[] _ring;
 
+        /// <summary>What the ring's sound is worth when the platform's voices run out (#1077): see <see cref="VoiceBudget"/>.</summary>
+        internal readonly VoiceClass Class;
+
+        /// <summary>What the <c>[audio]</c> line calls the ring's sound when it gives way or is dropped.</summary>
+        internal readonly string Name;
+
         //Where the next Take() starts looking. Round-robin over a fixed ring IS age order, which is the whole
         //reason the steal rule needs no bookkeeping: the slot this reaches is always the one that started
         //longest ago.
         private int _next;
 
-        internal VoiceRing(SoundEffect effect, int voices)
+        internal VoiceRing(SoundEffect effect, int voices, VoiceClass voiceClass, string name)
         {
+            Class = voiceClass;
+            Name = name;
             _ring = new SoundEffectInstance[voices];
             for (int i = 0; i < voices; i++) _ring[i] = effect.CreateInstance();
         }
@@ -68,6 +76,9 @@ namespace BS3D.Audio
             voice.Stop();
             return voice;
         }
+
+        /// <summary>Plays <paramref name="voice"/>, one of this ring's, through <see cref="VoiceBudget"/> as the ring's sound.</summary>
+        internal bool Play(SoundEffectInstance voice) => VoiceBudget.TryPlay(voice, Class, Name);
 
         /// <summary>
         /// Stops every voice in the ring at once — for a sound another one takes over from (the net's touch
