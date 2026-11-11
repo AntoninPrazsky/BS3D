@@ -81,6 +81,12 @@ namespace BS3D.Audio
         internal bool Play(SoundEffectInstance voice) => VoiceBudget.TryPlay(voice, Class, Name);
 
         /// <summary>
+        /// Whether the ring's sound would be dropped without trying now (<see cref="VoiceBudget.HeldOff"/>): asked before
+        /// <see cref="Take"/>, so a sound that is dropped does not first cut the ring's oldest voice short.
+        /// </summary>
+        internal bool HeldOff => VoiceBudget.HeldOff(Class, Name);
+
+        /// <summary>
         /// Stops every voice in the ring at once — for a sound another one takes over from (the net's touch
         /// when its cut begins, #669). Two native calls a voice, on an event and never per frame.
         /// </summary>

@@ -991,6 +991,8 @@ namespace BS3D.Audio
             //Where voices run out, from a ring of its own share (#1077): never placed, so its Pan is the centre's
             if (_volleyTickRing != null)
             {
+                if (_volleyTickRing.HeldOff) return;
+
                 SoundEffectInstance voice = _volleyTickRing.Take();
                 voice.Pan = 0f;
                 voice.Volume = volume;
@@ -1115,6 +1117,8 @@ namespace BS3D.Audio
         /// </summary>
         private void Speak(VoiceRing ring, Vector3 world, float widen, float volume, float pitch)
         {
+            if (ring.HeldOff) return;
+
             SoundEffectInstance voice = ring.Take();
 
             if (!_listenerValid)

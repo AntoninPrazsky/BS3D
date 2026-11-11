@@ -175,7 +175,8 @@ namespace BS3D.Audio
                 _to = bed.CreateInstance();
                 _to.IsLooped = true;
                 _to.Volume = 0f;
-                VoiceBudget.TryPlay(_to, VoiceClass.Event, "ambience");
+                //Music's class (#1077): the bed is played once a scene, so a bed that gave way would stay silent until the next
+                VoiceBudget.TryPlay(_to, VoiceClass.Music, "ambience");
 
                 //From silence (first scene of the run) the bed fades IN over the same window; between scenes
                 //the weights pick up where the outgoing bed's volume leaves them.

@@ -81,6 +81,33 @@ namespace BS3D.Audio
         internal static bool TryPlay(SoundEffect effect, float volume, float pitch, float pan, VoiceClass voiceClass, string name) =>
             TryPlay(new Start(effect, volume, pitch, pan), voiceClass, name);
 
+        /// <summary>
+        /// Resumes <paramref name="voice"/>, paused by its player (the Jukebox's play/pause), as a sound of
+        /// <paramref name="voiceClass"/>. A paused <c>DynamicSoundEffectInstance</c> asks the pool again on
+        /// <c>Resume</c> and throws when it is full, as <c>Play</c> does. True when it plays.
+        /// </summary>
+        internal static bool TryResume(SoundEffectInstance voice, VoiceClass voiceClass, string name)
+        {
+            bool played = TryPlay(new Start(voice, resume: true), voiceClass, name);
+            if (played) _ledger.Began(voice, voiceClass, name, Environment.TickCount64);
+            return played;
+        }
+
+        /// <summary>
+        /// Whether a sound of <paramref name="voiceClass"/> would be dropped without trying now (a sound of its class
+        /// or above found no voice under <see cref="BACKOFF_MS"/> ago), counted as dropped when it would. A
+        /// <c>VoiceRing</c> asks before its <c>Take</c>, which stops the ring's oldest voice: a sound that is dropped
+        /// must not cut one short on its way.
+        /// </summary>
+        internal static bool HeldOff(VoiceClass voiceClass, string name)
+        {
+            long now = Environment.TickCount64;
+            if (now >= _refusedUntil[(int)voiceClass]) return false;
+
+            _report.Dropped(name, now);
+            return true;
+        }
+
         /// <summary>Writes the <c>[audio]</c> line once the limit has been quiet for <see cref="REPORT_QUIET_MS"/>. Once a frame.</summary>
         internal static void Update()
         {
@@ -131,12 +158,14 @@ namespace BS3D.Audio
             private readonly SoundEffectInstance _voice;
             private readonly SoundEffect _effect;
             private readonly float _volume, _pitch, _pan;
+            private readonly bool _resume;
 
-            internal Start(SoundEffectInstance voice)
+            internal Start(SoundEffectInstance voice, bool resume = false)
             {
                 _voice = voice;
                 _effect = null;
                 _volume = _pitch = _pan = 0f;
+                _resume = resume;
             }
 
             internal Start(SoundEffect effect, float volume, float pitch, float pan)
@@ -146,6 +175,7 @@ namespace BS3D.Audio
                 _volume = volume;
                 _pitch = pitch;
                 _pan = pan;
+                _resume = false;
             }
 
             //Both throw when the pool had room and the OpenAL sources did not: a DynamicSoundEffectInstance holds its
@@ -155,7 +185,8 @@ namespace BS3D.Audio
                 try
                 {
                     if (_voice == null) return _effect.Play(_volume, _pitch, _pan);
-                    _voice.Play();
+                    if (_resume) _voice.Resume();
+                    else _voice.Play();
                     return true;
                 }
                 catch (InstancePlayLimitException)

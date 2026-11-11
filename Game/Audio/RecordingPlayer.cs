@@ -156,7 +156,7 @@ namespace BS3D.Audio
             }
 
             if (_voice.State == SoundState.Playing) _voice.Pause();
-            else _voice.Resume();
+            else VoiceBudget.TryResume(_voice, VoiceClass.Music, "jukebox");
         }
 
         /// <summary>The list's next recording from its top, across chapters and round to the first after the last: a manual switch, the only way on from a playing one.</summary>
