@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-11 — #1088 zvukové efekty přes sa3.cpp na grafice — desktop (RDT-PC), Claude Code
+- Hotovo, merge da10d56f: `Tools/Generation/generate-sfx-sa3.py` generuje Stable Audio 3 small-sfx přes sa3.cpp (Vulkan). Render trvá 1,9 s včetně načtení modelu, na CPU 5,7 s plus 20 s načtení. Pásma spadají do rozptylu mezi seedy.
+- Majitel naslepo vybral small-sfx proti SA3 medium u všech pěti zvuků, i když medium má víc středů. Efekty se proto dělají se small-sfx a zapsané je to ve skillu `local-ai`.
+- ⚠ sa3-generate zapisuje 16bitový PCM normalizovaný na špičku 0,96. Stejný seed nedá stejný zvuk jako CPU cesta (jiný RNG).
+- Otevřené: Foundation-1 se nezkoušel, hra smyčky BPM nepotřebuje.
+
 ## 2026-11-11 — #1087–#1094 průzkum lokálních modelů, #1087 ACE-Step XL — desktop (RDT-PC), Claude Code
 - Majitel chtěl vědět, jaké nové lokální modely poběží na 6900 XT, a každý kandidát dostal svoje issue: #1087 až #1094. Pracuje se na nich postupně, hudbou počínaje.
 - #1087 je hotové. Stejnou kompozici z LM vyrenderovaly čtyři DiT: 2B turbo, XL turbo, 2B sft a XL sft. Majitel je poslouchal naslepo na stránce s vyrovnanou hlasitostí a žádný DiT nevyhrál: 2B turbo nebyl ani jednou nejhorší, XL vyhrál jednou z pěti. Zůstává tedy 2B turbo. Rozhodnutí je zapsané v `Tools/Generation/README.md`.
