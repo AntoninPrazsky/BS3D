@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-11 — #1095 první snímek hry po průletu kapitoly — desktop (RDT-PC), Claude Code
+
+- Hotovo, merge d58cbc90, uzavřeno s důkazy. Snímek předání zbraně (162 ms při 1600×900, 405 ms při 3840×1581, ~0,3 s na telefonu) bylo pečení piktogramů power-upů (`BuildChipIcons`) při prvním vykreslení čipu. Teď se peče v `BuildLevel` (`PlayHud.PrepareChips`), obraz i podklad v jednom paralelním průchodu, pixel po pixelu stejně. Nejdelší snímek té vteřiny 167–180 → 26–27 ms.
+- ⚠ Okno 3840×1600 na stejně velkém monitoru Windows po prvním snímku zmenší (1581): skriptovaný `play` pak peče HUD podruhé. Na 4K se měří s `width=3840 height=1500`.
+- Postup: dočasné značky po částech `Draw`, logované jen u snímku nad 25 ms. Ukázaly přímo viníka.
+
 ## 2026-11-11 — #1086 zahřátí solveru fyziky — desktop (RDT-PC), Claude Code
 
 - Hotovo, merge 450256d2: `PhysicsWarmup` po `LoadContent` krokuje 4 s na pozadí odhozený svět (196 kuliček) a přeloží Bepu solver dřív, než ho potřebuje první level. První krok po uvolnění clusteru: desktop 120 → 20 ms, telefon 57–80 → 16–26 ms. Na desktopu zmizelo i ~1,5 s neoptimalizovaných kroků (quick JIT).
