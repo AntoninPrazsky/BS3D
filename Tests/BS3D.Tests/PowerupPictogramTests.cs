@@ -34,6 +34,51 @@ namespace BS3D.Tests
             return both / either;
         }
 
+        //The bake as it was written before #1095 shared it out by rows and paired the picture with its backing: one pixel at a
+        //time, the same sixteen samples in the same order
+        private static Color[] PlainRaster(PowerupKind kind, int size, int pad, float soft)
+        {
+            int side = size + 2 * pad;
+            var pixels = new Color[side * side];
+            const int SUB = 4;
+            for (int y = 0; y < side; y++)
+                for (int x = 0; x < side; x++)
+                {
+                    float cover = 0f;
+                    for (int sy = 0; sy < SUB; sy++)
+                        for (int sx = 0; sx < SUB; sx++)
+                        {
+                            var p = new Vector2((x - pad + (sx + 0.5f) / SUB) / size, (y - pad + (sy + 0.5f) / SUB) / size);
+                            float d = PowerupPictograms.Distance(kind, p) * size;
+                            float t = MathHelper.Clamp((d + 0.5f) / (soft + 0.5f), 0f, 1f);
+                            cover += soft > 0f ? 1f - t * t * (3f - 2f * t) : MathHelper.Clamp(0.5f - d, 0f, 1f);
+                        }
+                    cover /= SUB * SUB;
+                    byte a = (byte)MathF.Round(cover * 255f);
+                    pixels[x + side * y] = new Color(a, a, a, a);
+                }
+            return pixels;
+        }
+
+        /// <summary>
+        /// The chip's pictures are baked in parallel rows, a picture and its backing from one pass (#1095): each must still be
+        /// exactly the plain one-pixel-at-a-time bake, the soft backing included.
+        /// </summary>
+        [Theory]
+        [InlineData(40, 6, 4.5f)]
+        [InlineData(125, 15, 10.5f)]
+        public void ThePairedBakeIsThePlainBakePixelForPixel(int size, int pad, float soft)
+        {
+            foreach (PowerupKind kind in Kinds)
+            {
+                (Color[] picture, Color[] backing) = PowerupPictograms.RasterWithBacking(kind, size, pad, soft);
+                Assert.Equal(PlainRaster(kind, size, pad, 0f), picture);
+                Assert.Equal(PlainRaster(kind, size, pad, soft), backing);
+                Assert.Equal(PlainRaster(kind, size, pad, soft), PowerupPictograms.Raster(kind, size, pad, soft));
+                Assert.Equal(PlainRaster(kind, size, pad, 0f), PowerupPictograms.Raster(kind, size, pad, 0f));
+            }
+        }
+
         [Theory]
         [InlineData(40)]
         [InlineData(64)]
