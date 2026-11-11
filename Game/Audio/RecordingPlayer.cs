@@ -329,7 +329,7 @@ namespace BS3D.Audio
             if (pin && _chunks.Count > 0) _position = _chunks.HeadStart / (double)SAMPLE_RATE;
 
             //A voice not yet playing: its first chunks are queued
-            if (_voice.State == SoundState.Stopped) VoiceBudget.TryPlay(_voice);
+            if (_voice.State == SoundState.Stopped) VoiceBudget.TryPlay(_voice, VoiceClass.Music, "jukebox");
         }
 
         //The sounding recording and its PCM; a decode in flight is left alone (PlayAt, Stop)
