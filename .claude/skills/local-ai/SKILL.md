@@ -82,6 +82,30 @@ $env:MIOPEN_DEBUG_CONV_IMPLICIT_GEMM = "0"   # required, see below
 - **The CPU half of this wheel is slow** (a 4096² matmul took 3.9 s), so keep CPU work in the other venvs.
 - It is a nightly: a later one can break. Pin the version that works (`torch==2.15.0+rocm10.3.0a20261111`) before rebuilding the venv.
 
+## A clean, budgeted mesh from a picture: Stable Fast 3D (#1093)
+
+**For a solid prop, use Stable Fast 3D with `--remesh_option triangle --target_vertex_count N`.** It is the one image-to-3D model here whose output passes the owner's "clean, optimized" test (#718) as it comes. It writes a GLB with UV unwrapping and a 1024² texture, and remeshes to a vertex budget.
+- Install: `C:\Users\panrd\AI\3d\stable-fast-3d` (Stability AI Community licence, gated; the owner accepted it 2026-11-11) and its own venv, `C:\Users\panrd\AI\3d\sf3d-venv`. That venv holds ROCm torch as in the section above, plus the repo's pinned requirements: numpy 1.26.4, transformers 4.42.3, and gpytoolbox 0.3.8 as a binary wheel because 0.2.0 does not build.
+- The two extensions are built CPU-only with VS 2022 Build Tools: `vcvars64.bat`, `USE_CUDA=0`, `pip install --no-build-isolation ./texture_baker/ ./uv_unwrapper/`.
+- **⚠ The CPU-only baker is called with GPU tensors.** `site-packages\texture_baker\baker.py` is patched to move them to the CPU and back; the original is `baker.py.orig`.
+- Run, with `MIOPEN_DEBUG_CONV_IMPLICIT_GEMM=0`: `..\sf3d-venv\Scripts\python.exe run.py a.png b.png --device cuda --output-dir <dir> --remesh_option triangle --target_vertex_count 2000`. Two images took 76-78 s including the model load.
+
+**Measured on #492's two inputs, against TripoSR** (welded vertices, so the GLB's UV seams do not count):
+
+| | cup | acacia |
+|---|---|---|
+| TripoSR | 22 828 vertices, closed, one piece, no UVs | 75 114 vertices, 229 pieces, no UVs |
+| SF3D | 4 780, closed, one piece, UV + texture | 4 788, closed, 3 pieces, UV + texture |
+| SF3D triangle, 2000 | **1 672, closed, one piece, UV + texture** | 1 459, closed, 3 pieces |
+| SF3D quad, 2000 | 2 027, **open, 19 pieces** | 1 816, open, 49 pieces |
+
+**How the shapes read:**
+- **The cup reads**: handles, stem and foot survive the remesh to 1 672 vertices.
+- **The acacia does not.** SF3D flattens the crown into a thin holed sheet, and the remeshed trunk goes thin. TripoSR keeps a volumetric crown but needs a decimation and has no UVs.
+- So use SF3D for solid props and TripoSR's volume as a reference for foliage. Do not use the quad remesh.
+- `C:\Users\panrd\AI\3d\sheet-1093.py` draws a comparison sheet.
+- SPAR3D, the successor, was not tried.
+
 ## A mesh from a picture (#492)
 
 **TripoSR runs on the CPU here, and a single object on a plain background comes back as a usable silhouette in about 45 s.** Everything lives in `C:\Users\panrd\AI\3d`, outside the repository: a venv (uv, Python 3.12, `torch 2.14 +cpu`, `transformers 4.46.3`, `trimesh`, `rembg` + `onnxruntime`, `PyMCubes`), the `TripoSR` clone (MIT, code and weights; `stabilityai/TripoSR` is not gated — 1.6 GB, fetched on first run, plus rembg's 1 GB cut-out model) and two scripts. `patch-tripo.py` is what made it run on Windows without a compiler: the `torchmcubes` extension the README pins has to be built, so `tsr/models/isosurface.py` takes **PyMCubes** instead (the same `(vertices, faces)` pair, vertices handed back in torchmcubes' reversed axis order so the caller's own swap still lands on `(i, j, k)` — checked on a sphere before any image), and `run.py`'s `xatlas`/`moderngl` texture-baking imports are made optional.
