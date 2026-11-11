@@ -17,11 +17,11 @@ namespace BS3D.Audio
         /// <summary>The play's own answers: the shot, a landing, a release, a power-up, a blast, the weather.</summary>
         Play = 1,
 
-        /// <summary>The moments: the loss's cut, a card's or the result page's chime, a menu click, the line's hum and
-        /// the scene's bed.</summary>
+        /// <summary>The moments: the loss's cut, a card's or the result page's chime, a menu click, the line's hum.</summary>
         Event = 2,
 
-        /// <summary>The music and the fanfares: never dropped while a voice of any class below plays.</summary>
+        /// <summary>The music, the fanfares and the scene's bed: never dropped while a voice of any class below plays.
+        /// The bed is here because it is played once a scene: a bed that gave way would stay silent until the next.</summary>
         Music = 3,
     }
 

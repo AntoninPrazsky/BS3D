@@ -169,8 +169,8 @@ namespace BS3D.Tests
             Assert.DoesNotContain("sound-12", line);
         }
 
-        //A sound played around the door: an instance's or a buffer's own Play, on a line that is not a comment
-        private static readonly Regex PlayedAround = new(@"^(?!\s*//).*\.Play\(.*$", RegexOptions.Multiline | RegexOptions.Compiled);
+        //A sound played around the door: an instance's or a buffer's own Play or Resume, on a line that is not a comment
+        private static readonly Regex PlayedAround = new(@"^(?!\s*//).*\.(Play|Resume)\(.*$", RegexOptions.Multiline | RegexOptions.Compiled);
 
         //What is not a sound played around it: a ring's own door, and the music director's and the session's own Play
         private static readonly Regex NotASound = new(@"\b(ring|_volleyTickRing|_music|Music\?)\.Play\(", RegexOptions.Compiled);
@@ -202,6 +202,7 @@ namespace BS3D.Tests
             Assert.Matches(PlayedAround, "            _partyPopper.Play(0.9f * Level * NON_SPATIAL_TRIM, NextPitch(0.08f), 0f);");
             Assert.Matches(PlayedAround, "            _streakBreak[index]?.Play(STREAK_BREAK_VOLUME * level, NextPitch(0.02f), 0f);");
             Assert.Matches(PlayedAround, "                _fanfare.Play();");
+            Assert.Matches(PlayedAround, "            else _voice.Resume();");
 
             Assert.DoesNotMatch(PlayedAround, "            VoiceBudget.TryPlay(_partyPopper, 0.9f, 0f, 0f, VoiceClass.Event, \"party-popper\");");
             Assert.DoesNotMatch(PlayedAround, "            //_fanfare.Play() was the old way");

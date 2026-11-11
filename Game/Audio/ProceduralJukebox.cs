@@ -125,7 +125,7 @@ namespace BS3D.Audio
             }
 
             if (_voice.State == SoundState.Playing) _voice.Pause();
-            else _voice.Resume();
+            else VoiceBudget.TryResume(_voice, VoiceClass.Music, "about-music");
         }
 
         /// <summary>
