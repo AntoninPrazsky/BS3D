@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-11-11 — #1093 Stable Fast 3D na grafice — desktop (RDT-PC), Claude Code
+- Majitel přijal licence SF3D a SPAR3D na HF a schválil instalaci VS 2022 Build Tools (C++). Nainstalované přes winget.
+- Hotovo: SF3D běží ve vlastním venvu `C:\Users\panrd\AI\3d\sf3d-venv` (ROCm torch). Pohár přestavěný na trojúhelníky do 2000 vrcholů má 1 672 vrcholů, je jeden uzavřený kus a má UV i texturu. Akácii ale zploští, takže na listí se nehodí. Postup je ve skillu `local-ai`.
+- ⚠ Texture baker je sestavený jen pro CPU a SF3D mu posílá tenzory z GPU. `baker.py` je proto upravený, aby je kopíroval na CPU a zpět.
+
 ## 2026-11-11 — #1094 ROCm na Windows funguje na RX 6900 XT — desktop (RDT-PC), Claude Code
 - Hotovo: TheRock nightly `torch[device-gfx1030]` ve venvu `C:\Users\panrd\AI\rocm` běží na kartě. Násobení matic dává plný výkon (23,5 TFLOPS fp32), resnet50 je 48× rychlejší než CPU a TripoSR dává stejné sítě 6× rychleji. Postup je ve skillu `local-ai`.
 - ⚠ Konvoluce padají (`miopenStatusUnknownError`), dokud se nenastaví `MIOPEN_DEBUG_CONV_IMPLICIT_GEMM=0`.
