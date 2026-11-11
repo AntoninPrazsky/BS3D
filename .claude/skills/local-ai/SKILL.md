@@ -60,6 +60,28 @@ Stable Audio 3 Small-SFX **on the GPU through sa3.cpp** (#1088): the ggml port's
 - **The batch is listened to from `out\<batch>\index.html`** (players beside the files, the prompt under each, clipped rows flagged), one prompt family at a time, and a shortlist page is assembled from the picks. `--normalize -1` for listening; the game applies its own law at load.
 - **Into the game:** `dotnet run --project Tools\MusicBake -c Release -- --sfx <render.wav> <shoot|landed|release|firework-burst|ceiling-step|ceiling-feed|line-loss>` writes `Game/Sfx/<name>.ogg`; `git add` it at once. A file that is not there leaves the procedural bake standing. The victory fanfare goes in with `--sfx <render.wav> victory-fanfare --music`, which keeps the stereo image and measures the key and tempo the star chime tunes to (printed with the runners-up; `--root <midi>`/`--bpm <n>` override them).
 
+## PyTorch on the GPU: ROCm on Windows (#1094)
+
+**PyTorch runs on the RX 6900 XT now**, through AMD's TheRock nightly wheels for gfx1030. AMD's official Windows PyTorch still leaves the RX 6000 out. The venv is `C:\Users\panrd\AI\rocm\venv` (Python 3.12). No driver or HIP SDK was touched; the wheels carry their own runtime.
+
+```powershell
+venv\Scripts\python.exe -m pip install --index-url https://nightly.repo.amd.com/rocm/whl-next/ "torch[device-gfx1030]" "torchvision[device-gfx1030]" torchaudio
+$env:MIOPEN_DEBUG_CONV_IMPLICIT_GEMM = "0"   # required, see below
+```
+
+- **Measured 2026-11-11, torch 2.15.0+rocm10.3.0a20261111:**
+  - The card enumerates as `AMD Radeon RX 6900 XT`, `gfx1030`, 17.2 GB.
+  - Matmul 4096² runs at 23.5 TFLOPS fp32 and 42.5 TFLOPS fp16, the card's full rate, and matches the CPU's result.
+  - resnet50 at batch 16 takes 12.6 ms, against 604 ms on the CPU.
+- **⚠ Convolutions need `MIOPEN_DEBUG_CONV_IMPLICIT_GEMM=0`.** Without it MIOpen tries to compile its implicit-GEMM kernel for gfx1030, hiprtc fails on an ambiguous `std::forward`, and every `conv2d` raises `miopenStatusUnknownError`. With it the other solvers run and the results match the CPU (max difference 1e-4). `torch.backends.cudnn.enabled = False` also works, but it is 3× slower (39.6 ms).
+- **TripoSR on the GPU** (`run.py ... --device cuda:0` from this venv, after `pip install -r C:\Users\panrd\AI\rocm\tripo-reqs.txt`, the 3d venv's packages without torch):
+  - It gives the same meshes as the CPU: the same vertex counts and extents on the #492 cup and acacia.
+  - The model takes 0.55-1.9 s against 6.7 s on the CPU. The first image includes about 11 s of kernel warm-up.
+  - Mesh extraction takes 3.6 s against 21.7 s, because the density queries run on the GPU.
+  - Create `<output-dir>\<n>` before the run, or the export fails.
+- **The CPU half of this wheel is slow** (a 4096² matmul took 3.9 s), so keep CPU work in the other venvs.
+- It is a nightly: a later one can break. Pin the version that works (`torch==2.15.0+rocm10.3.0a20261111`) before rebuilding the venv.
+
 ## A mesh from a picture (#492)
 
 **TripoSR runs on the CPU here, and a single object on a plain background comes back as a usable silhouette in about 45 s.** Everything lives in `C:\Users\panrd\AI\3d`, outside the repository: a venv (uv, Python 3.12, `torch 2.14 +cpu`, `transformers 4.46.3`, `trimesh`, `rembg` + `onnxruntime`, `PyMCubes`), the `TripoSR` clone (MIT, code and weights; `stabilityai/TripoSR` is not gated — 1.6 GB, fetched on first run, plus rembg's 1 GB cut-out model) and two scripts. `patch-tripo.py` is what made it run on Windows without a compiler: the `torchmcubes` extension the README pins has to be built, so `tsr/models/isosurface.py` takes **PyMCubes** instead (the same `(vertices, faces)` pair, vertices handed back in torchmcubes' reversed axis order so the caller's own swap still lands on `(i, j, k)` — checked on a sphere before any image), and `run.py`'s `xatlas`/`moderngl` texture-baking imports are made optional.
