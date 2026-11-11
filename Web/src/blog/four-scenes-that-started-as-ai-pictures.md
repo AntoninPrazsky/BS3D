@@ -3,7 +3,7 @@ title: Four scenes that started as AI pictures
 date: 2026-10-25T12:00:00Z
 topics: [Scenery, AI pictures, Rendering]
 summary: "Before we change how a scene looks, we ask a local image model what it should look like. Four scenes, each with the picture it was built from and the game before and after."
-thumb: /img/blog/thumbs/five-scenes-that-started-as-ai-pictures.jpg
+thumb: /img/blog/thumbs/four-scenes-that-started-as-ai-pictures.jpg
 ---
 
 Before we change how a scene looks, we ask for a picture of what it should look like. Antonín runs two small image models on the graphics card of his own computer, Z-Image-Turbo and FLUX.2 klein, through a program called stable-diffusion.cpp. We type a description, such as "a raw photograph from a robot rover's mast camera on Mars", and about half a minute later a picture comes back. The ones worth keeping go next to a capture of the game, and we write down what the picture has that the game does not.
@@ -19,7 +19,7 @@ A savanna fire used to be three flat pictures, each with one tongue of flame dra
 We asked both models for the inside of a flame, as a close-up photograph. Z-Image-Turbo drew sheets and threads of see-through orange gas folding over each other, a white-yellow core, and edges that fade into the dark. FLUX.2 klein's answer to the same words was a glowing ring, so Z-Image's is the picture we used.
 
 <figure>
-  <img src="/img/blog/five-scenes-that-started-as-ai-pictures/fire-reference.jpg" width="960" height="657" loading="lazy" alt="A picture drawn by an image model: a close-up of a flame, layered translucent sheets of orange gas folding over each other around a bright core, on a black background.">
+  <img src="/img/blog/four-scenes-that-started-as-ai-pictures/fire-reference.jpg" width="960" height="657" loading="lazy" alt="A picture drawn by an image model: a close-up of a flame, layered translucent sheets of orange gas folding over each other around a bright core, on a black background.">
   <figcaption>Drawn by Z-Image-Turbo from "a macro photograph of the inside of a flame: translucent undulating plasma, layered sheets and filaments of glowing orange and red gas". It is not in the game.</figcaption>
 </figure>
 
@@ -28,11 +28,11 @@ On High and Ultra a fire is now a small volume of glowing gas. For each pixel th
 <figure class="compare">
   <div class="compare-frame">
     <div class="compare-pane" data-label="Before">
-      <img src="/img/blog/five-scenes-that-started-as-ai-pictures/fire-before-800.jpg" srcset="/img/blog/five-scenes-that-started-as-ai-pictures/fire-before-800.jpg 800w, /img/blog/five-scenes-that-started-as-ai-pictures/fire-before-1600.jpg 1600w" sizes="(max-width: 1088px) calc(100vw - 32px), 1056px" width="800" height="450" loading="lazy" alt="A savanna fire seen from the ground. The flame is a flat orange shape with sharp-edged tongues and curly lines drawn on it.">
+      <img src="/img/blog/four-scenes-that-started-as-ai-pictures/fire-before-800.jpg" srcset="/img/blog/four-scenes-that-started-as-ai-pictures/fire-before-800.jpg 800w, /img/blog/four-scenes-that-started-as-ai-pictures/fire-before-1600.jpg 1600w" sizes="(max-width: 1088px) calc(100vw - 32px), 1056px" width="800" height="450" loading="lazy" alt="A savanna fire seen from the ground. The flame is a flat orange shape with sharp-edged tongues and curly lines drawn on it.">
       <span class="compare-tag">Before</span>
     </div>
     <div class="compare-pane" data-label="After">
-      <img src="/img/blog/five-scenes-that-started-as-ai-pictures/fire-after-800.jpg" srcset="/img/blog/five-scenes-that-started-as-ai-pictures/fire-after-800.jpg 800w, /img/blog/five-scenes-that-started-as-ai-pictures/fire-after-1600.jpg 1600w" sizes="(max-width: 1088px) calc(100vw - 32px), 1056px" width="800" height="450" loading="lazy" alt="The same fire. It is a soft, glowing orange column, brightest at the base and fading into the sky at its tip.">
+      <img src="/img/blog/four-scenes-that-started-as-ai-pictures/fire-after-800.jpg" srcset="/img/blog/four-scenes-that-started-as-ai-pictures/fire-after-800.jpg 800w, /img/blog/four-scenes-that-started-as-ai-pictures/fire-after-1600.jpg 1600w" sizes="(max-width: 1088px) calc(100vw - 32px), 1056px" width="800" height="450" loading="lazy" alt="The same fire. It is a soft, glowing orange column, brightest at the base and fading into the sky at its tip.">
       <span class="compare-tag">After</span>
     </div>
   </div>
@@ -46,7 +46,7 @@ We have only judged stills. How it flickers, and how it looks in the chapter's o
 Antonín's note on the Mars scene was short: it still does not look like Mars, there are blotches, torn patches and lines. We asked Z-Image-Turbo for a raw photograph from a rover's mast camera. It drew a plain of muted ochre-grey, a few dark angular rocks with sand drifted round them, a pale outcrop far off and a flat butterscotch sky. FLUX.2 klein's Mars was too orange to be a rover's photograph, but it covered the ground in small stones of every size, so we took from it how many rocks there are and how big, and from Z-Image the colour.
 
 <figure>
-  <img src="/img/blog/five-scenes-that-started-as-ai-pictures/mars-reference.jpg" width="960" height="657" loading="lazy" alt="A picture drawn by an image model: a flat ochre-grey plain with scattered dark angular rocks, a pale outcrop in the distance and a flat butterscotch sky, as if seen by a rover.">
+  <img src="/img/blog/four-scenes-that-started-as-ai-pictures/mars-reference.jpg" width="960" height="657" loading="lazy" alt="A picture drawn by an image model: a flat ochre-grey plain with scattered dark angular rocks, a pale outcrop in the distance and a flat butterscotch sky, as if seen by a rover.">
   <figcaption>Drawn by Z-Image-Turbo from "a raw photograph from a robot rover's mast camera on Mars". It is not in the game.</figcaption>
 </figure>
 
@@ -55,11 +55,11 @@ Against it our Mars had three faults. The dark ovals were the worst. They were t
 <figure class="compare">
   <div class="compare-frame">
     <div class="compare-pane" data-label="Before">
-      <img src="/img/blog/five-scenes-that-started-as-ai-pictures/mars-before-800.jpg" srcset="/img/blog/five-scenes-that-started-as-ai-pictures/mars-before-800.jpg 800w, /img/blog/five-scenes-that-started-as-ai-pictures/mars-before-1600.jpg 1600w" sizes="(max-width: 1088px) calc(100vw - 32px), 1056px" width="800" height="450" loading="lazy" alt="A flat red-ochre plain with a layered mesa on the horizon. Dark oval blotches lie on the ground like holes.">
+      <img src="/img/blog/four-scenes-that-started-as-ai-pictures/mars-before-800.jpg" srcset="/img/blog/four-scenes-that-started-as-ai-pictures/mars-before-800.jpg 800w, /img/blog/four-scenes-that-started-as-ai-pictures/mars-before-1600.jpg 1600w" sizes="(max-width: 1088px) calc(100vw - 32px), 1056px" width="800" height="450" loading="lazy" alt="A flat red-ochre plain with a layered mesa on the horizon. Dark oval blotches lie on the ground like holes.">
       <span class="compare-tag">Before</span>
     </div>
     <div class="compare-pane" data-label="After">
-      <img src="/img/blog/five-scenes-that-started-as-ai-pictures/mars-after-800.jpg" srcset="/img/blog/five-scenes-that-started-as-ai-pictures/mars-after-800.jpg 800w, /img/blog/five-scenes-that-started-as-ai-pictures/mars-after-1600.jpg 1600w" sizes="(max-width: 1088px) calc(100vw - 32px), 1056px" width="800" height="450" loading="lazy" alt="The same plain, paler and calmer. The ovals are gone. Small dark rocks and gravel lie on the sand, with a few larger rocks near the camera.">
+      <img src="/img/blog/four-scenes-that-started-as-ai-pictures/mars-after-800.jpg" srcset="/img/blog/four-scenes-that-started-as-ai-pictures/mars-after-800.jpg 800w, /img/blog/four-scenes-that-started-as-ai-pictures/mars-after-1600.jpg 1600w" sizes="(max-width: 1088px) calc(100vw - 32px), 1056px" width="800" height="450" loading="lazy" alt="The same plain, paler and calmer. The ovals are gone. Small dark rocks and gravel lie on the sand, with a few larger rocks near the camera.">
       <span class="compare-tag">After</span>
     </div>
   </div>
@@ -73,7 +73,7 @@ The rocks stand only in the clearing round the island, because further out the g
 The sky has always had a flat sheet of cloud, a pattern on a plane high above the island. It has one big advantage: its shadow is the shadow on the ground. But from the island's low view it reads as a pattern on a ceiling. Z-Image-Turbo's field of cumulus is a different thing. Each cloud is a solid heap with a white sunlit top, grey sides and a flat darker base, and the heaps get smaller and closer together towards the horizon.
 
 <figure>
-  <img src="/img/blog/five-scenes-that-started-as-ai-pictures/clouds-reference.jpg" width="960" height="657" loading="lazy" alt="A picture drawn by an image model: large white cumulus clouds with sunlit tops and flat grey bases over a grassland, deep blue sky between them, the clouds smaller towards the horizon.">
+  <img src="/img/blog/four-scenes-that-started-as-ai-pictures/clouds-reference.jpg" width="960" height="657" loading="lazy" alt="A picture drawn by an image model: large white cumulus clouds with sunlit tops and flat grey bases over a grassland, deep blue sky between them, the clouds smaller towards the horizon.">
   <figcaption>Drawn by Z-Image-Turbo from "a sky full of large dense fair-weather cumulus clouds over a wide open grassland". It is not in the game.</figcaption>
 </figure>
 
@@ -82,11 +82,11 @@ On High and Ultra, every heap of cumulus near the camera is now a body of its ow
 <figure class="compare">
   <div class="compare-frame">
     <div class="compare-pane" data-label="Before">
-      <img src="/img/blog/five-scenes-that-started-as-ai-pictures/clouds-scattered-before-800.jpg" srcset="/img/blog/five-scenes-that-started-as-ai-pictures/clouds-scattered-before-800.jpg 800w, /img/blog/five-scenes-that-started-as-ai-pictures/clouds-scattered-before-1600.jpg 1600w" sizes="(max-width: 1088px) calc(100vw - 32px), 1056px" width="800" height="450" loading="lazy" alt="The meadow scene: the cannon on its island, a cluster of balls hanging above it, green hills and a big tree. The teal sky holds a flat, streaky pattern of cloud and one large dark violet patch.">
+      <img src="/img/blog/four-scenes-that-started-as-ai-pictures/clouds-scattered-before-800.jpg" srcset="/img/blog/four-scenes-that-started-as-ai-pictures/clouds-scattered-before-800.jpg 800w, /img/blog/four-scenes-that-started-as-ai-pictures/clouds-scattered-before-1600.jpg 1600w" sizes="(max-width: 1088px) calc(100vw - 32px), 1056px" width="800" height="450" loading="lazy" alt="The meadow scene: the cannon on its island, a cluster of balls hanging above it, green hills and a big tree. The teal sky holds a flat, streaky pattern of cloud and one large dark violet patch.">
       <span class="compare-tag">Before</span>
     </div>
     <div class="compare-pane" data-label="After">
-      <img src="/img/blog/five-scenes-that-started-as-ai-pictures/clouds-scattered-after-800.jpg" srcset="/img/blog/five-scenes-that-started-as-ai-pictures/clouds-scattered-after-800.jpg 800w, /img/blog/five-scenes-that-started-as-ai-pictures/clouds-scattered-after-1600.jpg 1600w" sizes="(max-width: 1088px) calc(100vw - 32px), 1056px" width="800" height="450" loading="lazy" alt="The same meadow view. The sky holds solid white heaps of cumulus, flat underneath and lit from the sun's side, smaller towards the horizon.">
+      <img src="/img/blog/four-scenes-that-started-as-ai-pictures/clouds-scattered-after-800.jpg" srcset="/img/blog/four-scenes-that-started-as-ai-pictures/clouds-scattered-after-800.jpg 800w, /img/blog/four-scenes-that-started-as-ai-pictures/clouds-scattered-after-1600.jpg 1600w" sizes="(max-width: 1088px) calc(100vw - 32px), 1056px" width="800" height="450" loading="lazy" alt="The same meadow view. The sky holds solid white heaps of cumulus, flat underneath and lit from the sun's side, smaller towards the horizon.">
       <span class="compare-tag">After</span>
     </div>
   </div>
@@ -96,11 +96,11 @@ On High and Ultra, every heap of cumulus near the camera is now a body of its ow
 <figure class="compare">
   <div class="compare-frame">
     <div class="compare-pane" data-label="Before">
-      <img src="/img/blog/five-scenes-that-started-as-ai-pictures/clouds-broken-before-800.jpg" srcset="/img/blog/five-scenes-that-started-as-ai-pictures/clouds-broken-before-800.jpg 800w, /img/blog/five-scenes-that-started-as-ai-pictures/clouds-broken-before-1600.jpg 1600w" sizes="(max-width: 1088px) calc(100vw - 32px), 1056px" width="800" height="450" loading="lazy" alt="The same view under a cloudier sky: a thick streaky layer of blue-grey and cream cloud covers most of the sky.">
+      <img src="/img/blog/four-scenes-that-started-as-ai-pictures/clouds-broken-before-800.jpg" srcset="/img/blog/four-scenes-that-started-as-ai-pictures/clouds-broken-before-800.jpg 800w, /img/blog/four-scenes-that-started-as-ai-pictures/clouds-broken-before-1600.jpg 1600w" sizes="(max-width: 1088px) calc(100vw - 32px), 1056px" width="800" height="450" loading="lazy" alt="The same view under a cloudier sky: a thick streaky layer of blue-grey and cream cloud covers most of the sky.">
       <span class="compare-tag">Before</span>
     </div>
     <div class="compare-pane" data-label="After">
-      <img src="/img/blog/five-scenes-that-started-as-ai-pictures/clouds-broken-after-800.jpg" srcset="/img/blog/five-scenes-that-started-as-ai-pictures/clouds-broken-after-800.jpg 800w, /img/blog/five-scenes-that-started-as-ai-pictures/clouds-broken-after-1600.jpg 1600w" sizes="(max-width: 1088px) calc(100vw - 32px), 1056px" width="800" height="450" loading="lazy" alt="Big white and grey cumulus heaps with bright tops and shaded sides pile up across the sky, with patches of teal between them.">
+      <img src="/img/blog/four-scenes-that-started-as-ai-pictures/clouds-broken-after-800.jpg" srcset="/img/blog/four-scenes-that-started-as-ai-pictures/clouds-broken-after-800.jpg 800w, /img/blog/four-scenes-that-started-as-ai-pictures/clouds-broken-after-1600.jpg 1600w" sizes="(max-width: 1088px) calc(100vw - 32px), 1056px" width="800" height="450" loading="lazy" alt="Big white and grey cumulus heaps with bright tops and shaded sides pile up across the sky, with patches of teal between them.">
       <span class="compare-tag">After</span>
     </div>
   </div>
@@ -114,7 +114,7 @@ Only scattered and broken skies get heaps so far. An overcast or stormy sky keep
 The desert chapter used to be dunes and nothing else, on purpose. We changed our minds, and asked both models for the three Giza pyramids from a couple of kilometres away.
 
 <figure>
-  <img src="/img/blog/five-scenes-that-started-as-ai-pictures/pyramids-reference.jpg" width="960" height="657" loading="lazy" alt="A picture drawn by an image model: the three Giza pyramids across golden dunes, the nearest lit warm on one face and shaded blue on the other, the far ones paler in haze.">
+  <img src="/img/blog/four-scenes-that-started-as-ai-pictures/pyramids-reference.jpg" width="960" height="657" loading="lazy" alt="A picture drawn by an image model: the three Giza pyramids across golden dunes, the nearest lit warm on one face and shaded blue on the other, the far ones paler in haze.">
   <figcaption>Drawn by FLUX.2 klein from "the three Giza pyramids seen from about two kilometres away across rolling golden sand dunes in the late afternoon". It is not in the game.</figcaption>
 </figure>
 
@@ -125,11 +125,11 @@ The stone is golden limestone in courses, each course a slightly different tone 
 <figure class="compare">
   <div class="compare-frame">
     <div class="compare-pane" data-label="Before">
-      <img src="/img/blog/five-scenes-that-started-as-ai-pictures/pyramids-before-800.jpg" srcset="/img/blog/five-scenes-that-started-as-ai-pictures/pyramids-before-800.jpg 800w, /img/blog/five-scenes-that-started-as-ai-pictures/pyramids-before-1600.jpg 1600w" sizes="(max-width: 1088px) calc(100vw - 32px), 1056px" width="800" height="450" loading="lazy" alt="The desert scene: the cannon on its island, a cluster of balls above it, and golden dunes to the horizon under a teal sky. Nothing stands on the horizon.">
+      <img src="/img/blog/four-scenes-that-started-as-ai-pictures/pyramids-before-800.jpg" srcset="/img/blog/four-scenes-that-started-as-ai-pictures/pyramids-before-800.jpg 800w, /img/blog/four-scenes-that-started-as-ai-pictures/pyramids-before-1600.jpg 1600w" sizes="(max-width: 1088px) calc(100vw - 32px), 1056px" width="800" height="450" loading="lazy" alt="The desert scene: the cannon on its island, a cluster of balls above it, and golden dunes to the horizon under a teal sky. Nothing stands on the horizon.">
       <span class="compare-tag">Before</span>
     </div>
     <div class="compare-pane" data-label="After">
-      <img src="/img/blog/five-scenes-that-started-as-ai-pictures/pyramids-after-800.jpg" srcset="/img/blog/five-scenes-that-started-as-ai-pictures/pyramids-after-800.jpg 800w, /img/blog/five-scenes-that-started-as-ai-pictures/pyramids-after-1600.jpg 1600w" sizes="(max-width: 1088px) calc(100vw - 32px), 1056px" width="800" height="450" loading="lazy" alt="The same view with two pale gold pyramids standing on the horizon behind the cluster, each with a lighter face and a darker one.">
+      <img src="/img/blog/four-scenes-that-started-as-ai-pictures/pyramids-after-800.jpg" srcset="/img/blog/four-scenes-that-started-as-ai-pictures/pyramids-after-800.jpg 800w, /img/blog/four-scenes-that-started-as-ai-pictures/pyramids-after-1600.jpg 1600w" sizes="(max-width: 1088px) calc(100vw - 32px), 1056px" width="800" height="450" loading="lazy" alt="The same view with two pale gold pyramids standing on the horizon behind the cluster, each with a lighter face and a darker one.">
       <span class="compare-tag">After</span>
     </div>
   </div>
