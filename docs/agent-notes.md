@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-11 — #1089 hodnocení hudby před poslechem — desktop (RDT-PC), Claude Code
+- Hotovo: `Tools/Generation/aesthetics.py` vypisuje skóre Audiobox Aesthetics (Meta, CC-BY-4.0, na CPU, ve venvu `C:\Users\panrd\AI\audioscore`). Pravidlo zapsané v `music-generation.md`: render s CE pod 7,0 se k majiteli nedostane.
+- Změřeno na 38 nahrávkách, které majitel odmítl (staré verze z regeneračních merge), proti 43, které nechal. CE má AUC 0,72 a 27 z 37 náhrad má vyšší CE než nahrávka, kterou nahradily. Všech 8 nahrávek pod CE 7,08 majitel odmítl. CU, PQ, PC a kontrast přes CLAP neoddělí nic.
+- ⚠ `laion/larger_clap_music` v transformers 4.57 i 5.22 vrací kosinové podobnosti kolem nuly. Žánry správně seřadil jen `laion/clap-htsat-unfused`.
+- ⚠ Sloupec „longest repeat“ podle `music-generation.md` nic neodděluje. Pro opakování se čte „opening repeat“. Tvrzení v #1087 je opravené: déle opakuje jen XL turbo.
+
 ## 2026-11-11 — #1088 zvukové efekty přes sa3.cpp na grafice — desktop (RDT-PC), Claude Code
 - Hotovo, merge da10d56f: `Tools/Generation/generate-sfx-sa3.py` generuje Stable Audio 3 small-sfx přes sa3.cpp (Vulkan). Render trvá 1,9 s včetně načtení modelu, na CPU 5,7 s plus 20 s načtení. Pásma spadají do rozptylu mezi seedy.
 - Majitel naslepo vybral small-sfx proti SA3 medium u všech pěti zvuků, i když medium má víc středů. Efekty se proto dělají se small-sfx a zapsané je to ve skillu `local-ai`.

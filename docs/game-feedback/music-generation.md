@@ -20,6 +20,7 @@ What a future music round needs: where the recordings come from, how a loop is c
 
 ## Choosing a candidate
 
+- **Drop a render whose Audiobox Content Enjoyment is under 7.0 before the owner hears it** (`Tools/Generation/aesthetics.py`, #1089). On 38 recordings he rejected against the 43 he kept, every one under 7.08 was rejected and CE ranked a kept one higher 72 % of the time. Above the floor it does not choose (rejected recordings reach 7.87); the other three axes and a CLAP prompt contrast separated nothing.
 - Render **three candidates of a brief** and measure them in the same `measure-music.py` run as ember. The band shares do not choose by themselves. Two faults they miss:
   - **the step across the wrap**: `magma-doom` c3 sat inside ember's range on every band and jumped +15.4 dB at its seam (p99 of its own steps);
   - **a hole**: a long stretch 10 dB or more under the loop's loud level. `magma-electro` c4 spent 24 s of its 43 s at −9 to −16 dB, the fault the old `doom` was replaced for.
