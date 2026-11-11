@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-11 — #1086 zahřátí solveru fyziky — desktop (RDT-PC), Claude Code
+
+- Hotovo, merge 450256d2: `PhysicsWarmup` po `LoadContent` krokuje 4 s na pozadí odhozený svět (196 kuliček) a přeloží Bepu solver dřív, než ho potřebuje první level. První krok po uvolnění clusteru: desktop 120 → 20 ms, telefon 57–80 → 16–26 ms. Na desktopu zmizelo i ~1,5 s neoptimalizovaných kroků (quick JIT).
+- ⚠ Cluster zahřívacího světa nesmí usnout: spící těleso solver přeskočí a nic se nepřeloží (vánek, `PhysicsWarmupTests`).
+- ⚠ `taskkill //IM adb.exe` shodí i adb server: telefon pak hlásí `unauthorized`, dokud majitel na odemčeném telefonu nepotvrdí ladění USB. Logcat čti přes `logcat -d` hned po běhu, nespouštěj ho na pozadí.
+- Zbývá: změřit na Pi (ssh 192.168.0.239 neodpovídal), issue zůstává otevřené. Na desktopu zůstává ~160ms `Draw` v prvním snímku hry po průletu kapitoly, nesouvisí se solverem.
+
 ## 2026-11-11 — #1077 priorita zvuků na Androidu — desktop (RDT-PC), Claude Code
 - Hotovo: každý zvuk má třídu (Crowd, Play, Event, Music). Na limitu 32 hlasů vyšší zvuk zastaví nejstarší hlas nejnižší nižší třídy (`VoiceLedger`). Ohňostroj má na Androidu 10+2 hlasů a tikání salvy prstenec 6. Postup je v `sound-placement-and-mix.md`.
 - ⚠ Tikání salvy (až 40/s, fire-and-forget) zaplnilo všech 32 hlasů při každé výhře s velkou salvou. Na telefonu ověřeno skriptem: `levelfile=` s mini levelem s bombou + `detonate=`. Na `main` se limitu dosáhne dvakrát ze dvou, s opravou ani jednou. Bez limitů ohňostroje vzal chime NEW BEST hlas ohňostroji.
