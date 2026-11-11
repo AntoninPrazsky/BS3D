@@ -24,8 +24,8 @@ What follows is not a menu of plausible uses. **Every line was measured on 2026-
 | Read a small detail (a colour, a mark) | Gemma 4; Qwen3-VL a step behind | **Only on a crop.** On a 256 px crop Gemma 7 of 7, Qwen 6 of 7 (in 0.3 s against Gemma's 1.3); on the whole frame both 5 of 7. For an exact value, measure pixels (`screenshot/palette.ps1`, a bar scan). |
 | A newer vision model? | measured, none adopted (#1091) | **Gemma 4 stays the default.** All four models answered #440's 96 questions on the same images, which were recovered from #440's page as 960 px JPEGs, crops and panels. **Qwen3.6-35B-A3B** (`qwen3.6-35b-a3b`, a 22 GB MoE; Bionic fits it with experts in RAM, loaded in 27 s) did best on the pairs: 3½ of 4. It got the tilt and the vanished cluster, and the crop's colour and thickness. It is a step behind on crops (6 of 7) and slower (median 5.4 s), and its level ratings barely separate. **Qwen3.5-9B** was worse than Qwen3-VL-8B: it read a white crosshair as red, it answered 13 of 18 one-to-three-word questions with a sentence, and its 3D ratings do not separate at all (4.0 against 4.0). Gemma on the same inputs: pairs 3 of 4 (it missed the vanished cluster in A), crops 7 of 7, median 3.1 s. Reach for Qwen3.6 for a batch of pair descriptions when its 5 s and the RAM are free. |
 | Does a level's shape read as its subject? | neither | **No.** Blind naming got 3–4 of 18 levels for both models, and most symmetric patterns came back as "butterfly" (Gemma) or "cannonball pattern" (Qwen). Neither model's 1–5 rating separates the levels playtesting said read from those it said did not; Qwen's does not separate them at all in 3D (3.8 against 3.7). |
-| Draw a reference before designing something (a cup, roof props, a scene's island) | Z-Image-Turbo through stable-diffusion.cpp on Vulkan — **not LM Studio**, see the `design-references` skill |
-| A mesh to read a lathe profile or a prop's proportions from | TripoSR on the CPU (`C:\Users\panrd\AI\3d`, #492) | **Use it for one object on a plain background** — ~45 s an image (7 s model, 22 s marching cubes at 256), a clean revolved silhouette for the cup and an umbrella crown on a forked trunk for the acacia; a scene capture gives blobs. See "A mesh from a picture" below. | **Use it.** Twenty references for #429, #436 and #404 at 33–37 s each; the owner: *„ty obrázky jsou skvělé“*. Describe shapes rather than names, and expect placement and text to drift. |
+| Draw a reference before designing something (a cup, roof props, a scene's island) | Z-Image-Turbo through stable-diffusion.cpp on Vulkan — **not LM Studio**, see the `design-references` skill | **Use it.** Twenty references for #429, #436 and #404 at 33–37 s each; the owner: *„ty obrázky jsou skvělé“*. Describe shapes rather than names, and expect placement and text to drift. |
+| A mesh from a picture (image-to-3D) | none | **No — the owner ruled it out on 2026-11-11 (#1093)**: the generated cups were neither round nor hollow. Design meshes procedurally against 2D references; see "Image-to-3D: not used" below. |
 | Edit code | `deepseek-coder-v2-lite-instruct` via Aider | **No.** Did half a two-part extraction and rewrote the line endings; reviewing it cost more than doing it. |
 
 ## Before filing an issue
@@ -82,57 +82,17 @@ $env:MIOPEN_DEBUG_CONV_IMPLICIT_GEMM = "0"   # required, see below
 - **The CPU half of this wheel is slow** (a 4096² matmul took 3.9 s), so keep CPU work in the other venvs.
 - It is a nightly: a later one can break. Pin the version that works (`torch==2.15.0+rocm10.3.0a20261111`) before rebuilding the venv.
 
-## A clean, budgeted mesh from a picture: Stable Fast 3D (#1093)
+## Image-to-3D: not used (the owner, 2026-11-11)
 
-**For a solid prop, use Stable Fast 3D with `--remesh_option triangle --target_vertex_count N`.** It is the one image-to-3D model here whose output passes the owner's "clean, optimized" test (#718) as it comes. It writes a GLB with UV unwrapping and a 1024² texture, and remeshes to a vertex budget.
-- Install: `C:\Users\panrd\AI\3d\stable-fast-3d` (Stability AI Community licence, gated; the owner accepted it 2026-11-11) and its own venv, `C:\Users\panrd\AI\3d\sf3d-venv`. That venv holds ROCm torch as in the section above, plus the repo's pinned requirements: numpy 1.26.4, transformers 4.42.3, and gpytoolbox 0.3.8 as a binary wheel because 0.2.0 does not build.
-- The two extensions are built CPU-only with VS 2022 Build Tools: `vcvars64.bat`, `USE_CUDA=0`, `pip install --no-build-isolation ./texture_baker/ ./uv_unwrapper/`.
-- **⚠ The CPU-only baker is called with GPU tensors.** `site-packages\texture_baker\baker.py` is patched to move them to the CPU and back; the original is `baker.py.orig`.
-- Run, with `MIOPEN_DEBUG_CONV_IMPLICIT_GEMM=0`: `..\sf3d-venv\Scripts\python.exe run.py a.png b.png --device cuda --output-dir <dir> --remesh_option triangle --target_vertex_count 2000`. Two images took 76-78 s including the model load.
+**No AI model generates the game's 3D meshes, and none is used as a mesh reference.** The owner, after rotating #1093's meshes: *„Ty poháry vypadají všechny opravdu špatně a ne jako poháry. Nejsou kulaté, nejsou duté - nešlo by do nich nic nalít. AI ke generování 3D modelů opravdu používat nebudeme.“* ("The cups all look really bad and not like cups. They are not round and not hollow, you couldn't pour anything into them. We really won't use AI to generate 3D models.") This reverses #718's 2026-10-02 ruling that generated assets may ship.
 
-**Measured on #492's two inputs, against TripoSR** (welded vertices, so the GLB's UV seams do not count):
+- **Why it fails here:** a single image does not show the back or the inside. Both TripoSR (#492) and Stable Fast 3D (#1093) closed the cup's bowl and gave a lumpy, not lathe-round, body. Their "watertight" figure (SF3D: 1 672 vertices, one closed piece, UVs) measured the wrong thing: a cup's mesh must be open and hollow. The figures and the interactive comparison are on #1093 (https://claude.ai/artifact/4JnQcp9tjxTGibjDXPcXMe).
+- **What stays:** meshes are designed procedurally against **2D** references from the `design-references` skill (Z-Image, klein, FLUX.3 Klein), as the trophy (#429) was.
+- **Left on the desktop:**
+  - `C:\Users\panrd\AI\3d`: TripoSR, `stable-fast-3d`, `stable-point-aware-3d` and their venvs.
+  - VS 2022 Build Tools, installed for #1093.
 
-| | cup | acacia |
-|---|---|---|
-| TripoSR | 22 828 vertices, closed, one piece, no UVs | 75 114 vertices, 229 pieces, no UVs |
-| SF3D | 4 780, closed, one piece, UV + texture | 4 788, closed, 3 pieces, UV + texture |
-| SF3D triangle, 2000 | **1 672, closed, one piece, UV + texture** | 1 459, closed, 3 pieces |
-| SF3D quad, 2000 | 2 027, **open, 19 pieces** | 1 816, open, 49 pieces |
-
-**How the shapes read:**
-- **The cup reads**: handles, stem and foot survive the remesh to 1 672 vertices.
-- **The acacia does not.** SF3D flattens the crown into a thin holed sheet, and the remeshed trunk goes thin. TripoSR keeps a volumetric crown but needs a decimation and has no UVs.
-- So use SF3D for solid props and TripoSR's volume as a reference for foliage. Do not use the quad remesh.
-- `C:\Users\panrd\AI\3d\sheet-1093.py` draws a comparison sheet.
-- SPAR3D, the successor, was not tried.
-
-## A mesh from a picture (#492)
-
-**TripoSR runs on the CPU here, and a single object on a plain background comes back as a usable silhouette in about 45 s.** Everything lives in `C:\Users\panrd\AI\3d`, outside the repository: a venv (uv, Python 3.12, `torch 2.14 +cpu`, `transformers 4.46.3`, `trimesh`, `rembg` + `onnxruntime`, `PyMCubes`), the `TripoSR` clone (MIT, code and weights; `stabilityai/TripoSR` is not gated — 1.6 GB, fetched on first run, plus rembg's 1 GB cut-out model) and two scripts. `patch-tripo.py` is what made it run on Windows without a compiler: the `torchmcubes` extension the README pins has to be built, so `tsr/models/isosurface.py` takes **PyMCubes** instead (the same `(vertices, faces)` pair, vertices handed back in torchmcubes' reversed axis order so the caller's own swap still lands on `(i, j, k)` — checked on a sphere before any image), and `run.py`'s `xatlas`/`moderngl` texture-baking imports are made optional.
-
-```powershell
-C:\Users\panrd\AI\3d\run-tripo.ps1 -Images "C:\...\cup.png;C:\...\acacia.png" -Out C:/Users/panrd/AI/3d/out/492 -Resolution 256
-& C:\Users\panrd\AI\ComfyUI\venv\Scripts\python.exe C:\Users\panrd\AI\3d\mesh-sheet.py out\492\0\mesh.obj out\492\0\sheet.png
-```
-
-The runner times the process and samples its peak working set; `<out>/<n>/mesh.obj` is the mesh and `input.png` beside it is what the cut-out handed the model. `mesh-sheet.py` draws the three silhouettes (two upright views and the top — **the meshes come out with +Z up**, and which upright view is the picture's own front depends on the mesh: the cup's handles stood in the second panel) with the vertex count and extent in the header, which is enough to judge one without a viewer. Images are one `;`-joined string because bash eats the backslashes of an unquoted Windows path and `-File` mode does not split a comma list — the first run died on exactly that.
-
-**Measured on 2026-09-21** (Ryzen 9 5900X, resolution 256, four inputs in one process, `out\492\index.html` has the inputs, the cut-outs and the sheets side by side):
-
-| | seconds | verts / tris | what came back |
-|---|---|---|---|
-| model load | 4.9 | — | after the one-time downloads |
-| background removal, per image | ~16 | — | rembg on the CPU |
-| the model, per image | 6.7–6.9 | — | |
-| marching cubes at 256, per image | 21.6–22.0 | — | the biggest cost, and it scales with the cube of the resolution; at 384 the cup took {CUP384} |
-| **the #441 gold cup** (a studio-shot reference) | | 22 828 / 45 676 | **a clean revolved silhouette** — bowl, knop, stem and flared foot read as a lathe profile from the front, the two handles stand out from the side, the top view shows the bowl's opening. This is what `TrophyMesh` was designed from by eye, and it would have been designed faster from this. |
-| the #451 acacia close-up | | 75 114 / 149 988 | the umbrella crown and the forked trunk in proportion from the side; the crown itself is a cloud of blobs, and from above it has a plus-shaped structure the picture never had. Proportions, not branching. |
-| the #451 termite kopje | | 20 866 / 41 724 | rembg kept only the mound and dropped the boulders behind it, so the "boulder" test became a termite mound: a smooth spindle, fine as far as it goes. |
-| a Testbed capture of the procedural baobab | | 16 098 / 32 184 | **garbage** — a scene has no single foreground for the cut-out to find, and the model was handed scattered blobs of grass and canopy. |
-
-Wall time for the four: 190 s; the working set reached at least 11.6 GB (sampled from outside with `Get-Process` mid-run; the runner's own sampler reads zero on every run so far and is not fixed — sample from outside until it is).
-
-**Verdict: worth having, for one thing.** Feed it **one object on a plain background** — a product-shot reference from `design-references` is the ideal input, and a scene or a capture is not — and it gives back a silhouette and proportions from every side in under a minute, which is more than a picture gives (the cup's handles and bowl depth were never in the front view). It does not give surface detail, branching or anything a mesh would be built from directly; nothing it produces ships, as with the images. `--mc-resolution` is the only dial worth touching. Not tried: Stable Fast 3D (a Stability community licence, the README says CPU-capable) — the next candidate if a finer surface is ever wanted; Hunyuan3D-2's licence excludes the EU and TRELLIS needs CUDA kernels, so neither is on this machine.
+  None of these is needed for anything now; the ROCm venv of the section above is the one worth keeping.
 
 ## Comparing captures
 

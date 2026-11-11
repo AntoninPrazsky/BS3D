@@ -20,6 +20,10 @@ Pravidla:
 
 ---
 
+## 2026-11-11 — #1093 AI 3D modely vyloučené — desktop (RDT-PC), Claude Code
+- Majitel si sítě prohlédl ve 3D: „Ty poháry vypadají všechny opravdu špatně a ne jako poháry. Nejsou kulaté, nejsou duté… AI ke generování 3D modelů opravdu používat nebudeme.“ Tím ruší rozhodnutí z #718 (2026-10-02), že vygenerované modely smějí do hry.
+- ⚠ Moje metrika „uzavřená síť“ měřila u poháru špatnou věc: miska má být otevřená a dutá. Jeden obrázek dovnitř nevidí. Skilly `local-ai` a `design-references` to teď říkají. Sítě se dál dělají procedurálně podle 2D referencí.
+
 ## 2026-11-11 — #1093 Stable Fast 3D na grafice — desktop (RDT-PC), Claude Code
 - Majitel přijal licence SF3D a SPAR3D na HF a schválil instalaci VS 2022 Build Tools (C++). Nainstalované přes winget.
 - Hotovo: SF3D běží ve vlastním venvu `C:\Users\panrd\AI\3d\sf3d-venv` (ROCm torch). Pohár přestavěný na trojúhelníky do 2000 vrcholů má 1 672 vrcholů, je jeden uzavřený kus a má UV i texturu. Akácii ale zploští, takže na listí se nehodí. Postup je ve skillu `local-ai`.
