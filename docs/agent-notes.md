@@ -20,6 +20,10 @@ Pravidla:
 
 ---
 
+## 2026-11-11 — #1090 #1091 sd.cpp, FLUX.3, vision modely — desktop (RDT-PC), Claude Code
+- #1090: sd.cpp master-1086 je v `C:\Users\panrd\AI\sd\bin`. Z-Image na něm dává stejné obrázky o 5 % rychleji a staré sestavení zůstává v `bin-20260914`. FLUX.3 Klein trvá 43 s na obrázek a na verdikt majitele čeká stránka. ⚠ Mage-Flow na RX 6900 XT přes Vulkan vrací šum, funguje jen na CPU.
+- #1091: obrázky a otázky ze sady #440 jsou obnovené ze stránky #440 (`Artifact read`). Qwen3.6-35B-A3B nejlépe popsal dvojice (3½ ze 4), Gemma byla nejlepší na výřezy (7 ze 7) a na rychlost. Výchozí model zůstává Gemma, zapsáno ve skillu `local-ai`.
+
 ## 2026-11-11 — #1089 hodnocení hudby před poslechem — desktop (RDT-PC), Claude Code
 - Hotovo: `Tools/Generation/aesthetics.py` vypisuje skóre Audiobox Aesthetics (Meta, CC-BY-4.0, na CPU, ve venvu `C:\Users\panrd\AI\audioscore`). Pravidlo zapsané v `music-generation.md`: render s CE pod 7,0 se k majiteli nedostane.
 - Změřeno na 38 nahrávkách, které majitel odmítl (staré verze z regeneračních merge), proti 43, které nechal. CE má AUC 0,72 a 27 z 37 náhrad má vyšší CE než nahrávka, kterou nahradily. Všech 8 nahrávek pod CE 7,08 majitel odmítl. CU, PQ, PC a kontrast přes CLAP neoddělí nic.
