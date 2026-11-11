@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-11 — #1077 priorita zvuků na Androidu — desktop (RDT-PC), Claude Code
+- Hotovo: každý zvuk má třídu (Crowd, Play, Event, Music). Na limitu 32 hlasů vyšší zvuk zastaví nejstarší hlas nejnižší nižší třídy (`VoiceLedger`). Ohňostroj má na Androidu 10+2 hlasů a tikání salvy prstenec 6. Postup je v `sound-placement-and-mix.md`.
+- ⚠ Tikání salvy (až 40/s, fire-and-forget) zaplnilo všech 32 hlasů při každé výhře s velkou salvou. Na telefonu ověřeno skriptem: `levelfile=` s mini levelem s bombou + `detonate=`. Na `main` se limitu dosáhne dvakrát ze dvou, s opravou ani jednou. Bez limitů ohňostroje vzal chime NEW BEST hlas ohňostroji.
+- ⚠ Soubor nahraný přes `adb push` do `Android/data/<pkg>` aplikace nepřečte (UnauthorizedAccess). Testovací level se musí přibalit do `Game/Levels` před buildem. Logcat aplikaci prořezává, takže log se čte průběžně (`adb logcat -s DOTNET:I > soubor`). Zkušební build se instaluje pod `-p:ApplicationId=…bs3d.dev`, aby nepřepsal podepsanou hru.
+- Otevřené: ucho majitele na telefonu (`verdict-eye`).
+
 ## 2026-11-11 — #1093 AI 3D modely vyloučené — desktop (RDT-PC), Claude Code
 - Majitel si sítě prohlédl ve 3D: „Ty poháry vypadají všechny opravdu špatně a ne jako poháry. Nejsou kulaté, nejsou duté… AI ke generování 3D modelů opravdu používat nebudeme.“ Tím ruší rozhodnutí z #718 (2026-10-02), že vygenerované modely smějí do hry.
 - ⚠ Moje metrika „uzavřená síť“ měřila u poháru špatnou věc: miska má být otevřená a dutá. Jeden obrázek dovnitř nevidí. Skilly `local-ai` a `design-references` to teď říkají. Sítě se dál dělají procedurálně podle 2D referencí.
