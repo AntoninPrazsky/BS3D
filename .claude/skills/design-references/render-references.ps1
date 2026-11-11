@@ -46,6 +46,8 @@ param(
     [switch]$DryRun,
     [string]$Out,
     [string]$Root = 'C:\Users\panrd\AI\sd',
+    # The folder under -Root holding sd-server.exe: a second build sits beside the first while it is compared (#1090).
+    [string]$Bin = 'bin',
     [int]$Port = 7860,
     [string]$DiffusionModel = 'z_image_turbo-Q8_0.gguf',
     [string]$Encoder = 'Qwen3-4B-Instruct-2507-Q8_0.gguf',
@@ -70,7 +72,7 @@ if (-not $Prompt -and -not $PromptFile) { throw 'Pass -Prompt or -PromptFile.' }
 if (-not $Out) { $Out = Join-Path $Root ('out\' + (Get-Date -Format 'yyyyMMdd-HHmmss')) }
 New-Item -ItemType Directory -Force -Path $Out | Out-Null
 
-$exe = Join-Path $Root 'bin\sd-server.exe'
+$exe = Join-Path $Root "$Bin\sd-server.exe"
 $models = Join-Path $Root 'models'
 # A bare file name is one of the models under $Root\models; an absolute path is taken as given.
 function Resolve-Model([string]$p) { if ([IO.Path]::IsPathRooted($p)) { $p } else { Join-Path $models $p } }
