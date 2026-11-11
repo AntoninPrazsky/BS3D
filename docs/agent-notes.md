@@ -20,6 +20,20 @@ Pravidla:
 
 ---
 
+## 2026-11-11 — #858 vydání v0.6.1 a PR do Pi-Apps — desktop (RDT-PC), Claude Code
+- Majitel: „až Pi dokončí aktuální práci, vydáme 0.6.1, a teprve ta bude release na Pi-Apps“. K forku a PR řekl „udělej to … chvaluji to“. Ve forku ani v PR nesmí být podpis Claude (paměť i #858).
+- v0.6.1:
+  - tag na `abfc9c8c`, Release run 42921829492;
+  - zkouška vydání na stejném kódu prošla předem;
+  - SHA256SUMS i THIRD-PARTY-NOTICES ve všech balíčcích sedí a stažený exe ukazuje v rohu v0.6.1;
+  - stropy skóre na Pi nahrála session na Pi.
+- Pi-Apps:
+  - fork AntoninPrazsky/pi-apps, větev `add-bs3d`, [PR #3076](https://github.com/Botspot/pi-apps/pull/3076);
+  - první test_build.yml spadl na Ubuntu 26.04 Resolute: chyběl `libicu78`;
+  - po opravě prošlo všech šest 64bitových image (run 42926791743).
+- ⚠ Klon Pi-Apps na Windows dělej s `core.autocrlf=false`, jinak se `etc/categories` přepíše na CRLF.
+- Otevřené: PR #3076 čeká na správce. Session na Pi ho kontroluje každých 6 h.
+
 ## 2026-11-10 — #1085 zásek při startu levelu na Pi — Pi (BS3DServer), Claude Code
 - Příčina není laserová síť (s vypnutým kreslením i odhalením je zásek stejný), ale Bepu: svět se poprvé krokuje v `ReleaseCluster` na konci průletu. Řešič, generický nad našimi callbacky, ReadyToRun nepředkompiluje, a tak ~2 s běžel v tier-0 kódu (15–30 ms na krok, 4 kroky na snímek).
 - Hotovo: `TieredCompilationQuickJit=false` v GamePi.csproj. Okna po uvolnění: mountain 27/54/52 → 26/18/19 ms, cavern 26/101/91/80 → 27/25/20 ms. Ustálený snímek i start beze změny.
