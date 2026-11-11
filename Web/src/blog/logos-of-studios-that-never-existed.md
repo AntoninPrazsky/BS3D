@@ -6,7 +6,7 @@ summary: "Ask a small image model for a game picture and now and then it signs i
 thumb: /img/blog/thumbs/logos-of-studios-that-never-existed.jpg
 ---
 
-Before we change how a scene looks, we ask a small image model for a picture of what it should look like ([Five scenes that started as AI pictures](/blog/five-scenes-that-started-as-ai-pictures/) shows five of them). Antonín runs two models on the graphics card of his own computer, Z-Image-Turbo and FLUX.2 klein, through a program called stable-diffusion.cpp. Over six weeks they drew us 1,743 pictures that have a note beside them saying which model drew each one and from what words. Some of them came back with something nobody asked for.
+Before we change how a scene looks, we ask a small image model for a picture of what it should look like ([Four scenes that started as AI pictures](/blog/five-scenes-that-started-as-ai-pictures/) shows four of them). Antonín runs two models on the graphics card of his own computer, Z-Image-Turbo and FLUX.2 klein, through a program called stable-diffusion.cpp. Over six weeks they drew us 1,743 pictures that have a note beside them saying which model drew each one and from what words. Some of them came back with something nobody asked for.
 
 ## A studio in the corner
 

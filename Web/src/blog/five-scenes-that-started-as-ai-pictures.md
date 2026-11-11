@@ -1,57 +1,16 @@
 ---
-title: Five scenes that started as AI pictures
+title: Four scenes that started as AI pictures
 date: 2026-10-25T12:00:00Z
 topics: [Scenery, AI pictures, Rendering]
-summary: "Before we change how a scene looks, we ask a local image model what it should look like. Five scenes, each with the picture it was built from and the game before and after."
+summary: "Before we change how a scene looks, we ask a local image model what it should look like. Four scenes, each with the picture it was built from and the game before and after."
 thumb: /img/blog/thumbs/five-scenes-that-started-as-ai-pictures.jpg
 ---
 
-Before we change how a scene looks, we ask for a picture of what it should look like. Antonín runs two small image models on the graphics card of his own computer, Z-Image-Turbo and FLUX.2 klein, through a program called stable-diffusion.cpp. We type a description, such as "a small grove of umbrella thorn acacia trees in dry golden grass", and about half a minute later a picture comes back. The ones worth keeping go next to a capture of the game, and we write down what the picture has that the game does not.
+Before we change how a scene looks, we ask for a picture of what it should look like. Antonín runs two small image models on the graphics card of his own computer, Z-Image-Turbo and FLUX.2 klein, through a program called stable-diffusion.cpp. We type a description, such as "a raw photograph from a robot rover's mast camera on Mars", and about half a minute later a picture comes back. The ones worth keeping go next to a capture of the game, and we write down what the picture has that the game does not.
 
-None of these pictures is in the game. The game draws everything itself, from triangles and shaders. The pictures are only what it was built to look like. They are not honest witnesses either: a model draws a prettier world than any game can, and gets some details wrong. What they are good at is showing us ordinary things we had stopped seeing, such as how dark an acacia's leaves really are.
+None of these pictures is in the game. The game draws everything itself, from triangles and shaders. The pictures are only what it was built to look like. They are not honest witnesses either: a model draws a prettier world than any game can, and gets some details wrong. What they are good at is showing us ordinary things we had stopped seeing, such as the flat, darker base of a cumulus cloud.
 
-Here are five changes, all made after version 0.4.0. Under each pair of game pictures there is a Before and an After button. Press one, or click the picture, to switch between the two in the same place.
-
-## Acacia leaves
-
-The savanna's acacias had leaves like fern fronds: eleven broad leaflets down each side of a card about a metre long, in a bright yellow-green. FLUX.2 klein's grove looks nothing like that. Each crown is a dark, fine, spiky mat. Every leaf is made of smaller leaves, and those of leaflets a few millimetres long, so from a distance the whole crown reads as one soft layer.
-
-<figure>
-  <img src="/img/blog/five-scenes-that-started-as-ai-pictures/acacia-reference.jpg" width="960" height="657" loading="lazy" alt="A picture drawn by an image model: three flat-topped acacia trees with dark, fine-leaved crowns stand in dry golden grass in evening light.">
-  <figcaption>Drawn by FLUX.2 klein from "a small grove of three flat-topped umbrella thorn acacia trees ten to twenty metres away in dry golden grass". It is not in the game.</figcaption>
-</figure>
-
-We measured the difference. Taking the green pixels from the upper half of each picture, the trees in the pictures were about three times darker than ours, and green where ours were yellow. Now every leaf card is a twig with ten pairs of thin side branches, each carrying a row of tiny leaflets, and the canopy colours are darker and greener.
-
-<figure class="compare">
-  <div class="compare-frame">
-    <div class="compare-pane" data-label="Before">
-      <img src="/img/blog/five-scenes-that-started-as-ai-pictures/acacia-tree-before-800.jpg" srcset="/img/blog/five-scenes-that-started-as-ai-pictures/acacia-tree-before-800.jpg 800w, /img/blog/five-scenes-that-started-as-ai-pictures/acacia-tree-before-1600.jpg 1600w" sizes="(max-width: 1088px) calc(100vw - 32px), 1056px" width="800" height="450" loading="lazy" alt="Looking up at a savanna acacia from below. Its crown is made of broad olive-yellow leaflets in big flat fronds, with blue sky between them.">
-      <span class="compare-tag">Before</span>
-    </div>
-    <div class="compare-pane" data-label="After">
-      <img src="/img/blog/five-scenes-that-started-as-ai-pictures/acacia-tree-after-800.jpg" srcset="/img/blog/five-scenes-that-started-as-ai-pictures/acacia-tree-after-800.jpg 800w, /img/blog/five-scenes-that-started-as-ai-pictures/acacia-tree-after-1600.jpg 1600w" sizes="(max-width: 1088px) calc(100vw - 32px), 1056px" width="800" height="450" loading="lazy" alt="The same acacia from the same place. The crown is a darker blue-green and made of narrow, finely cut leaves.">
-      <span class="compare-tag">After</span>
-    </div>
-  </div>
-  <figcaption>A savanna acacia seen from below, before and after.</figcaption>
-</figure>
-
-<figure class="compare">
-  <div class="compare-frame">
-    <div class="compare-pane" data-label="Before">
-      <img src="/img/blog/five-scenes-that-started-as-ai-pictures/acacia-leaves-before-800.jpg" srcset="/img/blog/five-scenes-that-started-as-ai-pictures/acacia-leaves-before-800.jpg 800w, /img/blog/five-scenes-that-started-as-ai-pictures/acacia-leaves-before-1600.jpg 1600w" sizes="(max-width: 1088px) calc(100vw - 32px), 1056px" width="800" height="450" loading="lazy" alt="Close up under the branches of an acacia: large olive-yellow leaves, each a row of broad leaflets, against blue sky.">
-      <span class="compare-tag">Before</span>
-    </div>
-    <div class="compare-pane" data-label="After">
-      <img src="/img/blog/five-scenes-that-started-as-ai-pictures/acacia-leaves-after-800.jpg" srcset="/img/blog/five-scenes-that-started-as-ai-pictures/acacia-leaves-after-800.jpg 800w, /img/blog/five-scenes-that-started-as-ai-pictures/acacia-leaves-after-1600.jpg 1600w" sizes="(max-width: 1088px) calc(100vw - 32px), 1056px" width="800" height="450" loading="lazy" alt="The same branches close up. The leaves are narrow and dark green, with rows of fine leaflets that overlap into a feathery mat.">
-      <span class="compare-tag">After</span>
-    </div>
-  </div>
-  <figcaption>The same leaves close up. At the play camera the change costs between 0.08 and 0.15 of a millisecond a frame.</figcaption>
-</figure>
-
-What is still wrong: the boughs fan out from their tips like a starburst, where the trees in the picture keep branching into finer twigs under the leaves. The baobab's leaves are still fronds too.
+Here are four changes, all made after version 0.4.0. Under each pair of game pictures there is a Before and an After button. Press one, or click the picture, to switch between the two in the same place.
 
 ## A fire with depth
 
