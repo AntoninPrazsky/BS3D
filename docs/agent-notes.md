@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-11 — #1087–#1094 průzkum lokálních modelů, #1087 ACE-Step XL — desktop (RDT-PC), Claude Code
+- Majitel chtěl vědět, jaké nové lokální modely poběží na 6900 XT, a každý kandidát dostal svoje issue: #1087 až #1094. Pracuje se na nich postupně, hudbou počínaje.
+- #1087 je hotové. Stejnou kompozici z LM vyrenderovaly čtyři DiT: 2B turbo, XL turbo, 2B sft a XL sft. Majitel je poslouchal naslepo na stránce s vyrovnanou hlasitostí a žádný DiT nevyhrál: 2B turbo nebyl ani jednou nejhorší, XL vyhrál jednou z pěti. Zůstává tedy 2B turbo. Rozhodnutí je zapsané v `Tools/Generation/README.md`.
+- ⚠ XL načtou i binárky acestep.cpp z května. Výběr DiT dělá `synth_model` v požadavku.
+- ⚠ Raw rendery ve wav32 přesahují 1,0. Hlasitost proto vyrovnávej na RMS, které nikdo z nich nepřeklipuje, ne na RMS nejtiššího.
+- Otevřené: #1088 (sa3.cpp) a další v pořadí. #1089 má na startu známé odpovědi z #1087.
+
 ## 2026-11-11 — #1079 #1085 článek na blogu „The JIT we had ruled out“ — desktop (RDT-PC), Claude Code
 - Majitel vybral ze tří návrhů článek o sekání na Pi: „Ano, napiš ten první o Pi“.
 - Hotovo, merge 1f5ccd0f: `Web/src/blog/the-jit-we-had-ruled-out.md`, dva grafy (široký a telefonní, SVG fotografované v headless Edge) a náhled. Všechna čísla jsou ze závěrečných komentářů #1079 a #1085 a krokování (1/120 s, max. 4 kroky) je ověřené v kódu.

@@ -16,5 +16,7 @@ kept **outside** the repository; nothing they produce is used until it has been 
 | `sfx-body.py` | Mixes a warm sine body an octave under a render's first note, with short fades, before `MusicBake --sfx`: how `ceiling-feed.ogg` got the body its render lacked (#726). numpy and soundfile, which the `generate-sfx.py` venv has. |
 | `sfx-prompts/` | The prompt lists of every batch so far — the record of what was asked for. |
 
+**The DiT is the 2B `acestep-v15-turbo` (8 steps), on purpose.** #1087 rendered the same LM compositions through it, the 4B XL turbo, the 2B sft and the XL sft (50 steps, CFG 7), and the owner judged them blind: no DiT won consistently and the 2B turbo was never the worst, so the brief and the LM's composition decide more than the DiT. XL puts more energy in 300 Hz-4 kHz but measures as more repetitive. A request's `synth_model` picks the DiT; the XL and sft GGUFs sit beside the turbo in the models folder.
+
 Sound path: render, pick by ear, then `dotnet run --project Tools\MusicBake -c Release -- --sfx <wav> <name>` (add
 `--music` to keep stereo). See "The sound" in `docs/game-feedback.md` and the `local-ai` skill.
