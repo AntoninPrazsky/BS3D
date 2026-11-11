@@ -1756,6 +1756,9 @@ namespace BS3D
 
             _loading.Dispose();
             _loading = null;
+
+            //The physics solver compiled on a throwaway world while the menus are up, not at the first level's release (#1086)
+            PhysicsWarmup.Start();
         }
 
         //The startup's "Loading..." (#637), alive only while LoadContent runs
