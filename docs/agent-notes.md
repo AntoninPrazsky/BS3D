@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-11-11 — #1094 ROCm na Windows funguje na RX 6900 XT — desktop (RDT-PC), Claude Code
+- Hotovo: TheRock nightly `torch[device-gfx1030]` ve venvu `C:\Users\panrd\AI\rocm` běží na kartě. Násobení matic dává plný výkon (23,5 TFLOPS fp32), resnet50 je 48× rychlejší než CPU a TripoSR dává stejné sítě 6× rychleji. Postup je ve skillu `local-ai`.
+- ⚠ Konvoluce padají (`miopenStatusUnknownError`), dokud se nenastaví `MIOPEN_DEBUG_CONV_IMPLICIT_GEMM=0`.
+- Otevřené: #1093 (SF3D) poběží na tomto venvu.
+
 ## 2026-11-11 — #1090 verdikt, #1092 embeddingy — desktop (RDT-PC), Claude Code
 - Majitel naslepo k #1090 vybral pětkrát „stejné“ a u křišťálového poháru FLUX.3. FLUX.3 Klein přidal jako třetí model ke každé sadě referencí („Je dobré mít více referencí“), zapsáno ve skillu `design-references`.
 - #1092: Qwen3-Embedding-4B je lepší na těžké české dotazy do deníku, na dokumentaci stejný a na issues horší. Výchozí model zůstává 0.6B a 4B se bere přes `--model` pro deník. harrier-0.6b Bionic nabízí jen jako LLM, takže změřit nešel.
