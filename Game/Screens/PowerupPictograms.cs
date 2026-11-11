@@ -36,23 +36,54 @@ namespace BS3D.Screens
         {
             int side = size + 2 * pad;
             var pixels = new Color[side * side];
+            if (soft > 0f) Bake(kind, size, pad, soft, null, pixels);
+            else Bake(kind, size, pad, 0f, pixels, null);
+            return pixels;
+        }
+
+        /// <summary>
+        /// The crisp picture and its backing of <paramref name="soft"/> pixels at once (#1095), each exactly what
+        /// <see cref="Raster"/> gives: they are drawn from the same distances, which are the whole of the cost. A chip's three
+        /// pairs at 3840x1581 (125 pixels a side) took 405 ms, one picture at a time, on the first frame that drew them.
+        /// </summary>
+        internal static (Color[] Picture, Color[] Backing) RasterWithBacking(PowerupKind kind, int size, int pad, float soft)
+        {
+            int side = size + 2 * pad;
+            var picture = new Color[side * side];
+            var backing = new Color[side * side];
+            Bake(kind, size, pad, soft, picture, backing);
+            return (picture, backing);
+        }
+
+        //The picture into `sharp` and the backing into `blurred`, either of them null for none: rows in parallel, each pixel's
+        //samples in the same order as ever, so the result does not depend on how the rows were shared out
+        private static void Bake(PowerupKind kind, int size, int pad, float soft, Color[] sharp, Color[] blurred)
+        {
+            int side = size + 2 * pad;
             const int SUB = 4;
-            for (int y = 0; y < side; y++)
+            System.Threading.Tasks.Parallel.For(0, side, y =>
+            {
                 for (int x = 0; x < side; x++)
                 {
-                    float cover = 0f;
+                    float sharpCover = 0f, blurredCover = 0f;
                     for (int sy = 0; sy < SUB; sy++)
                         for (int sx = 0; sx < SUB; sx++)
                         {
                             var p = new Vector2((x - pad + (sx + 0.5f) / SUB) / size, (y - pad + (sy + 0.5f) / SUB) / size);
                             float d = Distance(kind, p) * size;
-                            cover += soft > 0f ? 1f - Smooth(-0.5f, soft, d) : MathHelper.Clamp(0.5f - d, 0f, 1f);
+                            sharpCover += MathHelper.Clamp(0.5f - d, 0f, 1f);
+                            if (blurred != null) blurredCover += 1f - Smooth(-0.5f, soft, d);
                         }
-                    cover /= SUB * SUB;
-                    byte a = (byte)MathF.Round(cover * 255f);
-                    pixels[x + side * y] = new Color(a, a, a, a);
+                    if (sharp != null) sharp[x + side * y] = Coverage(sharpCover / (SUB * SUB));
+                    if (blurred != null) blurred[x + side * y] = Coverage(blurredCover / (SUB * SUB));
                 }
-            return pixels;
+            });
+        }
+
+        private static Color Coverage(float cover)
+        {
+            byte a = (byte)MathF.Round(cover * 255f);
+            return new Color(a, a, a, a);
         }
 
         //--- The three pictures -------------------------------------------------------------------------------------------

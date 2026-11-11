@@ -2416,6 +2416,17 @@ namespace BS3D.Screens
         internal void PulseCutChip() => _cutPulse.Kick(0f);
 
         /// <summary>
+        /// Measures the chips and bakes their pictograms now, at the level's build (#1095), rather than on the first frame that
+        /// draws a chip: that was the first frame of play, where the HUD comes in as the gun is handed over, and the bake held
+        /// it for 140 ms at 1600x900 and 405 ms at 3840x1581. Nothing to do once done, until a resize rebuilds the fonts.
+        /// </summary>
+        internal void PrepareChips()
+        {
+            _game.EnsureHudFonts();
+            MeasureChipColumns(_game.HudFontChipPrompt, _game.HudFontChipDetail);
+        }
+
+        /// <summary>
         /// The keycap column's and the caption column's widths (#694), measured over every glyph and every caption a chip
         /// can show - again only when the HUD's fonts are rebuilt, which a resize does.
         /// </summary>
@@ -2456,10 +2467,11 @@ namespace BS3D.Screens
             {
                 _chipIcons[(int)kind]?.Dispose();
                 _chipIconBackings[(int)kind]?.Dispose();
+                (Color[] picture, Color[] backing) = PowerupPictograms.RasterWithBacking(kind, _chipIconSize, _chipIconPad, blur * 1.5f);
                 _chipIcons[(int)kind] = new Texture2D(_game.GraphicsDevice, side, side);
-                _chipIcons[(int)kind].SetData(PowerupPictograms.Raster(kind, _chipIconSize, _chipIconPad, 0f));
+                _chipIcons[(int)kind].SetData(picture);
                 _chipIconBackings[(int)kind] = new Texture2D(_game.GraphicsDevice, side, side);
-                _chipIconBackings[(int)kind].SetData(PowerupPictograms.Raster(kind, _chipIconSize, _chipIconPad, blur * 1.5f));
+                _chipIconBackings[(int)kind].SetData(backing);
             }
         }
 
