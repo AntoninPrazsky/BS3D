@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-11 — #1079 #1085 článek na blogu „The JIT we had ruled out“ — desktop (RDT-PC), Claude Code
+- Majitel vybral ze tří návrhů článek o sekání na Pi: „Ano, napiš ten první o Pi“.
+- Hotovo, merge 1f5ccd0f: `Web/src/blog/the-jit-we-had-ruled-out.md`, dva grafy (široký a telefonní, SVG fotografované v headless Edge) a náhled. Všechna čísla jsou ze závěrečných komentářů #1079 a #1085 a krokování (1/120 s, max. 4 kroky) je ověřené v kódu.
+- Zkontrolováno přes DevTools na 320, 400, 700, 1920 a 3840 px: stránka se nikde neposouvá do strany.
+- ⚠ Tabulka v #1079 tvrdí, že vyšší ustálený snímek s R2R měly jen volcano a dream. Vyšší ho mají i desert (+0,06) a aurora (+0,02), takže článek uvádí jen „nejvýš o 0,18 ms“.
+- Otevřené: web zveřejňuje majitel. Ještě jsou na řadě články o #1063 (uniformy o slot vedle) a o odrazech oken ve městě.
+
 ## 2026-11-11 — #858 vydání v0.6.1 a PR do Pi-Apps — desktop (RDT-PC), Claude Code
 - Majitel: „až Pi dokončí aktuální práci, vydáme 0.6.1, a teprve ta bude release na Pi-Apps“. K forku a PR řekl „udělej to … chvaluji to“. Ve forku ani v PR nesmí být podpis Claude (paměť i #858).
 - v0.6.1:
