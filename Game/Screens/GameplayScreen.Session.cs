@@ -719,6 +719,9 @@ namespace BS3D.Screens
             if (!_releasePending || _physicsBalls == null) return;
             _releasePending = false;
 
+            //The warm-up's world gives the cores back to this one (#1086)
+            PhysicsWarmup.Stop();
+
             _world.WakeCluster(_physicsBalls);
             _world.BeginStartSwing(_physicsBalls);
             Console.WriteLine(_world.StartSwing == null ? "[swing] none"

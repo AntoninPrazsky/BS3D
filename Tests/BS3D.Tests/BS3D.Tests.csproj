@@ -64,6 +64,7 @@
     <Compile Include="..\..\Game\Effects\SpareVolley.cs" />
     <Compile Include="..\..\Game\Effects\BenchmarkDemo.cs" />
     <Compile Include="..\..\Game\Screens\PhysicsBench.cs" />
+    <Compile Include="..\..\Game\Screens\PhysicsWarmup.cs" />
     <!--The benchmark's swarm (#988): the ramp's rule over frame times and the storm's places, no device-->
     <Compile Include="..\..\Game\Screens\BenchmarkSwarm.cs" />
     <!--When the benchmark may run and what its page says about it (#1041): a rule over the Online setting, and strings-->

@@ -53,7 +53,8 @@ namespace BS3D.Screens
         /// <param name="map">The cluster's map; centred here, as the game centres it.</param>
         /// <param name="wind">The air over it, which also keeps it awake (an empty one lets it settle and sleep, as a tier without wind does).</param>
         /// <param name="steps">How many steps are measured after the warm-up; <see cref="STEPS"/> but for a test.</param>
-        internal PhysicsBench(BallsMap map, WindField wind, int steps = STEPS)
+        /// <param name="workerThreads">The world's worker threads, 0 for one a processor as the game's world has.</param>
+        internal PhysicsBench(BallsMap map, WindField wind, int steps = STEPS, int workerThreads = 0)
         {
             _wind = wind;
             _steps = steps;
@@ -62,7 +63,7 @@ namespace BS3D.Screens
             map.Center();
             Microsoft.Xna.Framework.Vector3 offset = ClusterHang.FitWorldOffset(map, out float fieldTopY);
 
-            _world = new PhysicsWorld();
+            _world = new PhysicsWorld(workerThreads: workerThreads);
             try
             {
                 Balls = Hang(map, offset, fieldTopY);
@@ -100,6 +101,12 @@ namespace BS3D.Screens
             if (_wind.Strength > 0f) _world.KeepClusterAwake(balls);
             return count;
         }
+
+        /// <summary>How many steps have been taken, the warm-up's included.</summary>
+        internal int Taken => _taken;
+
+        /// <summary>How many bodies the solver still steps: a body asleep is skipped (#1086's warm-up must not sleep).</summary>
+        internal int AwakeBodies => _world.Simulation.Bodies.ActiveSet.Count;
 
         /// <summary>Whether every step has been taken.</summary>
         internal bool Done => _taken >= WARMUP_STEPS + _steps;
