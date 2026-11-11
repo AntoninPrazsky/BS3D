@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-11-11 — #1090 verdikt, #1092 embeddingy — desktop (RDT-PC), Claude Code
+- Majitel naslepo k #1090 vybral pětkrát „stejné“ a u křišťálového poháru FLUX.3. FLUX.3 Klein přidal jako třetí model ke každé sadě referencí („Je dobré mít více referencí“), zapsáno ve skillu `design-references`.
+- #1092: Qwen3-Embedding-4B je lepší na těžké české dotazy do deníku, na dokumentaci stejný a na issues horší. Výchozí model zůstává 0.6B a 4B se bere přes `--model` pro deník. harrier-0.6b Bionic nabízí jen jako LLM, takže změřit nešel.
+- ⚠ Sada #439 se po zkrácení deníku v #839 nedala zopakovat a sada #490 nebyla zapsaná. Nová sada otázek je v komentáři #1092.
+
 ## 2026-11-11 — #1090 #1091 sd.cpp, FLUX.3, vision modely — desktop (RDT-PC), Claude Code
 - #1090: sd.cpp master-1086 je v `C:\Users\panrd\AI\sd\bin`. Z-Image na něm dává stejné obrázky o 5 % rychleji a staré sestavení zůstává v `bin-20260914`. FLUX.3 Klein trvá 43 s na obrázek a na verdikt majitele čeká stránka. ⚠ Mage-Flow na RX 6900 XT přes Vulkan vrací šum, funguje jen na CPU.
 - #1091: obrázky a otázky ze sady #440 jsou obnovené ze stránky #440 (`Artifact read`). Qwen3.6-35B-A3B nejlépe popsal dvojice (3½ ze 4), Gemma byla nejlepší na výřezy (7 ze 7) a na rychlost. Výchozí model zůstává Gemma, zapsáno ve skillu `local-ai`.
