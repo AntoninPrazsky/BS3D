@@ -23,7 +23,8 @@ namespace BS3D.Screens
     /// <para>
     /// It steps in slices of <see cref="SLICE_MILLISECONDS"/> with <see cref="REST_MILLISECONDS"/> between them, on one
     /// worker fewer than the machine has, so the menu's frames keep a core. <see cref="Stop"/> ends it early: a level's
-    /// release and the benchmark's physics must not share the cores with it. What it compiled by then stays compiled.
+    /// release and a benchmark must not share the cores with it. What it compiled by then stays compiled. The front end's
+    /// quality probe measures no window while it runs (<see cref="Running"/>).
     /// </para>
     /// </summary>
     internal static class PhysicsWarmup
@@ -50,12 +51,20 @@ namespace BS3D.Screens
         private static readonly WindField BREEZE = new(new System.Numerics.Vector2(0.87f, 0.5f), 0.05f);
 
         private static Thread _thread;
-        private static volatile bool _stop;
+        private static volatile bool _stop, _running;
+
+        /// <summary>
+        /// Whether it is still stepping. The front end's quality probe waits for it: its threads are no part of what a frame
+        /// of the game costs, and on a machine whose processor and graphics share one power budget they could cost the menu
+        /// a tier for the whole session.
+        /// </summary>
+        internal static bool Running => _running;
 
         /// <summary>Starts it, once a run; a second call does nothing.</summary>
         internal static void Start()
         {
             if (_thread != null) return;
+            _running = true;
             _thread = new Thread(Run) { Name = "physics warm-up", IsBackground = true, Priority = ThreadPriority.BelowNormal };
             _thread.Start();
         }
@@ -108,6 +117,10 @@ namespace BS3D.Screens
             {
                 //Nothing waits for it: the first level compiles whatever is left at its release, as it did before
                 Console.WriteLine($"[warmup] failed, the first level compiles the physics solver at its release: {e.GetType().Name}: {e.Message}");
+            }
+            finally
+            {
+                _running = false;
             }
         }
     }

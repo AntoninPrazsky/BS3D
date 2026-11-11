@@ -94,6 +94,9 @@ namespace BS3D
         {
             if (_benchmarking) return;
             _benchmarking = true;
+
+            //The launch's physics warm-up must not share the cores with anything a benchmark measures (#1086)
+            Screens.PhysicsWarmup.Stop();
             _sceneBeforeBenchmark = _scene;
             _domeBeforeBenchmark = _skyDome;
             _screens?.Find<BackdropScreen>()?.RollPreviewMap();

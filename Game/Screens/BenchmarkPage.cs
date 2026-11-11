@@ -652,8 +652,6 @@ namespace BS3D.Screens
             try
             {
                 Level level = Level.Load(path);
-                //The launch's warm-up must not share the cores with the measured world (#1086)
-                PhysicsWarmup.Stop();
                 _physics = new PhysicsBench(new BallsMap(level.Map), SceneWind.For(level.Scene ?? SceneKind.City, null));
                 _physicsBalls = _physics.Balls;
                 _phase = Phase.Physics;

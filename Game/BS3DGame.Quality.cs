@@ -272,6 +272,10 @@ namespace BS3D
                 return;
             }
 
+            //Nor while the physics warm-up steps its throwaway world on the other cores (#1086): it is no part of what a frame
+            //of this game costs, and a window it shared could take a tier off the menu for the whole session
+            if (Screens.PhysicsWarmup.Running) return;
+
             _qualityWindowSeconds += elapsed;
             _qualityWindowFrames++;
 
