@@ -20,6 +20,14 @@ Pravidla:
 
 ---
 
+## 2026-11-12 — #1103 #1097 #1098 #1104 review výkonu shaderů, cíl Ultra 75 FPS — desktop (RDT-PC), Claude Code
+
+- majitel: cíl je Ultra na 3840×1600 při 75 FPS; obraz nemusí zůstat 1:1 (#1103).
+- Hotovo: jen měření a issues #1096–#1104, žádná změna kódu. Snímek rozebraný po vrstvách (dočasný `probe=`, patch na #1102): kupole oblohy 3,3 ms v každé scéně pod kupolí, prostředí 3–10 ms, všechno ostatní asi 3 ms. Tři změny beze změny pixelu (terén bez `discard` a bloky od kamery #1097, prostředí až za ostrovem a clusterem #1098, obloha poslední #1104) dávají na prototypu Mars 14,4 → 6,3 ms a les 16,1 → 9,2.
+- ⚠ #921 nic nenaměřilo, protože po vyjmutí clipu díry zůstal v programu `FarRingClip`. Program s `discard` ztrácí zamítnutí hloubkou jen uvnitř vlastního drawu, proti dřívějším drawům ne.
+- ⚠ Tichý běh Testbedu relativní `Maps\Full.json` nenačte a měří prázdné pole: čti `balls N` na řádku `[fps]`.
+- Otevřené: implementace, pořadí je v #1103.
+
 ## 2026-11-11 — #1095 první snímek hry po průletu kapitoly — desktop (RDT-PC), Claude Code
 
 - Hotovo, merge d58cbc90, uzavřeno s důkazy. Snímek předání zbraně (162 ms při 1600×900, 405 ms při 3840×1581, ~0,3 s na telefonu) bylo pečení piktogramů power-upů (`BuildChipIcons`) při prvním vykreslení čipu. Teď se peče v `BuildLevel` (`PlayHud.PrepareChips`), obraz i podklad v jednom paralelním průchodu, pixel po pixelu stejně. Nejdelší snímek té vteřiny 167–180 → 26–27 ms.
