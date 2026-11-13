@@ -119,6 +119,9 @@ namespace Prazsky.Core.Render
             _fullTechnique = _volcanoEffect.Techniques["Volcano"];
             _mediumTechnique = _volcanoEffect.Techniques["VolcanoMedium"];
             _reducedTechnique = _volcanoEffect.Techniques["VolcanoReduced"];
+            _fullTwins = GroundTwins.Of(_volcanoEffect, _fullTechnique);
+            _mediumTwins = GroundTwins.Of(_volcanoEffect, _mediumTechnique);
+            _reducedTwins = GroundTwins.Of(_volcanoEffect, _reducedTechnique);
             EnsureVolcanoGrid(VOLCANO_GRID_N);
 
             _fountainEffect = content.Load<Effect>("Shaders/LavaFountain");
@@ -523,11 +526,18 @@ namespace Prazsky.Core.Render
 
             _volcanoEffect.CurrentTechnique = wanted;
             _drawnTechnique = wanted;
+            _drawnTwins = wanted == _fullTechnique ? _fullTwins : wanted == _mediumTechnique ? _mediumTwins : _reducedTwins;
             EnsureVolcanoGrid(full && fine ? VOLCANO_GRID_N : VOLCANO_GRID_N_REDUCED);
         }
 
         private EffectTechnique _drawnTechnique;
         private readonly EffectTechnique _fullTechnique, _mediumTechnique, _reducedTechnique;
+
+        //Each flank program's two twins (#1097, TerrainGridCache): its depth alone, laid first where the scene supersamples,
+        //and the flank without its cuts, which below that draws every block the island's hole does not reach
+        private GroundTwins _drawnTwins;
+        private readonly GroundTwins _fullTwins, _mediumTwins, _reducedTwins;
+        private readonly TerrainCuts _terrainCuts = new();
 
         /// <summary>The flank, then the fountains, the plume and the blaze over it.</summary>
         public override void Draw(in SceneFrame frame)
@@ -602,7 +612,6 @@ namespace Prazsky.Core.Render
             Services.FarField.Begin(_volcanoEffect, frame, VOLCANO_EXTENT);
             _graphicsDevice.SetVertexBuffer(_volcanoVertexBuffer);
             _graphicsDevice.Indices = _volcanoGrid.Indices;
-            _volcanoEffect.CurrentTechnique.Passes[0].Apply();
 
             //A block's box from the field's level less 60 to the highest the cone or the land reaches, with room
             _terrainFrustum.Matrix = frame.Camera.View * frame.Camera.Projection;
@@ -610,8 +619,18 @@ namespace Prazsky.Core.Render
             float low = _volcanoConfig.LevelY - 60f;
             float high = _volcanoConfig.LevelY + MathF.Max(_volcanoConfig.ConeHeight,
                 country.LandRise + country.RidgeHeight + country.DormantHeight) + 100f;
-            TerrainGridCache.DrawSeenBlocks(_graphicsDevice, _volcanoGrid, _terrainFrustum, originX, originZ, VOLCANO_EXTENT, low, high);
-            Services.FarField.DrawRing(_volcanoEffect, new Vector2(originX, originZ), VOLCANO_EXTENT);
+
+            //The depth first where the scene supersamples, the flank then shaded on it (#1097, TerrainGridCache); below
+            //that one pass, the blocks the hole reaches with the flank's program and the others with its Open twin. The
+            //flank is opaque under the scene block's alpha blend (its alpha is 1) and on its depth state
+            bool depthFirst = Services.SupersampleFactor > 1 && _graphicsDevice.DepthStencilState == DepthStencilState.Default;
+            EffectPass depth = depthFirst ? _drawnTwins.Depth : null;
+            bool[] cut = depth == null && _drawnTwins.Open != null
+                ? _terrainCuts.Blocks(_volcanoGrid, originX, originZ, VOLCANO_EXTENT, Services.TerrainHoleRadius)
+                : null;
+            TerrainGridCache.DrawSeenBlocks(_graphicsDevice, _volcanoGrid, _terrainFrustum, originX, originZ, VOLCANO_EXTENT, low, high,
+                0f, _drawnTechnique.Passes[0], _drawnTwins.Open, cut, depth);
+            Services.FarField.DrawRing(_volcanoEffect, new Vector2(originX, originZ), VOLCANO_EXTENT, depthFirst);
 
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }

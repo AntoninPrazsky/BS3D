@@ -543,13 +543,26 @@ float SandPattern(float2 p, float footprint)
     return lerp(0.5, pattern, resolvable);
 }
 
-float4 DesertPS(DesertVertexOutput input) : COLOR
+//THE CUTS (#1097): the island's hole and the far ring's inner square. A program that may discard writes its depth
+//after it has run, so while it writes depth nothing in its own draw is rejected early. Where the scene supersamples
+//(High and Ultra) the depth is laid first by the cuts alone (DesertDepth, below) and this program then shades the
+//whole ground on it, writing none. Below that the ground is one pass, and only the blocks of the camera grid a cut
+//reaches, and the far ring, are drawn with the cuts: DesertOpen is the same ground without a discard in it, for every
+//other block (TerrainGridCache says why, and TerrainCuts how far the cuts reach: a new clip() here has to stay inside
+//that circle, or the scene gives up its Open twin).
+//The cutting entry points call this themselves, before the body, and the body takes no flag for it: written that
+//way both profiles compile a cutting program to the instructions it had before the cuts had a name (with a flag,
+//the OpenGL ES compile laid its constants out differently: docs/rendering/opengl-es.md).
+void DesertCuts(float2 xz)
+{
+    //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
+    clip(length(xz) - IslandHoleRadius);
+    FarRingClip(xz);
+}
+
+float4 DesertSurface(DesertVertexOutput input)
 {
     float3 worldPosition = input.WorldPosition;
-
-    //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
-    clip(length(worldPosition.xz) - IslandHoleRadius);
-    FarRingClip(worldPosition.xz);
 
     float dist = distance(CameraPosition, worldPosition);
     float footprint = length(fwidth(worldPosition.xz));
@@ -678,6 +691,14 @@ float4 DesertPS(DesertVertexOutput input) : COLOR
     return float4(FarFadeToSky(color, worldPosition), 1.0);
 }
 
+float4 DesertPS(DesertVertexOutput input) : COLOR
+{
+    DesertCuts(input.WorldPosition.xz);
+    return DesertSurface(input);
+}
+
+float4 DesertOpenPS(DesertVertexOutput input) : COLOR { return DesertSurface(input); }
+
 technique Desert
 {
     pass P0
@@ -686,6 +707,45 @@ technique Desert
         PixelShader = compile PS_SHADERMODEL DesertPS();
     }
 };
+
+//The ground without its cuts (#1097, DesertCuts): what the camera grid draws wherever no cut reaches.
+//DirectX only, as the depth twins further down are and for their reason: a block drawn with this program shares its
+//edge with one drawn with the cutting program, and OpenGL ES does not promise one vertex program the same position
+//in two linked programs. There the whole grid is drawn with the cutting program, as it always was.
+#if !OPENGL
+technique DesertOpen
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL DesertVS();
+        PixelShader = compile PS_SHADERMODEL DesertOpenPS();
+    }
+};
+#endif
+
+//THE DEPTH ALONE (#1097): each technique the camera grid or the far ring draws with, again with nothing but its cuts
+//in the pixel program (<technique>Depth). Where the scene supersamples, the grid's depth is laid with these first and
+//the ground is then shaded on it without writing depth, and so is the ring: a pixel a nearer rise hides is thrown
+//away before its program runs, whichever way the lens looks, and a discard costs nothing in a program that writes no
+//depth (TerrainGridCache.DrawSeenBlocks, FarField.DrawRing). The vertex program is the technique's own, or the two depths
+//would not be the same bits. DirectX only: OpenGL ES does not promise one depth from two programs, and there every
+//draw is the one pass it was.
+#if !OPENGL
+float4 DesertGroundDepthPS(DesertVertexOutput input) : COLOR
+{
+    DesertCuts(input.WorldPosition.xz);
+    return 0.0;
+}
+
+technique DesertDepth
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL DesertVS();
+        PixelShader = compile PS_SHADERMODEL DesertGroundDepthPS();
+    }
+};
+#endif
 
 //--- The height probe (#590) ----------------------------------------------------------------------------
 

@@ -819,19 +819,29 @@ OutbackVertexOutput OutbackVS(float4 position : POSITION0)
     return output;
 }
 
+//THE CUTS (#1097): the island's hole, the far ring's inner square, the formations' footprints and the ground under
+//the bank. A program that may discard writes its depth after it has run, so while it writes depth nothing in its own
+//draw is rejected early. Where the scene supersamples (High and Ultra) the depth is laid first by the cuts alone
+//(OutbackDepth, below) and this program then shades the whole ground on it, writing none. Below that the ground is
+//one pass with this one program, as it always was: the formations' footprints lie all over the plain, so no block of
+//the camera grid is clear of a cut and the plain has no Open twin (TerrainGridCache).
+void OutbackCuts(float2 xz)
+{
+    //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
+    clip(length(xz) - IslandHoleRadius);
+    FarRingClip(xz);
+
+    //Every formation's footprint is its own mesh's: the plain stops on it
+    clip(InsideMonolith(xz) || InsideOutcrop(xz) ? -1.0 : 1.0);
+
+    //And so it does under the bank, which is the plain too (#983, BankCover.fxh)
+    clip(UnderBank(xz) ? -1.0 : 1.0);
+}
+
 float4 OutbackPS(OutbackVertexOutput input) : COLOR
 {
     float3 worldPosition = input.WorldPosition;
-
-    //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
-    clip(length(worldPosition.xz) - IslandHoleRadius);
-    FarRingClip(worldPosition.xz);
-
-    //Every formation's footprint is its own mesh's: the plain stops on it
-    clip(InsideMonolith(worldPosition.xz) || InsideOutcrop(worldPosition.xz) ? -1.0 : 1.0);
-
-    //And so it does under the bank, which is the plain too (#983, BankCover.fxh)
-    clip(UnderBank(worldPosition.xz) ? -1.0 : 1.0);
+    OutbackCuts(worldPosition.xz);
 
     return float4(ShadeOutback(worldPosition, false, float3(0.0, 1.0, 0.0), false), 1.0);
 }
@@ -844,6 +854,30 @@ technique Outback
         PixelShader = compile PS_SHADERMODEL OutbackPS();
     }
 };
+
+//THE DEPTH ALONE (#1097): each technique the camera grid or the far ring draws with, again with nothing but its cuts
+//in the pixel program (<technique>Depth). Where the scene supersamples, the grid's depth is laid with these first and
+//the ground is then shaded on it without writing depth, and so is the ring: a pixel a nearer rise hides is thrown
+//away before its program runs, whichever way the lens looks, and a discard costs nothing in a program that writes no
+//depth (TerrainGridCache.DrawSeenBlocks, FarField.DrawRing). The vertex program is the technique's own, or the two depths
+//would not be the same bits. DirectX only: OpenGL ES does not promise one depth from two programs, and there every
+//draw is the one pass it was.
+#if !OPENGL
+float4 OutbackGroundDepthPS(OutbackVertexOutput input) : COLOR
+{
+    OutbackCuts(input.WorldPosition.xz);
+    return 0.0;
+}
+
+technique OutbackDepth
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL OutbackVS();
+        PixelShader = compile PS_SHADERMODEL OutbackGroundDepthPS();
+    }
+};
+#endif
 
 //Declared after the plain's own technique, which the backdrop leaves current and so must stay the effect's first
 //THE BANK AGAINST THE DRUM (#983): IslandBerm's mesh worn in the plain itself - its soil, spinifex and the formations'

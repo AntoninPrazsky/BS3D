@@ -789,6 +789,20 @@ float3 BrookPebbles(float2 xz, float footprint, float clods)
     return lerp(lerp(BED_SAND, PEBBLE, 0.6), bed, resolved);
 }
 
+//The camera grid's and the far ring's cuts (MeadowField): the island's hole, the far ring's inner square, and the
+//hole the patch draws the brook and the pond in. brookLateral is the caller's, how far to the side of the brook xz
+//stands. Where the scene supersamples (High and Ultra) the depth is laid first by these alone (MeadowDepth and
+//MeadowReducedDepth, below) and the field's program then shades the whole ground on it, writing none (#1097); below
+//that the ground is one pass with the one program, as it always was (the meadow has no Open twin: TerrainGridCache).
+void MeadowCuts(float2 xz, float brookLateral)
+{
+    clip(length(xz) - IslandHoleRadius);
+    FarRingClip(xz);
+    float2 pondHole = xz - PondCentre;
+    clip(dot(pondHole, pondHole) < POND_HOLE_RADIUS * POND_HOLE_RADIUS
+        || (brookLateral < BROOK_HOLE_HALF && length(xz) < BROOK_HOLE_END) ? -1.0 : 1.0);
+}
+
 float4 MeadowField(float3 worldPosition, float3 worldNormal, float4 carve, bool detail, bool grid)
 {
     //Cut the island's footprint out of the terrain (see IslandHoleRadius; 0 in the map editor keeps it all), and the far
@@ -797,14 +811,7 @@ float4 MeadowField(float3 worldPosition, float3 worldNormal, float4 carve, bool 
     //itself has NO clip: it never reaches the island or past the grid's far edge, and a program that can discard loses
     //the early depth test - every pixel of the patch hidden by a hill or by its own nearer bank was shaded in full.
     float brookLateral = abs(BrookLateral(worldPosition.xz));
-    if (grid)
-    {
-        clip(length(worldPosition.xz) - IslandHoleRadius);
-        FarRingClip(worldPosition.xz);
-        float2 pondHole = worldPosition.xz - PondCentre;
-        clip(dot(pondHole, pondHole) < POND_HOLE_RADIUS * POND_HOLE_RADIUS
-            || (brookLateral < BROOK_HOLE_HALF && length(worldPosition.xz) < BROOK_HOLE_END) ? -1.0 : 1.0);
-    }
+    if (grid) MeadowCuts(worldPosition.xz, brookLateral);
 
     //What the patch's vertices said about the cut: how far into it this is, how far under the water, and the swale's sun
     float cut = saturate((carve.x - 0.04) / 0.2);
@@ -1428,6 +1435,39 @@ technique MeadowWater
         PixelShader = compile PS_SHADERMODEL MeadowWaterPS();
     }
 };
+
+//THE DEPTH ALONE (#1097): each technique the camera grid or the far ring draws with, again with nothing but its cuts
+//in the pixel program (<technique>Depth). Where the scene supersamples, the grid's depth is laid with these first and
+//the ground is then shaded on it without writing depth, and so is the ring: a pixel a nearer rise hides is thrown
+//away before its program runs, whichever way the lens looks, and a discard costs nothing in a program that writes no
+//depth (TerrainGridCache.DrawSeenBlocks, FarField.DrawRing). The vertex program is the technique's own, or the two depths
+//would not be the same bits. DirectX only: OpenGL ES does not promise one depth from two programs, and there every
+//draw is the one pass it was.
+#if !OPENGL
+float4 MeadowGroundDepthPS(MeadowVertexOutput input) : COLOR
+{
+    MeadowCuts(input.WorldPosition.xz, abs(BrookLateral(input.WorldPosition.xz)));
+    return 0.0;
+}
+
+technique MeadowDepth
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MeadowVS();
+        PixelShader = compile PS_SHADERMODEL MeadowGroundDepthPS();
+    }
+};
+
+technique MeadowReducedDepth
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MeadowVS();
+        PixelShader = compile PS_SHADERMODEL MeadowGroundDepthPS();
+    }
+};
+#endif
 
 //--- The height probe (#590) ----------------------------------------------------------------------------
 

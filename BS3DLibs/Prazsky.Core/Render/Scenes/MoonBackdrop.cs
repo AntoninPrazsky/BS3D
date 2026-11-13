@@ -26,9 +26,13 @@ namespace Prazsky.Core.Render
         //shared Services.FullScreenQuad — the opposite interleave is a measured 8× frame blow-up; see
         //Draw's doc.
         private readonly Effect _moonEffect;
-        //In blocks, drawn only where the lens looks (#1035's review): the grid the mountains and the volcano take, one copy
+        //In blocks, drawn only where the lens looks (#1035's review): the grid the mountains and the volcano take, one copy.
+        //MoonTerrain's two twins (#1097, TerrainGridCache): its depth alone, laid first where the scene supersamples, and
+        //the ground without its cuts, which below that draws every block the hole and the drift's cover do not reach
         private readonly TerrainGridCache.Grid _moonGrid;
         private readonly BoundingFrustum _moonFrustum = new(Matrix.Identity);
+        private readonly TerrainCuts _moonCuts = new();
+        private readonly GroundTwins _moonTwins;
 
         //Two techniques over one effect, resolved once — CurrentTechnique is assigned twice per frame here,
         //which is why the by-name lookup must not be paid per draw.
@@ -74,6 +78,7 @@ namespace Prazsky.Core.Render
 
             _moonSkyTechnique = _moonEffect.Techniques["MoonSky"];
             _moonTerrainTechnique = _moonEffect.Techniques["MoonTerrain"];
+            _moonTwins = GroundTwins.Of(_moonEffect, _moonTerrainTechnique);
 
             _moonViewRayBasis = _moonEffect.Parameters["ViewRayBasis"];
             _moonView = _moonEffect.Parameters["View"];
@@ -240,10 +245,16 @@ namespace Prazsky.Core.Render
             _graphicsDevice.SetVertexBuffer(_moonGrid.Vertices);
             _graphicsDevice.Indices = _moonGrid.Indices;
             _moonEffect.CurrentTechnique = _moonTerrainTechnique;
-            _moonEffect.CurrentTechnique.Passes[0].Apply();
             _moonFrustum.Matrix = frame.Camera.View * frame.Camera.Projection;
+
+            //The depth first where the scene supersamples, the ground then shaded on it (#1097, TerrainGridCache); below
+            //that one pass, the blocks a cut reaches with MoonTerrain and the others with its Open twin
+            EffectPass depth = Services.SupersampleFactor > 1 ? _moonTwins.Depth : null;
+            bool[] cut = depth == null && _moonTwins.Open != null
+                ? _moonCuts.Blocks(_moonGrid, originX, originZ, MOON_EXTENT, MathF.Max(Services.TerrainHoleRadius, IslandBerm.COVER_RADIUS_MAX))
+                : null;
             TerrainGridCache.DrawSeenBlocks(_graphicsDevice, _moonGrid, _moonFrustum, originX, originZ, MOON_EXTENT,
-                TerrainPass.BLOCK_LOW_Y, TerrainPass.BLOCK_HIGH_Y);
+                TerrainPass.BLOCK_LOW_Y, TerrainPass.BLOCK_HIGH_Y, 0f, _moonTerrainTechnique.Passes[0], _moonTwins.Open, cut, depth);
 
             //The rocks, before the sky so the sky's depth test rejects what they cover too. Lit as the terrain is lit, not
             //from a dome (there is none): the config's sun, the tiny floor and the earthshine overhead, and the sunlit
