@@ -61,10 +61,11 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Whether a host lays the island's <b>depth</b> into the frame before this environment and draws the island
         /// itself after it, where it always was (<see cref="SceneRenderer.EnvironmentFollowsIslandDepth"/>, #1098, which
-        /// also refuses a multisampled target whatever this answers). True by default, and from any lens: every pixel of the environment the island stands in front of is then turned away
-        /// by the depth test before its program runs, and the picture is the old one to the sample, because the island's
-        /// colour still goes over everything the environment drew — opaque or blended, nearer than the island or not
-        /// (<c>ArenaIsland.DrawIslandDepth</c> has the whole argument).
+        /// also refuses a multisampled target whatever this answers). True by default, and from any lens: every pixel of
+        /// the environment the island stands in front of is then turned away by the depth test before its program runs,
+        /// and the picture is the old one to the pixel, because the island's colour still goes over everything the
+        /// environment drew — opaque or blended, nearer than the island or not (<c>ArenaIsland.DrawIslandDepth</c> has
+        /// the whole argument).
         /// <para>
         /// <b>False</b> where that argument fails or buys nothing: where the island is itself blended over the
         /// environment (the sea: its stone under the waterline fades into the water, which therefore has to be in the

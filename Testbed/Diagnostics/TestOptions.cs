@@ -266,9 +266,9 @@ namespace Testbed.Diagnostics
         /// <para>
         /// It exists to be alternated (<c>alt=envorder=first;envorder=auto</c>): what the depth saves is read between two
         /// windows of one process, and two frames of one process with the clock stood still are what show the picture is
-        /// the same. A pin draws what it is told: <c>island</c> at <c>ssaa=1</c> is the picture multisampling changes
-        /// (single samples lost along the island's outline and across its top), which is the measurement of what the
-        /// answer guards.
+        /// the same. A pin draws what it is told: <c>island</c> at <c>ssaa=1</c> is the multisampled frame with the depth
+        /// laid first (a few thousand pixels across the island's top and along its outline a step or two of 255 off the
+        /// frame without it), which is the measurement of what the answer guards.
         /// </para>
         /// </summary>
         public EnvironmentOrder EnvironmentOrder { get; private set; } = EnvironmentOrder.Auto;

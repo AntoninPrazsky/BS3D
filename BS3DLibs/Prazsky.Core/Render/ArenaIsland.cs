@@ -1295,9 +1295,10 @@ namespace Prazsky.Core.Render
         /// <para>
         /// ⚠ <b>It holds only while the island is opaque, the environment's draws are depth-tested, and nothing of the
         /// environment that lets what is behind it show through also writes depth</b>: <c>Backdrop.FollowsIslandDepth</c>
-        /// names the scenes where one of the three fails. <b>And only into a target that is not multisampled</b>: under
-        /// multisampling the second draw does not pass on the first's depth at every sample (measured,
-        /// <see cref="SceneRenderer.EnvironmentFollowsIslandDepth"/>). A host asks that method before it calls this. The
+        /// names the scenes where one of the three fails. <b>And it is laid only into a target that is not
+        /// multisampled</b>: a multisampled frame is not the same picture twice even in one order, so there the argument
+        /// cannot be shown to hold, and the depth was measured to add to the difference
+        /// (<see cref="SceneRenderer.EnvironmentFollowsIslandDepth"/>). A host asks that method before it calls this. The
         /// blend state is put back as it was found; nothing else is touched.
         /// </para>
         /// </summary>

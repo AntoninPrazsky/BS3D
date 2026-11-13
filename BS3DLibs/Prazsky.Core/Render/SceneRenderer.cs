@@ -1693,11 +1693,14 @@ namespace Prazsky.Core.Render
         /// </para>
         /// <para>
         /// ⚠ <b>Never into a multisampled target</b> (<paramref name="sceneTarget"/>, the one the frame is drawn into: a
-        /// tier or a run at supersampling 1), whatever the scene. The island's colour draw has to pass on the depth its
-        /// first draw wrote, sample for sample, and under multisampling it does not: measured on the reference desktop
-        /// (RX 6900 XT, Mars, 1600x900, eight samples, the clock stood still) two frames drawn in ONE order already differ
-        /// in about 120 pixels, and with the depth laid first in 1,660, along the island's outline and as single samples
-        /// lost across its top. Without multisampling the two orders are the same picture to the pixel.
+        /// tier or a run at supersampling 1), whatever the scene, because there "no pixel moves" cannot be shown and was
+        /// measured not to hold to the bit. On the reference desktop (RX 6900 XT, 1600x900, eight samples, the clock stood
+        /// still) two frames drawn in ONE order already differ, in 109 to 127 pixels in Mars and 206 on the Moon; with
+        /// the depth laid first they differ in 1,660 and 3,562, across the island's top and along its outline. Most of
+        /// those are one step of 255 (two in three in Mars, four in five on the Moon) and they go either way - on the Moon
+        /// too, where a sample of the black sky showing through the pale stone could only darken it, and by far more - so
+        /// it is the resolve rounding differently and not coverage lost. What makes a multisampled frame differ from
+        /// itself was not found. Without multisampling the two orders are the same picture to the pixel.
         /// </para>
         /// </summary>
         /// <param name="scene">The scene being drawn.</param>
