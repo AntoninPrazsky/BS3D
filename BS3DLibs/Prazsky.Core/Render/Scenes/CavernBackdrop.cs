@@ -401,6 +401,13 @@ namespace Prazsky.Core.Render
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
+        /// <summary>
+        /// Zero: the hall is always drawn before the arena (#1098). Under supersampling it is shaded into its own target and
+        /// laid over the frame with the depth test off; drawn directly, its crystals blend and write depth, so what stands
+        /// behind one has to be in the frame before it and what stands in front of one after.
+        /// </summary>
+        public override float FollowsArenaWithin => 0f;
+
         private void DrawHall(CavernMeshes meshes, EffectTechnique rock, EffectTechnique formation, EffectTechnique crystal, RasterizerState cull)
         {
             _graphicsDevice.BlendState = BlendState.Opaque;

@@ -1457,17 +1457,19 @@ namespace BS3D.Screens
             //before the backdrop has rolled a map and fitted them
             Game.DrawCeilingRigging(Game.MenuCeilingRigging, _menuCeilingWorld, overGlass: false);
 
-            //The savanna's fires with the setting, so the ceiling's glass bends them (#641, the session's own call)
-            Game.DrawTranslucentsBehindGlass(sceneFrame);
-
-            //The setting is what stands behind the preview plate from under it (#541) - see the session's own call
-            Game.GrabCeilingBackground(Game.MenuCeilingRenderer, _menuCeilingWorld);
+            //The environment's first slot (#1098, the session's own call): with it the savanna's fires, so the ceiling's
+            //glass bends them (#641), and from under the preview plate the copy that glass bends, which holds the setting
+            //alone (#541). The host draws the environment here only when something needs it under the gun and the cluster.
+            Game.DrawEnvironmentBeforeObjects(sceneFrame, Game.MenuCeilingRenderer, _menuCeilingWorld);
 
             //Where the session's gun stands, in the slot it draws in during play — after the grab, so the copy the
             //preview plate's glass bends holds the setting alone, as it does there
             gun?.Draw();
 
             Game.Balls.Draw(Game.WallClock);
+
+            //The environment's second slot (#1098): after the last of this frame that writes depth, before the glass
+            Game.DrawEnvironmentAfterObjects(sceneFrame);
 
             Game.DrawSettingGlass();
 

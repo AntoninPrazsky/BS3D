@@ -303,14 +303,20 @@ namespace Prazsky.Core.Render
         /// <inheritdoc/>
         public override void OnDetailChanged(float sceneDetail) => SelectMarsTechnique(sceneDetail);
 
-        /// <summary>The ground, then Phobos and Deimos over it.</summary>
+        /// <summary>The ground and what stands on it.</summary>
         public override void Draw(in SceneFrame frame)
         {
             DrawMarsTerrain(frame);
             if (_berm != null) _plants.Draw(frame, _bermStones, _marsConfig.Air.HorizonHazeDistance, detail: true, Services.FineMeshes);
             _plants.Draw(frame, _rocks, _marsConfig.Air.HorizonHazeDistance, detail: true, Services.FineMeshes);
-            DrawMarsMoons(frame);
         }
+
+        /// <summary>
+        /// Phobos and Deimos, blended over the dome. They are drawn at the far plane and depth-read, so they show only where
+        /// nothing in the frame has written depth, in whatever order the ground and the arena were drawn: the backdrop's
+        /// <see cref="Backdrop.FollowsArenaWithin"/> stays infinite.
+        /// </summary>
+        public override void DrawBlended(in SceneFrame frame) => DrawMarsMoons(frame);
 
         /// <inheritdoc/>
         public override bool HasShadowCasters => true;

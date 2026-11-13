@@ -855,15 +855,31 @@ namespace Prazsky.Core.Render
             _tropicalMossMeshes = null;
         }
 
-        /// <summary>
-        /// The land, the lagoon over it, what stands on the sand and the flock over the water.
-        /// </summary>
+        /// <summary>The land and the bank round the island: what the lagoon is drawn over.</summary>
         public override void Draw(in SceneFrame frame)
         {
-            //The land first (it writes depth), then the lagoon depth-read over the bed it owns,
-            //then the scatter that stands on the sand, then the flock over the water.
+            //The land first (it writes depth); the lagoon reads the bed it owns from DrawBlended
             DrawTropicalTerrain(frame);
             if (_berm != null) _plants.Draw(frame, _berm.Buckets, _tropicalConfig.Terrain.HorizonHazeDistance, detail: true, Services.FineMeshes);
+        }
+
+        /// <summary>
+        /// The lagoon's clip less <see cref="LAGOON_CLEAR_MARGIN"/>: no water is drawn inside the clip (<c>Sea.fx</c> cuts
+        /// it at the rest position's radius), and the swell that could carry a vertex inward dies before it.
+        /// </summary>
+        public override float FollowsArenaWithin =>
+            _tropicalConfig.Terrain.ShoreRadius - _tropicalConfig.Terrain.CoastNoise - TROPICAL_WATERLINE_BIAS - LAGOON_CLEAR_MARGIN;
+
+        private const float LAGOON_CLEAR_MARGIN = 6f;
+
+        /// <summary>
+        /// The lagoon over the land, then what stands on the sand and the flock over the water: from the first draw that
+        /// writes no depth to the end, in the order they always had (#1098).
+        /// </summary>
+        public override void DrawBlended(in SceneFrame frame)
+        {
+            //The lagoon depth-read over the bed the land owns, then the scatter that stands on the sand, then the flock
+            //over the water.
             DrawTropicalWater(frame);
             DrawPalms(frame);
             DrawTropicalRocks(frame);

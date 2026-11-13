@@ -404,6 +404,10 @@ namespace Prazsky.Core.Render
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
+        /// <summary>Zero: the tent is one pass with the depth test off, which covers whatever is in the frame, so it is always
+        /// drawn before the arena (#1098).</summary>
+        public override float FollowsArenaWithin => 0f;
+
         private void FillFloor(float innerRadius)
         {
             float outer = _config.Tent.WallRadius * FLOOR_REACH;

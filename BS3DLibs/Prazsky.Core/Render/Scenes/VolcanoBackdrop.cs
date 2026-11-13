@@ -529,19 +529,31 @@ namespace Prazsky.Core.Render
         private EffectTechnique _drawnTechnique;
         private readonly EffectTechnique _fullTechnique, _mediumTechnique, _reducedTechnique;
 
-        /// <summary>The flank, then the fountains, the plume and the blaze over it.</summary>
+        /// <summary>The flank and what stands on it; the fountains, the plume and the blaze over it are <see cref="DrawBlended"/>.</summary>
         public override void Draw(in SceneFrame frame)
         {
-            //The flank first (it writes depth), then the fountains and the plume over it — they are
-            //part of the far scene rather than foreground weather, because the cluster hangs in front
-            //of the cone and has to occlude it. Only the ash is an overlay.
+            //The flank first (it writes depth)
             if ((Layers & VolcanoLayer.Terrain) != 0) DrawVolcanoTerrain(frame);
             //What stands on the field (#679), opaque and depth-writing, before anything translucent over it
             if (_planting != null && (Layers & VolcanoLayer.Planting) != 0)
                 _plants.Draw(frame, _planting.Buckets, _volcanoConfig.HorizonHazeDistance, detail: true, Services.FineMeshes);
             if (_country != null && _sceneDetail > 0.5f && (Layers & VolcanoLayer.Country) != 0) DrawCountry(frame);
-            DrawLavaFountains(frame);
         }
+
+        /// <summary>
+        /// The fumaroles' steam, the plume, the jets and the blaze over the flank — part of the far scene rather than
+        /// foreground weather, because the cluster hangs in front of the cone and has to occlude it. Only the ash is an
+        /// overlay.
+        /// </summary>
+        public override void DrawBlended(in SceneFrame frame) => DrawLavaFountains(frame);
+
+        /// <summary>
+        /// Zero: the volcano is always drawn before the arena (#1098). A fumarole stands as near as
+        /// <see cref="SteamConfig.NearestVent"/> and its steam leans downwind for the whole of its life
+        /// (<c>LavaFountain.fx</c>'s <c>SteamVS</c>), as far as the island's edge when the vent stands upwind of it: a puff can
+        /// lie between the play lens and the island, where the island is drawn over it.
+        /// </summary>
+        public override float FollowsArenaWithin => 0f;
 
         /// <summary>
         /// What stands on the land past the field (#748), the quarters round the arena the camera can see and none of the

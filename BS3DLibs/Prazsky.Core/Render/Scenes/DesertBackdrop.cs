@@ -99,9 +99,25 @@ namespace Prazsky.Core.Render
         {
             _desertPass.Draw(frame, Services.TerrainHoleRadius);
             _pyramids.Draw(frame);
+        }
+
+        /// <summary>
+        /// The creatures and the flock: the creatures' shadows, prints, burrows and puffs of sand are blended over the sand
+        /// and write no depth (<see cref="DesertCritters.Draw"/>), so everything from them on is the blended half (#1098).
+        /// </summary>
+        public override void DrawBlended(in SceneFrame frame)
+        {
             _critters.Draw(frame);
             Services.Birds.Draw(frame, _desertConfig.Birds);
         }
+
+        /// <summary>
+        /// Zero: the desert is always drawn before the arena (#1098). A creature comes up within
+        /// <see cref="DesertCritters.RING_IN"/> of the island and walks from there, as far as the island's foot, and the sand
+        /// it throws stands a unit over the ground: a puff can lie between a lens and the island's wall, where the wall is
+        /// drawn over it.
+        /// </summary>
+        public override float FollowsArenaWithin => 0f;
 
         /// <inheritdoc/>
         public override bool TryGetViewpoint(float bearing, out SceneViewpoint viewpoint)

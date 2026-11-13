@@ -845,6 +845,9 @@ namespace Testbed
             //of High's grown fork and boughs
             if (_options.FineMeshes is bool fineMeshes) _sceneRenderer.FineMeshes = fineMeshes;
 
+            //#1098: "envorder=" pins where the environment is drawn; auto, the default, is the rule (ResolveEnvironmentPlace)
+            _environmentOrder = _options.EnvironmentOrder;
+
             //#471 PROBE: "shadow=" pins SceneRenderer.ShadowScale so a sun shadow map can be measured and
             //photographed against its own absence WITHOUT a second build - 0 is what a scene with no map
             //renders, exactly. It is alternable (see ApplyVariant), which is the point: alt=shadow=0;shadow=1
@@ -1404,7 +1407,7 @@ namespace Testbed
         /// or a setter whose whole effect lands in the same frame.
         /// </summary>
         private static readonly string[] ALTERNATION_DIALS =
-            { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "finemeshes", "cityreflect", "cityreflectreach", "cityreflectsteps", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano", "aurora", "cavern", "meadow", "mountain" };
+            { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "finemeshes", "envorder", "cityreflect", "cityreflectreach", "cityreflectsteps", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano", "aurora", "cavern", "meadow", "mountain" };
 
         /// <summary>
         /// Prints the sweep's plan before the first window, and names anything it will not switch. A pin that
@@ -1566,6 +1569,12 @@ namespace Testbed
                     //The mountain's layers (#1035): "mountain=all/-range"
                     case "mountain":
                         _sceneRenderer.MountainLayers = TestOptions.ParseMountainLayers(pin.Value);
+                        break;
+
+                    //Where the environment is drawn (#1098): "envorder=first" is the order before it, "envorder=auto" the
+                    //rule. Read at the top of the next frame's scene block, so nothing carries across the switch.
+                    case "envorder":
+                        _environmentOrder = TestOptions.ParseEnvironmentOrder(pin.Value);
                         break;
 
                     //On/off like the switch it mirrors: "nopost=1" is the argument, "nopost=0" the authored look

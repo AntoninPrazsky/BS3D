@@ -256,6 +256,22 @@ namespace Testbed.Diagnostics
         public bool? FineMeshes { get; private set; }
 
         /// <summary>
+        /// <c>envorder=&lt;auto|first|island|cluster&gt;</c>: where in the frame the environment (the backdrop or the city,
+        /// the wood) is drawn (#1098). <c>auto</c>, the default, is the rule the Game's host also draws by: after the island,
+        /// the gun and the cluster wherever the picture is the same in either order, sooner where the order decides a pixel
+        /// (<c>Testbed.ResolveEnvironmentPlace</c>). The other three <b>pin</b> a place whatever the rule says:
+        /// <c>first</c> is straight after the sky, the order every frame had before; <c>island</c> after the island and its
+        /// pit; <c>cluster</c> after the gun, the cluster and the plate's rigging as well.
+        /// <para>
+        /// It exists to be alternated (<c>alt=envorder=first;envorder=auto</c>): what the order saves is read between two
+        /// windows of one process, and two frames of one process with the clock stood still are what show the picture is
+        /// the same. A pinned place draws what it is told, so <c>cluster</c> in a scene the rule keeps first is a wrong
+        /// picture and a meaningless cost.
+        /// </para>
+        /// </summary>
+        public EnvironmentPlace EnvironmentOrder { get; private set; } = EnvironmentPlace.Auto;
+
+        /// <summary>
         /// <c>cityreflect=&lt;strength&gt;</c>: the city's windows mirroring the towers round them (#1065), the Game's High and
         /// Ultra look - the towers' draw takes <c>InstancedCityReflect</c> over a map of the city. 1 by default; 0 draws the
         /// plain technique (the Game's Low and Medium), so the two can be photographed from one pinned camera and, through
@@ -500,6 +516,7 @@ namespace Testbed.Diagnostics
                 else if (arg.StartsWith("rscale=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("rscale=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedRscale)) options.RenderScale = parsedRscale;
                 else if (arg.StartsWith("detail=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("detail=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedDetail)) options.SceneDetail = parsedDetail;
                 else if (arg.StartsWith("finemeshes=", StringComparison.OrdinalIgnoreCase)) options.FineMeshes = arg.Substring("finemeshes=".Length) is not ("0" or "false" or "off");
+                else if (arg.StartsWith("envorder=", StringComparison.OrdinalIgnoreCase)) options.EnvironmentOrder = ParseEnvironmentOrder(arg.Substring("envorder=".Length));
                 else if (arg.StartsWith("cityreflect=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("cityreflect=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float cityReflect)) options.CityReflect = MathF.Max(0f, cityReflect);
                 else if (arg.StartsWith("shadow=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("shadow=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedShadow)) options.ShadowScale = parsedShadow;
                 //Read here for the same reason "logfps" is (see the comment above it): an argument this parse
@@ -617,6 +634,15 @@ namespace Testbed.Diagnostics
         public static MeadowLayer ParseMeadowLayers(string list) => ParseLayers<MeadowLayer>(list);
 
         public static MountainLayer ParseMountainLayers(string list) => ParseLayers<MountainLayer>(list);
+
+        /// <summary><c>envorder=</c>'s value (<see cref="EnvironmentOrder"/>); anything unread is <c>auto</c>, the rule.</summary>
+        public static EnvironmentPlace ParseEnvironmentOrder(string value) => value.Trim().ToLowerInvariant() switch
+        {
+            "first" => EnvironmentPlace.First,
+            "island" => EnvironmentPlace.AfterIsland,
+            "cluster" => EnvironmentPlace.AfterCluster,
+            _ => EnvironmentPlace.Auto
+        };
 
         private static T ParseLayers<T>(string list) where T : struct, Enum
         {
@@ -820,5 +846,24 @@ namespace Testbed.Diagnostics
             result = new Vector3(x, y, z);
             return true;
         }
+    }
+
+    /// <summary>
+    /// Where the Testbed's frame puts the environment (#1098): <see cref="Auto"/> is the rule, the other three pin one
+    /// place (<c>envorder=</c>, <see cref="TestOptions.EnvironmentOrder"/>).
+    /// </summary>
+    public enum EnvironmentPlace
+    {
+        /// <summary>The rule picks per frame (<c>Testbed.ResolveEnvironmentPlace</c>).</summary>
+        Auto,
+
+        /// <summary>Straight after the sky, before the island: the order every frame had until #1098.</summary>
+        First,
+
+        /// <summary>After the island and its pit, before the gun and the cluster.</summary>
+        AfterIsland,
+
+        /// <summary>After the island, the gun, the cluster and the plate's rigging: everything that writes depth.</summary>
+        AfterCluster
     }
 }

@@ -298,6 +298,15 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
+        /// Inside the ring the light cycles keep to, less <see cref="CYCLE_CLEAR_MARGIN"/>: their walls of light are the one
+        /// thing here that is added over the frame without writing depth (<see cref="LightCycles.Draw"/>), and a wall runs
+        /// between two nodes of that ring. The void's quad is tested at the far plane, behind everything.
+        /// </summary>
+        public override float FollowsArenaWithin => LightCycles.RING_MIN - CYCLE_CLEAR_MARGIN;
+
+        private const float CYCLE_CLEAR_MARGIN = 4f;
+
+        /// <summary>
         /// Builds the distant solids (#393): <see cref="GridTowerConfig.Count"/> plain closed rectangular prisms,
         /// placed on a ring around the arena with a deterministic seed (<see cref="GridTowerConfig.Seed"/>)
         /// so the Game, the Testbed and the map editor all stand them in the same places — the map itself

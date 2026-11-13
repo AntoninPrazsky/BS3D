@@ -205,6 +205,9 @@ namespace Prazsky.Core.Render
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
+        /// <inheritdoc/>
+        public override bool DrawsGrounded => _patch != null;
+
         /// <summary>
         /// Everything planted (#609), opaque and depth-writing after the grass, one instanced draw per bucket — the
         /// savanna's own draw, lit from the same sun and dome as the field. The haze distance is stated per frame:

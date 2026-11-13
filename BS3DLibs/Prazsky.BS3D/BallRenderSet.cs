@@ -1931,9 +1931,53 @@ namespace Prazsky.BS3D
             _motionRoundCount = 0;
             _anyBallMoving = false;
 
+            _lowestStored = float.PositiveInfinity;
+            _farthestStoredSquared = 0f;
+
             SolveLodDistances(camera);
 
             return new BallDrawFrame(this, camera.Position);
+        }
+
+        //Where the open frame's instances reach (OpaqueWithin): the lowest middle and the farthest from the world's vertical
+        //axis, squared. Kept by StoreAt, the one write into the buckets, and reset by BeginFrame.
+        private float _lowestStored = float.PositiveInfinity;
+        private float _farthestStoredSquared;
+
+        /// <summary>The most a drawn ball's surface stands from its instance's middle: the cutter's blade and a kind card's
+        /// enlarged ball reach past a ball's own half unit.</summary>
+        private const float STORED_REACH = 2f;
+
+        /// <summary>
+        /// Whether everything collected into the open frame so far can be drawn <b>before</b> what stands behind it (#1098):
+        /// every ball opaque, none low enough to be fading, and none outside <paramref name="radius"/> of the world's vertical
+        /// axis. A host asks before it decides whether its environment is drawn after <see cref="Draw"/> or before it.
+        /// <para>
+        /// <b>What it guards.</b> A ball that is blended is laid over whatever the target already holds and then writes
+        /// depth, so what stands behind it has to be there first: a transparent style's films and the clear glass kind
+        /// (<see cref="DrawShell"/>, <see cref="DrawHollow"/>), and any ball inside the band over the kill plane, whose
+        /// pixels fade (<paramref name="fadeBelow"/>, <c>SceneRenderer.KillPlaneFadeTop</c>). And a ball far enough out
+        /// can stand behind something of the scene that is itself blended and writes no depth, which is drawn over the
+        /// ball only if it comes after it (<paramref name="radius"/>, <c>SceneRenderer.EnvironmentFollowsArenaWithin</c>).
+        /// In each of those the order decides a pixel, so the host keeps the order it always drew in.
+        /// </para>
+        /// <para>
+        /// Asked of the frame as collected <b>so far</b>: a caller that adds more balls after asking adds only ones this
+        /// would have passed, or asks again.
+        /// </para>
+        /// </summary>
+        /// <param name="fadeBelow">The height under which a ball's pixels are blended (the top of the kill plane's fade).</param>
+        /// <param name="radius">How far from the world's vertical axis a ball may stand; infinity for no bound.</param>
+        public bool OpaqueWithin(float fadeBelow, float radius)
+        {
+            if (BallStyles.IsTransparent(_style)) return false;
+            for (int lod = 0; lod < LodCount; lod++)
+                if (_counts[HOLLOW_REGION_START + lod] > 0) return false;
+
+            if (_lowestStored - STORED_REACH < fadeBelow) return false;
+
+            float within = radius - STORED_REACH;
+            return within > 0f && _farthestStoredSquared < within * within;
         }
 
         /// <summary>
@@ -3199,6 +3243,12 @@ namespace Prazsky.BS3D
 
             bucket[count] = instance;
             _counts[bucketIndex] = count + 1;
+
+            //How low and how far out the frame reaches (OpaqueWithin): three reads of the matrix the bucket just took
+            float x = instance.World.M41, y = instance.World.M42, z = instance.World.M43;
+            if (y < _lowestStored) _lowestStored = y;
+            float out2 = x * x + z * z;
+            if (out2 > _farthestStoredSquared) _farthestStoredSquared = out2;
         }
     }
 

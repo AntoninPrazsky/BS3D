@@ -194,12 +194,27 @@ namespace Prazsky.Core.Render
         private void BuildSprayBuffers() =>
             Services.BuildBillboardParticles(_seaConfig.Spray.ParticleCount, 5023, ref _sprayVertexBuffer, ref _sprayIndexBuffer);
 
+        /// <summary>Nothing: the sea has no opaque half (<see cref="DrawBlended"/>).</summary>
+        public override void Draw(in SceneFrame frame) { }
+
+        /// <summary>
+        /// Zero: the sea is always drawn before the arena (#1098), and that order is the design. The water writes no depth
+        /// (#131), so the island's stone under the waterline, the pool in the drain and a ball sinking through the surface are
+        /// drawn over it and fade into it by their own shader (<see cref="ApplySubmerge"/>); drawn after them it would cover
+        /// every one.
+        /// </summary>
+        public override float FollowsArenaWithin => 0f;
+
         /// <summary>
         /// Draws the sea: a camera-centred grid (snapped to a cell so the waves do not swim) displaced into
         /// Gerstner swell with foam, subsurface scattering and a Fresnel reflection of the current dome,
         /// shadowed by the same cloud field as the rest of the scene.
+        /// <para>
+        /// <b>All of it is the blended half</b> (#1098): the water is the first thing drawn and writes no depth, so
+        /// <see cref="Draw"/> draws nothing and the sea comes after whatever it lies over.
+        /// </para>
         /// </summary>
-        public override void Draw(in SceneFrame frame)
+        public override void DrawBlended(in SceneFrame frame)
         {
             //The pool standing in the drain (#132): the cut around the island keeps a calm disc of water
             //where the funnel's glass cone crosses the mean level, and discards only the annulus hidden

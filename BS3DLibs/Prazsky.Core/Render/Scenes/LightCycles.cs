@@ -37,7 +37,8 @@ namespace Prazsky.Core.Render
 
         //The lattice they ride, the ring they keep to, how fast they ride (units a second) and how often one goes straight on
         private const float LATTICE = 16f;
-        private const float RING_MIN = 56f, RING_MAX = 124f;
+        internal const float RING_MIN = 56f;
+        private const float RING_MAX = 124f;
         internal const float SPEED = 24f;
         private const float STRAIGHT_SHARE = 0.6f;
 

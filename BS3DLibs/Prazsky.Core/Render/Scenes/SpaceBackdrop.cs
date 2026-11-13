@@ -212,6 +212,10 @@ namespace Prazsky.Core.Render
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
+        /// <summary>Zero: the pass is drawn with the depth test off and covers whatever is in the frame, so it is always
+        /// drawn before the arena (#1098).</summary>
+        public override float FollowsArenaWithin => 0f;
+
         /// <inheritdoc/>
         public override bool TryGetLightRig(float wallClock, out SceneLightRig rig)
         {
