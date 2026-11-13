@@ -158,8 +158,8 @@ namespace Testbed
 
                 //THE ISLAND'S DEPTH, BEFORE THE ENVIRONMENT (#1098), as the Game's BeginSceneDraw lays it. The
                 //environment's pixel programs are the dearest in the frame, a draw is depth-tested against what
-                //earlier draws wrote before its program runs, and from the play camera the island hides most of the
-                //ground: with the island's depth in first, with no colour, every pixel of the backdrop, the city and
+                //earlier draws wrote before its program runs, and this program's game-mode camera looks down on the
+                //island, which stands in front of much of the ground: with the island's depth in first, with no colour, every pixel of the backdrop, the city and
                 //the wood that the island stands in front of is turned away unshaded. The island itself is still drawn
                 //after them, below, where it always was, which is why no pixel moves (ArenaIsland.DrawIslandDepth has
                 //the argument, and Backdrop.FollowsIslandDepth the scenes it does not hold in; never into a multisampled

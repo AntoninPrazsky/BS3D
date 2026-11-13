@@ -1277,9 +1277,10 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// The island's depth alone (#1098): <see cref="DrawIsland"/>'s own draws with no colour written, for a host that
         /// draws its environment between this and the island itself. The environment's pixel programs are the dearest in
-        /// the frame, a draw is depth-tested against what earlier draws wrote before its program runs, and from a play
-        /// camera the island hides most of the ground: with its depth already in the frame, the ground under it is never
-        /// shaded.
+        /// the frame, a draw is depth-tested against what earlier draws wrote before its program runs, and a lens that
+        /// looks down on the island has it in front of much of the ground: with its depth already in the frame, the ground
+        /// behind it is never shaded. How much that is depends on the lens
+        /// (<see cref="SceneRenderer.EnvironmentFollowsIslandDepth"/>).
         /// <para>
         /// <b>Why it changes no pixel.</b> The host goes on to draw the environment and then the island, in the order it
         /// always did. A sample of the environment that lies behind the island was always painted over by the island's

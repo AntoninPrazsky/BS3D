@@ -1062,8 +1062,10 @@ namespace BS3D
             _island.EventGlow = _scene == SceneKind.Volcano ? _sceneRenderer.VolcanoEruption(_wallClock) : 0f;
 
             //THE ISLAND'S DEPTH, BEFORE THE ENVIRONMENT (#1098). The environment's pixel programs are the dearest in the
-            //frame, a draw is depth-tested against what earlier draws wrote before its program runs, and from the play
-            //camera the island hides most of the ground: so the island's depth goes in first, with no colour, and every
+            //frame, a draw is depth-tested against what earlier draws wrote before its program runs, and the
+            //island stands in front of the ground wherever the lens looks down on it (the front end's orbit and a level's
+            //opening tour most of all; the play camera sees the island as a strip along the bottom of the frame, so play
+            //saves the least): so the island's depth goes in first, with no colour, and every
             //pixel of the backdrop, the city and the wood that the island stands in front of is turned away unshaded.
             //The island itself is still drawn after them, below, where it always was, which is why no pixel moves
             //(ArenaIsland.DrawIslandDepth has the argument, and Backdrop.FollowsIslandDepth the scenes it does not hold

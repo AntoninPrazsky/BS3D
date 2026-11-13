@@ -1687,8 +1687,10 @@ namespace Prazsky.Core.Render
         /// <para>
         /// <b>Why a host asks.</b> The environment's pixel programs are the dearest in the frame, and a draw is depth-tested
         /// against what earlier draws wrote before its program runs: with the island's depth already in the frame, the
-        /// environment is shaded only where the island leaves it showing, and from a play camera the island hides most of
-        /// the ground. The island's colour is drawn where it always was, after the environment, so nothing of the picture
+        /// environment is shaded only where the island leaves it showing, and what that saves is what the island covers from the
+        /// lens: much from one that looks down on it (the front end's orbit, a level's opening tour, the Testbed's game-mode
+        /// camera), little from the Game's play camera, which stands low behind the gun and sees the island as a strip along
+        /// the bottom of the frame. The island's colour is drawn where it always was, after the environment, so nothing of the picture
         /// moves: <c>ArenaIsland.DrawIslandDepth</c> has the argument.
         /// </para>
         /// <para>
