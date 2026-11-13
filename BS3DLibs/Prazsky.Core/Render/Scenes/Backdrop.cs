@@ -42,8 +42,7 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The scene's environment (<see cref="SceneRenderer.DrawEnvironmentOpaque"/>), up to the first thing it draws
-        /// without writing depth: opaque and depth-tested, so it may be drawn before or after anything else that is. A scene
-        /// that replaces the sky draws the whole of itself here, its sky included.
+        /// without writing depth. A scene that replaces the sky draws the whole of itself here, its sky included.
         /// </summary>
         public abstract void Draw(in SceneFrame frame);
 
@@ -51,30 +50,32 @@ namespace Prazsky.Core.Render
         /// The rest of the environment (<see cref="SceneRenderer.DrawEnvironmentBlended"/>, #1098): from the first thing the
         /// scene draws without writing depth to its end, in the order it always had — the sea's water, the lagoon and what
         /// stands on its beach, the storm, the volcano's fountains, Mars's moons, the desert's creatures. It is drawn after
-        /// <see cref="Draw"/> and after whatever it is blended over, the sky included: a sky drawn between the two halves is
-        /// under all of it. It states the states it needs and leaves the ones <see cref="Draw"/> leaves. Nothing by default.
+        /// <see cref="Draw"/> and after whatever it is blended over, the host's own wood and the sky included: the gap
+        /// between the two halves is where a sky drawn after the opaque scene belongs, under all of this. ⚠ It starts from
+        /// the states <see cref="Draw"/> leaves (the scene's baseline: alpha blend, depth test and write, back-face
+        /// culling) and several of these draw under them unstated, so a host that draws something of its own in the gap
+        /// puts that baseline back before this. It leaves the same. Nothing by default.
         /// </summary>
         public virtual void DrawBlended(in SceneFrame frame) { }
 
         /// <summary>
-        /// How far from the arena's axis (the world's vertical axis, which the island, the gun and the cluster stand on) the
-        /// lens may stand, and a ball may fly, while a host draws this environment <b>after</b> the island, the gun and the
-        /// cluster instead of before them (<see cref="SceneRenderer.EnvironmentFollowsArenaWithin"/>, #1098). The order
-        /// decides a pixel only where something drawn without writing depth lies nearer the lens than a thing of the arena:
-        /// drawn first it is painted over by the arena, drawn after it covers it.
+        /// Whether a host lays the island's <b>depth</b> into the frame before this environment and draws the island
+        /// itself after it, where it always was (<see cref="SceneRenderer.EnvironmentFollowsIslandDepth"/>, #1098, which
+        /// also refuses a multisampled target whatever this answers). True by default, and from any lens: every pixel of the environment the island stands in front of is then turned away
+        /// by the depth test before its program runs, and the picture is the old one to the sample, because the island's
+        /// colour still goes over everything the environment drew — opaque or blended, nearer than the island or not
+        /// (<c>ArenaIsland.DrawIslandDepth</c> has the whole argument).
         /// <para>
-        /// <b>Infinity</b>, the default: everything the backdrop draws writes depth wherever it draws, or is tested at the
-        /// far plane, so the picture is the same in either order from any lens. <b>A radius</b>: nothing it draws without
-        /// writing depth enters the upright cylinder of that radius about the axis, so no sight line between two points
-        /// inside the cylinder crosses one. <b>Zero</b>: it is always drawn first — a pass with the depth test off covers
-        /// whatever is in the frame, and water the arena stands in is drawn under it by design.
+        /// <b>False</b> where that argument fails or buys nothing: where the island is itself blended over the
+        /// environment (the sea: its stone under the waterline fades into the water, which therefore has to be in the
+        /// frame behind it), where the environment blends something that also WRITES depth (the cavern's crystals: one
+        /// standing in front of the island shows the hall behind it, the part behind the island included), and where the
+        /// environment is one pass with the depth test off, which no depth turns away (space, the dream, the big top, and
+        /// the cavern scaled up from its own target). ⚠ A backdrop that gains a draw of the second kind — blended, or
+        /// faded by its alpha, and writing depth — where it can stand between a lens and the island says false too.
         /// </para>
         /// </summary>
-        public virtual float FollowsArenaWithin => float.PositiveInfinity;
-
-        /// <summary>Whether the scene draws anything in <see cref="DrawGrounded"/> (<see cref="SceneRenderer.DrawsGrounded"/>):
-        /// false by default, like the draw itself.</summary>
-        public virtual bool DrawsGrounded => false;
+        public virtual bool FollowsIslandDepth => true;
 
         /// <summary>
         /// The depth of a backdrop's solid things that can stand in front of the arena (#755), drawn into the caller's

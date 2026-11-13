@@ -761,15 +761,6 @@ namespace Prazsky.Core.Render
         public override void Draw(in SceneFrame frame) { }
 
         /// <summary>
-        /// Inside <see cref="ARENA_CLEAR_SHARE"/> of the cells' inner radius: every puff keeps outside that radius
-        /// (<see cref="StormCellClearance"/> steers a cell's middle round the arena by the inner radius plus the largest cell's
-        /// own), and the rest is room for a puff's quad, the rain under a cell and a bolt's sideways run.
-        /// </summary>
-        public override float FollowsArenaWithin => MathF.Max(_stormConfig.Clouds.InnerRadius, 1f) * ARENA_CLEAR_SHARE;
-
-        private const float ARENA_CLEAR_SHARE = 0.6f;
-
-        /// <summary>
         /// Draws the storm (#219): the field of cumulus cells, then the lightning channel over it.
         /// <para>
         /// <b>Alpha-blended, depth-read, depth-write off</b> — the sea's spray and the mountain's snow are

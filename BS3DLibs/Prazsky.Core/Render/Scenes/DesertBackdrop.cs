@@ -111,14 +111,6 @@ namespace Prazsky.Core.Render
             Services.Birds.Draw(frame, _desertConfig.Birds);
         }
 
-        /// <summary>
-        /// Zero: the desert is always drawn before the arena (#1098). A creature comes up within
-        /// <see cref="DesertCritters.RING_IN"/> of the island and walks from there, as far as the island's foot, and the sand
-        /// it throws stands a unit over the ground: a puff can lie between a lens and the island's wall, where the wall is
-        /// drawn over it.
-        /// </summary>
-        public override float FollowsArenaWithin => 0f;
-
         /// <inheritdoc/>
         public override bool TryGetViewpoint(float bearing, out SceneViewpoint viewpoint)
         {

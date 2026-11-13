@@ -256,20 +256,22 @@ namespace Testbed.Diagnostics
         public bool? FineMeshes { get; private set; }
 
         /// <summary>
-        /// <c>envorder=&lt;auto|first|island|cluster&gt;</c>: where in the frame the environment (the backdrop or the city,
-        /// the wood) is drawn (#1098). <c>auto</c>, the default, is the rule the Game's host also draws by: after the island,
-        /// the gun and the cluster wherever the picture is the same in either order, sooner where the order decides a pixel
-        /// (<c>Testbed.ResolveEnvironmentPlace</c>). The other three <b>pin</b> a place whatever the rule says:
-        /// <c>first</c> is straight after the sky, the order every frame had before; <c>island</c> after the island and its
-        /// pit; <c>cluster</c> after the gun, the cluster and the plate's rigging as well.
+        /// <c>envorder=&lt;auto|first|island&gt;</c>: whether the island's depth is laid into the frame before the
+        /// environment (the backdrop or the city, the wood), so that the environment is shaded only where the island
+        /// leaves it showing (#1098). <c>auto</c>, the default, asks the scene and the target, as the Game does
+        /// (<c>SceneRenderer.EnvironmentFollowsIslandDepth</c>: not in five scenes, and never into a multisampled target,
+        /// which is <c>ssaa=1</c> unless <c>msaa=0</c>). The other two <b>pin</b> it whatever that answers:
+        /// <c>first</c> draws the environment first with nothing before it, the frame as it was before #1098, and
+        /// <c>island</c> lays the depth in every scene and under multisampling too.
         /// <para>
-        /// It exists to be alternated (<c>alt=envorder=first;envorder=auto</c>): what the order saves is read between two
+        /// It exists to be alternated (<c>alt=envorder=first;envorder=auto</c>): what the depth saves is read between two
         /// windows of one process, and two frames of one process with the clock stood still are what show the picture is
-        /// the same. A pinned place draws what it is told, so <c>cluster</c> in a scene the rule keeps first is a wrong
-        /// picture and a meaningless cost.
+        /// the same. A pin draws what it is told: <c>island</c> at <c>ssaa=1</c> is the picture multisampling changes
+        /// (single samples lost along the island's outline and across its top), which is the measurement of what the
+        /// answer guards.
         /// </para>
         /// </summary>
-        public EnvironmentPlace EnvironmentOrder { get; private set; } = EnvironmentPlace.Auto;
+        public EnvironmentOrder EnvironmentOrder { get; private set; } = EnvironmentOrder.Auto;
 
         /// <summary>
         /// <c>cityreflect=&lt;strength&gt;</c>: the city's windows mirroring the towers round them (#1065), the Game's High and
@@ -635,13 +637,12 @@ namespace Testbed.Diagnostics
 
         public static MountainLayer ParseMountainLayers(string list) => ParseLayers<MountainLayer>(list);
 
-        /// <summary><c>envorder=</c>'s value (<see cref="EnvironmentOrder"/>); anything unread is <c>auto</c>, the rule.</summary>
-        public static EnvironmentPlace ParseEnvironmentOrder(string value) => value.Trim().ToLowerInvariant() switch
+        /// <summary><c>envorder=</c>'s value (<see cref="EnvironmentOrder"/>); anything unread is <c>auto</c>, the scene's answer.</summary>
+        public static EnvironmentOrder ParseEnvironmentOrder(string value) => value.Trim().ToLowerInvariant() switch
         {
-            "first" => EnvironmentPlace.First,
-            "island" => EnvironmentPlace.AfterIsland,
-            "cluster" => EnvironmentPlace.AfterCluster,
-            _ => EnvironmentPlace.Auto
+            "first" => EnvironmentOrder.First,
+            "island" => EnvironmentOrder.Island,
+            _ => EnvironmentOrder.Auto
         };
 
         private static T ParseLayers<T>(string list) where T : struct, Enum
@@ -849,21 +850,18 @@ namespace Testbed.Diagnostics
     }
 
     /// <summary>
-    /// Where the Testbed's frame puts the environment (#1098): <see cref="Auto"/> is the rule, the other three pin one
-    /// place (<c>envorder=</c>, <see cref="TestOptions.EnvironmentOrder"/>).
+    /// Whether the Testbed's frame lays the island's depth before the environment (#1098): <see cref="Auto"/> asks the
+    /// scene, the other two pin it (<c>envorder=</c>, <see cref="TestOptions.EnvironmentOrder"/>).
     /// </summary>
-    public enum EnvironmentPlace
+    public enum EnvironmentOrder
     {
-        /// <summary>The rule picks per frame (<c>Testbed.ResolveEnvironmentPlace</c>).</summary>
+        /// <summary>The scene and the target answer (<c>SceneRenderer.EnvironmentFollowsIslandDepth</c>), as in the Game.</summary>
         Auto,
 
-        /// <summary>Straight after the sky, before the island: the order every frame had until #1098.</summary>
+        /// <summary>The environment first, with nothing before it but the sky: the order every frame had until #1098.</summary>
         First,
 
-        /// <summary>After the island and its pit, before the gun and the cluster.</summary>
-        AfterIsland,
-
-        /// <summary>After the island, the gun, the cluster and the plate's rigging: everything that writes depth.</summary>
-        AfterCluster
+        /// <summary>The island's depth, then the environment, in every scene and into any target, whatever the answer.</summary>
+        Island
     }
 }

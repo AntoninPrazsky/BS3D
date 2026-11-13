@@ -404,9 +404,9 @@ namespace Prazsky.Core.Render
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
-        /// <summary>Zero: the tent is one pass with the depth test off, which covers whatever is in the frame, so it is always
-        /// drawn before the arena (#1098).</summary>
-        public override float FollowsArenaWithin => 0f;
+        /// <summary>False: the tent is one pass with the depth test off, which no depth in the frame turns away, so there
+        /// is nothing to gain by drawing it after the island's (#1098).</summary>
+        public override bool FollowsIslandDepth => false;
 
         private void FillFloor(float innerRadius)
         {

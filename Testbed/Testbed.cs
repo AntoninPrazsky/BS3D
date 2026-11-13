@@ -845,7 +845,8 @@ namespace Testbed
             //of High's grown fork and boughs
             if (_options.FineMeshes is bool fineMeshes) _sceneRenderer.FineMeshes = fineMeshes;
 
-            //#1098: "envorder=" pins where the environment is drawn; auto, the default, is the rule (ResolveEnvironmentPlace)
+            //#1098: "envorder=" pins whether the island's depth is laid before the environment; auto, the default, asks
+            //the scene (Testbed.Draw.cs)
             _environmentOrder = _options.EnvironmentOrder;
 
             //#471 PROBE: "shadow=" pins SceneRenderer.ShadowScale so a sun shadow map can be measured and
@@ -1571,8 +1572,9 @@ namespace Testbed
                         _sceneRenderer.MountainLayers = TestOptions.ParseMountainLayers(pin.Value);
                         break;
 
-                    //Where the environment is drawn (#1098): "envorder=first" is the order before it, "envorder=auto" the
-                    //rule. Read at the top of the next frame's scene block, so nothing carries across the switch.
+                    //Whether the island's depth is laid before the environment (#1098): "envorder=first" is the frame
+                    //before it, "envorder=auto" the scene's answer. Read at the top of the next frame's scene block, so
+                    //nothing carries across the switch.
                     case "envorder":
                         _environmentOrder = TestOptions.ParseEnvironmentOrder(pin.Value);
                         break;

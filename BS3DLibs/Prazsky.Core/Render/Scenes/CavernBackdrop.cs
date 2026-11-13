@@ -402,11 +402,11 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Zero: the hall is always drawn before the arena (#1098). Under supersampling it is shaded into its own target and
-        /// laid over the frame with the depth test off; drawn directly, its crystals blend and write depth, so what stands
-        /// behind one has to be in the frame before it and what stands in front of one after.
+        /// False: the hall is always drawn before the island (#1098). Under supersampling it is shaded into its own target
+        /// and laid over the frame with the depth test off; drawn directly, its crystals blend and write depth, so what
+        /// stands behind one has to be in the frame before it - the hall behind the island included.
         /// </summary>
-        public override float FollowsArenaWithin => 0f;
+        public override bool FollowsIslandDepth => false;
 
         private void DrawHall(CavernMeshes meshes, EffectTechnique rock, EffectTechnique formation, EffectTechnique crystal, RasterizerState cull)
         {

@@ -958,10 +958,6 @@ namespace MapEditor
 
             //The chosen environment stands in for what the game draws where the city would be. It is drawn
             //before the balls so the cluster reads in front of it; the snow (mountain) comes after, in front.
-            //First, where the Game and the Testbed draw it after their island, gun and cluster (#1098): the editor
-            //draws no island to hide it, hangs a map of any material (glass has to find the scene behind it) and flies a
-            //lens with no bound, so it takes SceneRenderer.DrawEnvironment, both halves at once, in the order that is
-            //right from anywhere.
             SceneFrame sceneFrame = BuildSceneFrame();
             DrawScene(sceneFrame);
 

@@ -540,9 +540,6 @@ namespace Prazsky.Core.Render
         /// (<see cref="SceneRenderer.DrawGrounded"/>).</summary>
         public override void DrawGrounded(in SceneFrame frame) => DrawFlame(frame);
 
-        /// <inheritdoc/>
-        public override bool DrawsGrounded => true;
-
         /// <summary>
         /// Draws the savanna grassland: the grid pinned to the camera (snapped to a cell so it does not swim),
         /// rolled gently and shaded per-pixel (no grid) by the current dome, shadowed by the shared cloud field.

@@ -198,12 +198,14 @@ namespace Prazsky.Core.Render
         public override void Draw(in SceneFrame frame) { }
 
         /// <summary>
-        /// Zero: the sea is always drawn before the arena (#1098), and that order is the design. The water writes no depth
-        /// (#131), so the island's stone under the waterline, the pool in the drain and a ball sinking through the surface are
-        /// drawn over it and fade into it by their own shader (<see cref="ApplySubmerge"/>); drawn after them it would cover
-        /// every one.
+        /// False: the sea is always drawn before the island (#1098), and that order is the design. The water writes no
+        /// depth (#131), and the island's stone under the waterline, the pool in the drain and a ball sinking through the
+        /// surface are drawn over it and fade into it by their own shader (<see cref="ApplySubmerge"/>): the stone is
+        /// blended there, so everything it is blended over has to be in the frame, and the island's depth laid first
+        /// turns away whatever of the water lies behind it. The answer rests on that, an island that is not opaque, and
+        /// not on a picture seen wrong: most of the water lies in front of the half unit of stone under the waterline.
         /// </summary>
-        public override float FollowsArenaWithin => 0f;
+        public override bool FollowsIslandDepth => false;
 
         /// <summary>
         /// Draws the sea: a camera-centred grid (snapped to a cell so the waves do not swim) displaced into

@@ -17,9 +17,8 @@ namespace Testbed
     /// </summary>
     /// <remarks>
     /// Split out of <c>Testbed.cs</c> in #73. The draw order here is the file's own decision and most of it is
-    /// stated at the call sites: sky, island, gun, balls, the environment behind them (the backdrop or the city,
-    /// the wood; #1098, <c>ResolveEnvironmentPlace</c> on when it has to come sooner), smears, then the three glass
-    /// surfaces nearest-last, then the snow. Two rules that are easy to break by moving a line: the
+    /// stated at the call sites: sky, the island's depth (#1098), backdrop, forest, island, gun, balls, smears, then
+    /// the three glass surfaces nearest-last, then the snow. Two rules that are easy to break by moving a line: the
     /// <see cref="RasterizerState"/> is <b>stated</b> rather than inherited (the tonemap leaves
     /// <c>CullNone</c> and the overlay's <c>SpriteBatch</c> leaves its own, so what the scene culled used to
     /// depend on which ran last), and <see cref="BallRenderSet.BeginFrame"/> may be opened exactly once a frame
@@ -136,7 +135,9 @@ namespace Testbed
 
             if (_draw)
             {
-                //This frame's camera, sun and sky for the environment's own shaders (DrawEnvironment, further down)
+                //The environment — city, sea or terrain — is the backdrop and the thing seen past the island's
+                //edge both. Either way the only physics floor is the drain's own mesh (FunnelPhysics.Build);
+                //the round stone island is the platform, and stays in every scene.
                 SceneFrame sceneFrame = BuildSceneFrame();
 
                 //Scene point lights (campfire / neon / planetshine) onto the shared instanced effect, so the
@@ -151,26 +152,79 @@ namespace Testbed
                 if (_scene == SceneKind.Aurora)
                     _auroraScatter?.ApplySkyTint(_sceneRenderer.AuroraGlowColor(SceneClock));
 
-                //WHERE THE ENVIRONMENT IS DRAWN (#1098): in one of three places, as late as the picture allows, because
-                //its pixel programs are the dearest in the frame and a draw is depth-tested against what earlier draws
-                //wrote before its program runs. First, here, only for a scene whose order against the arena decides
-                //pixels from where the lens stands; otherwise after the island, or after the gun and the cluster too.
-                EnvironmentPlace place = ResolveEnvironmentPlace();
-
-                if (place == EnvironmentPlace.First) DrawEnvironment(sceneFrame);
-
-                //The round island, opaque: its stone cap and concrete drum. Then the dark pit shaft behind the
-                //drain, which is drawn in the solid-terrain scenes only and brings its own culling with it.
-                //Each slice owns the states its own geometry needs; where they sit in the frame is this file's
-                //decision, which is the whole reason the component hands them over separately.
-                //The island's own event (#535): the volcano's eruption on the scene clock, as the Game does it.
+                //The island's own event (#535): the volcano's eruption on the scene clock, as the Game does it. Before
+                //the island's first draw of the frame, which is the depth just below.
                 _island.EventGlow = _scene == SceneKind.Volcano ? _sceneRenderer.VolcanoEruption(SceneClock) : 0f;
+
+                //THE ISLAND'S DEPTH, BEFORE THE ENVIRONMENT (#1098), as the Game's BeginSceneDraw lays it. The
+                //environment's pixel programs are the dearest in the frame, a draw is depth-tested against what
+                //earlier draws wrote before its program runs, and from the play camera the island hides most of the
+                //ground: with the island's depth in first, with no colour, every pixel of the backdrop, the city and
+                //the wood that the island stands in front of is turned away unshaded. The island itself is still drawn
+                //after them, below, where it always was, which is why no pixel moves (ArenaIsland.DrawIslandDepth has
+                //the argument, and Backdrop.FollowsIslandDepth the scenes it does not hold in; never into a multisampled
+                //target, which is ssaa=1 here). envorder= pins it on or off whatever the scene and the target say,
+                //which is how each of those claims is measured and photographed.
+                _islandDepthFirst = _environmentOrder switch
+                {
+                    EnvironmentOrder.First => false,
+                    EnvironmentOrder.Island => true,
+                    _ => _sceneRenderer.EnvironmentFollowsIslandDepth(_scene, _pipeline.SceneTarget)
+                };
+                if (_islandDepthFirst) _island.DrawIslandDepth(_camera, _sceneEffectParams, _scene);
+
+                if (_scene == SceneKind.City || _scene == SceneKind.NeonCity)
+                {
+                    bool neon = _scene == SceneKind.NeonCity;
+                    _cityRenderer.CityNeon = neon ? 1f : 0f;
+                    _cityRenderer.CityWindowBrightness = neon ? _cityConfig.NeonLook.WindowBrightness : _cityConfig.WindowBrightness;
+                    //Frustum-culled and ordered near to far, as the game draws it — see City.PrepareVisible
+                    int visibleBuildings = _city.PrepareVisible(_camera);
+                    _cityRenderer.Draw(_camera, _city.Visible, visibleBuildings, _sceneEffectParams);
+
+                    //The roofs' equipment after the towers it stands on (#436), as the Game draws it
+                    _rooftops?.Draw(_camera, neon, SceneClock);
+
+                    //The street level last of the city (#399), as the Game draws it
+                    _streets?.Draw(sceneFrame, _cityConfig.Streets, neon, _cityConfig.NeonLook);
+                }
+                else
+                    //The target goes in so the cavern and the dream can be shaded at the back buffer's size and
+                    //scaled up (#155). Passed rather than remembered, so it cannot be the one the pipeline held
+                    //before a resize or a supersample change replaced it.
+                    //The backdrop's first half (#1098): everything of it up to its first draw that writes no depth.
+                    //The second is drawn after the wood, below.
+                    _sceneRenderer.DrawEnvironmentOpaque(_scene, sceneFrame, _pipeline.SceneTarget);
+
+                //The forest's scattered trees, boulders and stumps: after the terrain they stand on (with depth,
+                //or they would draw through it) and before the island. The state they need is the opaque scene
+                //state stated above — alpha blend, depth test and write, cull counter-clockwise — plus this
+                //frame's point lights, already on the shared effect; the component touches none of it, so the
+                //island's slices below are unaffected.
+                if (_scene == SceneKind.Forest) _forestScatter?.Draw(_camera, _sceneRenderer.FineMeshes);
+                if (_scene == SceneKind.Aurora && (_sceneRenderer.AuroraLayers & AuroraLayer.Wood) != 0)
+                    _auroraScatter?.Draw(_camera, _sceneRenderer.FineMeshes);
+
+                //The forest's firefly-like blinking lights (#487), on the same scene clock the beacon and the
+                //campfire blink and flicker on — off pause, on with the game.
+                if (_scene == SceneKind.Forest) _forestFireflies?.Draw(_camera, SceneClock);
+
+                //The backdrop's second half (#1098): what it blends over everything above without writing depth, to
+                //its end (the sea, the lagoon and its beach, the storm, the fountains, the moons, the desert's
+                //creatures). THE GAP BEFORE THIS LINE is where a sky drawn after the opaque scene belongs: over
+                //nothing that wrote depth, under everything that is blended over the sky. Whatever is drawn there
+                //puts the three states stated above the scene block back first (Backdrop.DrawBlended). A no-op for
+                //the two cities and for a scene with no such half.
+                _sceneRenderer.DrawEnvironmentBlended(_scene, sceneFrame);
+
+                //The round island, opaque: its stone cap and concrete drum, over the depth they laid before the
+                //environment (the test is LessEqual and the two draws are one call, so every sample passes on its
+                //own depth). Then the dark pit shaft behind the drain, which is drawn in the solid-terrain scenes
+                //only and brings its own culling with it. Each slice owns the states its own geometry needs; where
+                //they sit in the frame is this file's decision, which is the whole reason the component hands them
+                //over separately.
                 _island.DrawIsland(_camera, _sceneEffectParams, _scene);
                 _island.DrawPit(_camera, _sceneEffectParams, _scene);
-
-                //Under the gun and the cluster, when a ball of this frame is blended over what is behind it or stands
-                //where something of the scene could be blended over it (BallRenderSet.OpaqueWithin)
-                if (place == EnvironmentPlace.AfterIsland) DrawEnvironment(sceneFrame);
 
                 //Into a local because the glazing further down is drawn with the very same pose — it is set into
                 //this tube, so the one matrix serves both rather than being built twice a frame
@@ -190,11 +244,6 @@ namespace Testbed
 
                 //What the plate hangs from (#896), opaque, with the scene: the cables and the winches
                 _ceilingRigging.Draw(_camera, _ceiling.World, _sceneEffectParams, _sceneRenderer, _scene);
-
-                //And where it is cheapest: after the last thing that writes depth, so every pixel of it the island, the
-                //gun, the cluster and the rigging cover is turned away before it is shaded. Before the smears and the
-                //glass, which are laid over the finished opaque frame.
-                if (place == EnvironmentPlace.AfterCluster) DrawEnvironment(sceneFrame);
 
                 //The launch smears trailing the shots, over the opaque scene (which the depth buffer now holds,
                 //so the cluster/cannon/platform occlude them) and additive, so they glow through the glare.
@@ -258,94 +307,12 @@ namespace Testbed
             _shots?.Service(_pulseSeconds, _scene);
         }
 
-        //envorder= (#1098): Auto, the rule below, unless a run or a variant pins a place
-        private EnvironmentPlace _environmentOrder = EnvironmentPlace.Auto;
+        //envorder= (#1098): whether the island's depth is laid before the environment. Auto asks the scene, as the Game
+        //does; a run or an alt= variant pins it on or off
+        private EnvironmentOrder _environmentOrder = EnvironmentOrder.Auto;
 
-        /// <summary>
-        /// This frame's place for the environment: the pinned one, or by the rule the Game's host also draws by.
-        /// <b>First</b> when the lens stands outside the radius the scene gives
-        /// (<see cref="SceneRenderer.EnvironmentFollowsArenaWithin"/>, zero for a scene that is always first): there
-        /// something the scene draws without writing depth can lie between the lens and the island, and the island has
-        /// always been drawn over it. <b>After the island</b> when a ball collected this frame is blended over what is
-        /// behind it, or stands outside that radius (<see cref="BallRenderSet.OpaqueWithin"/>). <b>After the cluster</b>
-        /// otherwise, which is every frame of an opaque cluster hanging over a scene of opaque ground.
-        /// <para>
-        /// A pinned place is an instrument and draws what it is told: <c>envorder=cluster</c> under a transparent ball
-        /// style, or in the sea, is a wrong picture, which is the measurement of what the rule guards.
-        /// </para>
-        /// </summary>
-        private EnvironmentPlace ResolveEnvironmentPlace()
-        {
-            if (_environmentOrder != EnvironmentPlace.Auto) return _environmentOrder;
-
-            float clearing = _sceneRenderer.EnvironmentFollowsArenaWithin(_scene);
-            Vector3 lens = _camera.Position;
-            if (!(lens.X * lens.X + lens.Z * lens.Z < clearing * clearing)) return EnvironmentPlace.First;
-
-            return _balls.OpaqueWithin(SceneRenderer.KillPlaneFadeTop(KILL_PLANE_Y), clearing)
-                ? EnvironmentPlace.AfterCluster
-                : EnvironmentPlace.AfterIsland;
-        }
-
-        /// <summary>
-        /// The environment — city, sea or terrain, the wood on it, and what the backdrop blends over both — which is the
-        /// backdrop and the thing seen past the island's edge both. Either way the only physics floor is the drain's own
-        /// mesh (FunnelPhysics.Build); the round stone island is the platform, and stays in every scene.
-        /// <para>
-        /// Drawn from one of three places in <see cref="Draw"/> and written so that it does not matter which: it
-        /// <b>states</b> the three states it starts from, for the reason the scene block states its own, and puts them back
-        /// on the way out. Two halves with a gap between them — everything opaque, then what is blended
-        /// (<see cref="SceneRenderer.DrawEnvironmentBlended"/>): the gap is where a sky drawn after the opaque scene belongs.
-        /// </para>
-        /// </summary>
-        private void DrawEnvironment(in SceneFrame sceneFrame)
-        {
-            GraphicsDevice.BlendState = BlendState.AlphaBlend;
-            GraphicsDevice.DepthStencilState = DepthStencilState.Default;
-            GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-
-            bool city = _scene == SceneKind.City || _scene == SceneKind.NeonCity;
-
-            if (city)
-            {
-                bool neon = _scene == SceneKind.NeonCity;
-                _cityRenderer.CityNeon = neon ? 1f : 0f;
-                _cityRenderer.CityWindowBrightness = neon ? _cityConfig.NeonLook.WindowBrightness : _cityConfig.WindowBrightness;
-                //Frustum-culled and ordered near to far, as the game draws it — see City.PrepareVisible
-                int visibleBuildings = _city.PrepareVisible(_camera);
-                _cityRenderer.Draw(_camera, _city.Visible, visibleBuildings, _sceneEffectParams);
-
-                //The roofs' equipment after the towers it stands on (#436), as the Game draws it
-                _rooftops?.Draw(_camera, neon, SceneClock);
-
-                //The street level last of the city (#399), as the Game draws it
-                _streets?.Draw(sceneFrame, _cityConfig.Streets, neon, _cityConfig.NeonLook);
-            }
-            else
-                //The target goes in so the cavern and the dream can be shaded at the back buffer's size and
-                //scaled up (#155). Passed rather than remembered, so it cannot be the one the pipeline held
-                //before a resize or a supersample change replaced it.
-                _sceneRenderer.DrawEnvironmentOpaque(_scene, sceneFrame, _pipeline.SceneTarget);
-
-            //The forest's scattered trees, boulders and stumps: after the terrain they stand on (with depth,
-            //or they would draw through it). The state they need is the opaque scene state — alpha blend, depth
-            //test and write, cull counter-clockwise, which every backdrop leaves — plus this frame's point lights,
-            //already on the shared effect; the component touches none of it.
-            if (_scene == SceneKind.Forest) _forestScatter?.Draw(_camera, _sceneRenderer.FineMeshes);
-            if (_scene == SceneKind.Aurora && (_sceneRenderer.AuroraLayers & AuroraLayer.Wood) != 0)
-                _auroraScatter?.Draw(_camera, _sceneRenderer.FineMeshes);
-
-            //The forest's firefly-like blinking lights (#487), on the same scene clock the beacon and the
-            //campfire blink and flicker on — off pause, on with the game. Lit spheres that write depth.
-            if (_scene == SceneKind.Forest) _forestFireflies?.Draw(_camera, SceneClock);
-
-            //What the backdrop blends over all of the above (the sea, the lagoon, the storm, the fountains, the moons)
-            if (!city) _sceneRenderer.DrawEnvironmentBlended(_scene, sceneFrame);
-
-            GraphicsDevice.BlendState = BlendState.AlphaBlend;
-            GraphicsDevice.DepthStencilState = DepthStencilState.Default;
-            GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
+        //What the last frame did, which is what the [fps] line names: under Auto nothing else says what the scene answered
+        private bool _islandDepthFirst;
 
         /// <summary>
         /// What this program casts into the sun's shadow map (#470): the island, the gun, the balls
@@ -472,6 +439,10 @@ namespace Testbed
                 + (_sceneRenderer.ShadowScale < 1f ? $", shadow {_sceneRenderer.ShadowScale.ToString("0.##", CultureInfo.InvariantCulture)}" : string.Empty)
                 + $", {GraphicsDevice.PresentationParameters.BackBufferWidth}x{GraphicsDevice.PresentationParameters.BackBufferHeight}"
                 + $", vsync {(_options.UncappedFps ? "off" : "on")}{(_options.FpsCap > 0 ? $" (cap {_options.FpsCap})" : "")}, arena {_island.Members}{(alternating || capProbe > 0 ? $", capprobe {capProbe}" : "")}, balls {_collectedBalls}"
+                //Whether the window's last frame laid the island's depth before the environment (#1098: envorder=, or
+                //under auto the scene's own answer, which nothing else on the line says) - before "variant", which the
+                //sweep's reader takes to the line's end
+                + $", envorder {(_islandDepthFirst ? "island" : "first")}"
                 //The variant's own text last, in the caller's words rather than restated from the live
                 //settings: a sweep is read by grouping the lines that carry the same name, and a dial the
                 //rest of this line does not print (a ball material, an exposure) would otherwise leave two

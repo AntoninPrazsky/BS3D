@@ -339,13 +339,6 @@ namespace Prazsky.Core.Render
         private const float KILL_PLANE_FADE_DEPTH = 6f;
 
         /// <summary>
-        /// The height under which <see cref="ApplyKillPlaneFade"/>'s band begins for a host whose plane is at
-        /// <paramref name="killPlaneY"/>: a ball's pixels below it are blended over what the frame already holds, so what
-        /// stands behind such a ball has to be drawn before it (#1098, <c>BallRenderSet.OpaqueWithin</c>).
-        /// </summary>
-        public static float KillPlaneFadeTop(float killPlaneY) => killPlaneY + KILL_PLANE_FADE_DEPTH;
-
-        /// <summary>
         /// How many scene-target texels make one output pixel — the caller's supersampling factor, which only
         /// the caller knows (the Game's moves with the quality tier). The space scene sizes its stars in
         /// <b>output</b> pixels off this: sized in texels instead, a star would come out four times dimmer at
@@ -1626,9 +1619,9 @@ namespace Prazsky.Core.Render
         /// shows beneath it; it leaves the alpha-blend / back-face-cull state the rest of the opaque scene wants.
         /// <para>
         /// The two halves in one call, for a host with nothing to draw between them (the map editor, which draws no
-        /// island and hangs its map over the finished environment). The Game and the Testbed call
-        /// <see cref="DrawEnvironmentOpaque"/> and <see cref="DrawEnvironmentBlended"/> themselves, where
-        /// <see cref="EnvironmentFollowsArenaWithin"/> lets them: after the island, the gun and the cluster (#1098).
+        /// island and no scatter of its own). The Game and the Testbed call <see cref="DrawEnvironmentOpaque"/> and
+        /// <see cref="DrawEnvironmentBlended"/> themselves, with their own wood between the two, and lay the island's
+        /// depth into the frame first where <see cref="EnvironmentFollowsIslandDepth"/> lets them (#1098).
         /// </para>
         /// <para>
         /// The sky-replacing draws also touch the <b>depth</b> state: space and the dream are backgrounds
@@ -1647,10 +1640,9 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The first half of <see cref="DrawEnvironment"/> (#1098): the backdrop's <see cref="Backdrop.Draw"/> (through the
-        /// display-resolution target where it asks for one) and its <see cref="Backdrop.DrawDepth"/>. Everything in it is
-        /// opaque and depth-tested, or is a sky-replacing scene's own whole frame, so a host draws it wherever its order
-        /// against the arena allows (<see cref="EnvironmentFollowsArenaWithin"/>) and its own opaque scatter after it.
-        /// Then <see cref="DrawEnvironmentBlended"/>; a host with nothing to draw between the two calls
+        /// display-resolution target where it asks for one) and its <see cref="Backdrop.DrawDepth"/>. Everything in it
+        /// writes depth, or is a sky-replacing scene's own whole frame. A host draws its own opaque scatter after it (the
+        /// wood), then <see cref="DrawEnvironmentBlended"/>; a host with nothing to draw between the two calls
         /// <see cref="DrawEnvironment"/>. A no-op for the two cities.
         /// </summary>
         public void DrawEnvironmentOpaque(SceneKind scene, in SceneFrame frame, RenderTarget2D sceneTarget = null)
@@ -1680,33 +1672,39 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// The second half of <see cref="DrawEnvironment"/> (#1098): the backdrop's <see cref="Backdrop.DrawBlended"/>, from
         /// the first thing the scene draws without writing depth to its end. After <see cref="DrawEnvironmentOpaque"/> and
-        /// after everything it is blended over — the host's own opaque scatter, and the sky: this is the half a sky drawn
-        /// after the opaque scene has to precede. A no-op for a scene with nothing of the kind, and for the two cities.
+        /// after everything it is blended over — the host's own opaque scatter, and the sky: the gap between the two
+        /// halves is where a sky drawn after the opaque scene belongs. A no-op for a scene with nothing of the kind, and
+        /// for the two cities.
         /// </summary>
         public void DrawEnvironmentBlended(SceneKind scene, in SceneFrame frame) => BackdropFor(scene)?.DrawBlended(frame);
 
         /// <summary>
-        /// How far from the arena's axis the lens and every ball may be for a host to draw <paramref name="scene"/>'s
-        /// environment <b>after</b> the island, the gun and the cluster (#1098) — the backdrop's
-        /// <see cref="Backdrop.FollowsArenaWithin"/>, which holds what the figure means. Infinity for the two cities, whose
-        /// towers, roofs and streets are all opaque; zero for a scene that is always drawn first.
+        /// Whether a host lays the island's depth into the frame before <paramref name="scene"/>'s environment
+        /// (<c>ArenaIsland.DrawIslandDepth</c>) and draws the island itself after it, where it always was (#1098) — the
+        /// backdrop's <see cref="Backdrop.FollowsIslandDepth"/>, which holds why not where not (the sea, the cavern, and
+        /// the scenes that are one pass with the depth test off). True for the two cities, which the host draws itself:
+        /// towers, roofs and streets are depth-tested and the island is opaque there.
         /// <para>
         /// <b>Why a host asks.</b> The environment's pixel programs are the dearest in the frame, and a draw is depth-tested
-        /// against what earlier draws wrote before its program runs: drawn after the island, the gun and the cluster it is
-        /// shaded only where they leave it showing. The picture is the same in either order wherever everything involved
-        /// writes depth, and this figure is the bound inside which nothing else can come between the lens and the arena.
-        /// A host draws the environment first when its lens stands outside it, after the island when a ball has flown
-        /// outside it (or is itself blended: <c>BallRenderSet.OpaqueWithin</c>), and after the cluster otherwise.
+        /// against what earlier draws wrote before its program runs: with the island's depth already in the frame, the
+        /// environment is shaded only where the island leaves it showing, and from a play camera the island hides most of
+        /// the ground. The island's colour is drawn where it always was, after the environment, so nothing of the picture
+        /// moves: <c>ArenaIsland.DrawIslandDepth</c> has the argument.
+        /// </para>
+        /// <para>
+        /// ⚠ <b>Never into a multisampled target</b> (<paramref name="sceneTarget"/>, the one the frame is drawn into: a
+        /// tier or a run at supersampling 1), whatever the scene. The island's colour draw has to pass on the depth its
+        /// first draw wrote, sample for sample, and under multisampling it does not: measured on the reference desktop
+        /// (RX 6900 XT, Mars, 1600x900, eight samples, the clock stood still) two frames drawn in ONE order already differ
+        /// in about 120 pixels, and with the depth laid first in 1,660, along the island's outline and as single samples
+        /// lost across its top. Without multisampling the two orders are the same picture to the pixel.
         /// </para>
         /// </summary>
-        public float EnvironmentFollowsArenaWithin(SceneKind scene) => BackdropFor(scene)?.FollowsArenaWithin ?? float.PositiveInfinity;
-
-        /// <summary>
-        /// Whether <see cref="DrawGrounded"/> draws anything in <paramref name="scene"/> (the savanna's fires, the meadow's
-        /// water). A host that draws those before its gun and its cluster, which are then painted over them, keeps that
-        /// order by drawing the environment under them first.
-        /// </summary>
-        public bool DrawsGrounded(SceneKind scene) => BackdropFor(scene)?.DrawsGrounded ?? false;
+        /// <param name="scene">The scene being drawn.</param>
+        /// <param name="sceneTarget">The target the scene is drawn into this frame. Passed rather than remembered, for
+        /// <see cref="DrawEnvironmentOpaque"/>'s reason.</param>
+        public bool EnvironmentFollowsIslandDepth(SceneKind scene, RenderTarget2D sceneTarget) =>
+            sceneTarget.MultiSampleCount <= 1 && (BackdropFor(scene)?.FollowsIslandDepth ?? true);
 
         /// <summary>
         /// Draws the foreground weather that belongs after the opaque scene and the cluster — the backdrop's

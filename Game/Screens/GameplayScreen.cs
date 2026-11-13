@@ -2082,25 +2082,12 @@ namespace BS3D.Screens
             //(the host holds the why)
             Game.DrawCeilingRigging(Game.CeilingRigging, _ceiling.World, overGlass: false);
 
-            //The ghost of where the loaded ball would land (#894), into the same frame AFTER the shadow pass BeginSceneDraw
-            //ran, so it casts nothing: the shadow pass applies the dissolve channel's dither (#920) but not the ghost's size,
-            //which is a vertex-side scale its depth vertex shader does not do, so a ghost collected before it threw the
-            //shadow of a whole ball on neighbours while the ghost itself beat between a third of one and a whole one. It
-            //is still a ball in the cluster's own frame, so it is bucketed and LOD-picked with the rest and drawn by the
-            //same instanced draw, and it still receives the sun and the shadows of the others
-            //Not in a capture run (#946) unless it asks for the aim (captureaim): a ghost is a pointer, and nobody holds the aim
-            //Both of these BEFORE the environment's first slot below, which asks the frame what its balls are (#1098): a
-            //kind card's ball can be the clear glass one, and glass has to find the environment behind it
-            if (!Game.HidesAimPreview) CollectShotPreview(ballFrame);
+            //The savanna's fires with the setting they stand in (#641), so the copy the ceiling's glass bends holds them
+            Game.DrawTranslucentsBehindGlass(sceneFrame);
 
-            //A kind card's ball (#735), into the same frame AFTER the shadow pass BeginSceneDraw ran, so it casts nothing
-            CollectTutorialBall(ballFrame, layerOpacity);
-
-            //The environment's first slot (#1098), and with it what stands in the setting: the savanna's fires (#641) and,
-            //from under the plate, the copy the ceiling's glass bends, taken before the gun and the cluster hang in front
-            //of it (#541). The host draws the environment here only on a frame where something needs it under the gun and
-            //the cluster - that copy, a fire, a ball that is blended - and otherwise after them, below.
-            Game.DrawEnvironmentBeforeObjects(sceneFrame, Game.CeilingRenderer, _ceiling.World);
+            //Everything so far is the setting, which from under the plate is all that stands behind the ceiling's
+            //glass: the copy it bends is taken here, before the gun and the cluster hang in front of it (#541).
+            Game.GrabCeilingBackground(Game.CeilingRenderer, _ceiling.World);
 
             //The barrel, its collar, the carriage and the hat — one method, because the front end draws the very same
             //gun over a session it kept (#650). The poses are the locals taken above (with the carriage's, for the
@@ -2110,6 +2097,18 @@ namespace BS3D.Screens
 
             //The level's crates (#257), opaque, with the gun
             _crateField?.Draw(Camera, Game.SceneEffectParams);
+
+            //The ghost of where the loaded ball would land (#894), into the same frame AFTER the shadow pass BeginSceneDraw
+            //ran, so it casts nothing: the shadow pass applies the dissolve channel's dither (#920) but not the ghost's size,
+            //which is a vertex-side scale its depth vertex shader does not do, so a ghost collected before it threw the
+            //shadow of a whole ball on neighbours while the ghost itself beat between a third of one and a whole one. It
+            //is still a ball in the cluster's own frame, so it is bucketed and LOD-picked with the rest and drawn by the
+            //same instanced draw, and it still receives the sun and the shadows of the others
+            //Not in a capture run (#946) unless it asks for the aim (captureaim): a ghost is a pointer, and nobody holds the aim
+            if (!Game.HidesAimPreview) CollectShotPreview(ballFrame);
+
+            //A kind card's ball (#735), into the same frame AFTER the shadow pass BeginSceneDraw ran, so it casts nothing
+            CollectTutorialBall(ballFrame, layerOpacity);
 
             //Everything collected above, as one instanced draw per ball type and LOD level — and the frame's
             //collection is closed by it. The heartbeat runs on the WALL clock: the balls go on breathing while
@@ -2122,11 +2121,6 @@ namespace BS3D.Screens
             Game.Balls.Draw(WallClock);
             Game.Balls.CutterGlow = 1f;
             Game.Balls.CutterSpinOffset = 0f;
-
-            //The environment's second slot (#1098): the gun, the crates and the cluster are the last of this frame that
-            //writes depth, so drawn here the backdrop is shaded only where they leave it showing. Before the pane and
-            //every layer below, which are laid over the finished opaque frame.
-            Game.DrawEnvironmentAfterObjects(sceneFrame);
 
             //From under the plate the ceiling's pane goes here, after the last thing that writes depth and BEFORE the
             //additive layers below (#1013). Those layers stand between the lens and the glass and hold no depth, so the

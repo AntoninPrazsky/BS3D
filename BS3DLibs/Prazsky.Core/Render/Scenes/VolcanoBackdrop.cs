@@ -548,14 +548,6 @@ namespace Prazsky.Core.Render
         public override void DrawBlended(in SceneFrame frame) => DrawLavaFountains(frame);
 
         /// <summary>
-        /// Zero: the volcano is always drawn before the arena (#1098). A fumarole stands as near as
-        /// <see cref="SteamConfig.NearestVent"/> and its steam leans downwind for the whole of its life
-        /// (<c>LavaFountain.fx</c>'s <c>SteamVS</c>), as far as the island's edge when the vent stands upwind of it: a puff can
-        /// lie between the play lens and the island, where the island is drawn over it.
-        /// </summary>
-        public override float FollowsArenaWithin => 0f;
-
-        /// <summary>
         /// What stands on the land past the field (#748), the quarters round the arena the camera can see and none of the
         /// others: from the play pose most of the land is behind the lens. The list is refilled, never reallocated.
         /// </summary>

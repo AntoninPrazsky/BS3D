@@ -313,8 +313,7 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Phobos and Deimos, blended over the dome. They are drawn at the far plane and depth-read, so they show only where
-        /// nothing in the frame has written depth, in whatever order the ground and the arena were drawn: the backdrop's
-        /// <see cref="Backdrop.FollowsArenaWithin"/> stays infinite.
+        /// nothing in the frame has written depth.
         /// </summary>
         public override void DrawBlended(in SceneFrame frame) => DrawMarsMoons(frame);
 

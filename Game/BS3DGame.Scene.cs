@@ -19,10 +19,7 @@ namespace BS3D
     /// <see cref="BeginSceneDraw"/>, <see cref="DrawSettingGlass"/> and <see cref="FinishSceneDraw"/> are
     /// deliberately three calls rather than one <c>DrawScene</c>: gameplay draws <i>inside</i> that sequence
     /// (the cluster and the gun go between the opaque setting and its glass), so each bottom screen runs the
-    /// sequence with its own work in the gaps. Since #1098 the environment has two slots in it as well, either side of
-    /// the screen's gun and cluster (<see cref="DrawEnvironmentBeforeObjects"/>,
-    /// <see cref="DrawEnvironmentAfterObjects"/>): it is drawn as late as the picture allows, because what is drawn
-    /// before it hides most of it. Split out of <c>BS3DGame.cs</c> in #71.
+    /// sequence with its own work in the gaps. Split out of <c>BS3DGame.cs</c> in #71.
     /// </remarks>
     public partial class BS3DGame
     {
@@ -690,13 +687,10 @@ namespace BS3D
 
             SceneFrame sceneFrame = BeginSceneDraw();
 
-            //The environment's two slots (#1098), with no plate to bend it and nothing between them
-            DrawEnvironmentBeforeObjects(sceneFrame, null, Matrix.Identity);
+            DrawTranslucentsBehindGlass(sceneFrame);
 
             //Closes the frame the shadow pass read; with nothing collected it draws nothing
             _balls.Draw(_wallClock);
-
-            DrawEnvironmentAfterObjects(sceneFrame);
 
             DrawSettingGlass();
             FinishSceneDraw(sceneFrame);
@@ -866,16 +860,14 @@ namespace BS3D
 
         /// <summary>
         /// Everything up to the frame's first gameplay slot: binds the HDR scene target, clears it to the
-        /// dome's horizon, hands the clouds and the camera to the shaders, draws the sky and the island with its
-        /// pit, and returns the <see cref="SceneFrame"/> the closing slices need. A screen draws its gun and its
-        /// cluster after this, between <see cref="DrawEnvironmentBeforeObjects"/> and
-        /// <see cref="DrawEnvironmentAfterObjects"/>.
+        /// dome's horizon, hands the clouds and the camera to the shaders, draws the sky, the backdrop and
+        /// the island with its pit, and returns the <see cref="SceneFrame"/> the closing slices need. The
+        /// gameplay screen draws its gun, cluster and trails after this; the backdrop goes straight on to
+        /// <see cref="DrawSettingGlass"/>.
         /// <para>
-        /// <b>The environment is not drawn here, unless it has to be (#1098).</b> The backdrop, the city and the wood are
-        /// the dearest pixels of the frame and the island, the gun and the cluster cover most of them, so they are drawn
-        /// after whichever of those the picture allows: by one of the screen's two calls, or here before the island for a
-        /// scene whose order against the arena decides pixels (the long comment in the body). A frame whose screen made
-        /// neither call has no environment, and <see cref="FinishSceneDraw"/> refuses it.
+        /// The order inside it: the sky, <b>the island's depth</b> (#1098, so the environment is shaded only where the
+        /// island leaves it showing), the environment in two halves with the host's wood between them, then the island
+        /// itself, its pit and the drain's bands. The body holds why at each step.
         /// </para>
         /// </summary>
         internal SceneFrame BeginSceneDraw()
@@ -1064,105 +1056,31 @@ namespace BS3D
             //clock is the balls' own, so the campfire's light and its flame billboard cannot drift.
             _sceneLights.Apply(_scene, _sceneRenderer, _cityConfig.NeonLook, _wallClock);
 
-            //WHERE THE ENVIRONMENT IS DRAWN (#1098). Its pixel programs are the dearest in the frame, and a draw is
-            //depth-tested against what earlier draws wrote before its program runs: so it goes in as LATE as the picture
-            //allows, and is shaded only where the island, the gun and the cluster leave it showing. One of three places,
-            //this one first: here, before the island, only for a scene whose order against the arena decides pixels from
-            //where the lens stands (SceneRenderer.EnvironmentFollowsArenaWithin holds which and why: a pass drawn with the
-            //depth test off, the sea's water, a blended thing that can lie between the lens and the island). Otherwise a
-            //screen's DrawEnvironmentBeforeObjects or DrawEnvironmentAfterObjects draws it.
-            //Nothing to draw with the Scenery row off (#808): none of the setting's own world - the backdrop or the city,
-            //the wood, the aurora's stand, what stands on the ground, the shaft under the drain and the weather - only the
-            //sky, the island and what plays on it. The lights and the light rig stay the scene's.
-            _environmentDrawn = !SceneryShown;
-            if (!_environmentDrawn && !LensInsideEnvironmentClearing(out _)) DrawEnvironment(sceneFrame);
-
-            if (_scene == SceneKind.Aurora)
-            {
-                //Re-tinted here rather than in ApplySkyLighting (see there), on the scene's own tint: constant since
-                //#963, so ApplySkyTint's value guard encodes the wood once and every later frame is a compare.
-                _auroraScatter.ApplySkyTint(_sceneRenderer.AuroraGlowColor(_wallClock));
-
-                //And the island, the gun, the balls and the wood take the curtains' light through the scene's own rig,
-                //its back light following the arcs' breath on the same clock. The rig steps rather than slides
-                //(SceneRenderer.AnimatesLightRig), so the re-light — whose walk is an iterator — runs only on a step.
-                //Here, before the island and not with the wood's draw: the island is the first thing the step lights.
-                if (_rig.StepSceneLight(_wallClock)) ApplySkyLighting();
-            }
-
-            //The round island, opaque: its stone cap and concrete drum. Then the dark well behind the glass
-            //drain, which is drawn in the solid-terrain scenes only — it fills the hole those shaders cut in
-            //the ground, so the drain reads as a deep shaft rather than as a glass ring over bright sky haze —
-            //and which brings the culling its open cone needs with it. Each slice owns the states its own
-            //geometry wants; where they sit in the frame is this file's decision, which is the whole reason
-            //ArenaIsland hands them over separately.
             //The island's own event (#535): the volcano's eruption, off the wall clock the scene lights and the
-            //thunder read, so the cracks in the basalt brighten with the crater. Zero in every other scene.
+            //thunder read, so the cracks in the basalt brighten with the crater. Zero in every other scene. Before the
+            //island's first draw of the frame, which is the depth just below.
             _island.EventGlow = _scene == SceneKind.Volcano ? _sceneRenderer.VolcanoEruption(_wallClock) : 0f;
-            _island.DrawIsland(_camera, _sceneEffectParams, _scene);
-            if (SceneryShown) _island.DrawPit(_camera, _sceneEffectParams, _scene);
 
-            //The drain's gold bands with the island (#888), opaque and written into the depth buffer BEFORE the fires and
-            //the fireworks, which every screen draws next, translucent and writing no depth: bands drawn after them were
-            //tested against a buffer with no flame in it and painted the ring over a flame standing nearer the lens (the
-            //front end's wide leg looks across the fires' ring at the funnel). The funnel's glass stays in DrawSettingGlass,
-            //so the glass still goes over the bands. The ceiling glass's copy of the frame is taken after this, so it holds them.
-            _island.DrawRims(_camera, _scene);
+            //THE ISLAND'S DEPTH, BEFORE THE ENVIRONMENT (#1098). The environment's pixel programs are the dearest in the
+            //frame, a draw is depth-tested against what earlier draws wrote before its program runs, and from the play
+            //camera the island hides most of the ground: so the island's depth goes in first, with no colour, and every
+            //pixel of the backdrop, the city and the wood that the island stands in front of is turned away unshaded.
+            //The island itself is still drawn after them, below, where it always was, which is why no pixel moves
+            //(ArenaIsland.DrawIslandDepth has the argument, and Backdrop.FollowsIslandDepth the scenes it does not hold
+            //in: the sea, whose water the island's stone is blended over, the cavern, and the passes drawn with the depth
+            //test off). Not with the Scenery row off (#808), when there is no environment to turn away, and never into a
+            //multisampled target (Medium and Low: the renderer's answer takes the target and holds the measurement).
+            //ONLY THE ISLAND: the gun and the cluster hide ground too, but their depth cannot go in first. From under
+            //the plate the ceiling's glass bends a copy of the frame taken before they are drawn (#541), and that copy
+            //has to hold the environment behind them.
+            if (SceneryShown && _sceneRenderer.EnvironmentFollowsIslandDepth(_scene, _pipeline.SceneTarget))
+                _island.DrawIslandDepth(_camera, _sceneEffectParams, _scene);
 
-            //THE TRANSLUCENT BASELINE, STATED AGAIN ON THE WAY OUT (#667). Everything the caller draws after this -
-            //the drain's glass, the ceiling's, the gun's window pane - inherits these three, and they were stated at
-            //the top of this method, BEFORE the environment. A backdrop that leaves another behind changes how every
-            //one of those looks, in its own scene only, with nothing to say so: PlantPass left Opaque on the meadow, the
-            //mountains and the forest from #608 until #667, and the window pane came out a solid sheet there while it read as
-            //glass on the savanna. Restated here, the baseline is this method's promise rather than every backdrop's.
-            GraphicsDevice.BlendState = BlendState.AlphaBlend;
-            GraphicsDevice.DepthStencilState = DepthStencilState.Default;
-            GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-
-            return sceneFrame;
-        }
-
-        //Whether this frame's environment is in the target yet (#1098): false from BeginSceneDraw until one of the three
-        //places it can be drawn in has drawn it, true from the start with the Scenery row off. FinishSceneDraw refuses a
-        //frame that left it false.
-        private bool _environmentDrawn;
-
-        /// <summary>
-        /// Whether the lens stands where the environment may be drawn after the island (#1098): inside the radius
-        /// <see cref="SceneRenderer.EnvironmentFollowsArenaWithin"/> gives the scene, which is handed back for the balls'
-        /// own test (<see cref="Prazsky.BS3D.BallRenderSet.OpaqueWithin"/>). False for a scene that is always drawn first.
-        /// </summary>
-        private bool LensInsideEnvironmentClearing(out float clearing)
-        {
-            clearing = _sceneRenderer.EnvironmentFollowsArenaWithin(_scene);
-
-            Vector3 lens = _camera.Position;
-            return lens.X * lens.X + lens.Z * lens.Z < clearing * clearing;
-        }
-
-        /// <summary>
-        /// The environment: the city or the scene's backdrop, the host's own wood on it, and what the backdrop blends over
-        /// both. Drawn once a frame from one of three places (see <see cref="BeginSceneDraw"/>), and written so that it does
-        /// not matter which: it states the three states it starts from and puts the frame's baseline back on the way out.
-        /// <para>
-        /// <b>Two halves, with a gap between them</b>: everything opaque first (<see cref="SceneRenderer.DrawEnvironmentOpaque"/>,
-        /// the wood, the fireflies), then what is blended (<see cref="SceneRenderer.DrawEnvironmentBlended"/>). The gap is
-        /// where a sky drawn after the opaque scene belongs: under the blended half, over nothing opaque.
-        /// </para>
-        /// </summary>
-        private void DrawEnvironment(in SceneFrame sceneFrame)
-        {
-            _environmentDrawn = true;
-
-            //Stated, not inherited: this runs after the sky from one place and after the screen's gun and balls from
-            //another, and the volcano's ground is drawn under whatever blend it finds
-            GraphicsDevice.BlendState = BlendState.AlphaBlend;
-            GraphicsDevice.DepthStencilState = DepthStencilState.Default;
-            GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-
-            //The two cities are the procedural skyline under the shared shader's city technique; every other scene is
-            //the SceneRenderer's self-lit terrain and water, which need this frame's camera, sun and sky handed over.
-            if (_scene == SceneKind.City || _scene == SceneKind.NeonCity)
+            //The Scenery row off (#808): none of the setting's own world - the backdrop or the city here, the wood, the
+            //aurora's stand, what stands on the ground, the shaft under the drain and the weather below - only the sky,
+            //the island and what plays on it. The lights and the light rig stay the scene's.
+            if (!SceneryShown) { }
+            else if (_scene == SceneKind.City || _scene == SceneKind.NeonCity)
             {
                 //The city's windows keep their own rhythm off the wall clock — a city's lamps do not stop
                 //because the game is paused
@@ -1185,95 +1103,69 @@ namespace BS3D
             //The target goes in so the cavern and the dream can be shaded at the back buffer's size and scaled
             //up (#155). Passed rather than remembered, so it cannot be the one the pipeline held before a
             //resize, a fullscreen switch or a quality step replaced it.
+            //The backdrop's first half (#1098): everything of it up to its first draw that writes no depth. The second
+            //is drawn after the wood, below.
             else _sceneRenderer.DrawEnvironmentOpaque(_scene, sceneFrame, _pipeline.SceneTarget);
 
-            //The forest's scattered trees, rocks and stumps, drawn after the forest terrain they stand on: one draw per
-            //kind per mesh variant, and per material within a tree. The scene gate stays here because the component draws
-            //the wood whenever it is called — where it sits in the frame and whether this frame wants it at all are this
-            //file's business, not its.
-            if (_scene == SceneKind.Forest)
-            {
-                _forestScatter.Draw(_camera, _sceneRenderer.FineMeshes);
+            //The forest's scattered trees, rocks and stumps, drawn after the forest terrain they stand on and
+            //before the island: one draw per kind per mesh variant, and per material within a tree. The scene
+            //gate stays here because the component draws the wood whenever it is called — where it sits in the
+            //frame and whether this frame wants it at all are this file's business, not its.
+            if (_scene == SceneKind.Forest && SceneryShown) _forestScatter.Draw(_camera, _sceneRenderer.FineMeshes);
 
-                //The forest's firefly-like blinking lights (#487), on the same wall clock the roof beacon and the
-                //campfire blink and flicker on. Lit spheres that write depth, so they are of the opaque half.
-                _forestFireflies?.Draw(_camera, _wallClock);
+            //The forest's firefly-like blinking lights (#487), on the same wall clock the roof beacon and the
+            //campfire blink and flicker on.
+            if (_scene == SceneKind.Forest && SceneryShown) _forestFireflies?.Draw(_camera, _wallClock);
+
+            if (_scene == SceneKind.Aurora)
+            {
+                //Re-tinted here rather than in ApplySkyLighting (see there), on the scene's own tint: constant since
+                //#963, so ApplySkyTint's value guard encodes the wood once and every later frame is a compare.
+                _auroraScatter.ApplySkyTint(_sceneRenderer.AuroraGlowColor(_wallClock));
+
+                //And the island, the gun, the balls and the wood take the curtains' light through the scene's own rig,
+                //its back light following the arcs' breath on the same clock. The rig steps rather than slides
+                //(SceneRenderer.AnimatesLightRig), so the re-light — whose walk is an iterator — runs only on a step.
+                if (_rig.StepSceneLight(_wallClock)) ApplySkyLighting();
+
+                if (SceneryShown) _auroraScatter.Draw(_camera, _sceneRenderer.FineMeshes);
             }
 
-            //The aurora's wood, tinted and lit by BeginSceneDraw before the island was drawn
-            if (_scene == SceneKind.Aurora) _auroraScatter.Draw(_camera, _sceneRenderer.FineMeshes);
+            //The backdrop's second half (#1098): what it blends over everything above without writing depth, to its end
+            //(the sea, the lagoon and its beach, the storm, the fountains, the moons, the desert's creatures). THE GAP
+            //BEFORE THIS LINE is where a sky drawn after the opaque scene belongs: over nothing that wrote depth, under
+            //everything that is blended over the sky. Whatever is drawn there puts the three states stated above back
+            //first (Backdrop.DrawBlended). A no-op for the two cities and for a scene with no such half.
+            if (SceneryShown) _sceneRenderer.DrawEnvironmentBlended(_scene, sceneFrame);
 
-            //What the backdrop blends over all of the above (the sea, the lagoon, the storm, the fountains, the moons)
-            if (_scene != SceneKind.City && _scene != SceneKind.NeonCity) _sceneRenderer.DrawEnvironmentBlended(_scene, sceneFrame);
+            //The round island, opaque: its stone cap and concrete drum, over the depth they laid before the environment
+            //(the test is LessEqual and the two draws are one call, so every sample passes on its own depth). Then the
+            //dark well behind the glass drain, which is drawn in the solid-terrain scenes only — it fills the hole those
+            //shaders cut in the ground, so the drain reads as a deep shaft rather than as a glass ring over bright sky
+            //haze — and which brings the culling its open cone needs with it. Each slice owns the states its own
+            //geometry wants; where they sit in the frame is this file's decision, which is the whole reason
+            //ArenaIsland hands them over separately.
+            _island.DrawIsland(_camera, _sceneEffectParams, _scene);
+            if (SceneryShown) _island.DrawPit(_camera, _sceneEffectParams, _scene);
 
-            //The baseline back for whatever is drawn next (#667, BeginSceneDraw's own promise): the island from one
-            //caller, a screen's gun or its glass from the others
+            //The drain's gold bands with the island (#888), opaque and written into the depth buffer BEFORE the fires and
+            //the fireworks, which every screen draws next, translucent and writing no depth: bands drawn after them were
+            //tested against a buffer with no flame in it and painted the ring over a flame standing nearer the lens (the
+            //front end's wide leg looks across the fires' ring at the funnel). The funnel's glass stays in DrawSettingGlass,
+            //so the glass still goes over the bands. The ceiling glass's copy of the frame is taken after this, so it holds them.
+            _island.DrawRims(_camera, _scene);
+
+            //THE TRANSLUCENT BASELINE, STATED AGAIN ON THE WAY OUT (#667). Everything the caller draws after this -
+            //the drain's glass, the ceiling's, the gun's window pane - inherits these three, and they were stated at
+            //the top of this method, BEFORE the environment. A backdrop that leaves another behind changes how every
+            //one of those looks, in its own scene only, with nothing to say so: PlantPass left Opaque on the meadow, the
+            //mountains and the forest from #608 until #667, and the window pane came out a solid sheet there while it read as
+            //glass on the savanna. Restated here, the baseline is this method's promise rather than every backdrop's.
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
             GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
 
-        /// <summary>
-        /// The environment's second place (#1098), and the rest of what stands behind a screen's own objects: called straight
-        /// after <see cref="BeginSceneDraw"/> and the plate's rigging, <b>before</b> the screen draws its gun and its
-        /// cluster. It draws the environment here when something this frame needs it under the gun and the cluster, then
-        /// the translucent things that stand in it (<see cref="DrawTranslucentsBehindGlass"/>) and the copy the ceiling's
-        /// glass bends (<see cref="GrabCeilingBackground"/>); otherwise it draws nothing and
-        /// <see cref="DrawEnvironmentAfterObjects"/> does. Every screen that opens a frame calls both.
-        /// <para>
-        /// <b>What needs it here</b>, each a case where the order decides a pixel, so the order stays the one the frame
-        /// always had: the glass's copy taken from under the plate, which must hold the setting and neither the gun nor
-        /// the cluster (#541); the savanna's fires, the meadow's water and the victory's shells, which are drawn before the
-        /// gun and the cluster and painted over by them; and a ball that is itself blended or stands outside the scene's
-        /// clearing (<see cref="Prazsky.BS3D.BallRenderSet.OpaqueWithin"/>). The balls are asked as collected so far, so a
-        /// screen collects everything that can be blended before it calls this.
-        /// </para>
-        /// </summary>
-        /// <param name="sceneFrame">The frame <see cref="BeginSceneDraw"/> returned.</param>
-        /// <param name="plate">The ceiling plate the screen will draw this frame, or null for none.</param>
-        /// <param name="plateWorld">Where that plate hangs.</param>
-        internal void DrawEnvironmentBeforeObjects(in SceneFrame sceneFrame, InstancedModelRenderer plate, Matrix plateWorld)
-        {
-            //The Potato path (#789) drew its own setting in BeginPotatoSceneDraw: only what follows the environment is left
-            if (!PotatoPath && !_environmentDrawn)
-            {
-                LensInsideEnvironmentClearing(out float clearing);
-
-                bool behindObjects = TakesCeilingBackgroundEarly(plate, plateWorld)
-                    || _sceneRenderer.DrawsGrounded(_scene)
-                    || (_fireworks != null && _fireworks.Active)
-                    || !_balls.OpaqueWithin(SceneRenderer.KillPlaneFadeTop(Screens.GameplayScreen.KILL_PLANE_Y), clearing);
-
-                if (!behindObjects) return;
-
-                DrawEnvironment(sceneFrame);
-            }
-
-            DrawTranslucentsBehindGlass(sceneFrame);
-            GrabCeilingBackground(plate, plateWorld);
-        }
-
-        /// <summary>
-        /// The environment's third place (#1098), where it is cheapest: after the screen's last opaque draw — its gun, its
-        /// crates and its cluster — so every pixel of it they cover is turned away by the depth test before its program
-        /// runs. Draws it, and the translucent things that stand in it, when <see cref="DrawEnvironmentBeforeObjects"/> left
-        /// them; nothing when that drew them.
-        /// <para>
-        /// Before anything the screen draws without writing depth (the smears, the beam, the blasts) and before every glass,
-        /// which composite over the finished opaque frame: the copy the ceiling's glass bends from level with the plate or
-        /// above it is taken at the pane (<see cref="DrawCeilingGlass"/>), after this.
-        /// </para>
-        /// </summary>
-        internal void DrawEnvironmentAfterObjects(in SceneFrame sceneFrame)
-        {
-            //The Potato path's setting is BeginPotatoSceneDraw's, whole (#789)
-            if (PotatoPath || _environmentDrawn) return;
-
-            DrawEnvironment(sceneFrame);
-
-            //Nothing in a frame that reaches here - no grounded draw in this scene and no shell in the air, or the first
-            //call would have drawn - but the slot is the environment's, and what stands in it follows it wherever it goes
-            DrawTranslucentsBehindGlass(sceneFrame);
+            return sceneFrame;
         }
 
         /// <summary>
@@ -1420,11 +1312,9 @@ namespace BS3D
 
         /// <summary>
         /// The translucent things that stand behind the ceiling's glass from the play camera — the savanna's fires
-        /// (#641, <see cref="SceneRenderer.DrawGrounded"/>) and the victory fireworks (#689) — drawn straight after the
-        /// environment they stand in, wherever that is drawn, and <b>before</b> <see cref="GrabCeilingBackground"/>, so
-        /// the copy the ceiling's glass bends holds them. The environment's two slots call it
-        /// (<see cref="DrawEnvironmentBeforeObjects"/>, <see cref="DrawEnvironmentAfterObjects"/>), so every screen that
-        /// draws the setting draws them.
+        /// (#641, <see cref="SceneRenderer.DrawGrounded"/>) and the victory fireworks (#689) — drawn by a screen straight
+        /// after <see cref="BeginSceneDraw"/>, with the setting and <b>before</b> <see cref="GrabCeilingBackground"/>, so
+        /// the copy the ceiling's glass bends holds them. Every screen that draws the setting calls it.
         /// <para>
         /// The fireworks were drawn in <see cref="FinishSceneDraw"/>, last of the scene, until #689: after the pane and
         /// after both places the pane's copy can be taken, so no burst was ever in what the glass bends, and one behind
@@ -1437,9 +1327,7 @@ namespace BS3D
         /// never the other way round, since neither writes depth. That is only right because nothing a screen draws
         /// stands behind them: the fires' ring stands 33 units out, beyond the play camera's 30-unit stand-off and outside
         /// the island the gun and the cluster are on, and the shells go up from a ring 34 to 110 units out and burst 44
-        /// to 122 units up — and by then the field is clear. <b>That order is kept (#1098)</b>: a scene with a grounded
-        /// draw and a frame with a shell in the air take the environment under the gun and the cluster
-        /// (<see cref="DrawEnvironmentBeforeObjects"/>), so these are still drawn before both.
+        /// to 122 units up — and by then the field is clear.
         /// </para>
         /// <para>
         /// <b>The drain's gold bands are in the depth buffer by now</b> (#888: <see cref="BeginSceneDraw"/> draws them
@@ -1448,7 +1336,7 @@ namespace BS3D
         /// front end's wide leg, outside the fires' ring — because a flame writes no depth to be tested against.
         /// </para>
         /// </summary>
-        private void DrawTranslucentsBehindGlass(in SceneFrame sceneFrame)
+        internal void DrawTranslucentsBehindGlass(in SceneFrame sceneFrame)
         {
             //The Potato path (#789) has no scene renderer and no water to go under: the fireworks alone
             if (PotatoPath)
@@ -1536,8 +1424,7 @@ namespace BS3D
         /// <summary>
         /// The cables and winches a plate hangs at <paramref name="plateWorld"/> by (#896), drawn on the side of its glass the
         /// camera sees them on. A screen that draws a plate calls this twice a frame and it draws in one of the two: with the
-        /// setting, straight after <see cref="BeginSceneDraw"/> and before <see cref="DrawEnvironmentBeforeObjects"/>
-        /// (<paramref name="overGlass"/> false: it is opaque, so the environment is drawn round it, #1098), and after the pane
+        /// setting, straight after <see cref="BeginSceneDraw"/> (<paramref name="overGlass"/> false), and after the pane
         /// (true).
         /// <para>
         /// From under the plate the rigging stands behind the glass, so it goes in with the setting: before the copy the pane
@@ -1575,9 +1462,8 @@ namespace BS3D
         /// <summary>
         /// Tells the host that everything drawn so far stands <b>behind</b> the ceiling's glass hanging at
         /// <paramref name="plateWorld"/> - true of the setting when the camera is under the plate - so the copy the
-        /// glass bends is taken now, before the caller draws what hangs in front of it (#541).
-        /// <see cref="DrawEnvironmentBeforeObjects"/> calls it for a screen that will draw a plate this frame, after the
-        /// environment and the translucent things that stand in it, which that call draws first whenever this takes a copy.
+        /// glass bends is taken now, before the caller draws what hangs in front of it (#541). Call it straight
+        /// after <see cref="BeginSceneDraw"/>, from a screen that will draw a plate this frame.
         /// <para>
         /// The point of taking it early is what the copy must NOT hold. From under the plate, the cluster, the gun
         /// and everything the session draws are between the lens and the glass; a copy taken at the pane would
@@ -1597,18 +1483,14 @@ namespace BS3D
         /// (#1013: the aim beam vanished wherever the plate stood behind it).
         /// </para>
         /// </summary>
-        private void GrabCeilingBackground(InstancedModelRenderer renderer, Matrix plateWorld)
+        internal void GrabCeilingBackground(InstancedModelRenderer renderer, Matrix plateWorld)
         {
-            if (TakesCeilingBackgroundEarly(renderer, plateWorld)) _ceilingGlassBehind = _pipeline.GrabScene();
-        }
+            if (!RefractsCeiling || renderer == null || !CeilingInView(renderer, plateWorld)) return;
 
-        /// <summary>
-        /// Whether <see cref="GrabCeilingBackground"/> takes its copy this frame: a plate that bends, in view, seen from
-        /// under it. Asked first by <see cref="DrawEnvironmentBeforeObjects"/>, because a copy taken there has to hold the
-        /// environment (#1098).
-        /// </summary>
-        private bool TakesCeilingBackgroundEarly(InstancedModelRenderer renderer, Matrix plateWorld) =>
-            RefractsCeiling && renderer != null && CeilingInView(renderer, plateWorld) && CameraUnderCeiling(plateWorld);
+            if (!CameraUnderCeiling(plateWorld)) return;
+
+            _ceilingGlassBehind = _pipeline.GrabScene();
+        }
 
         /// <summary>
         /// Whether the camera stands under the underside of the ceiling's glass hanging at <paramref name="plateWorld"/>:
@@ -1670,12 +1552,6 @@ namespace BS3D
                 FinishPotatoSceneDraw(drawOnTop);
                 return;
             }
-
-            //The environment has a place of its own in every frame, and the screen names it (#1098): a frame that reaches
-            //its close without one is a cluster hanging in an empty sky, which is refused rather than shown
-            if (!_environmentDrawn) throw new InvalidOperationException(
-                "The frame's environment was never drawn: a screen that opens a frame with BeginSceneDraw calls " +
-                "DrawEnvironmentBeforeObjects before its gun and its cluster and DrawEnvironmentAfterObjects after them.");
 
             //The cup's layer, filled by BeginSceneDraw if a cup is up this frame. Asked for here rather
             // than carried in a field: the pair of slices is one pipeline, and what the frame's close

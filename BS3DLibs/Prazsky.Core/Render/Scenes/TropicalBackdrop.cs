@@ -864,15 +864,6 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// The lagoon's clip less <see cref="LAGOON_CLEAR_MARGIN"/>: no water is drawn inside the clip (<c>Sea.fx</c> cuts
-        /// it at the rest position's radius), and the swell that could carry a vertex inward dies before it.
-        /// </summary>
-        public override float FollowsArenaWithin =>
-            _tropicalConfig.Terrain.ShoreRadius - _tropicalConfig.Terrain.CoastNoise - TROPICAL_WATERLINE_BIAS - LAGOON_CLEAR_MARGIN;
-
-        private const float LAGOON_CLEAR_MARGIN = 6f;
-
-        /// <summary>
         /// The lagoon over the land, then what stands on the sand and the flock over the water: from the first draw that
         /// writes no depth to the end, in the order they always had (#1098).
         /// </summary>

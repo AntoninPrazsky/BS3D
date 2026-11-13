@@ -120,9 +120,10 @@ namespace Prazsky.Core.Render
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
-        /// <summary>Zero: the pass is drawn with the depth test off (and scaled up from its own target under supersampling),
-        /// so it covers whatever is in the frame and is always drawn before the arena (#1098).</summary>
-        public override float FollowsArenaWithin => 0f;
+        /// <summary>False: the pass is drawn with the depth test off (and scaled up from its own target under
+        /// supersampling), which no depth in the frame turns away, so there is nothing to gain by drawing it after the
+        /// island's (#1098).</summary>
+        public override bool FollowsIslandDepth => false;
 
         /// <inheritdoc/>
         public override bool TryGetLightRig(float wallClock, out SceneLightRig rig)

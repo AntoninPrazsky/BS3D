@@ -38,8 +38,7 @@ namespace BS3D
     /// <para>
     /// The frame is not "draw the screens back to front" naively: the pipeline binds an HDR target, draws
     /// the world into it and resolves once, and gameplay draws in slots <i>inside</i> that sequence. So the
-    /// screens own the frame and the host owns the pieces — <see cref="BeginSceneDraw"/>, the environment's two
-    /// slots (<see cref="DrawEnvironmentBeforeObjects"/>, <see cref="DrawEnvironmentAfterObjects"/>),
+    /// screens own the frame and the host owns the pieces — <see cref="BeginSceneDraw"/>,
     /// <see cref="DrawSettingGlass"/> and <see cref="FinishSceneDraw"/> are the setting's slices, and each
     /// bottom screen (the backdrop, or the gameplay screen) runs the sequence with its own work in the gaps.
     /// </para>
