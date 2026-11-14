@@ -845,6 +845,18 @@ namespace Testbed
             //of High's grown fork and boughs
             if (_options.FineMeshes is bool fineMeshes) _sceneRenderer.FineMeshes = fineMeshes;
 
+            //#1098: "envorder=" pins whether the island's depth is laid before the environment; auto, the default, asks
+            //the scene (Testbed.Draw.cs)
+            _environmentOrder = _options.EnvironmentOrder;
+
+            //...except in a run that isolates the arena (arena= or capprobe=, on the line or in any alt= variant), where
+            //auto draws the environment first in every window: the depth is laid by the members drawn, so taking the cap
+            //out would also give back the ground it hides and read the cap as a saving. A pinned envorder= is obeyed.
+            _arenaIsolated = _options.Arena != ArenaMembers.All || _options.CapProbe > 0
+                || _options.Alternation.Any(variant => variant.Pins.Any(pin => pin.Dial is "arena" or "capprobe"));
+            if (_arenaIsolated && _environmentOrder == EnvironmentOrder.Auto)
+                Console.WriteLine("[envorder] first in every window: this run isolates the arena (arena=, capprobe=), and the island's depth laid first would price the ground its members hide with them (#1098)");
+
             //#471 PROBE: "shadow=" pins SceneRenderer.ShadowScale so a sun shadow map can be measured and
             //photographed against its own absence WITHOUT a second build - 0 is what a scene with no map
             //renders, exactly. It is alternable (see ApplyVariant), which is the point: alt=shadow=0;shadow=1
@@ -1404,7 +1416,7 @@ namespace Testbed
         /// or a setter whose whole effect lands in the same frame.
         /// </summary>
         private static readonly string[] ALTERNATION_DIALS =
-            { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "finemeshes", "cityreflect", "cityreflectreach", "cityreflectsteps", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano", "aurora", "cavern", "meadow", "mountain" };
+            { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "finemeshes", "envorder", "cityreflect", "cityreflectreach", "cityreflectsteps", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano", "aurora", "cavern", "meadow", "mountain" };
 
         /// <summary>
         /// Prints the sweep's plan before the first window, and names anything it will not switch. A pin that
@@ -1566,6 +1578,13 @@ namespace Testbed
                     //The mountain's layers (#1035): "mountain=all/-range"
                     case "mountain":
                         _sceneRenderer.MountainLayers = TestOptions.ParseMountainLayers(pin.Value);
+                        break;
+
+                    //Whether the island's depth is laid before the environment (#1098): "envorder=first" is the frame
+                    //before it, "envorder=auto" the scene's answer. Read at the top of the next frame's scene block, so
+                    //nothing carries across the switch.
+                    case "envorder":
+                        _environmentOrder = TestOptions.ParseEnvironmentOrder(pin.Value);
                         break;
 
                     //On/off like the switch it mirrors: "nopost=1" is the argument, "nopost=0" the authored look

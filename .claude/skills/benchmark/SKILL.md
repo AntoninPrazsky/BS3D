@@ -245,7 +245,12 @@ can submit and nothing about the frame.
 
 - `arena=<list>` — which members of the arena are drawn: `cap`, `drum`, `pit`, `rims`, `glass`, plus `all` and
   `none`, comma-separated, a leading `-` removing. `arena=all,-cap` is the form an isolation wants. The `[fps]`
-  line names the surviving members for the same reason it names everything else on it. #151's whole answer came
+  line names the surviving members for the same reason it names everything else on it. **⚠ A run that isolates
+  the arena (`arena=` not `all`, or `capprobe=`, on the line or in any `alt=` variant) draws the environment
+  first** in every window (`envorder first` on the `[fps]` line, #1098): the island's depth, laid before the
+  environment, is the members drawn, so taking the cap out under it would also give back the ground the cap
+  hides, and the cap would read as a saving. `envorder=island` pins the depth back on for a reader who wants the
+  member's price in the shipped frame, ground included. #151's whole answer came
   out of this one argument — the stone cap is ~80–88 % of the arena's cost at a play camera on both classes of
   machine, and the translucent drain everyone suspected is nothing. **⚠ The members are a flags enum, so the
   `[fps]` line's arena field is itself comma-separated** (`arena Drum, Pit, Rims, Glass`): a harness regex that

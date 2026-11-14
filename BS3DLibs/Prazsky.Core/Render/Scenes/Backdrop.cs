@@ -40,8 +40,43 @@ namespace Prazsky.Core.Render
         /// <summary>The scene's configuration — what <see cref="SceneRenderer.GetSceneConfig"/> answers.</summary>
         public abstract SceneConfig Config { get; }
 
-        /// <summary>The scene's opaque environment pass (<see cref="SceneRenderer.DrawEnvironment"/>).</summary>
+        /// <summary>
+        /// The scene's environment (<see cref="SceneRenderer.DrawEnvironmentOpaque"/>), up to the first thing it draws
+        /// without writing depth. A scene that replaces the sky draws the whole of itself here, its sky included.
+        /// </summary>
         public abstract void Draw(in SceneFrame frame);
+
+        /// <summary>
+        /// The rest of the environment (<see cref="SceneRenderer.DrawEnvironmentBlended"/>, #1098): from the first thing the
+        /// scene draws without writing depth to its end, in the order it always had — the sea's water, the lagoon and what
+        /// stands on its beach, the storm, the volcano's fountains, Mars's moons, the desert's creatures. It is drawn after
+        /// <see cref="Draw"/> and after whatever it is blended over, the host's own wood and the sky included: the gap
+        /// between the two halves is where a sky drawn after the opaque scene belongs, under all of this. ⚠ It starts from
+        /// the states <see cref="Draw"/> leaves (the scene's baseline: alpha blend, depth test and write, back-face
+        /// culling) and several of these draw under them unstated, so a host that draws something of its own in the gap
+        /// puts that baseline back before this. It leaves the same. Nothing by default.
+        /// </summary>
+        public virtual void DrawBlended(in SceneFrame frame) { }
+
+        /// <summary>
+        /// Whether a host lays the island's <b>depth</b> into the frame before this environment and draws the island
+        /// itself after it, where it always was (<see cref="SceneRenderer.EnvironmentFollowsIslandDepth"/>, #1098, which
+        /// also refuses a multisampled target and a phone whatever this answers). True by default, and from any lens:
+        /// every depth-tested pixel of the environment the island stands in front of is then turned away before its
+        /// program runs, and the picture is the old one to the pixel, because the island's colour still goes over
+        /// everything the environment drew — opaque or blended, nearer than the island or not, depth-tested or drawn with
+        /// the test off (<c>ArenaIsland.DrawIslandDepth</c> has the whole argument). The island is opaque in every scene:
+        /// its stone's program takes no fade, the sea's submerge included. A pass drawn with the depth test off (space,
+        /// the big top) is not turned away, but those scenes measured cheaper with the depth laid all the same.
+        /// <para>
+        /// <b>False</b> where the argument fails: where the environment blends something that also WRITES depth (the
+        /// cavern's crystals: one standing in front of the island shows the hall behind it, the part behind the island
+        /// included). ⚠ A backdrop that gains such a draw — blended, or faded by its alpha, and writing depth — where it
+        /// can stand between a lens and the island says false too. And false where the depth was measured not to pay
+        /// (the dream, whose one depth-off pass is the whole environment).
+        /// </para>
+        /// </summary>
+        public virtual bool FollowsIslandDepth => true;
 
         /// <summary>
         /// The depth of a backdrop's solid things that can stand in front of the arena (#755), drawn into the caller's

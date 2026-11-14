@@ -864,6 +864,11 @@ namespace BS3D
         /// the island with its pit, and returns the <see cref="SceneFrame"/> the closing slices need. The
         /// gameplay screen draws its gun, cluster and trails after this; the backdrop goes straight on to
         /// <see cref="DrawSettingGlass"/>.
+        /// <para>
+        /// The order inside it: the sky, <b>the island's depth</b> (#1098, so the environment is shaded only where the
+        /// island leaves it showing), the environment in two halves with the host's wood between them, then the island
+        /// itself, its pit and the drain's bands. The body holds why at each step.
+        /// </para>
         /// </summary>
         internal SceneFrame BeginSceneDraw()
         {
@@ -1051,6 +1056,28 @@ namespace BS3D
             //clock is the balls' own, so the campfire's light and its flame billboard cannot drift.
             _sceneLights.Apply(_scene, _sceneRenderer, _cityConfig.NeonLook, _wallClock);
 
+            //The island's own event (#535): the volcano's eruption, off the wall clock the scene lights and the
+            //thunder read, so the cracks in the basalt brighten with the crater. Zero in every other scene. Before the
+            //island's first draw of the frame, which is the depth just below.
+            _island.EventGlow = _scene == SceneKind.Volcano ? _sceneRenderer.VolcanoEruption(_wallClock) : 0f;
+
+            //THE ISLAND'S DEPTH, BEFORE THE ENVIRONMENT (#1098). The environment's pixel programs are the dearest in the
+            //frame, the GPU turns away a pixel behind what earlier draws wrote before its program runs, and the
+            //island stands in front of the ground wherever the lens looks down on it (the front end's orbit and a level's
+            //opening tour most of all; the play camera sees the island as a strip along the bottom of the frame, so play
+            //saves the least): so the island's depth goes in first, with no colour, and every
+            //pixel of the backdrop, the city and the wood that the island stands in front of is turned away unshaded.
+            //The island itself is still drawn after them, below, where it always was, which is why no pixel moves
+            //(ArenaIsland.DrawIslandDepth has the argument, and Backdrop.FollowsIslandDepth the two scenes left out: the
+            //cavern, whose crystals blend and write depth, and the dream, where it does not pay). Not with the Scenery
+            //row off (#808), when there is no environment to turn away, not on a phone, and never into a multisampled
+            //target (Medium and Low on Windows): the renderer's answer takes the target and holds the reasons.
+            //ONLY THE ISLAND: the gun and the cluster hide ground too, but their depth cannot go in first. From under
+            //the plate the ceiling's glass bends a copy of the frame taken before they are drawn (#541), and that copy
+            //has to hold the environment behind them.
+            if (SceneryShown && _sceneRenderer.EnvironmentFollowsIslandDepth(_scene, _pipeline.SceneTarget))
+                _island.DrawIslandDepth(_camera, _sceneEffectParams, _scene);
+
             //The Scenery row off (#808): none of the setting's own world - the backdrop or the city here, the wood, the
             //aurora's stand, what stands on the ground, the shaft under the drain and the weather below - only the sky,
             //the island and what plays on it. The lights and the light rig stay the scene's.
@@ -1078,7 +1105,9 @@ namespace BS3D
             //The target goes in so the cavern and the dream can be shaded at the back buffer's size and scaled
             //up (#155). Passed rather than remembered, so it cannot be the one the pipeline held before a
             //resize, a fullscreen switch or a quality step replaced it.
-            else _sceneRenderer.DrawEnvironment(_scene, sceneFrame, _pipeline.SceneTarget);
+            //The backdrop's first half (#1098): everything of it up to its first draw that writes no depth. The second
+            //is drawn after the wood, below.
+            else _sceneRenderer.DrawEnvironmentOpaque(_scene, sceneFrame, _pipeline.SceneTarget);
 
             //The forest's scattered trees, rocks and stumps, drawn after the forest terrain they stand on and
             //before the island: one draw per kind per mesh variant, and per material within a tree. The scene
@@ -1104,15 +1133,20 @@ namespace BS3D
                 if (SceneryShown) _auroraScatter.Draw(_camera, _sceneRenderer.FineMeshes);
             }
 
-            //The round island, opaque: its stone cap and concrete drum. Then the dark well behind the glass
-            //drain, which is drawn in the solid-terrain scenes only — it fills the hole those shaders cut in
-            //the ground, so the drain reads as a deep shaft rather than as a glass ring over bright sky haze —
-            //and which brings the culling its open cone needs with it. Each slice owns the states its own
+            //The backdrop's second half (#1098): what it blends over everything above without writing depth, to its end
+            //(the sea, the lagoon and its beach, the storm, the fountains, the moons, the desert's creatures). THE GAP
+            //BEFORE THIS LINE is where a sky drawn after the opaque scene belongs: over nothing that wrote depth, under
+            //everything that is blended over the sky. Whatever is drawn there puts the three states stated above back
+            //first (Backdrop.DrawBlended). A no-op for the two cities and for a scene with no such half.
+            if (SceneryShown) _sceneRenderer.DrawEnvironmentBlended(_scene, sceneFrame);
+
+            //The round island, opaque: its stone cap and concrete drum, over the depth they laid before the environment
+            //(the test is LessEqual and the two draws are one call, so every sample passes on its own depth). Then the
+            //dark well behind the glass drain, which is drawn in the solid-terrain scenes only — it fills the hole those
+            //shaders cut in the ground, so the drain reads as a deep shaft rather than as a glass ring over bright sky
+            //haze — and which brings the culling its open cone needs with it. Each slice owns the states its own
             //geometry wants; where they sit in the frame is this file's decision, which is the whole reason
             //ArenaIsland hands them over separately.
-            //The island's own event (#535): the volcano's eruption, off the wall clock the scene lights and the
-            //thunder read, so the cracks in the basalt brighten with the crater. Zero in every other scene.
-            _island.EventGlow = _scene == SceneKind.Volcano ? _sceneRenderer.VolcanoEruption(_wallClock) : 0f;
             _island.DrawIsland(_camera, _sceneEffectParams, _scene);
             if (SceneryShown) _island.DrawPit(_camera, _sceneEffectParams, _scene);
 

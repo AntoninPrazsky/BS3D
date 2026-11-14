@@ -58,5 +58,14 @@ namespace Prazsky.Core.Render
         /// There the map it would read is not built at all.
         /// </summary>
         public static bool CityReflections => !OperatingSystem.IsAndroid();
+
+        /// <summary>
+        /// Whether a host may lay the island's depth into the frame before the environment (#1098,
+        /// <c>SceneRenderer.EnvironmentFollowsIslandDepth</c>): not under MonoGame's Android backend. The pass is taken
+        /// only where it was measured to pay, the desktop's GPU. A phone's is a tiler, where the island's second draw
+        /// costs its vertex work and binning a second time and the hidden ground may already be rejected tile by tile,
+        /// so a phone draws the frame without it until a phone run shows that it pays there.
+        /// </summary>
+        public static bool IslandDepthFirst => !OperatingSystem.IsAndroid();
     }
 }

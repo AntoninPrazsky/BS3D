@@ -1275,6 +1275,50 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
+        /// The island's depth alone (#1098): <see cref="DrawIsland"/>'s own draws with no colour written, for a host that
+        /// draws its environment between this and the island itself. The environment's pixel programs are the dearest in
+        /// the frame, the GPU turns away a pixel behind what earlier draws wrote before its program runs, and a lens that
+        /// looks down on the island has it in front of much of the ground: with its depth already in the frame, the ground
+        /// behind it is never shaded. How much that is depends on the lens
+        /// (<see cref="SceneRenderer.EnvironmentFollowsIslandDepth"/>).
+        /// <para>
+        /// <b>Why it changes no pixel.</b> The host goes on to draw the environment and then the island, in the order it
+        /// always did. A sample of the environment that lies behind the island was always painted over by the island's
+        /// colour, whatever it was (ground, a tree, steam, a flame): now the depth test turns it away before its program
+        /// runs, and the island's colour lands on the same sample. A sample in front of the island is drawn as before,
+        /// and the island's own draw is then turned away there as before. Where the two hold the same depth (the line
+        /// where the drum stands in the ground) both pass, the test being <c>LessEqual</c>, and the island, drawn last,
+        /// wins as it always did. And the island's draw passes on its own depth, because the two draws are one call made
+        /// twice, with the same program and the same uniforms, so their depths are the same number. That is why this is
+        /// the island's own draw with the colour masked and not the shadow pass's cheaper one (<see cref="DrawShadow"/>),
+        /// which is another vertex program: a depth one step nearer than the colour's would cut holes in the stone.
+        /// </para>
+        /// <para>
+        /// ⚠ <b>It holds only while the island is opaque and nothing of the environment that lets what is behind it show
+        /// through also writes depth</b>: <c>Backdrop.FollowsIslandDepth</c> names the scene where the second fails, and
+        /// the one where the pass was measured not to pay. A draw of the environment with the depth test off (space, the
+        /// dream, the big top) is drawn whole as before and painted over by the island as before: the picture holds,
+        /// though nothing of that draw is turned away. <b>And it is laid only on the desktop, into a target that is not
+        /// multisampled</b>: a multisampled frame is not the same picture twice even in one order, so there the argument
+        /// cannot be shown to hold, and the depth was measured to add to the difference
+        /// (<see cref="SceneRenderer.EnvironmentFollowsIslandDepth"/>). A host asks that method before it calls this. The
+        /// blend state is put back as it was found; nothing else is touched.
+        /// </para>
+        /// </summary>
+        public void DrawIslandDepth(ICamera camera, BasicEffectParams sceneParams, SceneKind scene)
+        {
+            BlendState blend = _device.BlendState;
+
+            _device.BlendState = NO_COLOR;
+            DrawIsland(camera, sceneParams, scene);
+            _device.BlendState = blend;
+        }
+
+        //Depth and nothing else. Built once: a state object made per frame is a native state that is never let go
+        //(BestPractices.md §2)
+        private static readonly BlendState NO_COLOR = new() { ColorWriteChannels = ColorWriteChannels.None };
+
+        /// <summary>
         /// Draws the island into the bound sun shadow map (#470): the <b>cap and the drum</b>, which is the
         /// whole of its silhouette against the sun — a stone disc thirty units across on a drum, and until
         /// this existed the biggest solid in the scene threw nothing onto the grass beside it.

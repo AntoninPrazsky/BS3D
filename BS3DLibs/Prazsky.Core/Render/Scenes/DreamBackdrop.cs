@@ -120,6 +120,12 @@ namespace Prazsky.Core.Render
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
+        /// <summary>False, by measurement and not by the argument (#1098): the pass is drawn with the depth test off (and
+        /// scaled up from its own target under supersampling), which the island's depth does not turn away, and here
+        /// laying that depth was measured to cost a little more than it saves (space and the big top, drawn the same
+        /// way, measured cheaper with it). The picture would be the same either way.</summary>
+        public override bool FollowsIslandDepth => false;
+
         /// <inheritdoc/>
         public override bool TryGetLightRig(float wallClock, out SceneLightRig rig)
         {

@@ -12,7 +12,7 @@ The fourteenth `SceneKind` (#244): the island in the middle of a tropical lagoon
 
 ## Draw order and the lagoon
 
-`DrawEnvironment`'s tropical case states its order: the land (opaque, depth-writing), then the lagoon depth-**READ** over the bed, then palms, rocks and flock.
+`TropicalBackdrop` states its order: the land and the bank (`Draw`: opaque, depth-writing), then (`DrawBlended`) the lagoon depth-**READ** over the bed, then palms, rocks and flock.
 
 - **The lagoon is `Sea.fx`**, with the tropical water values, and each water draw has **its own `Effect.Clone()`** (#580). ⚠ A NumPad2/V switch applies no config, so with one shared instance the scene switched to drew the other's water.
 - **The shore** (#968; the owner: the sea met the sand "sharp and unreal"). The references (`968-zimage`, `968-klein`) agree: clear water over wet sand at the edge, pale turquoise a few units out, then the lagoon's own colour, with a lace of foam where the swash dies. The beach's land is `TropicalTerrain.fxh`, included by `Tropical.fx` and by `Sea.fx` and pushed into both (`PushLand`), so the water reads its depth off the very height the sand is drawn from (`TerrainMirror.Tropical` still mirrors it; `mirrorcheck` PASS). In `Sea.fx`, behind `ShoreClarity` (0 on the open sea):

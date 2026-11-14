@@ -194,12 +194,22 @@ namespace Prazsky.Core.Render
         private void BuildSprayBuffers() =>
             Services.BuildBillboardParticles(_seaConfig.Spray.ParticleCount, 5023, ref _sprayVertexBuffer, ref _sprayIndexBuffer);
 
+        /// <summary>Nothing: the sea has no opaque half (<see cref="DrawBlended"/>).</summary>
+        public override void Draw(in SceneFrame frame) { }
+
         /// <summary>
         /// Draws the sea: a camera-centred grid (snapped to a cell so the waves do not swim) displaced into
         /// Gerstner swell with foam, subsurface scattering and a Fresnel reflection of the current dome,
         /// shadowed by the same cloud field as the rest of the scene.
+        /// <para>
+        /// <b>All of it is the blended half</b> (#1098): the water is the first thing drawn and writes no depth, so
+        /// <see cref="Draw"/> draws nothing and the sea comes after whatever it lies over. It follows the island's depth
+        /// like any other scene (<see cref="Backdrop.FollowsIslandDepth"/>): the island's stone is opaque here too (its
+        /// triplanar program takes no submerge fade, which only the drain's parts and the balls do), so the water it
+        /// stands in front of was always painted over, and the platforms and the school are opaque.
+        /// </para>
         /// </summary>
-        public override void Draw(in SceneFrame frame)
+        public override void DrawBlended(in SceneFrame frame)
         {
             //The pool standing in the drain (#132): the cut around the island keeps a calm disc of water
             //where the funnel's glass cone crosses the mean level, and discards only the annulus hidden

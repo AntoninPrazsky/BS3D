@@ -256,6 +256,31 @@ namespace Testbed.Diagnostics
         public bool? FineMeshes { get; private set; }
 
         /// <summary>
+        /// <c>envorder=&lt;auto|first|island&gt;</c>: whether the island's depth is laid into the frame before the
+        /// environment (the backdrop or the city, the wood), so that the environment is shaded only where the island
+        /// leaves it showing (#1098). <c>auto</c>, the default, asks the scene and the target, as the Game does
+        /// (<c>SceneRenderer.EnvironmentFollowsIslandDepth</c>: not in the cavern and the dream, and never into a multisampled target,
+        /// which is <c>ssaa=1</c> unless <c>msaa=0</c>). The other two <b>pin</b> it whatever that answers:
+        /// <c>first</c> draws the environment first with nothing before it, the frame as it was before #1098, and
+        /// <c>island</c> lays the depth in every scene and under multisampling too.
+        /// <para>
+        /// ⚠ <b>A run that isolates the arena</b> (<see cref="Arena"/> not everything, or <see cref="CapProbe"/>, on the
+        /// line or in any <c>alt=</c> variant) <b>reads <c>auto</c> as <c>first</c></b> in every window. The depth is
+        /// laid by the members drawn, so <c>arena=all,-cap</c> under the depth would also give back the ground the cap
+        /// hides, and the cap would read as a saving. A pinned <c>island</c> is obeyed, for a reader who wants the
+        /// member's price in the shipped frame, ground included.
+        /// </para>
+        /// <para>
+        /// A per-scene cost comes from <b>one process a figure</b>, the build before against this one or one pin a
+        /// process (<c>alt=</c> carries part of a window into the next, #1129). Alternated in one process with the clock
+        /// stood still (<c>alt=envorder=first;envorder=auto</c>), two frames are what show the picture is the same. A pin
+        /// draws what it is told: <c>island</c> at <c>ssaa=1</c> is the multisampled frame with the depth laid first,
+        /// which is not the same picture to the bit, and is the measurement of what the answer guards.
+        /// </para>
+        /// </summary>
+        public EnvironmentOrder EnvironmentOrder { get; private set; } = EnvironmentOrder.Auto;
+
+        /// <summary>
         /// <c>cityreflect=&lt;strength&gt;</c>: the city's windows mirroring the towers round them (#1065), the Game's High and
         /// Ultra look - the towers' draw takes <c>InstancedCityReflect</c> over a map of the city. 1 by default; 0 draws the
         /// plain technique (the Game's Low and Medium), so the two can be photographed from one pinned camera and, through
@@ -500,6 +525,7 @@ namespace Testbed.Diagnostics
                 else if (arg.StartsWith("rscale=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("rscale=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedRscale)) options.RenderScale = parsedRscale;
                 else if (arg.StartsWith("detail=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("detail=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedDetail)) options.SceneDetail = parsedDetail;
                 else if (arg.StartsWith("finemeshes=", StringComparison.OrdinalIgnoreCase)) options.FineMeshes = arg.Substring("finemeshes=".Length) is not ("0" or "false" or "off");
+                else if (arg.StartsWith("envorder=", StringComparison.OrdinalIgnoreCase)) options.EnvironmentOrder = ParseEnvironmentOrder(arg.Substring("envorder=".Length));
                 else if (arg.StartsWith("cityreflect=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("cityreflect=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float cityReflect)) options.CityReflect = MathF.Max(0f, cityReflect);
                 else if (arg.StartsWith("shadow=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("shadow=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedShadow)) options.ShadowScale = parsedShadow;
                 //Read here for the same reason "logfps" is (see the comment above it): an argument this parse
@@ -617,6 +643,14 @@ namespace Testbed.Diagnostics
         public static MeadowLayer ParseMeadowLayers(string list) => ParseLayers<MeadowLayer>(list);
 
         public static MountainLayer ParseMountainLayers(string list) => ParseLayers<MountainLayer>(list);
+
+        /// <summary><c>envorder=</c>'s value (<see cref="EnvironmentOrder"/>); anything unread is <c>auto</c>, the scene's answer.</summary>
+        public static EnvironmentOrder ParseEnvironmentOrder(string value) => value.Trim().ToLowerInvariant() switch
+        {
+            "first" => EnvironmentOrder.First,
+            "island" => EnvironmentOrder.Island,
+            _ => EnvironmentOrder.Auto
+        };
 
         private static T ParseLayers<T>(string list) where T : struct, Enum
         {
@@ -820,5 +854,21 @@ namespace Testbed.Diagnostics
             result = new Vector3(x, y, z);
             return true;
         }
+    }
+
+    /// <summary>
+    /// Whether the Testbed's frame lays the island's depth before the environment (#1098): <see cref="Auto"/> asks the
+    /// scene, the other two pin it (<c>envorder=</c>, <see cref="TestOptions.EnvironmentOrder"/>).
+    /// </summary>
+    public enum EnvironmentOrder
+    {
+        /// <summary>The scene and the target answer (<c>SceneRenderer.EnvironmentFollowsIslandDepth</c>), as in the Game.</summary>
+        Auto,
+
+        /// <summary>The environment first, with nothing before it but the sky: the order every frame had until #1098.</summary>
+        First,
+
+        /// <summary>The island's depth, then the environment, in every scene and into any target, whatever the answer.</summary>
+        Island
     }
 }

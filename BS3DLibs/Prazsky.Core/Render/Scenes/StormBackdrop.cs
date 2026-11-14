@@ -757,6 +757,9 @@ namespace Prazsky.Core.Render
             return true;
         }
 
+        /// <summary>Nothing: the storm has no opaque half (<see cref="DrawBlended"/>).</summary>
+        public override void Draw(in SceneFrame frame) { }
+
         /// <summary>
         /// Draws the storm (#219): the field of cumulus cells, then the lightning channel over it.
         /// <para>
@@ -774,8 +777,12 @@ namespace Prazsky.Core.Render
         /// above the shared plane degenerates to the point's own column and returns about the shadow floor.
         /// <c>StormClouds.fx</c>'s header has the whole argument.
         /// </para>
+        /// <para>
+        /// <b>All of it is the blended half</b> (#1098): nothing here writes depth, so <see cref="Draw"/> draws nothing and
+        /// the storm comes after whatever it is blended over.
+        /// </para>
         /// </summary>
-        public override void Draw(in SceneFrame frame)
+        public override void DrawBlended(in SceneFrame frame)
         {
             Matrix inverseView = Matrix.Invert(frame.Camera.View);
             float envelope = Flash(frame.Time);

@@ -17,8 +17,8 @@ namespace Testbed
     /// </summary>
     /// <remarks>
     /// Split out of <c>Testbed.cs</c> in #73. The draw order here is the file's own decision and most of it is
-    /// stated at the call sites: sky, backdrop, forest, island, gun, balls, smears, then the three glass
-    /// surfaces nearest-last, then the snow. Two rules that are easy to break by moving a line: the
+    /// stated at the call sites: sky, the island's depth (#1098), backdrop, forest, island, gun, balls, smears, then
+    /// the three glass surfaces nearest-last, then the snow. Two rules that are easy to break by moving a line: the
     /// <see cref="RasterizerState"/> is <b>stated</b> rather than inherited (the tonemap leaves
     /// <c>CullNone</c> and the overlay's <c>SpriteBatch</c> leaves its own, so what the scene culled used to
     /// depend on which ran last), and <see cref="BallRenderSet.BeginFrame"/> may be opened exactly once a frame
@@ -152,6 +152,28 @@ namespace Testbed
                 if (_scene == SceneKind.Aurora)
                     _auroraScatter?.ApplySkyTint(_sceneRenderer.AuroraGlowColor(SceneClock));
 
+                //The island's own event (#535): the volcano's eruption on the scene clock, as the Game does it. Before
+                //the island's first draw of the frame, which is the depth just below.
+                _island.EventGlow = _scene == SceneKind.Volcano ? _sceneRenderer.VolcanoEruption(SceneClock) : 0f;
+
+                //THE ISLAND'S DEPTH, BEFORE THE ENVIRONMENT (#1098), as the Game's BeginSceneDraw lays it. The
+                //environment's pixel programs are the dearest in the frame, the GPU turns away a pixel behind what
+                //earlier draws wrote before its program runs, and this program's game-mode camera looks down on the
+                //island, which stands in front of much of the ground: with the island's depth in first, with no
+                //colour, every pixel of the backdrop, the city and the wood that the island stands in front of is
+                //turned away unshaded. The island itself is still drawn after them, below, where it always was, which
+                //is why no pixel moves (ArenaIsland.DrawIslandDepth has the argument, and Backdrop.FollowsIslandDepth
+                //the two scenes left out; never into a multisampled target, which is ssaa=1 here). envorder=
+                //pins it on or off whatever the scene and the target say, which is how each of those claims is
+                //measured and photographed; a run that isolates the arena draws the environment first (Testbed.cs).
+                _islandDepthFirst = _environmentOrder switch
+                {
+                    EnvironmentOrder.First => false,
+                    EnvironmentOrder.Island => true,
+                    _ => !_arenaIsolated && _sceneRenderer.EnvironmentFollowsIslandDepth(_scene, _pipeline.SceneTarget)
+                };
+                if (_islandDepthFirst) _island.DrawIslandDepth(_camera, _sceneEffectParams, _scene);
+
                 if (_scene == SceneKind.City || _scene == SceneKind.NeonCity)
                 {
                     bool neon = _scene == SceneKind.NeonCity;
@@ -171,7 +193,9 @@ namespace Testbed
                     //The target goes in so the cavern and the dream can be shaded at the back buffer's size and
                     //scaled up (#155). Passed rather than remembered, so it cannot be the one the pipeline held
                     //before a resize or a supersample change replaced it.
-                    _sceneRenderer.DrawEnvironment(_scene, sceneFrame, _pipeline.SceneTarget);
+                    //The backdrop's first half (#1098): everything of it up to its first draw that writes no depth.
+                    //The second is drawn after the wood, below.
+                    _sceneRenderer.DrawEnvironmentOpaque(_scene, sceneFrame, _pipeline.SceneTarget);
 
                 //The forest's scattered trees, boulders and stumps: after the terrain they stand on (with depth,
                 //or they would draw through it) and before the island. The state they need is the opaque scene
@@ -186,12 +210,20 @@ namespace Testbed
                 //campfire blink and flicker on — off pause, on with the game.
                 if (_scene == SceneKind.Forest) _forestFireflies?.Draw(_camera, SceneClock);
 
-                //The round island, opaque: its stone cap and concrete drum. Then the dark pit shaft behind the
-                //drain, which is drawn in the solid-terrain scenes only and brings its own culling with it.
-                //Each slice owns the states its own geometry needs; where they sit in the frame is this file's
-                //decision, which is the whole reason the component hands them over separately.
-                //The island's own event (#535): the volcano's eruption on the scene clock, as the Game does it.
-                _island.EventGlow = _scene == SceneKind.Volcano ? _sceneRenderer.VolcanoEruption(SceneClock) : 0f;
+                //The backdrop's second half (#1098): what it blends over everything above without writing depth, to
+                //its end (the sea, the lagoon and its beach, the storm, the fountains, the moons, the desert's
+                //creatures). THE GAP BEFORE THIS LINE is where a sky drawn after the opaque scene belongs: over
+                //nothing that wrote depth, under everything that is blended over the sky. Whatever is drawn there
+                //puts the three states stated above the scene block back first (Backdrop.DrawBlended). A no-op for
+                //the two cities and for a scene with no such half.
+                _sceneRenderer.DrawEnvironmentBlended(_scene, sceneFrame);
+
+                //The round island, opaque: its stone cap and concrete drum, over the depth they laid before the
+                //environment (the test is LessEqual and the two draws are one call, so every sample passes on its
+                //own depth). Then the dark pit shaft behind the drain, which is drawn in the solid-terrain scenes
+                //only and brings its own culling with it. Each slice owns the states its own geometry needs; where
+                //they sit in the frame is this file's decision, which is the whole reason the component hands them
+                //over separately.
                 _island.DrawIsland(_camera, _sceneEffectParams, _scene);
                 _island.DrawPit(_camera, _sceneEffectParams, _scene);
 
@@ -275,6 +307,16 @@ namespace Testbed
             //simulation is running, slowed or frozen.
             _shots?.Service(_pulseSeconds, _scene);
         }
+
+        //envorder= (#1098): whether the island's depth is laid before the environment. Auto asks the scene, as the Game
+        //does; a run or an alt= variant pins it on or off
+        private EnvironmentOrder _environmentOrder = EnvironmentOrder.Auto;
+
+        //A run that isolates the arena (arena= or capprobe=, Testbed.cs): Auto answers "first" for its whole length
+        private bool _arenaIsolated;
+
+        //What the last frame did, which is what the [fps] line names: under Auto nothing else says what the scene answered
+        private bool _islandDepthFirst;
 
         /// <summary>
         /// What this program casts into the sun's shadow map (#470): the island, the gun, the balls
@@ -401,6 +443,10 @@ namespace Testbed
                 + (_sceneRenderer.ShadowScale < 1f ? $", shadow {_sceneRenderer.ShadowScale.ToString("0.##", CultureInfo.InvariantCulture)}" : string.Empty)
                 + $", {GraphicsDevice.PresentationParameters.BackBufferWidth}x{GraphicsDevice.PresentationParameters.BackBufferHeight}"
                 + $", vsync {(_options.UncappedFps ? "off" : "on")}{(_options.FpsCap > 0 ? $" (cap {_options.FpsCap})" : "")}, arena {_island.Members}{(alternating || capProbe > 0 ? $", capprobe {capProbe}" : "")}, balls {_collectedBalls}"
+                //Whether the window's last frame laid the island's depth before the environment (#1098: envorder=, or
+                //under auto the scene's own answer, which nothing else on the line says) - before "variant", which the
+                //sweep's reader takes to the line's end
+                + $", envorder {(_islandDepthFirst ? "island" : "first")}"
                 //The variant's own text last, in the caller's words rather than restated from the live
                 //settings: a sweep is read by grouping the lines that carry the same name, and a dial the
                 //rest of this line does not print (a ball material, an exposure) would otherwise leave two
