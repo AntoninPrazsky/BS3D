@@ -1027,8 +1027,8 @@ namespace BS3D
                 _cloudVolumes?.ApplyToSky(_skyEffect, _clouds, CloudVolumesShown);
 
                 //The sky's work in targets of its own, before the scene's is bound: the heaps of High and Ultra (#989)
-                //marched into their display-size layer, and on the tiers that supersample (High and Ultra) the dome and
-                //the heaps shaded once a display pixel into the sky's own target (#1104, SkyPass.DISPLAY_RESOLUTION)
+                //marched into their display-size layer, and on the tiers that supersample (High and Ultra) the dome shaded
+                //once a display pixel into the sky's own target (#1104, SkyPass.DISPLAY_RESOLUTION)
                 _skyPass.Prepare(_camera, _clouds, _skyEffect, CloudVolumesShown ? _cloudVolumes : null, _pipeline.SceneTarget,
                     _pipeline.SupersampleFactor);
             }

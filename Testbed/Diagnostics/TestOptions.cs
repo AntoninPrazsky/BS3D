@@ -295,9 +295,9 @@ namespace Testbed.Diagnostics
         public bool? SkyBehindScene { get; private set; }
 
         /// <summary>
-        /// <c>skyres=&lt;display|full&gt;</c>: whether a supersampled frame shades the sky dome and the heaps once a display
-        /// pixel into a target of their own (<c>display</c>) or at every sample of the scene target (<c>full</c>, the look
-        /// before #1104). Left out, the Game's own (<c>SkyPass.DISPLAY_RESOLUTION</c>). Nothing at <c>ssaa=1</c>, where the
+        /// <c>skyres=&lt;display|full&gt;</c>: whether a supersampled frame shades the sky dome once a display pixel into a
+        /// target of its own (<c>display</c>) or at every sample of the scene target (<c>full</c>, the look before #1104); the
+        /// heaps are laid over it the same way either way. Left out, the Game's own (<c>SkyPass.DISPLAY_RESOLUTION</c>). Nothing at <c>ssaa=1</c>, where the
         /// two are one. An <c>alt=</c> dial too: <c>alt=skyres=full;skyres=display</c> is the before and the after of the
         /// look in one process, and what it saves read in one.
         /// </summary>

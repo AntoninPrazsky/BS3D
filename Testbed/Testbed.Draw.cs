@@ -110,8 +110,8 @@ namespace Testbed
                 _cloudVolumes?.ApplyToSky(_skyEffect, _clouds, _sceneRenderer.FineMeshes);
 
                 //The sky's work in targets of its own, before the scene's is bound: the heaps of High and Ultra (#989)
-                //marched into their display-size layer, and above ssaa=1 the dome and the heaps shaded once a display
-                //pixel into the sky's own target (#1104; skyres=full shades them at every sample)
+                //marched into their display-size layer, and above ssaa=1 the dome shaded once a display pixel into the
+                //sky's own target (#1104; skyres=full shades it at every sample)
                 _skyPass.Prepare(_camera, _clouds, _skyEffect, _sceneRenderer.FineMeshes ? _cloudVolumes : null, _pipeline.SceneTarget,
                     _pipeline.SupersampleFactor);
             }

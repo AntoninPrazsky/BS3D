@@ -36,20 +36,20 @@ namespace Prazsky.Core.Render
     /// the frame taken before they are drawn (#541), which must hold the sky.
     /// </para>
     /// <para>
-    /// <b>At display resolution on the tiers that supersample</b> (<see cref="DISPLAY_RESOLUTION"/>): the dome and the heaps
-    /// are shaded once a display pixel into a target of their own, before the scene target is bound, and that target is what
-    /// the late draw brings in, one texel to each of the supersample's samples of its display pixel. The deck and the sun's
-    /// disc get the one sample a display pixel Medium and Low give them; the footprint the deck band-limits against is a
-    /// display pixel's, so its finest grain is retired nearer the lens ("The sky at display resolution" in
-    /// docs/rendering/weather.md).
+    /// <b>At display resolution on the tiers that supersample</b> (<see cref="DISPLAY_RESOLUTION"/>): the dome is shaded once a
+    /// display pixel into a target of its own, before the scene target is bound, and that target is what the late draw brings
+    /// in, one texel to each of the supersample's samples of its display pixel. The deck and the sun's disc get the one sample
+    /// a display pixel Medium and Low give them; the footprint the deck band-limits against is a display pixel's, so its finest
+    /// grain is retired nearer the lens ("The sky at display resolution" in docs/rendering/weather.md). The heaps are laid over
+    /// it in the scene target as before, through the linear stretch of their own display-size layer.
     /// </para>
     /// </summary>
     public sealed class SkyPass : IDisposable
     {
         /// <summary>
-        /// <b>THE SWITCH (#1104), the one line that turns the look back:</b> true shades the dome and the heaps once a display
-        /// pixel on the tiers that supersample (High and Ultra), false shades them at every sample of the scene target, as
-        /// every frame did before #1104. Nothing of it below supersampling 2 or on a phone (<see cref="GraphicsSupport.SkyBehindScene"/>).
+        /// <b>THE SWITCH (#1104), the one line that turns the look back:</b> true shades the dome once a display pixel on the
+        /// tiers that supersample (High and Ultra), false shades it at every sample of the scene target, as every frame did
+        /// before #1104. Nothing of it below supersampling 2 or on a phone (<see cref="GraphicsSupport.SkyBehindScene"/>).
         /// The default of <see cref="AtDisplayResolution"/>, which the Testbed's <c>skyres=</c> overrides.
         /// </summary>
         public const bool DISPLAY_RESOLUTION = true;
@@ -100,8 +100,8 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The frame's sky work that needs a target of its own: the heaps marched into their layer
-        /// (<see cref="CloudVolumes.March"/>), and on a supersampled frame the dome and the heaps shaded at display resolution
-        /// into the sky's own target (<see cref="AtDisplayResolution"/>). Call it <b>before the scene target is bound</b> (a
+        /// (<see cref="CloudVolumes.March"/>), and on a supersampled frame the dome shaded at display resolution into the sky's
+        /// own target (<see cref="AtDisplayResolution"/>). Call it <b>before the scene target is bound</b> (a
         /// target is bound once a frame), with this frame's sky already stated on <paramref name="skyEffect"/>
         /// (<see cref="CloudField.ApplyTo"/>, the camera's position, <see cref="CloudVolumes.ApplyToSky"/>), in a frame that
         /// draws the dome; a frame that does not calls <see cref="Release"/>. Leaves a target of its own bound.
@@ -141,18 +141,15 @@ namespace Prazsky.Core.Render
 
             _sceneRectangle = new Rectangle(0, 0, sceneTarget.Width, sceneTarget.Height);
 
-            //No clear: the dome is a whole sphere round the lens (SkyDome.BuildDrawnDome) and covers every pixel
+            //No clear: the dome is a whole sphere round the lens (SkyDome.BuildDrawnDome) and covers every pixel.
+            //⚠ ONLY THE DOME. The heaps are not laid into this target: each of their pixels is a jittered march (CloudVolume.fx),
+            //and read one texel a sample their rims showed the jitter's checker at full contrast, up to 160 steps of 255 in the
+            //Game's frame, which the linear stretch of their layer over the supersampled target has always smoothed. They are
+            //marched at the display's size already, so laying them here would save one texture read a sky sample.
             _device.SetRenderTarget(_target);
             _device.BlendState = BlendState.Opaque;
             _device.RasterizerState = RasterizerState.CullNone;
             _dome.Draw(camera, DepthStencilState.None);
-
-            //The heaps over the deck, as the late draw lays them over it: their layer is the display's size too
-            if (_volumes != null)
-            {
-                _device.DepthStencilState = DepthStencilState.None;
-                _volumes.Composite();
-            }
         }
 
         /// <summary>
@@ -210,13 +207,14 @@ namespace Prazsky.Core.Render
                 _device.BlendState = BlendState.Opaque;
                 _device.RasterizerState = RasterizerState.CullNone;
                 _dome.Draw(camera, depth);
+            }
 
-                //The heaps over the deck, premultiplied, on the same depth
-                if (_volumes != null)
-                {
-                    _device.DepthStencilState = depth;
-                    _volumes.Composite();
-                }
+            //The heaps over the deck, premultiplied, on the same depth, the linear stretch of their display-size layer whichever
+            //way the dome was drawn
+            if (_volumes != null)
+            {
+                _device.DepthStencilState = depth;
+                _volumes.Composite();
             }
 
             _device.Viewport = viewport;
