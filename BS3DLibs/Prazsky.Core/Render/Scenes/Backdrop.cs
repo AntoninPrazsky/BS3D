@@ -62,7 +62,7 @@ namespace Prazsky.Core.Render
         /// Whether a host lays the island's <b>depth</b> into the frame before this environment and draws the island
         /// itself after it, where it always was (<see cref="SceneRenderer.EnvironmentFollowsIslandDepth"/>, #1098, which
         /// also refuses a multisampled target and a phone whatever this answers). True by default, and from any lens:
-        /// every pixel of the environment the island stands in front of is then turned away by the depth test before its
+        /// every depth-tested pixel of the environment the island stands in front of is then turned away before its
         /// program runs, and the picture is the old one to the pixel, because the island's colour still goes over
         /// everything the environment drew — opaque or blended, nearer than the island or not, depth-tested or drawn with
         /// the test off (<c>ArenaIsland.DrawIslandDepth</c> has the whole argument). The island is opaque in every scene:

@@ -1298,11 +1298,11 @@ namespace Prazsky.Core.Render
         /// through also writes depth</b>: <c>Backdrop.FollowsIslandDepth</c> names the scene where the second fails, and
         /// the one where the pass was measured not to pay. A draw of the environment with the depth test off (space, the
         /// dream, the big top) is drawn whole as before and painted over by the island as before: the picture holds,
-        /// though nothing of that draw is turned away. <b>And it is laid only on the desktop, into a target that is not multisampled</b>: a
-        /// multisampled frame is not the same picture twice even in one order, so there the argument cannot be shown to
-        /// hold, and the depth was measured to add to the difference (<see cref="SceneRenderer.EnvironmentFollowsIslandDepth"/>).
-        /// A host asks that method before it calls this. The blend state is put back as it was found; nothing else is
-        /// touched.
+        /// though nothing of that draw is turned away. <b>And it is laid only on the desktop, into a target that is not
+        /// multisampled</b>: a multisampled frame is not the same picture twice even in one order, so there the argument
+        /// cannot be shown to hold, and the depth was measured to add to the difference
+        /// (<see cref="SceneRenderer.EnvironmentFollowsIslandDepth"/>). A host asks that method before it calls this. The
+        /// blend state is put back as it was found; nothing else is touched.
         /// </para>
         /// </summary>
         public void DrawIslandDepth(ICamera camera, BasicEffectParams sceneParams, SceneKind scene)
