@@ -1062,16 +1062,16 @@ namespace BS3D
             _island.EventGlow = _scene == SceneKind.Volcano ? _sceneRenderer.VolcanoEruption(_wallClock) : 0f;
 
             //THE ISLAND'S DEPTH, BEFORE THE ENVIRONMENT (#1098). The environment's pixel programs are the dearest in the
-            //frame, a draw is depth-tested against what earlier draws wrote before its program runs, and the
+            //frame, the GPU turns away a pixel behind what earlier draws wrote before its program runs, and the
             //island stands in front of the ground wherever the lens looks down on it (the front end's orbit and a level's
             //opening tour most of all; the play camera sees the island as a strip along the bottom of the frame, so play
             //saves the least): so the island's depth goes in first, with no colour, and every
             //pixel of the backdrop, the city and the wood that the island stands in front of is turned away unshaded.
             //The island itself is still drawn after them, below, where it always was, which is why no pixel moves
-            //(ArenaIsland.DrawIslandDepth has the argument, and Backdrop.FollowsIslandDepth the scenes it does not hold
-            //in: the sea, whose water the island's stone is blended over, the cavern, and the passes drawn with the depth
-            //test off). Not with the Scenery row off (#808), when there is no environment to turn away, and never into a
-            //multisampled target (Medium and Low: the renderer's answer takes the target and holds the measurement).
+            //(ArenaIsland.DrawIslandDepth has the argument, and Backdrop.FollowsIslandDepth the two scenes left out: the
+            //cavern, whose crystals blend and write depth, and the dream, where it does not pay). Not with the Scenery
+            //row off (#808), when there is no environment to turn away, not on a phone, and never into a multisampled
+            //target (Medium and Low on Windows): the renderer's answer takes the target and holds the reasons.
             //ONLY THE ISLAND: the gun and the cluster hide ground too, but their depth cannot go in first. From under
             //the plate the ceiling's glass bends a copy of the frame taken before they are drawn (#541), and that copy
             //has to hold the environment behind them.

@@ -65,6 +65,8 @@ The Android build draws through the desktop's renderer, its tier picked as on th
 
 A GL program the phone's driver would refuse can be found without the phone: pull the GLSL out of the `.xnb` (it starts at `#extension GL_OES_standard_derivatives` or `#ifdef GL_ES`) and run the Android emulator's `glslangValidator` (`%LOCALAPPDATA%\Android\Sdk\emulator\lib64\vulkan`) on it with `#version 100` in front. That is how the VFACE fault was found in 11 programs at once.
 
+One difference is a choice and not a missing feature: **the island's depth is not laid before the environment on a phone** (`GraphicsSupport.IslandDepthFirst`, #1098, ["The island's depth goes in before the environment"](../scenes/backdrop-architecture.md#the-islands-depth-goes-in-before-the-environment-1098)). The desktop measured it pay; a phone's GPU is a tiler, where the island's second draw costs its vertex work and binning again, and no phone run has shown it pays there. Taking it on a phone is a phone measurement first: one configuration a process, with and without.
+
 **Measured** on the X300 Ultra at Low, 2026-11-05:
 - In play, Cannonball (meadow) and Girandole (city, 1,204 balls): about 48 and 47 FPS at native 3168×1440 (20.7 and 21.2 ms), and the display's 60 at 1080 and at 720 rows (`render=`).
 - The front end at 1080 rows, every scene: 60 in the city, the sea and the grid; between 32 (Mars) and 53 (the aurora) in the others.

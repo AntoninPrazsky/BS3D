@@ -157,19 +157,20 @@ namespace Testbed
                 _island.EventGlow = _scene == SceneKind.Volcano ? _sceneRenderer.VolcanoEruption(SceneClock) : 0f;
 
                 //THE ISLAND'S DEPTH, BEFORE THE ENVIRONMENT (#1098), as the Game's BeginSceneDraw lays it. The
-                //environment's pixel programs are the dearest in the frame, a draw is depth-tested against what
+                //environment's pixel programs are the dearest in the frame, the GPU turns away a pixel behind what
                 //earlier draws wrote before its program runs, and this program's game-mode camera looks down on the
-                //island, which stands in front of much of the ground: with the island's depth in first, with no colour, every pixel of the backdrop, the city and
-                //the wood that the island stands in front of is turned away unshaded. The island itself is still drawn
-                //after them, below, where it always was, which is why no pixel moves (ArenaIsland.DrawIslandDepth has
-                //the argument, and Backdrop.FollowsIslandDepth the scenes it does not hold in; never into a multisampled
-                //target, which is ssaa=1 here). envorder= pins it on or off whatever the scene and the target say,
-                //which is how each of those claims is measured and photographed.
+                //island, which stands in front of much of the ground: with the island's depth in first, with no
+                //colour, every pixel of the backdrop, the city and the wood that the island stands in front of is
+                //turned away unshaded. The island itself is still drawn after them, below, where it always was, which
+                //is why no pixel moves (ArenaIsland.DrawIslandDepth has the argument, and Backdrop.FollowsIslandDepth
+                //the two scenes left out; never into a multisampled target, which is ssaa=1 here). envorder=
+                //pins it on or off whatever the scene and the target say, which is how each of those claims is
+                //measured and photographed; a run that isolates the arena draws the environment first (Testbed.cs).
                 _islandDepthFirst = _environmentOrder switch
                 {
                     EnvironmentOrder.First => false,
                     EnvironmentOrder.Island => true,
-                    _ => _sceneRenderer.EnvironmentFollowsIslandDepth(_scene, _pipeline.SceneTarget)
+                    _ => !_arenaIsolated && _sceneRenderer.EnvironmentFollowsIslandDepth(_scene, _pipeline.SceneTarget)
                 };
                 if (_islandDepthFirst) _island.DrawIslandDepth(_camera, _sceneEffectParams, _scene);
 
@@ -310,6 +311,9 @@ namespace Testbed
         //envorder= (#1098): whether the island's depth is laid before the environment. Auto asks the scene, as the Game
         //does; a run or an alt= variant pins it on or off
         private EnvironmentOrder _environmentOrder = EnvironmentOrder.Auto;
+
+        //A run that isolates the arena (arena= or capprobe=, Testbed.cs): Auto answers "first" for its whole length
+        private bool _arenaIsolated;
 
         //What the last frame did, which is what the [fps] line names: under Auto nothing else says what the scene answered
         private bool _islandDepthFirst;

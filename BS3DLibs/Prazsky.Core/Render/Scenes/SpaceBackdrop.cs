@@ -212,10 +212,6 @@ namespace Prazsky.Core.Render
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
-        /// <summary>False: the pass is drawn with the depth test off, which no depth in the frame turns away, so there is
-        /// nothing to gain by drawing it after the island's (#1098).</summary>
-        public override bool FollowsIslandDepth => false;
-
         /// <inheritdoc/>
         public override bool TryGetLightRig(float wallClock, out SceneLightRig rig)
         {

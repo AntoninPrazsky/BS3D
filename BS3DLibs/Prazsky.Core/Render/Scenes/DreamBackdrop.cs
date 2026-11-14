@@ -120,9 +120,10 @@ namespace Prazsky.Core.Render
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
-        /// <summary>False: the pass is drawn with the depth test off (and scaled up from its own target under
-        /// supersampling), which no depth in the frame turns away, so there is nothing to gain by drawing it after the
-        /// island's (#1098).</summary>
+        /// <summary>False, by measurement and not by the argument (#1098): the pass is drawn with the depth test off (and
+        /// scaled up from its own target under supersampling), which the island's depth does not turn away, and here
+        /// laying that depth was measured to cost a little more than it saves (space and the big top, drawn the same
+        /// way, measured cheaper with it). The picture would be the same either way.</summary>
         public override bool FollowsIslandDepth => false;
 
         /// <inheritdoc/>

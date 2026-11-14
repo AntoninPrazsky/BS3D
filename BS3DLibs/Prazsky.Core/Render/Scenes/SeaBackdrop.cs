@@ -198,22 +198,15 @@ namespace Prazsky.Core.Render
         public override void Draw(in SceneFrame frame) { }
 
         /// <summary>
-        /// False: the sea is always drawn before the island (#1098), and that order is the design. The water writes no
-        /// depth (#131), and the island's stone under the waterline, the pool in the drain and a ball sinking through the
-        /// surface are drawn over it and fade into it by their own shader (<see cref="ApplySubmerge"/>): the stone is
-        /// blended there, so everything it is blended over has to be in the frame, and the island's depth laid first
-        /// turns away whatever of the water lies behind it. The answer rests on that, an island that is not opaque, and
-        /// not on a picture seen wrong: most of the water lies in front of the half unit of stone under the waterline.
-        /// </summary>
-        public override bool FollowsIslandDepth => false;
-
-        /// <summary>
         /// Draws the sea: a camera-centred grid (snapped to a cell so the waves do not swim) displaced into
         /// Gerstner swell with foam, subsurface scattering and a Fresnel reflection of the current dome,
         /// shadowed by the same cloud field as the rest of the scene.
         /// <para>
         /// <b>All of it is the blended half</b> (#1098): the water is the first thing drawn and writes no depth, so
-        /// <see cref="Draw"/> draws nothing and the sea comes after whatever it lies over.
+        /// <see cref="Draw"/> draws nothing and the sea comes after whatever it lies over. It follows the island's depth
+        /// like any other scene (<see cref="Backdrop.FollowsIslandDepth"/>): the island's stone is opaque here too (its
+        /// triplanar program takes no submerge fade, which only the drain's parts and the balls do), so the water it
+        /// stands in front of was always painted over, and the platforms and the school are opaque.
         /// </para>
         /// </summary>
         public override void DrawBlended(in SceneFrame frame)

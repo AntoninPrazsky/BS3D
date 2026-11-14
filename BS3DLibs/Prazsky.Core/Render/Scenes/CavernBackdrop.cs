@@ -402,9 +402,11 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// False: the hall is always drawn before the island (#1098). Under supersampling it is shaded into its own target
-        /// and laid over the frame with the depth test off; drawn directly, its crystals blend and write depth, so what
-        /// stands behind one has to be in the frame before it - the hall behind the island included.
+        /// False, the one scene where the argument fails: the hall is always drawn before the island (#1098). Drawn directly into
+        /// the frame, its crystals blend and write depth, so what stands behind one has to be in the frame before it -
+        /// the hall behind the island included. (Under supersampling the hall is shaded into its own target and laid over
+        /// the frame with the depth test off, where the island's depth would change no pixel; the answer is the scene's,
+        /// and holds for both.)
         /// </summary>
         public override bool FollowsIslandDepth => false;
 

@@ -404,10 +404,6 @@ namespace Prazsky.Core.Render
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
-        /// <summary>False: the tent is one pass with the depth test off, which no depth in the frame turns away, so there
-        /// is nothing to gain by drawing it after the island's (#1098).</summary>
-        public override bool FollowsIslandDepth => false;
-
         private void FillFloor(float innerRadius)
         {
             float outer = _config.Tent.WallRadius * FLOOR_REACH;

@@ -849,6 +849,14 @@ namespace Testbed
             //the scene (Testbed.Draw.cs)
             _environmentOrder = _options.EnvironmentOrder;
 
+            //...except in a run that isolates the arena (arena= or capprobe=, on the line or in any alt= variant), where
+            //auto draws the environment first in every window: the depth is laid by the members drawn, so taking the cap
+            //out would also give back the ground it hides and read the cap as a saving. A pinned envorder= is obeyed.
+            _arenaIsolated = _options.Arena != ArenaMembers.All || _options.CapProbe > 0
+                || _options.Alternation.Any(variant => variant.Pins.Any(pin => pin.Dial is "arena" or "capprobe"));
+            if (_arenaIsolated && _environmentOrder == EnvironmentOrder.Auto)
+                Console.WriteLine("[envorder] first in every window: this run isolates the arena (arena=, capprobe=), and the island's depth laid first would price the ground its members hide with them (#1098)");
+
             //#471 PROBE: "shadow=" pins SceneRenderer.ShadowScale so a sun shadow map can be measured and
             //photographed against its own absence WITHOUT a second build - 0 is what a scene with no map
             //renders, exactly. It is alternable (see ApplyVariant), which is the point: alt=shadow=0;shadow=1

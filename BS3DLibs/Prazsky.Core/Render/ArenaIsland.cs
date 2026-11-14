@@ -1277,7 +1277,7 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// The island's depth alone (#1098): <see cref="DrawIsland"/>'s own draws with no colour written, for a host that
         /// draws its environment between this and the island itself. The environment's pixel programs are the dearest in
-        /// the frame, a draw is depth-tested against what earlier draws wrote before its program runs, and a lens that
+        /// the frame, the GPU turns away a pixel behind what earlier draws wrote before its program runs, and a lens that
         /// looks down on the island has it in front of much of the ground: with its depth already in the frame, the ground
         /// behind it is never shaded. How much that is depends on the lens
         /// (<see cref="SceneRenderer.EnvironmentFollowsIslandDepth"/>).
@@ -1294,13 +1294,15 @@ namespace Prazsky.Core.Render
         /// which is another vertex program: a depth one step nearer than the colour's would cut holes in the stone.
         /// </para>
         /// <para>
-        /// ⚠ <b>It holds only while the island is opaque, the environment's draws are depth-tested, and nothing of the
-        /// environment that lets what is behind it show through also writes depth</b>: <c>Backdrop.FollowsIslandDepth</c>
-        /// names the scenes where one of the three fails. <b>And it is laid only into a target that is not
-        /// multisampled</b>: a multisampled frame is not the same picture twice even in one order, so there the argument
-        /// cannot be shown to hold, and the depth was measured to add to the difference
-        /// (<see cref="SceneRenderer.EnvironmentFollowsIslandDepth"/>). A host asks that method before it calls this. The
-        /// blend state is put back as it was found; nothing else is touched.
+        /// ⚠ <b>It holds only while the island is opaque and nothing of the environment that lets what is behind it show
+        /// through also writes depth</b>: <c>Backdrop.FollowsIslandDepth</c> names the scene where the second fails, and
+        /// the one where the pass was measured not to pay. A draw of the environment with the depth test off (space, the
+        /// dream, the big top) is drawn whole as before and painted over by the island as before: the picture holds,
+        /// though nothing of that draw is turned away. <b>And it is laid only on the desktop, into a target that is not multisampled</b>: a
+        /// multisampled frame is not the same picture twice even in one order, so there the argument cannot be shown to
+        /// hold, and the depth was measured to add to the difference (<see cref="SceneRenderer.EnvironmentFollowsIslandDepth"/>).
+        /// A host asks that method before it calls this. The blend state is put back as it was found; nothing else is
+        /// touched.
         /// </para>
         /// </summary>
         public void DrawIslandDepth(ICamera camera, BasicEffectParams sceneParams, SceneKind scene)

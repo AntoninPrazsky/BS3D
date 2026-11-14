@@ -259,16 +259,23 @@ namespace Testbed.Diagnostics
         /// <c>envorder=&lt;auto|first|island&gt;</c>: whether the island's depth is laid into the frame before the
         /// environment (the backdrop or the city, the wood), so that the environment is shaded only where the island
         /// leaves it showing (#1098). <c>auto</c>, the default, asks the scene and the target, as the Game does
-        /// (<c>SceneRenderer.EnvironmentFollowsIslandDepth</c>: not in five scenes, and never into a multisampled target,
+        /// (<c>SceneRenderer.EnvironmentFollowsIslandDepth</c>: not in the cavern and the dream, and never into a multisampled target,
         /// which is <c>ssaa=1</c> unless <c>msaa=0</c>). The other two <b>pin</b> it whatever that answers:
         /// <c>first</c> draws the environment first with nothing before it, the frame as it was before #1098, and
         /// <c>island</c> lays the depth in every scene and under multisampling too.
         /// <para>
-        /// It exists to be alternated (<c>alt=envorder=first;envorder=auto</c>): what the depth saves is read between two
-        /// windows of one process, and two frames of one process with the clock stood still are what show the picture is
-        /// the same. A pin draws what it is told: <c>island</c> at <c>ssaa=1</c> is the multisampled frame with the depth
-        /// laid first (a few thousand pixels across the island's top and along its outline a step or two of 255 off the
-        /// frame without it), which is the measurement of what the answer guards.
+        /// ⚠ <b>A run that isolates the arena</b> (<see cref="Arena"/> not everything, or <see cref="CapProbe"/>, on the
+        /// line or in any <c>alt=</c> variant) <b>reads <c>auto</c> as <c>first</c></b> in every window. The depth is
+        /// laid by the members drawn, so <c>arena=all,-cap</c> under the depth would also give back the ground the cap
+        /// hides, and the cap would read as a saving. A pinned <c>island</c> is obeyed, for a reader who wants the
+        /// member's price in the shipped frame, ground included.
+        /// </para>
+        /// <para>
+        /// A per-scene cost comes from <b>one process a figure</b>, the build before against this one or one pin a
+        /// process (<c>alt=</c> carries part of a window into the next, #1129). Alternated in one process with the clock
+        /// stood still (<c>alt=envorder=first;envorder=auto</c>), two frames are what show the picture is the same. A pin
+        /// draws what it is told: <c>island</c> at <c>ssaa=1</c> is the multisampled frame with the depth laid first,
+        /// which is not the same picture to the bit, and is the measurement of what the answer guards.
         /// </para>
         /// </summary>
         public EnvironmentOrder EnvironmentOrder { get; private set; } = EnvironmentOrder.Auto;

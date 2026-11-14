@@ -1618,8 +1618,9 @@ namespace Prazsky.Core.Render
         /// <see cref="SceneKind.City"/>/<see cref="SceneKind.NeonCity"/>, which the caller draws itself. It stands in for the city as the thing the arena glass
         /// shows beneath it; it leaves the alpha-blend / back-face-cull state the rest of the opaque scene wants.
         /// <para>
-        /// The two halves in one call, for a host with nothing to draw between them (the map editor, which draws no
-        /// island and no scatter of its own). The Game and the Testbed call <see cref="DrawEnvironmentOpaque"/> and
+        /// The two halves in one call, for a host with nothing to draw between them: the map editor, which draws no
+        /// island, and its wood (the forest's and the aurora's) after both halves, which is the same picture because
+        /// neither of those scenes has a second half. The Game and the Testbed call <see cref="DrawEnvironmentOpaque"/> and
         /// <see cref="DrawEnvironmentBlended"/> themselves, with their own wood between the two, and lay the island's
         /// depth into the frame first where <see cref="EnvironmentFollowsIslandDepth"/> lets them (#1098).
         /// </para>
@@ -1680,13 +1681,13 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Whether a host lays the island's depth into the frame before <paramref name="scene"/>'s environment
-        /// (<c>ArenaIsland.DrawIslandDepth</c>) and draws the island itself after it, where it always was (#1098) — the
-        /// backdrop's <see cref="Backdrop.FollowsIslandDepth"/>, which holds why not where not (the sea, the cavern, and
-        /// the scenes that are one pass with the depth test off). True for the two cities, which the host draws itself:
-        /// towers, roofs and streets are depth-tested and the island is opaque there.
+        /// (<c>ArenaIsland.DrawIslandDepth</c>) and draws the island itself after it, where it always was (#1098): the
+        /// backdrop's <see cref="Backdrop.FollowsIslandDepth"/> (false in the cavern and the dream, which hold why), on a device
+        /// and into a target where the pass is taken. True for the two cities, which the host draws itself: towers, roofs
+        /// and streets are depth-tested and the island is opaque there.
         /// <para>
-        /// <b>Why a host asks.</b> The environment's pixel programs are the dearest in the frame, and a draw is depth-tested
-        /// against what earlier draws wrote before its program runs: with the island's depth already in the frame, the
+        /// <b>Why a host asks.</b> The environment's pixel programs are the dearest in the frame, and the GPU turns away a
+        /// pixel behind what earlier draws wrote before its program runs: with the island's depth already in the frame, the
         /// environment is shaded only where the island leaves it showing, and what that saves is what the island covers from the
         /// lens: much from one that looks down on it (the front end's orbit, a level's opening tour, the Testbed's game-mode
         /// camera), little from the Game's play camera, which stands low behind the gun and sees the island as a strip along
@@ -1694,22 +1695,20 @@ namespace Prazsky.Core.Render
         /// moves: <c>ArenaIsland.DrawIslandDepth</c> has the argument.
         /// </para>
         /// <para>
-        /// ⚠ <b>Never into a multisampled target</b> (<paramref name="sceneTarget"/>, the one the frame is drawn into: a
-        /// tier or a run at supersampling 1), whatever the scene, because there "no pixel moves" cannot be shown and was
-        /// measured not to hold to the bit. On the reference desktop (RX 6900 XT, 1600x900, eight samples, the clock stood
-        /// still) two frames drawn in ONE order already differ, in 109 to 127 pixels in Mars and 206 on the Moon; with
-        /// the depth laid first they differ in 1,660 and 3,562, across the island's top and along its outline. Most of
-        /// those are one step of 255 (two in three in Mars, four in five on the Moon) and they go either way - on the Moon
-        /// too, where a sample of the black sky showing through the pale stone could only darken it, and by far more - so
-        /// it is the resolve rounding differently and not coverage lost. What makes a multisampled frame differ from
-        /// itself was not found. Without multisampling the two orders are the same picture to the pixel.
+        /// ⚠ <b>Only on the desktop</b> (<see cref="GraphicsSupport.IslandDepthFirst"/>: a phone never takes it, as it was
+        /// never measured to pay on one) <b>and never into a multisampled target</b> (<paramref name="sceneTarget"/>, the
+        /// one the frame is drawn into: Medium and Low on Windows, the Testbed at supersampling 1), whatever the scene.
+        /// There two frames drawn in one order are not the same picture to the bit, so "no pixel moves" cannot be shown,
+        /// and the depth laid first was measured to make the island's top and outline differ by more, mostly by one step
+        /// of 255. Without multisampling the two orders are the same picture to the pixel.
         /// </para>
         /// </summary>
         /// <param name="scene">The scene being drawn.</param>
         /// <param name="sceneTarget">The target the scene is drawn into this frame. Passed rather than remembered, for
         /// <see cref="DrawEnvironmentOpaque"/>'s reason.</param>
         public bool EnvironmentFollowsIslandDepth(SceneKind scene, RenderTarget2D sceneTarget) =>
-            sceneTarget.MultiSampleCount <= 1 && (BackdropFor(scene)?.FollowsIslandDepth ?? true);
+            GraphicsSupport.IslandDepthFirst && sceneTarget.MultiSampleCount <= 1
+            && (BackdropFor(scene)?.FollowsIslandDepth ?? true);
 
         /// <summary>
         /// Draws the foreground weather that belongs after the opaque scene and the cluster — the backdrop's

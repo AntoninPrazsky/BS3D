@@ -61,19 +61,19 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Whether a host lays the island's <b>depth</b> into the frame before this environment and draws the island
         /// itself after it, where it always was (<see cref="SceneRenderer.EnvironmentFollowsIslandDepth"/>, #1098, which
-        /// also refuses a multisampled target whatever this answers). True by default, and from any lens: every pixel of
-        /// the environment the island stands in front of is then turned away by the depth test before its program runs,
-        /// and the picture is the old one to the pixel, because the island's colour still goes over everything the
-        /// environment drew — opaque or blended, nearer than the island or not (<c>ArenaIsland.DrawIslandDepth</c> has
-        /// the whole argument).
+        /// also refuses a multisampled target and a phone whatever this answers). True by default, and from any lens:
+        /// every pixel of the environment the island stands in front of is then turned away by the depth test before its
+        /// program runs, and the picture is the old one to the pixel, because the island's colour still goes over
+        /// everything the environment drew — opaque or blended, nearer than the island or not, depth-tested or drawn with
+        /// the test off (<c>ArenaIsland.DrawIslandDepth</c> has the whole argument). The island is opaque in every scene:
+        /// its stone's program takes no fade, the sea's submerge included. A pass drawn with the depth test off (space,
+        /// the big top) is not turned away, but those scenes measured cheaper with the depth laid all the same.
         /// <para>
-        /// <b>False</b> where that argument fails or buys nothing: where the island is itself blended over the
-        /// environment (the sea: its stone under the waterline fades into the water, which therefore has to be in the
-        /// frame behind it), where the environment blends something that also WRITES depth (the cavern's crystals: one
-        /// standing in front of the island shows the hall behind it, the part behind the island included), and where the
-        /// environment is one pass with the depth test off, which no depth turns away (space, the dream, the big top, and
-        /// the cavern scaled up from its own target). ⚠ A backdrop that gains a draw of the second kind — blended, or
-        /// faded by its alpha, and writing depth — where it can stand between a lens and the island says false too.
+        /// <b>False</b> where the argument fails: where the environment blends something that also WRITES depth (the
+        /// cavern's crystals: one standing in front of the island shows the hall behind it, the part behind the island
+        /// included). ⚠ A backdrop that gains such a draw — blended, or faded by its alpha, and writing depth — where it
+        /// can stand between a lens and the island says false too. And false where the depth was measured not to pay
+        /// (the dream, whose one depth-off pass is the whole environment).
         /// </para>
         /// </summary>
         public virtual bool FollowsIslandDepth => true;
