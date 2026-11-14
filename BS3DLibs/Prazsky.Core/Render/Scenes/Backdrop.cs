@@ -66,9 +66,10 @@ namespace Prazsky.Core.Render
         /// program runs, and the picture is the old one to the pixel, because the island's colour still goes over
         /// everything the environment drew — opaque or blended, nearer than the island or not, depth-tested or drawn with
         /// the test off (<c>ArenaIsland.DrawIslandDepth</c> has the whole argument). The island is opaque in every scene:
-        /// its stone's program takes no fade, the sea's submerge included. Space and the big top shade their pass into a
-        /// target of their own under supersampling (#1096), where the depth reaches nothing: there it was measured to
-        /// neither pay nor cost, and they keep the default.
+        /// its stone's program takes no fade, the sea's submerge included. A pass drawn with the depth test off (space) is
+        /// not turned away, but space measured cheaper with the depth laid all the same. The big top shades its pass into
+        /// a target of its own under supersampling (#1096), where the depth reaches nothing: there it was measured to
+        /// neither pay nor cost, and it keeps the default.
         /// <para>
         /// <b>False</b> where the argument fails: where the environment blends something that also WRITES depth (the
         /// cavern's crystals: one standing in front of the island shows the hall behind it, the part behind the island
@@ -87,16 +88,6 @@ namespace Prazsky.Core.Render
         /// </summary>
         public virtual void DrawDepth(in SceneFrame frame) { }
 
-        /// <summary>
-        /// What of a backdrop shaded at display resolution (<see cref="DrawsAtDisplayResolution"/>) is drawn into the
-        /// caller's own supersampled target instead, with its samples and its depth: called right after the scale-up and
-        /// before <see cref="DrawDepth"/>, and only then; a frame drawn straight into the caller's target has
-        /// <see cref="Draw"/> draw it, where it always was (<see cref="BackdropServices.ShadingAtDisplayResolution"/> says
-        /// which). Space's saucer (#1096): a small mesh with thin bright lamps round its rim that writes depth, which the
-        /// sky's target would neither smooth nor hold. Nothing by default.
-        /// </summary>
-        public virtual void DrawSupersampled(in SceneFrame frame) { }
-
         /// <summary>The foreground weather drawn after the cluster (<see cref="SceneRenderer.DrawOverlays"/>);
         /// nothing by default.</summary>
         public virtual void DrawOverlays(in SceneFrame frame) { }
@@ -107,11 +98,10 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Whether a supersampled frame shades this backdrop at the back buffer's size and scales it up
-        /// (<see cref="SceneRenderer"/>'s <c>DrawBackdropAtDisplayResolution</c>): the dream, the cavern, the big top and
-        /// space. False by default: a backdrop that answers true gives up its supersampling (one shade a display pixel,
-        /// or the target's own samples) and must look right at that, sizing whatever it draws in pixels off the target it
-        /// is shaded in (<see cref="BackdropServices.TargetSupersampleFactor"/>), and must draw what has to occlude the
-        /// arena in <see cref="DrawDepth"/> and what has to keep its samples in <see cref="DrawSupersampled"/>. Each
+        /// (<see cref="SceneRenderer"/>'s <c>DrawBackdropAtDisplayResolution</c>): the dream, the cavern and the big top.
+        /// False by default: a backdrop that answers true gives up its supersampling (one shade a display pixel, or the
+        /// target's own samples) and must look right at that, sizing whatever it draws in pixels off the target it is
+        /// shaded in (the bound viewport), and must draw what has to occlude the arena in <see cref="DrawDepth"/>. Each
         /// scene's override is the one line that turns its look back.
         /// </summary>
         public virtual bool DrawsAtDisplayResolution => false;
@@ -277,14 +267,6 @@ namespace Prazsky.Core.Render
 
         /// <summary>The caller's supersampling factor — <see cref="SceneRenderer.SupersampleFactor"/>, which forwards here.</summary>
         public int SupersampleFactor { get; set; } = 1;
-
-        /// <summary>
-        /// How many texels of the target being drawn make one output pixel: <see cref="SupersampleFactor"/>, or 1 while the
-        /// renderer has a backdrop shading into its display-resolution target (<see cref="ShadingAtDisplayResolution"/>),
-        /// whose texel is the output pixel. What a backdrop that sizes something in output pixels reads (the stars, #1096),
-        /// so that the resolved picture holds that size whichever target it was shaded in.
-        /// </summary>
-        public int TargetSupersampleFactor => ShadingAtDisplayResolution ? 1 : SupersampleFactor;
 
         /// <summary>Whether the scenes draw their finer meshes — <see cref="SceneRenderer.FineMeshes"/>, which forwards here.
         /// Read per draw, so a tier change needs no hook.</summary>

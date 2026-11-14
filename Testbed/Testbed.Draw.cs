@@ -190,8 +190,8 @@ namespace Testbed
                     _streets?.Draw(sceneFrame, _cityConfig.Streets, neon, _cityConfig.NeonLook);
                 }
                 else
-                    //The target goes in so the dream, the cavern, the big top and space can be shaded at the back
-                    //buffer's size and scaled up (#155, #1096). Passed rather than remembered, so it cannot be the one the pipeline held
+                    //The target goes in so the dream, the cavern and the big top can be shaded at the back buffer's
+                    //size and scaled up (#155, #1096). Passed rather than remembered, so it cannot be the one the pipeline held
                     //before a resize or a supersample change replaced it.
                     //The backdrop's first half (#1098): everything of it up to its first draw that writes no depth.
                     //The second is drawn after the wood, below.

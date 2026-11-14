@@ -202,7 +202,7 @@ namespace Prazsky.Core.Render
     /// and the questions only it can answer); this class holds the array of them indexed by
     /// <see cref="SceneKind"/>, the services they share (<see cref="BackdropServices"/>: the device, the
     /// full-screen quad, the grid cache, the far field, the snow, the flock, the billboard builders), the sun's
-    /// shadow map every receiver reads, the display-resolution target the dream, the cavern, the big top and space are shaded into,
+    /// shadow map every receiver reads, the display-resolution target the dream, the cavern and the big top are shaded into,
     /// and the public API the hosts call, whose scene-specific members forward to the backdrop that answers them.
     /// <para>
     /// The City/NeonCity is deliberately <b>not</b> here: the city buildings are drawn through the shared
@@ -340,11 +340,10 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// How many scene-target texels make one output pixel — the caller's supersampling factor, which only
-        /// the caller knows (the Game's moves with the quality tier). The skies with stars size them in
-        /// <b>output</b> pixels off this (space off 1 while its sky is shaded at display resolution, whose texel is the
-        /// output pixel: <c>BackdropServices.TargetSupersampleFactor</c>): sized in texels instead, a star would come out
-        /// four times dimmer at 2× than at 1×, which is the same sky looking different on two quality settings. Left at 1
-        /// it is simply the no-supersampling case, so a caller that never sets it still gets a correct sky.
+        /// the caller knows (the Game's moves with the quality tier). The space scene sizes its stars in
+        /// <b>output</b> pixels off this: sized in texels instead, a star would come out four times dimmer at
+        /// 2× than at 1×, which is the same sky looking different on two quality settings. Left at 1 it is
+        /// simply the no-supersampling case, so a caller that never sets it still gets a correct sky.
         /// </summary>
         public int SupersampleFactor
         {
@@ -354,12 +353,12 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Whether a supersampled frame shades the backdrops that ask for it (<c>Backdrop.DrawsAtDisplayResolution</c>: the
-        /// dream, the cavern, the big top, space) at the back buffer's size and scales them up (#155, #1096). True, the
-        /// shipped frame. False draws every backdrop straight into the scene target with its samples, which is what those
-        /// four looked like and cost before they took the path: the Testbed's <c>bdres=0</c>, so the two can be
-        /// photographed and measured from one pinned camera in one process. Read per frame; nothing carries across a
-        /// switch but the display-resolution target, built on the first frame that uses it and let go on the first that
-        /// does not.
+        /// dream, the cavern, the big top) at the back buffer's size and scales them up (#155, #1096). True, the shipped
+        /// frame. False draws every backdrop straight into the scene target with its samples: the Testbed's
+        /// <c>bdres=0</c>, so the two can be photographed and measured in one process. For the big top that is the frame it
+        /// drew before it took the path; the dream and the cavern have taken it since #155, so for them it is an
+        /// instrument, not a frame the game draws (the cavern's meshes, #958, were never drawn that way). Read per frame; nothing carries across a switch but the display-resolution
+        /// target, built on the first frame that uses it and let go on the first that does not.
         /// </summary>
         public bool BackdropsAtDisplayResolution { get; set; } = true;
 
@@ -831,7 +830,7 @@ namespace Prazsky.Core.Render
         //every sky-replacing pass draws over it (BackdropServices.FullScreenQuad), this class's own included.
         private readonly VertexBuffer _fullScreenQuad;
 
-        //The back-buffer-sized target the dream, the cavern, the big top and space are shaded into before being scaled up
+        //The back-buffer-sized target the dream, the cavern and the big top are shaded into before being scaled up
         //into the caller's supersampled one, and the batch that scales them. Built on first use and rebuilt only when
         //the back buffer changes size or another scene asks for another kind — never per frame. See
         //DrawBackdropAtDisplayResolution.
@@ -1626,7 +1625,7 @@ namespace Prazsky.Core.Render
         public void Prepare(SceneKind scene) => BackdropFor(scene)?.Prepare();
 
         /// <summary>
-        /// Draws the scene's backdrop — its <see cref="Backdrop.Draw"/>, or for the dream, the cavern, the big top and space
+        /// Draws the scene's backdrop — its <see cref="Backdrop.Draw"/>, or for the dream, the cavern and the big top
         /// at a supersampled frame <c>DrawBackdropAtDisplayResolution</c>, and then its <see cref="Backdrop.DrawBlended"/>. A no-op for
         /// <see cref="SceneKind.City"/>/<see cref="SceneKind.NeonCity"/>, which the caller draws itself. It stands in for the city as the thing the arena glass
         /// shows beneath it; it leaves the alpha-blend / back-face-cull state the rest of the opaque scene wants.
@@ -1661,10 +1660,10 @@ namespace Prazsky.Core.Render
         /// </summary>
         public void DrawEnvironmentOpaque(SceneKind scene, in SceneFrame frame, RenderTarget2D sceneTarget = null)
         {
-            //The scenes that are their own Backdrop (#580) draw through it. The four whose backdrop is the whole frame
-            //(the dream, the cavern, the big top, space) get shaded at the back buffer's own size and scaled up; every
-            //other scene draws straight into whatever the caller bound. See DrawBackdropAtDisplayResolution for what
-            //that trades and why it is these four.
+            //The scenes that are their own Backdrop (#580) draw through it. Three whose backdrop is the whole frame (the
+            //dream, the cavern, the big top) get shaded at the back buffer's own size and scaled up; every other scene
+            //draws straight into whatever the caller bound. See DrawBackdropAtDisplayResolution for what that trades and
+            //why it is these three and not space.
             Backdrop backdrop = BackdropFor(scene);
             if (backdrop != null)
             {
@@ -2067,20 +2066,24 @@ namespace Prazsky.Core.Render
         /// resolution reaches 75.
         /// </para>
         /// <para>
-        /// <b>It is these four</b>: the dream, the cavern, the big top and space (#1096) are each the whole frame's
-        /// backdrop, with nothing of the arena standing in it but what <see cref="Backdrop.DrawDepth"/> writes back into
-        /// the scene target (the cavern's formations, the big top's floor, poles, seats and curb). Space sizes its stars
-        /// in output pixels off the target they are shaded in (<see cref="BackdropServices.TargetSupersampleFactor"/>, 1
-        /// here), so they keep their size and brightness, and its saucer is drawn into the scene target after the
-        /// scale-up (<see cref="Backdrop.DrawSupersampled"/>). The Moon draws its sky depth-read behind real terrain, so
-        /// it is not a full-screen pass by the time it is shaded; the terrain scenes' ground is what the island stands in,
-        /// and their own way to a cheaper frame is drawing it after the island's depth (#1097, #1098).
+        /// <b>It is these three</b>: the dream, the cavern and the big top (#1096) are each the whole frame's backdrop,
+        /// with nothing of the arena standing in it but what <see cref="Backdrop.DrawDepth"/> writes back into the scene
+        /// target (the cavern's formations, the big top's floor, poles, seats and curb). <b>Not space</b>, though it is
+        /// one depth-off pass over the whole frame too and would save about 5 ms at 3840x1500 and <c>ssaa 2</c>: it sizes
+        /// its stars in <i>output</i> pixels off <see cref="SupersampleFactor"/> (see that property), and shaded here with
+        /// the factor at 1 a star's core keeps its width, but one shade a display pixel and the scale-up's blur (on its
+        /// own about as wide as a whole faint supersampled star) spread every star wider and dimmer: their peaks fell by
+        /// a median of 2 to 8 codes of 255 against the supersampled frame. No sizing gives both back, and space is inside
+        /// the budget without it ("Cost" in docs/scenes/space.md). The Moon
+        /// draws its sky depth-read behind real terrain, so it is not a full-screen pass by the time it is shaded; the
+        /// terrain scenes' ground is what the island stands in, and their own way to a cheaper frame is drawing it after
+        /// the island's depth (#1097, #1098).
         /// </para>
         /// <para>
         /// <b>Bilinear, not point</b>: with the box resolve after it the scale-up blurs the backdrop slightly (each output
         /// pixel 9/16 its own texel). Point sampling would hand the resolve the display-resolution picture exactly, and
-        /// against the supersampled frame it was no closer: further on the big top's edges, a little closer on space,
-        /// a bright star's energy the same either way ("Shaded at the display's resolution" in docs/scenes/cavern.md).
+        /// against the supersampled frame it was no closer on the big top: its edges came out stepped
+        /// ("Shaded at the display's resolution" in docs/scenes/cavern.md).
         /// </para>
         /// <para>
         /// <b>No island depth here</b> (#1098 lays it into the scene target only): the pass is not depth-tested, and a
@@ -2139,7 +2142,7 @@ namespace Prazsky.Core.Render
 
             //Opaque because the backdrop is the frame's ground floor and covers every pixel of it; linear
             //clamp because a bilinear stretch of a smooth analytic field is what makes this cost nothing to
-            //look at, and point sampling would show the smaller grid as blocks.
+            //look at, where point sampling hands the resolve the smaller grid's stepped edges as they are.
             _backdropBatch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.LinearClamp,
                 DepthStencilState.None, RasterizerState.CullNone);
             _backdropBatch.Draw(_backdropTarget, new Rectangle(0, 0, sceneTarget.Width, sceneTarget.Height), Color.White);
@@ -2148,9 +2151,6 @@ namespace Prazsky.Core.Render
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-
-            //What of it keeps the scene target's samples and depth (space's saucer), over the scaled-up backdrop
-            backdrop.DrawSupersampled(frame);
         }
 
         /// <summary>

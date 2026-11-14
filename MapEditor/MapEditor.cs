@@ -1019,7 +1019,7 @@ namespace MapEditor
                 _streets.Draw(frame, _cityConfig.Streets, neon, _cityConfig.NeonLook);
             }
             else
-                //The target goes in so the dream, the cavern, the big top and space can be shaded at the back
+                //The target goes in so the dream, the cavern and the big top can be shaded at the back
                 //buffer's size and scaled up (#155, #1096) — the editor draws the scenes exactly as the game does, this one included.
                 _sceneRenderer.DrawEnvironment(_scene, frame, _pipeline.SceneTarget);
 

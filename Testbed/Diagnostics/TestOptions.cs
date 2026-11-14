@@ -218,8 +218,8 @@ namespace Testbed.Diagnostics
         /// <c>rscale=&lt;f&gt;</c>: render the scene at this fraction of the back buffer and magnify it back
         /// (0.25-1). Ignored above <c>ssaa</c> 1, the two dials being the same dimension. -1 leaves native.
         /// <para>
-        /// The other half of #298, and the only lever that reaches the CAVERN and the DREAM (and the big top and space since #1096): those
-        /// four shade a backdrop the size of the back buffer and scale it up (#155), which is why supersampling barely
+        /// The other half of #298, and the only lever that reaches the CAVERN and the DREAM (and the big top since #1096): those
+        /// three shade a backdrop the size of the back buffer and scale it up (#155), which is why supersampling barely
         /// moves them - but that path runs only above <c>ssaa</c> 1, so below native they draw into the
         /// smaller target like everything else and the pass shrinks with it.
         /// </para>
@@ -284,11 +284,11 @@ namespace Testbed.Diagnostics
 
         /// <summary>
         /// <c>bdres=&lt;0|1&gt;</c>: whether a supersampled frame shades the backdrops that ask for it at the display's
-        /// resolution and scales them up (<c>SceneRenderer.BackdropsAtDisplayResolution</c>: the dream, the cavern, the big
-        /// top and space, #155, #1096). 1, the default, is the shipped frame; 0 draws them into the scene target with its
-        /// samples, what they looked like and cost before. An <c>alt=</c> dial too, so the two can be photographed either
-        /// side of one switch with the clock stood still. ⚠ A per-scene cost is read one process a figure, not off an
-        /// <c>alt=</c> list (#1129).
+        /// resolution and scales them up (<c>SceneRenderer.BackdropsAtDisplayResolution</c>: the dream, the cavern and the
+        /// big top, #155, #1096). 1, the default, is the shipped frame; 0 draws them into the scene target with its
+        /// samples: the big top as it drew before #1096, the dream and the cavern in a frame the game has not drawn
+        /// since #155 (the cavern's meshes, #958, never). An <c>alt=</c> dial too, so the two can be photographed either side of one
+        /// switch. ⚠ A per-scene cost is read one process a figure, not off an <c>alt=</c> list (#1129).
         /// </summary>
         public bool BackdropsAtDisplayResolution { get; private set; } = true;
 

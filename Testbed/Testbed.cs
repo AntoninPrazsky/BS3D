@@ -857,8 +857,8 @@ namespace Testbed
             if (_arenaIsolated && _environmentOrder == EnvironmentOrder.Auto)
                 Console.WriteLine("[envorder] first in every window: this run isolates the arena (arena=, capprobe=), and the island's depth laid first would price the ground its members hide with them (#1098)");
 
-            //#1096: "bdres=0" draws the dream, the cavern, the big top and space into the scene target with its samples
-            //rather than at display resolution, the frame before they took that path
+            //#1096: "bdres=0" draws the dream, the cavern and the big top into the scene target with its samples rather
+            //than at display resolution: the big top's frame before #1096; the other two have taken the path since #155
             _sceneRenderer.BackdropsAtDisplayResolution = _options.BackdropsAtDisplayResolution;
 
             //#471 PROBE: "shadow=" pins SceneRenderer.ShadowScale so a sun shadow map can be measured and
@@ -1609,7 +1609,6 @@ namespace Testbed
                     case "bdres":
                         _sceneRenderer.BackdropsAtDisplayResolution = pin.Value is not ("0" or "false" or "off");
                         break;
-
 
                     //On/off like the switch it mirrors: "nopost=1" is the argument, "nopost=0" the authored look
                     case "nopost":

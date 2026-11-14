@@ -188,12 +188,7 @@ namespace Prazsky.Core.Render
             _spaceViewRayBasis.SetValue(SkyRay.Basis(frame.Camera));
             _spaceCameraPosition.SetValue(frame.Camera.Position);
             _spaceSunDirection.SetValue(frame.SunDirection);
-
-            //The stars are sized in OUTPUT pixels off the texels one makes in the target being drawn (Stars.fxh): the
-            //supersample factor into the scene target, 1 into the display-resolution one (#1096), where a texel is the
-            //output pixel. Either way a core comes out StarSpread output pixels across (the config's 0.62 is the shader's
-            //own floor), which is the star a frame without supersampling has always drawn.
-            _spaceSupersample.SetValue((float)Services.TargetSupersampleFactor);
+            _spaceSupersample.SetValue((float)Services.SupersampleFactor);
 
             //The only animated thing in a long-exposure sky: the eye's slow drift through the volume it is
             //inside. Wall clock, like every other scene's, so it keeps moving while the simulation is paused.
@@ -207,10 +202,8 @@ namespace Prazsky.Core.Render
             _spaceEffect.CurrentTechnique.Passes[0].Apply();
             _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
 
-            //The saucer over the sky, writing depth so the station stands in front of it (#955). Not into the
-            //display-resolution target, which has no depth and no samples: there it goes into the scene's own target after
-            //the scale-up (DrawSupersampled)
-            if (!Services.ShadingAtDisplayResolution) _saucer.Draw(frame, _spaceConfig.Lighting);
+            //The saucer over the sky, writing depth so the station stands in front of it (#955)
+            _saucer.Draw(frame, _spaceConfig.Lighting);
 
             //Put back what the rest of the opaque scene wants. The depth state especially: left at None, the
             //island would not occlude the cluster and the whole frame would draw in submission order.
@@ -218,21 +211,6 @@ namespace Prazsky.Core.Render
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
-
-        /// <summary>
-        /// True (#1096): under supersampling the sky is shaded at the display's resolution, one shade a display pixel, and
-        /// scaled up (<see cref="SceneRenderer"/>'s <c>DrawBackdropAtDisplayResolution</c>), its stars sized for that
-        /// target (<see cref="BackdropServices.TargetSupersampleFactor"/>); the saucer keeps the scene target's samples
-        /// (<see cref="DrawSupersampled"/>).
-        /// </summary>
-        public override bool DrawsAtDisplayResolution => true;
-
-        /// <summary>
-        /// The saucer, into the scene's own target after the sky was shaded at display resolution and scaled up: a mesh
-        /// that writes depth, with thin bright lamps round its rim, so it keeps every sample the station has. It states
-        /// and puts back its own states (<see cref="SaucerFlight.Draw"/>).
-        /// </summary>
-        public override void DrawSupersampled(in SceneFrame frame) => _saucer.Draw(frame, _spaceConfig.Lighting);
 
         /// <inheritdoc/>
         public override bool TryGetLightRig(float wallClock, out SceneLightRig rig)
