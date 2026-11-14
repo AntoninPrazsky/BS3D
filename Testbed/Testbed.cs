@@ -878,6 +878,14 @@ namespace Testbed
             if (_arenaIsolated && _environmentOrder == EnvironmentOrder.Auto)
                 Console.WriteLine("[envorder] first in every window: this run isolates the arena (arena=, capprobe=), and the island's depth laid first would price the ground its members hide with them (#1098)");
 
+            //A run that takes a domed scene's layers apart (volcano=, meadow=, mountain=, which are alt= pins only) prices a
+            //layer net of the sky it hides while the sky is drawn behind the opaque scene: a layer left out gives back the sky
+            //behind it, which is what a tier cutting the layer would save. skyorder=first prices the layer alone, the way
+            //every layer price was taken before #1104. Said, not forced: both are true figures, of two different questions.
+            if (_skyOrderPin == null
+                && _options.Alternation.Any(variant => variant.Pins.Any(pin => pin.Dial is "volcano" or "meadow" or "mountain")))
+                Console.WriteLine("[skyorder] this run takes a scene's layers apart under the sky drawn behind the opaque scene: a layer's price is net of the sky it hides (what a tier cutting it saves); skyorder=first prices the layer alone (#1104)");
+
             //#471 PROBE: "shadow=" pins SceneRenderer.ShadowScale so a sun shadow map can be measured and
             //photographed against its own absence WITHOUT a second build - 0 is what a scene with no map
             //renders, exactly. It is alternable (see ApplyVariant), which is the point: alt=shadow=0;shadow=1

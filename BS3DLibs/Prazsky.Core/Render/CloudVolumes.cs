@@ -68,9 +68,10 @@ namespace Prazsky.Core.Render
 
         //THE LAYER: the heaps are marched into a target the display's own size, not the supersampled scene's (a cloud is soft,
         //and four samples a pixel only march one soft edge four times over: a quarter of the cost on High), before the scene
-        //target is bound (March), then laid over the sky wherever the sky is (Composite, SkyPass: behind the opaque scene, at
-        //the far plane, or into the sky's own display-resolution target). Covered by whatever stands in front of the sky, as
-        //the deck is. ⚠ Marched into the scene target itself after the ground, depth-tested, a broken sky cost +3.2 ms.
+        //target is bound (March), then laid over the sky in the scene target wherever the sky is (Composite, SkyPass: behind
+        //the opaque scene at the far plane, or depth off over the clear where the dome is drawn first). Never into the sky's
+        //own display-resolution target (SkyPass.Prepare holds why). Covered by whatever stands in front of the sky, as the
+        //deck is. ⚠ Marched into the scene target itself after the ground, depth-tested, a broken sky cost +3.2 ms.
         private readonly EffectTechnique _march, _composite;
         private readonly EffectParameter _layerParam;
         private readonly VertexBuffer _screenQuad;
@@ -188,9 +189,10 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Lays the layer <see cref="March"/> filled this frame over the target bound now, premultiplied, under the depth state
-        /// and the viewport the caller stated (<see cref="SkyPass"/>: depth-read at the far plane behind the opaque scene, or no
-        /// depth into the sky's own target). A full-screen quad, linear: the layer is the display's size and the target
-        /// either that or a supersampled multiple of it. Leaves behind the alpha blend it draws with and the culling off. A no-op
+        /// and the viewport the caller stated (<see cref="SkyPass"/>, always into the scene target: depth-read at the far plane
+        /// behind the opaque scene, or depth off over the clear where the dome is drawn first, <see cref="SkyPass.BehindScene"/>
+        /// false). A full-screen quad, linear: the layer is the display's size and the target either that or a supersampled
+        /// multiple of it. Leaves behind the alpha blend it draws with and the culling off. A no-op
         /// where no heap stands.
         /// </summary>
         public void Composite()

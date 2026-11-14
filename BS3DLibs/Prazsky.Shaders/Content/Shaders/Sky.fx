@@ -61,8 +61,8 @@ float CloudShapeStrength;
 //A light on the GROUND lighting the deck from below (#509): the volcano's crater, whose glow on the underside of
 //the cloud over it is in every eruption the references drew. A position (only its XZ is read - the deck is a
 //plane), a colour in linear radiance and a reach along the plane. Black for every scene with nothing burning
-//under its sky, which makes the term an exact no-op rather than a branch: this is the hottest pass in the game
-//and a runtime branch keeps its registers whether it is taken or not.
+//under its sky, which makes the term an exact no-op rather than a branch: this program shades every pixel of sky in
+//the frame, and a runtime branch keeps its registers whether it is taken or not.
 //Where the clouds stand as volumes (#989, CloudVolumes on High and Ultra), the deck gives way to them: by this much (0 when
 //there are none: Low, Medium, a sky-replacing scene, an overcast that is a lid), fully inside CloudVolumeNear of the lens
 //and not at all past CloudVolumeFar, where the volumes have dissolved into the sky

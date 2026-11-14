@@ -914,7 +914,8 @@ namespace Testbed.Diagnostics
         /// <summary>The scene and the target answer (<c>SceneRenderer.EnvironmentFollowsIslandDepth</c>), as in the Game.</summary>
         Auto,
 
-        /// <summary>The environment first, with nothing before it but the sky: the order every frame had until #1098.</summary>
+        /// <summary>The environment first, with no island depth laid before it: the order every frame had until #1098. Where the
+        /// sky goes, before the environment or behind it, is <c>skyorder=</c>'s (#1104).</summary>
         First,
 
         /// <summary>The island's depth, then the environment, in every scene and into any target, whatever the answer.</summary>

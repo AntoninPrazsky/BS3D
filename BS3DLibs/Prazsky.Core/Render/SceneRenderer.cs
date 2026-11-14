@@ -1780,7 +1780,7 @@ namespace Prazsky.Core.Render
         /// to leave it and come back), so the switch would no longer wipe it, but it would still cost a resolve of
         /// a multisampled target for nothing — the order stands. Leaves the back buffer bound; that it leaves the GPU
         /// states as it found them is <i>not</i> promised — the caller states its own before its scene, as
-        /// every executable already does after the sky.
+        /// every executable already does once its scene target is bound and cleared.
         /// <para>
         /// <b>It is the scene's own decision since #471</b>, where it was the savanna's alone (#469): the gate
         /// is <see cref="SceneConfig.Shadows"/> on whichever backdrop is up, so a scene opts in by saying so
