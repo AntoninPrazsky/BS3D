@@ -111,9 +111,10 @@ namespace Testbed
 
                 //The sky's work in targets of its own, before the scene's is bound: the heaps of High and Ultra (#989)
                 //marched into their display-size layer, and above ssaa=1 the dome shaded once a display pixel into the
-                //sky's own target (#1104; skyres=full shades it at every sample)
+                //sky's own target (#1104; skyres=full shades it at every sample, and so do the cities, as the Game's do:
+                //SkyPass.DisplayResolutionPays, which skyres=display overrides)
                 _skyPass.Prepare(_camera, _clouds, _skyEffect, _sceneRenderer.FineMeshes ? _cloudVolumes : null, _pipeline.SceneTarget,
-                    _pipeline.SupersampleFactor);
+                    _pipeline.SupersampleFactor, _skyResPinned || SkyPass.DisplayResolutionPays(_scene, sceneryShown: true));
             }
 
             //The scene goes through the HDR target; the crosshair and the text overlay are drawn after the
@@ -343,6 +344,10 @@ namespace Testbed
         //first over the clear. And what the last frame did, which is what the [fps] line names
         private bool? _skyOrderPin;
         private bool _skyDrawnBehind;
+
+        //skyres= named on the command line or in an alt= variant (#1104): the dial is obeyed in every scene, the cities included,
+        //so what the display-resolution sky costs there can be measured; left out, the cities answer as the Game's do
+        private bool _skyResPinned;
 
         /// <summary>
         /// What this program casts into the sun's shadow map (#470): the island, the gun, the balls

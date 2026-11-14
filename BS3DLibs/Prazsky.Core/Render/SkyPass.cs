@@ -92,6 +92,18 @@ namespace Prazsky.Core.Render
         public static bool BehindScene(RenderTarget2D sceneTarget) =>
             GraphicsSupport.SkyBehindScene && sceneTarget != null && sceneTarget.MultiSampleCount <= 1;
 
+        /// <summary>
+        /// Whether shading the dome at display resolution pays in <paramref name="scene"/>: everywhere but under the two cities'
+        /// towers (<paramref name="sceneryShown"/>, the Game's Scenery row). The display-resolution target is shaded whole,
+        /// before anything stands in front of it, where the late draw at every sample shades only the samples the sky shows
+        /// through; the towers hide so much of the sky that the second is the cheaper. Measured at the review's pin (Testbed,
+        /// 3840x1500, <c>ssaa=2</c>, the game-mode camera, one scene a process, the sky behind the scene at every sample against
+        /// it at display resolution): the neon city 8.74 against 9.30 ms, the city 6.61 against 6.65, and the other twelve
+        /// scenes under a dome 0.80 to 1.93 ms the cheaper at display resolution.
+        /// </summary>
+        public static bool DisplayResolutionPays(SceneKind scene, bool sceneryShown) =>
+            !(sceneryShown && (scene == SceneKind.City || scene == SceneKind.NeonCity));
+
         public SkyPass(GraphicsDevice device, SkyDome dome)
         {
             _device = device ?? throw new ArgumentNullException(nameof(device));
@@ -111,8 +123,10 @@ namespace Prazsky.Core.Render
         /// <paramref name="supersampleFactor"/> the sky's own target takes: the back buffer's, or the player's lower Resolution
         /// row (#801). Passed rather than remembered, so a resize or a quality step cannot leave the sky at the old size.</param>
         /// <param name="supersampleFactor">The scene target's supersample factor: the sky goes into its own target above 1.</param>
+        /// <param name="displayResolutionPays">The scene's answer, <see cref="DisplayResolutionPays"/>: false keeps the dome at
+        /// every sample whatever <see cref="AtDisplayResolution"/> says.</param>
         public void Prepare(ICamera camera, CloudField clouds, Effect skyEffect, CloudVolumes volumes, RenderTarget2D sceneTarget,
-            int supersampleFactor)
+            int supersampleFactor, bool displayResolutionPays)
         {
             _volumes = volumes;
             _volumes?.March(camera, clouds, skyEffect);
@@ -122,7 +136,8 @@ namespace Prazsky.Core.Render
 
             //A minimized window reports a zero back buffer, and a zero-sized target is a device error: the sky is then drawn
             //into the scene target, which is correct and merely dearer
-            DrawsAtDisplayResolution = AtDisplayResolution && GraphicsSupport.SkyBehindScene && width > 0 && height > 0;
+            DrawsAtDisplayResolution = AtDisplayResolution && displayResolutionPays && GraphicsSupport.SkyBehindScene
+                && width > 0 && height > 0;
             if (!DrawsAtDisplayResolution)
             {
                 Release();

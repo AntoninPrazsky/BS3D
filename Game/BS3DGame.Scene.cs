@@ -1028,9 +1028,10 @@ namespace BS3D
 
                 //The sky's work in targets of its own, before the scene's is bound: the heaps of High and Ultra (#989)
                 //marched into their display-size layer, and on the tiers that supersample (High and Ultra) the dome shaded
-                //once a display pixel into the sky's own target (#1104, SkyPass.DISPLAY_RESOLUTION)
+                //once a display pixel into the sky's own target (#1104, SkyPass.DISPLAY_RESOLUTION), except under the cities'
+                //towers, where it is dearer than at every sample behind them (SkyPass.DisplayResolutionPays)
                 _skyPass.Prepare(_camera, _clouds, _skyEffect, CloudVolumesShown ? _cloudVolumes : null, _pipeline.SceneTarget,
-                    _pipeline.SupersampleFactor);
+                    _pipeline.SupersampleFactor, SkyPass.DisplayResolutionPays(_scene, SceneryShown));
             }
 
             GraphicsDevice.SetRenderTarget(_pipeline.SceneTarget);

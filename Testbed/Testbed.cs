@@ -825,7 +825,11 @@ namespace Testbed
 
             //#1104: "skyres=full" shades the sky at every sample of a supersampled frame, the look before it; left out, the
             //Game's own (SkyPass.DISPLAY_RESOLUTION)
-            if (_options.SkyAtDisplayResolution is bool skyAtDisplay) _skyPass.AtDisplayResolution = skyAtDisplay;
+            if (_options.SkyAtDisplayResolution is bool skyAtDisplay)
+            {
+                _skyPass.AtDisplayResolution = skyAtDisplay;
+                _skyResPinned = true;
+            }
 
             //Everything about the clouds that does not change frame to frame, pushed once. The per-frame half —
             //the clock and the camera — goes out in Draw, before the scene target is bound; the colours and the sun's own
@@ -1628,6 +1632,7 @@ namespace Testbed
                     //before it, "skyres=display" once a display pixel. Read by the next frame's SkyPass.Prepare.
                     case "skyres":
                         _skyPass.AtDisplayResolution = TestOptions.ParseSkyAtDisplayResolution(pin.Value);
+                        _skyResPinned = true;
                         break;
 
                     //On/off like the switch it mirrors: "nopost=1" is the argument, "nopost=0" the authored look
