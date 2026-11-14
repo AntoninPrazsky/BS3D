@@ -99,7 +99,8 @@ namespace Prazsky.Core.Render
         /// through; the towers hide so much of the sky that the second is the cheaper. Measured at the review's pin (Testbed,
         /// 3840x1500, <c>ssaa=2</c>, the game-mode camera, one scene a process, the sky behind the scene at every sample against
         /// it at display resolution): the neon city 8.74 against 9.30 ms, the city 6.61 against 6.65, and the other twelve
-        /// scenes under a dome 0.80 to 1.93 ms the cheaper at display resolution.
+        /// scenes under a dome 0.80 to 1.93 ms the cheaper at display resolution. In the Game at Ultra (a 3840x1500 window,
+        /// one process a figure) the neon city's Trophy 6.96 against 7.55 ms, the city's Girandole 8.75 against 8.86.
         /// </summary>
         public static bool DisplayResolutionPays(SceneKind scene, bool sceneryShown) =>
             !(sceneryShown && (scene == SceneKind.City || scene == SceneKind.NeonCity));
