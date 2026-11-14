@@ -919,14 +919,11 @@ float4 MarsMoonsPS(MarsMoonsVertexOutput input) : COLOR
 //THE CUTS (#1097): the island's hole, the far ring's inner square and the ground under the bank. A program that may
 //discard writes its depth after it has run, so while it writes depth nothing in its own draw is rejected early. Where
 //the scene supersamples (High and Ultra) the depth is laid first by the cuts alone (MarsTerrainDepth and
-//MarsTerrainReducedDepth, below) and this program then shades the whole ground on it, writing none. Below that the
-//ground is one pass, and only the blocks of the camera grid a cut reaches, and the far ring, are drawn with the cuts:
-//MarsTerrainOpen and MarsTerrainReducedOpen are the same ground without a discard in it, for every other block
-//(TerrainGridCache says why, and TerrainCuts how far the cuts reach: a new clip() here has to stay inside that
-//circle, or the scene gives up its Open twin).
-//The cutting entry points call this themselves, before the body, and the body takes no flag for it: written that
-//way both profiles compile a cutting program to the instructions it had before the cuts had a name (with a flag,
-//the OpenGL ES compile laid its constants out differently: docs/rendering/opengl-es.md).
+//MarsTerrainReducedDepth, below) and this program then shades the whole ground on it, writing none; below that the
+//ground is one pass with this program, as it always was (TerrainGridCache says why).
+//The cutting entry points and the depth twins call this themselves, before anything else: written that way both
+//profiles compile a cutting program to the instructions it had before the cuts had a name
+//(docs/rendering/opengl-es.md).
 void MarsCuts(float2 xz)
 {
     clip(length(xz) - IslandHoleRadius);
@@ -954,9 +951,6 @@ float4 MarsTerrainReducedPS(MarsTerrainVertexOutput input) : COLOR
     MarsCuts(input.WorldPosition.xz);
     return MarsTerrain(input, false);
 }
-
-float4 MarsTerrainOpenPS(MarsTerrainVertexOutput input) : COLOR { return MarsTerrain(input, true); }
-float4 MarsTerrainReducedOpenPS(MarsTerrainVertexOutput input) : COLOR { return MarsTerrain(input, false); }
 
 //THE BANK AGAINST THE DRUM (#983): IslandBerm's mesh worn in the rust itself, as the forest's floor and the Moon's dust
 //are, so the drum rises out of the plain's own ground and not out of a ring of flat colour laid round it
@@ -1021,30 +1015,6 @@ technique MarsTerrainReduced
         PixelShader = compile PS_SHADERMODEL MarsTerrainReducedPS();
     }
 };
-
-//The ground without its cuts (#1097, MarsCuts): what the camera grid draws wherever no cut reaches.
-//DirectX only, as the depth twins further down are and for their reason: a block drawn with this program shares its
-//edge with one drawn with the cutting program, and OpenGL ES does not promise one vertex program the same position
-//in two linked programs. There the whole grid is drawn with the cutting program, as it always was.
-#if !OPENGL
-technique MarsTerrainOpen
-{
-    pass P0
-    {
-        VertexShader = compile VS_SHADERMODEL MarsTerrainVS();
-        PixelShader = compile PS_SHADERMODEL MarsTerrainOpenPS();
-    }
-};
-
-technique MarsTerrainReducedOpen
-{
-    pass P0
-    {
-        VertexShader = compile VS_SHADERMODEL MarsTerrainVS();
-        PixelShader = compile PS_SHADERMODEL MarsTerrainReducedOpenPS();
-    }
-};
-#endif
 
 //THE DEPTH ALONE (#1097): each technique the camera grid or the far ring draws with, again with nothing but its cuts
 //in the pixel program (<technique>Depth). Where the scene supersamples, the grid's depth is laid with these first and

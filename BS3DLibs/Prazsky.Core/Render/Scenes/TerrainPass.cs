@@ -35,14 +35,13 @@ namespace Prazsky.Core.Render
     /// <see cref="BackdropServices.AcquireGridMesh"/> and is never disposed here.
     /// </para>
     /// <para>
-    /// <b>A grid in blocks is drawn the way its tier can afford, and always in its rows</b> (#1097; the whole of the why
-    /// is <see cref="TerrainGridCache"/>'s). The technique the backdrop left current is the ground WITH its cuts (the
-    /// island's hole, the bank's cover, whatever else the scene clips). Where the scene supersamples and the effect
+    /// <b>Where the scene supersamples, a grid in blocks has its depth laid first, and it is always drawn in its rows</b>
+    /// (#1097; the whole of the why is <see cref="TerrainGridCache"/>'s). The technique the backdrop left current is the
+    /// ground with its cuts (the island's hole, the bank's cover, whatever else the scene clips). Where the effect
     /// compiled <c>&lt;its name&gt;Depth</c>, the grid's depth is laid first with that and the ground shaded on it
-    /// without writing depth, and the far ring the same way (<see cref="FarField.DrawRing"/>). Otherwise the grid is
-    /// one pass: with <c>&lt;its name&gt;Open</c>, where the effect has one, for every block no cut reaches, and the
-    /// technique itself for the others. An effect with neither twin (the sea, and every effect on OpenGL ES, where
-    /// none is compiled) draws as it always did.
+    /// without writing depth, and the far ring the same way (<see cref="FarField.DrawRing"/>). Below the supersampling
+    /// tiers, and for an effect with no depth twin (the sea, and every effect on OpenGL ES, where none is compiled),
+    /// the ground is the one pass it always was.
     /// </para>
     /// </summary>
     internal sealed class TerrainPass
@@ -61,12 +60,9 @@ namespace Prazsky.Core.Render
         private TerrainGridCache.Grid _blocks;
         private readonly BoundingFrustum _frustum = new(Matrix.Identity);
 
-        //Per technique the ground is drawn with, the passes of its two twins (#1097), either null where the effect has
-        //none: resolved on a technique's first draw, because the by-name indexer is a linear scan (BestPractices 1). And
-        //the blocks the island's cuts reach, for the one-pass draw with an Open twin
-        private readonly Dictionary<EffectTechnique, GroundTwins> _twins = new();
-        private readonly TerrainCuts _cuts = new();
-        private readonly float _bankReach;
+        //Per technique the ground is drawn with, the pass of its depth twin (#1097), null where the effect has none:
+        //resolved on a technique's first draw, because the by-name indexer is a linear scan (BestPractices 1)
+        private readonly Dictionary<EffectTechnique, EffectPass> _depthTwins = new();
 
         //Every height a scene's vertex program lifts its ground to, and far more: a block's box spans them, so only the lens'
         //sides, near plane and far plane decide what is drawn (#1035). The Moon's grid takes the same band
@@ -99,10 +95,6 @@ namespace Prazsky.Core.Render
             _cell = extent / (gridN - 1);
             _gridN = gridN;
             _nearFirst = nearFirst;
-
-            //A scene that wears the island's bank as its ground turns its terrain away under it (BankCover.fxh): that cut
-            //reaches further out than the hole
-            _bankReach = effect.Parameters["BankCoverOn"] != null ? IslandBerm.COVER_RADIUS_MAX : 0f;
 
             Take(gridN);
 
@@ -216,14 +208,8 @@ namespace Prazsky.Core.Render
             if (DrawsGrid && _blocks != null)
             {
                 _frustum.Matrix = frame.Camera.View * frame.Camera.Projection;
-
-                GroundTwins twins = TwinsOf(ground);
-                EffectPass depth = depthFirst ? twins.Depth : null;
-                bool[] cut = depth == null && twins.Open != null
-                    ? _cuts.Blocks(_blocks, originX, originZ, _extent, MathF.Max(holeRadius, _bankReach))
-                    : null;
                 TerrainGridCache.DrawSeenBlocks(_graphicsDevice, _blocks, _frustum, originX, originZ, _extent, BLOCK_LOW_Y, BLOCK_HIGH_Y,
-                    SidewaysReach, ground.Passes[0], twins.Open, cut, depth);
+                    SidewaysReach, ground.Passes[0], depthFirst ? DepthTwinOf(ground) : null);
             }
             else if (DrawsGrid)
             {
@@ -236,39 +222,15 @@ namespace Prazsky.Core.Render
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
-        private GroundTwins TwinsOf(EffectTechnique ground)
+        private EffectPass DepthTwinOf(EffectTechnique ground)
         {
-            if (!_twins.TryGetValue(ground, out GroundTwins twins))
+            if (!_depthTwins.TryGetValue(ground, out EffectPass depth))
             {
-                twins = GroundTwins.Of(Effect, ground);
-                _twins[ground] = twins;
+                depth = TerrainGridCache.DepthTwin(Effect, ground);
+                _depthTwins[ground] = depth;
             }
 
-            return twins;
+            return depth;
         }
-    }
-
-    /// <summary>
-    /// The two twins a terrain effect may compile beside a technique its ground is drawn with (#1097,
-    /// <see cref="TerrainGridCache"/>): <c>&lt;name&gt;Open</c>, the same ground without its cuts, and
-    /// <c>&lt;name&gt;Depth</c>, its depth alone. Either is null where the effect has none, and both are on OpenGL ES,
-    /// where no effect compiles them.
-    /// </summary>
-    internal readonly struct GroundTwins
-    {
-        /// <summary>What follows a technique's name in its Open twin's and in its Depth twin's.</summary>
-        public const string OPEN = "Open", DEPTH = "Depth";
-
-        public readonly EffectPass Open, Depth;
-
-        private GroundTwins(EffectPass open, EffectPass depth)
-        {
-            Open = open;
-            Depth = depth;
-        }
-
-        /// <summary>The twins of <paramref name="technique"/> in <paramref name="effect"/>: two by-name lookups, so once a technique and never a frame.</summary>
-        public static GroundTwins Of(Effect effect, EffectTechnique technique) =>
-            new(effect.Techniques[technique.Name + OPEN]?.Passes[0], effect.Techniques[technique.Name + DEPTH]?.Passes[0]);
     }
 }

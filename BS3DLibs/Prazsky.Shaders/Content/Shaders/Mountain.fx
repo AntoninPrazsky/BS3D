@@ -614,17 +614,14 @@ MountainFineVertexOutput MountainFineVS(MountainVertexInput input)
     return output;
 }
 
-//THE CUTS (#1097): the island's hole and the far ring's inner square. A program that may discard writes its depth
-//after it has run, so while it writes depth nothing in its own draw is rejected early. Where the scene supersamples
-//(High and Ultra) the depth is laid first by the cuts alone (MountainDepth, MountainReducedDepth and
-//MountainFineReducedDepth, below) and this program then shades the whole ground on it, writing none. Below that the
-//ground is one pass, and only the blocks of the camera grid a cut reaches, and the far ring, are drawn with the cuts:
-//MountainOpen and MountainReducedOpen are, for Medium and Low, the same ground without a discard in it, for every
-//other block (TerrainGridCache says why, and TerrainCuts how far the cuts reach: a new clip() here has to stay inside
-//that circle, or the scene gives up its Open twin).
-//The cutting entry points call this themselves, before the body, and the body takes no flag for it: written that
-//way both profiles compile a cutting program to the instructions it had before the cuts had a name (with a flag,
-//the OpenGL ES compile laid its constants out differently: docs/rendering/opengl-es.md).
+//THE CUTS (#1097): the island's hole and the far ring's inner square. A program that may discard writes its depth after
+//it has run, so while it writes depth nothing in its own draw is rejected early. Where the scene supersamples (High and
+//Ultra) the depth is laid first by the cuts alone (MountainDepth, MountainReducedDepth and MountainFineReducedDepth,
+//below) and this program then shades the whole ground on it, writing none; below that the ground is one pass with this
+//program, as it always was (TerrainGridCache says why).
+//The cutting entry points and the depth twins call this themselves, before anything else: written that way both
+//profiles compile a cutting program to the instructions it had before the cuts had a name
+//(docs/rendering/opengl-es.md).
 void MountainCuts(float2 xz)
 {
     //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
@@ -848,9 +845,6 @@ float4 MountainReducedPS(MountainVertexOutput input) : COLOR
     return MountainSurface(input, 0.0, false, false);
 }
 
-float4 MountainOpenPS(MountainVertexOutput input) : COLOR { return MountainSurface(input, 0.0, true, false); }
-float4 MountainReducedOpenPS(MountainVertexOutput input) : COLOR { return MountainSurface(input, 0.0, false, false); }
-
 //No cuts in High and Ultra's program, which cuts the hole in its vertex shader (InHole) and is never drawn over the
 //far ring (MountainFineReduced): a program that may clip loses the depth test before it, and this one is too dear to
 //shade the range under every ridge in front of it.
@@ -882,30 +876,6 @@ technique MountainReduced
         PixelShader = compile PS_SHADERMODEL MountainReducedPS();
     }
 };
-
-//Medium's and Low's range without its cuts (#1097, MountainCuts): what the camera grid draws wherever no cut reaches.
-//DirectX only, as the depth twins further down are and for their reason: a block drawn with this program shares its
-//edge with one drawn with the cutting program, and OpenGL ES does not promise one vertex program the same position
-//in two linked programs. There the whole grid is drawn with the cutting program, as it always was.
-#if !OPENGL
-technique MountainOpen
-{
-    pass P0
-    {
-        VertexShader = compile VS_SHADERMODEL MountainVS();
-        PixelShader = compile PS_SHADERMODEL MountainOpenPS();
-    }
-};
-
-technique MountainReducedOpen
-{
-    pass P0
-    {
-        VertexShader = compile VS_SHADERMODEL MountainVS();
-        PixelShader = compile PS_SHADERMODEL MountainReducedOpenPS();
-    }
-};
-#endif
 
 technique MountainFine
 {

@@ -82,7 +82,7 @@ namespace Prazsky.Core.Render
         //field"); it stays because it cannot cost more. Cached because the by-name indexer is a linear scan.
         //
         //And beside it the pass of that technique's depth alone ("<its name>Depth", #1097), null where the effect compiled
-        //none (OpenGL ES, the sea): see DrawRing.
+        //none (OpenGL ES, the sea, the outback): see DrawRing.
         private readonly Dictionary<EffectTechnique, (EffectTechnique Ring, EffectPass Depth)> _farRingTechniques = new();
 
         private (EffectTechnique Ring, EffectPass Depth) FarRingTechnique(Effect effect)
@@ -91,7 +91,7 @@ namespace Prazsky.Core.Render
             if (!_farRingTechniques.TryGetValue(grid, out (EffectTechnique Ring, EffectPass Depth) ring))
             {
                 EffectTechnique technique = effect.Techniques[grid.Name + "Reduced"] ?? grid;
-                ring = (technique, GroundTwins.Of(effect, technique).Depth);
+                ring = (technique, TerrainGridCache.DepthTwin(effect, technique));
                 _farRingTechniques[grid] = ring;
             }
 
@@ -172,7 +172,8 @@ namespace Prazsky.Core.Render
         /// hides is thrown away before the program runs; the ring's program may discard and write depth, so drawn once
         /// it shaded every one of them. The picture is the single draw's bit for bit: the same triangles pass, in the
         /// same order. The caller asks only where the scene supersamples and the ring is opaque on
-        /// <see cref="DepthStencilState.Default"/>; the depth state is put back as it was found.
+        /// <see cref="DepthStencilState.Default"/>; the depth state is put back as it was found. The volcano never asks:
+        /// its ring shaded on its laid depth measured dearer than drawn once (<see cref="VolcanoBackdrop"/>).
         /// </para>
         /// </summary>
         public void DrawRing(Effect effect, Vector2 gridOrigin, float gridExtent, bool depthFirst = false)

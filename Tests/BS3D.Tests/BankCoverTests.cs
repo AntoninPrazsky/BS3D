@@ -32,22 +32,6 @@ namespace BS3D.Tests
                 }
         }
 
-        //The cover never reaches past the radius a terrain's camera grid takes for it (#1097): the blocks inside that radius
-        //are drawn with the program that turns the ground away under the bank, every other block with one that cannot, so a
-        //cover reaching further would leave ground drawn through the bank's edge. And the radius is not slack: some seed
-        //at some angle comes within a hundredth of it
-        [Fact]
-        public void The_cover_stays_inside_the_radius_the_terrain_grids_take_for_it()
-        {
-            float furthest = 0f;
-            for (int seed = 0; seed < 400; seed++)
-                for (int i = 0; i < 1440; i++)
-                    furthest = MathF.Max(furthest, IslandBerm.CoverRadius(seed * 37, MathF.Tau * i / 1440f));
-
-            Assert.True(furthest <= IslandBerm.COVER_RADIUS_MAX, $"a cover reaches {furthest:0.000}, past {IslandBerm.COVER_RADIUS_MAX:0.000}");
-            Assert.True(furthest > IslandBerm.COVER_RADIUS_MAX - 0.01f, $"no cover reaches past {furthest:0.000} of {IslandBerm.COVER_RADIUS_MAX:0.000}");
-        }
-
         //And the measure can fail: past the cover the bank goes under the ground, so a cover drawn too far out would be caught
         [Fact]
         public void Past_its_last_ring_the_bank_is_under_the_ground()

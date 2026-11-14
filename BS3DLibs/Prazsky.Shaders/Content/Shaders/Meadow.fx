@@ -793,7 +793,7 @@ float3 BrookPebbles(float2 xz, float footprint, float clods)
 //hole the patch draws the brook and the pond in. brookLateral is the caller's, how far to the side of the brook xz
 //stands. Where the scene supersamples (High and Ultra) the depth is laid first by these alone (MeadowDepth and
 //MeadowReducedDepth, below) and the field's program then shades the whole ground on it, writing none (#1097); below
-//that the ground is one pass with the one program, as it always was (the meadow has no Open twin: TerrainGridCache).
+//that the ground is one pass with the one program, as it always was (TerrainGridCache).
 void MeadowCuts(float2 xz, float brookLateral)
 {
     clip(length(xz) - IslandHoleRadius);

@@ -164,17 +164,7 @@ namespace Prazsky.Core.Render
 
         //How far the bank reaches out at angle a, as a multiple of each ring's offset from the drum (BankCover.fxh repeats it)
         private static float Spread(float phase, float a) =>
-            1f + SPREAD_WIDE * MathF.Sin(a * 3f + phase) + SPREAD_FINE * MathF.Sin(a * 7f + phase * 2.3f);
-
-        private const float SPREAD_WIDE = 0.35f, SPREAD_FINE = 0.2f;
-
-        /// <summary>
-        /// The furthest <see cref="CoverRadius"/> reaches for any seed at any angle: both of the wander's sines at their
-        /// crest (<c>BankCover.fxh</c>'s <c>UnderBank</c> gives up past the same radius). A terrain's camera grid draws the
-        /// blocks inside it with the program that turns the ground away under the bank, and every block outside it with
-        /// the one that cannot discard (#1097, <see cref="TerrainCuts"/>).
-        /// </summary>
-        public const float COVER_RADIUS_MAX = ArenaIsland.RADIUS + COVER_REACH * (1f + SPREAD_WIDE + SPREAD_FINE);
+            1f + 0.35f * MathF.Sin(a * 3f + phase) + 0.2f * MathF.Sin(a * 7f + phase * 2.3f);
 
         /// <summary>
         /// How far from the island's centre, at <paramref name="angle"/> round it, the bank of <paramref name="seed"/> surely

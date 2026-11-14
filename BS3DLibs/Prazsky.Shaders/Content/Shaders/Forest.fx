@@ -408,15 +408,12 @@ float4 ForestFloorAt(float3 worldPosition, float3 baseNormal, bool detail)
 
 //THE CUTS (#1097): the island's hole, the far ring's inner square and the ground under the bank. A program that may
 //discard writes its depth after it has run, so while it writes depth nothing in its own draw is rejected early. Where
-//the scene supersamples (High and Ultra) the depth is laid first by the cuts alone (ForestDepth and
-//ForestReducedDepth, below) and this program then shades the whole ground on it, writing none. Below that the ground
-//is one pass, and only the blocks of the camera grid a cut reaches, and the far ring, are drawn with the cuts:
-//ForestOpen and ForestReducedOpen are the same ground without a discard in it, for every other block
-//(TerrainGridCache says why, and TerrainCuts how far the cuts reach: a new clip() here has to stay inside that
-//circle, or the scene gives up its Open twin).
-//The cutting entry points call this themselves, before the body, and the body takes no flag for it: written that
-//way both profiles compile a cutting program to the instructions it had before the cuts had a name (with a flag,
-//the OpenGL ES compile laid its constants out differently: docs/rendering/opengl-es.md).
+//the scene supersamples (High and Ultra) the depth is laid first by the cuts alone (ForestDepth and ForestReducedDepth,
+//below) and this program then shades the whole ground on it, writing none; below that the ground is one pass with this
+//program, as it always was (TerrainGridCache says why).
+//The cutting entry points and the depth twins call this themselves, before anything else: written that way both
+//profiles compile a cutting program to the instructions it had before the cuts had a name
+//(docs/rendering/opengl-es.md).
 void ForestCuts(float2 xz)
 {
     //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
@@ -448,9 +445,6 @@ float4 ForestReducedPS(ForestVertexOutput input) : COLOR
     ForestCuts(input.WorldPosition.xz);
     return ForestFloor(input, false);
 }
-
-float4 ForestOpenPS(ForestVertexOutput input) : COLOR { return ForestFloor(input, true); }
-float4 ForestReducedOpenPS(ForestVertexOutput input) : COLOR { return ForestFloor(input, false); }
 
 technique Forest
 {
@@ -519,30 +513,6 @@ technique ForestReduced
         PixelShader = compile PS_SHADERMODEL ForestReducedPS();
     }
 };
-
-//The floor without its cuts (#1097, ForestCuts): what the camera grid draws wherever no cut reaches.
-//DirectX only, as the depth twins further down are and for their reason: a block drawn with this program shares its
-//edge with one drawn with the cutting program, and OpenGL ES does not promise one vertex program the same position
-//in two linked programs. There the whole grid is drawn with the cutting program, as it always was.
-#if !OPENGL
-technique ForestOpen
-{
-    pass P0
-    {
-        VertexShader = compile VS_SHADERMODEL ForestVS();
-        PixelShader = compile PS_SHADERMODEL ForestOpenPS();
-    }
-};
-
-technique ForestReducedOpen
-{
-    pass P0
-    {
-        VertexShader = compile VS_SHADERMODEL ForestVS();
-        PixelShader = compile PS_SHADERMODEL ForestReducedOpenPS();
-    }
-};
-#endif
 
 //THE DEPTH ALONE (#1097): each technique the camera grid or the far ring draws with, again with nothing but its cuts
 //in the pixel program (<technique>Depth). Where the scene supersamples, the grid's depth is laid with these first and
