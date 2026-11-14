@@ -35,6 +35,54 @@ namespace Prazsky.Core.Render
     /// (<see cref="DrawSeenBlocks"/>). A grid closes round the camera and its vertex program ran on every vertex of it,
     /// behind the lens as in front; on the reference APU that was the volcano's whole step under #748's land.
     /// </para>
+    /// <para>
+    /// <b>⚠ THE ORDER OF THE BLOCKS IS PART OF THE PICTURE, and it stays the rows'</b> (#1097). The cameras' near plane
+    /// stands at 0.01 and the depth buffer has 24 bits, so one step of depth at distance z is about z² / 168 000 world
+    /// units: 1.5 at 500, 6 at 1000. On a far skyline the two slopes of one ridge land on the SAME depth value, the test is
+    /// <c>LessEqual</c>, and the pixel keeps whichever triangle was drawn last. Drawing the blocks from the centre out,
+    /// near to far from every bearing, is the obvious way to let the depth test reject what a nearer rise hides, and it
+    /// moved 417 pixels of a 1920x1080 frame of Mars along the horizon, by up to 13 of 255. A grid in blocks is drawn in
+    /// its rows, and no other order may be given it without that account.
+    /// </para>
+    /// <para>
+    /// <b>What a nearer rise hides is rejected by laying the DEPTH FIRST instead</b> (#1097, <see cref="DrawSeenBlocks"/>
+    /// with a depth pass). Every terrain program but the mountain's fine grid (which cuts the island's hole in its vertex
+    /// program) cuts something in its pixel program (the island's hole, the ground under the island's bank, the far
+    /// ring's inner square, the meadow's brook and pond), and a pixel program that may <c>discard</c> writes its depth
+    /// after it has run, so nothing in its own draw was rejected early and the ground was shaded under every rise in
+    /// front of it. Where the
+    /// scene supersamples, the seen blocks are drawn once with the scene's depth program (<c>&lt;technique&gt;Depth</c>:
+    /// the cuts and nothing else, no colour written) and then shaded with <see cref="DepthStencilState.DepthRead"/> in
+    /// the same rows. A pixel behind a nearer one fails the test before its program runs, whichever way the lens looks;
+    /// pixels on one depth value still pass in the rows' order, so the last still wins and the picture is the one
+    /// pass's, bit for bit; and a program that may <c>discard</c> costs nothing once it writes no depth. Both passes run
+    /// the one vertex program, or the two depths would not be the same bits.
+    /// </para>
+    /// <para>
+    /// <b>⚠ Every cut of a ground lives in its effect's <c>&lt;Scene&gt;Cuts</c></b>, which the ground's program and its
+    /// depth twin both call. A <c>clip()</c> the ground's program makes anywhere else, and the twin does not, leaves the
+    /// twin's depth where no colour is written: on High and Ultra a hole, through which whatever was drawn before the
+    /// ground shows and which nothing drawn later behind the ground fills. One the twin makes and the ground does not
+    /// lets the ground's farther triangles paint over its nearer ones. Below those tiers the same edit shows nothing, so
+    /// <c>TerrainDepthTwinSourceTests</c> reads the effects and holds both, and that each twin runs its ground's vertex
+    /// program.
+    /// </para>
+    /// <para>
+    /// <b>Below the supersampling tiers a grid is the one pass it always was.</b> The depth pass runs the grid's vertex
+    /// program twice, which the machines of those tiers were not measured to afford. Nor may the ground be split there
+    /// between its cutting program and a twin without its cuts for the blocks no cut reaches (which would put the depth
+    /// test back in front of the pixel shader there): those tiers draw into a multisampled target, and frames drawn so
+    /// differed from the one program's on the far ground by more pixels than two runs of either build differ from each
+    /// other, at two samples and at four.
+    /// </para>
+    /// <para>
+    /// <b>The depth twins are DirectX's alone.</b> A depth pass and the pass shaded on it need the one vertex program to
+    /// land every vertex on the same position, bit for bit, in each. Direct3D runs the one compiled vertex shader under
+    /// both pixel programs. OpenGL ES links it into two programs and promises nothing of the kind (the GLSL MojoShader
+    /// writes declares no <c>invariant</c>), and a position one bit apart is a ground that fails its own depth. So a
+    /// terrain effect compiles its depth twins under <c>#if !OPENGL</c>, and there every grid is drawn in one pass with
+    /// its one program, as it always was.
+    /// </para>
     /// </summary>
     internal sealed class TerrainGridCache : IDisposable
     {
@@ -43,6 +91,20 @@ namespace Prazsky.Core.Render
 
         /// <summary>How many quads a side a block of a <see cref="Order.Blocks"/> grid holds.</summary>
         public const int BLOCK_QUADS = 16;
+
+        /// <summary>
+        /// Writes no colour: what a depth pass is drawn with (<see cref="DrawSeenBlocks"/>, <see cref="FarField.DrawRing"/>).
+        /// Made once; a state object is never made per frame.
+        /// </summary>
+        internal static readonly BlendState DEPTH_ONLY = new() { ColorWriteChannels = ColorWriteChannels.None };
+
+        /// <summary>
+        /// The pass of <paramref name="technique"/>'s depth twin in <paramref name="effect"/> (#1097), the technique of
+        /// the same name and "Depth": its vertex program, and nothing but its cuts in the pixel program. Null where the
+        /// effect compiled none, which on OpenGL ES is every effect. A by-name lookup, so once a technique and never a frame.
+        /// </summary>
+        internal static EffectPass DepthTwin(Effect effect, EffectTechnique technique) =>
+            effect.Techniques[technique.Name + "Depth"]?.Passes[0];
 
         /// <summary>
         /// One shared grid: the two buffers and the index count a draw takes, and for a grid in blocks its vertices a side and
@@ -57,6 +119,9 @@ namespace Prazsky.Core.Render
             public int BlocksPerSide { get; init; }
             public int[] BlockStart { get; init; }
             public int[] BlockCount { get; init; }
+
+            //The runs of one draw (SeenRuns), held here so a frame allocates nothing; one scene draws at a time
+            internal int[] Runs;
             internal int References;
         }
 
@@ -101,41 +166,99 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Draws the blocks of <paramref name="grid"/> (a <see cref="Order.Blocks"/> grid, its buffers and the effect's pass
-        /// already set) whose box the <paramref name="frustum"/> touches, each run of neighbouring ones in one draw. A block's
-        /// box spans its cells round the grid's snapped origin, grown by <paramref name="sideways"/> in X and Z, and every height
-        /// from <paramref name="lowY"/> to <paramref name="highY"/>: the caller states both wide enough for anything its vertex
-        /// program moves the ground by. Only the sea's waves move a vertex sideways (<see cref="SeaBackdrop.SwayReach"/>).
+        /// Draws the blocks of <paramref name="grid"/> (a <see cref="Order.Blocks"/> grid, its buffers already set) whose box
+        /// the <paramref name="frustum"/> touches with <paramref name="ground"/>, the pass of the scene's ground, in the
+        /// rows' order, each run of neighbouring ones in one draw. A block's box spans its cells round the grid's snapped
+        /// origin, grown by <paramref name="sideways"/> in X and Z, and every height from <paramref name="lowY"/> to
+        /// <paramref name="highY"/>: the caller states both wide enough for anything its vertex program moves the ground
+        /// by. Only the sea's waves move a vertex sideways (<see cref="SeaBackdrop.SwayReach"/>).
+        /// <para>
+        /// With <paramref name="depth"/>, the pass of the same ground's depth alone, the blocks are drawn twice: their
+        /// depth first, no colour written, then <paramref name="ground"/> on it with
+        /// <see cref="DepthStencilState.DepthRead"/> (see the class; the depth state is put back as it was found, and
+        /// it has to have been <see cref="DepthStencilState.Default"/>). Only an opaque ground may ask for it.
+        /// </para>
         /// </summary>
         public static void DrawSeenBlocks(GraphicsDevice device, Grid grid, BoundingFrustum frustum, float originX, float originZ,
-            float extent, float lowY, float highY, float sideways = 0f)
+            float extent, float lowY, float highY, float sideways, EffectPass ground, EffectPass depth = null)
         {
-            float cell = extent / (grid.N - 1);
-            float half = extent * Constants.HALF, span = BLOCK_QUADS * cell;
-            int side = grid.BlocksPerSide;
+            int entries = SeenRuns(grid.N, grid.BlocksPerSide, grid.BlockStart, grid.BlockCount, frustum, originX, originZ, extent,
+                lowY, highY, sideways, grid.Runs);
+            if (depth == null)
+            {
+                ground.Apply();
+                DrawRuns(device, grid.Runs, entries);
+                return;
+            }
 
-            int runStart = -1, runEnd = 0;
-            for (int bz = 0; bz < side; bz++)
-                for (int bx = 0; bx < side; bx++)
+            BlendState blend = device.BlendState;
+            DepthStencilState depthState = device.DepthStencilState;
+
+            device.BlendState = DEPTH_ONLY;
+            depth.Apply();
+            DrawRuns(device, grid.Runs, entries);
+
+            device.BlendState = blend;
+            device.DepthStencilState = DepthStencilState.DepthRead;
+            ground.Apply();
+            DrawRuns(device, grid.Runs, entries);
+
+            device.DepthStencilState = depthState;
+        }
+
+        private static void DrawRuns(GraphicsDevice device, int[] runs, int entries)
+        {
+            for (int i = 0; i < entries; i += RUN_ENTRIES)
+                device.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, runs[i], runs[i + 1] / 3);
+        }
+
+        /// <summary>How many entries of a run array one run takes: its first index and its index count.</summary>
+        internal const int RUN_ENTRIES = 2;
+
+        /// <summary>
+        /// The runs <see cref="DrawSeenBlocks"/> draws, into <paramref name="runs"/> in the rows' order,
+        /// <see cref="RUN_ENTRIES"/> entries each; returns how many entries were written. A run is the seen blocks that
+        /// follow each other in the buffer: it ends where a block is not seen. <paramref name="runs"/> needs
+        /// <see cref="RunCapacity"/> entries. Static and device-free so the runs are testable.
+        /// </summary>
+        internal static int SeenRuns(int n, int blocksPerSide, int[] blockStart, int[] blockCount, BoundingFrustum frustum,
+            float originX, float originZ, float extent, float lowY, float highY, float sideways, int[] runs)
+        {
+            float cell = extent / (n - 1);
+            float half = extent * Constants.HALF, span = BLOCK_QUADS * cell;
+
+            int entries = 0, runStart = -1, runEnd = 0;
+            for (int bz = 0; bz < blocksPerSide; bz++)
+                for (int bx = 0; bx < blocksPerSide; bx++)
                 {
-                    int b = bz * side + bx;
+                    int b = bz * blocksPerSide + bx;
                     float x0 = originX - half + bx * span - sideways, z0 = originZ - half + bz * span - sideways;
                     float x1 = x0 + span + 2f * sideways, z1 = z0 + span + 2f * sideways;
                     var box = new BoundingBox(new Vector3(x0, lowY, z0), new Vector3(x1, highY, z1));
                     if (frustum.Contains(box) != ContainmentType.Disjoint)
                     {
-                        if (runStart < 0) runStart = grid.BlockStart[b];
-                        runEnd = grid.BlockStart[b] + grid.BlockCount[b];
+                        if (runStart < 0) runStart = blockStart[b];
+                        runEnd = blockStart[b] + blockCount[b];
                     }
                     else if (runStart >= 0)
                     {
-                        device.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, runStart, (runEnd - runStart) / 3);
+                        runs[entries++] = runStart;
+                        runs[entries++] = runEnd - runStart;
                         runStart = -1;
                     }
                 }
 
-            if (runStart >= 0) device.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, runStart, (runEnd - runStart) / 3);
+            if (runStart >= 0)
+            {
+                runs[entries++] = runStart;
+                runs[entries++] = runEnd - runStart;
+            }
+
+            return entries;
         }
+
+        /// <summary>How many entries a run array of <see cref="SeenRuns"/> needs for a grid of <paramref name="blocks"/> blocks: every block a run of its own.</summary>
+        internal static int RunCapacity(int blocks) => blocks * RUN_ENTRIES;
 
         public void Dispose()
         {
@@ -186,6 +309,7 @@ namespace Prazsky.Core.Render
             {
                 Vertices = vertexBuffer, Indices = indexBuffer, IndexCount = indices.Length,
                 N = n, BlocksPerSide = side, BlockStart = blockStart, BlockCount = blockCount,
+                Runs = order == Order.Blocks ? new int[RunCapacity(side * side)] : null,
             };
         }
 

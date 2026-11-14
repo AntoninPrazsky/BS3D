@@ -286,13 +286,27 @@ float HearthBurn(float2 xz)
     return saturate(burn * (0.82 + 0.36 * (CloudNoise(xz * 0.45) * 0.5 + 0.5)));
 }
 
+//THE CUTS (#1097): the island's hole and the far ring's inner square. A program that may discard writes its depth after
+//it has run, so while it writes depth nothing in its own draw is rejected early. Where the scene supersamples (High and
+//Ultra) the depth is laid first by the cuts alone (SavannaDepth and SavannaReducedDepth, below) and this program then
+//shades the whole ground on it, writing none; below that the ground is one pass with this program, as it always was
+//(TerrainGridCache says why).
+//The cutting entry points and the depth twins call this themselves, before anything else: written that way both
+//profiles compile a cutting program to the instructions it had before the cuts had a name
+//(docs/rendering/opengl-es.md).
+//⚠ Every clip() of this ground belongs in here. One its program makes anywhere else, which the depth twin does
+//not, leaves the twin's depth where no colour is written: on High and Ultra a hole, through which whatever was drawn
+//before the ground shows (TerrainDepthTwinSourceTests fails on it). Below those tiers nothing would show it.
+void SavannaCuts(float2 xz)
+{
+    //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
+    clip(length(xz) - IslandHoleRadius);
+    FarRingClip(xz);
+}
+
 float4 SavannaField(SavannaVertexOutput input, bool detail)
 {
     float3 worldPosition = input.WorldPosition;
-
-    //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
-    clip(length(worldPosition.xz) - IslandHoleRadius);
-    FarRingClip(worldPosition.xz);
 
     float footprint = length(fwidth(worldPosition.xz));
 
@@ -462,8 +476,17 @@ float4 SavannaField(SavannaVertexOutput input, bool detail)
     return float4(FarFadeToSky(color, worldPosition), 1.0);
 }
 
-float4 SavannaPS(SavannaVertexOutput input) : COLOR { return SavannaField(input, true); }
-float4 SavannaReducedPS(SavannaVertexOutput input) : COLOR { return SavannaField(input, false); }
+float4 SavannaPS(SavannaVertexOutput input) : COLOR
+{
+    SavannaCuts(input.WorldPosition.xz);
+    return SavannaField(input, true);
+}
+
+float4 SavannaReducedPS(SavannaVertexOutput input) : COLOR
+{
+    SavannaCuts(input.WorldPosition.xz);
+    return SavannaField(input, false);
+}
 
 technique Savanna
 {
@@ -485,6 +508,39 @@ technique SavannaReduced
         PixelShader = compile PS_SHADERMODEL SavannaReducedPS();
     }
 };
+
+//THE DEPTH ALONE (#1097): each technique the camera grid or the far ring draws with, again with nothing but its cuts
+//in the pixel program (<technique>Depth). Where the scene supersamples, the grid's depth is laid with these first and
+//the ground is then shaded on it without writing depth, and so is the ring: a pixel a nearer rise hides is thrown
+//away before its program runs, whichever way the lens looks, and a discard costs nothing in a program that writes no
+//depth (TerrainGridCache.DrawSeenBlocks, FarField.DrawRing). The vertex program is the technique's own, or the two depths
+//would not be the same bits. DirectX only: OpenGL ES does not promise one depth from two programs, and there every
+//draw is the one pass it was.
+#if !OPENGL
+float4 SavannaGroundDepthPS(SavannaVertexOutput input) : COLOR
+{
+    SavannaCuts(input.WorldPosition.xz);
+    return 0.0;
+}
+
+technique SavannaDepth
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL SavannaVS();
+        PixelShader = compile PS_SHADERMODEL SavannaGroundDepthPS();
+    }
+};
+
+technique SavannaReducedDepth
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL SavannaVS();
+        PixelShader = compile PS_SHADERMODEL SavannaGroundDepthPS();
+    }
+};
+#endif
 
 //--- The height probe (#590) ----------------------------------------------------------------------------
 

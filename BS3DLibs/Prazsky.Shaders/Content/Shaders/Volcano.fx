@@ -1111,13 +1111,27 @@ bool Shaded(float3 worldPosition)
     return FarFade.y <= FarFade.x || smoothstep(FarFade.x, FarFade.y, length(CameraPosition - worldPosition)) < SKY_TAKES_OVER;
 }
 
+//THE CUTS (#1097): the island's hole and the far ring's inner square. A program that may discard writes its depth after
+//it has run, so while it writes depth nothing in its own draw is rejected early. Where the scene supersamples (High and
+//Ultra) the camera grid's depth is laid first by the cuts alone (VolcanoDepth, below) and this program then shades the
+//whole flank on it, writing none; the far ring and every tier below are one pass with the cutting program, as they
+//always were (TerrainGridCache says why, VolcanoBackdrop why the ring is).
+//The cutting entry points and the depth twins call this themselves, before anything else: written that way both
+//profiles compile a cutting program to the instructions it had before the cuts had a name
+//(docs/rendering/opengl-es.md).
+//⚠ Every clip() of this ground belongs in here. One its program makes anywhere else, which the depth twin does
+//not, leaves the twin's depth where no colour is written: on High and Ultra a hole, through which whatever was drawn
+//before the ground shows (TerrainDepthTwinSourceTests fails on it). Below those tiers nothing would show it.
+void VolcanoCuts(float2 xz)
+{
+    //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
+    clip(length(xz) - IslandHoleRadius);
+    FarRingClip(xz);
+}
+
 float4 VolcanoSurface(VolcanoVertexOutput input, uniform bool fullDetail)
 {
     float3 worldPosition = input.WorldPosition;
-
-    //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
-    clip(length(worldPosition.xz) - IslandHoleRadius);
-    FarRingClip(worldPosition.xz);
 
     float footprint = length(fwidth(worldPosition.xz));
     float3 baseNormal = normalize(input.WorldNormal);
@@ -1202,8 +1216,17 @@ float4 VolcanoSurface(VolcanoVertexOutput input, uniform bool fullDetail)
 //patches, the noise in each flow's front (FrontLobes) and two octaves of the scoria in the vertex program, over a
 //coarser grid (SceneRenderer.VOLCANO_GRID_N_REDUCED). Measured paired in the Testbed at Low's settings, the play
 //pose over Caldera: 14.89 -> 11.82 ms, cheaper in every one of 40 cycles.
-float4 VolcanoPS(VolcanoVertexOutput input) : COLOR { return VolcanoSurface(input, true); }
-float4 VolcanoReducedPS(VolcanoVertexOutput input) : COLOR { return VolcanoSurface(input, false); }
+float4 VolcanoPS(VolcanoVertexOutput input) : COLOR
+{
+    VolcanoCuts(input.WorldPosition.xz);
+    return VolcanoSurface(input, true);
+}
+
+float4 VolcanoReducedPS(VolcanoVertexOutput input) : COLOR
+{
+    VolcanoCuts(input.WorldPosition.xz);
+    return VolcanoSurface(input, false);
+}
 
 technique Volcano
 {
@@ -1235,6 +1258,32 @@ technique VolcanoReduced
         PixelShader = compile PS_SHADERMODEL VolcanoReducedPS();
     }
 };
+
+//THE DEPTH ALONE (#1097): each technique the camera grid or the far ring draws with, again with nothing but its cuts
+//in the pixel program (<technique>Depth). Where the scene supersamples, the grid's depth is laid with these first and
+//the ground is then shaded on it without writing depth, and so is the ring: a pixel a nearer rise hides is thrown
+//away before its program runs, whichever way the lens looks, and a discard costs nothing in a program that writes no
+//depth (TerrainGridCache.DrawSeenBlocks, FarField.DrawRing). The vertex program is the technique's own, or the two depths
+//would not be the same bits. DirectX only: OpenGL ES does not promise one depth from two programs, and there every
+//draw is the one pass it was.
+#if !OPENGL
+float4 VolcanoGroundDepthPS(VolcanoVertexOutput input) : COLOR
+{
+    VolcanoCuts(input.WorldPosition.xz);
+    return 0.0;
+}
+
+//The one depth twin the flank needs: the tiers that supersample draw the authored program (Volcano), Medium and Low
+//(VolcanoMedium, VolcanoReduced) do not supersample, and the ring (VolcanoReduced) is drawn once (VolcanoBackdrop).
+technique VolcanoDepth
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL VolcanoVS();
+        PixelShader = compile PS_SHADERMODEL VolcanoGroundDepthPS();
+    }
+};
+#endif
 
 //--- The height probe (#590) ----------------------------------------------------------------------------
 

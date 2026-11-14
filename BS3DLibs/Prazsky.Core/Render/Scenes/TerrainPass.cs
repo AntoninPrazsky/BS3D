@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
+using System.Collections.Generic;
 
 namespace Prazsky.Core.Render
 {
@@ -33,6 +34,15 @@ namespace Prazsky.Core.Render
     /// The grid comes from the renderer's <see cref="TerrainGridCache"/> through
     /// <see cref="BackdropServices.AcquireGridMesh"/> and is never disposed here.
     /// </para>
+    /// <para>
+    /// <b>Where the scene supersamples, a grid in blocks has its depth laid first, and it is always drawn in its rows</b>
+    /// (#1097; the whole of the why is <see cref="TerrainGridCache"/>'s). The technique the backdrop left current is the
+    /// ground with its cuts (the island's hole, the bank's cover, whatever else the scene clips). Where the effect
+    /// compiled <c>&lt;its name&gt;Depth</c>, the grid's depth is laid first with that and the ground shaded on it
+    /// without writing depth, and the far ring the same way (<see cref="FarField.DrawRing"/>). Below the supersampling
+    /// tiers, and for an effect with no depth twin (the sea, and every effect on OpenGL ES, where none is compiled),
+    /// the ground is the one pass it always was.
+    /// </para>
     /// </summary>
     internal sealed class TerrainPass
     {
@@ -49,6 +59,10 @@ namespace Prazsky.Core.Render
         //camera, and its vertex program ran on every vertex of it. Null for a near-first grid, which keeps its rings (#781)
         private TerrainGridCache.Grid _blocks;
         private readonly BoundingFrustum _frustum = new(Matrix.Identity);
+
+        //Per technique the ground is drawn with, the pass of its depth twin (#1097), null where the effect has none:
+        //resolved on a technique's first draw, because the by-name indexer is a linear scan (BestPractices 1)
+        private readonly Dictionary<EffectTechnique, EffectPass> _depthTwins = new();
 
         //Every height a scene's vertex program lifts its ground to, and far more: a block's box spans them, so only the lens'
         //sides, near plane and far plane decide what is drawn (#1035). The Moon's grid takes the same band
@@ -183,18 +197,40 @@ namespace Prazsky.Core.Render
             beforeGrid?.Invoke();
             _graphicsDevice.SetVertexBuffer(_vertexBuffer);
             _graphicsDevice.Indices = _indexBuffer;
-            Effect.CurrentTechnique.Passes[0].Apply();
+
+            //The depth first where the scene supersamples (#1097, TerrainGridCache): where pixels are the cost, as the
+            //meadow's patch does (#924). Only an opaque ground on the scene block's own depth state can be laid first; the
+            //lagoon is blended and the sea is drawn depth-read, and neither effect has a depth twin to find
+            EffectTechnique ground = Effect.CurrentTechnique;
+            bool depthFirst = _services.SupersampleFactor > 1 && blend == null
+                && _graphicsDevice.DepthStencilState == DepthStencilState.Default;
+
             if (DrawsGrid && _blocks != null)
             {
                 _frustum.Matrix = frame.Camera.View * frame.Camera.Projection;
                 TerrainGridCache.DrawSeenBlocks(_graphicsDevice, _blocks, _frustum, originX, originZ, _extent, BLOCK_LOW_Y, BLOCK_HIGH_Y,
-                    SidewaysReach);
+                    SidewaysReach, ground.Passes[0], depthFirst ? DepthTwinOf(ground) : null);
             }
-            else if (DrawsGrid) _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _indexCount / 3);
-            if (DrawsFarRing) _farField.DrawRing(Effect, new Vector2(originX, originZ), _extent);
+            else if (DrawsGrid)
+            {
+                ground.Passes[0].Apply();
+                _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _indexCount / 3);
+            }
+            if (DrawsFarRing) _farField.DrawRing(Effect, new Vector2(originX, originZ), _extent, depthFirst);
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
+        private EffectPass DepthTwinOf(EffectTechnique ground)
+        {
+            if (!_depthTwins.TryGetValue(ground, out EffectPass depth))
+            {
+                depth = TerrainGridCache.DepthTwin(Effect, ground);
+                _depthTwins[ground] = depth;
+            }
+
+            return depth;
         }
     }
 }

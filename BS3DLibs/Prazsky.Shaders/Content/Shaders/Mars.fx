@@ -916,21 +916,44 @@ float4 MarsMoonsPS(MarsMoonsVertexOutput input) : COLOR
 //"MarsTerrainReduced" drops the sand drifts with their ripples, the bedrock slabs with their cracks and the
 //strata's wobble - the ground's added noise - and keeps the mesas, which are geometry and must be lit the same
 //on every tier. SceneRenderer.SceneDetail picks; the Game's Low tier takes the reduced one.
+//THE CUTS (#1097): the island's hole, the far ring's inner square and the ground under the bank. A program that may
+//discard writes its depth after it has run, so while it writes depth nothing in its own draw is rejected early. Where
+//the scene supersamples (High and Ultra) the depth is laid first by the cuts alone (MarsTerrainDepth and
+//MarsTerrainReducedDepth, below) and this program then shades the whole ground on it, writing none; below that the
+//ground is one pass with this program, as it always was (TerrainGridCache says why).
+//The cutting entry points and the depth twins call this themselves, before anything else: written that way both
+//profiles compile a cutting program to the instructions it had before the cuts had a name
+//(docs/rendering/opengl-es.md).
+//⚠ Every clip() of this ground belongs in here. One its program makes anywhere else, which the depth twin does
+//not, leaves the twin's depth where no colour is written: on High and Ultra a hole, through which whatever was drawn
+//before the ground shows (TerrainDepthTwinSourceTests fails on it). Below those tiers nothing would show it.
+void MarsCuts(float2 xz)
+{
+    clip(length(xz) - IslandHoleRadius);
+    FarRingClip(xz);
+
+    //Under the bank, which is the plain too (#983, BankCover.fxh): shaded there, not here
+    clip(UnderBank(xz) ? -1.0 : 1.0);
+}
+
 float4 MarsTerrain(MarsTerrainVertexOutput input, bool detail)
 {
     float3 worldPosition = input.WorldPosition;
 
-    clip(length(worldPosition.xz) - IslandHoleRadius);
-    FarRingClip(worldPosition.xz);
-
-    //Under the bank, which is the plain too (#983, BankCover.fxh): shaded there, not here
-    clip(UnderBank(worldPosition.xz) ? -1.0 : 1.0);
-
     return MarsGroundAt(worldPosition, float3(0.0, 1.0, 0.0), false, detail);
 }
 
-float4 MarsTerrainPS(MarsTerrainVertexOutput input) : COLOR { return MarsTerrain(input, true); }
-float4 MarsTerrainReducedPS(MarsTerrainVertexOutput input) : COLOR { return MarsTerrain(input, false); }
+float4 MarsTerrainPS(MarsTerrainVertexOutput input) : COLOR
+{
+    MarsCuts(input.WorldPosition.xz);
+    return MarsTerrain(input, true);
+}
+
+float4 MarsTerrainReducedPS(MarsTerrainVertexOutput input) : COLOR
+{
+    MarsCuts(input.WorldPosition.xz);
+    return MarsTerrain(input, false);
+}
 
 //THE BANK AGAINST THE DRUM (#983): IslandBerm's mesh worn in the rust itself, as the forest's floor and the Moon's dust
 //are, so the drum rises out of the plain's own ground and not out of a ring of flat colour laid round it
@@ -995,6 +1018,39 @@ technique MarsTerrainReduced
         PixelShader = compile PS_SHADERMODEL MarsTerrainReducedPS();
     }
 };
+
+//THE DEPTH ALONE (#1097): each technique the camera grid or the far ring draws with, again with nothing but its cuts
+//in the pixel program (<technique>Depth). Where the scene supersamples, the grid's depth is laid with these first and
+//the ground is then shaded on it without writing depth, and so is the ring: a pixel a nearer rise hides is thrown
+//away before its program runs, whichever way the lens looks, and a discard costs nothing in a program that writes no
+//depth (TerrainGridCache.DrawSeenBlocks, FarField.DrawRing). The vertex program is the technique's own, or the two depths
+//would not be the same bits. DirectX only: OpenGL ES does not promise one depth from two programs, and there every
+//draw is the one pass it was.
+#if !OPENGL
+float4 MarsGroundDepthPS(MarsTerrainVertexOutput input) : COLOR
+{
+    MarsCuts(input.WorldPosition.xz);
+    return 0.0;
+}
+
+technique MarsTerrainDepth
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MarsTerrainVS();
+        PixelShader = compile PS_SHADERMODEL MarsGroundDepthPS();
+    }
+};
+
+technique MarsTerrainReducedDepth
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MarsTerrainVS();
+        PixelShader = compile PS_SHADERMODEL MarsGroundDepthPS();
+    }
+};
+#endif
 
 technique MarsMoons
 {

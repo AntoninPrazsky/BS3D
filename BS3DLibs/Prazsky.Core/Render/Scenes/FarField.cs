@@ -80,14 +80,18 @@ namespace Prazsky.Core.Render
         //which are what the ring is for, are the same height function in both. On Mars it measured within noise of
         //the full program (the ring's cost is its new pixels' count, not their program - docs/scenes.md, "The far
         //field"); it stays because it cannot cost more. Cached because the by-name indexer is a linear scan.
-        private readonly Dictionary<EffectTechnique, EffectTechnique> _farRingTechniques = new();
+        //
+        //And beside it the pass of that technique's depth alone ("<its name>Depth", #1097), null where the effect compiled
+        //none (OpenGL ES, the sea, the outback): see DrawRing.
+        private readonly Dictionary<EffectTechnique, (EffectTechnique Ring, EffectPass Depth)> _farRingTechniques = new();
 
-        private EffectTechnique FarRingTechnique(Effect effect)
+        private (EffectTechnique Ring, EffectPass Depth) FarRingTechnique(Effect effect)
         {
             EffectTechnique grid = effect.CurrentTechnique;
-            if (!_farRingTechniques.TryGetValue(grid, out EffectTechnique ring))
+            if (!_farRingTechniques.TryGetValue(grid, out (EffectTechnique Ring, EffectPass Depth) ring))
             {
-                ring = effect.Techniques[grid.Name + "Reduced"] ?? grid;
+                EffectTechnique technique = effect.Techniques[grid.Name + "Reduced"] ?? grid;
+                ring = (technique, TerrainGridCache.DepthTwin(effect, technique));
                 _farRingTechniques[grid] = ring;
             }
 
@@ -161,8 +165,18 @@ namespace Prazsky.Core.Render
         /// unchanged with its origin at zero, and <c>FarRingClip</c> gives every pixel inside the camera grid back to
         /// the grid. The caller's device state (blend, rasterizer, depth) carries over, which is what makes the ring
         /// the same surface as the grid. Leaves the origin and the clip as the grid had them.
+        /// <para>
+        /// With <paramref name="depthFirst"/>, and where the effect compiled the ring technique's depth alone, the ring is
+        /// drawn twice (#1097): its depth first, laid by its cuts and nothing else with no colour written, then its
+        /// program on that depth with <see cref="DepthStencilState.DepthRead"/>. A ring pixel the ground in front of it
+        /// hides is thrown away before the program runs; the ring's program may discard, so drawn once it writes its
+        /// depth only after it has run and nothing in its own draw is rejected early. The picture is the single draw's
+        /// bit for bit: the same triangles pass, in the same order. The caller asks only where the scene supersamples and the ring is opaque on
+        /// <see cref="DepthStencilState.Default"/>; the depth state is put back as it was found. The volcano never asks:
+        /// its ring shaded on its laid depth measured dearer than drawn once (<see cref="VolcanoBackdrop"/>).
+        /// </para>
         /// </summary>
-        public void DrawRing(Effect effect, Vector2 gridOrigin, float gridExtent)
+        public void DrawRing(Effect effect, Vector2 gridOrigin, float gridExtent, bool depthFirst = false)
         {
             FarFieldSlots slots = FarSlots(effect);
             if (slots.Ring == null || !FarRingDrawn) return;
@@ -180,13 +194,33 @@ namespace Prazsky.Core.Render
                 : 0;
 
             EffectTechnique grid = effect.CurrentTechnique;
-            effect.CurrentTechnique = FarRingTechnique(effect);
+            (EffectTechnique ring, EffectPass depth) = FarRingTechnique(effect);
+            effect.CurrentTechnique = ring;
 
             _graphicsDevice.SetVertexBuffer(_farRingVertexBuffer);
             _graphicsDevice.Indices = _farRingIndexBuffer;
-            effect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, firstRow * FAR_RING_SEGMENTS * 6,
-                (_farRingRows - 1 - firstRow) * FAR_RING_SEGMENTS * 2);
+
+            int start = firstRow * FAR_RING_SEGMENTS * 6, triangles = (_farRingRows - 1 - firstRow) * FAR_RING_SEGMENTS * 2;
+            if (depthFirst && depth != null)
+            {
+                BlendState blend = _graphicsDevice.BlendState;
+                DepthStencilState depthState = _graphicsDevice.DepthStencilState;
+
+                _graphicsDevice.BlendState = TerrainGridCache.DEPTH_ONLY;
+                depth.Apply();
+                _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, start, triangles);
+
+                _graphicsDevice.BlendState = blend;
+                _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
+                ring.Passes[0].Apply();
+                _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, start, triangles);
+                _graphicsDevice.DepthStencilState = depthState;
+            }
+            else
+            {
+                ring.Passes[0].Apply();
+                _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, start, triangles);
+            }
 
             effect.CurrentTechnique = grid;
             slots.Ring.SetValue(Vector4.Zero);
