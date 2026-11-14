@@ -959,6 +959,11 @@ namespace Testbed
             {
                 AnnounceVariants();
                 ApplyVariant(_options.Alternation[0]);
+
+                //The first window waits for the GPU like every later one (#1129): here what it waits out is the
+                //load's own uploads rather than another variant, but a cycle whose every line says it settled
+                //is one a reader never has to make an exception for
+                MarkVariantSwitch();
             }
 
             //Testing: the aim-and-shoot scan needs to be in game mode (a shot then leaves the cannon along its aim
@@ -1401,7 +1406,9 @@ namespace Testbed
         /// The dials <see cref="ApplyVariant"/> can switch between two <c>[fps]</c> windows, and the reason
         /// the list is short: <b>a variant switch must leave nothing behind</b>, or the window after it
         /// measures the transition rather than the variant. Every one of these is either a plain assignment
-        /// or a setter whose whole effect lands in the same frame.
+        /// or a setter whose whole effect lands in the same frame. That is this program's half; the GPU's is the
+        /// forty-odd frames of the variant before still queued for it at the switch, which every dial leaves
+        /// behind alike and <see cref="MarkVariantSwitch"/> waits out (#1129).
         /// </summary>
         private static readonly string[] ALTERNATION_DIALS =
             { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "finemeshes", "cityreflect", "cityreflectreach", "cityreflectsteps", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano", "aurora", "cavern", "meadow", "mountain" };
@@ -1413,7 +1420,13 @@ namespace Testbed
         /// </summary>
         private void AnnounceVariants()
         {
-            Console.WriteLine($"[alt] {_options.Alternation.Count} variants, one per [fps] window: "
+            //What the run does with the frames after a switch is said here, once, and on every [fps] line as
+            //"settled after <n> frames": a reader of an old log, whose windows opened on the switch, can tell
+            //the two apart (#1129)
+            Console.WriteLine($"[alt] {_options.Alternation.Count} variants, one per [fps] window"
+                + (_options.Alternation.Count > 1
+                    ? ", each window opening only once the GPU has drawn the last frame of the variant before (#1129): "
+                    : ": ")
                 + string.Join(" | ", _options.Alternation.Select(variant => variant.Spec)));
 
             foreach (string dial in _options.Alternation
@@ -1947,6 +1960,8 @@ namespace Testbed
             //manager owns
             _sky?.Dispose();
             _spriteBatch?.Dispose();
+            //An alternating run's switch marker (#1129)
+            _switchMarker?.Dispose();
             //Contact stream, simulation, dispatcher, pool — in that order, which is the reverse of the order they
             //were built in and PhysicsWorld.Dispose's to get right. It includes the ContactEvents this used to
             //leak: the stream unhooks itself from the timestepper, so it has to go while the simulation is still
