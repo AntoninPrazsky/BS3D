@@ -1102,8 +1102,8 @@ namespace BS3D
                 //rejected by the depth test before the shader runs
                 _streets.Draw(sceneFrame, _cityConfig.Streets, _scene == SceneKind.NeonCity, _cityConfig.NeonLook);
             }
-            //The target goes in so the cavern and the dream can be shaded at the back buffer's size and scaled
-            //up (#155). Passed rather than remembered, so it cannot be the one the pipeline held before a
+            //The target goes in so the dream, the cavern, the big top and space can be shaded at the back buffer's
+            //size and scaled up (#155, #1096). Passed rather than remembered, so it cannot be the one the pipeline held before a
             //resize, a fullscreen switch or a quality step replaced it.
             //The backdrop's first half (#1098): everything of it up to its first draw that writes no depth. The second
             //is drawn after the wood, below.

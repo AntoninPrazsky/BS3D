@@ -218,8 +218,8 @@ namespace Testbed.Diagnostics
         /// <c>rscale=&lt;f&gt;</c>: render the scene at this fraction of the back buffer and magnify it back
         /// (0.25-1). Ignored above <c>ssaa</c> 1, the two dials being the same dimension. -1 leaves native.
         /// <para>
-        /// The other half of #298, and the only lever that reaches the CAVERN and the DREAM: those two shade
-        /// a backdrop the size of the back buffer and scale it up (#155), which is why supersampling barely
+        /// The other half of #298, and the only lever that reaches the CAVERN and the DREAM (and the big top and space since #1096): those
+        /// four shade a backdrop the size of the back buffer and scale it up (#155), which is why supersampling barely
         /// moves them - but that path runs only above <c>ssaa</c> 1, so below native they draw into the
         /// smaller target like everything else and the pass shrinks with it.
         /// </para>

@@ -202,7 +202,7 @@ namespace Prazsky.Core.Render
     /// and the questions only it can answer); this class holds the array of them indexed by
     /// <see cref="SceneKind"/>, the services they share (<see cref="BackdropServices"/>: the device, the
     /// full-screen quad, the grid cache, the far field, the snow, the flock, the billboard builders), the sun's
-    /// shadow map every receiver reads, the display-resolution target the dream and the cavern are shaded into,
+    /// shadow map every receiver reads, the display-resolution target the dream, the cavern, the big top and space are shaded into,
     /// and the public API the hosts call, whose scene-specific members forward to the backdrop that answers them.
     /// <para>
     /// The City/NeonCity is deliberately <b>not</b> here: the city buildings are drawn through the shared
