@@ -66,8 +66,9 @@ namespace Prazsky.Core.Render
         /// program runs, and the picture is the old one to the pixel, because the island's colour still goes over
         /// everything the environment drew — opaque or blended, nearer than the island or not, depth-tested or drawn with
         /// the test off (<c>ArenaIsland.DrawIslandDepth</c> has the whole argument). The island is opaque in every scene:
-        /// its stone's program takes no fade, the sea's submerge included. A pass drawn with the depth test off (space,
-        /// the big top) is not turned away, but those scenes measured cheaper with the depth laid all the same.
+        /// its stone's program takes no fade, the sea's submerge included. Space and the big top shade their pass into a
+        /// target of their own under supersampling (#1096), where the depth reaches nothing: there it was measured to
+        /// neither pay nor cost, and they keep the default.
         /// <para>
         /// <b>False</b> where the argument fails: where the environment blends something that also WRITES depth (the
         /// cavern's crystals: one standing in front of the island shows the hall behind it, the part behind the island
