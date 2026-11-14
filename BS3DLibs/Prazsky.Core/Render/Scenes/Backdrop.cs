@@ -66,8 +66,10 @@ namespace Prazsky.Core.Render
         /// program runs, and the picture is the old one to the pixel, because the island's colour still goes over
         /// everything the environment drew — opaque or blended, nearer than the island or not, depth-tested or drawn with
         /// the test off (<c>ArenaIsland.DrawIslandDepth</c> has the whole argument). The island is opaque in every scene:
-        /// its stone's program takes no fade, the sea's submerge included. A pass drawn with the depth test off (space,
-        /// the big top) is not turned away, but those scenes measured cheaper with the depth laid all the same.
+        /// its stone's program takes no fade, the sea's submerge included. A pass drawn with the depth test off (space) is
+        /// not turned away, but space measured cheaper with the depth laid all the same. The big top shades its pass into
+        /// a target of its own under supersampling (#1096), where the depth reaches nothing: there it was measured to
+        /// neither pay nor cost, and it keeps the default.
         /// <para>
         /// <b>False</b> where the argument fails: where the environment blends something that also WRITES depth (the
         /// cavern's crystals: one standing in front of the island shows the hall behind it, the part behind the island
@@ -81,7 +83,8 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// The depth of a backdrop's solid things that can stand in front of the arena (#755), drawn into the caller's
         /// own target right after <see cref="Draw"/> - after the scale-up when the backdrop was shaded at display
-        /// resolution, whose depth stays in that target. Nothing by default: a backdrop is a background.
+        /// resolution, whose depth stays in that target (or which has none: the big top's, #1096). Nothing by default: a
+        /// backdrop is a background.
         /// </summary>
         public virtual void DrawDepth(in SceneFrame frame) { }
 
@@ -95,8 +98,11 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Whether a supersampled frame shades this backdrop at the back buffer's size and scales it up
-        /// (<see cref="SceneRenderer"/>'s <c>DrawBackdropAtDisplayResolution</c>). False by default: only a
-        /// pure full-screen fill whose look does not depend on the sample count may.
+        /// (<see cref="SceneRenderer"/>'s <c>DrawBackdropAtDisplayResolution</c>): the dream, the cavern and the big top.
+        /// False by default: a backdrop that answers true gives up its supersampling (one shade a display pixel, or the
+        /// target's own samples) and must look right at that, sizing whatever it draws in pixels off the target it is
+        /// shaded in (the bound viewport), and must draw what has to occlude the arena in <see cref="DrawDepth"/>. Each
+        /// scene's override is the one line that turns its look back.
         /// </summary>
         public virtual bool DrawsAtDisplayResolution => false;
 

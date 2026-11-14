@@ -218,8 +218,8 @@ namespace Testbed.Diagnostics
         /// <c>rscale=&lt;f&gt;</c>: render the scene at this fraction of the back buffer and magnify it back
         /// (0.25-1). Ignored above <c>ssaa</c> 1, the two dials being the same dimension. -1 leaves native.
         /// <para>
-        /// The other half of #298, and the only lever that reaches the CAVERN and the DREAM: those two shade
-        /// a backdrop the size of the back buffer and scale it up (#155), which is why supersampling barely
+        /// The other half of #298, and the only lever that reaches the CAVERN and the DREAM (and the big top since #1096): those
+        /// three shade a backdrop the size of the back buffer and scale it up (#155), which is why supersampling barely
         /// moves them - but that path runs only above <c>ssaa</c> 1, so below native they draw into the
         /// smaller target like everything else and the pass shrinks with it.
         /// </para>
@@ -303,6 +303,16 @@ namespace Testbed.Diagnostics
         /// look in one process, and what it saves read in one.
         /// </summary>
         public bool? SkyAtDisplayResolution { get; private set; }
+
+        /// <summary>
+        /// <c>bdres=&lt;0|1&gt;</c>: whether a supersampled frame shades the backdrops that ask for it at the display's
+        /// resolution and scales them up (<c>SceneRenderer.BackdropsAtDisplayResolution</c>: the dream, the cavern and the
+        /// big top, #155, #1096). 1, the default, is the shipped frame; 0 draws them into the scene target with its
+        /// samples: the big top as it drew before #1096, the dream and the cavern in a frame the game has not drawn
+        /// since #155 (the cavern's meshes, #958, never). An <c>alt=</c> dial too, so the two can be photographed either side of one
+        /// switch. ⚠ A per-scene cost is read one process a figure, not off an <c>alt=</c> list (#1129).
+        /// </summary>
+        public bool BackdropsAtDisplayResolution { get; private set; } = true;
 
         /// <summary>
         /// <c>cityreflect=&lt;strength&gt;</c>: the city's windows mirroring the towers round them (#1065), the Game's High and
@@ -562,6 +572,7 @@ namespace Testbed.Diagnostics
                 else if (arg.StartsWith("envorder=", StringComparison.OrdinalIgnoreCase)) options.EnvironmentOrder = ParseEnvironmentOrder(arg.Substring("envorder=".Length));
                 else if (arg.StartsWith("skyorder=", StringComparison.OrdinalIgnoreCase)) options.SkyBehindScene = ParseSkyBehindScene(arg.Substring("skyorder=".Length));
                 else if (arg.StartsWith("skyres=", StringComparison.OrdinalIgnoreCase)) options.SkyAtDisplayResolution = ParseSkyAtDisplayResolution(arg.Substring("skyres=".Length));
+                else if (arg.StartsWith("bdres=", StringComparison.OrdinalIgnoreCase)) options.BackdropsAtDisplayResolution = arg.Substring("bdres=".Length) is not ("0" or "false" or "off");
                 else if (arg.StartsWith("cityreflect=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("cityreflect=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float cityReflect)) options.CityReflect = MathF.Max(0f, cityReflect);
                 else if (arg.StartsWith("shadow=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("shadow=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedShadow)) options.ShadowScale = parsedShadow;
                 //Read here for the same reason "logfps" is (see the comment above it): an argument this parse

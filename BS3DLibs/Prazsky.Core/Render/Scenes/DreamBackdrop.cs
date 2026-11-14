@@ -46,8 +46,8 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// True: a supersampled frame shades this pass at the back buffer's size and scales it up — see
-        /// <see cref="SceneRenderer"/>'s <c>DrawBackdropAtDisplayResolution</c> for the measurement and for why
-        /// it is the dream and the cavern and not space.
+        /// <see cref="SceneRenderer"/>'s <c>DrawBackdropAtDisplayResolution</c> for the measurement and for which
+        /// scenes take that path.
         /// </summary>
         public override bool DrawsAtDisplayResolution => true;
 

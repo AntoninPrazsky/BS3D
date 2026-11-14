@@ -341,9 +341,19 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Draws the big top: the analytic pass over the shared quad with the depth state off, then the floor's annulus
-        /// writing depth only. Everything animated — the roving spots, the bulbs' faint flicker — runs off the frame's
-        /// wall-clock time, so the tent keeps living while the simulation is paused.
+        /// True (#1096): under supersampling the tent is shaded at the display's resolution, one shade a display pixel, and
+        /// scaled up (<see cref="SceneRenderer"/>'s <c>DrawBackdropAtDisplayResolution</c>); the island, the gun and the
+        /// cluster drawn over it keep their samples. A full-screen pass with the depth test off, so its target wants
+        /// neither depth nor samples: everything it draws is sized off <c>PixelAngle</c>, which is the bound target's,
+        /// and the depth of what stands in front of the arena goes into the scene's own target in <see cref="DrawDepth"/>.
+        /// </summary>
+        public override bool DrawsAtDisplayResolution => true;
+
+        /// <summary>
+        /// Draws the big top's analytic pass over the shared quad with the depth state off, into whichever target is bound
+        /// (the display-resolution one under supersampling). Everything animated — the roving spots, the bulbs' faint
+        /// flicker — runs off the frame's wall-clock time, so the tent keeps living while the simulation is paused. The
+        /// depth of the floor, the poles, the seats and the curb follows in <see cref="DrawDepth"/>.
         /// </summary>
         public override void Draw(in SceneFrame frame)
         {
@@ -352,6 +362,8 @@ namespace Prazsky.Core.Render
             _viewRayBasis.SetValue(SkyRay.Basis(frame.Camera));
             _cameraPosition.SetValue(frame.Camera.Position);
             _time.SetValue(frame.Time);
+            //One pixel's angle in the BOUND target, which is what every footprint in the pass (the bulbs' cores, the lamps'
+            //glows, the stripes' blend) is sized against: a display pixel when the pass is shaded at display resolution
             _pixelAngle.SetValue(2f / MathF.Max(frame.Camera.Projection.M22 * _graphicsDevice.Viewport.Height, 1f));
             _spotPosition.SetValue(_spotPositions);
             _spotDirection.SetValue(_spotDirections);
@@ -366,11 +378,28 @@ namespace Prazsky.Core.Render
             _effect.CurrentTechnique.Passes[0].Apply();
             _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
 
+            //Space's rule (SpaceBackdrop.Draw): the rest of the frame expects these
+            _graphicsDevice.BlendState = BlendState.AlphaBlend;
+            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
+            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
+        /// <summary>
+        /// The depth of what can stand in front of the arena, colour writes off, into the caller's own target: the floor's
+        /// annulus round the island, so a ball that falls past the rim vanishes into the sawdust, the king poles, the seats
+        /// and the curb. Right after <see cref="Draw"/> when the pass was drawn into that target, and after the scale-up when
+        /// it was shaded at display resolution (#1096), whose target holds no depth; the same draws in the same order
+        /// either way, so a frame that does not supersample is the frame it always was.
+        /// </summary>
+        public override void DrawDepth(in SceneFrame frame)
+        {
             //The floor's depth, round the island's own hole: rebuilt only when the hole changes, which is a level change
             if (_floorInnerRadius != Services.TerrainHoleRadius) FillFloor(Services.TerrainHoleRadius);
 
+            //Culling off as the pass drew: the floor, the poles and the solids are wound for no side in particular
             _graphicsDevice.BlendState = DEPTH_ONLY;
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
             _worldViewProjection.SetValue(frame.Camera.View * frame.Camera.Projection);
             _graphicsDevice.SetVertexBuffer(_floorVertices);
             _graphicsDevice.Indices = _floorIndices;

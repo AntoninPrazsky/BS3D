@@ -886,6 +886,10 @@ namespace Testbed
                 && _options.Alternation.Any(variant => variant.Pins.Any(pin => pin.Dial is "volcano" or "meadow" or "mountain")))
                 Console.WriteLine("[skyorder] this run takes a scene's layers apart under the sky drawn behind the opaque scene: a layer's price is net of the sky it hides (what a tier cutting it saves); skyorder=first prices the layer alone (#1104)");
 
+            //#1096: "bdres=0" draws the dream, the cavern and the big top into the scene target with its samples rather
+            //than at display resolution: the big top's frame before #1096; the other two have taken the path since #155
+            _sceneRenderer.BackdropsAtDisplayResolution = _options.BackdropsAtDisplayResolution;
+
             //#471 PROBE: "shadow=" pins SceneRenderer.ShadowScale so a sun shadow map can be measured and
             //photographed against its own absence WITHOUT a second build - 0 is what a scene with no map
             //renders, exactly. It is alternable (see ApplyVariant), which is the point: alt=shadow=0;shadow=1
@@ -1452,7 +1456,7 @@ namespace Testbed
         /// behind alike and <see cref="MarkVariantSwitch"/> waits out (#1129).
         /// </summary>
         private static readonly string[] ALTERNATION_DIALS =
-            { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "finemeshes", "envorder", "skyorder", "skyres", "cityreflect", "cityreflectreach", "cityreflectsteps", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano", "aurora", "cavern", "meadow", "mountain" };
+            { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "finemeshes", "envorder", "skyorder", "skyres", "bdres", "cityreflect", "cityreflectreach", "cityreflectsteps", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano", "aurora", "cavern", "meadow", "mountain" };
 
         /// <summary>
         /// Prints the sweep's plan before the first window, and names anything it will not switch. A pin that
@@ -1641,6 +1645,12 @@ namespace Testbed
                     case "skyres":
                         _skyPass.AtDisplayResolution = TestOptions.ParseSkyAtDisplayResolution(pin.Value);
                         _skyResPinned = true;
+                        break;
+
+                    //Whether the backdrops that ask for it are shaded at display resolution (#155, #1096): "bdres=0" draws
+                    //them into the scene target with its samples. Read per frame by the renderer
+                    case "bdres":
+                        _sceneRenderer.BackdropsAtDisplayResolution = pin.Value is not ("0" or "false" or "off");
                         break;
 
                     //On/off like the switch it mirrors: "nopost=1" is the argument, "nopost=0" the authored look
