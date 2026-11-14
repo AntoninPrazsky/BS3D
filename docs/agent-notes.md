@@ -20,6 +20,15 @@ Pravidla:
 
 ---
 
+## 2026-11-14 — #1097 #1098 #1129 hloubka terénu a ostrova předem, oprava alt= — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno, zavřeno: #1097 (na High a Ultra se hloubka terénu položí předem a stínuje se proti ní; Testbed Mars 14,10 → 8,91 ms, ve hře Plume 12,64 → 9,99), #1098 (hloubka ostrova před prostředím; ve hře jen 0,2–0,35 ms), #1129 (`alt=` čeká po přepnutí na GPU). Sloučený `main` proti starému: 45 z 45 přesných párů shodných.
+- ⚠ Daleký obzor rozhoduje pořadí kreslení: near 0,01 a 24bitová hloubka dávají dvěma svahům stejnou hodnotu. Bloky od kamery proto měnily pixely a zůstaly v řádcích.
+- ⚠ Před 708eeb34 neslo okno `alt=` asi 38 snímků předchozí varianty; čísla z přepínání jsou podezřelá oběma směry (#1131).
+- ⚠ Pin Testbedu ukazuje víc ostrova než herní kamera. Měřítkem cíle je tabulka hry (#1103).
+- ⚠ Agentovi workflow se nepíše přes SendMessage (spustí jeho kopii); TaskStop nechá strom procesů běžet.
+- Otevřené: #1130 (řezy počítané dvakrát), #1131, rozdělané #1104 a #1096. Les v menu je s 12,7–13,2 ms stále nad cílem.
+
 ## 2026-11-13 — #1105–#1128 poznámky majitele k úvodům scén a k logu — desktop (RDT-PC), Claude Code
 - majitel: poznámky z hraní (logo, přeskočení intra, úvody 14 scén, Forest, Outback, Sea, Dream, Polar). Založeno 24 issues, 1:1, jen soubor, nic nestavěno: #1105 logo, #1106 přeskočení (`owner-decision`), #1107 Meadow, #1108 Savanna, #1110 Desert (brouci), #1118 Big Top (úvod končí přistáním na herní pozici jako City), #1109 a #1112 plynulost Desert/Mountains (společný `AridIntroPaths.Hug`), #1113 Tropical jako nová kapitola (`parked`, mrazení šíře #768), #1111 a #1114–#1117, #1119–#1128 ostatní scény.
 - ⚠ `IntroShot.Lands` má jen `CitySwing`; `IntroGround.ARENA_KEEP_OUT` 44 zamítne poslední úsek, protože herní kamera stojí 28–45 od osy. Doc `chapter-intro-prologues.md:12` uvádí louku 22,9 s, log a `chapter-intro-scene-shots.md` 24,9 s.
