@@ -16,7 +16,7 @@ The twenty-one backdrops the Game, the Testbed and the MapEditor all share, plus
 - [The drain funnel](scenes/drain.md) — the glass funnel, its gold rims, its physics, the terrain hole and the pit shaft.
 - [Shared effects: the wind, the launch seed, the fire](scenes/shared-effects.md) — the one wind, why every launch differs, and the campfire.
 - [The sun's shadows and the far field](scenes/shadows-and-far-field.md) — the scenes' side of the sun shadows and the far field past the terrain.
-- [Terrain grids, billboards and the CPU terrain mirrors](scenes/terrain-grids-and-mirrors.md) — the shared terrain grids, and the CPU mirrors that `mirrorcheck` checks against the GPU.
+- [Terrain grids, billboards and the CPU terrain mirrors](scenes/terrain-grids-and-mirrors.md) — the shared terrain grids, drawn in blocks where the lens looks and, on the tiers that supersample, with their depth laid first (#1097), and the CPU mirrors that `mirrorcheck` checks against the GPU.
 - [The scenes' observation points](scenes/viewpoints.md) — what each scene points the lens at, and the traps.
 - [The flock of birds](scenes/birds.md) — the `BirdFlock` service: real geometry, the flap in the vertex shader, placement and cost.
 - [Auditing the scenes against references](scenes/auditing.md) — the audit (#671) and where its findings went.
