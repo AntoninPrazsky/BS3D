@@ -107,6 +107,13 @@ namespace Prazsky.Core.Render
         /// it at display resolution): the neon city 8.74 against 9.30 ms, the city 6.61 against 6.65, and the other twelve
         /// scenes under a dome 0.80 to 1.93 ms the cheaper at display resolution. In the Game at Ultra (a 3840x1500 window,
         /// one process a figure) the neon city's Trophy 6.96 against 7.55 ms, the city's Girandole 8.75 against 8.86.
+        /// <para>
+        /// Per scene, not per frame. A view with little or no sky pays the target whole where the sky at every sample
+        /// behind the scene would cost next to nothing (a Testbed lens straight down onto the island, 0.76 to 0.79 ms in
+        /// the forest, the meadow and the volcano: "The sky at display resolution" in docs/rendering/weather.md), but
+        /// chosen from how much sky a lens sees, the deck's finest grain would change under a moving camera as it
+        /// crossed the line.
+        /// </para>
         /// </summary>
         public static bool DisplayResolutionPays(SceneKind scene, bool sceneryShown) =>
             !(sceneryShown && (scene == SceneKind.City || scene == SceneKind.NeonCity));
