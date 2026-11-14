@@ -818,6 +818,10 @@ namespace Testbed
             _skyCameraPositionParam = _skyEffect.Parameters["CameraPosition"];
             _skyPass = new SkyPass(GraphicsDevice, _sky);
 
+            //#1104: "skyres=full" shades the sky at every sample of a supersampled frame, the look before it; left out, the
+            //Game's own (SkyPass.DISPLAY_RESOLUTION)
+            if (_options.SkyAtDisplayResolution is bool skyAtDisplay) _skyPass.AtDisplayResolution = skyAtDisplay;
+
             //Everything about the clouds that does not change frame to frame, pushed once. The per-frame half —
             //the clock and the camera — goes out in Draw, before the scene target is bound; the colours and the sun's own
             //direction follow the dome and are ApplySkyLighting's business.
@@ -1431,7 +1435,7 @@ namespace Testbed
         /// behind alike and <see cref="MarkVariantSwitch"/> waits out (#1129).
         /// </summary>
         private static readonly string[] ALTERNATION_DIALS =
-            { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "finemeshes", "envorder", "skyorder", "cityreflect", "cityreflectreach", "cityreflectsteps", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano", "aurora", "cavern", "meadow", "mountain" };
+            { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "finemeshes", "envorder", "skyorder", "skyres", "cityreflect", "cityreflectreach", "cityreflectsteps", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano", "aurora", "cavern", "meadow", "mountain" };
 
         /// <summary>
         /// Prints the sweep's plan before the first window, and names anything it will not switch. A pin that
@@ -1612,6 +1616,12 @@ namespace Testbed
                     //scene. Read where the next frame draws its sky, so nothing carries across the switch.
                     case "skyorder":
                         _skyBehindScene = TestOptions.ParseSkyBehindScene(pin.Value);
+                        break;
+
+                    //At what resolution a supersampled frame shades the sky (#1104): "skyres=full" at every sample, the look
+                    //before it, "skyres=display" once a display pixel. Read by the next frame's SkyPass.Prepare.
+                    case "skyres":
+                        _skyPass.AtDisplayResolution = TestOptions.ParseSkyAtDisplayResolution(pin.Value);
                         break;
 
                     //On/off like the switch it mirrors: "nopost=1" is the argument, "nopost=0" the authored look
@@ -1992,6 +2002,7 @@ namespace Testbed
             //The dome's two buffers and its owned BasicEffect — not the sky effect, which the content
             //manager owns
             _sky?.Dispose();
+            _skyPass?.Dispose();
             _spriteBatch?.Dispose();
             //An alternating run's switch marker (#1129)
             _switchMarker?.Dispose();

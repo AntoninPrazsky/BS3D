@@ -1,3 +1,4 @@
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Prazsky.Core.Camera;
 using System;
@@ -34,14 +35,47 @@ namespace Prazsky.Core.Render
     /// depth. And the sky cannot wait for the gun and the cluster: from under the plate the ceiling's glass bends a copy of
     /// the frame taken before they are drawn (#541), which must hold the sky.
     /// </para>
+    /// <para>
+    /// <b>At display resolution on the tiers that supersample</b> (<see cref="DISPLAY_RESOLUTION"/>): the dome and the heaps
+    /// are shaded once a display pixel into a target of their own, before the scene target is bound, and that target is what
+    /// the late draw brings in, one texel to each of the supersample's samples of its display pixel. The deck and the sun's
+    /// disc get the one sample a display pixel Medium and Low give them; the footprint the deck band-limits against is a
+    /// display pixel's, so its finest grain is retired nearer the lens ("The sky at display resolution" in
+    /// docs/rendering/weather.md).
+    /// </para>
     /// </summary>
-    public sealed class SkyPass
+    public sealed class SkyPass : IDisposable
     {
+        /// <summary>
+        /// <b>THE SWITCH (#1104), the one line that turns the look back:</b> true shades the dome and the heaps once a display
+        /// pixel on the tiers that supersample (High and Ultra), false shades them at every sample of the scene target, as
+        /// every frame did before #1104. Nothing of it below supersampling 2 or on a phone (<see cref="GraphicsSupport.SkyBehindScene"/>).
+        /// The default of <see cref="AtDisplayResolution"/>, which the Testbed's <c>skyres=</c> overrides.
+        /// </summary>
+        public const bool DISPLAY_RESOLUTION = true;
+
         private readonly GraphicsDevice _device;
         private readonly SkyDome _dome;
 
         //The heaps this frame marched, or null where none are drawn (Prepare)
         private CloudVolumes _volumes;
+
+        //The sky at display resolution: its own target, the scene target's size over the supersample factor exactly (so a
+        //texel is one display pixel and the supersample's samples of it), let go in any frame that does not use it; and the
+        //batch that brings it in
+        private RenderTarget2D _target;
+        private SpriteBatch _batch;
+        private Rectangle _sceneRectangle;
+
+        /// <summary>
+        /// Whether a supersampled frame shades the sky at display resolution: <see cref="DISPLAY_RESOLUTION"/> unless a caller
+        /// says otherwise (the Testbed's <c>skyres=</c>, an <c>alt=</c> dial). Read by every <see cref="Prepare"/>, so a change
+        /// lands in the next frame.
+        /// </summary>
+        public bool AtDisplayResolution { get; set; } = DISPLAY_RESOLUTION;
+
+        /// <summary>Whether the last <see cref="Prepare"/> shaded the sky into its display-resolution target.</summary>
+        public bool DrawsAtDisplayResolution { get; private set; }
 
         public SkyPass(GraphicsDevice device, SkyDome dome)
         {
@@ -51,15 +85,71 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The frame's sky work that needs a target of its own: the heaps marched into their layer
-        /// (<see cref="CloudVolumes.March"/>). Call it <b>before the scene target is bound</b> (a target is bound once a frame),
-        /// with this frame's sky already stated on <paramref name="skyEffect"/> (<see cref="CloudField.ApplyTo"/>, the camera's
-        /// position, <see cref="CloudVolumes.ApplyToSky"/>), and only in a frame that draws the dome.
+        /// (<see cref="CloudVolumes.March"/>), and on a supersampled frame the dome and the heaps shaded at display resolution
+        /// into the sky's own target (<see cref="AtDisplayResolution"/>). Call it <b>before the scene target is bound</b> (a
+        /// target is bound once a frame), with this frame's sky already stated on <paramref name="skyEffect"/>
+        /// (<see cref="CloudField.ApplyTo"/>, the camera's position, <see cref="CloudVolumes.ApplyToSky"/>), in a frame that
+        /// draws the dome; a frame that does not calls <see cref="Release"/>. Leaves a target of its own bound.
         /// </summary>
         /// <param name="volumes">The heaps, or null where none are drawn this frame (below High, a sky that is a lid).</param>
-        public void Prepare(ICamera camera, CloudField clouds, Effect skyEffect, CloudVolumes volumes)
+        /// <param name="sceneTarget">The target the scene is drawn into this frame, whose size over
+        /// <paramref name="supersampleFactor"/> the sky's own target takes: the back buffer's, or the player's lower Resolution
+        /// row (#801). Passed rather than remembered, so a resize or a quality step cannot leave the sky at the old size.</param>
+        /// <param name="supersampleFactor">The scene target's supersample factor: the sky goes into its own target above 1.</param>
+        public void Prepare(ICamera camera, CloudField clouds, Effect skyEffect, CloudVolumes volumes, RenderTarget2D sceneTarget,
+            int supersampleFactor)
         {
             _volumes = volumes;
             _volumes?.March(camera, clouds, skyEffect);
+
+            int width = supersampleFactor > 1 ? sceneTarget.Width / supersampleFactor : 0;
+            int height = supersampleFactor > 1 ? sceneTarget.Height / supersampleFactor : 0;
+
+            //A minimized window reports a zero back buffer, and a zero-sized target is a device error: the sky is then drawn
+            //into the scene target, which is correct and merely dearer
+            DrawsAtDisplayResolution = AtDisplayResolution && GraphicsSupport.SkyBehindScene && width > 0 && height > 0;
+            if (!DrawsAtDisplayResolution)
+            {
+                Release();
+                return;
+            }
+
+            if (_target == null || _target.Width != width || _target.Height != height)
+            {
+                _target?.Dispose();
+
+                //Linear radiance like the scene target; no depth (the sky is a full-screen fill with no edges of its own, and
+                //what stands in front of it is the scene's business) and no samples
+                _target = new RenderTarget2D(_device, width, height, false, SurfaceFormat.HdrBlendable, DepthFormat.None, 0,
+                    RenderTargetUsage.DiscardContents);
+            }
+
+            _sceneRectangle = new Rectangle(0, 0, sceneTarget.Width, sceneTarget.Height);
+
+            //No clear: the dome is a whole sphere round the lens (SkyDome.BuildDrawnDome) and covers every pixel
+            _device.SetRenderTarget(_target);
+            _device.BlendState = BlendState.Opaque;
+            _device.RasterizerState = RasterizerState.CullNone;
+            _dome.Draw(camera, DepthStencilState.None);
+
+            //The heaps over the deck, as the late draw lays them over it: their layer is the display's size too
+            if (_volumes != null)
+            {
+                _device.DepthStencilState = DepthStencilState.None;
+                _volumes.Composite();
+            }
+        }
+
+        /// <summary>
+        /// Lets the display-resolution target go: called by every <see cref="Prepare"/> that does not use it, and by a host in a
+        /// frame with no dome (a sky-replacing scene), so a level under its own sky does not keep it (about 46 MB at
+        /// 3840x1500). Rebuilt by the next frame that wants it.
+        /// </summary>
+        public void Release()
+        {
+            DrawsAtDisplayResolution = false;
+            _target?.Dispose();
+            _target = null;
         }
 
         /// <summary>
@@ -86,23 +176,46 @@ namespace Prazsky.Core.Render
 
             DepthStencilState depth = behindScene ? DepthStencilState.DepthRead : DepthStencilState.None;
 
-            //Opaque, and with no culling: the dome is wound for a lens inside it (SkyDome.BuildDrawnDome), and what ran last is
-            //this frame's scene or the last frame's overlay, so neither is inherited
-            _device.BlendState = BlendState.Opaque;
-            _device.RasterizerState = RasterizerState.CullNone;
-            _dome.Draw(camera, depth);
-
-            //The heaps over the deck, premultiplied, on the same depth
-            if (_volumes != null)
+            if (DrawsAtDisplayResolution)
             {
-                _device.DepthStencilState = depth;
-                _volumes.Composite();
+                //The sky Prepare shaded, one texel to each sample of its display pixel. POINT, not linear: the factor between
+                //the two targets is exactly the supersample factor, so a sample's texel is its own display pixel's, and the
+                //resolve's box over a display pixel's samples returns that texel exactly: one sample a display pixel, which is
+                //what Medium and Low show. Linear would blend each sample with the neighbouring texel a quarter of the way
+                //over, and the box over them is a blur of the sky the resolve would add on top.
+                _batch ??= new SpriteBatch(_device);
+                _batch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.PointClamp, depth, RasterizerState.CullNone);
+                _batch.Draw(_target, _sceneRectangle, Color.White);
+                _batch.End();
+            }
+            else
+            {
+                //Opaque, and with no culling: the dome is wound for a lens inside it (SkyDome.BuildDrawnDome), and what ran last
+                //is this frame's scene or the last frame's overlay, so neither is inherited
+                _device.BlendState = BlendState.Opaque;
+                _device.RasterizerState = RasterizerState.CullNone;
+                _dome.Draw(camera, depth);
+
+                //The heaps over the deck, premultiplied, on the same depth
+                if (_volumes != null)
+                {
+                    _device.DepthStencilState = depth;
+                    _volumes.Composite();
+                }
             }
 
             _device.Viewport = viewport;
             _device.BlendState = BlendState.AlphaBlend;
             _device.DepthStencilState = DepthStencilState.Default;
             _device.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
+        /// <summary>The display-resolution target and the batch: never the dome or the heaps, which are their owners'.</summary>
+        public void Dispose()
+        {
+            Release();
+            _batch?.Dispose();
+            _batch = null;
         }
     }
 }

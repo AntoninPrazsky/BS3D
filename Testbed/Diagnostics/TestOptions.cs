@@ -293,6 +293,15 @@ namespace Testbed.Diagnostics
         public bool SkyBehindScene { get; private set; } = true;
 
         /// <summary>
+        /// <c>skyres=&lt;display|full&gt;</c>: whether a supersampled frame shades the sky dome and the heaps once a display
+        /// pixel into a target of their own (<c>display</c>) or at every sample of the scene target (<c>full</c>, the look
+        /// before #1104). Left out, the Game's own (<c>SkyPass.DISPLAY_RESOLUTION</c>). Nothing at <c>ssaa=1</c>, where the
+        /// two are one. An <c>alt=</c> dial too: <c>alt=skyres=full;skyres=display</c> is the before and the after of the
+        /// look in one process, and what it saves read in one.
+        /// </summary>
+        public bool? SkyAtDisplayResolution { get; private set; }
+
+        /// <summary>
         /// <c>cityreflect=&lt;strength&gt;</c>: the city's windows mirroring the towers round them (#1065), the Game's High and
         /// Ultra look - the towers' draw takes <c>InstancedCityReflect</c> over a map of the city. 1 by default; 0 draws the
         /// plain technique (the Game's Low and Medium), so the two can be photographed from one pinned camera and, through
@@ -539,6 +548,7 @@ namespace Testbed.Diagnostics
                 else if (arg.StartsWith("finemeshes=", StringComparison.OrdinalIgnoreCase)) options.FineMeshes = arg.Substring("finemeshes=".Length) is not ("0" or "false" or "off");
                 else if (arg.StartsWith("envorder=", StringComparison.OrdinalIgnoreCase)) options.EnvironmentOrder = ParseEnvironmentOrder(arg.Substring("envorder=".Length));
                 else if (arg.StartsWith("skyorder=", StringComparison.OrdinalIgnoreCase)) options.SkyBehindScene = ParseSkyBehindScene(arg.Substring("skyorder=".Length));
+                else if (arg.StartsWith("skyres=", StringComparison.OrdinalIgnoreCase)) options.SkyAtDisplayResolution = ParseSkyAtDisplayResolution(arg.Substring("skyres=".Length));
                 else if (arg.StartsWith("cityreflect=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("cityreflect=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float cityReflect)) options.CityReflect = MathF.Max(0f, cityReflect);
                 else if (arg.StartsWith("shadow=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("shadow=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedShadow)) options.ShadowScale = parsedShadow;
                 //Read here for the same reason "logfps" is (see the comment above it): an argument this parse
@@ -667,6 +677,9 @@ namespace Testbed.Diagnostics
 
         /// <summary><c>skyorder=</c>'s value: <c>first</c> is the dome drawn first; anything else is <c>late</c>, behind the opaque scene.</summary>
         public static bool ParseSkyBehindScene(string value) => !value.Trim().Equals("first", StringComparison.OrdinalIgnoreCase);
+
+        /// <summary><c>skyres=</c>'s value: <c>full</c> is the sky at every sample; anything else is <c>display</c>, once a display pixel.</summary>
+        public static bool ParseSkyAtDisplayResolution(string value) => !value.Trim().Equals("full", StringComparison.OrdinalIgnoreCase);
 
         private static T ParseLayers<T>(string list) where T : struct, Enum
         {

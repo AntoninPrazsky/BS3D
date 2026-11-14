@@ -2628,8 +2628,9 @@ namespace BS3D
             _partyHat?.Dispose();
 
             //The dome's two buffers and its owned BasicEffect — not the sky effect, which the content
-            //manager owns
+            //manager owns — and the sky's display-resolution target
             _sky?.Dispose();
+            _skyPass?.Dispose();
             _unitBox?.Dispose();
             _cityRenderer?.Dispose();
             _rooftops?.Dispose();

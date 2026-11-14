@@ -87,7 +87,13 @@ namespace Testbed
             //3D hidden (F6) there is no scene block to be behind, and the sky is the frame's one draw either way.
             bool skyBehind = _skyBehindScene && _draw;
 
-            if (!domed) _clouds.SuppressOn(_instancingEffect);
+            if (!domed)
+            {
+                _clouds.SuppressOn(_instancingEffect);
+
+                //No dome this frame, so no target of the sky's own held for it
+                _skyPass.Release();
+            }
             else
             {
                 //The ground's light on the deck (#509), stated every frame so no scene inherits the last one's.
@@ -102,8 +108,10 @@ namespace Testbed
                 _cloudVolumes?.ApplyToSky(_skyEffect, _clouds, _sceneRenderer.FineMeshes);
 
                 //The sky's work in targets of its own, before the scene's is bound: the heaps of High and Ultra (#989)
-                //marched into their display-size layer
-                _skyPass.Prepare(_camera, _clouds, _skyEffect, _sceneRenderer.FineMeshes ? _cloudVolumes : null);
+                //marched into their display-size layer, and above ssaa=1 the dome and the heaps shaded once a display
+                //pixel into the sky's own target (#1104; skyres=full shades them at every sample)
+                _skyPass.Prepare(_camera, _clouds, _skyEffect, _sceneRenderer.FineMeshes ? _cloudVolumes : null, _pipeline.SceneTarget,
+                    _pipeline.SupersampleFactor);
             }
 
             //The scene goes through the HDR target; the crosshair and the text overlay are drawn after the
@@ -572,6 +580,8 @@ namespace Testbed
                 + $", envorder {(_islandDepthFirst ? "island" : "first")}"
                 //Where the sky was drawn (#1104: skyorder=), for the same reason
                 + $", skyorder {(_skyBehindScene ? "late" : "first")}"
+                //And at what resolution the window's last frame shaded it (#1104: skyres=; "display" only above ssaa=1)
+                + $", skyres {(_skyPass.DrawsAtDisplayResolution ? "display" : "full")}"
                 //How long the window waited after its switch for the GPU to finish the variant before (#1129):
                 //what says the reading is the variant's own, so .claude/skills/benchmark/alt-paired.py refuses a
                 //cycling log without it, and what shows the queue's depth in frames on every line
