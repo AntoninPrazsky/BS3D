@@ -129,6 +129,10 @@ namespace Testbed
         private CameraInputHelper _cih;
 
         private SkyDome _sky;
+
+        //The dome and the heaps drawn behind the opaque scene (#1104), as the Game draws them; built with the dome
+        private SkyPass _skyPass;
+
         private byte _skyModelNumber = 1;
 
         //An explicit "sky=<n>" on the command line pins the starting dome over a startup level's own dome (the
@@ -299,9 +303,12 @@ namespace Testbed
         /// pulse and the tonemap's grain - because a light and the thing it lights (the campfire's light and its flame
         /// billboard, the eruption's glow and its jets) are one flicker only if they read the same clock. The shot and
         /// input schedules (<c>shot=</c>, <c>at=</c>, <c>_script</c>) and the crosshair's blink stay on the bare
-        /// <c>_pulseSeconds</c>, so a script that drives a run does not move with it.
+        /// <c>_pulseSeconds</c>, so a script that drives a run does not move with it. <c>clockstill</c> stands it at
+        /// clock= for the whole run (#1104).
         /// </summary>
-        private float SceneClock => _pulseSeconds + _sceneClockOffset;
+        private float SceneClock => (_sceneClockStill ? 0f : _pulseSeconds) + _sceneClockOffset;
+
+        private readonly bool _sceneClockStill;
 
         //Which of the two cities _city holds, so a scene change that does not cross between them rebuilds
         //nothing.
@@ -556,7 +563,9 @@ namespace Testbed
             //reproducible: a frame of a city nobody can generate twice is a frame nobody can compare against.
             _sceneSeedOffset = options.SceneSeed ?? Random.Shared.Next();
             _sceneClockOffset = options.ClockOffset;
-            if (_sceneClockOffset > 0f) Console.WriteLine($"[clock] scene clock starts at {_sceneClockOffset.ToString("0.###", CultureInfo.InvariantCulture)} s");
+            _sceneClockStill = options.ClockStill;
+            if (_sceneClockOffset > 0f || _sceneClockStill)
+                Console.WriteLine($"[clock] scene clock {(_sceneClockStill ? "stands" : "starts")} at {_sceneClockOffset.ToString("0.###", CultureInfo.InvariantCulture)} s");
             Console.WriteLine($"[sceneseed] {_sceneSeedOffset}"
                 + (options.SceneSeed.HasValue ? " (pinned)" : " (rolled; pin it with sceneseed=)"));
 
@@ -812,9 +821,18 @@ namespace Testbed
             _skyEffect = Content.Load<Effect>("Shaders/Sky");
             _sky.Effect = _skyEffect;
             _skyCameraPositionParam = _skyEffect.Parameters["CameraPosition"];
+            _skyPass = new SkyPass(GraphicsDevice, _sky);
+
+            //#1104: "skyres=full" shades the sky at every sample of a supersampled frame, the look before it; left out, the
+            //Game's own (SkyPass.DISPLAY_RESOLUTION)
+            if (_options.SkyAtDisplayResolution is bool skyAtDisplay)
+            {
+                _skyPass.AtDisplayResolution = skyAtDisplay;
+                _skyResPinned = true;
+            }
 
             //Everything about the clouds that does not change frame to frame, pushed once. The per-frame half —
-            //the clock and the camera — goes out in Draw, right before the dome; the colours and the sun's own
+            //the clock and the camera — goes out in Draw, before the scene target is bound; the colours and the sun's own
             //direction follow the dome and are ApplySkyLighting's business.
             _clouds.ApplyStaticParameters(_skyEffect);
 
@@ -849,6 +867,9 @@ namespace Testbed
             //the scene (Testbed.Draw.cs)
             _environmentOrder = _options.EnvironmentOrder;
 
+            //#1104: "skyorder=" pins where the sky is drawn; auto, the default, asks the target as the Game does
+            _skyOrderPin = _options.SkyBehindScene;
+
             //...except in a run that isolates the arena (arena= or capprobe=, on the line or in any alt= variant), where
             //auto draws the environment first in every window: the depth is laid by the members drawn, so taking the cap
             //out would also give back the ground it hides and read the cap as a saving. A pinned envorder= is obeyed.
@@ -856,6 +877,14 @@ namespace Testbed
                 || _options.Alternation.Any(variant => variant.Pins.Any(pin => pin.Dial is "arena" or "capprobe"));
             if (_arenaIsolated && _environmentOrder == EnvironmentOrder.Auto)
                 Console.WriteLine("[envorder] first in every window: this run isolates the arena (arena=, capprobe=), and the island's depth laid first would price the ground its members hide with them (#1098)");
+
+            //A run that takes a domed scene's layers apart (volcano=, meadow=, mountain=, which are alt= pins only) prices a
+            //layer net of the sky it hides while the sky is drawn behind the opaque scene: a layer left out gives back the sky
+            //behind it, which is what a tier cutting the layer would save. skyorder=first prices the layer alone, the way
+            //every layer price was taken before #1104. Said, not forced: both are true figures, of two different questions.
+            if (_skyOrderPin == null
+                && _options.Alternation.Any(variant => variant.Pins.Any(pin => pin.Dial is "volcano" or "meadow" or "mountain")))
+                Console.WriteLine("[skyorder] this run takes a scene's layers apart under the sky drawn behind the opaque scene: a layer's price is net of the sky it hides (what a tier cutting it saves); skyorder=first prices the layer alone (#1104)");
 
             //#471 PROBE: "shadow=" pins SceneRenderer.ShadowScale so a sun shadow map can be measured and
             //photographed against its own absence WITHOUT a second build - 0 is what a scene with no map
@@ -1423,7 +1452,7 @@ namespace Testbed
         /// behind alike and <see cref="MarkVariantSwitch"/> waits out (#1129).
         /// </summary>
         private static readonly string[] ALTERNATION_DIALS =
-            { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "finemeshes", "envorder", "cityreflect", "cityreflectreach", "cityreflectsteps", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano", "aurora", "cavern", "meadow", "mountain" };
+            { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "finemeshes", "envorder", "skyorder", "skyres", "cityreflect", "cityreflectreach", "cityreflectsteps", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano", "aurora", "cavern", "meadow", "mountain" };
 
         /// <summary>
         /// Prints the sweep's plan before the first window, and names anything it will not switch. A pin that
@@ -1598,6 +1627,20 @@ namespace Testbed
                     //nothing carries across the switch.
                     case "envorder":
                         _environmentOrder = TestOptions.ParseEnvironmentOrder(pin.Value);
+                        break;
+
+                    //Where the sky is drawn (#1104): "skyorder=first" is the frame before it, "skyorder=late" behind the opaque
+                    //scene, "skyorder=auto" what the Game does. Read where the next frame draws its sky, so nothing carries across
+                    //the switch.
+                    case "skyorder":
+                        _skyOrderPin = TestOptions.ParseSkyBehindScene(pin.Value);
+                        break;
+
+                    //At what resolution a supersampled frame shades the sky (#1104): "skyres=full" at every sample, the look
+                    //before it, "skyres=display" once a display pixel. Read by the next frame's SkyPass.Prepare.
+                    case "skyres":
+                        _skyPass.AtDisplayResolution = TestOptions.ParseSkyAtDisplayResolution(pin.Value);
+                        _skyResPinned = true;
                         break;
 
                     //On/off like the switch it mirrors: "nopost=1" is the argument, "nopost=0" the authored look
@@ -1978,6 +2021,7 @@ namespace Testbed
             //The dome's two buffers and its owned BasicEffect — not the sky effect, which the content
             //manager owns
             _sky?.Dispose();
+            _skyPass?.Dispose();
             _spriteBatch?.Dispose();
             //An alternating run's switch marker (#1129)
             _switchMarker?.Dispose();

@@ -61,8 +61,8 @@ float CloudShapeStrength;
 //A light on the GROUND lighting the deck from below (#509): the volcano's crater, whose glow on the underside of
 //the cloud over it is in every eruption the references drew. A position (only its XZ is read - the deck is a
 //plane), a colour in linear radiance and a reach along the plane. Black for every scene with nothing burning
-//under its sky, which makes the term an exact no-op rather than a branch: this is the hottest pass in the game
-//and a runtime branch keeps its registers whether it is taken or not.
+//under its sky, which makes the term an exact no-op rather than a branch: this program shades every pixel of sky in
+//the frame, and a runtime branch keeps its registers whether it is taken or not.
 //Where the clouds stand as volumes (#989, CloudVolumes on High and Ultra), the deck gives way to them: by this much (0 when
 //there are none: Low, Medium, a sky-replacing scene, an overcast that is a lid), fully inside CloudVolumeNear of the lens
 //and not at all past CloudVolumeFar, where the volumes have dissolved into the sky
@@ -114,11 +114,11 @@ float4 SkyPS(SkyVertexOutput input) : COLOR
     //
     //Nothing here guards against the disc crossing the SKYLINE either, and since #220 gave each dome its
     //own sun that is a real case rather than a hypothetical: a dusk dome's sits at four degrees. It needs
-    //no guard because the dome is drawn first with the depth test off and every scene's ground is drawn
-    //after it, opaque and depth-writing - so a sun below the horizon is simply covered by the terrain
-    //standing in front of it, and one just above it clears the ridge by exactly as much as it should. The
-    //depth buffer does the occluding, the same way the tropical beach's waterline is a depth test rather
-    //than a clip. What a low sun does NOT get is a cloud in front of it, the deck being faded out near the
+    //no guard because every scene's ground is opaque and depth-writing, and the dome is drawn behind it at
+    //the far plane (SkyPass, #1104; first with the depth test off on a phone, under the ground drawn after
+    //it) - so a sun below the horizon is simply covered by the terrain standing in front of it, and one
+    //just above it clears the ridge by exactly as much as it should. The depth buffer does the occluding,
+    //the same way the tropical beach's waterline is a depth test rather than a clip. What a low sun does NOT get is a cloud in front of it, the deck being faded out near the
     //horizon by CloudHorizonFade so it never reaches down there.
     float sunDisc = smoothstep(SunDiscCos - SunDiscEdge, SunDiscCos + SunDiscEdge, dot(direction, SunDirection));
     sky += SunDiscColor * sunDisc;

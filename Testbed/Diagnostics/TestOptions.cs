@@ -283,6 +283,28 @@ namespace Testbed.Diagnostics
         public EnvironmentOrder EnvironmentOrder { get; private set; } = EnvironmentOrder.Auto;
 
         /// <summary>
+        /// <c>skyorder=&lt;auto|late|first&gt;</c>: where the frame draws the sky dome and the heaps over it (#1104).
+        /// <c>auto</c>, the default, asks the target as the Game does (<c>SkyPass.BehindScene</c>: behind the opaque scene,
+        /// except into a multisampled target, which is <c>ssaa=1</c> unless <c>msaa=0</c>). The other two <b>pin</b> it:
+        /// <c>late</c> draws them behind the opaque scene, depth-read at the far plane, in the gap between the environment's
+        /// two halves (<c>SkyPass</c>), under multisampling too; <c>first</c> over the clear with the depth test off, the
+        /// frame as it was before #1104 and as a phone still draws it. An <c>alt=</c> dial too:
+        /// <c>alt=skyorder=first;skyorder=late</c> with the clock stood still is how the two are shown to be one picture,
+        /// and how what the late order saves is read in one process. Null is <c>auto</c>.
+        /// </summary>
+        public bool? SkyBehindScene { get; private set; }
+
+        /// <summary>
+        /// <c>skyres=&lt;display|full&gt;</c>: whether a supersampled frame shades the sky dome once a display pixel into a
+        /// target of its own (<c>display</c>) or at every sample of the scene target (<c>full</c>, the look before #1104); the
+        /// heaps are laid over it the same way either way. Left out, the Game's own (<c>SkyPass.DISPLAY_RESOLUTION</c>, and the
+        /// sky at every sample in the two cities, <c>SkyPass.DisplayResolutionPays</c>); named, obeyed in every scene. Nothing at
+        /// <c>ssaa=1</c>, where the two are one. An <c>alt=</c> dial too: <c>alt=skyres=full;skyres=display</c> is the before and the after of the
+        /// look in one process, and what it saves read in one.
+        /// </summary>
+        public bool? SkyAtDisplayResolution { get; private set; }
+
+        /// <summary>
         /// <c>cityreflect=&lt;strength&gt;</c>: the city's windows mirroring the towers round them (#1065), the Game's High and
         /// Ultra look - the towers' draw takes <c>InstancedCityReflect</c> over a map of the city. 1 by default; 0 draws the
         /// plain technique (the Game's Low and Medium), so the two can be photographed from one pinned camera and, through
@@ -346,6 +368,16 @@ namespace Testbed.Diagnostics
         /// only; 0 when absent.
         /// </summary>
         public float ClockOffset { get; private set; }
+
+        /// <summary>
+        /// <c>clockstill</c>: the scene's clock stands at <see cref="ClockOffset"/> for the whole run instead of running
+        /// from it (#1104), so two frames of one process are one instant of the weather, the water and the lights at an
+        /// ordinary session time. ⚠ <c>clock=</c> at a large power of two holds the clock still too (a float there steps by
+        /// seconds), but the cloud deck's drift (the wind times the clock) is then millions of units, a float carries it in
+        /// steps of a unit or more, and the deck's finest grain turns to blocks: <c>clock=600 clockstill</c> is how the
+        /// deck itself is photographed. The shot and input schedules keep the wall clock.
+        /// </summary>
+        public bool ClockStill { get; private set; }
 
         /// <summary>
         /// <c>weather=&lt;clear|scattered|broken|overcast|storm&gt;</c>: the sky over the starting scene,
@@ -528,6 +560,8 @@ namespace Testbed.Diagnostics
                 else if (arg.StartsWith("detail=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("detail=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedDetail)) options.SceneDetail = parsedDetail;
                 else if (arg.StartsWith("finemeshes=", StringComparison.OrdinalIgnoreCase)) options.FineMeshes = arg.Substring("finemeshes=".Length) is not ("0" or "false" or "off");
                 else if (arg.StartsWith("envorder=", StringComparison.OrdinalIgnoreCase)) options.EnvironmentOrder = ParseEnvironmentOrder(arg.Substring("envorder=".Length));
+                else if (arg.StartsWith("skyorder=", StringComparison.OrdinalIgnoreCase)) options.SkyBehindScene = ParseSkyBehindScene(arg.Substring("skyorder=".Length));
+                else if (arg.StartsWith("skyres=", StringComparison.OrdinalIgnoreCase)) options.SkyAtDisplayResolution = ParseSkyAtDisplayResolution(arg.Substring("skyres=".Length));
                 else if (arg.StartsWith("cityreflect=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("cityreflect=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float cityReflect)) options.CityReflect = MathF.Max(0f, cityReflect);
                 else if (arg.StartsWith("shadow=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("shadow=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedShadow)) options.ShadowScale = parsedShadow;
                 //Read here for the same reason "logfps" is (see the comment above it): an argument this parse
@@ -543,6 +577,7 @@ namespace Testbed.Diagnostics
                 else if (arg.StartsWith("clock=", StringComparison.OrdinalIgnoreCase)
                     && float.TryParse(arg.Substring("clock=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedClock))
                     options.ClockOffset = Math.Max(parsedClock, 0f);
+                else if (string.Equals(arg, "clockstill", StringComparison.OrdinalIgnoreCase)) options.ClockStill = true;
                 else if (arg.StartsWith("weather=", StringComparison.OrdinalIgnoreCase)) options.Weather = arg.Substring("weather=".Length);
                 else if (arg.StartsWith("balls=", StringComparison.OrdinalIgnoreCase) && BallStyles.TryParse(arg.Substring("balls=".Length), out BallStyle parsedBalls)) options.Balls = parsedBalls;
                 //Always consumed, so a spelling the parse refuses (the carved prototype's "shape") is named and dropped
@@ -653,6 +688,18 @@ namespace Testbed.Diagnostics
             "island" => EnvironmentOrder.Island,
             _ => EnvironmentOrder.Auto
         };
+
+        /// <summary><c>skyorder=</c>'s value: <c>first</c> pins the dome first (false), <c>late</c> behind the opaque scene (true);
+        /// anything else is <c>auto</c> (null), the target's answer.</summary>
+        public static bool? ParseSkyBehindScene(string value) => value.Trim().ToLowerInvariant() switch
+        {
+            "first" => false,
+            "late" => true,
+            _ => null
+        };
+
+        /// <summary><c>skyres=</c>'s value: <c>full</c> is the sky at every sample; anything else is <c>display</c>, once a display pixel.</summary>
+        public static bool ParseSkyAtDisplayResolution(string value) => !value.Trim().Equals("full", StringComparison.OrdinalIgnoreCase);
 
         private static T ParseLayers<T>(string list) where T : struct, Enum
         {
@@ -867,7 +914,8 @@ namespace Testbed.Diagnostics
         /// <summary>The scene and the target answer (<c>SceneRenderer.EnvironmentFollowsIslandDepth</c>), as in the Game.</summary>
         Auto,
 
-        /// <summary>The environment first, with nothing before it but the sky: the order every frame had until #1098.</summary>
+        /// <summary>The environment first, with no island depth laid before it: the order every frame had until #1098. Where the
+        /// sky goes, before the environment or behind it, is <c>skyorder=</c>'s (#1104).</summary>
         First,
 
         /// <summary>The island's depth, then the environment, in every scene and into any target, whatever the answer.</summary>

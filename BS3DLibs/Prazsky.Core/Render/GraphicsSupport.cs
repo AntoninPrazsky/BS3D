@@ -67,5 +67,13 @@ namespace Prazsky.Core.Render
         /// so a phone draws the frame without it until a phone run shows that it pays there.
         /// </summary>
         public static bool IslandDepthFirst => !OperatingSystem.IsAndroid();
+
+        /// <summary>
+        /// Whether a host draws the sky dome behind the opaque scene, at the far plane, and shades it at display resolution on
+        /// a supersampled frame (#1104, <see cref="SkyPass"/>): not under MonoGame's Android backend. Both were measured on
+        /// the desktop's GPU only. A phone's is a tiler that may already reject hidden pixels tile by tile, and it draws at
+        /// supersampling 1, so it keeps the dome as the frame's first draw until a phone run shows the order pays there.
+        /// </summary>
+        public static bool SkyBehindScene => !OperatingSystem.IsAndroid();
     }
 }

@@ -67,14 +67,15 @@ namespace Prazsky.Core.Render
         private readonly float[] _order = new float[MAX_HEAPS];
 
         //THE LAYER: the heaps are marched into a target the display's own size, not the supersampled scene's (a cloud is soft,
-        //and four samples a pixel only march one soft edge four times over: a quarter of the cost on High), then laid over
-        //the scene target right after the sky. Drawn before the ground, it is covered by whatever stands in front of it, as
-        //the deck is. ⚠ Marched into the scene target itself after the ground, depth-tested, a broken sky cost +3.2 ms.
+        //and four samples a pixel only march one soft edge four times over: a quarter of the cost on High), before the scene
+        //target is bound (March), then laid over the sky in the scene target wherever the sky is (Composite, SkyPass: behind
+        //the opaque scene at the far plane, or depth off over the clear where the dome is drawn first). Never into the sky's
+        //own display-resolution target (SkyPass.Prepare holds why). Covered by whatever stands in front of the sky, as the
+        //deck is. ⚠ Marched into the scene target itself after the ground, depth-tested, a broken sky cost +3.2 ms.
         private readonly EffectTechnique _march, _composite;
         private readonly EffectParameter _layerParam;
         private readonly VertexBuffer _screenQuad;
         private RenderTarget2D _layer;
-        private readonly RenderTargetBinding[] _bound = new RenderTargetBinding[4];
 
         //The sky shader's own cloud light, read back from it each frame (CloudField pushes the dome's colours there), and the
         //deck's cut it is handed
@@ -119,7 +120,7 @@ namespace Prazsky.Core.Render
             });
         }
 
-        /// <summary>How many heaps the last <see cref="Draw"/> drew.</summary>
+        /// <summary>How many heaps the last <see cref="March"/> marched: <see cref="Composite"/> has nothing to lay while it is 0.</summary>
         public int Count { get; private set; }
 
         /// <summary>How far this sky stands as heaps: 1 for cumulus, 0 for a lid, between while one fades into the other.</summary>
@@ -141,11 +142,13 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Places this frame's heaps on the deck's weather, marches them, far ones first, into the display-size layer and lays
-        /// it over the target bound now (the scene's): call it right after the sky, before anything that may stand in front of
-        /// a cloud. Leaves the target, the depth state and the blend as they were found bound (depth on, alpha blend).
+        /// Places this frame's heaps on the deck's weather and marches them, far ones first, into the display-size layer, which
+        /// it leaves bound: call it before the scene target is bound (a target is bound once a frame), with this frame's sky
+        /// stated on <paramref name="skyEffect"/> (<see cref="CloudField.ApplyTo"/>), whose cloud light it reads. Then
+        /// <see cref="Composite"/> lays the layer over the sky. Draws nothing, and binds nothing, where no heap stands
+        /// (<see cref="Count"/> 0).
         /// </summary>
-        public void Draw(ICamera camera, CloudField clouds, Effect skyEffect)
+        public void March(ICamera camera, CloudField clouds, Effect skyEffect)
         {
             Count = Place(camera.Position, clouds, _heaps, _order);
             if (Count == 0) return;
@@ -170,8 +173,6 @@ namespace Prazsky.Core.Render
 
             //Into the layer: cleared to nothing, the heaps composited over each other far first (premultiplied, so the layer's
             //alpha is how much of the sky they hide), no depth to test against
-            int bound = _device.RenderTargetCount;
-            _device.GetRenderTargets(_bound);
             _device.SetRenderTarget(_layer);
             _device.Clear(Color.Transparent);
 
@@ -184,23 +185,28 @@ namespace Prazsky.Core.Render
             _effect.CurrentTechnique = _march;
             _effect.CurrentTechnique.Passes[0].Apply();
             _device.DrawInstanced(PrimitiveType.TriangleList, 0, 0, 12, Count);
+        }
 
-            //Back to what was bound (the scene's target; preserved, #541), and the layer over it
-            if (bound == 0) _device.SetRenderTarget(null);
-            else if (bound == 1) _device.SetRenderTarget(_bound[0].RenderTarget as RenderTarget2D);
-            else _device.SetRenderTargets(_bound[..bound]);
-            Array.Clear(_bound);
+        /// <summary>
+        /// Lays the layer <see cref="March"/> filled this frame over the target bound now, premultiplied, under the depth state
+        /// and the viewport the caller stated (<see cref="SkyPass"/>, always into the scene target: depth-read at the far plane
+        /// behind the opaque scene, or depth off over the clear where the dome is drawn first, <see cref="SkyPass.BehindScene"/>
+        /// false). A full-screen quad, linear: the layer is the display's size and the target either that or a supersampled
+        /// multiple of it. Leaves behind the alpha blend it draws with and the culling off. A no-op
+        /// where no heap stands.
+        /// </summary>
+        public void Composite()
+        {
+            if (Count == 0 || _layer == null) return;
 
             _layerParam.SetValue(_layer);
+            _device.BlendState = BlendState.AlphaBlend;
             _device.RasterizerState = RasterizerState.CullNone;
             _device.SetVertexBuffer(_screenQuad);
             _effect.CurrentTechnique = _composite;
             _effect.CurrentTechnique.Passes[0].Apply();
             _device.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
             _layerParam.SetValue((Texture2D)null);
-
-            _device.DepthStencilState = DepthStencilState.Default;
-            _device.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
         /// <summary>
