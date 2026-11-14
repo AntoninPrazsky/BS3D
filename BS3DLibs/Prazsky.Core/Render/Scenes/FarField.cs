@@ -169,9 +169,9 @@ namespace Prazsky.Core.Render
         /// With <paramref name="depthFirst"/>, and where the effect compiled the ring technique's depth alone, the ring is
         /// drawn twice (#1097): its depth first, laid by its cuts and nothing else with no colour written, then its
         /// program on that depth with <see cref="DepthStencilState.DepthRead"/>. A ring pixel the ground in front of it
-        /// hides is thrown away before the program runs; the ring's program may discard and write depth, so drawn once
-        /// it shaded every one of them. The picture is the single draw's bit for bit: the same triangles pass, in the
-        /// same order. The caller asks only where the scene supersamples and the ring is opaque on
+        /// hides is thrown away before the program runs; the ring's program may discard, so drawn once it writes its
+        /// depth only after it has run and nothing in its own draw is rejected early. The picture is the single draw's
+        /// bit for bit: the same triangles pass, in the same order. The caller asks only where the scene supersamples and the ring is opaque on
         /// <see cref="DepthStencilState.Default"/>; the depth state is put back as it was found. The volcano never asks:
         /// its ring shaded on its laid depth measured dearer than drawn once (<see cref="VolcanoBackdrop"/>).
         /// </para>

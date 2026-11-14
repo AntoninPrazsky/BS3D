@@ -120,8 +120,6 @@ namespace Prazsky.Core.Render
             _mediumTechnique = _volcanoEffect.Techniques["VolcanoMedium"];
             _reducedTechnique = _volcanoEffect.Techniques["VolcanoReduced"];
             _fullDepth = TerrainGridCache.DepthTwin(_volcanoEffect, _fullTechnique);
-            _mediumDepth = TerrainGridCache.DepthTwin(_volcanoEffect, _mediumTechnique);
-            _reducedDepth = TerrainGridCache.DepthTwin(_volcanoEffect, _reducedTechnique);
             EnsureVolcanoGrid(VOLCANO_GRID_N);
 
             _fountainEffect = content.Load<Effect>("Shaders/LavaFountain");
@@ -526,16 +524,18 @@ namespace Prazsky.Core.Render
 
             _volcanoEffect.CurrentTechnique = wanted;
             _drawnTechnique = wanted;
-            _drawnDepth = wanted == _fullTechnique ? _fullDepth : wanted == _mediumTechnique ? _mediumDepth : _reducedDepth;
+            _drawnDepth = wanted == _fullTechnique ? _fullDepth : null;
             EnsureVolcanoGrid(full && fine ? VOLCANO_GRID_N : VOLCANO_GRID_N_REDUCED);
         }
 
         private EffectTechnique _drawnTechnique;
         private readonly EffectTechnique _fullTechnique, _mediumTechnique, _reducedTechnique;
 
-        //Each flank program's depth twin (#1097, TerrainGridCache): its depth alone, laid first where the scene supersamples
+        //The authored flank's depth twin (#1097, TerrainGridCache): its depth alone, laid first where the scene supersamples.
+        //The other two programs have none: the tiers that draw them do not supersample (a Testbed pin that does draws them
+        //in one pass)
         private EffectPass _drawnDepth;
-        private readonly EffectPass _fullDepth, _mediumDepth, _reducedDepth;
+        private readonly EffectPass _fullDepth;
 
         /// <summary>The flank, then the fountains, the plume and the blaze over it.</summary>
         public override void Draw(in SceneFrame frame)

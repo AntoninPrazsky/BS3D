@@ -1113,9 +1113,9 @@ bool Shaded(float3 worldPosition)
 
 //THE CUTS (#1097): the island's hole and the far ring's inner square. A program that may discard writes its depth after
 //it has run, so while it writes depth nothing in its own draw is rejected early. Where the scene supersamples (High and
-//Ultra) the depth is laid first by the cuts alone (VolcanoDepth, VolcanoMediumDepth and VolcanoReducedDepth, below) and
-//this program then shades the whole ground on it, writing none; below that the ground is one pass with this program, as
-//it always was (TerrainGridCache says why).
+//Ultra) the camera grid's depth is laid first by the cuts alone (VolcanoDepth, below) and this program then shades the
+//whole flank on it, writing none; the far ring and every tier below are one pass with the cutting program, as they
+//always were (TerrainGridCache says why, VolcanoBackdrop why the ring is).
 //The cutting entry points and the depth twins call this themselves, before anything else: written that way both
 //profiles compile a cutting program to the instructions it had before the cuts had a name
 //(docs/rendering/opengl-es.md).
@@ -1270,29 +1270,13 @@ float4 VolcanoGroundDepthPS(VolcanoVertexOutput input) : COLOR
     return 0.0;
 }
 
+//The one depth twin the flank needs: the tiers that supersample draw the authored program (Volcano), Medium and Low
+//(VolcanoMedium, VolcanoReduced) do not supersample, and the ring (VolcanoReduced) is drawn once (VolcanoBackdrop).
 technique VolcanoDepth
 {
     pass P0
     {
         VertexShader = compile VS_SHADERMODEL VolcanoVS();
-        PixelShader = compile PS_SHADERMODEL VolcanoGroundDepthPS();
-    }
-};
-
-technique VolcanoMediumDepth
-{
-    pass P0
-    {
-        VertexShader = compile VS_SHADERMODEL VolcanoVSReduced();
-        PixelShader = compile PS_SHADERMODEL VolcanoGroundDepthPS();
-    }
-};
-
-technique VolcanoReducedDepth
-{
-    pass P0
-    {
-        VertexShader = compile VS_SHADERMODEL VolcanoVSReduced();
         PixelShader = compile PS_SHADERMODEL VolcanoGroundDepthPS();
     }
 };

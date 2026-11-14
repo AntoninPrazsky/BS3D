@@ -616,9 +616,9 @@ MountainFineVertexOutput MountainFineVS(MountainVertexInput input)
 
 //THE CUTS (#1097): the island's hole and the far ring's inner square. A program that may discard writes its depth after
 //it has run, so while it writes depth nothing in its own draw is rejected early. Where the scene supersamples (High and
-//Ultra) the depth is laid first by the cuts alone (MountainDepth, MountainReducedDepth and MountainFineReducedDepth,
-//below) and this program then shades the whole ground on it, writing none; below that the ground is one pass with this
-//program, as it always was (TerrainGridCache says why).
+//Ultra) the grid is MountainFine, which never discards, and the far ring's depth is laid first by the cuts alone
+//(MountainFineReducedDepth, below) and this program then shades the ring on it, writing none; below that the ground is
+//one pass with this program, as it always was (TerrainGridCache says why).
 //The cutting entry points and the depth twins call this themselves, before anything else: written that way both
 //profiles compile a cutting program to the instructions it had before the cuts had a name
 //(docs/rendering/opengl-es.md).
@@ -911,24 +911,8 @@ float4 MountainGroundDepthPS(MountainVertexOutput input) : COLOR
     return 0.0;
 }
 
-technique MountainDepth
-{
-    pass P0
-    {
-        VertexShader = compile VS_SHADERMODEL MountainVS();
-        PixelShader = compile PS_SHADERMODEL MountainGroundDepthPS();
-    }
-};
-
-technique MountainReducedDepth
-{
-    pass P0
-    {
-        VertexShader = compile VS_SHADERMODEL MountainVS();
-        PixelShader = compile PS_SHADERMODEL MountainGroundDepthPS();
-    }
-};
-
+//The one depth twin the range needs: High and Ultra's ring. Their grid (MountainFine) cuts nothing in its pixel program,
+//and the tiers that draw Mountain and MountainReduced do not supersample.
 technique MountainFineReducedDepth
 {
     pass P0

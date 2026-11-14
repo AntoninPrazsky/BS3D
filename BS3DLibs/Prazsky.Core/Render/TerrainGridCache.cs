@@ -59,11 +59,11 @@ namespace Prazsky.Core.Render
     /// <para>
     /// <b>Below the supersampling tiers a grid is the one pass it always was.</b> The depth pass runs the grid's vertex
     /// program twice, which the machines of those tiers were not measured to afford. And those tiers draw into a
-    /// multisampled target, where the ground cannot be split between the cutting program and a twin without its cuts
-    /// (which would put the depth test back in front of the pixel shader wherever no cut reaches) at no cost to the
-    /// picture: built and measured, it was 0.1 to 0.3 ms cheaper at Medium, and the frames of two runs of it differed
-    /// from those of two runs of the one program in more pixels of the far ground than two runs of either build differ
-    /// from each other (two and four samples, over the tiers' far bearings).
+    /// multisampled target, where the ground could not be split between the cutting program and a twin without its
+    /// cuts (which put the depth test back in front of the pixel shader wherever no cut reaches) at no cost to the
+    /// picture: built so, it saved about 0.14 ms a scene at Medium's programs, and frames of two runs of it differed
+    /// from those of two runs of the one program in more pixels of the far ground than two runs of either build
+    /// differ from each other, at two samples and at four.
     /// </para>
     /// <para>
     /// <b>The depth twins are DirectX's alone.</b> A depth pass and the pass shaded on it need the one vertex program to
