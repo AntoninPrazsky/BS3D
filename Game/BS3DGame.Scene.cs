@@ -70,6 +70,10 @@ namespace BS3D
         private SkyDome _sky;
         private Effect _skyEffect;
 
+        //The dome and the heaps drawn behind the opaque scene (#1104), built with the dome; none on the Potato path, whose
+        //frame draws its own dome first (BeginPotatoSceneDraw)
+        private SkyPass _skyPass;
+
         /// <summary>
         /// The whole scene's lighting derived from the dome it stands under — the palette decoded to linear
         /// radiance, the hemisphere ambient and the tinted three-light rig — shared with the Testbed and the
@@ -865,9 +869,11 @@ namespace BS3D
         /// gameplay screen draws its gun, cluster and trails after this; the backdrop goes straight on to
         /// <see cref="DrawSettingGlass"/>.
         /// <para>
-        /// The order inside it: the sky, <b>the island's depth</b> (#1098, so the environment is shaded only where the
-        /// island leaves it showing), the environment in two halves with the host's wood between them, then the island
-        /// itself, its pit and the drain's bands. The body holds why at each step.
+        /// The order inside it: <b>the island's depth</b> (#1098, so the environment is shaded only where the island leaves
+        /// it showing), the environment's opaque half and the host's wood, <b>the sky</b> behind them (#1104, so it is shaded
+        /// only where nothing opaque stands), the environment's blended half, then the island itself, its pit and the
+        /// drain's bands. The heaps of High and Ultra are marched before the scene target is bound. The body holds why at
+        /// each step.
         /// </para>
         /// </summary>
         internal SceneFrame BeginSceneDraw()
@@ -977,27 +983,25 @@ namespace BS3D
                 GraphicsDevice.RasterizerState = raster;
             }
 
-            GraphicsDevice.SetRenderTarget(_pipeline.SceneTarget);
-
-            //Cleared to the dome's horizon colour rather than a fixed one: at a wide aspect the bottom
-            //corners can look below the horizon past both the dome and the island, and there any other
-            //colour shows up as a band instead of blending into the hazed skyline.
-            //The sky-replacing scenes (space, the dream, the cavern, the Moon) have no dome, so they clear to black
-            //instead: their pass covers every pixel of the frame, and black is what would show if it ever did not.
+            //The sky-replacing scenes (space, the dream, the cavern, the Moon) have no dome: their own pass is their sky.
             //With the Scenery row off (#808) every scene stands under the dome: a sky-replacing scene's
             //sky is its backdrop, and without it the frame was a black void round the island.
             bool sceneSky = SceneRenderer.ReplacesSky(_scene) && SceneryShown;
-            GraphicsDevice.Clear(sceneSky ? Color.Black : new Color(_rig.HorizonLinear));
 
             //The weather runs off the same wall clock the balls pulse to, so it keeps drifting whatever the
             //game does. Handed to both shaders from the one field, which is what keeps the cloud the player
-            //looks at and the shadow it throws across the cluster the same cloud.
+            //looks at and the shadow it throws across the cluster the same cloud. Stated before the scene target is
+            //bound, because the sky's own pass needs it there (below), and after the cup, which draws with the
+            //instanced effect as the frame before left it.
             //
             //Space is the one scene with no weather at all: its dome is not drawn (Space.fx covers the frame),
             //and the cloud coverage is zeroed on the instanced effect so the cluster, island and gun are not
             //crossed by the shadows of a deck nobody can see — InstancedModel.fx calls CloudSunlight
             //unconditionally, and a gain left standing from the scene before would go on shadowing this one.
             _clouds.Time = _wallClock;
+
+            //Whether the dome goes in behind the opaque scene (#1104, below) or as the frame's first draw (a phone)
+            bool skyBehind = GraphicsSupport.SkyBehindScene;
 
             if (sceneSky) _clouds.SuppressOn(_instancingEffect);
             else
@@ -1015,18 +1019,22 @@ namespace BS3D
                 //The deck gives way to the volumes where they stand (#989): stated every frame, off wherever none are drawn
                 _cloudVolumes?.ApplyToSky(_skyEffect, _clouds, CloudVolumesShown);
 
-                //Stated before the frame's first draw rather than only after it. SkyDome.Draw sets the sampler
-                //and the depth state it needs but neither the blend nor the cull mode, and what ran last is the
-                //overlay's SpriteBatch (AlphaBlend, CullCounterClockwise) over the tonemap's full-screen quad
-                //(Opaque, CullNone) — so the dome would be drawn under whichever of them finished the frame.
-                GraphicsDevice.BlendState = BlendState.Opaque;
-                GraphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-                _sky.Draw(_camera);
-
-                //The clouds as volumes on High and Ultra (#989), over the deck and under everything that stands in front of them
-                if (CloudVolumesShown) _cloudVolumes.Draw(_camera, _clouds, _skyEffect);
+                //The sky's work in targets of its own, before the scene's is bound: the heaps of High and Ultra (#989)
+                //marched into their display-size layer
+                _skyPass.Prepare(_camera, _clouds, _skyEffect, CloudVolumesShown ? _cloudVolumes : null);
             }
+
+            GraphicsDevice.SetRenderTarget(_pipeline.SceneTarget);
+
+            //Cleared to the dome's horizon colour rather than a fixed one: at a wide aspect the bottom
+            //corners can look below the horizon past both the dome and the island, and there any other
+            //colour shows up as a band instead of blending into the hazed skyline.
+            //The sky-replacing scenes clear to black instead: their pass covers every pixel of the frame, and black is
+            //what would show if it ever did not.
+            GraphicsDevice.Clear(sceneSky ? Color.Black : new Color(_rig.HorizonLinear));
+
+            //A phone draws the dome first, over the clear, as every frame did before #1104
+            if (!sceneSky && !skyBehind) _skyPass.Draw(_camera, behindScene: false);
 
             //The sea's submerge fade for missed balls — a no-op off the sea scene (see SceneRenderer.ApplySeaSubmerge).
             //It takes how far the LENS is under the water, because since #159 the fade is released by exactly what
@@ -1133,11 +1141,18 @@ namespace BS3D
                 if (SceneryShown) _auroraScatter.Draw(_camera, _sceneRenderer.FineMeshes);
             }
 
+            //THE SKY, BEHIND THE OPAQUE SCENE (#1104): the dome and the heaps over it, depth-read at the far plane, so every
+            //pixel the ground, the wood, the city and the island's laid depth already own is turned away before Sky.fx, one
+            //of the dearest programs in the frame, runs. No pixel moves: everything drawn since the clear is opaque and
+            //writes its depth, and everything the environment blends over the sky is its second half, next (SkyPass has
+            //the argument). Not later: from under the plate the ceiling's glass bends a copy of the frame taken before the
+            //gun and the cluster are drawn (#541), and it has to hold the sky. SkyPass puts the three states stated above
+            //back on its way out, which the second half needs.
+            if (!sceneSky && skyBehind) _skyPass.Draw(_camera, behindScene: true);
+
             //The backdrop's second half (#1098): what it blends over everything above without writing depth, to its end
-            //(the sea, the lagoon and its beach, the storm, the fountains, the moons, the desert's creatures). THE GAP
-            //BEFORE THIS LINE is where a sky drawn after the opaque scene belongs: over nothing that wrote depth, under
-            //everything that is blended over the sky. Whatever is drawn there puts the three states stated above back
-            //first (Backdrop.DrawBlended). A no-op for the two cities and for a scene with no such half.
+            //(the sea, the lagoon and its beach, the storm, the fountains, the moons, the desert's creatures), over the sky
+            //just drawn. A no-op for the two cities and for a scene with no such half.
             if (SceneryShown) _sceneRenderer.DrawEnvironmentBlended(_scene, sceneFrame);
 
             //The round island, opaque: its stone cap and concrete drum, over the depth they laid before the environment

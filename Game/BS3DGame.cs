@@ -1656,9 +1656,10 @@ namespace BS3D
             {
                 Effect = _skyEffect
             };
+            if (!PotatoPath) _skyPass = new SkyPass(GraphicsDevice, _sky);
 
             //Everything about the clouds that does not change frame to frame, pushed once. The per-frame half —
-            //the clock and the camera — goes out in BeginSceneDraw, right before the dome; the colours and the
+            //the clock and the camera — goes out in BeginSceneDraw, before the scene target is bound; the colours and the
             //sun's own direction follow the dome and are ApplySkyLighting's business. PotatoSky's deck (#1044)
             //declares the same names, and takes the ones it uses.
             _clouds.ApplyStaticParameters(_skyEffect);

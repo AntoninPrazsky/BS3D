@@ -211,9 +211,9 @@ float4 CloudVolumePS(CloudVertexOutput input) : COLOR
 }
 
 //--- The composite: the heaps are marched into a target the display's own size (CloudVolumes), not the supersampled scene's -
-//a cloud is soft, and the supersample's four samples a pixel would only march the same soft edge four times - and laid over
-//the scene target here, right after the sky, premultiplied. Everything drawn after it (the ground, the island, the balls)
-//covers it where it stands in front, as it covers the deck.
+//a cloud is soft, and the supersample's four samples a pixel would only march the same soft edge four times - before the
+//scene target is bound, and laid over the deck here, premultiplied, with the sky (SkyPass: behind the opaque scene, at the
+//far plane). Whatever stands in front of the sky covers it, as it covers the deck.
 Texture2D CloudLayer;
 sampler CloudLayerSampler = sampler_state
 {

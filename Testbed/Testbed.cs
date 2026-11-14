@@ -129,6 +129,10 @@ namespace Testbed
         private CameraInputHelper _cih;
 
         private SkyDome _sky;
+
+        //The dome and the heaps drawn behind the opaque scene (#1104), as the Game draws them; built with the dome
+        private SkyPass _skyPass;
+
         private byte _skyModelNumber = 1;
 
         //An explicit "sky=<n>" on the command line pins the starting dome over a startup level's own dome (the
@@ -812,9 +816,10 @@ namespace Testbed
             _skyEffect = Content.Load<Effect>("Shaders/Sky");
             _sky.Effect = _skyEffect;
             _skyCameraPositionParam = _skyEffect.Parameters["CameraPosition"];
+            _skyPass = new SkyPass(GraphicsDevice, _sky);
 
             //Everything about the clouds that does not change frame to frame, pushed once. The per-frame half —
-            //the clock and the camera — goes out in Draw, right before the dome; the colours and the sun's own
+            //the clock and the camera — goes out in Draw, before the scene target is bound; the colours and the sun's own
             //direction follow the dome and are ApplySkyLighting's business.
             _clouds.ApplyStaticParameters(_skyEffect);
 
@@ -848,6 +853,9 @@ namespace Testbed
             //#1098: "envorder=" pins whether the island's depth is laid before the environment; auto, the default, asks
             //the scene (Testbed.Draw.cs)
             _environmentOrder = _options.EnvironmentOrder;
+
+            //#1104: "skyorder=" says where the sky is drawn; late, the default, behind the opaque scene as the Game does
+            _skyBehindScene = _options.SkyBehindScene;
 
             //...except in a run that isolates the arena (arena= or capprobe=, on the line or in any alt= variant), where
             //auto draws the environment first in every window: the depth is laid by the members drawn, so taking the cap
@@ -1423,7 +1431,7 @@ namespace Testbed
         /// behind alike and <see cref="MarkVariantSwitch"/> waits out (#1129).
         /// </summary>
         private static readonly string[] ALTERNATION_DIALS =
-            { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "finemeshes", "envorder", "cityreflect", "cityreflectreach", "cityreflectsteps", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano", "aurora", "cavern", "meadow", "mountain" };
+            { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "finemeshes", "envorder", "skyorder", "cityreflect", "cityreflectreach", "cityreflectsteps", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano", "aurora", "cavern", "meadow", "mountain" };
 
         /// <summary>
         /// Prints the sweep's plan before the first window, and names anything it will not switch. A pin that
@@ -1598,6 +1606,12 @@ namespace Testbed
                     //nothing carries across the switch.
                     case "envorder":
                         _environmentOrder = TestOptions.ParseEnvironmentOrder(pin.Value);
+                        break;
+
+                    //Where the sky is drawn (#1104): "skyorder=first" is the frame before it, "skyorder=late" behind the opaque
+                    //scene. Read where the next frame draws its sky, so nothing carries across the switch.
+                    case "skyorder":
+                        _skyBehindScene = TestOptions.ParseSkyBehindScene(pin.Value);
                         break;
 
                     //On/off like the switch it mirrors: "nopost=1" is the argument, "nopost=0" the authored look

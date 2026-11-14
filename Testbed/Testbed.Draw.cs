@@ -70,24 +70,10 @@ namespace Testbed
             //The casters as a delegate built once: a method group handed over here is a new delegate every frame
             _sceneRenderer.DrawShadowMaps(_scene, _camera, _rig.SunDirection, _instancingEffect, _drawShadowCasters ??= DrawShadowCasters);
 
-            //The scene goes through the HDR target; the crosshair and the text overlay are drawn after the
-            //resolve, at native resolution and in display space, so they stay exactly as authored instead
-            //of being softened by the downsample and bent by the tonemap curve
-            GraphicsDevice.SetRenderTarget(_pipeline.SceneTarget);
-
-            //Clear to the current dome's HORIZON colour (linear), not a fixed blue. The dome is a hemisphere
-            //model translated to the camera and drawn without depth, so it covers everything above the
-            //horizon; below it the terrain covers what it reaches. But at a wide aspect (21:9) the bottom
-            //corners look below the horizon past the terrain's finite edge, and there a fixed clear colour
-            //showed through as a blue band. Clearing to the horizon colour makes any such gap blend seamlessly
-            //with the hazed skyline the terrain and dome both fade to there, so it is never seen as a seam.
-            //The sky-replacing scenes (space, the dream) have no dome and no horizon, so they clear to black
-            //instead: their pass covers every pixel of the frame, and black is what would show if it ever did not.
-            GraphicsDevice.Clear(SceneRenderer.ReplacesSky(_scene) ? Color.Black : new Color(_rig.HorizonLinear));
-
             //The clouds run off the same scene clock the balls pulse to (the wall clock, started late by clock=),
             //so the weather keeps moving while the simulation is paused or slowed. Handed to both shaders from the one field, which is what
-            //keeps the cloud you look at and the shadow it throws the same cloud.
+            //keeps the cloud you look at and the shadow it throws the same cloud. Stated before the scene target is
+            //bound, because the sky's own pass needs it there (below).
             //
             //Space is the one scene with no weather at all: the dome is not drawn (Space.fx covers the frame),
             //and the cloud coverage is zeroed on the instanced effect so the balls, island and cannon are not
@@ -95,7 +81,13 @@ namespace Testbed
             //unconditionally, and a gain left standing from the scene before would go on shadowing this one.
             _clouds.Time = SceneClock;
 
-            if (SceneRenderer.ReplacesSky(_scene)) _clouds.SuppressOn(_instancingEffect);
+            bool domed = !SceneRenderer.ReplacesSky(_scene);
+
+            //Behind the opaque scene (#1104), as the Game draws it, unless skyorder=first asks for the frame before it. With the
+            //3D hidden (F6) there is no scene block to be behind, and the sky is the frame's one draw either way.
+            bool skyBehind = _skyBehindScene && _draw;
+
+            if (!domed) _clouds.SuppressOn(_instancingEffect);
             else
             {
                 //The ground's light on the deck (#509), stated every frame so no scene inherits the last one's.
@@ -109,11 +101,26 @@ namespace Testbed
                 _skyCameraPositionParam.SetValue(_camera.Position);
                 _cloudVolumes?.ApplyToSky(_skyEffect, _clouds, _sceneRenderer.FineMeshes);
 
-                _sky.Draw(_camera);
-
-                //The clouds as volumes on High and Ultra (#989), over the deck and under everything that stands in front of them
-                if (_sceneRenderer.FineMeshes) _cloudVolumes?.Draw(_camera, _clouds, _skyEffect);
+                //The sky's work in targets of its own, before the scene's is bound: the heaps of High and Ultra (#989)
+                //marched into their display-size layer
+                _skyPass.Prepare(_camera, _clouds, _skyEffect, _sceneRenderer.FineMeshes ? _cloudVolumes : null);
             }
+
+            //The scene goes through the HDR target; the crosshair and the text overlay are drawn after the
+            //resolve, at native resolution and in display space, so they stay exactly as authored instead
+            //of being softened by the downsample and bent by the tonemap curve
+            GraphicsDevice.SetRenderTarget(_pipeline.SceneTarget);
+
+            //Clear to the current dome's HORIZON colour (linear), not a fixed blue. At a wide aspect (21:9) the
+            //bottom corners look below the horizon past the terrain's finite edge, and there a fixed clear colour
+            //showed through as a blue band. Clearing to the horizon colour makes any such gap blend seamlessly
+            //with the hazed skyline the terrain and dome both fade to there, so it is never seen as a seam.
+            //The sky-replacing scenes (space, the dream) have no dome and no horizon, so they clear to black
+            //instead: their pass covers every pixel of the frame, and black is what would show if it ever did not.
+            GraphicsDevice.Clear(domed ? new Color(_rig.HorizonLinear) : Color.Black);
+
+            //skyorder=first: the dome over the clear, depth off, as every frame was drawn before #1104
+            if (domed && !skyBehind) _skyPass.Draw(_camera, behindScene: false);
 
             //The sea's submerge fade for missed balls — a no-op off the sea scene (see SceneRenderer.ApplySeaSubmerge).
             //It takes how far the LENS is under the water: since #159 the fade is released by exactly what the
@@ -210,12 +217,16 @@ namespace Testbed
                 //campfire blink and flicker on — off pause, on with the game.
                 if (_scene == SceneKind.Forest) _forestFireflies?.Draw(_camera, SceneClock);
 
+                //THE SKY, BEHIND THE OPAQUE SCENE (#1104), as the Game's BeginSceneDraw draws it: the dome and the heaps,
+                //depth-read at the far plane, so every pixel the ground, the wood, the city and the island's laid depth
+                //already own is turned away before Sky.fx runs. No pixel moves (SkyPass has the argument; skyorder=first
+                //is the frame before it, which is how that is shown). It puts the three states stated above the scene
+                //block back on its way out, which the second half below needs.
+                if (domed && skyBehind) _skyPass.Draw(_camera, behindScene: true);
+
                 //The backdrop's second half (#1098): what it blends over everything above without writing depth, to
                 //its end (the sea, the lagoon and its beach, the storm, the fountains, the moons, the desert's
-                //creatures). THE GAP BEFORE THIS LINE is where a sky drawn after the opaque scene belongs: over
-                //nothing that wrote depth, under everything that is blended over the sky. Whatever is drawn there
-                //puts the three states stated above the scene block back first (Backdrop.DrawBlended). A no-op for
-                //the two cities and for a scene with no such half.
+                //creatures), over the sky just drawn. A no-op for the two cities and for a scene with no such half.
                 _sceneRenderer.DrawEnvironmentBlended(_scene, sceneFrame);
 
                 //The round island, opaque: its stone cap and concrete drum, over the depth they laid before the
@@ -317,6 +328,9 @@ namespace Testbed
 
         //What the last frame did, which is what the [fps] line names: under Auto nothing else says what the scene answered
         private bool _islandDepthFirst;
+
+        //skyorder= (#1104): the sky behind the opaque scene (late, the default) or first over the clear
+        private bool _skyBehindScene = true;
 
         /// <summary>
         /// What this program casts into the sun's shadow map (#470): the island, the gun, the balls
@@ -556,6 +570,8 @@ namespace Testbed
                 //under auto the scene's own answer, which nothing else on the line says) - before "variant", which the
                 //sweep's reader takes to the line's end
                 + $", envorder {(_islandDepthFirst ? "island" : "first")}"
+                //Where the sky was drawn (#1104: skyorder=), for the same reason
+                + $", skyorder {(_skyBehindScene ? "late" : "first")}"
                 //How long the window waited after its switch for the GPU to finish the variant before (#1129):
                 //what says the reading is the variant's own, so .claude/skills/benchmark/alt-paired.py refuses a
                 //cycling log without it, and what shows the queue's depth in frames on every line

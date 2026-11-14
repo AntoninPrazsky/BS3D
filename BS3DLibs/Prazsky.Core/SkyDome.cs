@@ -537,13 +537,25 @@ namespace Prazsky.Core
 
         private static int Nibble(char c) => c <= '9' ? c - '0' : c - 'A' + 10;
 
-        public void Draw(ICamera camera)
+        /// <summary>
+        /// Draws the dome over everything in the bound target, with the depth test off: the frame's first draw, which is how
+        /// the map editor and the Potato path draw it. The Game and the Testbed draw it through <see cref="Render.SkyPass"/>,
+        /// behind the opaque scene.
+        /// </summary>
+        public void Draw(ICamera camera) => Draw(camera, DepthStencilState.None);
+
+        /// <summary>
+        /// Draws the dome under <paramref name="depth"/>, which is <see cref="DepthStencilState.None"/> for a dome drawn
+        /// first and <see cref="DepthStencilState.DepthRead"/> for one drawn behind the opaque scene, at the far plane
+        /// (<see cref="Render.SkyPass"/> states the viewport that puts it there). Leaves the default depth state behind.
+        /// </summary>
+        internal void Draw(ICamera camera, DepthStencilState depth)
         {
             //The framework's cached states, never fresh instances: this runs every frame in all three
             //executables, and a state object constructed here backs a native D3D11 state that is never
             //disposed — per-frame construction is a steady leak of finalizer-queue objects.
             _graphicsDevice.SamplerStates[0] = SamplerState.LinearClamp;
-            _graphicsDevice.DepthStencilState = DepthStencilState.None;
+            _graphicsDevice.DepthStencilState = depth;
 
             if (_effect == null) DrawWithBasicEffect(camera); else DrawWithCustomEffect(camera);
 

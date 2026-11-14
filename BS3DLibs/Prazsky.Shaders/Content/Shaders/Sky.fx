@@ -114,11 +114,11 @@ float4 SkyPS(SkyVertexOutput input) : COLOR
     //
     //Nothing here guards against the disc crossing the SKYLINE either, and since #220 gave each dome its
     //own sun that is a real case rather than a hypothetical: a dusk dome's sits at four degrees. It needs
-    //no guard because the dome is drawn first with the depth test off and every scene's ground is drawn
-    //after it, opaque and depth-writing - so a sun below the horizon is simply covered by the terrain
-    //standing in front of it, and one just above it clears the ridge by exactly as much as it should. The
-    //depth buffer does the occluding, the same way the tropical beach's waterline is a depth test rather
-    //than a clip. What a low sun does NOT get is a cloud in front of it, the deck being faded out near the
+    //no guard because every scene's ground is opaque and depth-writing, and the dome is drawn behind it at
+    //the far plane (SkyPass, #1104; first with the depth test off on a phone, under the ground drawn after
+    //it) - so a sun below the horizon is simply covered by the terrain standing in front of it, and one
+    //just above it clears the ridge by exactly as much as it should. The depth buffer does the occluding,
+    //the same way the tropical beach's waterline is a depth test rather than a clip. What a low sun does NOT get is a cloud in front of it, the deck being faded out near the
     //horizon by CloudHorizonFade so it never reaches down there.
     float sunDisc = smoothstep(SunDiscCos - SunDiscEdge, SunDiscCos + SunDiscEdge, dot(direction, SunDirection));
     sky += SunDiscColor * sunDisc;

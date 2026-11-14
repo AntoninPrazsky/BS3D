@@ -283,6 +283,16 @@ namespace Testbed.Diagnostics
         public EnvironmentOrder EnvironmentOrder { get; private set; } = EnvironmentOrder.Auto;
 
         /// <summary>
+        /// <c>skyorder=&lt;late|first&gt;</c>: where the frame draws the sky dome and the heaps over it (#1104). <c>late</c>,
+        /// the default and the Game's desktop order, draws them behind the opaque scene, depth-read at the far plane, in the
+        /// gap between the environment's two halves (<c>SkyPass</c>); <c>first</c> draws them over the clear with the depth
+        /// test off, the frame as it was before #1104 and as a phone still draws it. An <c>alt=</c> dial too:
+        /// <c>alt=skyorder=first;skyorder=late</c> with the clock stood still is how the two are shown to be one picture,
+        /// and how what the late order saves is read in one process.
+        /// </summary>
+        public bool SkyBehindScene { get; private set; } = true;
+
+        /// <summary>
         /// <c>cityreflect=&lt;strength&gt;</c>: the city's windows mirroring the towers round them (#1065), the Game's High and
         /// Ultra look - the towers' draw takes <c>InstancedCityReflect</c> over a map of the city. 1 by default; 0 draws the
         /// plain technique (the Game's Low and Medium), so the two can be photographed from one pinned camera and, through
@@ -528,6 +538,7 @@ namespace Testbed.Diagnostics
                 else if (arg.StartsWith("detail=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("detail=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedDetail)) options.SceneDetail = parsedDetail;
                 else if (arg.StartsWith("finemeshes=", StringComparison.OrdinalIgnoreCase)) options.FineMeshes = arg.Substring("finemeshes=".Length) is not ("0" or "false" or "off");
                 else if (arg.StartsWith("envorder=", StringComparison.OrdinalIgnoreCase)) options.EnvironmentOrder = ParseEnvironmentOrder(arg.Substring("envorder=".Length));
+                else if (arg.StartsWith("skyorder=", StringComparison.OrdinalIgnoreCase)) options.SkyBehindScene = ParseSkyBehindScene(arg.Substring("skyorder=".Length));
                 else if (arg.StartsWith("cityreflect=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("cityreflect=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float cityReflect)) options.CityReflect = MathF.Max(0f, cityReflect);
                 else if (arg.StartsWith("shadow=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("shadow=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedShadow)) options.ShadowScale = parsedShadow;
                 //Read here for the same reason "logfps" is (see the comment above it): an argument this parse
@@ -653,6 +664,9 @@ namespace Testbed.Diagnostics
             "island" => EnvironmentOrder.Island,
             _ => EnvironmentOrder.Auto
         };
+
+        /// <summary><c>skyorder=</c>'s value: <c>first</c> is the dome drawn first; anything else is <c>late</c>, behind the opaque scene.</summary>
+        public static bool ParseSkyBehindScene(string value) => !value.Trim().Equals("first", StringComparison.OrdinalIgnoreCase);
 
         private static T ParseLayers<T>(string list) where T : struct, Enum
         {

@@ -8,7 +8,7 @@ The twenty-one backdrops the Game, the Testbed and the MapEditor all share, plus
 
 ### Shared by every scene
 
-- [Backdrops and the scene registry](scenes/backdrop-architecture.md) — what a scene is (`SceneCatalog`, `Backdrop` and its services), where the environment sits in the frame (after the island's depth, in two halves, #1098), the traps for whoever adds the next scene, and how to check a scene change against captures.
+- [Backdrops and the scene registry](scenes/backdrop-architecture.md) — what a scene is (`SceneCatalog`, `Backdrop` and its services), where the environment sits in the frame (after the island's depth, in two halves, #1098), the sky drawn behind the opaque scene (#1104), the traps for whoever adds the next scene, and how to check a scene change against captures.
 - [The setting, in one copy](scenes/shared-setting.md) — what the executables share (island, ceiling plate and the cables it hangs by, sky rig, scene lights, scatters) and what stays with each one.
 - [The island: shape, material and berm](scenes/island.md) — the arena island's structure and rules, its material and shape per scene, the unpaved variants and the berm.
 - [The island's dressing per scene family](scenes/island-dressing.md) — the dials and the five dressing families, with their costs.
