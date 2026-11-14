@@ -20,6 +20,16 @@ Pravidla:
 
 ---
 
+## 2026-11-14 — #1104 #1096 #1103 obloha za scénou a v rozlišení displeje, šapitó — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: #1104 krok 1 (kupole a kupy až za neprůhlednou scénou ve vzdálené rovině, 0 px; Medium, Low a Android ve starém pořadí), krok 2 (kupole jednou na pixel displeje na High a Ultra, mimo města) a #1096 (šapitó v rozlišení displeje). Oba kroky vzhledu čekají na verdikt (`verdict-eye`, stránka NPz3HCfqhGpwdHVyoFyfQ5, ticho do 21. 11.).
+- Hra na Ultra, 21 běhů, dvě kola (#1103): vše pod 12,5 ms. Les v menu 15,1 → 10,7; BigTop 12,5 → 4,5.
+- ⚠ Vesmír v rozlišení displeje ne: hvězdy ztrácejí 3–8/255 jasu.
+- ⚠ `clock=2^26` kvantuje časové členy shaderů (fazety mlhoviny, oblouky prachu): hodí se na shodu, ne na posouzení vzhledu.
+- ⚠ Testbed kreslil kupoli s `Min` blendem stínového průchodu; opraveno, hra nedotčena.
+- ⚠ Vteřina se `shot=` a ta po ní nejsou měření; „nejhorší vteřiny“ první tabulky #1103 byly snímek.
+- Otevřené: verdikty; rušná vteřina a běh v 1600 řádcích neměřeny.
+
 ## 2026-11-14 — #1097 #1098 #1129 hloubka terénu a ostrova předem, oprava alt= — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno, zavřeno: #1097 (na High a Ultra se hloubka terénu položí předem a stínuje se proti ní; Testbed Mars 14,10 → 8,91 ms, ve hře Plume 12,64 → 9,99), #1098 (hloubka ostrova před prostředím; ve hře jen 0,2–0,35 ms), #1129 (`alt=` čeká po přepnutí na GPU). Sloučený `main` proti starému: 45 z 45 přesných párů shodných.
