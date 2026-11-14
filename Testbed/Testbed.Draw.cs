@@ -385,14 +385,16 @@ namespace Testbed
         /// contention the variants compress towards each other, so a sweep read across runs says "nothing
         /// costs anything". Alternating inside a single process puts every variant under the same clock, the
         /// same driver state and the same neighbours, so what is left between two readings a second apart is
-        /// what the two variants actually cost.
+        /// what the two variants actually cost — once the GPU has drawn the frames of the variant before, which
+        /// is what <see cref="MarkVariantSwitch"/> waits for (#1129).
         /// </para>
         /// <para>
         /// #151 built this for the arena's members and its cap probe; #374 made the variant a list of the
         /// command line's own pins, so a scene, a dome, a ball material, <c>ssaa</c>, <c>msaa</c>,
         /// <c>rscale</c>, <c>detail</c>, <c>shadow</c>, <c>exposure</c> and <c>nopost</c> can be swept the same
         /// way — and retired the "TEMPORARY" the first two carried, since a general mechanism is not a probe.
-        /// What may be alternated is decided by hysteresis and nothing else: see <c>ApplyVariant</c>.
+        /// What may be alternated is decided by hysteresis in this program's own state (see <c>ApplyVariant</c>);
+        /// the frames still queued for the GPU are the switch's marker's business, for every dial alike.
         /// </para>
         /// </summary>
         private void AdvanceVariant()
@@ -401,6 +403,106 @@ namespace Testbed
 
             _variant = (_variant + 1) % _options.Alternation.Count;
             ApplyVariant(_options.Alternation[_variant]);
+
+            MarkVariantSwitch();
+        }
+
+        //The switch's marker in the GPU's command stream (#1129), made once at the first switch and reused: an
+        //occlusion query with no draw between its Begin and End completes when the GPU has worked through every
+        //command issued before it, i.e. the last frame of the variant switched away from. Null when nothing switches.
+        private OcclusionQuery _switchMarker;
+
+        //True from a switch until the window that follows may open (see SettleAfterSwitch); how many frames that
+        //took, which the [fps] line reports; and the frame the marker was seen complete on, -1 before it is.
+        private bool _settling;
+        private int _settleFrames;
+        private int _settleMarkerFrame;
+        private float _settleSeconds;
+        private bool _settleTimedOut;
+
+        //Frames after the one the marker is first seen complete on that are still left out of the window. The
+        //queue's arithmetic needs none (see SettleAfterSwitch); these cover being a frame or two out, because one
+        //frame of the variant before costs the window a whole frame's difference and three frames of waiting
+        //cost nothing.
+        private const int SETTLE_MARGIN_FRAMES = 3;
+
+        //A marker that has not come back in this long never will (a lost device): the window opens anyway and
+        //its line says so, rather than the run hanging silently in a settle.
+        private const float SETTLE_TIMEOUT_SECONDS = 10f;
+
+        /// <summary>
+        /// Drops a marker into the GPU's queue at a variant switch and holds the next <c>[fps]</c> window shut
+        /// until the GPU has passed it (#1129). A single-variant cycle never switches and is left alone.
+        /// <para>
+        /// <b>The CPU runs about forty frames ahead of the GPU here</b>, and that is the whole reason. The Testbed
+        /// presents at sync interval 0 through a windowed blt-model swap chain, and on the reference desktop
+        /// (RX 6900 XT) about 38 presented frames queue before <c>Present</c> blocks, whatever MonoGame's
+        /// <c>MaximumFrameLatency = 1</c> asks (the depth is measured; which layer allows it is not known). A frame's interval on the CPU, which is what
+        /// <see cref="LogFrameRate"/> adds up, is then paced by the GPU finishing the frame submitted about 38
+        /// frames earlier. Measured with every frame of a window printed: after a switch from the volcano to the
+        /// Moon, frames 0 to 37 of the Moon's window ran at the volcano's 13.2 ms and frame 38 stepped to the
+        /// Moon's 6.8, and the same 38 the other way round; after a <c>shot=</c>'s readback had emptied the queue,
+        /// 41 frames ran at the 1 ms <c>fpscap=1000</c> period while the CPU refilled it. So a window opened on
+        /// the switch carried 38 frames of the variant before — half a one-second window at 13 ms a frame — and a
+        /// two-variant toggle at the review's pin read almost no difference at all (the outback and Mars, 12.06
+        /// and 14.07 ms one scene a process, read 13.12 and 13.14 alternated). Nor is the depth fixed: it is the
+        /// variant's own (the volcano queues about 38 frames with its sun shadows and about 50 without), so a
+        /// switch that deepens it hands the window free frames and one that shallows it makes the window wait
+        /// twice for some, and <c>shadow=0;shadow=1</c> (12.59 and 13.43 alone) read 11.43 and 15.09.
+        /// </para>
+        /// <para>
+        /// Waiting is better than draining. Stalling the CPU on the marker would empty the queue, and the CPU then
+        /// refills it at its own pace, which is the shot's cheap window again; and it would leave the GPU idle
+        /// for a frame at every switch. Polling it lets the queue stay full, so the window that opens measures what
+        /// a window of a single-variant run measures: the GPU's steady pace through frames of one variant.
+        /// </para>
+        /// </summary>
+        private void MarkVariantSwitch()
+        {
+            if (_options.Alternation.Count < 2) return;
+
+            _switchMarker ??= new OcclusionQuery(GraphicsDevice);
+            _switchMarker.Begin();
+            _switchMarker.End();
+
+            _settling = true;
+            _settleFrames = 0;
+            _settleMarkerFrame = -1;
+            _settleSeconds = 0f;
+            _settleTimedOut = false;
+        }
+
+        /// <summary>
+        /// One frame of the settle after a switch: counts it, and opens the next window once the switch's marker
+        /// has come back and <see cref="SETTLE_MARGIN_FRAMES"/> more frames have gone by.
+        /// <para>
+        /// Why waiting for the marker is enough: with the queue Q frames deep, the interval the CPU measures for
+        /// frame <c>t</c> is the GPU's time for frame <c>t - Q - 1</c> or so, and the marker is seen on the first
+        /// frame whose tick came after the GPU finished the switch frame <c>i</c> — no earlier than <c>i + Q + 1</c>.
+        /// So the interval of the frame after it is already a frame of the new variant, and
+        /// <see cref="SETTLE_MARGIN_FRAMES"/> covers being a frame out either way. Nothing is assumed about Q
+        /// itself, which is the point: another machine's driver, or a variant that leaves the GPU waiting on the
+        /// CPU or that queues more or fewer frames than the one before, settles at whatever depth is really there.
+        /// </para>
+        /// </summary>
+        private void SettleAfterSwitch(float elapsed)
+        {
+            _settleFrames++;
+            _settleSeconds += elapsed;
+
+            //IsComplete is a GetData that may flush, so it is asked until it answers and never again: it caches
+            //its true once it has said it
+            if (_settleMarkerFrame < 0 && (_switchMarker.IsComplete || _settleSeconds >= SETTLE_TIMEOUT_SECONDS))
+            {
+                _settleMarkerFrame = _settleFrames;
+                _settleTimedOut = !_switchMarker.IsComplete;
+            }
+
+            if (_settleMarkerFrame < 0 || _settleFrames < _settleMarkerFrame + SETTLE_MARGIN_FRAMES) return;
+
+            _settling = false;
+            _fpsWindow = 0f;
+            _fpsFrames = 0;
         }
 
         /// <summary>
@@ -412,6 +514,13 @@ namespace Testbed
         /// </summary>
         private void LogFrameRate(float elapsed)
         {
+            //Nothing counts while the GPU is still drawing the variant before the last switch (#1129)
+            if (_settling)
+            {
+                SettleAfterSwitch(elapsed);
+                return;
+            }
+
             _fpsWindow += elapsed;
             _fpsFrames++;
 
@@ -447,14 +556,18 @@ namespace Testbed
                 //under auto the scene's own answer, which nothing else on the line says) - before "variant", which the
                 //sweep's reader takes to the line's end
                 + $", envorder {(_islandDepthFirst ? "island" : "first")}"
+                //How long the window waited after its switch for the GPU to finish the variant before (#1129):
+                //what says the reading is the variant's own, so .claude/skills/benchmark/alt-paired.py refuses a
+                //cycling log without it, and what shows the queue's depth in frames on every line
+                + (_switchMarker != null ? (_settleTimedOut ? ", NOT settled (the switch's marker never came back)" : $", settled after {_settleFrames} frames") : string.Empty)
                 //The variant's own text last, in the caller's words rather than restated from the live
                 //settings: a sweep is read by grouping the lines that carry the same name, and a dial the
                 //rest of this line does not print (a ball material, an exposure) would otherwise leave two
                 //variants looking identical in the log they are compared in.
                 + (alternating ? $", variant {_options.Alternation[_variant].Spec}" : string.Empty));
 
-            //Switch AFTER the line is written, so a window is never a mixture of two variants: this reading
-            //belonged wholly to the variant just named, and the next one belongs wholly to the next
+            //Switch AFTER the line is written, so no window is a mixture of two variants on the CPU's side; the
+            //switch's marker then keeps the next window shut until the GPU's side agrees (MarkVariantSwitch)
             AdvanceVariant();
 
             _fpsWindow = 0f;

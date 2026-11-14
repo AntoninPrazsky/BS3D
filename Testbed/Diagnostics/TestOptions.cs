@@ -162,7 +162,9 @@ namespace Testbed.Diagnostics
         /// <b>Which dials may be alternated is a decision about hysteresis, not about plumbing</b> — the
         /// switch has to leave nothing behind, or the window after it is measuring the transition. The Testbed
         /// keeps that list (see its <c>ApplyVariant</c>) and prints what it refused; the spelling of a value is
-        /// this file's, since every dial here is one this parser already reads.
+        /// this file's, since every dial here is one this parser already reads. What every switch does leave
+        /// behind, the frames of the variant before still queued for the GPU, the Testbed waits out before the
+        /// next window opens (#1129, its <c>MarkVariantSwitch</c>).
         /// </para>
         /// </summary>
         public IReadOnlyList<Variant> Alternation { get; private set; } = Array.Empty<Variant>();

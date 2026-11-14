@@ -26,7 +26,8 @@ measured with the factor **it** chose instead of one forced over the top of it.
 front-end scene) per tier, every `[fps]`/`[build]` line kept, then `python tier-matrix.py <dir>` prints medians
 and flags any run whose `[fps]` line is not what was asked for. The #540 table in `docs/game-shell.md` is its output.
 A Testbed `alt=` log is read by `python alt-paired.py <log> [baseline] [drop-cycles]`: whole cycles, each
-variant differenced from the baseline within its own cycle, median and how often the sign held.
+variant differenced from the baseline within its own cycle, median and how often the sign held. It refuses a
+log whose windows did not settle after their switch (an older build's, trap 16) unless given `--unsettled`.
 
 **To find WHEN a cost arrived, use `history-sweep.ps1`** (2026-09-29): it builds the Game at `-Points` evenly
 spaced first-parent merges between `-From` and `-To`, each in its own worktree, measures every build round-robin
@@ -162,6 +163,33 @@ Each of these has actually happened; the first two are the expensive ones.
    67ecbe20` byte-identical and at the same write time, while `libraries … set` moved `08f67881` →
    `fe6b0676`. That gap is why the line exists, and it had already cost two runs before it did.
 
+16. **Reading a window that opened on its switch. The CPU runs about 38 frames ahead of the GPU** in an
+   uncapped Testbed (`fpscap=`/`nocap`: sync interval 0 through a windowed blt-model swap chain, and frames
+   queue that deep before `Present` blocks whatever MonoGame's `MaximumFrameLatency = 1` asks), so the interval the `[fps]` window adds
+   up for a frame is the GPU finishing the frame submitted 38 earlier. Printed frame by frame after a switch
+   from the volcano to the Moon, frames 0 to 37 of the Moon's window ran at the volcano's 13.2 ms and frame 38
+   stepped to the Moon's 6.8; the same 38 the other way. So until #1129 every `alt=` window began with 38 frames
+   of the variant before — half the window at 13 ms a frame — and nothing on the log said so: two runs agreed to
+   0.07 ms and every sign held. Under the review's pin (`fpscap=1000 width=3840 height=1500 ssaa=2`, `Full.json`)
+   the volcano read 10.76 ms after the Moon against 13.34 one scene a process, the Moon 9.14 against 6.74, and
+   a pair of scenes all but merged: the outback and Mars, 12.06 and 14.07 ms one scene a process, read **13.12 and
+   13.14** alternated. Nor is it always a pull: the queue's depth in frames is the variant's own (about 38 with
+   the volcano's sun shadows, about 50 without), so a switch that deepens it hands the window free frames (every
+   fourth of the first 48 ran in 0.95 ms) and one that shallows it makes the window wait twice (every third of the
+   first 39 took 25 ms). The volcano's `shadow=0;shadow=1`, 12.59 and 13.43 one variant a process, read **11.43
+   and 15.09** alternated: a 0.84 ms difference read as 3.66. Only the first window after a switch is touched;
+   held three windows a variant, the second and third read 12.61/12.56 and 13.34/13.36.
+   **Since #1129 the Testbed drops a marker into the GPU's queue at every switch and opens the next window only
+   when it has come back** (and three frames more), and every cycling `[fps]` line says `settled after <n>
+   frames`: 40 at the review's pin, 52 after the volcano's `shadow=0`. Every figure of the four-scene list
+   above and of the volcano's `shadow=` and `arena=` toggles then reads within 0.06 ms of its one-process
+   figure. `alt-paired.py` refuses a cycling log whose lines do not say it (an older build's), loudly;
+   `--unsettled` reads it anyway. **Every `alt=` figure taken before #1129 is the switch's as much as the
+   variant's**, in either direction: re-take it before it decides anything, one variant a process or on a
+   build since. The same queue is why **the window after a `shot=` reads cheap**: the
+   readback empties it, and the next 40 frames run at the CPU's pace while it refills (one window read 5.44 ms
+   against 6.74); take no reading from the window a shot lands in or the one after.
+
 Also: keep both halves of an A/B in the **same build configuration**, and remember that lifting the cap is
 what makes the number a frame cost rather than the display's refresh. The script always passes `nocap`;
 **prefer `fpscap=N` on the desktop**, which does the same job for a measurement without leaving the card flat
@@ -280,7 +308,9 @@ can submit and nothing about the frame.
   which would read as "the change costs nothing".
 
   Every `[fps]` line ends with `variant <spec>` in your own words, and the switch happens after the line is
-  written so no window is a mixture of two. **This is the only way the APU can be measured** (trap 14): the variants share one process,
+  written so no window is a mixture of two. **The next window opens only once the GPU has drawn the variant
+  before** (trap 16: the CPU is about 38 frames ahead of it), and the line says how long that took, `settled
+  after <n> frames`; a cycle therefore takes about half a second a variant longer than its windows. **This is the only way the APU can be measured** (trap 14): the variants share one process,
   one clock and the same neighbours, so what is left between two readings a second apart is what the two
   variants cost. Analyse it **paired**: group the readings into whole cycles, take each variant's difference
   from the baseline *within its own cycle*, then median those differences — and report **how often the sign
