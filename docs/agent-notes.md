@@ -20,6 +20,14 @@ Pravidla:
 
 ---
 
+## 2026-11-14 — #1131 čísla z alt= v docs přeměřena na desktopu — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno (8642136c): desktopová čísla z `alt=` v `docs/` přeměřena na opraveném nástroji (#1129). Issue zůstává otevřené: čísla z notebooku (příkazy jsou v komentáři) a pasáže mimo seznam (`sun-shadows`, `city`, `mountains`, `aurora`, `quality-measurements`, kupy ve `weather`).
+- ⚠ `finemeshes=` je celá páka High, ne přepínač sítí: kreslí i kupovité mraky (#989), objem ohňů savany, celý les High a program úbočí sopky. Pod vlastním nebem scény pár cenil sítě i mraky dohromady; pod `weather=clear` sedí s čísly ze hry. Mraky stojí +0,53 ms (savana, louka) a +1,4 ms (hory); hřeben na Belfry šetří 4,7 ms, ne 3,26.
+- ⚠ Varianta `alt=` nastaví jen číselníky, které jmenuje; vynechaný drží hodnotu z varianty před ní.
+- Dělení `mbflip=` ve hře platí: hra stav přes přepnutí nenese.
+- Otevřené: komentáře v `TestOptions.cs`, `QualityLevel.cs` a `ForestDressing.cs` jsou za dokumenty.
+
 ## 2026-11-14 — #1104 #1096 #1103 obloha za scénou a v rozlišení displeje, šapitó — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: #1104 krok 1 (kupole a kupy až za neprůhlednou scénou ve vzdálené rovině, 0 px; Medium, Low a Android ve starém pořadí), krok 2 (kupole jednou na pixel displeje na High a Ultra, mimo města) a #1096 (šapitó v rozlišení displeje). Oba kroky vzhledu čekají na verdikt (`verdict-eye`, stránka NPz3HCfqhGpwdHVyoFyfQ5, ticho do 21. 11.).
