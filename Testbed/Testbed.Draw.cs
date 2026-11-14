@@ -83,9 +83,11 @@ namespace Testbed
 
             bool domed = !SceneRenderer.ReplacesSky(_scene);
 
-            //Behind the opaque scene (#1104), as the Game draws it, unless skyorder=first asks for the frame before it. With the
-            //3D hidden (F6) there is no scene block to be behind, and the sky is the frame's one draw either way.
-            bool skyBehind = _skyBehindScene && _draw;
+            //Behind the opaque scene (#1104) where the Game draws it there (SkyPass.BehindScene: not into a multisampled target,
+            //which is ssaa=1 here), unless skyorder= pins first or late. With the 3D hidden (F6) there is no scene block to be
+            //behind, and the sky is the frame's one draw either way.
+            bool skyBehind = (_skyOrderPin ?? SkyPass.BehindScene(_pipeline.SceneTarget)) && _draw;
+            _skyDrawnBehind = skyBehind;
 
             if (!domed)
             {
@@ -337,8 +339,10 @@ namespace Testbed
         //What the last frame did, which is what the [fps] line names: under Auto nothing else says what the scene answered
         private bool _islandDepthFirst;
 
-        //skyorder= (#1104): the sky behind the opaque scene (late, the default) or first over the clear
-        private bool _skyBehindScene = true;
+        //skyorder= (#1104): null asks SkyPass.BehindScene, as the Game does; true pins the sky behind the opaque scene, false
+        //first over the clear. And what the last frame did, which is what the [fps] line names
+        private bool? _skyOrderPin;
+        private bool _skyDrawnBehind;
 
         /// <summary>
         /// What this program casts into the sun's shadow map (#470): the island, the gun, the balls
@@ -579,7 +583,7 @@ namespace Testbed
                 //sweep's reader takes to the line's end
                 + $", envorder {(_islandDepthFirst ? "island" : "first")}"
                 //Where the sky was drawn (#1104: skyorder=), for the same reason
-                + $", skyorder {(_skyBehindScene ? "late" : "first")}"
+                + $", skyorder {(_skyDrawnBehind ? "late" : "first")}"
                 //And at what resolution the window's last frame shaded it (#1104: skyres=; "display" only above ssaa=1)
                 + $", skyres {(_skyPass.DrawsAtDisplayResolution ? "display" : "full")}"
                 //How long the window waited after its switch for the GPU to finish the variant before (#1129):

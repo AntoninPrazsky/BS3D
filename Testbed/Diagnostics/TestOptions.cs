@@ -283,14 +283,16 @@ namespace Testbed.Diagnostics
         public EnvironmentOrder EnvironmentOrder { get; private set; } = EnvironmentOrder.Auto;
 
         /// <summary>
-        /// <c>skyorder=&lt;late|first&gt;</c>: where the frame draws the sky dome and the heaps over it (#1104). <c>late</c>,
-        /// the default and the Game's desktop order, draws them behind the opaque scene, depth-read at the far plane, in the
-        /// gap between the environment's two halves (<c>SkyPass</c>); <c>first</c> draws them over the clear with the depth
-        /// test off, the frame as it was before #1104 and as a phone still draws it. An <c>alt=</c> dial too:
+        /// <c>skyorder=&lt;auto|late|first&gt;</c>: where the frame draws the sky dome and the heaps over it (#1104).
+        /// <c>auto</c>, the default, asks the target as the Game does (<c>SkyPass.BehindScene</c>: behind the opaque scene,
+        /// except into a multisampled target, which is <c>ssaa=1</c> unless <c>msaa=0</c>). The other two <b>pin</b> it:
+        /// <c>late</c> draws them behind the opaque scene, depth-read at the far plane, in the gap between the environment's
+        /// two halves (<c>SkyPass</c>), under multisampling too; <c>first</c> over the clear with the depth test off, the
+        /// frame as it was before #1104 and as a phone still draws it. An <c>alt=</c> dial too:
         /// <c>alt=skyorder=first;skyorder=late</c> with the clock stood still is how the two are shown to be one picture,
-        /// and how what the late order saves is read in one process.
+        /// and how what the late order saves is read in one process. Null is <c>auto</c>.
         /// </summary>
-        public bool SkyBehindScene { get; private set; } = true;
+        public bool? SkyBehindScene { get; private set; }
 
         /// <summary>
         /// <c>skyres=&lt;display|full&gt;</c>: whether a supersampled frame shades the sky dome and the heaps once a display
@@ -686,8 +688,14 @@ namespace Testbed.Diagnostics
             _ => EnvironmentOrder.Auto
         };
 
-        /// <summary><c>skyorder=</c>'s value: <c>first</c> is the dome drawn first; anything else is <c>late</c>, behind the opaque scene.</summary>
-        public static bool ParseSkyBehindScene(string value) => !value.Trim().Equals("first", StringComparison.OrdinalIgnoreCase);
+        /// <summary><c>skyorder=</c>'s value: <c>first</c> pins the dome first (false), <c>late</c> behind the opaque scene (true);
+        /// anything else is <c>auto</c> (null), the target's answer.</summary>
+        public static bool? ParseSkyBehindScene(string value) => value.Trim().ToLowerInvariant() switch
+        {
+            "first" => false,
+            "late" => true,
+            _ => null
+        };
 
         /// <summary><c>skyres=</c>'s value: <c>full</c> is the sky at every sample; anything else is <c>display</c>, once a display pixel.</summary>
         public static bool ParseSkyAtDisplayResolution(string value) => !value.Trim().Equals("full", StringComparison.OrdinalIgnoreCase);

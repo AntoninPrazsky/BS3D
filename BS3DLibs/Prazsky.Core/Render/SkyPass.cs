@@ -77,6 +77,21 @@ namespace Prazsky.Core.Render
         /// <summary>Whether the last <see cref="Prepare"/> shaded the sky into its display-resolution target.</summary>
         public bool DrawsAtDisplayResolution { get; private set; }
 
+        /// <summary>
+        /// Whether a host draws the sky behind the opaque scene into <paramref name="sceneTarget"/>, or first over the clear as
+        /// before #1104: behind on the desktop (<see cref="GraphicsSupport.SkyBehindScene"/>) and <b>never into a multisampled
+        /// target</b> (Medium and Low on Windows, the Testbed at <c>ssaa=1</c> unless <c>msaa=0</c>), whatever the scene.
+        /// <para>
+        /// ⚠ Under multisampling the two orders are not one picture: the late order moved 137 to 10,904 pixels of a 1600x900
+        /// frame (at most 15 to 51 steps of 255) along the silhouettes the environment holds against the sky (the forest's
+        /// trees, the mountains' ridges, the city's towers), where two frames of one order differ in 55 to 193. Without
+        /// multisampling the two orders are the same picture to the pixel. The target is passed rather than
+        /// remembered, for <c>SceneRenderer.EnvironmentFollowsIslandDepth</c>'s reason: a quality step replaces it.
+        /// </para>
+        /// </summary>
+        public static bool BehindScene(RenderTarget2D sceneTarget) =>
+            GraphicsSupport.SkyBehindScene && sceneTarget != null && sceneTarget.MultiSampleCount <= 1;
+
         public SkyPass(GraphicsDevice device, SkyDome dome)
         {
             _device = device ?? throw new ArgumentNullException(nameof(device));
@@ -155,8 +170,8 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Draws the sky <see cref="Prepare"/> made ready into the scene target bound now. <paramref name="behindScene"/>: behind
         /// everything opaque drawn so far, at the far plane (the class's remarks), in the gap between the environment's two
-        /// halves; otherwise over everything, depth off, as the frame's first draw after the clear (a phone,
-        /// <see cref="GraphicsSupport.SkyBehindScene"/>, and the Testbed's <c>skyorder=first</c>). States everything it draws
+        /// halves; otherwise over everything, depth off, as the frame's first draw after the clear (a phone, a multisampled
+        /// target, the Testbed's <c>skyorder=first</c>: <see cref="BehindScene"/>). States everything it draws
         /// with, and leaves the scene's baseline behind: alpha blend, the default depth state, back faces culled, the viewport
         /// as it found it.
         /// </summary>

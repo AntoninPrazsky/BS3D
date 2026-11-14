@@ -863,8 +863,8 @@ namespace Testbed
             //the scene (Testbed.Draw.cs)
             _environmentOrder = _options.EnvironmentOrder;
 
-            //#1104: "skyorder=" says where the sky is drawn; late, the default, behind the opaque scene as the Game does
-            _skyBehindScene = _options.SkyBehindScene;
+            //#1104: "skyorder=" pins where the sky is drawn; auto, the default, asks the target as the Game does
+            _skyOrderPin = _options.SkyBehindScene;
 
             //...except in a run that isolates the arena (arena= or capprobe=, on the line or in any alt= variant), where
             //auto draws the environment first in every window: the depth is laid by the members drawn, so taking the cap
@@ -1618,9 +1618,10 @@ namespace Testbed
                         break;
 
                     //Where the sky is drawn (#1104): "skyorder=first" is the frame before it, "skyorder=late" behind the opaque
-                    //scene. Read where the next frame draws its sky, so nothing carries across the switch.
+                    //scene, "skyorder=auto" what the Game does. Read where the next frame draws its sky, so nothing carries across
+                    //the switch.
                     case "skyorder":
-                        _skyBehindScene = TestOptions.ParseSkyBehindScene(pin.Value);
+                        _skyOrderPin = TestOptions.ParseSkyBehindScene(pin.Value);
                         break;
 
                     //At what resolution a supersampled frame shades the sky (#1104): "skyres=full" at every sample, the look

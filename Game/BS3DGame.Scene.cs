@@ -1000,8 +1000,9 @@ namespace BS3D
             //unconditionally, and a gain left standing from the scene before would go on shadowing this one.
             _clouds.Time = _wallClock;
 
-            //Whether the dome goes in behind the opaque scene (#1104, below) or as the frame's first draw (a phone)
-            bool skyBehind = GraphicsSupport.SkyBehindScene;
+            //Whether the dome goes in behind the opaque scene (#1104, below) or as the frame's first draw (a phone, and Medium
+            //and Low, whose target is multisampled: SkyPass.BehindScene holds why)
+            bool skyBehind = SkyPass.BehindScene(_pipeline.SceneTarget);
 
             if (sceneSky)
             {
@@ -1041,7 +1042,7 @@ namespace BS3D
             //what would show if it ever did not.
             GraphicsDevice.Clear(sceneSky ? Color.Black : new Color(_rig.HorizonLinear));
 
-            //A phone draws the dome first, over the clear, as every frame did before #1104
+            //A phone and a multisampled target draw the dome first, over the clear, as every frame did before #1104
             if (!sceneSky && !skyBehind) _skyPass.Draw(_camera, behindScene: false);
 
             //The sea's submerge fade for missed balls — a no-op off the sea scene (see SceneRenderer.ApplySeaSubmerge).
