@@ -20,6 +20,14 @@ Pravidla:
 
 ---
 
+## 2026-11-14 — #1031 střední desktop (GTX 1060, Ryzen 5 3600) — DESKTOP_L, Claude Code
+
+- Hotovo: tabulka úrovní kvality na 15 úrovních v 1600×900 i 1920×1080, dva průchody (`quality-measurements.md`, „The mid desktop“). Na 1080p je tier tohoto stroje Medium (nejdražší Diadem 11,99 ms). High nestačí ve čtyřech kapitolách. Adaptivní sonda i benchmark doporučují Medium.
+- NVIDIA: ovladač 582.78 přijme 10bitový swap chain a čtení screenshotu dekóduje správně. HDR cíl je bez NaN. Fyzika: medián 1,21 ms na 12 vláknech.
+- ⚠ Vesmír a hory jsou na High nepoměrně drahé (Orrery 3,1× proti Medium). Roj v benchmarku proto na High hlásí „méně než 32“.
+- ⚠ `tier-matrix.ps1` proces zabíjí, takže se ztrácí konec výstupu: dva běhy měly jen 4 a 8 řádků.
+- Otevřené: na stroji chybí `gh` (issue nedostalo komentář ani claim), XMP je vypnuté (2667 místo 3600), `ramp` bez 10bitového panelu nejde posoudit.
+
 ## 2026-11-14 — #1104 #1096 #1103 obloha za scénou a v rozlišení displeje, šapitó — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: #1104 krok 1 (kupole a kupy až za neprůhlednou scénou ve vzdálené rovině, 0 px; Medium, Low a Android ve starém pořadí), krok 2 (kupole jednou na pixel displeje na High a Ultra, mimo města) a #1096 (šapitó v rozlišení displeje). Oba kroky vzhledu čekají na verdikt (`verdict-eye`, stránka NPz3HCfqhGpwdHVyoFyfQ5, ticho do 21. 11.).

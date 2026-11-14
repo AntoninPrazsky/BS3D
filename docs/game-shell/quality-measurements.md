@@ -68,6 +68,34 @@ Each chapter's heaviest level that is not its block's first (by balls; the city 
 - ⚠ **`Low` keeps the far plane #551 asked for (the owner's ruling, 2026-09-29), so the mountain runs over** (0.6–0.9 ms in the table). With only `DEFAULT_FAR_PLANE_DISTANCE` back at 500, Spyglass read 15.68 ms on 2026-09-29. **Do not shorten it to win the time back.**
 - **Front end at `Low`** (2026-09-29, 55 s per scene, orbit spreads of 4–6 ms): five of twenty scenes miss 16.1 ms (Mars 17.88, savanna 17.57, tropical 16.83, outback 16.82, polar 16.18); **left by the owner's ruling: the menu is not worked on for `Low`.**
 
+## The mid desktop: GTX 1060 6 GB, Ryzen 5 3600 (#1031)
+
+The owner's spare desktop, between the APU and the 6900 XT, and the first NVIDIA in the loop: Ryzen 5 3600 (6 cores, 12 threads), GeForce GTX 1060 6 GB on driver 582.78 (32.0.15.8278), 32 GB DDR4 at 2667 MT/s (a 3600 kit, XMP off), a 1920x1080 60 Hz 8-bit panel, Windows 11 Pro 26300. The same levels and command as the APU's table (`tier-matrix.ps1`, Release, 45 s a run, the first six readings dropped, `nocap`, `userdata=` a scratch profile), at the panel's 1920x1080 as well as 1600x900; two passes, the second in reverse order, and the minimum of each pair. Builds' sets: libraries `2c25645c`, shaders `5d545040` (`main` at 09427ce0), 2026-11-14. The budget is the 60 Hz panel's, **16.7 ms**. ms:
+
+| level (scene) | `Low` 900p | `Medium` 900p | `High` 900p | `Low` 1080p | `Medium` 1080p | `High` 1080p |
+|---|---|---|---|---|---|---|
+| Spyglass (mountain) | 4.69 | 7.12 | **17.30** over | 6.49 | 9.60 | **23.13** over |
+| Orrery (space) | 5.05 | 5.40 | 16.36 | 5.93 | 6.18 | **19.13** over |
+| Umbrella (aurora) | 4.52 | 6.70 | 13.66 | 5.89 | 8.85 | **18.97** over |
+| Amphora (meadow) | 4.42 | 7.25 | 12.41 | 6.12 | 10.01 | **17.54** over |
+| Caldera (volcano) | 4.26 | 8.60 | 12.64 | 5.66 | 11.21 | 16.03 |
+| Girandole (city) | 3.34 | 5.99 | 12.51 | 4.87 | 7.79 | 15.67 |
+| Balloon (savanna) | 3.99 | 6.66 | 10.18 | 6.02 | 9.18 | 14.78 |
+| Turbine (city) | 3.00 | 5.35 | 11.48 | 4.41 | 7.04 | 14.32 |
+| Spring (cavern) | 4.29 | 6.56 | 9.20 | 5.73 | 9.07 | 13.85 |
+| Ghost (neon city) | 3.98 | 5.06 | 9.07 | 5.65 | 6.24 | 13.60 |
+| Diadem (dream) | 5.08 | 8.66 | 9.74 | 6.66 | 11.99 | 13.59 |
+| Colossus (Moon) | 3.84 | 5.28 | 7.79 | 5.39 | 7.34 | 10.24 |
+| SafetyNet (big top) | 3.78 | 5.08 | 6.21 | 5.27 | 7.19 | 9.09 |
+| Pendulum (desert) | 3.78 | 5.16 | 5.99 | 5.70 | 7.45 | 8.79 |
+| Tesseract (Grid) | 2.50 | 3.26 | 5.76 | 3.45 | 4.40 | 8.34 |
+
+- **`Medium` is this machine's tier at its own panel**: every chapter fits with at least 4.7 ms to spare (Diadem 11.99 is the dearest), and `High` misses in four chapters at 1080p (one at 900p). `Low` takes at most 40 % of the budget; the APU's `Low` (the table above, with its later rows) is 2–3.4× this card's at 900p.
+- **The two passes agree to 0.1 ms on most rows**; the aurora at `High` 900p spread 1.1 ms, Caldera at `High` 1080p 1.1, Ghost at `Medium` 1080p 1.0.
+- ⚠ **Space and the mountain are out of line at `High`**: Orrery reads 3.1× its `Medium` at 1080p and Spyglass 2.4×, where the other chapters read 1.1–2.2×. On the 6900 XT the swarm holds 88 728 balls in space at `High`; here the space scene alone is past the budget at 1080p ("The swarm" in `benchmark.md`).
+- **The adaptive probe lands where the table says**, with the window in focus and nothing pinned: Spyglass at 1080p read 47 FPS at `High` against its floor of 54 and stepped to `Medium`, then held 60. Amphora at `High` (17.5 ms, 57 FPS) is above the floor and is kept there, a frame short of the refresh.
+- **The benchmark agrees** (Extras > Benchmark, full screen 1080p at `High`): it recommends `Medium` (Neon City 91.9 % and Forest 78.9 % of their frames over the budget). Its physics: Girandole's step 1.21 ms median on 12 threads, 14.5 % of every frame, which is the 5900X's 1.29 on 24 threads: the CPU is nowhere near the limit here.
+
 ## The phone: the vivo X300 Ultra through the desktop path (#1061)
 
 Adreno 840, 3168×1440, the display held at 60 Hz by the phone (the game's limit 62, so 60 in the table is the display's and not the tier's; at 120 Hz see below), `desktop` with `quality=` and `render=`, the median of a run's last twelve `[fps]` lines. **Every run starts on a cool phone** (thermal status 0, battery under 36 °C). A warm one throttles and lies: a pass run back to back read the meadow at `Low` native at 31 FPS where a cool start reads 48.6.
