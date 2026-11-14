@@ -46,9 +46,11 @@ namespace Prazsky.Core.Render
     /// </para>
     /// <para>
     /// <b>What a nearer rise hides is rejected by laying the DEPTH FIRST instead</b> (#1097, <see cref="DrawSeenBlocks"/>
-    /// with a depth pass). Every terrain program cuts something (the island's hole, the ground under the island's bank,
-    /// the far ring's inner square), and a pixel program that may <c>discard</c> writes its depth after it has run, so
-    /// nothing in its own draw was rejected early and the ground was shaded under every rise in front of it. Where the
+    /// with a depth pass). Every terrain program but the mountain's fine grid (which cuts the island's hole in its vertex
+    /// program) cuts something in its pixel program (the island's hole, the ground under the island's bank, the far
+    /// ring's inner square, the meadow's brook and pond), and a pixel program that may <c>discard</c> writes its depth
+    /// after it has run, so nothing in its own draw was rejected early and the ground was shaded under every rise in
+    /// front of it. Where the
     /// scene supersamples, the seen blocks are drawn once with the scene's depth program (<c>&lt;technique&gt;Depth</c>:
     /// the cuts and nothing else, no colour written) and then shaded with <see cref="DepthStencilState.DepthRead"/> in
     /// the same rows. A pixel behind a nearer one fails the test before its program runs, whichever way the lens looks;
@@ -57,13 +59,21 @@ namespace Prazsky.Core.Render
     /// the one vertex program, or the two depths would not be the same bits.
     /// </para>
     /// <para>
+    /// <b>⚠ Every cut of a ground lives in its effect's <c>&lt;Scene&gt;Cuts</c></b>, which the ground's program and its
+    /// depth twin both call. A <c>clip()</c> the ground's program makes anywhere else, and the twin does not, leaves the
+    /// twin's depth where no colour is written: on High and Ultra a hole, through which whatever was drawn before the
+    /// ground shows and which nothing drawn later behind the ground fills. One the twin makes and the ground does not
+    /// lets the ground's farther triangles paint over its nearer ones. Below those tiers the same edit shows nothing, so
+    /// <c>TerrainDepthTwinSourceTests</c> reads the effects and holds both, and that each twin runs its ground's vertex
+    /// program.
+    /// </para>
+    /// <para>
     /// <b>Below the supersampling tiers a grid is the one pass it always was.</b> The depth pass runs the grid's vertex
-    /// program twice, which the machines of those tiers were not measured to afford. And those tiers draw into a
-    /// multisampled target, where the ground could not be split between the cutting program and a twin without its
-    /// cuts (which put the depth test back in front of the pixel shader wherever no cut reaches) at no cost to the
-    /// picture: built so, it saved about 0.14 ms a scene at Medium's programs, and frames of two runs of it differed
-    /// from those of two runs of the one program in more pixels of the far ground than two runs of either build
-    /// differ from each other, at two samples and at four.
+    /// program twice, which the machines of those tiers were not measured to afford. Nor may the ground be split there
+    /// between its cutting program and a twin without its cuts for the blocks no cut reaches (which would put the depth
+    /// test back in front of the pixel shader there): those tiers draw into a multisampled target, and frames drawn so
+    /// differed from the one program's on the far ground by more pixels than two runs of either build differ from each
+    /// other, at two samples and at four.
     /// </para>
     /// <para>
     /// <b>The depth twins are DirectX's alone.</b> A depth pass and the pass shaded on it need the one vertex program to

@@ -294,6 +294,9 @@ float HearthBurn(float2 xz)
 //The cutting entry points and the depth twins call this themselves, before anything else: written that way both
 //profiles compile a cutting program to the instructions it had before the cuts had a name
 //(docs/rendering/opengl-es.md).
+//⚠ Every clip() of this ground belongs in here. One its program makes anywhere else, which the depth twin does
+//not, leaves the twin's depth where no colour is written: on High and Ultra a hole, through which whatever was drawn
+//before the ground shows (TerrainDepthTwinSourceTests fails on it). Below those tiers nothing would show it.
 void SavannaCuts(float2 xz)
 {
     //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.

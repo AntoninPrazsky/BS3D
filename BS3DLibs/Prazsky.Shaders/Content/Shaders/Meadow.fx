@@ -794,6 +794,9 @@ float3 BrookPebbles(float2 xz, float footprint, float clods)
 //stands. Where the scene supersamples (High and Ultra) the depth is laid first by these alone (MeadowDepth and
 //MeadowReducedDepth, below) and the field's program then shades the whole ground on it, writing none (#1097); below
 //that the ground is one pass with the one program, as it always was (TerrainGridCache).
+//⚠ Every clip() of this ground belongs in here. One its program makes anywhere else, which the depth twin does
+//not, leaves the twin's depth where no colour is written: on High and Ultra a hole, through which whatever was drawn
+//before the ground shows (TerrainDepthTwinSourceTests fails on it). Below those tiers nothing would show it.
 void MeadowCuts(float2 xz, float brookLateral)
 {
     clip(length(xz) - IslandHoleRadius);

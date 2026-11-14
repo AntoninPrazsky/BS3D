@@ -146,6 +146,36 @@ namespace BS3D.Tests
             }
         }
 
+        //A ground whose vertex program moves a vertex sideways (the sea's and the lagoon's waves, SeaBackdrop.SwayReach)
+        //has every block's box grown by that much in X and Z, on every side: a box only as wide as the rest grid skips a
+        //block at the frame's edge while a crest swings into view. The sea's grid at the sea's reach, and at a third of a
+        //block, wide enough that the growth decides some block under these lenses (held below, so the case cannot pass
+        //on boxes the growth never changes)
+        [Theory]
+        [InlineData(380, 1600f, 1.99f)]
+        [InlineData(380, 1600f, 22f)]
+        public void ABlockIsDrawnWhereItsGroundCanSwayIntoTheLens(int n, float extent, float sideways)
+        {
+            TerrainGridCache.BlockIndices(n, TerrainGridCache.BLOCK_QUADS, out int side, out int[] start, out int[] count);
+            int[] runs = new int[TerrainGridCache.RunCapacity(side * side)];
+            int grown = 0;
+
+            foreach ((Vector3 eye, Vector3 target, float fov, string name) in Lenses())
+            {
+                BoundingFrustum frustum = Frustum(eye, target, fov);
+                (float originX, float originZ) = Origin(eye, n, extent);
+
+                int entries = TerrainGridCache.SeenRuns(n, side, start, count, frustum, originX, originZ, extent, -1000f, 3000f, sideways, runs);
+                List<int> expected = SeenBlocks(n, side, frustum, originX, originZ, extent, sideways);
+
+                Assert.Equal(expected, BlocksOf(runs, entries, start, count));
+                grown += expected.Count - SeenBlocks(n, side, frustum, originX, originZ, extent).Count;
+            }
+
+            _output.WriteLine($"{n} over {extent}, grown by {sideways}: {grown} blocks more over every lens");
+            Assert.True(grown > 0, "no lens sees a block only its growth brings in, so this case tests nothing");
+        }
+
         //The play camera at eight bearings round the arena (the Testbed's game-mode pose and field of view), a low lens
         //along the ground, and the free camera high over the island looking down its drain
         private static IEnumerable<(Vector3 Eye, Vector3 Target, float Fov, string Name)> Lenses()
@@ -170,15 +200,19 @@ namespace BS3D.Tests
             return (MathF.Round(eye.X / cell) * cell, MathF.Round(eye.Z / cell) * cell);
         }
 
-        //The blocks whose box the lens touches, row by row, counted off the grid's figures alone
-        private static List<int> SeenBlocks(int n, int side, BoundingFrustum frustum, float originX, float originZ, float extent)
+        //The blocks whose box, grown by sideways on every side, the lens touches, row by row, counted off the grid's
+        //figures alone
+        private static List<int> SeenBlocks(int n, int side, BoundingFrustum frustum, float originX, float originZ, float extent,
+            float sideways = 0f)
         {
             float cell = extent / (n - 1), half = extent * 0.5f, span = TerrainGridCache.BLOCK_QUADS * cell;
             var seen = new List<int>();
             for (int b = 0; b < side * side; b++)
             {
-                float x0 = originX - half + b % side * span, z0 = originZ - half + b / side * span;
-                if (frustum.Contains(new BoundingBox(new Vector3(x0, -1000f, z0), new Vector3(x0 + span, 3000f, z0 + span))) != ContainmentType.Disjoint)
+                float x0 = originX - half + b % side * span - sideways, z0 = originZ - half + b / side * span - sideways;
+                float x1 = x0 + span + 2f * sideways, z1 = z0 + span + 2f * sideways;
+                var box = new BoundingBox(new Vector3(x0, -1000f, z0), new Vector3(x1, 3000f, z1));
+                if (frustum.Contains(box) != ContainmentType.Disjoint)
                     seen.Add(b);
             }
             return seen;
