@@ -283,6 +283,16 @@ namespace Testbed.Diagnostics
         public EnvironmentOrder EnvironmentOrder { get; private set; } = EnvironmentOrder.Auto;
 
         /// <summary>
+        /// <c>bdres=&lt;0|1&gt;</c>: whether a supersampled frame shades the backdrops that ask for it at the display's
+        /// resolution and scales them up (<c>SceneRenderer.BackdropsAtDisplayResolution</c>: the dream, the cavern, the big
+        /// top and space, #155, #1096). 1, the default, is the shipped frame; 0 draws them into the scene target with its
+        /// samples, what they looked like and cost before. An <c>alt=</c> dial too, so the two can be photographed either
+        /// side of one switch with the clock stood still. ⚠ A per-scene cost is read one process a figure, not off an
+        /// <c>alt=</c> list (#1129).
+        /// </summary>
+        public bool BackdropsAtDisplayResolution { get; private set; } = true;
+
+        /// <summary>
         /// <c>cityreflect=&lt;strength&gt;</c>: the city's windows mirroring the towers round them (#1065), the Game's High and
         /// Ultra look - the towers' draw takes <c>InstancedCityReflect</c> over a map of the city. 1 by default; 0 draws the
         /// plain technique (the Game's Low and Medium), so the two can be photographed from one pinned camera and, through
@@ -528,6 +538,7 @@ namespace Testbed.Diagnostics
                 else if (arg.StartsWith("detail=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("detail=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedDetail)) options.SceneDetail = parsedDetail;
                 else if (arg.StartsWith("finemeshes=", StringComparison.OrdinalIgnoreCase)) options.FineMeshes = arg.Substring("finemeshes=".Length) is not ("0" or "false" or "off");
                 else if (arg.StartsWith("envorder=", StringComparison.OrdinalIgnoreCase)) options.EnvironmentOrder = ParseEnvironmentOrder(arg.Substring("envorder=".Length));
+                else if (arg.StartsWith("bdres=", StringComparison.OrdinalIgnoreCase)) options.BackdropsAtDisplayResolution = arg.Substring("bdres=".Length) is not ("0" or "false" or "off");
                 else if (arg.StartsWith("cityreflect=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("cityreflect=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float cityReflect)) options.CityReflect = MathF.Max(0f, cityReflect);
                 else if (arg.StartsWith("shadow=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("shadow=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedShadow)) options.ShadowScale = parsedShadow;
                 //Read here for the same reason "logfps" is (see the comment above it): an argument this parse

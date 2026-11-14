@@ -857,6 +857,10 @@ namespace Testbed
             if (_arenaIsolated && _environmentOrder == EnvironmentOrder.Auto)
                 Console.WriteLine("[envorder] first in every window: this run isolates the arena (arena=, capprobe=), and the island's depth laid first would price the ground its members hide with them (#1098)");
 
+            //#1096: "bdres=0" draws the dream, the cavern, the big top and space into the scene target with its samples
+            //rather than at display resolution, the frame before they took that path
+            _sceneRenderer.BackdropsAtDisplayResolution = _options.BackdropsAtDisplayResolution;
+
             //#471 PROBE: "shadow=" pins SceneRenderer.ShadowScale so a sun shadow map can be measured and
             //photographed against its own absence WITHOUT a second build - 0 is what a scene with no map
             //renders, exactly. It is alternable (see ApplyVariant), which is the point: alt=shadow=0;shadow=1
@@ -1423,7 +1427,7 @@ namespace Testbed
         /// behind alike and <see cref="MarkVariantSwitch"/> waits out (#1129).
         /// </summary>
         private static readonly string[] ALTERNATION_DIALS =
-            { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "finemeshes", "envorder", "cityreflect", "cityreflectreach", "cityreflectsteps", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano", "aurora", "cavern", "meadow", "mountain" };
+            { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "finemeshes", "envorder", "bdres", "cityreflect", "cityreflectreach", "cityreflectsteps", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano", "aurora", "cavern", "meadow", "mountain" };
 
         /// <summary>
         /// Prints the sweep's plan before the first window, and names anything it will not switch. A pin that
@@ -1599,6 +1603,13 @@ namespace Testbed
                     case "envorder":
                         _environmentOrder = TestOptions.ParseEnvironmentOrder(pin.Value);
                         break;
+
+                    //Whether the backdrops that ask for it are shaded at display resolution (#155, #1096): "bdres=0" draws
+                    //them into the scene target with its samples. Read per frame by the renderer
+                    case "bdres":
+                        _sceneRenderer.BackdropsAtDisplayResolution = pin.Value is not ("0" or "false" or "off");
+                        break;
+
 
                     //On/off like the switch it mirrors: "nopost=1" is the argument, "nopost=0" the authored look
                     case "nopost":

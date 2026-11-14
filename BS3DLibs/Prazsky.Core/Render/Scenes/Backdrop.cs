@@ -81,9 +81,20 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// The depth of a backdrop's solid things that can stand in front of the arena (#755), drawn into the caller's
         /// own target right after <see cref="Draw"/> - after the scale-up when the backdrop was shaded at display
-        /// resolution, whose depth stays in that target. Nothing by default: a backdrop is a background.
+        /// resolution, whose depth stays in that target (or which has none: the big top's, #1096). Nothing by default: a
+        /// backdrop is a background.
         /// </summary>
         public virtual void DrawDepth(in SceneFrame frame) { }
+
+        /// <summary>
+        /// What of a backdrop shaded at display resolution (<see cref="DrawsAtDisplayResolution"/>) is drawn into the
+        /// caller's own supersampled target instead, with its samples and its depth: called right after the scale-up and
+        /// before <see cref="DrawDepth"/>, and only then; a frame drawn straight into the caller's target has
+        /// <see cref="Draw"/> draw it, where it always was (<see cref="BackdropServices.ShadingAtDisplayResolution"/> says
+        /// which). Space's saucer (#1096): a small mesh with thin bright lamps round its rim that writes depth, which the
+        /// sky's target would neither smooth nor hold. Nothing by default.
+        /// </summary>
+        public virtual void DrawSupersampled(in SceneFrame frame) { }
 
         /// <summary>The foreground weather drawn after the cluster (<see cref="SceneRenderer.DrawOverlays"/>);
         /// nothing by default.</summary>
@@ -95,8 +106,12 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Whether a supersampled frame shades this backdrop at the back buffer's size and scales it up
-        /// (<see cref="SceneRenderer"/>'s <c>DrawBackdropAtDisplayResolution</c>). False by default: only a
-        /// pure full-screen fill whose look does not depend on the sample count may.
+        /// (<see cref="SceneRenderer"/>'s <c>DrawBackdropAtDisplayResolution</c>): the dream, the cavern, the big top and
+        /// space. False by default: a backdrop that answers true gives up its supersampling (one shade a display pixel,
+        /// or the target's own samples) and must look right at that, sizing whatever it draws in pixels off the target it
+        /// is shaded in (<see cref="BackdropServices.TargetSupersampleFactor"/>), and must draw what has to occlude the
+        /// arena in <see cref="DrawDepth"/> and what has to keep its samples in <see cref="DrawSupersampled"/>. Each
+        /// scene's override is the one line that turns its look back.
         /// </summary>
         public virtual bool DrawsAtDisplayResolution => false;
 
@@ -261,6 +276,14 @@ namespace Prazsky.Core.Render
 
         /// <summary>The caller's supersampling factor — <see cref="SceneRenderer.SupersampleFactor"/>, which forwards here.</summary>
         public int SupersampleFactor { get; set; } = 1;
+
+        /// <summary>
+        /// How many texels of the target being drawn make one output pixel: <see cref="SupersampleFactor"/>, or 1 while the
+        /// renderer has a backdrop shading into its display-resolution target (<see cref="ShadingAtDisplayResolution"/>),
+        /// whose texel is the output pixel. What a backdrop that sizes something in output pixels reads (the stars, #1096),
+        /// so that the resolved picture holds that size whichever target it was shaded in.
+        /// </summary>
+        public int TargetSupersampleFactor => ShadingAtDisplayResolution ? 1 : SupersampleFactor;
 
         /// <summary>Whether the scenes draw their finer meshes — <see cref="SceneRenderer.FineMeshes"/>, which forwards here.
         /// Read per draw, so a tier change needs no hook.</summary>

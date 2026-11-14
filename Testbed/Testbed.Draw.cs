@@ -550,6 +550,8 @@ namespace Testbed
                 //off has to say so on its own face, and a line that said "shadow 1" on every ordinary run would
                 //be one more column to read past in every sweep that is not about shadows.
                 + (_sceneRenderer.ShadowScale < 1f ? $", shadow {_sceneRenderer.ShadowScale.ToString("0.##", CultureInfo.InvariantCulture)}" : string.Empty)
+                //Likewise only when the backdrops that ask to be shaded at display resolution are not (#1096: bdres=0)
+                + (_sceneRenderer.BackdropsAtDisplayResolution ? string.Empty : ", bdres 0")
                 + $", {GraphicsDevice.PresentationParameters.BackBufferWidth}x{GraphicsDevice.PresentationParameters.BackBufferHeight}"
                 + $", vsync {(_options.UncappedFps ? "off" : "on")}{(_options.FpsCap > 0 ? $" (cap {_options.FpsCap})" : "")}, arena {_island.Members}{(alternating || capProbe > 0 ? $", capprobe {capProbe}" : "")}, balls {_collectedBalls}"
                 //Whether the window's last frame laid the island's depth before the environment (#1098: envorder=, or
