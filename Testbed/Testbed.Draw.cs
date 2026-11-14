@@ -233,7 +233,14 @@ namespace Testbed
                 //already own is turned away before Sky.fx runs. No pixel moves (SkyPass has the argument; skyorder=first
                 //is the frame before it, which is how that is shown). It puts the three states stated above the scene
                 //block back on its way out, which the second half below needs.
-                if (domed && skyBehind) _skyPass.Draw(_camera, behindScene: true);
+                if (domed && skyBehind)
+                {
+                    _skyPass.Draw(_camera, behindScene: true);
+
+                    //The band of the city's street whose depth rounds to 1, painted back after the sky took it, as the
+                    //Game does (CityStreets.DrawAtFarPlane)
+                    if (_scene == SceneKind.City || _scene == SceneKind.NeonCity) _streets?.DrawAtFarPlane();
+                }
 
                 //The backdrop's second half (#1098): what it blends over everything above without writing depth, to
                 //its end (the sea, the lagoon and its beach, the storm, the fountains, the moons, the desert's

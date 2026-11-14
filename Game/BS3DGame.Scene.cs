@@ -1137,6 +1137,29 @@ namespace BS3D
             //campfire blink and flicker on.
             if (_scene == SceneKind.Forest && SceneryShown) _forestFireflies?.Draw(_camera, _wallClock);
 
+            //THE SKY, BEHIND THE OPAQUE SCENE (#1104): the dome and the heaps over it, depth-read at the far plane, so every
+            //pixel the ground, the wood, the city and the island's laid depth already own is turned away before Sky.fx, one
+            //of the dearest programs in the frame, runs. No pixel moves: everything drawn since the clear is opaque and
+            //writes its depth, and everything the environment blends over the sky is its second half, next (SkyPass has
+            //the argument). Not later: from under the plate the ceiling's glass bends a copy of the frame taken before the
+            //gun and the cluster are drawn (#541), and it has to hold the sky. SkyPass puts the three states stated above
+            //back on its way out, which the second half needs.
+            if (!sceneSky && skyBehind)
+            {
+                _skyPass.Draw(_camera, behindScene: true);
+
+                //The one thing a lens sees cross the far plane is the city's street, and the band of it whose depth rounds
+                //to 1 the sky just took: painted back, exactly that band (CityStreets.DrawAtFarPlane has the argument)
+                if (SceneryShown && (_scene == SceneKind.City || _scene == SceneKind.NeonCity)) _streets.DrawAtFarPlane();
+            }
+
+            //The aurora AFTER the sky, though its wood is opaque: the wood stands only with the Scenery row on, when the aurora
+            //is its own sky and no dome is drawn, so nothing it hides is shaded either way. What the place decides is the light
+            //rig's step: with the row off the aurora stands under the dome, and a step re-pushes the dome's colours and sun
+            //(ApplySkyLighting, through CloudField.ApplyDome). Taken after the dome, a step reaches the sky on the next frame,
+            //as it does where the dome is drawn first or shaded before the scene target is bound (SkyPass.Prepare); taken
+            //before it, the late dome at every sample would show a step a frame ahead of those and of the heaps marched in
+            //Prepare.
             if (_scene == SceneKind.Aurora)
             {
                 //Re-tinted here rather than in ApplySkyLighting (see there), on the scene's own tint: constant since
@@ -1150,15 +1173,6 @@ namespace BS3D
 
                 if (SceneryShown) _auroraScatter.Draw(_camera, _sceneRenderer.FineMeshes);
             }
-
-            //THE SKY, BEHIND THE OPAQUE SCENE (#1104): the dome and the heaps over it, depth-read at the far plane, so every
-            //pixel the ground, the wood, the city and the island's laid depth already own is turned away before Sky.fx, one
-            //of the dearest programs in the frame, runs. No pixel moves: everything drawn since the clear is opaque and
-            //writes its depth, and everything the environment blends over the sky is its second half, next (SkyPass has
-            //the argument). Not later: from under the plate the ceiling's glass bends a copy of the frame taken before the
-            //gun and the cluster are drawn (#541), and it has to hold the sky. SkyPass puts the three states stated above
-            //back on its way out, which the second half needs.
-            if (!sceneSky && skyBehind) _skyPass.Draw(_camera, behindScene: true);
 
             //The backdrop's second half (#1098): what it blends over everything above without writing depth, to its end
             //(the sea, the lagoon and its beach, the storm, the fountains, the moons, the desert's creatures), over the sky

@@ -36,6 +36,12 @@ namespace Prazsky.Core.Render
     /// the frame taken before they are drawn (#541), which must hold the sky.
     /// </para>
     /// <para>
+    /// ⚠ <b>The far plane itself</b>: what stands within half a 24-bit depth step of it stores a depth of exactly 1, and the
+    /// sky at 1 passes less-or-equal there and takes it, where the sky drawn first was painted over by it. The one thing a
+    /// host's lens sees cross the far plane is the city's street, which is painted back right after the sky
+    /// (<see cref="CityStreets.DrawAtFarPlane"/>). Anything new that reaches past the far plane needs the same.
+    /// </para>
+    /// <para>
     /// <b>At display resolution on the tiers that supersample</b> (<see cref="DISPLAY_RESOLUTION"/>): the dome is shaded once a
     /// display pixel into a target of its own, before the scene target is bound, and that target is what the late draw brings
     /// in, one texel to each of the supersample's samples of its display pixel. The deck and the sun's disc get the one sample
@@ -135,8 +141,9 @@ namespace Prazsky.Core.Render
             int width = supersampleFactor > 1 ? sceneTarget.Width / supersampleFactor : 0;
             int height = supersampleFactor > 1 ? sceneTarget.Height / supersampleFactor : 0;
 
-            //A minimized window reports a zero back buffer, and a zero-sized target is a device error: the sky is then drawn
-            //into the scene target, which is correct and merely dearer
+            //The pipeline's supersampled target is a whole multiple of the factor and never zero-sized (a minimized window
+            //keeps the one it had: PostProcessPipeline.EnsureTarget), but a target narrower than the factor would size this
+            //one to zero, a device error: the sky is then drawn into the scene target, which is correct and merely dearer
             DrawsAtDisplayResolution = AtDisplayResolution && displayResolutionPays && GraphicsSupport.SkyBehindScene
                 && width > 0 && height > 0;
             if (!DrawsAtDisplayResolution)

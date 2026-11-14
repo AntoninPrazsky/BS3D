@@ -187,6 +187,55 @@ namespace Prazsky.Core.Render
             _device.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
+        //The far plane's own test for DrawAtFarPlane: equal, writing nothing
+        private static readonly DepthStencilState FAR_PLANE_EQUAL = new()
+        {
+            DepthBufferEnable = true,
+            DepthBufferWriteEnable = false,
+            DepthBufferFunction = CompareFunction.Equal,
+        };
+
+        /// <summary>
+        /// Paints the street back where it reaches the far plane, after a sky drawn behind the opaque scene (#1104,
+        /// <see cref="SkyPass"/>): call it right after that sky, in the same frame as <see cref="Draw"/> and with nothing
+        /// of the streets drawn between, since it draws with the parameters <see cref="Draw"/> stated.
+        /// <para>
+        /// <b>Why.</b> The street is the one thing a host's lens sees cross the far plane (<see cref="OUTSKIRTS"/> is past
+        /// it), and the last units before the plane round to a stored depth of exactly 1 (within half a 24-bit depth step
+        /// of it, 2^-25 x far² / near: 12 units of the 2000 far plane at the Testbed's 0.01 near plane, 2.4 at the Game's
+        /// 0.05). The sky drawn behind the scene sits at depth 1 and passes less-or-equal there, so without this it takes
+        /// a band of street along its far edge that the sky drawn first never did: three rows of a 3840x1500 Testbed
+        /// frame from a lens at y = 120 over the city, up to 69 steps of 255 in the city and 204 in the neon city. This
+        /// draws the same quad again with the viewport's depth range closed onto 1 and the depth test equal: it passes
+        /// exactly where the street itself wrote a depth of 1 (anywhere nearer it wrote less, and where a tower stands
+        /// the tower's depth is there), so it repaints that band and nothing else, the same fragments and the same
+        /// colour, opaque. Everything else of it is turned away by the depth test before the shader runs.
+        /// </para>
+        /// <para>Leaves the viewport as it found it, and alpha blend, the default depth state and counter-clockwise
+        /// culling.</para>
+        /// </summary>
+        public void DrawAtFarPlane()
+        {
+            Viewport viewport = _device.Viewport;
+            Viewport far = viewport;
+            far.MinDepth = 1f;
+            far.MaxDepth = 1f;
+            _device.Viewport = far;
+
+            _device.BlendState = BlendState.Opaque;
+            _device.RasterizerState = RasterizerState.CullNone;
+            _device.DepthStencilState = FAR_PLANE_EQUAL;
+
+            _device.SetVertexBuffer(_quad);
+            _effect.CurrentTechnique.Passes[0].Apply();
+            _device.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
+
+            _device.Viewport = viewport;
+            _device.BlendState = BlendState.AlphaBlend;
+            _device.DepthStencilState = DepthStencilState.Default;
+            _device.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
         public void Dispose()
         {
             _quad.Dispose();
