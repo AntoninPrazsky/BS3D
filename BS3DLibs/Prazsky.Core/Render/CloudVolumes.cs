@@ -190,8 +190,8 @@ namespace Prazsky.Core.Render
         /// Lays the layer <see cref="March"/> filled this frame over the target bound now, premultiplied, under the depth state
         /// and the viewport the caller stated (<see cref="SkyPass"/>: depth-read at the far plane behind the opaque scene, or no
         /// depth into the sky's own target). A full-screen quad, linear: the layer is the display's size and the target
-        /// either that or a supersampled multiple of it. Leaves the blend as it found it (alpha blend, which it draws with) and
-        /// the culling off. A no-op where no heap stands.
+        /// either that or a supersampled multiple of it. Leaves behind the alpha blend it draws with and the culling off. A no-op
+        /// where no heap stands.
         /// </summary>
         public void Composite()
         {

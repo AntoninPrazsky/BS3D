@@ -303,9 +303,12 @@ namespace Testbed
         /// pulse and the tonemap's grain - because a light and the thing it lights (the campfire's light and its flame
         /// billboard, the eruption's glow and its jets) are one flicker only if they read the same clock. The shot and
         /// input schedules (<c>shot=</c>, <c>at=</c>, <c>_script</c>) and the crosshair's blink stay on the bare
-        /// <c>_pulseSeconds</c>, so a script that drives a run does not move with it.
+        /// <c>_pulseSeconds</c>, so a script that drives a run does not move with it. <c>clockstill</c> stands it at
+        /// clock= for the whole run (#1104).
         /// </summary>
-        private float SceneClock => _pulseSeconds + _sceneClockOffset;
+        private float SceneClock => (_sceneClockStill ? 0f : _pulseSeconds) + _sceneClockOffset;
+
+        private readonly bool _sceneClockStill;
 
         //Which of the two cities _city holds, so a scene change that does not cross between them rebuilds
         //nothing.
@@ -560,7 +563,9 @@ namespace Testbed
             //reproducible: a frame of a city nobody can generate twice is a frame nobody can compare against.
             _sceneSeedOffset = options.SceneSeed ?? Random.Shared.Next();
             _sceneClockOffset = options.ClockOffset;
-            if (_sceneClockOffset > 0f) Console.WriteLine($"[clock] scene clock starts at {_sceneClockOffset.ToString("0.###", CultureInfo.InvariantCulture)} s");
+            _sceneClockStill = options.ClockStill;
+            if (_sceneClockOffset > 0f || _sceneClockStill)
+                Console.WriteLine($"[clock] scene clock {(_sceneClockStill ? "stands" : "starts")} at {_sceneClockOffset.ToString("0.###", CultureInfo.InvariantCulture)} s");
             Console.WriteLine($"[sceneseed] {_sceneSeedOffset}"
                 + (options.SceneSeed.HasValue ? " (pinned)" : " (rolled; pin it with sceneseed=)"));
 

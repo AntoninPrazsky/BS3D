@@ -367,6 +367,16 @@ namespace Testbed.Diagnostics
         public float ClockOffset { get; private set; }
 
         /// <summary>
+        /// <c>clockstill</c>: the scene's clock stands at <see cref="ClockOffset"/> for the whole run instead of running
+        /// from it (#1104), so two frames of one process are one instant of the weather, the water and the lights at an
+        /// ordinary session time. ⚠ <c>clock=</c> at a large power of two holds the clock still too (a float there steps by
+        /// seconds), but the cloud deck's drift (the wind times the clock) is then millions of units, a float carries it in
+        /// steps of a unit or more, and the deck's finest grain turns to blocks: <c>clock=600 clockstill</c> is how the
+        /// deck itself is photographed. The shot and input schedules keep the wall clock.
+        /// </summary>
+        public bool ClockStill { get; private set; }
+
+        /// <summary>
         /// <c>weather=&lt;clear|scattered|broken|overcast|storm&gt;</c>: the sky over the starting scene,
         /// overriding whatever that scene asks for (#221). Testing only, and it exists for one reason the
         /// scene defaults cannot serve: judging five skies means seeing them over the SAME backdrop under
@@ -564,6 +574,7 @@ namespace Testbed.Diagnostics
                 else if (arg.StartsWith("clock=", StringComparison.OrdinalIgnoreCase)
                     && float.TryParse(arg.Substring("clock=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedClock))
                     options.ClockOffset = Math.Max(parsedClock, 0f);
+                else if (string.Equals(arg, "clockstill", StringComparison.OrdinalIgnoreCase)) options.ClockStill = true;
                 else if (arg.StartsWith("weather=", StringComparison.OrdinalIgnoreCase)) options.Weather = arg.Substring("weather=".Length);
                 else if (arg.StartsWith("balls=", StringComparison.OrdinalIgnoreCase) && BallStyles.TryParse(arg.Substring("balls=".Length), out BallStyle parsedBalls)) options.Balls = parsedBalls;
                 //Always consumed, so a spelling the parse refuses (the carved prototype's "shape") is named and dropped
