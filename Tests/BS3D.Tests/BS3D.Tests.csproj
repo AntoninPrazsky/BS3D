@@ -105,6 +105,9 @@
     <Compile Include="..\..\Game\Screens\CheckTick.cs" />
     <!--The aim ghost's beat (#831): its size as a pure function of the wall clock, no device.-->
     <Compile Include="..\..\Game\Screens\GhostBeat.cs" />
+    <!--The intro's dissolve (#1105): the black's, the picture's and the wordmark's strengths as pure functions of the splash's
+        age, and its skip, no device.-->
+    <Compile Include="..\..\Game\Screens\SplashTimeline.cs" />
     <!--The overview lens's tilt with the aim (#720): its target, the gun-keep limit and its chase, plain geometry and a
         closed-form follow over floats, no device.-->
     <Compile Include="..\..\Game\Screens\AimTilt.cs" />

@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1105 logo mizí s černou v jednom prolínání — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: logo úvodu začne mizet 0,25 s po začátku zvedání černé (`SplashTimeline.LOGO_LAG_SECONDS`) a je pryč 0,15 s po ní; pauza 0,4 s zmizela, úvod trvá 3,15 s místo 4,1. Časování je v nové `Game/Screens/SplashTimeline.cs` bez zařízení a hlídá ho 7 testů (`SplashTimelineTests`). Nový testovací argument `splashshot=<s,…>` podrží věk úvodu na dané vteřině a snímek uloží.
+- ⚠ `shot=` jede podle hodin, takže okamžik prolínání kratšího než vteřina netrefí; proto `splashshot=`. Okamžik po konci úvodu se nikdy nebere (dřív ho zachránil zpožděný `Replace`).
+- Otevřené: verdikt (`verdict-eye`): jestli 0,25 s čte jako „o kousek později“ a jestli přeskočený odchod (asi 0,32 s) ještě působí jako prolínání, ne střih (jinak `SKIP_RATE` 2).
+
 ## 2026-11-15 — #1103 #1104 #1096 #1077 verdikty a cíl Ultra 75 FPS uzavřen — desktop (RDT-PC), Claude Code
 
 - majitel (chat, 15. 11.): #1104 obloha v rozlišení displeje OK, #1096 šapitó OK, #1077 priorita zvuků na Androidu OK. Zapsáno do issues, všechny tři zavřené.
