@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1110 poušť: brouk, štír a přistání z úvodu — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: High a Ultra kreslí nové sítě `CritterMesh.FineBeetle` (5 584 tr.) a `FineScorpion` (8 940) podle referencí z #966; Low/Medium staré, Potato nic. Cena nerozlišitelná od nuly (alt=finemeshes, 7680x3200). Úvod: nový záběr brouka (3,6 s), štír držen celou chůzí, poslední záběr vzlétne od štíra a přistane na herní póze (`DesertLanding` přes sdílené `IntroLanding`); hejno vypadlo, hřeben 3,4 s. Úvod 23,9–24,2 s (dřív 23,2), test drží ≤ 24,5. Tvorové se znovu cuejí každý snímek (`IntroShot.Track`), takže pauza ani zásek nenechá pohled na prázdném písku. Opravena stopa brouka z #966 (byla barvou písku) a stín padá od slunce.
+- ⚠ Bash heredoc snědl zpětná lomítka, `userdata=` prázdné, jeden běh šel do profilu majitele: Stats.json a Outbox.json vráceny z .bak, last-run.log ztracen. Skripty spouštění psát nástrojem Write.
+- Otevřené: `verdict-eye` (pohyb neviděn, úvod o ~1 s delší).
+
 ## 2026-11-15 — #1115 Mars: úvod letí po kolejích vozítka — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: úvod Marsu otevírá záběr „the tracks“ (`Game/Effects/MarsIntroShots.cs`): 45 j středem kolejí 12,5 j/s, 2,6–2,95 nad `MarsCeiling`, pohled z kolejí 22 j vpředu se zvedne na ostrov a cluster. Hraje se tam, kde zem kreslí koleje (`MarsBackdrop.FullGroundAt`, Medium a výš); na Low zůstává „the plain“. Úvod 14,5 s (Low 14,1 s). `MarsTracks.TRAVERSE` je jediná kopie trasy; oblouk kolem arény překreslen (ohyb ≤ 9,3° místo 18,2°), kameny znovu rozhozeny. Chůze po kolejích Měsíce je sdílená (`RutsWalk`); Měsíc ověřen bajtově stejným výpisem.
