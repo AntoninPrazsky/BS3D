@@ -81,7 +81,8 @@ namespace BS3D.Effects
         /// <para>
         /// ⚠ <b>The heights are carried on past both ends</b> for the Gaussian's whole reach, so the first and last points
         /// are rounded like any other: the box average simply stopped at the ends, and the first point where its window
-        /// fitted whole was a kink, measured at 70-160 u/s² a quarter of a second into nine of eleven shots. Open ground
+        /// fitted whole was a kink: the worst vertical acceleration of seven of the eleven shots, 36-159 u/s², a quarter
+        /// to half a second after the cut. Open ground
         /// is read on along the plan's first and last directions; over a floor the heights are turned over their end
         /// point (2 h(end) - h(end ∓ k)) instead, which keeps a ramp running and a crane's foot where it was laid (read
         /// on, the level plain beside the outback crane's foot rounded the foot four units up).

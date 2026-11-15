@@ -208,9 +208,10 @@ namespace BS3D.Effects
         //⚠ PAST THE ENDS THE NEIGHBOUR IS EXTRAPOLATED, NOT REPEATED (#1109). A Catmull-Rom's speed at a point is half
         //the span between its two neighbours, so with the end point standing in for its own missing neighbour the lens
         //left every cut at half its speed and slowed to half again into the next: the view's turn rate doubled or halved
-        //within two frames, measured as 120-150 degrees a second squared on the summit's and the crown's arcs. Carried on along
+        //within two frames, measured as 118-144 degrees a second squared on the crown's and the summit's arcs. Carried on along
         //the end leg, the missing neighbour is where the path would have gone; the curve still ends on the end point,
-        //so a shot that lands still lands exactly.
+        //so a shot that lands still lands exactly. A two-point path (the desert's scorpion, the dream's fallback sky) is
+        //walked at the clock's own pace, where the repeated ends had eased it in and out.
         private static Vector3 At(Vector3[] path, float s)
         {
             float index = MathHelper.Clamp(s, 0f, 1f) * (path.Length - 1);
