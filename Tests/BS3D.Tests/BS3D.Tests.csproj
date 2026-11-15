@@ -48,6 +48,9 @@
     <Compile Include="..\..\Game\Effects\RutsWalk.cs" />
     <!--The sea's prologue (#1124): plain geometry over the sea's config and the oil rigs' layout, held against the rigs' own boxes.-->
     <Compile Include="..\..\Game\Effects\SeaIntroShots.cs" />
+    <!--Space's (#1117): the still shot of the planet and the saucer's pass across it, held against the craft's own flight
+        (SaucerFlight.WorldAt, in Prazsky.Core); plain geometry over the space config and the island's figures.-->
+    <Compile Include="..\..\Game\Effects\SpaceIntroShots.cs" />
   </ItemGroup>
 
   <!--The tutorial's rules (#666), compiled in the same way: Tutorial is a ladder of lessons and clocks with no device

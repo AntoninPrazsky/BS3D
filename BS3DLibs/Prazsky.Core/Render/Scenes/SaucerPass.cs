@@ -26,7 +26,7 @@ namespace Prazsky.Core.Render
     internal readonly struct SaucerPass
     {
         /// <summary>The run's pace, units a second: a little brisker than the loop's (<see cref="SaucerFlight.LOOP_SPEED"/>).</summary>
-        internal const float SPEED = 26f;
+        internal const float SPEED = 28f;
 
         /// <summary>
         /// How long the craft holds the run either side of its moment: the whole of the intro's still shot round it

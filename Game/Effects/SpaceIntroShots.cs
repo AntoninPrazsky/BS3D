@@ -37,8 +37,8 @@ namespace BS3D.Effects
         private const float SAUCER_OVER_DECK = 2.5f;
         private const float SAUCER_OFFSET_DEGREES = 20f;
         private const float SAUCER_TOWARDS_PLANET = 0.52f;
-        private const float SAUCER_FOV_DEGREES = 46f;
-        internal const float SAUCER_SECONDS = 4.1f;
+        private const float SAUCER_FOV_DEGREES = 47f;
+        internal const float SAUCER_SECONDS = 4.2f;
 
         //The craft, cued as the shot comes on screen (SceneRenderer.CueSpaceSaucer) to cross the frame from the planet's side
         //(the loop runs right to left as a lens outside it sees it): its middle this far from the lens, along a line this many
@@ -47,7 +47,7 @@ namespace BS3D.Effects
         //of stillness and is gone before the cut.
         internal const float PASS_DISTANCE = 34f;
         private const float PASS_DROP_DEGREES = 9f;
-        private const float PASS_ASIDE_DEGREES = 8f;
+        private const float PASS_ASIDE_DEGREES = 12f;
         internal const float PASS_AT_SECONDS = 2.4f;
 
         //The drain from under the island: a crane up from this far under the funnel's hole to this far, this far
@@ -56,7 +56,7 @@ namespace BS3D.Effects
         private const float DRAIN_FROM_BELOW = 34f, DRAIN_TO_BELOW = 22f;
         private const float DRAIN_OUT = 24f;
         private const float DRAIN_FOV_DEGREES = 60f;
-        internal const float DRAIN_SECONDS = 2.8f;
+        internal const float DRAIN_SECONDS = 2.7f;
 
         //The nebula: a sideways drift across the island from the side away from the nebula, this far out from the
         //axis, this far to one side of the line through it (so the cluster stands at the frame's edge rather
