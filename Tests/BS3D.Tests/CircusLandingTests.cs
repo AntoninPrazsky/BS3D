@@ -56,6 +56,11 @@ namespace BS3D.Tests
         private const float RUN_IN_TO = 68f;
         private const float OUTER_RUN_IN_TO = 70f;
 
+        //And the look holds level there, as the old gate's did, within this many degrees: it turns in and lifts only as the
+        //lens climbs out of the gap (CircusLanding's Lean). Lifted from the first frame instead, it is held on the target's
+        //height from a lens 2.6 over the floor, about 17 degrees up the whole way in.
+        private const float LEVEL_DOWN_THE_GAP = 2f;
+
         //A lens on its circle travelling within this many degrees of square to the radial line, and how many degrees inside
         //the frame's edge the axis must stand there
         private const float ACROSS_THE_RADIAL = 15f;
@@ -148,7 +153,7 @@ namespace BS3D.Tests
                 if (inside) insideWalked++; else outsideWalked++;
                 for (int i = 0; i <= POSES; i++)
                 {
-                    shot.Pose(i / (float)POSES, out Vector3 p, out _);
+                    shot.Pose(i / (float)POSES, out Vector3 p, out Vector3 look);
                     float r = new Vector2(p.X, p.Z).Length();
                     if (r < (inside ? Circus.Seating.InnerRadius : OUTER_RUN_IN_TO)) break;
 
@@ -158,6 +163,10 @@ namespace BS3D.Tests
                     {
                         Assert.True(across < 0.05f, $"{where}: {across:F2} off the gap's middle {r:F1} out");
                         Assert.InRange(p.Y, gateY - 0.05f, gateY + 0.05f);
+
+                        Vector3 d = look - p;
+                        float pitch = MathHelper.ToDegrees(MathF.Atan2(d.Y, new Vector2(d.X, d.Z).Length()));
+                        Assert.True(MathF.Abs(pitch) < LEVEL_DOWN_THE_GAP, $"{where}: looks {pitch:F1} degrees off level {r:F1} out");
                     }
                 }
             }

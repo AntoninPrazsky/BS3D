@@ -75,7 +75,11 @@ namespace BS3D.Effects
                 SceneKind.Desert => DesertIntroShots.Build(renderer, context.Clock, fieldOfView, random),
                 SceneKind.Outback => OutbackIntroShots.Build(renderer, fieldOfView, random),
                 SceneKind.Mountain => MountainIntroShots.Build(renderer, fieldOfView, random),
-                //#1107: the meadow lands on the pose as the cities do, its brook home (MeadowLanding)
+                //#1107: the meadow lands on the pose as the cities do, its brook home (MeadowLanding). ⚠ Here and for the
+                //big top no test reaches this hand-over: a wrong pose (one inside the island, or no facing) builds no landing,
+                //and the reel quietly falls back to what it had before, with the tour's leg to the pose. The [intro] line
+                //tells them apart: a reel that lands ends on its home shot's name, one that fell back goes on to the tour's
+                //"map .. out" leg.
                 SceneKind.Meadow => MeadowIntroShots.Build(renderer?.GetSceneConfig(SceneKind.Meadow) as MeadowSceneConfig,
                     renderer?.MeadowFigures, context.GamePosition, context.GameTarget, fieldOfView, random),
                 SceneKind.Savanna => SavannaIntroShots.Build(renderer, fieldOfView, random),

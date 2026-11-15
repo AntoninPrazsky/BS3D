@@ -55,7 +55,8 @@ namespace Prazsky.Core.Render
         public int LightCount => FOOTLIGHT_COUNT + POOL_COUNT;
 
         //Where they stand: just inside the curb, a little over the sawdust, and their warm colour. The Game's chapter intro
-        //keeps its lens off them with copies of the two figures (CircusLanding), which its tests hold equal to these.
+        //keeps its lens off them with copies of these two and FOOTLIGHT_COUNT (CircusLanding: this class is internal, so
+        //its public constant is out of the Game's reach too), which its tests hold equal to these.
         internal const float FOOTLIGHT_INSET = 1.2f;
         internal const float FOOTLIGHT_HEIGHT = 2.2f;
         private static readonly Vector3 FOOTLIGHT_COLOR = new(0.95f, 0.66f, 0.38f);

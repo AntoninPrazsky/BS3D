@@ -124,8 +124,8 @@ namespace BS3D.Effects
         private const float ARRIVAL_SLACK = 0.5f;
 
         //Where the footlights stand: CircusBackdrop's FOOTLIGHT_COUNT lamps, FOOTLIGHT_INSET inside the curb and
-        //FOOTLIGHT_HEIGHT over the floor, which the Game cannot see (it is the library's own); CircusLandingTests holds them
-        //equal
+        //FOOTLIGHT_HEIGHT over the floor, all three copied because the Game cannot see them (the class is internal to
+        //Prazsky.Core, its public FOOTLIGHT_COUNT with it); CircusLandingTests holds them equal
         internal const int FOOTLIGHT_COUNT = 4;
         internal const float FOOTLIGHT_INSET = 1.2f, FOOTLIGHT_HEIGHT = 2.2f;
 
