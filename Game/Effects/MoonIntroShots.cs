@@ -58,7 +58,7 @@ namespace BS3D.Effects
         //the ruts' width and its own half-size, and off the flag by twelve units and more, inside which the lens stops.
         //
         //The height: TRACKS_CLEARANCE over the highest ground within TRACKS_WINDOW points either side and TRACKS_LATERAL
-        //units to either hand, averaged in TRACKS_PASSES boxes (#645), so the lens rides two or three units over the
+        //units to either hand, averaged in TRACKS_PASSES boxes (#645), so the lens rides two to five units over the
         //regolith and still clears what the grid draws, whose triangles stand up to two units off the exact field across the
         //middle octave's rims (MoonPlanting's height). The look at TRACKS_LOOK_HEIGHT over the flag's foot holds the whole
         //flag in the frame at the end (its bar stands 5.5 over the ground) and its foot over the skip hint.
