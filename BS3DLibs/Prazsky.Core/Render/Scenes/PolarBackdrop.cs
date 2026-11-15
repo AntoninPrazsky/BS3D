@@ -32,8 +32,8 @@ namespace Prazsky.Core.Render
         //sastrugi ridge is metres across where a dune is tens, so the cell has to be small enough to hold one;
         //and the subject is a flat expanse, which means the horizon is further away here than in any other
         //ground scene and the grid has to reach it or the haze has to start early enough to hide the edge.
-        private const int POLAR_GRID_N = 420;
-        private const float POLAR_EXTENT = 1200f;
+        internal const int POLAR_GRID_N = 420;
+        internal const float POLAR_EXTENT = 1200f;
 
         //Look/tuning parameters (the sastrugi, the pressure ridge, the crevasses, the two colours, the
         //sparkle and the transmission) live in PolarSceneConfig; the backdrop reads them from _polarConfig.
@@ -50,7 +50,8 @@ namespace Prazsky.Core.Render
             ApplyPolarParameters();
 
             _plants = new PlantPass(services.GraphicsDevice, content);
-            _camp = new PolarPlanting(services.GraphicsDevice, (x, z) => TerrainMirror.Polar(x, z, _polarConfig), _polarConfig.CampCentre);
+            _camp = new PolarPlanting(services.GraphicsDevice, (x, z) => TerrainMirror.Polar(x, z, _polarConfig), _polarConfig.CampCentre,
+                _polarConfig.CampTurn);
         }
 
         /// <inheritdoc/>
@@ -149,7 +150,9 @@ namespace Prazsky.Core.Render
         {
             groundY = _polarConfig.LevelY;
             below = _polarConfig.SwellAmplitude * 2f;
-            above = _polarConfig.RidgeHeight;
+            //The front's plates, or the camp's mast standing on a swell (#1128), whichever is higher: a caster over the box's
+            //top is clipped out of the map
+            above = MathF.Max(_polarConfig.RidgeHeight, PolarPlanting.Tallest + _polarConfig.SwellAmplitude);
             return true;
         }
 

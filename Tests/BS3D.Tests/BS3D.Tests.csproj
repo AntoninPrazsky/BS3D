@@ -44,6 +44,8 @@
     <Compile Include="..\..\Game\Effects\MoonIntroShots.cs" />
     <!--The sea's prologue (#1124): plain geometry over the sea's config and the oil rigs' layout, held against the rigs' own boxes.-->
     <Compile Include="..\..\Game\Effects\SeaIntroShots.cs" />
+    <!--The icesheet's (#1128): the camp's arc and the keep-out round the camp, over TerrainMirror.Polar and PolarPlanting's layout.-->
+    <Compile Include="..\..\Game\Effects\PolarIntroShots.cs" />
   </ItemGroup>
 
   <!--The tutorial's rules (#666), compiled in the same way: Tutorial is a ladder of lessons and clocks with no device

@@ -13,7 +13,7 @@ namespace BS3D.Tests
     /// The chapter-intro shots that fly over rough ground ride like drone footage (#645, #530, #1109, #1112). Every
     /// shot whose height <see cref="AridIntroPaths.Hug"/> lays — the desert's erg, pyramids, crest and flock, the
     /// mountains' range, pass and summit, the outback's plain, approach and crown, the volcano's crater run and its orbit
-    /// round the village (#1127), and the Moon's tracks (#1114) — is built through its real builder on the shipped scene
+    /// round the village (#1127), the Moon's tracks (#1114) and the polar camp's arc (#1128) — is built through its real builder on the shipped scene
     /// config over a dozen rolls and sampled at sixty frames a second on its own eased clock.
     /// <para>
     /// <b>What the limits are, and why.</b> Drone footage changes height and tilt slowly: a gimbal tilts at most about
@@ -85,6 +85,8 @@ namespace BS3D.Tests
             Vector3 vent = new(centre.X, cone(centre.X, centre.Y) + 2f, centre.Y);
             var moon = new MoonSceneConfig();
             Func<float, float, float> regolith = (x, z) => TerrainMirror.Moon(x, z, moon.Terrain);
+            var polar = new PolarSceneConfig();
+            Func<float, float, float> ice = (x, z) => TerrainMirror.Polar(x, z, polar);
 
             return new Dictionary<string, Case>
             {
@@ -104,6 +106,8 @@ namespace BS3D.Tests
                     VolcanoCountryPlanting.Tallest + VolcanoIntroShots.TREE_AIR, false, true),
                 //The ruts and the flag are fixed (#1114): every roll is the same run.
                 ["moon: the tracks"] = new(_ => MoonIntroShots.Tracks(moon.Terrain), regolith, MoonIntroShots.TRACKS_CLEARANCE, true, true),
+                //An arc at one height over the highest ice under it (#1128), the lens on the camp: held to the ride all the same
+                ["polar: the camp"] = new(r => PolarIntroShots.Camp(polar, FieldOfView, r), ice, PolarIntroShots.CAMP_HEIGHT, true, false),
             };
         }
 
