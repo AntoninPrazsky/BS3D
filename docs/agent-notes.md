@@ -20,6 +20,24 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1115 Mars: úvod letí po kolejích vozítka — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: úvod Marsu otevírá záběr „the tracks“ (`Game/Effects/MarsIntroShots.cs`): 45 j středem kolejí 12,5 j/s, 2,6–2,95 nad `MarsCeiling`, pohled z kolejí 22 j vpředu se zvedne na ostrov a cluster. Hraje se tam, kde zem kreslí koleje (`MarsBackdrop.FullGroundAt`, Medium a výš); na Low zůstává „the plain“. Úvod 14,5 s (Low 14,1 s). `MarsTracks.TRAVERSE` je jediná kopie trasy; oblouk kolem arény překreslen (ohyb ≤ 9,3° místo 18,2°), kameny znovu rozhozeny. Chůze po kolejích Měsíce je sdílená (`RutsWalk`); Měsíc ověřen bajtově stejným výpisem.
+- ⚠ Úhel plánu se losuje na každém tieru, jinak tier posune vše, co los rozdá potom (jiná mesa).
+- Otevřené: `verdict-eye` (pohyb neviděn, zalomení kolejí přes malé krátery); cena kolejí na nové trase neměřena.
+
+## 2026-11-15 — #1127 sopka: úvod obletí vesnici — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: úvod Erupce má čtvrtý záběr „the village“ (3,6 s, `Game/Effects/VolcanoIntroShots.cs`) po kráteru: oblet středu vesnice (150 → 140 j, 65–85°), konec na ose kužel–vesnice, vesnice v dolní třetině, kužel se sloupem nad ní. Sopka zkrácena na 3,2 s, erupce na 3,4 s; reel 20,1 s. Na Low (bez lesů a domů, `SceneRenderer.VolcanoCountryDrawn`) se vesnice nehraje, náhoda se čerpá na všech tierech stejně. `VolcanoCountryPlanting` má tabulky a `Tallest`/`Reach`, kamera letí 6 j nad nejvyšším objektem.
+- ⚠ Střih z vesnice do posledního letu tour se točil jen 27,7° (mapová póza má pevný sklon); konec vesnice proto míří o 5° níž (`VILLAGE_END_DOWN_DEGREES`), test `TheCutIntoTheToursLegLandsOnAnotherPicture`.
+- Otevřené: `verdict-eye` (pohyb neviděn, délka 20,1 s, nápověda Skip kryje nejbližší domy).
+
+## 2026-11-15 — #1108 savana: úvod přistane v trávě na herní póze — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: poslední záběr úvodu savany je „the grass home“ (`Game/Effects/SavannaLanding.cs`), let 3–4,2 nad trávou přes sdílený `IntroLanding`, buď rovně z hájů, nebo kolem ostrova; žádný let tour nenásleduje. Úvod trvá 12,2–15,8 s (15,1 s při sceneseed=0). `SavannaScatter` jde zasadit bez `GraphicsDevice`, takže testy počítají se skutečnou plání.
+- ⚠ Volné koule stromů zavřou pláň zhruba u každého 25. semene scény (záložní starý střih). Druhé hledání drží stromy podle jejich obrysu (`PlantOutline`, disky z vlastních trojúhelníků): 800 z 800 sestavení přistane. Testy se semeny 0–23 to neodhalily.
+- Otevřené: `verdict-eye` (pohyb neviděn, plamen ohně u okraje záběru, tvar trasy kolem ostrova vs. rovně).
+
 ## 2026-11-15 — #1119 města: záběr fasád se zrcadlením — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: obě města mají nový záběr „the facades“ (`Game/Effects/CityIntroShots.cs`): kamera jde ulicí 1,5 j mimo osu (4 → 10 nad asfaltem), míří na jeden bod věže, který se přibližuje z 21 na 6 j, ulice zůstává pod rámem. Výběr ze 48 kandidátů podle toho, kolik tabulí zrcadlí věž. Oba reely: ulice, náměstí, fasády, střechy, cesta domů (24–26 s místo 20–22); ulice zkrácena na 4,0 s. Bez odrazů (Potato, GLES, nižší tiery) se fasády nehrají a reel zůstává starý.

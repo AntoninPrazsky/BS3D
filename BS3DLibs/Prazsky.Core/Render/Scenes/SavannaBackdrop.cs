@@ -417,6 +417,13 @@ namespace Prazsky.Core.Render
             _savannaEffect.Parameters["TrailWarpAmount"].SetValue(_trailWarp == null ? 0f : _trailWarp.MaxOffset);
         }
 
+        //Each hearth stone is laid HEARTH_RING_IN to HEARTH_RING_IN + HEARTH_RING_SPREAD of the ring's radius out, at
+        //HEARTH_STONE_SCALE_MIN to HEARTH_STONE_SCALE_MIN + HEARTH_STONE_SCALE_SPREAD of its rock. ⚠ The Game's SavannaLand
+        //copies the widest of each into how far a fire reaches (its FireReach, which the chapter intro's grass home keeps a
+        //lens off, #1108); SavannaLandingTests holds that reach against these and the rocks themselves
+        internal const float HEARTH_RING_IN = 0.88f, HEARTH_RING_SPREAD = 0.24f;
+        internal const float HEARTH_STONE_SCALE_MIN = 0.72f, HEARTH_STONE_SCALE_SPREAD = 0.55f;
+
         /// <summary>
         /// (Re)builds the ring of stones around each fire (#282): a few boulders of a handful of variants,
         /// set into the ground at their own spot on the terrain, rolled once and kept.
@@ -470,12 +477,12 @@ namespace Prazsky.Core.Render
                     //Evenly spaced and then jittered, both in angle and in how far out it sits: a ring of
                     //stones laid by hand is regular in intent and irregular in fact.
                     float angle = (s + (float)rng.NextDouble() * 0.4f - 0.2f) * MathHelper.TwoPi / stones;
-                    float radius = ring * (0.88f + 0.24f * (float)rng.NextDouble());
+                    float radius = ring * (HEARTH_RING_IN + HEARTH_RING_SPREAD * (float)rng.NextDouble());
 
                     float x = at.X + MathF.Cos(angle) * radius;
                     float z = at.Z + MathF.Sin(angle) * radius;
 
-                    float scale = 0.72f + 0.55f * (float)rng.NextDouble();
+                    float scale = HEARTH_STONE_SCALE_MIN + HEARTH_STONE_SCALE_SPREAD * (float)rng.NextDouble();
                     float yaw = (float)rng.NextDouble() * MathHelper.TwoPi;
                     float tiltDir = (float)rng.NextDouble() * MathHelper.TwoPi;
                     float tilt = 0.10f + 0.16f * (float)rng.NextDouble();

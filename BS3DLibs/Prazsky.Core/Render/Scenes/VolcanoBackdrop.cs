@@ -545,8 +545,16 @@ namespace Prazsky.Core.Render
             //What stands on the field (#679), opaque and depth-writing, before anything translucent over it
             if (_planting != null && (Layers & VolcanoLayer.Planting) != 0)
                 _plants.Draw(frame, _planting.Buckets, _volcanoConfig.HorizonHazeDistance, detail: true, Services.FineMeshes);
-            if (_country != null && _sceneDetail > 0.5f && (Layers & VolcanoLayer.Country) != 0) DrawCountry(frame);
+            if (CountryDrawn) DrawCountry(frame);
         }
+
+        /// <summary>
+        /// Whether the land's snags, woods and village (#748) are drawn: not at Low (<see cref="SceneRenderer.SceneDetail"/>),
+        /// whose land is its ground alone, nor with the layers dial's <see cref="VolcanoLayer.Country"/> off. The chapter intro's
+        /// shot of the village asks this (#1127, <see cref="SceneRenderer.VolcanoCountryDrawn"/>), so it is the very test the
+        /// draw makes.
+        /// </summary>
+        public bool CountryDrawn => _country != null && _sceneDetail > 0.5f && (Layers & VolcanoLayer.Country) != 0;
 
         /// <summary>
         /// The fumaroles' steam, the plume, the jets and the blaze over the flank — part of the far scene rather than

@@ -1263,6 +1263,12 @@ namespace Prazsky.Core.Render
         public SceneConfig GetSceneConfig(SceneKind kind) => BackdropFor(kind)?.Config;
 
         /// <summary>
+        /// Whether Mars's ground draws the rover's ruts (#745) at this tier: its full program's only, so not where the tier
+        /// drops the scene detail (<see cref="SceneDetail"/>). The chapter intro shoots them only where they are drawn (#1115).
+        /// </summary>
+        public bool MarsDrawsTracks => _mars.DrawsTracks;
+
+        /// <summary>
         /// How high <paramref name="kind"/>'s roof stands straight over (<paramref name="x"/>, <paramref name="z"/>), or
         /// infinity under an open sky (<see cref="Backdrop.RoofAbove"/>): where the ceiling plate's cables end (#896). Both
         /// roofs are drawn without depth, so a cable that ran on would be drawn across the rock or the canvas.
@@ -1538,6 +1544,12 @@ namespace Prazsky.Core.Render
         /// lamps off it, and a host with no renderer builds its own (<see cref="SceneLights.Volcano"/>).
         /// </summary>
         public VolcanoLava VolcanoLava => _volcano.Lava;
+
+        /// <summary>
+        /// Whether the volcano draws what stands on the land past its field (#748: the snags, the woods and the village): not
+        /// at Low, whose land is its ground alone. The chapter intro shoots the village only where it stands (#1127).
+        /// </summary>
+        public bool VolcanoCountryDrawn => _volcano.CountryDrawn;
 
         /// <summary>The big top's real lights (#690): the footlights on the curb that light the island's drum, then the pools
         /// the three island spots throw on its cap - how many, where each is and its colour now, and how far it reaches.
