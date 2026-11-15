@@ -75,8 +75,9 @@ namespace BS3D.Effects
                 SceneKind.Desert => DesertIntroShots.Build(renderer, context.Clock, fieldOfView, random),
                 SceneKind.Outback => OutbackIntroShots.Build(renderer, fieldOfView, random),
                 SceneKind.Mountain => MountainIntroShots.Build(renderer, fieldOfView, random),
-                SceneKind.Meadow => MeadowIntroShots.Build(
-                    renderer?.GetSceneConfig(SceneKind.Meadow) as MeadowSceneConfig, renderer?.MeadowFigures, fieldOfView, random),
+                //#1107: the meadow lands on the pose as the cities do, its brook home (MeadowLanding)
+                SceneKind.Meadow => MeadowIntroShots.Build(renderer?.GetSceneConfig(SceneKind.Meadow) as MeadowSceneConfig,
+                    renderer?.MeadowFigures, context.GamePosition, context.GameTarget, fieldOfView, random),
                 SceneKind.Savanna => SavannaIntroShots.Build(renderer, fieldOfView, random),
                 SceneKind.Forest => ForestIntroShots.Build(context.ForestScatter,
                     renderer?.GetSceneConfig(SceneKind.Forest) as ForestSceneConfig, fieldOfView, random),

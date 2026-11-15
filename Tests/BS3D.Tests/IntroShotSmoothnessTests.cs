@@ -61,6 +61,16 @@ namespace BS3D.Tests
                 AssertSmooth("the crater", VolcanoIntroShots.Crater(ground, vent, volcano, FieldOfView, new Random(seed)), ground);
         }
 
+        /// <summary>The Moon's run low up the rover's ruts to the flag (#1114): one shot, the ruts and the flag being fixed.</summary>
+        [Fact]
+        public void TheMoonTracksRunIsSlowAndSmooth()
+        {
+            var moon = new MoonSceneConfig();
+            Func<float, float, float> ground = (x, z) => TerrainMirror.Moon(x, z, moon.Terrain);
+
+            AssertSmooth("the tracks", MoonIntroShots.Tracks(moon.Terrain), ground);
+        }
+
         private static void AssertSmooth(string name, IntroShot shot, Func<float, float, float> ground)
         {
             int frames = (int)(shot.Seconds / FRAME);
