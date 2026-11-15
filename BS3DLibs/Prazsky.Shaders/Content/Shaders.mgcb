@@ -326,6 +326,12 @@
 /processorParam:DebugMode=Auto
 /build:Shaders/Circus.fx
 
+#begin Shaders/HashProbe.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/HashProbe.fx
+
 # The Potato tier's effects, for the Windows build's "potato" run (#808): the Raspberry Pi's picture on a desktop.
 # The SOURCES are GamePi's - GamePi/Shaders, where compile.ps1 builds them for OpenGL and commits the result - and here
 # the same files are compiled for DirectX 11 (PotatoProfile.fxh names the profiles for each). They land under

@@ -45,8 +45,8 @@ namespace BS3D.Effects
     /// copies of the shaders' own placement (the dream's and the storm's subjects move, so theirs are laid out on the
     /// wall clock they will play in); the cavern, whose hall is geometry the shots are placed against
     /// (<see cref="CavernIntroShots"/>, #958) — and the four scenes off the
-    /// Earth, the Moon, Mars, space and the Grid, each shot about one thing the scene builds: a real crater, a real
-    /// mesa, the planet and the drain, one cube and the landmark ring.
+    /// Earth, the Moon, Mars, space and the Grid, each shot about one thing the scene builds: a rover's ruts (the
+    /// Moon's up to its flag, Mars's to the island), a real mesa, the planet and the drain, one cube and the landmark ring.
     /// </para>
     /// <para>
     /// A declarative shot list was considered and is the wrong move (#596's own verdict): each builder

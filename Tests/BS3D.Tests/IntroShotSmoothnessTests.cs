@@ -13,8 +13,8 @@ namespace BS3D.Tests
     /// The chapter-intro shots that fly over rough ground ride like drone footage (#645, #530, #1109, #1112). Every
     /// shot whose height <see cref="AridIntroPaths.Hug"/> lays — the desert's erg, pyramids, crest and flock, the
     /// mountains' range, pass and summit, the outback's plain, approach and crown, the volcano's crater run and its orbit
-    /// round the village (#1127), and the Moon's tracks (#1114) — is built through its real builder on the shipped scene
-    /// config over a dozen rolls and sampled at sixty frames a second on its own eased clock.
+    /// round the village (#1127), and the Moon's and Mars's tracks (#1114, #1115) — is built through its real builder on
+    /// the shipped scene config over a dozen rolls and sampled at sixty frames a second on its own eased clock.
     /// <para>
     /// <b>What the limits are, and why.</b> Drone footage changes height and tilt slowly: a gimbal tilts at most about
     /// twenty degrees a second and takes half a second or more to get there, and the craft's climb rate changes over a
@@ -85,6 +85,8 @@ namespace BS3D.Tests
             Vector3 vent = new(centre.X, cone(centre.X, centre.Y) + 2f, centre.Y);
             var moon = new MoonSceneConfig();
             Func<float, float, float> regolith = (x, z) => TerrainMirror.Moon(x, z, moon.Terrain);
+            var mars = new MarsSceneConfig();
+            Func<float, float, float> marsCeiling = (x, z) => OffworldGround.MarsCeiling(x, z, mars.Terrain);
 
             return new Dictionary<string, Case>
             {
@@ -104,6 +106,8 @@ namespace BS3D.Tests
                     VolcanoCountryPlanting.Tallest + VolcanoIntroShots.TREE_AIR, false, true),
                 //The ruts and the flag are fixed (#1114): every roll is the same run.
                 ["moon: the tracks"] = new(_ => MoonIntroShots.Tracks(moon.Terrain), regolith, MoonIntroShots.TRACKS_CLEARANCE, true, true),
+                //So are Mars's (#1115), and Mars has no mirror of its ground: the lens flies its ceiling, the clearance over that.
+                ["mars: the tracks"] = new(_ => MarsIntroShots.Tracks(mars.Terrain), marsCeiling, MarsIntroShots.CLEARANCE, true, true),
             };
         }
 

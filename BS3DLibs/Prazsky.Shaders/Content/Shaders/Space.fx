@@ -695,21 +695,24 @@ SpaceVertexOutput SpaceVS(float3 position : POSITION0)
     return output;
 }
 
-float4 SpacePS(SpaceVertexOutput input) : COLOR
+//The three star layers, denser in the Milky Way's band (a Milky Way IS stars), before anything in front of them
+float3 StarField(float3 dir, float pixelAngle, float band)
 {
-    float3 dir = normalize(input.Ray);
+    float density = 1.0 + band * MilkyWayStarBoost;
 
-    //This pixel's angular footprint, measured on the DIRECTION rather than on any chart of it. The
-    //direction is continuous everywhere, so this number is too - which is what lets stars and galaxies
-    //sit on a cube lattice without its twelve seams showing as rings of wrongly sized dots.
-    //
-    //The footprint itself is the FROBENIUS norm of the screen-to-direction Jacobian, sqrt(||ddx||^2 +
-    //||ddy||^2), NOT length(fwidth(dir)): fwidth is the componentwise L1 sum |ddx|+|ddy|, which turns
-    //with the screen axes against the world and over-measures the footprint by between sqrt(2) and 2.
-    //Frobenius is isotropic in that rotation, so the core sized in pixels below does not swell and shrink
-    //as the camera bears (#150).
-    float pixelAngle = max(sqrt(dot(ddx(dir), ddx(dir)) + dot(ddy(dir), ddy(dir))), 1e-6);
+    float3 stars = StarLayer(dir, pixelAngle, StarCellScale[0], StarChance[0] * density, StarPeak[0], true);
+    stars += StarLayer(dir, pixelAngle, StarCellScale[1], StarChance[1] * density, StarPeak[1], false);
+    stars += StarLayer(dir, pixelAngle, StarCellScale[2], StarChance[2] * density, StarPeak[2], false);
+    return stars;
+}
 
+//The whole sky at one pixel, with or without the stars (#1132). `starWeight` is what of a star at this pixel
+//reaches the frame: the dust and the nebulae in front of it, the volume, the dither and the planet's coverage,
+//all of which only scale the star, so a star added later as `stars * starWeight` lands exactly where it would
+//have landed in here. That is what lets a supersampled frame shade everything else once a display pixel and
+//only the stars at the supersampled size (SpaceBasePS, SpaceStarsPS).
+float3 SpaceSky(float3 dir, float pixelAngle, bool withStars, out float starWeight)
+{
     //A very slow, very faint large-scale mottle on the void: the zodiacal light and the airglow. It does
     //almost nothing except stop the empty sky reading as a flat fill.
     float3 sky = VoidColor * (0.7 + 0.9 * Fbm3Cheap(dir * 1.7));
@@ -728,13 +731,9 @@ float4 SpacePS(SpaceVertexOutput input) : COLOR
     //The stars last, and dimmed behind whatever dust stands in front of them - the Milky Way's lanes and the
     //nebulae's own bodies. A lane that dims the glow but leaves the stars shining through reads as a stripe
     //painted over the sky rather than as something standing in front of it.
-    float density = 1.0 + band * MilkyWayStarBoost;
-
-    float3 stars = StarLayer(dir, pixelAngle, StarCellScale[0], StarChance[0] * density, StarPeak[0], true);
-    stars += StarLayer(dir, pixelAngle, StarCellScale[1], StarChance[1] * density, StarPeak[1], false);
-    stars += StarLayer(dir, pixelAngle, StarCellScale[2], StarChance[2] * density, StarPeak[2], false);
-
-    sky += stars * lerp(1.0, dustExtinction, 0.75) * lerp(1.0, nebulaTransmittance, 0.85);
+    float starsThrough = lerp(1.0, dustExtinction, 0.75) * lerp(1.0, nebulaTransmittance, 0.85);
+    if (withStars)
+        sky += StarField(dir, pixelAngle, band) * starsThrough;
 
     //The volume last of the sky, and that ordering is what makes it read as being IN FRONT of all of it. It is
     //the only layer here with a position rather than just a direction, so it is the only one that can be
@@ -751,14 +750,94 @@ float4 SpacePS(SpaceVertexOutput input) : COLOR
     //buffer draws contour rings. A couple of percent of noise at about one cell per pixel breaks them up,
     //and the supersample box filter halves whatever is left of it. Applied to the sky alone: the planet is
     //composited after, and a lit disc has plenty of gradient of its own.
-    sky *= 1.0 + (Hash13(floor(dir / pixelAngle)) - 0.5) * 0.03;
+    float dither = 1.0 + (Hash13(floor(dir / pixelAngle)) - 0.5) * 0.03;
+    sky *= dither;
 
     //The planet stands in front of all of it
     float coverage;
     float3 planet = Planet(dir, pixelAngle, coverage);
     sky = sky * (1.0 - coverage) + planet;
 
-    return float4(sky, 1.0);
+    starWeight = starsThrough * volumeTransmittance * dither * (1.0 - coverage);
+    return sky;
+}
+
+//This pixel's angular footprint, measured on the DIRECTION rather than on any chart of it. The direction is
+//continuous everywhere, so this number is too - which is what lets stars and galaxies sit on a cube lattice
+//without its twelve seams showing as rings of wrongly sized dots.
+//
+//The footprint itself is the FROBENIUS norm of the screen-to-direction Jacobian, sqrt(||ddx||^2 + ||ddy||^2),
+//NOT length(fwidth(dir)): fwidth is the componentwise L1 sum |ddx|+|ddy|, which turns with the screen axes
+//against the world and over-measures the footprint by between sqrt(2) and 2. Frobenius is isotropic in that
+//rotation, so the core sized in pixels below does not swell and shrink as the camera bears (#150). Taken at
+//the top of every pixel shader here, before any branch (see "Cost" in docs/scenes/space.md).
+float PixelAngle(float3 dir)
+{
+    return max(sqrt(dot(ddx(dir), ddx(dir)) + dot(ddy(dir), ddy(dir))), 1e-6);
+}
+
+//The whole sky in one pass: every frame at ssaa 1, and a supersampled one where the display-resolution path is
+//off (the Testbed's bdres=0)
+float4 SpacePS(SpaceVertexOutput input) : COLOR
+{
+    float3 dir = normalize(input.Ray);
+    float pixelAngle = PixelAngle(dir);
+
+    float starWeight;
+    return float4(SpaceSky(dir, pixelAngle, true, starWeight), 1.0);
+}
+
+//A supersampled frame's first half (#1132): everything but the stars, shaded once a DISPLAY pixel into the
+//display-resolution target, with what of a star would get through in alpha (the target is HdrBlendable, so the
+//weight keeps its precision)
+float4 SpaceBasePS(SpaceVertexOutput input) : COLOR
+{
+    float3 dir = normalize(input.Ray);
+    float pixelAngle = PixelAngle(dir);
+
+    float starWeight;
+    float3 sky = SpaceSky(dir, pixelAngle, false, starWeight);
+    return float4(sky, starWeight);
+}
+
+//The first half's picture, scaled up bilinearly as the other display-resolution backdrops are
+texture SpaceBaseTexture;
+sampler2D SpaceBaseSampler = sampler_state
+{
+    Texture = <SpaceBaseTexture>;
+    MinFilter = Linear;
+    MagFilter = Linear;
+    MipFilter = None;
+    AddressU = Clamp;
+    AddressV = Clamp;
+};
+
+struct SpaceStarsVertexOutput
+{
+    float4 Position : SV_POSITION;
+    float3 Ray : TEXCOORD0;
+    float2 BaseUV : TEXCOORD1;
+};
+
+SpaceStarsVertexOutput SpaceStarsVS(float3 position : POSITION0)
+{
+    SpaceStarsVertexOutput output;
+    output.Position = float4(position.xy, 1.0, 1.0);
+    output.Ray = mul(float4(position.xy, 1.0, 0.0), ViewRayBasis).xyz;
+    output.BaseUV = position.xy * float2(0.5, -0.5) + 0.5;
+    return output;
+}
+
+//The second half, at the supersampled size: the first half's picture plus the stars, each sized in output pixels
+//off SupersampleFactor as in SpacePS, through the weight the first half left. The stars are what lose their peaks
+//shaded once a display pixel and scaled up (#1096); the rest is smooth enough that the scale-up costs nothing to see.
+float4 SpaceStarsPS(SpaceStarsVertexOutput input) : COLOR
+{
+    float3 dir = normalize(input.Ray);
+    float pixelAngle = PixelAngle(dir);
+
+    float4 below = tex2D(SpaceBaseSampler, input.BaseUV);
+    return float4(below.rgb + StarField(dir, pixelAngle, MilkyWayBand(dir)) * below.a, 1.0);
 }
 
 technique Space
@@ -767,5 +846,23 @@ technique Space
     {
         VertexShader = compile VS_SHADERMODEL SpaceVS();
         PixelShader = compile PS_SHADERMODEL SpacePS();
+    }
+};
+
+technique SpaceBase
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL SpaceVS();
+        PixelShader = compile PS_SHADERMODEL SpaceBasePS();
+    }
+};
+
+technique SpaceStars
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL SpaceStarsVS();
+        PixelShader = compile PS_SHADERMODEL SpaceStarsPS();
     }
 };

@@ -38,7 +38,11 @@ description: How to add and wire custom HLSL effects (.fx) in BS3D — content p
    A shared header carries functions and static constants only; the uniforms it reads are declared by each
    includer before the `#include`, so the includer's constant buffer does not move. Copies that were meant
    to stay in step drifted apart within days (#579) — that is why these exist. An `.fxh` edit rebuilds
-   every `.fx` that includes it.
+   every `.fx` that includes it. **A field a C# copy must reproduce is built on `NoiseHash22`** (or its
+   `Clouds.fxh` twin): `ShaderMath.Hash22` rounds it as the GPU does because `HashRoundingProbe` asks the GPU at
+   load (#1134); any other hash copied to C# has no such probe, and on a GPU that rounds a multiply-add otherwise
+   it is quanta off. Do not make it `precise` to fix that: it spreads through the whole noise and cost the
+   reference APU up to 1.2 ms ("The terrain mirrors" in `docs/scenes/terrain-grids-and-mirrors.md`).
 
 ## Existing shader
 

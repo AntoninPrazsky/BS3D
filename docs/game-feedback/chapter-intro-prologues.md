@@ -67,7 +67,7 @@ A last shot that ends on the gameplay pose is a scene's route plus `Game/Effects
 
 ## Smoothness of the terrain-hugging shots (#645, #1109, #1112)
 
-A lens over rough ground rides like drone footage: its height and its tilt change over a second, never from one frame to the next. `Tests/BS3D.Tests/IntroShotSmoothnessTests.cs` builds every shot whose height `AridIntroPaths.Hug` lays (the desert's erg, pyramids, crest and flock; the mountains' range, pass and summit; the outback's plain, approach and crown; the volcano's crater and village; the Moon's tracks, the same run every roll) on the shipped configs over twelve rolls, samples it at 60 fps on its own eased clock, and holds **peaks**, since a judder is one bad frame in a hundred good ones:
+A lens over rough ground rides like drone footage: its height and its tilt change over a second, never from one frame to the next. `Tests/BS3D.Tests/IntroShotSmoothnessTests.cs` builds every shot whose height `AridIntroPaths.Hug` lays (the desert's erg, pyramids, crest and flock; the mountains' range, pass and summit; the outback's plain, approach and crown; the volcano's crater and village; the Moon's and Mars's tracks, each the same run every roll, Mars's over `OffworldGround.MarsCeiling`, the one copy of its ground the CPU has) on the shipped configs over twelve rolls, samples it at 60 fps on its own eased clock, and holds **peaks**, since a judder is one bad frame in a hundred good ones:
 
 | limit | value | why |
 |---|---|---|
