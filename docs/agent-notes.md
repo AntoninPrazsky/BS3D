@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1108 savana: úvod přistane v trávě na herní póze — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: poslední záběr úvodu savany je „the grass home“ (`Game/Effects/SavannaLanding.cs`), let 3–4,2 nad trávou přes sdílený `IntroLanding`, buď rovně z hájů, nebo kolem ostrova; žádný let tour nenásleduje. Úvod trvá 12,2–15,8 s (15,1 s při sceneseed=0). `SavannaScatter` jde zasadit bez `GraphicsDevice`, takže testy počítají se skutečnou plání.
+- ⚠ Volné koule stromů zavřou pláň zhruba u každého 25. semene scény (záložní starý střih). Druhé hledání drží stromy podle jejich obrysu (`PlantOutline`, disky z vlastních trojúhelníků): 800 z 800 sestavení přistane. Testy se semeny 0–23 to neodhalily.
+- Otevřené: `verdict-eye` (pohyb neviděn, plamen ohně u okraje záběru, tvar trasy kolem ostrova vs. rovně).
+
 ## 2026-11-15 — #1118 cirkus: úvod přistane za dělem — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: poslední záběr úvodu Big Topu je „the gate home“ (`Game/Effects/CircusLanding.cs`). Kamera vjede nízko středem uličky účinkujících, vystoupá na kruh uvnitř hlavních stožárů a přes sdílený `IntroLanding` přistane přesně na herní póze. Střih a let tour odpadly; úvod trvá 16,6 s místo 15,5 s. Kde cesta není volná (menu), zůstává stará brána s letem tour. Nový `IntroLanding.Style.LookRise` (výchozí 0): louka a obě města se nezměnila ani o bit.
