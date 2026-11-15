@@ -62,9 +62,10 @@ namespace BS3D.Tests
         private const float ARENA_IN_FRAME = 5f;
 
         //How far over the pose's target the cluster's top and the glass over it stand (Tightrope's field tops 7.2 over its
-        //aim, 5.66 against -1.57), and how much of the frame's half height above them must stay clear on the circle
+        //aim, 5.66 against -1.57), and how much of the frame's half height above them must stay clear on the circle: they
+        //stand at most 0.47 of it up the frame over the sweep, and with the look level (no LookRise) 0.85 and more
         private const float CLUSTER_TOP = 8f;
-        private const float CLUSTER_TOP_MARGIN = 0.15f;
+        private const float CLUSTER_TOP_MARGIN = 0.25f;
 
         private static readonly CircusSceneConfig Circus = new();
 
@@ -344,7 +345,7 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void The_tent_refuses_a_lens_in_the_seats_at_a_pole_on_the_curb_or_at_a_footlight()
+        public void The_tent_refuses_a_lens_in_the_seats_at_a_pole_on_the_curb_at_a_footlight_or_nearer_than_the_pose()
         {
             //Each of the tent's rules on its own, where the sweep might never meet it: a point is refused for the one solid it
             //stands in and taken a little way off it
@@ -378,6 +379,13 @@ namespace BS3D.Tests
             Vector3 lamp = Footlights()[0];
             Assert.False(tent.Clear(lamp + new Vector3(0f, 2f, 0f)), "at a footlight");
             Assert.True(tent.Clear(lamp + new Vector3(0f, 3f, 0f)), "over a footlight");
+
+            //Nearer the axis than the keep-out a landing is handed (the pose's own distance, less a little): the routes never
+            //come there by construction, the circle standing outside the pose and the turn in only closing on it, so it is
+            //held here
+            var keepOut = new CircusLanding.Tent(Circus, 30f);
+            Assert.False(keepOut.Clear(At(90f, 29.5f, floor + 6f)), "nearer the axis than the pose");
+            Assert.True(keepOut.Clear(At(90f, 30.5f, floor + 6f)), "as far out as the pose");
 
             //And the copies the Game keeps of the backdrop's footlight figures, which it cannot see, are the backdrop's own
             Assert.Equal(CircusBackdrop.FOOTLIGHT_COUNT, CircusLanding.FOOTLIGHT_COUNT);
