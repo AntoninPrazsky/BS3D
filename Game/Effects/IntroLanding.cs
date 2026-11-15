@@ -15,12 +15,13 @@ namespace BS3D.Effects
     /// <list type="bullet">
     /// <item>a <b>release</b> onto the pose (<see cref="Release"/>): a cubic off the line the route is flying along, arriving
     /// along a direction the scene chooses (<see cref="Arrival"/>: the pose's own facing, halfway, or still along the route
-    /// with the view swivelling onto the pose), never tighter than a radius the scene states (<see cref="NoTighterThan"/>);</item>
+    /// with the view swivelling onto the pose); or, for a route round the arena, <see cref="TurnIn"/> off its circle down the
+    /// pose's facing; never tighter than a radius the scene states (<see cref="NoTighterThan"/>);</item>
     /// <item><b>timing</b> (<see cref="Fly"/>): the route walked at the speed the scene gives each of its points, then a
     /// cubic in time that decelerates to rest exactly on the pose, so the last half second is slow;</item>
     /// <item>a <b>look</b> along the travel (its direction averaged over a moment either side, which turns the view into a
-    /// corner before the lens), optionally leaning towards the arena, that eases onto the pose's own look over the last
-    /// seconds and ends on it exactly;</item>
+    /// corner before the lens), turned in towards the pose's target where the route asks it, that eases onto the pose's own
+    /// look over the last seconds and ends on it exactly;</item>
     /// <item>a <b>bank</b> in proportion to the heading's rate of turn, smoothed, level by the landing; and the lens easing
     /// from the scene's wide one to the game's own;</item>
     /// <item>a <b>search</b> (<see cref="Best"/>): rolled candidates each laid in full, the ones a clearance predicate
@@ -54,8 +55,8 @@ namespace BS3D.Effects
         /// and the bank levels out.</param>
         /// <param name="LookInward">How far the look turns in plan from the travel towards the pose's target, as a share of the
         /// angle between them (where the route asks it: <see cref="Route.Lean"/>): 0 looks along the travel; 0.7 on a circle
-        /// round the arena looks 63 degrees in from it, the cluster 27 degrees off the frame's middle in a 16:9 frame, where 0.6 of the way across
-        /// the travel's square (31 degrees) left the island at the frame's edge.</param>
+        /// round the arena looks 63 degrees in from it, the cluster 27 degrees off the middle of a 16:9 frame, where a lean of
+        /// 31 degrees left the island at the frame's edge.</param>
         /// <param name="RollPerTurn">Degrees of bank per degree a second of the heading's turn.</param>
         /// <param name="MaxRollDegrees">The most it banks.</param>
         /// <param name="RollSmoothSeconds">How long either side the bank is smoothed over (three passes).</param>
