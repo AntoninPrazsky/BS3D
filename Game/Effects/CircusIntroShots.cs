@@ -5,23 +5,29 @@ using System;
 namespace BS3D.Effects
 {
     /// <summary>
-    /// The big top's own shots for a chapter intro's prologue (#752). The owner: "the flight through the big top needs
-    /// improving. So that we see the ceiling. So that we have a view from a spectator's place forward to the island. And
-    /// cuts." The Big Top had no prologue at all: the generic tour flew, inside the king poles' ring, and the canvas only
-    /// ever showed at the top of the frame. Three shots, each in a different place, direction and height from its
-    /// neighbour, cut together, then cut to the tour's last leg:
+    /// The big top's own shots for a chapter intro's prologue (#752, #1118). The owner: "the flight through the big top
+    /// needs improving. So that we see the ceiling. So that we have a view from a spectator's place forward to the island.
+    /// And cuts." The Big Top had no prologue at all: the generic tour flew, inside the king poles' ring, and the canvas
+    /// only ever showed at the top of the frame. Three shots, each in a different place, direction and height from its
+    /// neighbour, cut together:
     /// <list type="bullet">
     /// <item><b>The canvas</b>: low on the ring floor beside a king pole, the look climbing the pole to where it meets the
     /// canvas and on up the roof towards the crown.</item>
     /// <item><b>The seats</b>: a seat high in the stands, at a sitting eye's height over its row, a slow dolly along the
     /// row with the look across the ring on the island, the way the audience sees it.</item>
-    /// <item><b>The gate</b>: in through the performers' entrance, low, the island ahead: the way the act comes in.</item>
+    /// <item><b>The gate home</b> (<see cref="CircusLanding"/>, #1118): in through the performers' entrance, low, the
+    /// island ahead, the way the act comes in; then out of the gap, round the island and onto the gameplay pose itself, so
+    /// no tour leg and no cut follow. Where no flight home is clear, <b>the gate</b>: the run in alone, then a cut to the
+    /// tour's last leg.</item>
     /// </list>
     /// Everything is placed off the tent's own figures (<see cref="CircusSceneConfig"/>): the poles where the pass puts
     /// them, the rake of the seats as <c>Circus.fx</c> draws it, the entrance gap. Built once when the intro begins.
     /// </summary>
     internal static class CircusIntroShots
     {
+        /// <summary>The reel's last shot where no flight home is clear, in the intro's log line.</summary>
+        internal const string GATE_NAME = "the gate";
+
         //The canvas: the lens this far round from a pole and this far out, rising from this high over the floor to this,
         //the look climbing the pole from this high and on up the roof to this share of the way from the pole's top to the
         //crown
@@ -42,9 +48,12 @@ namespace BS3D.Effects
         private const float SEAT_LOOK_HEIGHT = 5f;
         private const float SEAT_SECONDS = 3.6f;
 
-        //The gate: in along the entrance's bearing from this far out to this, this high over the floor
-        private const float GATE_FROM = 94f, GATE_TO = 66f;
-        private const float GATE_HEIGHT = 2.6f;
+        //The gate: in along the entrance's bearing from this far out (just inside the wall, in its arch) to this, this high
+        //over the floor, the lens this much wider than the game's. The gate home (CircusLanding) starts where it does.
+        internal const float GATE_FROM = 94f;
+        private const float GATE_TO = 66f;
+        internal const float GATE_HEIGHT = 2.6f;
+        internal const float GATE_LENS = 1.2f;
         private const float GATE_SECONDS = 3.2f;
 
         private const int PATH_POINTS = IntroPaths.POINTS;
@@ -53,19 +62,25 @@ namespace BS3D.Effects
         /// The prologue for the big top being drawn, or null when the renderer has no circus config.
         /// <paramref name="fieldOfView"/> is the intro's own gameplay frame, which each shot widens from.
         /// </summary>
-        public static IntroShot[] Build(SceneRenderer scenes, float fieldOfView, Random random)
+        /// <param name="endPosition">The pose the intro hands the camera back at (<see cref="IntroContext.GamePosition"/>),
+        /// which the gate home lands on.</param>
+        /// <param name="endTarget">What that pose looks at.</param>
+        public static IntroShot[] Build(SceneRenderer scenes, Vector3 endPosition, Vector3 endTarget, float fieldOfView, Random random)
         {
             if (scenes?.GetSceneConfig(SceneKind.Circus) is not CircusSceneConfig circus) return null;
-            return Build(circus, fieldOfView, random);
+            return Build(circus, endPosition, endTarget, fieldOfView, random);
         }
 
-        /// <summary>The prologue off a config, with no renderer: what the tests fly.</summary>
-        internal static IntroShot[] Build(CircusSceneConfig circus, float fieldOfView, Random random) => new[]
+        /// <summary>The prologue off a config, with no renderer: what the tests fly. The gate home where one is clear, the
+        /// gate (and the tour's leg after it) where none is.</summary>
+        internal static IntroShot[] Build(CircusSceneConfig circus, Vector3 endPosition, Vector3 endTarget, float fieldOfView,
+            Random random)
         {
-            Canvas(circus, fieldOfView, random),
-            Seats(circus, fieldOfView, random),
-            Gate(circus, fieldOfView),
-        };
+            IntroShot canvas = Canvas(circus, fieldOfView, random);
+            IntroShot seats = Seats(circus, fieldOfView, random);
+            IntroShot home = CircusLanding.Build(circus, endPosition, endTarget, fieldOfView, random);
+            return new[] { canvas, seats, home ?? Gate(circus, fieldOfView) };
+        }
 
         /// <summary>The bearing of king pole <paramref name="pole"/>, as the pass and the poles' depth mesh place it.</summary>
         internal static float PoleBearing(CircusSceneConfig circus, int pole) =>
@@ -175,7 +190,7 @@ namespace BS3D.Effects
                 path[i] = new Vector3(outward.X * r, y, outward.Y * r);
             }
 
-            return new IntroShot("the gate", path, GATE_SECONDS, fieldOfView * 1.2f,
+            return new IntroShot(GATE_NAME, path, GATE_SECONDS, fieldOfView * GATE_LENS,
                 lookAt: new Vector3(0f, circus.Ring.FloorY + 6f, 0f));
         }
     }
