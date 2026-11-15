@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1114 Měsíc: jedna vlajka u stop vozítka a záběr po kolejích — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: na Měsíci stojí jedna bílá vlajka (`FLAG_SIZE` 2,4) místo dvou, 4 jednotky vedle stop vozítka na svahu, asi 14° vlevo od osy herního pohledu (nad hranou paluby, mimo kolo děla). Stopy přeloženy: z pláně se stočí na jih a stoupají za vlajku (ohyb nejvýš 10,4°). Úvod: záběr kráteru nahradil „the tracks“, nízký let po kolejích nad CPU zrcadlem terénu se sluncem z boku, končí na vlajce zblízka; úvod 15,3 s místo 14,3.
+- ⚠ Shader rozkládá 24 bodů stop rovnoměrně po řídicích úsecích, ne po délce: oblouk potřebuje hodně krátkých úseků, jinak je hranatý (19°).
+- Otevřené: verdikt (`verdict-eye`): vlajka je proti stopám (1 j./m) asi 1,9× větší než Apollo; chybějící záběr kráteru; Potato neviděno; cena stop na nové trase neměřena.
+
 ## 2026-11-15 — #1107 louka: úvod přistane na herní póze — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: úvod kapitoly Louka končí letem „the brook home“ — dolů po potoce mezi vrbami, přes rybník, mezerou v rákosí ven, kruh 48–60 kolem ostrova a zatočení přesně na herní pózu, bez cesty tour a bez střihu. Oblety balíků a lavičky drží tempo a vzdálenost #945, ale letí jen prostředních 108° (3,4 s). Celý úvod 21,0–21,7 s (byl 24,9), strop testu 22 s.

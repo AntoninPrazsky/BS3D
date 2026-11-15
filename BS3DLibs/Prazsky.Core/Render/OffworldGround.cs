@@ -4,18 +4,20 @@ using System;
 namespace Prazsky.Core.Render
 {
     /// <summary>
-    /// <b>The Moon's and Mars's ground, as far as a camera needs to know it</b> (#559). Neither scene has a CPU
-    /// mirror of its height field — nothing is planted on either, and the crater lattice, the boulders and the
-    /// mesas are hashes all the way down — so a chapter intro that flies low over them had nothing to keep its
-    /// lens out of the ground with. This is that, and deliberately no more than that:
+    /// <b>The Moon's and Mars's ground, as far as a camera or a planting needs to know it</b> (#559). Mars has no CPU mirror of
+    /// its height field — its crater lattice, boulders and mesas are hashes all the way down — so a chapter intro
+    /// that flies over it has nothing else to keep its lens out of the ground with. The Moon has one
+    /// (<see cref="TerrainMirror.Moon"/>, #680), which its rocks stand on and its intro's low tracks shot follows
+    /// (#1114); its high and far lenses keep off the ceiling here. This is that, and deliberately no more than that:
     /// <list type="bullet">
     /// <item>a <b>ceiling</b> (<see cref="MoonCeiling"/>, <see cref="MarsCeiling"/>) — a height the ground at a
     /// point can never stand above, exact where the field is cheap to mirror (the mare undulation, the highland
     /// belt, the curvature, the mesas) and a bound where it is not (every crater lip at its highest, every
     /// boulder at its tallest). A lens held a clearance over the ceiling is over the ground, whatever the hash
     /// rolled there;</item>
-    /// <item>the <b>craters of the Moon's top octave</b> (<see cref="MoonCraters"/>), the one crater a camera can
-    /// be pointed at: the same cell, rolls and jitter <c>Moon.fx</c>'s <c>CraterLayer</c> draws them with.</item>
+    /// <item>the <b>craters of the Moon's top octave</b> (<see cref="MoonCraters"/>), which no camera aims at but
+    /// <see cref="MoonPlanting"/> rings with its rim blocks: the same cell, rolls and jitter <c>Moon.fx</c>'s
+    /// <c>CraterLayer</c> draws them with, so a block lies on the lip the shader cuts.</item>
     /// </list>
     /// <para>
     /// <b>Keep each in step with its shader in the same change.</b> The noise and the hash are
