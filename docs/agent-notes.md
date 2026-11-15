@@ -76,6 +76,12 @@ Pravidla:
 - Hotovo, sloučeno: `AridIntroPaths.Hug` zaobluje výšku přes 0,7 s letu Gaussem plus hladkým zdvihem, který drží každou světlou výšku; `IntroShot.At` za koncem záběru extrapoluje, takže střih neubere rychlost. Nový test `IntroShotSmoothnessTests` hlídá všech 11 záběrů nad terénem (poušť, hory, outback, sopka) s limity z dronových záběrů; nejhorší svislé zrychlení např. pyramidy 193 → 10, outback přílet 198 → 7 j/s². Jeřáb (patka a vrchol) letí přesně podle návrhu. Nový argument `introshot=` podrží úvod v daných chvílích a uloží snímek.
 - ⚠ Zdvih sahá šest `LIFT_SECONDS` na každou stranu hřebene, ne tři: pyramidy teď letí v průměru 11,1 nad pískem místo 8,8.
 - Otevřené: `verdict-eye` (pohyb); měřeno jen na 60 fps; outback bez snímků.
+## 2026-11-16 — #1132 vesmír a hory na High na GTX 1060 — DESKTOP_L, Claude Code
+
+- Hotovo, sloučeno: vesmír při supersamplingu stínuje vše kromě hvězd jednou za pixel displeje (`SpaceBase`, v alfě podíl hvězdy, který projde), hvězdy se kreslí přes zvětšení v plné velikosti (`SpaceStars`, `Backdrop.ComposeDisplayResolution`). Orrery na High 19,14 → 8,51 ms; špičky hvězd beze změny (medián 0), okraj planety o pixel měkčí.
+- Hory na 1060: `finemeshes` stojí +7,2 ms při ssaa 1 (jemné pohoří +4,9, vertexová práce; kupovité mraky +2,4), na 6900 XT naopak šetří. Stín 4096 nic.
+- ⚠ Otevřený Správce úloh přidá na 1060 3–4 ms na snímek při stejných taktech; před měřením ho zavři.
+- Otevřené: pohoří na High u slabších karet (#1132 komentář); oprava údaje fyziky při XMP 3600 (#1031) na měření při 3200.
 
 ## 2026-11-15 — #1114 Měsíc: jedna vlajka u stop vozítka a záběr po kolejích — desktop (RDT-PC), Claude Code
 
