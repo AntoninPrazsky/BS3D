@@ -132,6 +132,14 @@ namespace BS3D.Screens
             //there, so a capture shows that instant of the sequence however long the capture before it took (a stall
             //of a tenth of a second or more, which carries shot='s wall clock past the next moment of the dissolve)
             IReadOnlyList<float> shots = Game.SplashShotSeconds;
+
+            //A moment past the end is left out, said once: the page leaves at SplashTimeline.SECONDS, so only a frame
+            //that steps across the end (the stall after the capture before it does) could reach one, and whether it was
+            //taken would depend on how long that capture took
+            while (_shotNext < shots.Count && shots[_shotNext] > SplashTimeline.SECONDS)
+                Console.WriteLine(FormattableString.Invariant(
+                    $"[splashshot] +{shots[_shotNext++]:F3} s is past the end ({SplashTimeline.SECONDS:F2} s): not taken"));
+
             if (_shotNext < shots.Count && age >= shots[_shotNext])
             {
                 age = shots[_shotNext++];
