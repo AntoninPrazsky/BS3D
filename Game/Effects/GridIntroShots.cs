@@ -7,7 +7,8 @@ namespace BS3D.Effects
 {
     /// <summary>
     /// The Grid's own shots for a chapter intro's prologue (#559): a crane up over the floor with the arena in
-    /// the middle of its ring of solids, a slow slide past the face of one cube while its Game of Life runs,
+    /// the middle of its ring of solids, a ride low beside one of the light cycles at its own speed (#1116,
+    /// <see cref="GridRide"/>), a slow slide past the face of one cube while its Game of Life runs,
     /// and a push through the landmark ring — cut together, then cut to the tour's last leg. The tour it
     /// replaces flew one spline round the arena at a few units over the floor and swung the lens between the
     /// solids (the owner's "neck-breaking turns"); each of these is about one object the scene builds.
@@ -17,7 +18,9 @@ namespace BS3D.Effects
     /// the shots frame the very solids on screen), which makes the Grid the one scene here where "is the lens
     /// inside something" has an exact answer. Every path is sampled against every solid, the ring and the
     /// floor, and a candidate that comes within <see cref="CLEARANCE"/> of any of them is refused and the next
-    /// one rolled. Built once when the intro begins; nothing here runs per frame.
+    /// one rolled. Built once when the intro begins; nothing here runs per frame but the ride, which is posed
+    /// by the wall clock the cycles ride on (<see cref="IntroShot.OnTheWallClock"/>) and keeps its own clearances
+    /// low over the floor (<see cref="GridRide"/>).
     /// </para>
     /// <para>
     /// <b>The lenses are absolute, not the caller's frame widened</b> (the cities', the volcano's and the
@@ -73,28 +76,75 @@ namespace BS3D.Effects
         private static readonly float[] RING_FACE_TURNS_DEGREES = { 0f, 25f, -25f, 50f, -50f };
         private const float RING_SECONDS = 3.2f;
 
+        //The ride (#1116): this long, on this lens (the cycle about half the frame's width, its wall running back from it). It
+        //is planned for the seconds the reel puts it at, and for up to RIDE_LATE more: the intro's clock falls behind the wall
+        //clock by every frame longer than ChapterIntro.MAX_INTRO_STEP, the frame that builds the level first, and comes on screen
+        //that much later. Later still (a pause, a long stall), it chooses again as it comes on screen, for RIDE_LATE_AGAIN more
+        internal const float RIDE_SECONDS = 2.6f;
+        private const float RIDE_FOV_DEGREES = 55f;
+        internal const float RIDE_LATE = 1.5f;
+        private const float RIDE_LATE_AGAIN = 0.5f;
+
         //How many bearings the establishing crane tries before it gives up, and how many points each path
         //carries (every one is tested).
         private const int ATTEMPTS = 24;
         private const int PATH_POINTS = IntroPaths.POINTS;
 
         /// <summary>
-        /// The prologue for the Grid the renderer is drawing, or null when it has none to show.
+        /// The prologue for the Grid the renderer is drawing, starting at <paramref name="wallClock"/> on its wall clock, or
+        /// null when it has none to show. <paramref name="clock"/> reads the wall clock later: the ride is posed by it.
         /// </summary>
-        public static IntroShot[] Build(SceneRenderer scenes, Random random)
+        public static IntroShot[] Build(SceneRenderer scenes, float wallClock, Func<float> clock, Random random)
         {
             if (scenes?.GetSceneConfig(SceneKind.Grid) is not GridSceneConfig grid) return null;
 
-            IReadOnlyList<GridSolid> solids = scenes.GridSolids;
-            GridRing? ring = scenes.TryGetGridRing(out GridRing found) ? found : null;
+            return Shots(grid, scenes.GridSolids, scenes.TryGetGridRing(out GridRing found) ? found : null, wallClock, clock, random);
+        }
+
+        /// <summary>
+        /// The shots off the config, the solids and the ring alone, for a test with no renderer: the grid, the cycle, the cube
+        /// and the ring, each left out where it found nothing clear. The ride is built last, so the other three draw the same
+        /// rolls with it as without it, and planned for the seconds after the grid's.
+        /// </summary>
+        internal static IntroShot[] Shots(GridSceneConfig grid, IReadOnlyList<GridSolid> solids, GridRing? ring, float wallClock,
+            Func<float> clock, Random random)
+        {
             float floorY = grid.Terrain.LevelY;
 
-            var shots = new List<IntroShot>(3);
-            AddIfAny(shots, Establishing(solids, ring, floorY, random));
-            AddIfAny(shots, Cube(solids, ring, floorY, random));
-            if (ring is GridRing landmark) AddIfAny(shots, Ring(solids, landmark, floorY));
+            IntroShot establishing = Establishing(solids, ring, floorY, random);
+            IntroShot cube = Cube(solids, ring, floorY, random);
+            IntroShot landmark = ring is GridRing r ? Ring(solids, r, floorY) : null;
+            IntroShot ride = Ride(grid, solids, ring, wallClock + (establishing?.Seconds ?? 0f), clock);
+
+            var shots = new List<IntroShot>(4);
+            AddIfAny(shots, establishing);
+            AddIfAny(shots, ride);
+            AddIfAny(shots, cube);
+            AddIfAny(shots, landmark);
 
             return shots.Count > 0 ? shots.ToArray() : null;
+        }
+
+        /// <summary>
+        /// Beside a light cycle (#1116): the lens low beside one of the cycles at its own speed, turning with it at a node, posed
+        /// by the wall clock the cycles ride on, so it is beside the cycle on screen whenever the shot comes on (see
+        /// <see cref="GridRide"/>). Planned for <paramref name="start"/> to <see cref="RIDE_LATE"/> after the shot's end, and chosen
+        /// again as it comes on screen if the intro has fallen further behind than that; null when no cycle is clear.
+        /// </summary>
+        private static IntroShot Ride(GridSceneConfig grid, IReadOnlyList<GridSolid> solids, GridRing? ring, float start, Func<float> clock)
+        {
+            if (clock == null) return null;
+
+            GridRide ride = GridRide.Plan(new LightCycleRuns(grid), grid.Terrain.LevelY, solids, ring,
+                start, start + RIDE_SECONDS + RIDE_LATE, RIDE_SECONDS);
+            if (ride == null) return null;
+
+            return IntroShot.OnTheWallClock("the cycle", RIDE_SECONDS, MathHelper.ToRadians(RIDE_FOV_DEGREES), clock, ride.Pose,
+                onStart: () =>
+                {
+                    float now = clock();
+                    if (now < start || now > start + RIDE_LATE) ride.Choose(now, now + RIDE_SECONDS + RIDE_LATE_AGAIN, RIDE_SECONDS);
+                });
         }
 
         /// <summary>

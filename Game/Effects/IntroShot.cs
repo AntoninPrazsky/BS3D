@@ -20,9 +20,19 @@ namespace BS3D.Effects
     /// <b>Built once when the intro begins</b>, never per frame: the arrays are allocated there and only read
     /// here, so a running shot allocates nothing.
     /// </para>
+    /// <para>
+    /// <b>Or posed by the wall clock</b> (<see cref="OnTheWallClock"/>, #1116): a shot beside a subject that is a function of
+    /// the wall clock — the Grid's light cycles — asks where to stand at the second the frame is drawn at, because this
+    /// shot's own clock is eased (<see cref="PEAK_PACE"/>), held to <see cref="ChapterIntro"/>'s <c>MAX_INTRO_STEP</c>
+    /// through a hitch and stopped by a pause, and a lens a few units beside a subject at 24 units a second has no
+    /// room for any of that.
+    /// </para>
     /// </summary>
     internal sealed class IntroShot
     {
+        /// <summary>Where a shot on the wall clock stands and what it looks at, at <paramref name="wallClock"/>.</summary>
+        internal delegate void WallClockPose(float wallClock, out Vector3 position, out Vector3 target);
+
         /// <summary>What the shot is of, for the intro's one log line.</summary>
         public string Name { get; }
 
@@ -49,6 +59,8 @@ namespace BS3D.Effects
         private readonly float _pitchDown;
         private readonly float _pitchDamping;
         private readonly Action _onStart;
+        private readonly Func<float> _wallClock;
+        private readonly WallClockPose _wallPose;
 
         /// <param name="name">What the shot is of.</param>
         /// <param name="path">The lens's path, at least two points, evenly spaced along it.</param>
@@ -99,6 +111,27 @@ namespace BS3D.Effects
             Lands = lands;
         }
 
+        private IntroShot(string name, float seconds, float fieldOfView, Func<float> wallClock, WallClockPose pose, Action onStart)
+        {
+            Name = name;
+            Seconds = seconds;
+            FieldOfView = fieldOfView;
+            _endFieldOfView = float.NaN;
+            _wallClock = wallClock ?? throw new ArgumentNullException(nameof(wallClock));
+            _wallPose = pose ?? throw new ArgumentNullException(nameof(pose));
+            _onStart = onStart;
+        }
+
+        /// <summary>
+        /// A shot posed by the wall clock (#1116): every frame it is on screen, <paramref name="pose"/> is asked where the lens
+        /// stands at <paramref name="wallClock"/>'s second, whatever this shot's own clock says. The shot still holds for
+        /// <paramref name="seconds"/> of the intro's clock, so a pause or a hitch lengthens it on the wall clock and never
+        /// moves the lens off its subject. <paramref name="fieldOfView"/> is held; the lens never banks.
+        /// </summary>
+        internal static IntroShot OnTheWallClock(string name, float seconds, float fieldOfView, Func<float> wallClock,
+            WallClockPose pose, Action onStart = null) =>
+            new(name, seconds, fieldOfView, wallClock, pose, onStart);
+
         /// <summary>The field of view at <paramref name="t"/> (0–1 of the shot), on the pose's own eased clock.</summary>
         public float FieldOfViewAt(float t) =>
             float.IsNaN(_endFieldOfView) ? FieldOfView : MathHelper.Lerp(FieldOfView, _endFieldOfView, Eased(t));
@@ -135,10 +168,17 @@ namespace BS3D.Effects
         /// <summary>
         /// The pose at <paramref name="t"/> (0–1 of the shot). The clock is eased only a little at the ends —
         /// a cut lands on a camera already moving, which is what makes it read as a cut between two moving
-        /// shots rather than a slideshow of starts and stops.
+        /// shots rather than a slideshow of starts and stops. A shot on the wall clock (<see cref="OnTheWallClock"/>) reads
+        /// its clock instead and ignores <paramref name="t"/>.
         /// </summary>
         public void Pose(float t, out Vector3 position, out Vector3 target)
         {
+            if (_wallPose != null)
+            {
+                _wallPose(_wallClock(), out position, out target);
+                return;
+            }
+
             float eased = Eased(t);
 
             position = At(_path, eased);

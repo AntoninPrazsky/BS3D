@@ -98,11 +98,12 @@ namespace BS3D.Effects
                 SceneKind.Storm => StormIntroShots.Build(renderer, context.WallClock, fieldOfView, random),
                 SceneKind.Polar => PolarIntroShots.Build(renderer, fieldOfView, random),
                 //#559: the four off the Earth, on absolute lenses (see GridIntroShots) — the Moon's and Mars's
-                //ground through OffworldGround's ceilings, the Grid's solids through the renderer's own record.
+                //ground through OffworldGround's ceilings, the Grid's solids through the renderer's own record, and its
+                //light cycles on the wall clock they ride on (#1116), which the ride beside one is posed by.
                 SceneKind.Moon => MoonIntroShots.Build(renderer, random),
                 SceneKind.Mars => MarsIntroShots.Build(renderer, random),
                 SceneKind.Space => SpaceIntroShots.Build(renderer, random),
-                SceneKind.Grid => GridIntroShots.Build(renderer, random),
+                SceneKind.Grid => GridIntroShots.Build(renderer, context.WallClock, context.Clock, random),
                 _ => null,
             };
         }

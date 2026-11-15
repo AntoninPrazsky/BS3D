@@ -36,14 +36,14 @@ namespace Prazsky.Core.Render
         internal const int RIDERS = 3;
 
         //The lattice they ride, the ring they keep to, how fast they ride (units a second) and how often one goes straight on
-        private const float LATTICE = 16f;
+        internal const float LATTICE = 16f;
         private const float RING_MIN = 56f, RING_MAX = 124f;
         internal const float SPEED = 24f;
         private const float STRAIGHT_SHARE = 0.6f;
 
         //The trail: how long a wall stands behind a rider, how tall, and how far behind the cycle's middle it starts (its back wheel)
         private const float TRAIL_LENGTH = 110f;
-        private const float TRAIL_HEIGHT = 2.6f;
+        internal const float TRAIL_HEIGHT = 2.6f;
         private const float TRAIL_FROM = 2.6f;
 
         //The nodes a rider keeps: enough for the trail behind it, with the segment it is on
@@ -276,6 +276,41 @@ namespace Prazsky.Core.Render
                 into[offset + written++] = new VertexPositionTexture(new Vector3(p.X, floorY, p.Y), new Vector2(age, 0f));
                 into[offset + written++] = new VertexPositionTexture(new Vector3(p.X, floorY + TRAIL_HEIGHT, p.Y), new Vector2(age, 1f));
             }
+
+            /// <summary>How far <paramref name="point"/> (world X, Z) stands from the wall behind the rider, seen from above, when
+            /// the rider is <paramref name="distance"/> along its run: the wall <see cref="Trail"/> draws, along the same nodes.
+            /// Infinity before the wall has begun (#1116, a lens riding beside a cycle keeps off every wall).</summary>
+            public float WallDistance(float distance, Vector2 point)
+            {
+                float start = distance - TRAIL_FROM;
+                float end = Math.Max(start - TRAIL_LENGTH, 0f);
+                if (start <= end) return float.PositiveInfinity;
+
+                //Every node the wall passes still kept, or the run made again from its start: Trail is only ever asked right
+                //after At at the same distance, but a host may have asked this rider further ahead first
+                if ((long)(end / LATTICE) < _made - KEPT) Restart();
+                long segment = (long)(distance / LATTICE);
+                while (_made < segment + 2) MakeNext();
+
+                Vector2 from = PointAt(start);
+                float nearest = float.PositiveInfinity;
+                for (long k = (long)(start / LATTICE); k * LATTICE > end; k--)
+                {
+                    Vector2 node = Node(k);
+                    nearest = Math.Min(nearest, SegmentDistance(point, from, node));
+                    from = node;
+                }
+
+                return Math.Min(nearest, SegmentDistance(point, from, PointAt(end)));
+            }
+
+            private static float SegmentDistance(Vector2 point, Vector2 a, Vector2 b)
+            {
+                Vector2 ab = b - a;
+                float length = ab.LengthSquared();
+                float s = length > 1e-8f ? MathHelper.Clamp(Vector2.Dot(point - a, ab) / length, 0f, 1f) : 0f;
+                return Vector2.Distance(point, a + ab * s);
+            }
         }
 
         //--- The cycle's body ------------------------------------------------------------------------------------------------
@@ -306,6 +341,10 @@ namespace Prazsky.Core.Render
         //low body between them, a cowl over the front wheel and the rider's hood behind it
         private const float WHEEL_RADIUS = 1.25f, WHEEL_WIDTH = 0.7f, WHEEL_BASE = 2.6f;
         private const int WHEEL_SIDES = 20;
+
+        //How far the cycle reaches from its middle along its heading (a wheel's rim) and how tall it stands (a wheel's top, over
+        //the hood's 2.32): the body a lens filming it (#1116) frames and keeps out of
+        internal const float BODY_REACH = WHEEL_BASE + WHEEL_RADIUS, BODY_HEIGHT = 2f * WHEEL_RADIUS;
 
         private static CycleVertex[] CycleBody()
         {
