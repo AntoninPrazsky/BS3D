@@ -24,7 +24,7 @@ namespace BS3D.Effects
     /// that turns at least <c>MIN_CUT_ANGLE_DEGREES</c>, stricter than the cities' either-or, because a view that only
     /// slides along its own line is still the same picture. The village comes last, after the crater: it ends looking at
     /// the cone from the arena's side, much as the crater run starts out looking, and cut ahead of the crater the view
-    /// turned as little as 27 degrees on some rolls.
+    /// turned as little as 23 degrees on some rolls.
     /// </para>
     /// <para>
     /// <b>The village is shot only where it stands</b> (<see cref="SceneRenderer.VolcanoCountryDrawn"/>): Low draws the
@@ -125,8 +125,8 @@ namespace BS3D.Effects
         //lays a drone's height, so it climbs the hillside behind the village as it comes round. The look starts on the village,
         //VILLAGE_LOOK_RISE over the ground at its middle (its roofs), and turns VILLAGE_LOOK_SHARE of the way from the village
         //towards a point SUMMIT_OVER_VENT over the vent, so the village stands in the frame's lower half, clear of the skip
-        //hint along its foot, and the cone and its column over it. Round the arc the yaw is 18-24 degrees a second, the
-        //cities' plaza orbit's pace.
+        //hint along its foot, and the cone and its column over it. Round the arc the view turns 18 to 24 degrees a second on
+        //average and 27 at most (IntroShotSmoothnessTests), about the pace of the cities' plaza orbit (80 degrees in 4 s).
         private const float VILLAGE_RADIUS_FROM = 150f;
         private const float VILLAGE_RADIUS_TO = 140f;
         private const float VILLAGE_SWEEP_MIN_DEGREES = 65f;
