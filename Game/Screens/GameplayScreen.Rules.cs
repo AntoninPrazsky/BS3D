@@ -1029,6 +1029,9 @@ namespace BS3D.Screens
         //Testing only (revealshot=, #933): how far down the schedule the reveal's frames have got
         private int _revealShotNext;
 
+        //Testing only (introshot=, #1109): how far down the schedule the chapter intro's frames have got
+        private int _introShotNext;
+
         /// <summary>
         /// Shows the net to a player who is not in danger from it (#933), two ways, neither of them the alarm: the level's
         /// opening reveal (the emitters turn from rest to this field's aim and the net is lit for a moment, from the level the
