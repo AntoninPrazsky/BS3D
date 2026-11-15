@@ -38,6 +38,8 @@
     <Compile Include="..\..\Game\Effects\VolcanoIntroShots.cs" />
     <Compile Include="..\..\Game\Effects\CavernIntroShots.cs" />
     <Compile Include="..\..\Game\Effects\CircusIntroShots.cs" />
+    <!--The Moon's (#1114): the run up the rover's ruts to the flag, over TerrainMirror.Moon, and the two shots round it.-->
+    <Compile Include="..\..\Game\Effects\MoonIntroShots.cs" />
   </ItemGroup>
 
   <!--The tutorial's rules (#666), compiled in the same way: Tutorial is a ladder of lessons and clocks with no device

@@ -16,8 +16,7 @@ namespace Prazsky.Core.Render
     /// in patches rather than evenly: a real field is thick round the craters that threw it and thin between them.</item>
     /// <item><b>Rim blocks</b> — the young craters of the top octave (<see cref="OffworldGround.MoonCraters"/>, the same
     /// cells the shader cuts) wear a ring of big angular blocks on their lip and apron, as many as the crater is young:
-    /// a fresh crater dug through the regolith into bedrock and threw it out in blocks, an old one has buried them.
-    /// The chapter intro's crater shot looks straight at one.</item>
+    /// a fresh crater dug through the regolith into bedrock and threw it out in blocks, an old one has buried them.</item>
     /// <item><b>Landmarks</b> — a hundred-odd blocks the size of a house, out to the highland belt's crest: the only rocks
     /// the play camera sees, since the island's deck hides the plain in front of the belt from it.</item>
     /// </list>
@@ -51,29 +50,49 @@ namespace Prazsky.Core.Render
         private const int LANDMARKS = 110;
         private const float LANDMARK_NEAREST = 120f;
 
-        //=== THE LANDING (#746). The owner: "the tracks of the lunar rover ... would be a good easter egg if you could see the
-        //ruts. Maybe a white flag could wave somewhere in the distance :)". The rover came in off the eastern highlands, drove
-        //past the flag on the plain beyond the arena (where the front end, the chapter intro and the drop look) and went off
-        //to the south-west; a second flag stands high on the belt's slope behind the cluster, in the play view's
-        //own direction (the gun starts on +Z and looks across the arena to -Z), the one place the play camera sees ground:
-        //the deck hides the plain to some three hundred units (see LANDMARKS). Both flags white, as he asked; neither waves,
-        //since nothing can wave a flag where there is no air: like Apollo's, each is held out by a bar along its top and
-        //keeps the creases it was packed with.
+        //=== THE LANDING (#746, #1114). The owner: "the tracks of the lunar rover ... would be a good easter egg if you could
+        //see the ruts. Maybe a white flag could wave somewhere in the distance :)", and then (#1114) one white flag, bigger,
+        //seen up close in the chapter intro: every Apollo site has one flag. The rover came in off the eastern highlands,
+        //crossed the plain in front of the arena (where the front end and the drop look), swung round to the south and climbed
+        //the highland belt's slope in the play view's own direction (the gun starts on +Z and looks across the arena to -Z),
+        //and the flag stands beside its ruts there, some three hundred units out: the one stretch of ground the play camera
+        //sees over the deck, which hides the plain nearer in (see LANDMARKS), and where the intro's tracks shot
+        //(MoonIntroShots) runs up the ruts to it. White, as he asked; it does not wave, since nothing can wave a flag where
+        //there is no air: like Apollo's, it is held out by a bar along its top and keeps the creases it was packed with.
+        //
+        //⚠ The shader's track is RoverTracks.POINTS points spread evenly over the SPANS between these controls, so a span is
+        //where the points go: the swing to the south is many short spans and the plain a few long ones. Spread evenly over
+        //the whole length, the swing's straight segments met at up to 19 degrees and read as a polygon; this way no two meet
+        //at more than the 10.7 the bend in front of the arena has always had (MoonIntroShotsTests holds it).
 
-        /// <summary>The rover's traverse as designed (#746): its control points, world XZ.</summary>
+        /// <summary>The rover's traverse as designed (#746, #1114): its control points, world XZ.</summary>
         public static readonly Vector2[] TRAVERSE =
         {
-            new(235f, -150f), new(170f, -128f), new(112f, -112f), new(60f, -100f), new(18f, -96f), new(-10f, -100f),
-            new(-34f, -112f), new(-72f, -126f), new(-120f, -146f), new(-170f, -176f), new(-220f, -214f),
+            new(235f, -150f), new(120f, -114f), new(34f, -97f), new(-6f, -99f), new(-40f, -111f), new(-66f, -131f),
+            new(-86f, -156f), new(-98f, -185f), new(-102f, -216f), new(-96f, -246f), new(-82f, -274f), new(-66f, -302f),
+            new(-50f, -330f),
         };
 
         /// <summary>The traverse as the shader draws it (<see cref="RoverTracks.Resample"/>), and as the rocks keep off it.</summary>
         public static readonly Vector2[] TRAVERSE_PATH = RoverTracks.Resample(TRAVERSE);
 
-        /// <summary>The flags (#746): where each stands, world XZ, and its size against a 2.4-unit pole.</summary>
-        public static readonly (Vector2 At, float Scale)[] FLAGS = { (new Vector2(-14f, -92f), 1f), (new Vector2(-40f, -292f), 2.2f) };
+        //Where the flag stands: this far along the drawn traverse (from its eastern end), where the ruts run straight up the
+        //belt's slope and the play camera sees it clear of the gun, and this far off the ruts' middle line, on the side away
+        //from the arena, so its cloth hangs beside the ruts and not over them. The ruts run on past it for more than their
+        //end fade (RoverTracks.fxh's TRACK_END_FADE, 30), so they are whole where the flag stands
+        private const float FLAG_ALONG = 488f, FLAG_OFF_TRACK = 4f;
 
-        //How far the rocks keep from the ruts' middle line and from a flag's pole (times its size)
+        /// <summary>
+        /// The flag's size against the size-1 flag's 2.4-unit pole and 1.2 by 0.78 cloth (#1114): the Apollo flag's cloth, three
+        /// feet by five (0.91 by 1.52 m), at the scenes' two units a metre (<c>OilRigs</c>, the meadow's bench), which puts the
+        /// bar 5.5 over the ground.
+        /// </summary>
+        public const float FLAG_SIZE = 2.4f;
+
+        /// <summary>Where the flag stands (#746, #1114), world XZ: beside the ruts on the belt's slope, in the play view's direction.</summary>
+        public static readonly Vector2 FLAG = BesideTrack(TRAVERSE_PATH, FLAG_ALONG, FLAG_OFF_TRACK, out _);
+
+        //How far the rocks keep from the ruts' middle line and from the flag's pole (times its size)
         private const float TRAVERSE_CLEAR = RoverTracks.HALF_WIDTH + 0.6f, FLAG_CLEAR = 5f;
 
         //The flag, at its size 1: the pole's height, the bar along the cloth's top, the cloth's width and drop, and the
@@ -141,11 +160,10 @@ namespace Prazsky.Core.Render
                 //the lowest point under a house-sized block is several units down the hill, and the block went into the
                 //slope with it - the landmark boulders were planted and not one of them showed. On a plane the mean IS the
                 //centre, and the block's own underside, half its size below its origin, takes up the downhill side.
-                //Off the rover's ruts and away from the flags (#746). After every roll this rock took, so the field round them is
+                //Off the rover's ruts and away from the flag (#746). After every roll this rock took, so the field round them is
                 //the field it always was, less the few that stood in the way
                 if (RoverTracks.Distance(TRAVERSE_PATH, x, z) < TRAVERSE_CLEAR + size * 0.5f) return;
-                foreach ((Vector2 at, float scale) in FLAGS)
-                    if (Vector2.Distance(at, new Vector2(x, z)) < FLAG_CLEAR * scale + size * 0.5f) return;
+                if (Vector2.Distance(FLAG, new Vector2(x, z)) < FLAG_CLEAR * FLAG_SIZE + size * 0.5f) return;
 
                 float around = (height(x + size, z) + height(x - size, z) + height(x, z + size) + height(x, z - size)) * 0.25f;
                 float ground = MathF.Min(height(x, z), around);
@@ -231,19 +249,50 @@ namespace Prazsky.Core.Render
                     seed: seed * 31 + 777, rock, rockDusted, regolith)).Buckets);
             }
 
-            //--- The flags (#746): each turned three-quarters to the arena, so the cloth shows its face and its creases
+            //--- The flag (#746, #1114): its cloth turned to face halfway between the arena and the ruts it is come upon along,
+            //so the play camera and the intro's tracks shot both see its face and its creases, and its bar reaching away from the
+            //ruts, so the cloth hangs beside them. Both faces of the cloth are lit by their own normals, so either may be the one
+            //seen. CreateRotationY(yaw) takes the bar's local +X to (cos yaw, 0, -sin yaw)
             (IProceduralMesh metal, IProceduralMesh cloth) = (Own(FlagPole(device)), Own(FlagCloth(device)));
-            var flags = new List<ModelInstance>();
-            foreach ((Vector2 at, float scale) in FLAGS)
+            Vector2 onTrack = BesideTrack(TRAVERSE_PATH, FLAG_ALONG, 0f, out Vector2 heading);
+            Vector2 face = Vector2.Normalize(Vector2.Normalize(-FLAG) - heading);
+            Vector2 bar = new(face.Y, -face.X);
+            if (Vector2.Dot(bar, FLAG - onTrack) < 0f) bar = -bar;
+            float flagYaw = MathF.Atan2(-bar.Y, bar.X);
+            var flags = new List<ModelInstance>
             {
-                float yaw = MathF.Atan2(-at.X, -at.Y) + 0.6f;
-                flags.Add(new ModelInstance(Matrix.CreateScale(scale) * Matrix.CreateRotationY(yaw) * Matrix.CreateTranslation(at.X, height(at.X, at.Y), at.Y),
-                    new Vector4(0f, 0f, 0f, 0f)));
-            }
+                new(Matrix.CreateScale(FLAG_SIZE) * Matrix.CreateRotationY(flagYaw) * Matrix.CreateTranslation(FLAG.X, height(FLAG.X, FLAG.Y), FLAG.Y),
+                    new Vector4(0f, 0f, 0f, 0f)),
+            };
             buckets.Add(Own(new ScatterBucket(device, metal, flags, FLAG_METAL, FLAG_METAL, dapple: 0f, bark: 0f, detailOnly: false)));
             buckets.Add(Own(new ScatterBucket(device, cloth, flags, FLAG_CLOTH, FLAG_CLOTH, dapple: 0f, bark: 0f, detailOnly: false)));
 
             Buckets = buckets.ToArray();
+        }
+
+        /// <summary>
+        /// The point <paramref name="off"/> units off <paramref name="path"/>'s middle line, <paramref name="along"/> units along
+        /// it from its first point, on the side away from the arena (#1114); <paramref name="heading"/> is the path's direction
+        /// there. A distance past the path's length stands off its last segment's end.
+        /// </summary>
+        public static Vector2 BesideTrack(IReadOnlyList<Vector2> path, float along, float off, out Vector2 heading)
+        {
+            float walked = 0f;
+            for (int i = 0; i + 1 < path.Count; i++)
+            {
+                float length = Vector2.Distance(path[i], path[i + 1]);
+                if (walked + length >= along || i + 2 == path.Count)
+                {
+                    heading = Vector2.Normalize(path[i + 1] - path[i]);
+                    Vector2 on = path[i] + heading * MathHelper.Clamp(along - walked, 0f, length);
+                    Vector2 side = new(heading.Y, -heading.X);
+                    if (Vector2.Dot(side, on) < 0f) side = -side;
+                    return on + side * off;
+                }
+                walked += length;
+            }
+
+            throw new ArgumentException("A track needs at least two points.", nameof(path));
         }
 
         /// <summary>
