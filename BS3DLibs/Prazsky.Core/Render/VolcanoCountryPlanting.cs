@@ -50,6 +50,85 @@ namespace Prazsky.Core.Render
         //0.46 ms of the planting's 0.89 (High, docs/scenes/volcano.md)
         private const int VILLAGE_TREES = 40;
 
+        //--- What it stands, as figures (#1127): the constructor plants from these, and Tallest and Reach are read off them
+        //for the chapter intro's shot of the village, which flies over the land
+        //
+        //The near spruces: three silhouettes, a width and a height each times the forest's own (ForestTreeConfig's defaults),
+        //planted at SPRUCE_SCALE plus up to SPRUCE_SCALE_SPAN; the far spires (height, radius, tiers, the irregularity's
+        //phase) at the same scales
+        private static readonly (float Width, float Height, int Seed)[] SPRUCES = { (1f, 1f, 11), (0.78f, 1.24f, 23), (1.12f, 0.94f, 53) };
+        private static readonly (float Height, float Radius, int Tiers, float Phase)[] SPIRES = { (17f, 3.6f, 4, 1.3f), (20f, 3.1f, 5, 4.1f) };
+        private const float SPRUCE_SCALE = 0.7f, SPRUCE_SCALE_SPAN = 0.55f;
+
+        //The snags (height, girth, seed), planted at SNAG_SCALE plus up to SNAG_SCALE_SPAN
+        private static readonly (float Height, float Radius, int Seed)[] SNAG_SHAPES = { (12f, 0.42f, 131), (15f, 0.5f, 137), (7f, 0.4f, 139) };
+        private const float SNAG_SCALE = 0.7f, SNAG_SCALE_SPAN = 0.6f;
+
+        //The broadleaves: the village's grown trees, low-crowned (VILLAGE_TRUNK of the forest's trunk under them; their
+        //trunk's girth, crown radius and crown height as shares of the forest's, and a seed), and the banks' (a stem's height,
+        //a crown's radius and half-height, a seed), all planted at BROADLEAF_SCALE plus up to BROADLEAF_SCALE_SPAN
+        private static readonly (float Girth, float CrownRadius, float CrownHeight, int Seed)[] VILLAGE_BROADLEAVES =
+            { (1f, 1.1f, 1.15f, 79), (1.15f, 1.2f, 0.95f, 97) };
+        private const float VILLAGE_TRUNK = 0.5f;
+        private static readonly (float Stem, float CrownRadius, float CrownHalfHeight, int Seed)[] BANK_TREES =
+            { (2.6f, 3.4f, 5.0f, 211), (2.2f, 4.0f, 4.4f, 223) };
+        private const float BROADLEAF_SCALE = 0.65f, BROADLEAF_SCALE_SPAN = 0.5f;
+
+        //A bank tree's crown stands with this share of its half-height under the stem's top
+        private const float BANK_CROWN_SEAT = 0.75f;
+
+        //The houses: length along the ridge, depth, walls' height, the roof's rise and windows a side
+        private static readonly HouseKind[] HOUSE_KINDS = { new(11f, 7f, 4.2f, 3.4f, 3), new(8f, 6.5f, 3.6f, 3.0f, 2), new(14f, 8f, 5.6f, 3.8f, 4) };
+
+        //The chimney through a house's back slope: its middle at CHIMNEY_SEAT of the roof's rise over the walls, and reaching
+        //CHIMNEY_RISE of it above and below that
+        private const float CHIMNEY_SEAT = 0.75f, CHIMNEY_RISE = 0.55f;
+
+        //The church: the nave's half-length, half-width, walls and the roof's rise; the tower's half-width, how far into the
+        //nave's gable it stands and its top, the spire over it and how far the spire's foot stands proud of the tower
+        private const float NAVE_HALF_L = 10f, NAVE_HALF_W = 4.6f, NAVE_WALL = 7f, NAVE_RISE = 5f;
+        private const float TOWER_HALF = 2.6f, TOWER_INSET = 0.4f, TOWER_TOP = 21f, SPIRE = 10f, SPIRE_PROUD = 0.3f;
+
+        /// <summary>
+        /// The tallest anything the land stands rises over the ground at its foot, in world units (#1127): the church's spire,
+        /// over the tallest spruce at the largest scale it is planted at, the spires, the snags, the broadleaves and the houses'
+        /// chimneys (the front's blocks and the fallen trunks lie low). Every one stands at or under the ground at its foot
+        /// (<c>Ground</c> in the constructor is the lowest round it), and a crown's droop and lobes stay inside its height, give
+        /// or take a little: so a lens <see cref="Tallest"/> plus a margin over the highest ground within <see cref="Reach"/> of
+        /// it clears every tree, house and the church, wherever they were planted.
+        /// </summary>
+        public static float Tallest { get; } = TallestStanding();
+
+        /// <summary>How far sideways from its foot anything the land stands reaches (#1127): the church's tower and spire,
+        /// from the middle of its nave.</summary>
+        public static float Reach { get; } = WidestStanding();
+
+        private static float TallestStanding()
+        {
+            var trees = new ForestTreeConfig();
+            float spruceScale = SPRUCE_SCALE + SPRUCE_SCALE_SPAN, broadleafScale = BROADLEAF_SCALE + BROADLEAF_SCALE_SPAN;
+            float tallest = TOWER_TOP + SPIRE;
+            foreach ((float _, float height, int _) in SPRUCES)
+                tallest = MathF.Max(tallest, (trees.ConiferTrunkHeight + trees.ConiferCrownHeight) * height * spruceScale);
+            foreach ((float height, float _, int _, float _) in SPIRES) tallest = MathF.Max(tallest, height * spruceScale);
+            foreach ((float height, float _, int _) in SNAG_SHAPES) tallest = MathF.Max(tallest, height * (SNAG_SCALE + SNAG_SCALE_SPAN));
+            foreach ((float _, float _, float crown, int _) in VILLAGE_BROADLEAVES)
+                tallest = MathF.Max(tallest, (trees.TrunkHeight * VILLAGE_TRUNK + trees.CrownHeight * crown) * broadleafScale);
+            foreach ((float stem, float _, float half, int _) in BANK_TREES)
+                tallest = MathF.Max(tallest, (stem + half * (1f + BANK_CROWN_SEAT)) * broadleafScale);
+            foreach (HouseKind kind in HOUSE_KINDS)
+                tallest = MathF.Max(tallest, kind.WallHeight + kind.RoofRise * (CHIMNEY_SEAT + CHIMNEY_RISE));
+            return tallest;
+        }
+
+        private static float WidestStanding()
+        {
+            //The tower's far corner under the spire's proud foot; the nave's own corners, the eaves' overhang included, and the
+            //houses' are nearer
+            float tower = NAVE_HALF_L + TOWER_HALF * 2f - TOWER_INSET + SPIRE_PROUD, side = TOWER_HALF + SPIRE_PROUD;
+            return MathF.Sqrt(tower * tower + side * side);
+        }
+
         //Where the far spruces thin out to nothing: past it the ground's own forest floor (Volcano.fx's ForestCover) is the
         //wood, which is all a wood is from a kilometre off, and the far ground there is fading into the sky (FarField.fxh),
         //which the plant effect does not do
@@ -89,29 +168,31 @@ namespace Prazsky.Core.Render
 
             //--- The meshes. Spruces in the forest's proportions (ForestTreeConfig's defaults), three silhouettes of them
             var trees = new ForestTreeConfig();
-            (float Width, float Height, int Seed)[] spruces = { (1f, 1f, 11), (0.78f, 1.24f, 23), (1.12f, 0.94f, 53) };
-            _coniferMeshes = new TreeMesh[spruces.Length];
-            for (int m = 0; m < spruces.Length; m++)
-                _coniferMeshes[m] = new TreeMesh(device, TreeSpecies.Conifer, trees.TrunkBaseRadius * spruces[m].Width,
-                    trees.TrunkTopRadius * spruces[m].Width, trees.ConiferTrunkHeight * spruces[m].Height,
-                    trees.ConiferCrownRadius * spruces[m].Width, trees.ConiferCrownHeight * spruces[m].Height, spruces[m].Seed,
+            _coniferMeshes = new TreeMesh[SPRUCES.Length];
+            for (int m = 0; m < SPRUCES.Length; m++)
+                _coniferMeshes[m] = new TreeMesh(device, TreeSpecies.Conifer, trees.TrunkBaseRadius * SPRUCES[m].Width,
+                    trees.TrunkTopRadius * SPRUCES[m].Width, trees.ConiferTrunkHeight * SPRUCES[m].Height,
+                    trees.ConiferCrownRadius * SPRUCES[m].Width, trees.ConiferCrownHeight * SPRUCES[m].Height, SPRUCES[m].Seed,
                     coniferTiers: trees.ConiferTiers, coniferTierSpread: trees.ConiferTierSpread, coniferRaggedness: trees.ConiferRaggedness);
 
-            IProceduralMesh[] spires = { Own(SpireMesh(device, 17f, 3.6f, 4, 1.3f)), Own(SpireMesh(device, 20f, 3.1f, 5, 4.1f)) };
+            var spires = new IProceduralMesh[SPIRES.Length];
+            for (int m = 0; m < SPIRES.Length; m++) spires[m] = Own(SpireMesh(device, SPIRES[m].Height, SPIRES[m].Radius, SPIRES[m].Tiers, SPIRES[m].Phase));
 
             //Low-crowned, as trees in the open grow (an alder on a bank, a lime by a church), not the forest's tall boles: on the
             //forest's figures they stood along the river as crowns on bare sticks
-            _broadleafMeshes = new[]
-            {
-                new TreeMesh(device, TreeSpecies.Broadleaf, trees.TrunkBaseRadius, trees.TrunkTopRadius, trees.TrunkHeight * 0.5f,
-                    trees.CrownRadius * 1.1f, trees.CrownHeight * 1.15f, seed: 79),
-                new TreeMesh(device, TreeSpecies.Broadleaf, trees.TrunkBaseRadius * 1.15f, trees.TrunkTopRadius * 1.15f, trees.TrunkHeight * 0.5f,
-                    trees.CrownRadius * 1.2f, trees.CrownHeight * 0.95f, seed: 97),
-            };
+            _broadleafMeshes = new TreeMesh[VILLAGE_BROADLEAVES.Length];
+            for (int m = 0; m < VILLAGE_BROADLEAVES.Length; m++)
+                _broadleafMeshes[m] = new TreeMesh(device, TreeSpecies.Broadleaf, trees.TrunkBaseRadius * VILLAGE_BROADLEAVES[m].Girth,
+                    trees.TrunkTopRadius * VILLAGE_BROADLEAVES[m].Girth, trees.TrunkHeight * VILLAGE_TRUNK,
+                    trees.CrownRadius * VILLAGE_BROADLEAVES[m].CrownRadius, trees.CrownHeight * VILLAGE_BROADLEAVES[m].CrownHeight,
+                    seed: VILLAGE_BROADLEAVES[m].Seed);
 
-            (IProceduralMesh Stem, IProceduralMesh Crown)[] bankTrees = { BankTree(device, 2.6f, 3.4f, 5.0f, 211), BankTree(device, 2.2f, 4.0f, 4.4f, 223) };
+            var bankTrees = new (IProceduralMesh Stem, IProceduralMesh Crown)[BANK_TREES.Length];
+            for (int m = 0; m < BANK_TREES.Length; m++)
+                bankTrees[m] = BankTree(device, BANK_TREES[m].Stem, BANK_TREES[m].CrownRadius, BANK_TREES[m].CrownHalfHeight, BANK_TREES[m].Seed);
 
-            IProceduralMesh[] snags = { Own(new SnagMesh(device, 12f, 0.42f, 131)), Own(new SnagMesh(device, 15f, 0.5f, 137)), Own(new SnagMesh(device, 7f, 0.4f, 139)) };
+            var snags = new IProceduralMesh[SNAG_SHAPES.Length];
+            for (int m = 0; m < SNAG_SHAPES.Length; m++) snags[m] = Own(new SnagMesh(device, SNAG_SHAPES[m].Height, SNAG_SHAPES[m].Radius, SNAG_SHAPES[m].Seed));
             IProceduralMesh[] logs = { Own(new DeadwoodMesh(device, 9f, 0.38f, 151)), Own(new DeadwoodMesh(device, 6.5f, 0.32f, 157)) };
 
             //--- Where everything goes: a quarter by bearing from the arena (the +Z quarter is the far side the play camera
@@ -154,7 +235,7 @@ namespace Prazsky.Core.Render
                 occupied.Add(x, z, 0.8f);
 
                 int variant = rng.Next(snags.Length);
-                float scale = 0.7f + 0.6f * (float)rng.NextDouble();
+                float scale = SNAG_SCALE + SNAG_SCALE_SPAN * (float)rng.NextDouble();
                 Matrix world = Matrix.CreateScale(scale) * Matrix.CreateRotationX(((float)rng.NextDouble() - 0.5f) * 0.25f)
                     * Matrix.CreateRotationZ(((float)rng.NextDouble() - 0.5f) * 0.25f) * Matrix.CreateRotationY((float)rng.NextDouble() * MathHelper.TwoPi)
                     * Matrix.CreateTranslation(x, Ground(x, z, 0.6f) - 0.3f, z);
@@ -198,7 +279,7 @@ namespace Prazsky.Core.Render
 
             //--- The village first, so the woods keep out of it: the church near its middle, then the houses round it on the
             //bank, every one square to the river's run there, give or take
-            var houseKinds = new HouseKind[] { new(11f, 7f, 4.2f, 3.4f, 3), new(8f, 6.5f, 3.6f, 3.0f, 2), new(14f, 8f, 5.6f, 3.8f, 4) };
+            HouseKind[] houseKinds = HOUSE_KINDS;
             var houseMeshes = new (IProceduralMesh Body, IProceduralMesh Roof, IProceduralMesh Windows)[houseKinds.Length];
             for (int k = 0; k < houseKinds.Length; k++) houseMeshes[k] = HouseMeshes(device, houseKinds[k]);
             (IProceduralMesh churchBody, IProceduralMesh churchRoof, IProceduralMesh churchWindows) = ChurchMeshes(device);
@@ -259,7 +340,7 @@ namespace Prazsky.Core.Render
                     float cover = country.ForestCover(x, z, outside, across);
                     if (!near) cover *= 1f - ShaderMath.SmoothStep(FAR_THINNING, FAR_REACH, MathF.Sqrt(x * x + z * z));
                     if ((float)rng.NextDouble() > cover || Slope(x, z) > 0.6f) continue;
-                    float scale = 0.7f + 0.55f * (float)rng.NextDouble();
+                    float scale = SPRUCE_SCALE + SPRUCE_SCALE_SPAN * (float)rng.NextDouble();
                     float radius = trees.ConiferCrownRadius * scale * (near ? 0.75f : 0.9f);
                     if (occupied.Clearance(x, z, radius) < 0f) continue;
                     occupied.Add(x, z, radius);
@@ -299,7 +380,7 @@ namespace Prazsky.Core.Render
                 float across = MathF.Abs(country.River(x, z).Across);
                 bool bank = across > land.RiverHalfWidth + 10f && across < land.RiverHalfWidth + 36f;
                 if (outside < 60f || (!byVillage && !bank) || across < land.RiverHalfWidth + 10f || Slope(x, z) > 0.4f) continue;
-                float scale = 0.65f + 0.5f * (float)rng.NextDouble();
+                float scale = BROADLEAF_SCALE + BROADLEAF_SCALE_SPAN * (float)rng.NextDouble();
                 float radius = trees.CrownRadius * scale;
                 if (occupied.Clearance(x, z, radius) < 0f) continue;
                 occupied.Add(x, z, radius);
@@ -479,7 +560,7 @@ namespace Prazsky.Core.Render
                 new[] { new Vector3(0f, -0.4f, 0f), new Vector3(0f, stemHeight * 0.5f, 0f) + lean * 0.5f, new Vector3(0f, stemHeight + crownHalfHeight * 0.6f, 0f) + lean },
                 new[] { 0.5f, 0.36f, 0.22f }, capStart: true, capEnd: true);
             var stem = new UploadedMesh(device, v, idx, new BoundingSphere(new Vector3(0f, stemHeight * 0.5f, 0f), stemHeight + crownHalfHeight));
-            var crown = new FoliageMesh(device, crownRadius, crownHalfHeight, stemHeight + crownHalfHeight * 0.75f, seed, BANK_CROWN);
+            var crown = new FoliageMesh(device, crownRadius, crownHalfHeight, stemHeight + crownHalfHeight * BANK_CROWN_SEAT, seed, BANK_CROWN);
             return (Own(stem), Own(crown));
         }
 
@@ -504,8 +585,8 @@ namespace Prazsky.Core.Render
             var roof = new MeshBuilder();
             AddRoof(roof, Vector3.Zero, halfL, halfW, kind.WallHeight, kind.RoofRise);
             //The chimney, through the back slope near one gable
-            roof.AddBox(new Vector3(halfL * 0.55f, kind.WallHeight + kind.RoofRise * 0.75f, halfW * 0.35f),
-                new Vector3(0.45f, 0f, 0f), new Vector3(0f, kind.RoofRise * 0.55f, 0f), new Vector3(0f, 0f, 0.45f));
+            roof.AddBox(new Vector3(halfL * 0.55f, kind.WallHeight + kind.RoofRise * CHIMNEY_SEAT, halfW * 0.35f),
+                new Vector3(0.45f, 0f, 0f), new Vector3(0f, kind.RoofRise * CHIMNEY_RISE, 0f), new Vector3(0f, 0f, 0.45f));
 
             //The windows: a row down each long wall at the ground floor, another under the eaves on a house tall enough for
             //an upper floor, and one in each gable
@@ -531,9 +612,7 @@ namespace Prazsky.Core.Render
         /// </summary>
         private (IProceduralMesh Body, IProceduralMesh Roof, IProceduralMesh Windows) ChurchMeshes(GraphicsDevice device)
         {
-            const float NAVE_HALF_L = 10f, NAVE_HALF_W = 4.6f, NAVE_WALL = 7f, NAVE_RISE = 5f;
-            const float TOWER_HALF = 2.6f, TOWER_TOP = 21f, SPIRE = 10f;
-            Vector3 tower = new(-NAVE_HALF_L - TOWER_HALF + 0.4f, 0f, 0f);
+            Vector3 tower = new(-NAVE_HALF_L - TOWER_HALF + TOWER_INSET, 0f, 0f);
 
             var body = new MeshBuilder();
             AddGabledBody(body, Vector3.Zero, NAVE_HALF_L, NAVE_HALF_W, NAVE_WALL, NAVE_RISE);
@@ -544,7 +623,7 @@ namespace Prazsky.Core.Render
             AddRoof(roof, Vector3.Zero, NAVE_HALF_L, NAVE_HALF_W, NAVE_WALL, NAVE_RISE);
             //The spire: a four-sided pyramid on the tower, its base a little proud of the tower's walls
             Vector3 apex = tower + new Vector3(0f, TOWER_TOP + SPIRE, 0f);
-            float b = TOWER_HALF + 0.3f;
+            float b = TOWER_HALF + SPIRE_PROUD;
             Vector3[] corners =
             {
                 tower + new Vector3(-b, TOWER_TOP - 0.2f, -b), tower + new Vector3(b, TOWER_TOP - 0.2f, -b),
