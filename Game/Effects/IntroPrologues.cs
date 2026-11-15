@@ -22,9 +22,12 @@ namespace BS3D.Effects
     /// <param name="GamePosition">Where the lens stands when the intro hands the camera back: the gameplay pose, or the menu's
     /// orbit for a replayed tour. A shot that lands (<see cref="IntroShot.Lands"/>, #972) ends here.</param>
     /// <param name="GameTarget">What that pose looks at.</param>
+    /// <param name="CityReflections">The city's reflection map on the CPU (<see cref="CityReflectionMap.Field"/>) where the
+    /// tier draws the windows' reflections, null where it draws none: the city's facades are shot only where the panes
+    /// mirror, and judged by the shader's own march (#1119).</param>
     internal sealed record IntroContext(SceneRenderer Renderer, City City, CityRooftops Rooftops, ForestScatterRenderer ForestScatter,
         ForestScatterRenderer AuroraScatter, Vector3? SunDirection, float WallClock, Func<float> Clock,
-        Vector3 GamePosition, Vector3 GameTarget);
+        Vector3 GamePosition, Vector3 GameTarget, CityReflectionField CityReflections);
 
     /// <summary>
     /// <b>The live scene's own shots to cut together ahead of its chapter tour</b>, or null for a scene with none —
@@ -64,7 +67,7 @@ namespace BS3D.Effects
             return scene switch
             {
                 SceneKind.City or SceneKind.NeonCity => CityIntroShots.Build(context.City, context.Rooftops?.Showcases,
-                    scene == SceneKind.NeonCity, context.GamePosition, context.GameTarget, fieldOfView, random),
+                    scene == SceneKind.NeonCity, context.GamePosition, context.GameTarget, fieldOfView, random, context.CityReflections),
                 SceneKind.Volcano => VolcanoIntroShots.Build(renderer, context.WallClock, context.Clock, fieldOfView, random),
                 SceneKind.Aurora => AuroraIntroShots.Build(context.AuroraScatter,
                     renderer?.GetSceneConfig(SceneKind.Aurora) as AuroraSceneConfig, renderer == null ? null : renderer.AuroraGroundHeight,

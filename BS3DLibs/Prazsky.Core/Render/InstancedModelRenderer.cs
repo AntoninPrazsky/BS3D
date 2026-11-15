@@ -344,7 +344,14 @@ namespace Prazsky.Core.Render
 
         /// <summary>How many steps a mirror ray takes before it gives up and keeps the sky: a jump across empty texels
         /// or a texel beside a tower each (CityReflection.fxh's march).</summary>
-        public int CityReflectionSteps { get; set; } = 16;
+        public int CityReflectionSteps { get; set; } = DEFAULT_CITY_REFLECTION_STEPS;
+
+        /// <summary>
+        /// <see cref="CityReflectionSteps"/> as the Game draws it, and the budget the city's chapter intro asks
+        /// <see cref="CityReflectionField.March"/> to mirror a tower within (#1119): a ray grazing down a street can spend
+        /// every one of them before it gets across.
+        /// </summary>
+        public const int DEFAULT_CITY_REFLECTION_STEPS = 16;
 
         //The reflect technique's own uniforms. Null on OpenGL ES, where the technique is the plain program and declares none
         private EffectParameter _cityReflectMapParam, _cityReflectOriginParam, _cityReflectSizeParam, _cityReflectTexelParam,

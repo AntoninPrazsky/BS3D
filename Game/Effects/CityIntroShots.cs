@@ -11,7 +11,8 @@ namespace BS3D.Effects
     /// it, where the panes mirror the towers across the street (#1119), an arc round one dressed roof, its mast, dishes and
     /// beacon close and from above (#780; #436's equipment), and the swing home onto the gameplay pose (#972,
     /// <see cref="CitySwing"/>) — in an order that alternates what the lens sees, a canyon shot never next to another, so
-    /// that no cut lands on the same picture nudged (the owner's second-round note). Where no swing home is clear, the old
+    /// that no cut lands on the same picture nudged (the owner's second-round note). The facades only where the tier draws
+    /// the windows' reflections, which are what they are for. Where no swing home is clear, the old
     /// reel: the street, the plaza, a swing round a tower corner and the rooftop, then the ordinary tour's arrival. Both
     /// cities have spent a whole issue's worth of detail on the street
     /// level (#399: lane lines, crossings, parked cars, plazas of trees, and at night the sodium lamps and the
@@ -22,8 +23,8 @@ namespace BS3D.Effects
     /// city stands its buildings inside their blocks (<see cref="City"/>: a building never reaches past the
     /// buildable square, and the square stops half a street short of the centre line), so any height over a
     /// street's centre line is clear. The one place a path leaves a centre line is the corner of the swing,
-    /// and its fillet radius is chosen for that (see <see cref="Swing"/>); the orbit, the roofs' sway and the rooftop's arc
-    /// are walked against the towers' boxes instead.
+    /// and its fillet radius is chosen for that (see <see cref="Swing"/>); the orbit, the roofs' sway, the rooftop's arc and
+    /// the facades' walk (a little off the line, for the reflections' sake) are walked against the towers' boxes instead.
     /// </para>
     /// <para>
     /// <b>The street's paint is flat</b> — the cars, the lane lines and the plaza's trees are drawn onto the
@@ -35,7 +36,8 @@ namespace BS3D.Effects
     /// <para>
     /// <b>Chosen from the city's own grid</b> (<see cref="City.BlockBuilt"/>): the street is the deepest canyon
     /// of a few rolled candidates, the swing turns round a block that has a tower on it, the plaza is a block
-    /// the generator left open, and the facades walk to the face whose panes mirror the most of the towers' boxes. Built
+    /// the generator left open, and the facades walk to the face whose panes mirror the most towers, marched as the shader
+    /// marches them (<see cref="CityReflectionField"/>). Built
     /// once when the intro begins; nothing here runs per frame.
     /// </para>
     /// </summary>
@@ -62,15 +64,16 @@ namespace BS3D.Effects
         private const float NEON_STREET_HEIGHT = 46f;
         private const float NEON_STREET_PITCH_DEGREES = 24f;
 
-        //4.5 until #1119 put the facades into both reels: the half second went to make room for it, the owner preferring a
-        //faster reel to a longer one, and the street is still over CityIntroShotsTests' least length. The one shot longer
-        //than that is the rooftop, and ROOFTOP_SECONDS is what holds three of its beacon's flashes (docs/scenes/city.md)
+        //The street gave half a second to the facades (#1119), the owner preferring a faster reel to a longer one, and is still
+        //over CityIntroShotsTests' least length. It runs as long as the plaza and the facades; the rooftop runs longer because
+        //ROOFTOP_SECONDS is what holds three of its beacon's flashes (docs/scenes/city.md), the roof skim standing in for it
+        //longer still, and the swing home as long as its route
         private const float STREET_SECONDS = 4.0f;
 
         //THE FACADES (#1119), the owner: "shots are missing from below (almost street level) looking up at the tall
-        //buildings, where the reflections in the windows will be clearly visible". The lens walks down a street's centre
-        //line towards one point on a tower's face, low over the asphalt and rising a little, its look fixed on that point
-        //and so tilting up and turning towards the wall as it closes. ⚠ CLOSE, NOT STANDING BACK: a pane mirrors the
+        //buildings, where the reflections in the windows will be clearly visible". The lens walks down a street, a little
+        //off its centre line (FACADES_LANE), towards one point on a tower's face, low over the asphalt and rising a little,
+        //its look fixed on that point and so tilting up and turning towards the wall as it closes. ⚠ CLOSE, NOT STANDING BACK: a pane mirrors the
         //towers only within InstancedModelRenderer.DEFAULT_CITY_REFLECTION_REACH of the lens, at full strength to two
         //thirds of it (CityReflection.fxh fades the last third), so the point looked at stays between FACADES_NEAREST and
         //FACADES_FARTHEST from the lens; a lens standing back to take in a whole tower sees no pane mirror anything. And
@@ -79,6 +82,15 @@ namespace BS3D.Effects
         private const float FACADES_FROM_HEIGHT = 4f, FACADES_TO_HEIGHT = 10f;     //the lens over the street, start and end
         private const float FACADES_FROM_ALONG = 21f, FACADES_TO_ALONG = 6f;      //how far down the street from the point
         private const float FACADES_LENS = 1.2f;
+
+        //⚠ OFF THE CENTRE LINE, towards the street's far side. The shader marches a pane's mirror ray at most
+        //InstancedModelRenderer.DEFAULT_CITY_REFLECTION_STEPS steps, and a ray that leaves the pane at a grazing angle creeps
+        //away from its own wall, beside which the march steps a texel at a time: walked down the centre line, the first
+        //stands' rays ran out of steps before they got across the street, the pane showed the sky, and a candidate clear
+        //from every stand was found in fewer than half the reels. This much farther from the wall, in nearly all of them, and
+        //the lens is still walked against the boxes (FACADES_CLEARANCE): a street is 7.5 to 9 wide and a tower stands half
+        //of it off the line
+        private const float FACADES_LANE = 1.5f;
         private const float FACADES_SECONDS = 4.0f;
         private const float FACADES_NEAREST = 10f;
         private const float FACADES_FARTHEST = InstancedModelRenderer.DEFAULT_CITY_REFLECTION_REACH * 2f / 3f;
@@ -99,11 +111,11 @@ namespace BS3D.Effects
         private const float FACADES_CLEARANCE = 2f;
 
         //What decides between the clear candidates: how many panes round the point mirror a tower and not the sky, from
-        //FACADES_SAMPLES stands of the walk, each pane's mirror ray followed FACADES_MIRROR_REACH through the city's
-        //boxes, the panes FACADES_PANE_STEP apart across a grid round the point. A tower mirrored across the street is
-        //the point of the shot, and a candidate where the point's own pane mirrors only sky from any stand is refused.
-        private const int FACADES_SAMPLES = 7;
-        private const float FACADES_MIRROR_REACH = 80f;
+        //FACADES_SAMPLES stands of the walk, each pane's mirror ray marched over the city's reflection map as the shader
+        //marches it (CityReflectionField), the panes FACADES_PANE_STEP apart across a grid round the point. A tower mirrored
+        //across the street is the point of the shot, and a candidate where the point's own pane mirrors only sky from any
+        //stand is refused.
+        private const int FACADES_SAMPLES = 25;
         private const float FACADES_PANE_STEP = 4f;
         private const int FACADES_CANDIDATES = 48;
 
@@ -187,19 +199,21 @@ namespace BS3D.Effects
         /// <paramref name="rooftops"/> is the city's dressed roofs, for the rooftop's showcase (#780), and
         /// <paramref name="neon"/> whether it is the neon city's, whose extra pieces count.
         /// <paramref name="gamePosition"/> and <paramref name="gameTarget"/> are the pose the intro hands the camera back
-        /// at, which the day city's swing home lands on (#972).
+        /// at, which the day city's swing home lands on (#972). <paramref name="reflections"/> is the city's reflection map
+        /// where the tier draws the windows' reflections (High and Ultra, not under OpenGL ES), null where it draws none: the
+        /// facades are shot only where the panes mirror (#1119).
         /// </summary>
         public static IntroShot[] Build(City city, CityRooftops.RoofShowcases rooftops, bool neon, Vector3 gamePosition, Vector3 gameTarget,
-            float fieldOfView, Random random)
+            float fieldOfView, Random random, CityReflectionField reflections)
         {
             if (city == null) return null;
 
             //EACH CITY ENDS ON ITS SWING HOME (#972, #973): a run through its streets that lands on the gameplay pose itself,
             //so no tour leg follows. They are two places (the owner, 2026-10-20), so two reels: the day city's street, plaza
-            //from higher, facades (#1119), rooftop and a two-corner swing; the neon city's facades, plaza from higher still,
-            //its street from higher and looking less steeply down so its flat paint is not pointed out, rooftop and a
-            //three-corner swing of its own. Where no rolled route is clear the old reel below plays instead, its one-corner
-            //swing and the tour's arrival included.
+            //from higher, facades (#1119), rooftop and a two-corner swing; the neon city's street from higher and looking less
+            //steeply down so its flat paint is not pointed out, plaza from higher still, facades, rooftop and a three-corner
+            //swing of its own. Where no rolled route is clear the old reel below plays instead, its one-corner swing and the
+            //tour's arrival included.
             float streetHeight = neon ? NEON_STREET_HEIGHT : STREET_HEIGHT;
             float streetPitch = neon ? NEON_STREET_PITCH_DEGREES : STREET_PITCH_DEGREES;
             float plazaFrom = neon ? NEON_PLAZA_FROM_HEIGHT : DAY_PLAZA_FROM_HEIGHT;
@@ -212,18 +226,21 @@ namespace BS3D.Effects
             IntroShot home = CitySwing.Build(city, gamePosition, gameTarget, fieldOfView, random, neon ? CitySwing.Neon : CitySwing.Day);
             if (home != null)
             {
-                //The facades are rolled LAST, after the swing home, so every other shot rolls exactly what it rolled before
-                //#1119 added them. Three canyon shots (the street, the facades and the swing home, always last) and two from
-                //above (the plaza and the rooftop) alternate only as canyon, above, canyon, above, canyon, so a reel opens on
-                //a canyon: the day city's on its street, the facades after its plaza; the neon city's on the facades, which
-                //keeps its plaza before its street (#973). Without a plaza between them and the street, or where no
-                //candidate is clear, the reel plays without them; the old reel below has none (its swing is a canyon shot too).
-                IntroShot facades = reelPlaza != null ? Facades(city, fieldOfView, random) : null;
+                //The facades are rolled LAST, after the swing home, and off a generator of their own seeded by one draw of
+                //the reel's: every other shot rolls exactly what it rolled before #1119 added them, and whether they are
+                //rolled at all (the tier) or how many candidates they weigh never moves what the session deals after the
+                //intro. The reel plays without them where the tier draws no reflections, where no plaza stands between them
+                //and the street, or where no candidate is clear; the old reel below has none (its swing is a canyon shot too).
+                var facadesRandom = new Random(random.Next());
+                IntroShot facades = reelPlaza != null && reflections != null ? Facades(city, reflections, fieldOfView, facadesRandom) : null;
 
+                //Three canyon shots (the street, the facades and the swing home, always last) and two from above (the plaza
+                //and the rooftop) alternate only as canyon, above, canyon, above, canyon, so with the facades both reels open
+                //on their street, the more establishing of the two canyon shots, and the facades come after the plaza.
+                //Without them the neon city keeps the order its reel was accepted in (#973), its plaza before its street
                 var reel = new List<IntroShot>(5);
-                if (neon)
+                if (neon && facades == null)
                 {
-                    if (facades != null) reel.Add(facades);
                     if (reelPlaza != null) reel.Add(reelPlaza);
                     reel.Add(reelStreet);
                 }
@@ -306,18 +323,19 @@ namespace BS3D.Effects
         }
 
         /// <summary>
-        /// The facades (#1119): a walk down a street's centre line, low over the asphalt and rising a little, towards one
-        /// point on the face of a tower lining it, the look held on that point, so the view tilts up the wall and turns
-        /// towards it as the lens closes and the panes round the point, close and at a grazing angle, mirror the tower
-        /// across the street. Of FACADES_CANDIDATES rolled faces and walks the clear one whose panes mirror the most towers
-        /// is taken, a curtain wall's coated glass preferred; null when none is clear.
+        /// The facades (#1119): a walk down a street, FACADES_LANE off its centre line on the far side from the wall, low over
+        /// the asphalt and rising a little, towards one point on the face of a tower lining it, the look held on that point,
+        /// so the view tilts up the wall and turns towards it as the lens closes and the panes round the point, close and at
+        /// a grazing angle, mirror the tower across the street. Of FACADES_CANDIDATES rolled faces and walks the clear one
+        /// whose panes mirror the most towers is taken, a curtain wall's coated glass preferred; null when none is clear.
         /// <para>
-        /// A candidate is refused unless from every stand of the walk the point is between FACADES_NEAREST and
-        /// FACADES_FARTHEST from the lens and in plain sight of it, the frame's bottom edge looks over the horizon (no
-        /// street in the picture), the lens keeps FACADES_CLEARANCE off every box, and the point's own pane mirrors a tower.
+        /// A candidate is refused unless from each of FACADES_SAMPLES stands of the walk the point is between FACADES_NEAREST
+        /// and FACADES_FARTHEST from the lens and in plain sight of it, the frame's bottom edge looks over the horizon (no
+        /// street in the picture), the lens keeps FACADES_CLEARANCE off every box, and the point's own pane mirrors a tower
+        /// as the shader marches it, in the Game's steps.
         /// </para>
         /// </summary>
-        private static IntroShot Facades(City city, float fieldOfView, Random random)
+        private static IntroShot Facades(City city, CityReflectionField reflections, float fieldOfView, Random random)
         {
             List<StreetFace> faces = StreetFaces(city);
             if (faces.Count == 0) return null;
@@ -337,7 +355,8 @@ namespace BS3D.Effects
                 StreetFace face = faces[random.Next(faces.Count)];
                 float along = MathHelper.Lerp(face.From + FACADES_CORNER_MARGIN, face.To - FACADES_CORNER_MARGIN, (float)random.NextDouble());
                 float end = random.Next(2) == 0 ? 1f : -1f;   //which end of the street the lens comes in from
-                float gap = MathF.Abs(face.Street - face.Plane);
+                float lane = face.Street + MathF.Sign(face.Street - face.Plane) * FACADES_LANE;
+                float gap = MathF.Abs(lane - face.Plane);
 
                 //The walk, and the point's height: the lowest that keeps the look FACADES_STREET_MARGIN_DEGREES over the
                 //frame's half height from every point of it, so the bottom edge never looks down at the street
@@ -347,7 +366,7 @@ namespace BS3D.Effects
                     float u = i / (float)(PATH_POINTS - 1);
                     float s = MathHelper.Lerp(FACADES_FROM_ALONG, FACADES_TO_ALONG, u);
                     float y = city.GroundY + MathHelper.Lerp(FACADES_FROM_HEIGHT, FACADES_TO_HEIGHT, u);
-                    path[i] = face.On(face.Street, along + end * s, y);
+                    path[i] = face.On(lane, along + end * s, y);
                     pointY = MathF.Max(pointY, y + lowestLook * MathF.Sqrt(gap * gap + s * s));
                 }
 
@@ -358,14 +377,14 @@ namespace BS3D.Effects
                 for (int i = 0; i < PATH_POINTS && clear; i++) clear = towers.Clear(path[i], FACADES_CLEARANCE);
                 if (!clear) continue;
 
-                //Every box a mirror ray from round the point could meet
+                //Every box the look from a stand to the point could meet: the stands are FACADES_FARTHEST from it at most
                 near.Clear();
                 for (int b = 0; b < city.Buildings.Length; b++)
                 {
                     Matrix box = city.Buildings[b].World;
                     float dx = MathF.Max(0f, MathF.Abs(box.M41 - point.X) - MathF.Abs(box.M11) * 0.5f);
                     float dz = MathF.Max(0f, MathF.Abs(box.M43 - point.Z) - MathF.Abs(box.M33) * 0.5f);
-                    if (dx * dx + dz * dz < FACADES_MIRROR_REACH * FACADES_MIRROR_REACH) near.Add(b);
+                    if (dx * dx + dz * dz < FACADES_FARTHEST * FACADES_FARTHEST) near.Add(b);
                 }
 
                 int mirrored = 0, panes = 0;
@@ -377,7 +396,7 @@ namespace BS3D.Effects
                     //In the band, and in plain sight: the look meets nothing before the point
                     clear = distance >= FACADES_NEAREST && distance <= FACADES_FARTHEST
                         && Cast(city, near, eye, (point - eye) / distance, distance + 1f) >= distance - 0.3f
-                        && Mirrors(city, near, eye, point, face.Normal);
+                        && Mirrors(reflections, eye, point, face.Normal);
 
                     //The grid of panes round the point, those on the face
                     for (int a = -1; a <= 1 && clear; a++)
@@ -387,7 +406,7 @@ namespace BS3D.Effects
                             if (paneAlong < face.From || paneAlong > face.To || paneY < face.Bottom || paneY > face.Top) continue;
 
                             panes++;
-                            if (Mirrors(city, near, eye, face.On(face.Plane, paneAlong, paneY), face.Normal)) mirrored++;
+                            if (Mirrors(reflections, eye, face.On(face.Plane, paneAlong, paneY), face.Normal)) mirrored++;
                         }
                 }
 
@@ -461,13 +480,15 @@ namespace BS3D.Effects
             return faces;
         }
 
-        //Whether the pane at `pane` on a face of normal `normal`, seen from `eye`, mirrors one of the boxes `near` and not the
-        //sky: its mirror ray followed FACADES_MIRROR_REACH, as CityReflection.fxh's march follows it over the city's map
-        private static bool Mirrors(City city, List<int> near, Vector3 eye, Vector3 pane, Vector3 normal)
+        //Whether the pane at `pane` on a face of normal `normal`, seen from `eye`, mirrors a tower and not the sky as the game
+        //draws it: CityReflection.fxh's own march over the city's map, in the steps the Game gives it. ⚠ Not a ray through
+        //the towers' boxes: a ray grazing down the street meets the tower across it in a box test and runs out of the
+        //shader's steps before it gets there, and a shot ranked by the boxes showed the sky in a third of its poses
+        private static bool Mirrors(CityReflectionField reflections, Vector3 eye, Vector3 pane, Vector3 normal)
         {
             Vector3 incoming = Vector3.Normalize(pane - eye);
             Vector3 mirror = incoming - 2f * Vector3.Dot(incoming, normal) * normal;
-            return Cast(city, near, pane + normal * 0.05f, mirror, FACADES_MIRROR_REACH) < FACADES_MIRROR_REACH;
+            return reflections.March(pane, normal, mirror, InstancedModelRenderer.DEFAULT_CITY_REFLECTION_STEPS, out _);
         }
 
         //How far along `direction` (a unit vector) from `origin` the ray first meets one of the boxes `boxes`, or infinity

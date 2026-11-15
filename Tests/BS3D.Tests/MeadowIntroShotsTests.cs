@@ -608,12 +608,12 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void TheWholePrologueRunsNoLongerThanTheCities()
+        public void TheWholePrologueRunsNoLongerThanTwentyTwoSeconds()
         {
-            //The docs state 11-17 s for a prologue and about 20-22 for the cities (chapter-intro-prologues.md). The meadow ran
-            //24.9 s with its two half circles (#945); since #1107 the orbits are shorter and the brook home lands, so no tour leg
-            //follows it: this holds the whole intro under the cities' 22 s, the tour's last leg (4.5 s) counted where the reel
-            //has no landing
+            //The docs state 11-17 s for a prologue (chapter-intro-prologues.md). The meadow ran 24.9 s with its two half circles
+            //(#945); since #1107 the orbits are shorter and the brook home lands, so no tour leg follows it: this holds the whole
+            //intro under 22 s, the meadow's own ceiling, the tour's last leg (4.5 s) counted where the reel has no landing. It was
+            //the cities' length when #1107 set it; the cities have run longer since their facades (#1119)
             for (int seed = 1; seed <= ROLLS; seed++)
             {
                 IntroShot[] shots = Shots(Plant(seed), seed);

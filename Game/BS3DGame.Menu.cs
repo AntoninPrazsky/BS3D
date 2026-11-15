@@ -1298,7 +1298,7 @@ namespace BS3D
             //backdrop's own features
             !SceneryShown ? null : BS3D.Effects.IntroPrologues.For(_scene,
                 new BS3D.Effects.IntroContext(_sceneRenderer, _city, _rooftops, _forestScatter, _auroraScatter, _rig?.SunDirection, _wallClock,
-                    () => _wallClock, gamePosition, gameTarget),
+                    () => _wallClock, gamePosition, gameTarget, _cityReflection?.Field),
                 fieldOfView, random);
 
         internal int LevelCount => _levelSet?.Count ?? 0;
