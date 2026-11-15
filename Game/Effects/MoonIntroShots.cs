@@ -68,7 +68,7 @@ namespace BS3D.Effects
         private const float TRACKS_LATERAL = 2f;
         private const int TRACKS_WINDOW = 8;
         private const int TRACKS_PASSES = 3;
-        private const float TRACKS_LOOK_HEIGHT = 2.8f;
+        private const float TRACKS_LOOK_HEIGHT = 2.4f;
         private const float TRACKS_FROM_FOV_DEGREES = 50f, TRACKS_TO_FOV_DEGREES = 40f;
         private const float TRACKS_SECONDS = 4.2f;
 
