@@ -68,19 +68,31 @@ namespace Prazsky.Core.Render
         /// -1..1 off a point. Internal rather than private since #559, for <see cref="TerrainMirror"/>'s
         /// outback formations, which roll their placement off it directly as <c>Outback.fx</c> does.
         /// </summary>
-        internal static Vector2 Hash22(float px, float py)
+        internal static Vector2 Hash22(float px, float py) => Hash22(px, py, Rounding);
+
+        /// <summary>
+        /// How this machine's GPU rounds the hash's dot, which every mirror built on <see cref="Hash22(float, float)"/> follows (#1134).
+        /// <see cref="HashRoundingProbe"/> sets it from the GPU's own answer when the first <see cref="SceneRenderer"/> is
+        /// made, before any backdrop places anything; until then, and wherever the probe cannot draw, it is
+        /// <see cref="HashRounding.Fused"/>, the rounding #598 measured on the desktop.
+        /// </summary>
+        internal static HashRounding Rounding = HashRounding.Fused;
+
+        /// <summary><see cref="Hash22(float, float)"/> under a stated rounding: the probe compares both.</summary>
+        internal static Vector2 Hash22(float px, float py, HashRounding rounding)
         {
             float x = Frac(px * 0.1031f);
             float y = Frac(py * 0.1030f);
             float z = Frac(px * 0.0973f);
 
-            //FUSED, as the shader compiler fuses the HLSL's dot(p3, p3.yzx + 33.33) into two multiply-adds (#598). The
-            //product lands near 20 000, where a float carries a fraction to about 1/500, so rounding once per step here
-            //against once per multiply-add there put the CPU mirrors on different quanta from the drawn terrain: up to
-            //16 units off in the mountains, measured by the Testbed's mirrorcheck. Same order as the GPU's mads.
-            //⚠ Whether a mad is fused is the driver's choice, not fxc's: the desktop's RDNA2 fuses, the laptop's Vega
-            //(GCN) does not, and there this mirror is the one 16 units off (#1134).
-            float d = MathF.FusedMultiplyAdd(z, x + 33.33f, MathF.FusedMultiplyAdd(y, z + 33.33f, x * (y + 33.33f)));
+            //The HLSL's dot(p3, p3.yzx + 33.33) is two multiply-adds after fxc (#598), and whether a multiply-add rounds
+            //once or twice is the DRIVER's choice: the desktop's RDNA2 fuses, the laptop's GCN does not (#1134). The
+            //product lands near 20 000, where a float carries a fraction to about 1/500, so one rounding more or less
+            //moves the hash by whole quanta: a mirror rounded otherwise than its GPU stood up to 16 units off the drawn
+            //mountains (the Testbed's mirrorcheck). Both orders are the GPU's mads, innermost first.
+            float d = rounding == HashRounding.Fused
+                ? MathF.FusedMultiplyAdd(z, x + 33.33f, MathF.FusedMultiplyAdd(y, z + 33.33f, x * (y + 33.33f)))
+                : z * (x + 33.33f) + (y * (z + 33.33f) + x * (y + 33.33f));
 
             x += d;
             y += d;
@@ -90,5 +102,15 @@ namespace Prazsky.Core.Render
         }
 
         private static float Dot(Vector2 gradient, float x, float y) => gradient.X * x + gradient.Y * y;
+    }
+
+    /// <summary>How a GPU rounds the noise hash's multiply-adds (#1134): see <see cref="ShaderMath.Rounding"/>.</summary>
+    internal enum HashRounding
+    {
+        /// <summary>Once per multiply-add (the desktop's RDNA2).</summary>
+        Fused,
+
+        /// <summary>After every product and every sum (the laptop's GCN).</summary>
+        Unfused
     }
 }
