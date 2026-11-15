@@ -131,11 +131,16 @@ namespace BS3D.Effects
         private const float ISLAND_CLEAR = 2f;
 
         /// <summary>How the gate home is timed, pointed and banked once laid (<see cref="IntroLanding.Fly"/>): the old gate
-        /// shot's lens at first, easing to the game's; the meadow's look and settle, the look turning in towards the arena off
-        /// the entrance's line (<see cref="IntroLanding.Route.Lean"/>); a light bank.</summary>
+        /// shot's lens at first, easing to the game's; the meadow's settle; a light bank. The look, level down the gap as the
+        /// old gate's was, turns in towards the arena and lifts towards the pose's target as the lens climbs out of it
+        /// (<see cref="IntroLanding.Route.Lean"/>), further in than the meadow's (0.8 of the way, the axis 18 degrees off it
+        /// on the circle) and up to the target's height (<see cref="IntroLanding.Style.LookRise"/>): the circle runs 4 to 13
+        /// outside the pose and 7 to 16 from the island's edge, close under the cluster, and looked along it level with the
+        /// meadow's 0.7, the cluster stood in the frame's top corner, the glass cut by its edge, and the island's cap filled
+        /// the lower half.</summary>
         internal static readonly IntroLanding.Style Landing = new(WideLens: CircusIntroShots.GATE_LENS, ReleaseTimeScale: 2f,
-            LookPitchFollow: 0.3f, LookDistance: 30f, LookSmoothSeconds: 0.3f, LookLandSeconds: 2.2f, LookInward: 0.7f,
-            RollPerTurn: 0.1f, MaxRollDegrees: 8f, RollSmoothSeconds: 0.25f, Points: 240);
+            LookPitchFollow: 0.3f, LookDistance: 30f, LookSmoothSeconds: 0.3f, LookLandSeconds: 2.2f, LookInward: 0.8f,
+            RollPerTurn: 0.1f, MaxRollDegrees: 8f, RollSmoothSeconds: 0.25f, Points: 240, LookRise: 1f);
 
         /// <summary>
         /// The gate home in <paramref name="circus"/>, landing on <paramref name="endPosition"/> looking at
@@ -278,13 +283,15 @@ namespace BS3D.Effects
             float low = floor + CircusIntroShots.GATE_HEIGHT, circleY = floor + above;
             var path = new List<Vector3>(plan.Count);
             var speed = new float[plan.Count];
+            var lean = new float[plan.Count];
             float releaseY = 0f, sRelease = length[releaseStart];
             for (int i = 0; i < plan.Count; i++)
             {
                 float s = length[i], y;
+                float climbed = MathHelper.SmoothStep(0f, 1f, MathHelper.Clamp((s - sRise) / climb, 0f, 1f));
                 if (i <= releaseStart)
                 {
-                    y = MathHelper.Lerp(low, circleY, MathHelper.SmoothStep(0f, 1f, MathHelper.Clamp((s - sRise) / climb, 0f, 1f)));
+                    y = MathHelper.Lerp(low, circleY, climbed);
                     releaseY = y;
                 }
                 else y = MathHelper.Lerp(releaseY, endPosition.Y, MathHelper.SmoothStep(0f, 1f, (s - sRelease) / MathF.Max(total - sRelease, 1e-3f)));
@@ -292,6 +299,10 @@ namespace BS3D.Effects
                 if (i <= settleFrom)
                     speed[i] = MathHelper.Lerp(GATE_SPEED, cruise, MathHelper.SmoothStep(0f, 1f,
                         MathHelper.Clamp((s - sAccelerate) / MathF.Max(sCruise - sAccelerate, 1f), 0f, 1f)));
+
+                //The look down the gap level, as the old gate's was, turning in towards the arena and lifting towards the
+                //cluster as the lens climbs out of the gap (Landing's LookInward and LookRise)
+                lean[i] = climbed;
 
                 path.Add(new Vector3(plan[i].X, y, plan[i].Y));
             }
@@ -305,13 +316,9 @@ namespace BS3D.Effects
             //The best is the length asked for, arriving along the pose's facing
             float swivel = MathF.Acos(MathHelper.Clamp(Vector2.Dot(arrive, facing), -1f, 1f));
 
-            //The look turns in towards the arena all the way (no Lean): down the gap the travel is already on the island, so
-            //the turn in changes nothing there, and off the gap's line it holds the island in frame from the first bend on
-            //(ramped in over the curve onto the circle, as the meadow's is off its brook, the axis stood 50 degrees off the
-            //look on that curve, past the 38 of a 16:9 frame's edge)
             return new IntroLanding.Route
             {
-                Path = path, Speed = speed, DecelerateFrom = settleFrom,
+                Path = path, Speed = speed, DecelerateFrom = settleFrom, Lean = lean,
                 Score = -MathF.Abs(estimate - TARGET_SECONDS) - 2f * swivel + (float)random.NextDouble() * 0.5f,
             };
         }

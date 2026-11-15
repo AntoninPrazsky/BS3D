@@ -61,6 +61,11 @@ namespace BS3D.Tests
         private const float ACROSS_THE_RADIAL = 15f;
         private const float ARENA_IN_FRAME = 5f;
 
+        //How far over the pose's target the cluster's top and the glass over it stand (Tightrope's field tops 7.2 over its
+        //aim, 5.66 against -1.57), and how much of the frame's half height above them must stay clear on the circle
+        private const float CLUSTER_TOP = 8f;
+        private const float CLUSTER_TOP_MARGIN = 0.15f;
+
         private static readonly CircusSceneConfig Circus = new();
 
         private static Vector3 Pose(int bearing, float radius)
@@ -285,8 +290,14 @@ namespace BS3D.Tests
                     float halfWidth = MathF.Atan(MathF.Tan(shot.FieldOfViewAt(t) * 0.5f) * 16f / 9f);
                     float off = MathF.Abs(MathHelper.WrapAngle(MathF.Atan2(GameTarget.Z - position.Z, GameTarget.X - position.X)
                         - MathF.Atan2(look.Z - position.Z, look.X - position.X)));
+                    string where = $"roll {roll}, bearing {bearing}, radius {radius}, at {t:F3}";
                     Assert.True(off <= halfWidth - MathHelper.ToRadians(ARENA_IN_FRAME),
-                        $"roll {roll}, bearing {bearing}, radius {radius}, at {t:F3}: the axis {MathHelper.ToDegrees(off):F0} degrees off the look, the frame's edge {MathHelper.ToDegrees(halfWidth):F0}");
+                        $"{where}: the axis {MathHelper.ToDegrees(off):F0} degrees off the look, the frame's edge {MathHelper.ToDegrees(halfWidth):F0}");
+
+                    //And the cluster's top and the glass over it, CLUSTER_TOP over the pose's target, stand inside the frame's
+                    //height, CLUSTER_TOP_MARGIN of the half height short of its top edge (the bank, 8 degrees at most, left out)
+                    float top = ScreenHeight(position, look, GameTarget + Vector3.Up * CLUSTER_TOP, shot.FieldOfViewAt(t));
+                    Assert.True(top <= 1f - CLUSTER_TOP_MARGIN, $"{where}: the cluster's top at {top:F2} of the frame's half height");
                     held++;
                 }
             }
@@ -385,6 +396,16 @@ namespace BS3D.Tests
                 lamps[k] = new Vector3(MathF.Cos(bearing) * radius, Circus.Ring.FloorY + CircusBackdrop.FOOTLIGHT_HEIGHT, MathF.Sin(bearing) * radius);
             }
             return lamps;
+        }
+
+        //Where a point stands up the frame of a level lens at POSITION looking at LOOK: 0 at the middle, 1 at the top edge
+        private static float ScreenHeight(Vector3 position, Vector3 look, Vector3 point, float fieldOfView)
+        {
+            Vector3 forward = Vector3.Normalize(look - position);
+            Vector3 right = Vector3.Normalize(Vector3.Cross(forward, Vector3.Up));
+            Vector3 up = Vector3.Cross(right, forward);
+            Vector3 d = point - position;
+            return Vector3.Dot(d, up) / Vector3.Dot(d, forward) / MathF.Tan(fieldOfView * 0.5f);
         }
 
         private static float Yaw(Vector3 position, Vector3 target) => MathF.Atan2(target.Z - position.Z, target.X - position.X);
