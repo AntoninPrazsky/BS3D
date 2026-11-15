@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1114 Měsíc: jedna vlajka u stop vozítka a záběr po kolejích — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: na Měsíci stojí jedna bílá vlajka (`FLAG_SIZE` 2,4) místo dvou, 4 jednotky vedle stop vozítka na svahu, asi 14° vlevo od osy herního pohledu (nad hranou paluby, mimo kolo děla). Stopy přeloženy: z pláně se stočí na jih a stoupají za vlajku (ohyb nejvýš 10,4°). Úvod: záběr kráteru nahradil „the tracks“, nízký let po kolejích nad CPU zrcadlem terénu se sluncem z boku, končí na vlajce zblízka; úvod 15,3 s místo 14,3.
+- ⚠ Shader rozkládá 24 bodů stop rovnoměrně po řídicích úsecích, ne po délce: oblouk potřebuje hodně krátkých úseků, jinak je hranatý (19°).
+- Otevřené: verdikt (`verdict-eye`): vlajka je proti stopám (1 j./m) asi 1,9× větší než Apollo; chybějící záběr kráteru; Potato neviděno; cena stop na nové trase neměřena.
+
 ## 2026-11-15 — #1105 logo mizí s černou v jednom prolínání — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: logo úvodu začne mizet 0,25 s po začátku zvedání černé (`SplashTimeline.LOGO_LAG_SECONDS`) a je pryč 0,15 s po ní; pauza 0,4 s zmizela, úvod trvá 3,15 s místo 4,1. Časování je v nové `Game/Screens/SplashTimeline.cs` bez zařízení a hlídá ho 7 testů (`SplashTimelineTests`). Nový testovací argument `splashshot=<s,…>` podrží věk úvodu na dané vteřině a snímek uloží.
