@@ -36,7 +36,10 @@ description: How to add and wire custom HLSL effects (.fx) in BS3D — content p
    `PerturbNormalFromHeight`), `Clouds.fxh`, `Shadows.fxh`, `FarField.fxh`, `HeightProbe.fxh`, `Stars.fxh`,
    and since #581 `Craters.fxh`, `Rocks.fxh`, `Grass.fxh` and `ForestGround.fxh` hold what two scenes share.
    A shared header carries functions and static constants only; the uniforms it reads are declared by each
-   includer before the `#include`, so the includer's constant buffer does not move. Copies that were meant
+   includer before the `#include`, so the includer's constant buffer does not move. **A field a C# copy reproduces
+   (a `TerrainMirror` terrain, a roll `OffworldGround` reads) must round alike on every GPU**: the effect defines
+   `MIRRORED_NOISE` before its first include, or calls `NoiseHash22Exact` at the mirrored rolls, and `mirrorcheck`
+   confirms it ("The terrain mirrors" in `docs/scenes/terrain-grids-and-mirrors.md`, #1134). Copies that were meant
    to stay in step drifted apart within days (#579) — that is why these exist. An `.fxh` edit rebuilds
    every `.fx` that includes it.
 
