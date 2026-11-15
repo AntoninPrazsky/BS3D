@@ -13,7 +13,7 @@ namespace BS3D.Tests
     /// Held over the real builder, the real traverse and the shipped config: the ruts bend gently enough to be seen close,
     /// the tracks shot runs down their middle line over Mars's ceiling with the ruts ahead of it in its frame and the island
     /// they lead to closing it, it opens the prologue where the tier draws the ruts and the plain opens it where it does
-    /// not, and the opening stays short.
+    /// not, the tier never moves what the roll deals after the first shot, and the opening stays short.
     /// </summary>
     public class MarsIntroShotsTests
     {
@@ -27,7 +27,7 @@ namespace BS3D.Tests
         //own size off it, so a lens over the line has none under it
         private const float MAX_OFF_LINE = 0.5f;
 
-        //Low: no frame more than this over the ceiling (its clearance and what the drone's rounding adds), so smooth is never
+        //Kept low: no frame more than this over the ceiling (its clearance and what the drone's rounding adds), so smooth is never
         //bought by flying high. 2.95 at the most, measured
         private const float MAX_OVER_CEILING = MarsIntroShots.CLEARANCE + 1f;
 
@@ -187,6 +187,49 @@ namespace BS3D.Tests
                 }
 
                 Assert.Equal("the plain", MarsIntroShots.Build(Mars, tracksDrawn: false, new Random(seed))[0].Name);
+            }
+        }
+
+        [Fact]
+        public void TheTierNeverMovesWhatTheRollDealsAfterTheFirstShot()
+        {
+            for (int seed = 1; seed <= 8; seed++)
+            {
+                var drawn = new Random(seed);
+                var bare = new Random(seed);
+                IntroShot[] tracks = MarsIntroShots.Build(Mars, tracksDrawn: true, drawn);
+                IntroShot[] plain = MarsIntroShots.Build(Mars, tracksDrawn: false, bare);
+
+                Assert.Equal(plain.Length, tracks.Length);
+                for (int i = 1; i < tracks.Length; i++)
+                {
+                    Assert.Equal(plain[i].Name, tracks[i].Name);
+                    foreach (float t in new[] { 0f, 0.5f, 1f })
+                    {
+                        tracks[i].Pose(t, out Vector3 lens, out Vector3 target);
+                        plain[i].Pose(t, out Vector3 plainLens, out Vector3 plainTarget);
+                        Assert.True(lens == plainLens && target == plainTarget,
+                            $"seed {seed}: '{tracks[i].Name}' at {t} is another shot where the tier draws no ruts");
+                    }
+                }
+
+                Assert.True(drawn.Next() == bare.Next(), $"seed {seed}: the session deals another roll after the intro where the tier draws no ruts");
+            }
+        }
+
+        //The tier's half of the link from tier to shot. The rest is held by construction, not here, since a SceneRenderer needs
+        //a graphics device: MarsBackdrop.DrawsTracks reads the technique FullGroundAt picked, SceneRenderer.MarsDrawsTracks
+        //returns it and MarsIntroShots.Build(SceneRenderer, Random) hands it on as tracksDrawn
+        [Fact]
+        public void TheRutsAreDrawnAtMediumAndUpOnly()
+        {
+            foreach (QualityLevel quality in Enum.GetValues<QualityLevel>())
+            {
+                //The scene detail BS3DGame hands the renderer at this tier (SceneRenderer.SceneDetail). Potato's path builds no
+                //renderer, and so no Mars prologue at all; it is held with Low only because it drops the detail too
+                float sceneDetail = quality.DropsSceneDetail() ? 0f : 1f;
+                bool expected = quality is not (QualityLevel.Low or QualityLevel.Potato);
+                Assert.True(MarsBackdrop.FullGroundAt(sceneDetail) == expected, $"{quality}: the full ground (and its ruts) {(expected ? "not " : "")}drawn");
             }
         }
     }

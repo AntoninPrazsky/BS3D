@@ -45,7 +45,7 @@ The owner: a rover's tracks as a small easter egg; then (#1115) "the intro anima
 - `MarsGroundAt` presses the ruts into the normal and darkens the ground the wheels turned over (`TRACK_DARKEN`, the darker ground under the dust skin every rover photograph shows), never over a rock or the island's bank. **The full program's only**: the reduced one keeps its budget, so Low draws no ruts (`SceneRenderer.MarsDrawsTracks`) and its chapter intro opens on the plain instead.
 - **The stones keep off the ruts as drawn** (`TRACK_CLEAR` and their own size off `TRAVERSE_PATH`), tested after every roll a stone takes, so a change to the traverse takes away or gives back the stones near it and leaves the rest of the field where it lay.
 - No level plays on Mars, so the ruts are for the menu's orbit, the drop and the chapter tour, whose prologue opens on a run low down them towards the arena ([the scene shots](../game-feedback/chapter-intro-scene-shots.md)).
-- **Cost**: none measurable on the first traverse (Testbed 3840x1600, ssaa 2, `campos=-60,-9,20 camtarget=-90,-13,-40`: 15.93 against 16.01). A pixel pays the segments of the runs of four whose padded box holds it; this traverse's six boxes cover 19 960 square units against the first one's 16 700 (the long diagonal of the south-west arm's last run alone 11 260, far out on the plain), so that figure is the one to re-take before comparing against it.
+- **Cost**: a pixel pays the segments of the runs of four whose padded box holds it; the six boxes cover 19 960 square units, the long diagonal of the south-west arm's last run alone 11 260, far out on the plain.
 
 ## Tiers and costs
 

@@ -281,7 +281,8 @@ namespace Prazsky.Core.Render
         /// </summary>
         private void SelectMarsTechnique(float sceneDetail)
         {
-            _marsTerrainTechnique = sceneDetail > 0.5f ? _marsTerrainFull : _marsTerrainReduced;
+            bool full = FullGroundAt(sceneDetail);
+            _marsTerrainTechnique = full ? _marsTerrainFull : _marsTerrainReduced;
 
             //And a coarser grid under the reduced program since #540, the volcano's own step: on the APU at Low,
             //360 -> 256 was 1.69 ms of Mars's frame (47 cycles, 100 %) and photographed identical, where the two
@@ -290,8 +291,16 @@ namespace Prazsky.Core.Render
             //the small craters that make the field read. The pass takes its grid at MARS_GRID_N before this first runs
             //(from the constructor), so at the full tier that call retakes nothing; TerrainPass.SetGrid gives the old
             //grid back to the cache rather than disposing it.
-            _marsPass.SetGrid(sceneDetail > 0.5f ? MARS_GRID_N : MARS_GRID_N_REDUCED);
+            _marsPass.SetGrid(full ? MARS_GRID_N : MARS_GRID_N_REDUCED);
         }
+
+        /// <summary>
+        /// Whether Mars draws its full ground at this scene detail (<see cref="SceneRenderer.SceneDetail"/>): the one
+        /// threshold <see cref="SelectMarsTechnique"/> picks the program and its grid by. Only the full program draws the
+        /// rover's ruts (<c>Mars.fx</c>'s <c>MarsGroundAt</c>, its <c>detail</c> branch), so this is also the question whether
+        /// the chapter intro may shoot them (#1115, <see cref="SceneRenderer.MarsDrawsTracks"/>).
+        /// </summary>
+        internal static bool FullGroundAt(float sceneDetail) => sceneDetail > 0.5f;
 
         /// <inheritdoc/>
         public override void OnDetailChanged(float sceneDetail) => SelectMarsTechnique(sceneDetail);

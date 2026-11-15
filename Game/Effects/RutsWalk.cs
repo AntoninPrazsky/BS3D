@@ -28,9 +28,6 @@ namespace BS3D.Effects
             for (int i = 1; i < _curve.Length; i++) _along[i] = _along[i - 1] + Vector2.Distance(_curve[i - 1], _curve[i]);
         }
 
-        /// <summary>How long the ruts are, from their first control to their last.</summary>
-        public float Length => _along[^1];
-
         /// <summary>How far along the ruts the point of the walked curve nearest <paramref name="point"/> stands.</summary>
         public float AlongNearest(Vector2 point)
         {

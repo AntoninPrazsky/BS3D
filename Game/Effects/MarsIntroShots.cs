@@ -115,7 +115,11 @@ namespace BS3D.Effects
         /// </summary>
         internal static IntroShot[] Build(MarsSceneConfig mars, bool tracksDrawn, Random random)
         {
-            var shots = new List<IntroShot>(3) { tracksDrawn ? Tracks(mars.Terrain) : Plain(mars.Terrain, random) };
+            //The plain's bearing is rolled on every tier, used or not: the tracks roll nothing, and the tier must never move what
+            //the mesa, Phobos, the tour's last leg and the session after the intro are dealt (the benchmark plays one seed on
+            //every tier; the cities' facades keep the same rule, CityIntroShots)
+            float plainBearing = (float)random.NextDouble() * MathHelper.TwoPi;
+            var shots = new List<IntroShot>(3) { tracksDrawn ? Tracks(mars.Terrain) : Plain(mars.Terrain, plainBearing) };
 
             IntroShot mesa = Mesa(mars.Terrain, random);
             if (mesa != null) shots.Add(mesa);
@@ -166,10 +170,10 @@ namespace BS3D.Effects
         //How far over the level a direction climbs, radians
         private static float Elevation(Vector3 direction) => MathF.Asin(MathHelper.Clamp(direction.Y / direction.Length(), -1f, 1f));
 
-        /// <summary>The establishing view where no ruts are drawn: a crane up over the plain towards the arena, on a rolled bearing.</summary>
-        private static IntroShot Plain(MarsTerrainConfig terrain, Random random)
+        /// <summary>The establishing view where no ruts are drawn: a crane up over the plain towards the arena, on a rolled
+        /// <paramref name="bearing"/> (radians).</summary>
+        private static IntroShot Plain(MarsTerrainConfig terrain, float bearing)
         {
-            float bearing = (float)random.NextDouble() * MathHelper.TwoPi;
             Vector2 view = new(MathF.Cos(bearing), MathF.Sin(bearing));
 
             Vector3[] path = Line(
