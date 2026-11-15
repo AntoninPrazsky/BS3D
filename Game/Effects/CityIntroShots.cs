@@ -55,7 +55,56 @@ namespace BS3D.Effects
         //shallower look, it meets it about 40 ahead and the towers' neon takes most of the frame.
         private const float NEON_STREET_HEIGHT = 46f;
         private const float NEON_STREET_PITCH_DEGREES = 24f;
-        private const float STREET_SECONDS = 4.5f;
+
+        //4.5 until #1119 put the facades into both reels: the half second went to make room for it, the owner preferring a
+        //faster reel to a longer one, and the street is still over CityIntroShotsTests' least length
+        private const float STREET_SECONDS = 4.0f;
+
+        //THE FACADES (#1119), the owner: "shots are missing from below (almost street level) looking up at the tall
+        //buildings, where the reflections in the windows will be clearly visible". The lens walks down a street's centre
+        //line towards one point on a tower's face, low over the asphalt and rising a little, its look fixed on that point
+        //and so tilting up and turning towards the wall as it closes. ⚠ CLOSE, NOT STANDING BACK: a pane mirrors the
+        //towers only within InstancedModelRenderer.DEFAULT_CITY_REFLECTION_REACH of the lens, at full strength to two
+        //thirds of it (CityReflection.fxh fades the last third), so the point looked at stays between FACADES_NEAREST and
+        //FACADES_FARTHEST from the lens; a lens standing back to take in a whole tower sees no pane mirror anything. And
+        //along the wall, not square to it: glass mirrors more the more grazing the angle (Fresnel), and the mirror ray off
+        //a pane seen from the street runs back across it into the tower opposite, which is what the pane then shows.
+        private const float FACADES_FROM_HEIGHT = 4f, FACADES_TO_HEIGHT = 10f;     //the lens over the street, start and end
+        private const float FACADES_FROM_ALONG = 21f, FACADES_TO_ALONG = 6f;      //how far down the street from the point
+        private const float FACADES_LENS = 1.2f;
+        private const float FACADES_SECONDS = 4.0f;
+        private const float FACADES_NEAREST = 10f;
+        private const float FACADES_FARTHEST = InstancedModelRenderer.DEFAULT_CITY_REFLECTION_REACH * 2f / 3f;
+
+        //⚠ THE STREET STAYS OUT OF FRAME. The cars, the lane lines and the crossings are paint on the ground (CityStreets.fx),
+        //and the lens was raised in #783 and #973 so the paint would not read flat; a lens four units over it would point
+        //that out at once. So the point looked at is set high enough that the frame's bottom edge looks this far above the
+        //horizon from every point of the walk, and nothing under the lens's own height is in the picture at all.
+        private const float FACADES_STREET_MARGIN_DEGREES = 3f;
+
+        //The face walked towards: a tower's box on the street's edge (no deeper behind it than this, so it is the wall the
+        //street is lined with and not a tier set back over it), wide enough to hold the point a margin in from its corners,
+        //and rising at least FACADES_RISE_PAST over the point, so the tower goes on up out of the top of the frame
+        private const float FACADES_SETBACK = 4f;
+        private const float FACADES_CORNER_MARGIN = 2f;
+        private const float FACADES_RISE_PAST = 30f;
+        private const int FACADES_NEAREST_RING = 2, FACADES_FARTHEST_RING = 7;
+        private const float FACADES_CLEARANCE = 2f;
+
+        //What decides between the clear candidates: how many panes round the point mirror a tower and not the sky, from
+        //FACADES_SAMPLES stands of the walk, each pane's mirror ray followed FACADES_MIRROR_REACH through the city's
+        //boxes, the panes FACADES_PANE_STEP apart across a grid round the point. A tower mirrored across the street is
+        //the point of the shot, and a candidate where the point's own pane mirrors only sky from any stand is refused.
+        private const int FACADES_SAMPLES = 7;
+        private const float FACADES_MIRROR_REACH = 80f;
+        private const float FACADES_PANE_STEP = 4f;
+        private const int FACADES_CANDIDATES = 48;
+
+        //A glass curtain wall's coated panes mirror four times as strongly as a punched window's (CityReflection.fxh's
+        //CITY_REFLECT_CURTAIN_COATING), so a curtain wall is preferred where one fronts a clear street: the kind roll City
+        //carries in an instance's Custom.x, the curtain wall's share of it as City.fxh reads it
+        private const float CURTAIN_WALL_FROM = 0.5f, CURTAIN_WALL_TO = 0.68f;
+        private const float CURTAIN_WALL_BONUS = 0.5f;
 
         //The swing (#433's "like Spider-Man"): a run down one street, round the corner, off down the next,
         //dipping on the way in and climbing out — the lowest point at the corner, as a swing's is.
@@ -140,35 +189,43 @@ namespace BS3D.Effects
 
             //EACH CITY ENDS ON ITS SWING HOME (#972, #973): a run through its streets that lands on the gameplay pose itself,
             //so no tour leg follows. They are two places (the owner, 2026-10-20), so two reels: the day city's street, plaza
-            //from higher, rooftop and a two-corner swing; the neon city's plaza from higher still, its street from higher and
-            //looking less steeply down so its flat paint is not pointed out, rooftop and a three-corner swing of its own.
-            //Where no rolled route is clear the old reel below plays instead, its one-corner swing and the tour's arrival
-            //included.
+            //from higher, facades (#1119), rooftop and a two-corner swing; the neon city's facades, plaza from higher still,
+            //its street from higher and looking less steeply down so its flat paint is not pointed out, rooftop and a
+            //three-corner swing of its own. Where no rolled route is clear the old reel below plays instead, its one-corner
+            //swing and the tour's arrival included.
             float streetHeight = neon ? NEON_STREET_HEIGHT : STREET_HEIGHT;
             float streetPitch = neon ? NEON_STREET_PITCH_DEGREES : STREET_PITCH_DEGREES;
             float plazaFrom = neon ? NEON_PLAZA_FROM_HEIGHT : DAY_PLAZA_FROM_HEIGHT;
             float plazaTo = neon ? NEON_PLAZA_TO_HEIGHT : DAY_PLAZA_TO_HEIGHT;
 
-            var reel = new List<IntroShot>(4);
             IntroShot reelPlaza = Plaza(city, fieldOfView, random, plazaFrom, plazaTo);
             IntroShot reelStreet = Street(city, fieldOfView, random, out _, streetHeight, streetPitch);
-
-            if (neon)
-            {
-                if (reelPlaza != null) reel.Add(reelPlaza);
-                reel.Add(reelStreet);
-            }
-            else
-            {
-                reel.Add(reelStreet);
-                if (reelPlaza != null) reel.Add(reelPlaza);
-            }
-
-            reel.Add(Rooftop(city, rooftops, neon, fieldOfView, random) ?? Roofs(city, fieldOfView, random));
+            IntroShot reelRooftop = Rooftop(city, rooftops, neon, fieldOfView, random) ?? Roofs(city, fieldOfView, random);
 
             IntroShot home = CitySwing.Build(city, gamePosition, gameTarget, fieldOfView, random, neon ? CitySwing.Neon : CitySwing.Day);
             if (home != null)
             {
+                //The facades are rolled LAST, after the swing home, so every other shot rolls exactly what it rolled before
+                //#1119 added them. They are a canyon shot, so they stand only where the plaza (from above) stands between them
+                //and the street: the day city's after its plaza, which the street opens, the neon city's first, before its
+                //plaza. Without a plaza, or where no candidate is clear, the reel plays without them.
+                IntroShot facades = reelPlaza != null ? Facades(city, fieldOfView, random) : null;
+
+                var reel = new List<IntroShot>(5);
+                if (neon)
+                {
+                    if (facades != null) reel.Add(facades);
+                    if (reelPlaza != null) reel.Add(reelPlaza);
+                    reel.Add(reelStreet);
+                }
+                else
+                {
+                    reel.Add(reelStreet);
+                    if (reelPlaza != null) reel.Add(reelPlaza);
+                    if (facades != null) reel.Add(facades);
+                }
+
+                reel.Add(reelRooftop);
                 reel.Add(home);
                 return reel.ToArray();
             }
@@ -237,6 +294,203 @@ namespace BS3D.Effects
 
             return new IntroShot("the street", path, STREET_SECONDS, fieldOfView * 1.1f,
                 lookAhead: 20f, pitchDownDegrees: pitchDegrees);
+        }
+
+        /// <summary>
+        /// The facades (#1119): a walk down a street's centre line, low over the asphalt and rising a little, towards one
+        /// point on the face of a tower lining it, the look held on that point, so the view tilts up the wall and turns
+        /// towards it as the lens closes and the panes round the point, close and at a grazing angle, mirror the tower
+        /// across the street. Of FACADES_CANDIDATES rolled faces and walks the clear one whose panes mirror the most towers
+        /// is taken, a curtain wall's coated glass preferred; null when none is clear.
+        /// <para>
+        /// A candidate is refused unless from every stand of the walk the point is between FACADES_NEAREST and
+        /// FACADES_FARTHEST from the lens and in plain sight of it, the frame's bottom edge looks over the horizon (no
+        /// street in the picture), the lens keeps FACADES_CLEARANCE off every box, and the point's own pane mirrors a tower.
+        /// </para>
+        /// </summary>
+        private static IntroShot Facades(City city, float fieldOfView, Random random)
+        {
+            List<StreetFace> faces = StreetFaces(city);
+            if (faces.Count == 0) return null;
+
+            float lens = fieldOfView * FACADES_LENS;
+            float lowestLook = MathF.Tan(lens * 0.5f + MathHelper.ToRadians(FACADES_STREET_MARGIN_DEGREES));
+            var towers = new CitySwing.Towers(city);
+            var near = new List<int>();
+            var path = new Vector3[PATH_POINTS];
+
+            float bestScore = float.MinValue;
+            Vector3[] best = null;
+            Vector3 bestPoint = Vector3.Zero;
+
+            for (int attempt = 0; attempt < FACADES_CANDIDATES; attempt++)
+            {
+                StreetFace face = faces[random.Next(faces.Count)];
+                float along = MathHelper.Lerp(face.From + FACADES_CORNER_MARGIN, face.To - FACADES_CORNER_MARGIN, (float)random.NextDouble());
+                float end = random.Next(2) == 0 ? 1f : -1f;   //which end of the street the lens comes in from
+                float gap = MathF.Abs(face.Street - face.Plane);
+
+                //The walk, and the point's height: the lowest that keeps the look FACADES_STREET_MARGIN_DEGREES over the
+                //frame's half height from every point of it, so the bottom edge never looks down at the street
+                float pointY = float.MinValue;
+                for (int i = 0; i < PATH_POINTS; i++)
+                {
+                    float u = i / (float)(PATH_POINTS - 1);
+                    float s = MathHelper.Lerp(FACADES_FROM_ALONG, FACADES_TO_ALONG, u);
+                    float y = city.GroundY + MathHelper.Lerp(FACADES_FROM_HEIGHT, FACADES_TO_HEIGHT, u);
+                    path[i] = face.On(face.Street, along + end * s, y);
+                    pointY = MathF.Max(pointY, y + lowestLook * MathF.Sqrt(gap * gap + s * s));
+                }
+
+                if (pointY < face.Bottom + 1f || pointY + FACADES_RISE_PAST > face.Top) continue;
+                Vector3 point = face.On(face.Plane, along, pointY);
+
+                bool clear = true;
+                for (int i = 0; i < PATH_POINTS && clear; i++) clear = towers.Clear(path[i], FACADES_CLEARANCE);
+                if (!clear) continue;
+
+                //Every box a mirror ray from round the point could meet
+                near.Clear();
+                for (int b = 0; b < city.Buildings.Length; b++)
+                {
+                    Matrix box = city.Buildings[b].World;
+                    float dx = MathF.Max(0f, MathF.Abs(box.M41 - point.X) - MathF.Abs(box.M11) * 0.5f);
+                    float dz = MathF.Max(0f, MathF.Abs(box.M43 - point.Z) - MathF.Abs(box.M33) * 0.5f);
+                    if (dx * dx + dz * dz < FACADES_MIRROR_REACH * FACADES_MIRROR_REACH) near.Add(b);
+                }
+
+                int mirrored = 0, panes = 0;
+                for (int k = 0; k < FACADES_SAMPLES && clear; k++)
+                {
+                    Vector3 eye = path[k * (PATH_POINTS - 1) / (FACADES_SAMPLES - 1)];
+                    float distance = Vector3.Distance(eye, point);
+
+                    //In the band, and in plain sight: the look meets nothing before the point
+                    clear = distance >= FACADES_NEAREST && distance <= FACADES_FARTHEST
+                        && Cast(city, near, eye, (point - eye) / distance, distance + 1f) >= distance - 0.3f
+                        && Mirrors(city, near, eye, point, face.Normal);
+
+                    //The grid of panes round the point, those on the face
+                    for (int a = -1; a <= 1 && clear; a++)
+                        for (int h = -1; h <= 2; h++)
+                        {
+                            float paneAlong = along + a * FACADES_PANE_STEP, paneY = pointY + h * FACADES_PANE_STEP;
+                            if (paneAlong < face.From || paneAlong > face.To || paneY < face.Bottom || paneY > face.Top) continue;
+
+                            panes++;
+                            if (Mirrors(city, near, eye, face.On(face.Plane, paneAlong, paneY), face.Normal)) mirrored++;
+                        }
+                }
+
+                if (!clear || panes == 0) continue;
+
+                float score = mirrored / (float)panes + (face.CurtainWall ? CURTAIN_WALL_BONUS : 0f) + 0.1f * (float)random.NextDouble();
+                if (score <= bestScore) continue;
+
+                bestScore = score;
+                best = (Vector3[])path.Clone();
+                bestPoint = point;
+            }
+
+            return best == null ? null : new IntroShot("the facades", best, FACADES_SECONDS, lens, lookAt: bestPoint);
+        }
+
+        /// <summary>
+        /// One vertical face of a tower's box that lines a street (#1119): which way the street runs, the street's
+        /// centre line and the face's plane across it, the face's normal (out into the street), its extent along the street
+        /// and up, and whether its tower is a glass curtain wall.
+        /// </summary>
+        private readonly record struct StreetFace(bool AlongZ, float Street, float Plane, Vector3 Normal,
+            float From, float To, float Bottom, float Top, bool CurtainWall)
+        {
+            /// <summary>The point at <paramref name="across"/> (the street's or the face's coordinate), <paramref name="along"/> the street and <paramref name="y"/>.</summary>
+            public Vector3 On(float across, float along, float y) => AlongZ ? new Vector3(across, y, along) : new Vector3(along, y, across);
+        }
+
+        //Every face of a tower's box standing on the street level that lines a street FACADES_SETBACK deep at most, in the
+        //rings the facades are looked for in: the boxes' own faces, so a face is one wall, and its tower's first tier
+        private static List<StreetFace> StreetFaces(City city)
+        {
+            var faces = new List<StreetFace>();
+            float pitch = city.BlockPitch, halfStreet = city.StreetWidth * 0.5f;
+
+            for (int b = 0; b < city.TowerCount; b++)
+            {
+                Matrix box = city.Buildings[b].World;
+                Vector3 centre = new(box.M41, box.M42, box.M43);
+                Vector3 half = new Vector3(MathF.Abs(box.M11), MathF.Abs(box.M22), MathF.Abs(box.M33)) * 0.5f;
+                if (centre.Y - half.Y > city.GroundY + 0.5f) continue;
+
+                int bx = (int)MathF.Round(centre.X / pitch), bz = (int)MathF.Round(centre.Z / pitch);
+                int ring = Math.Max(Math.Abs(bx), Math.Abs(bz));
+                if (ring < FACADES_NEAREST_RING || ring > FACADES_FARTHEST_RING) continue;
+
+                float kind = city.Buildings[b].Custom.X;
+                bool curtain = kind >= CURTAIN_WALL_FROM && kind < CURTAIN_WALL_TO;
+                float bottom = centre.Y - half.Y, top = centre.Y + half.Y;
+
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    //A face across X lines a street along Z, and the other way round; the street is the one half a pitch
+                    //out from the face's block on that side
+                    float planeX = centre.X + side * half.X, streetX = (bx + 0.5f * side) * pitch;
+                    float gapX = (streetX - planeX) * side;
+                    if (gapX >= halfStreet - 0.01f && gapX <= halfStreet + FACADES_SETBACK
+                        && 2f * half.Z > 2f * FACADES_CORNER_MARGIN + 1f)
+                        faces.Add(new StreetFace(true, streetX, planeX, new Vector3(side, 0f, 0f),
+                            centre.Z - half.Z, centre.Z + half.Z, bottom, top, curtain));
+
+                    float planeZ = centre.Z + side * half.Z, streetZ = (bz + 0.5f * side) * pitch;
+                    float gapZ = (streetZ - planeZ) * side;
+                    if (gapZ >= halfStreet - 0.01f && gapZ <= halfStreet + FACADES_SETBACK
+                        && 2f * half.X > 2f * FACADES_CORNER_MARGIN + 1f)
+                        faces.Add(new StreetFace(false, streetZ, planeZ, new Vector3(0f, 0f, side),
+                            centre.X - half.X, centre.X + half.X, bottom, top, curtain));
+                }
+            }
+
+            return faces;
+        }
+
+        //Whether the pane at `pane` on a face of normal `normal`, seen from `eye`, mirrors one of the boxes `near` and not the
+        //sky: its mirror ray followed FACADES_MIRROR_REACH, as CityReflection.fxh's march follows it over the city's map
+        private static bool Mirrors(City city, List<int> near, Vector3 eye, Vector3 pane, Vector3 normal)
+        {
+            Vector3 incoming = Vector3.Normalize(pane - eye);
+            Vector3 mirror = incoming - 2f * Vector3.Dot(incoming, normal) * normal;
+            return Cast(city, near, pane + normal * 0.05f, mirror, FACADES_MIRROR_REACH) < FACADES_MIRROR_REACH;
+        }
+
+        //How far along `direction` (a unit vector) from `origin` the ray first meets one of the boxes `boxes`, or infinity
+        //where it meets none within `reach`: a slab test against each, the boxes axis-aligned (scale then translate, City's
+        //own note)
+        private static float Cast(City city, List<int> boxes, Vector3 origin, Vector3 direction, float reach)
+        {
+            float nearest = float.PositiveInfinity;
+            foreach (int b in boxes)
+            {
+                Matrix box = city.Buildings[b].World;
+                float enter = 0f, exit = MathF.Min(reach, nearest);
+                if (Slab(origin.X, direction.X, box.M41, MathF.Abs(box.M11) * 0.5f, ref enter, ref exit)
+                    && Slab(origin.Y, direction.Y, box.M42, MathF.Abs(box.M22) * 0.5f, ref enter, ref exit)
+                    && Slab(origin.Z, direction.Z, box.M43, MathF.Abs(box.M33) * 0.5f, ref enter, ref exit))
+                    nearest = enter;
+            }
+
+            return nearest;
+        }
+
+        //Narrows [enter, exit] to where the ray is between a box's two faces across one axis; false once it is empty
+        private static bool Slab(float origin, float direction, float centre, float half, ref float enter, ref float exit)
+        {
+            float low = centre - half - origin, high = centre + half - origin;
+            if (MathF.Abs(direction) < 1e-6f) return low <= 0f && high >= 0f;
+
+            float t0 = low / direction, t1 = high / direction;
+            if (t0 > t1) (t0, t1) = (t1, t0);
+            enter = MathF.Max(enter, t0);
+            exit = MathF.Min(exit, t1);
+            return enter <= exit;
         }
 
         /// <summary>
