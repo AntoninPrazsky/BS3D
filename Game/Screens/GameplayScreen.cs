@@ -1123,7 +1123,7 @@ namespace BS3D.Screens
         private bool CameraTakeoverEngaged => _cinematic.Engaged || _chapterIntro.Engaged || _lineLoss.Engaged || _spareVolley.Engaged;
 
         /// <summary>Skips whichever takeover is currently running — see <see cref="CameraTakeoverEngaged"/>
-        /// for why asking both is safe.</summary>
+        /// for why asking them all is safe. The line loss has no skip of its own.</summary>
         private void SkipCameraTakeover()
         {
             //Said in the run log, one line a skip, so a report that a button did not skip can be checked against what did

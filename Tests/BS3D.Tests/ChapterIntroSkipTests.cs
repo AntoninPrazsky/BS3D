@@ -50,7 +50,9 @@ namespace BS3D.Tests
         [InlineData(60, false)]
         [InlineData(75, false)]
         [InlineData(144, false)]
+        [InlineData(30, true)]
         [InlineData(60, true)]
+        [InlineData(75, true)]
         [InlineData(144, true)]
         public void An_opening_refuses_a_skip_inside_the_lockout_and_takes_the_first_after_it(int hertz, bool prologue)
         {
@@ -195,7 +197,7 @@ namespace BS3D.Tests
         }
 
         /// <summary>A method's lines from its signature to its closing brace, found by the brace at the signature's depth.</summary>
-        private static string[] MethodBody(string[] lines, string signature)
+        internal static string[] MethodBody(string[] lines, string signature)
         {
             int start = Array.FindIndex(lines, line => line.Trim() == signature);
             Assert.True(start >= 0, $"no '{signature}' was found");
@@ -207,7 +209,8 @@ namespace BS3D.Tests
             return lines[start..(end + 1)];
         }
 
-        private static string[] Source(string fileName) => File.ReadAllLines(ScreenSources().Single(path => Path.GetFileName(path) == fileName));
+        /// <summary>The lines of one file of the gameplay screen, by its name.</summary>
+        internal static string[] Source(string fileName) => File.ReadAllLines(ScreenSources().Single(path => Path.GetFileName(path) == fileName));
 
         private static string[] ScreenSources()
         {
@@ -232,7 +235,7 @@ namespace BS3D.Tests
         }
 
         /// <summary>The line with its <c>//</c> comment cut off: the rules are about code.</summary>
-        private static string CodeOf(string line)
+        internal static string CodeOf(string line)
         {
             int comment = line.IndexOf("//", StringComparison.Ordinal);
             return comment < 0 ? line : line[..comment];
