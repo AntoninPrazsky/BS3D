@@ -20,6 +20,33 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1109 #1112 hladký let úvodů nad terénem — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: `AridIntroPaths.Hug` zaobluje výšku přes 0,7 s letu Gaussem plus hladkým zdvihem, který drží každou světlou výšku; `IntroShot.At` za koncem záběru extrapoluje, takže střih neubere rychlost. Nový test `IntroShotSmoothnessTests` hlídá všech 11 záběrů nad terénem (poušť, hory, outback, sopka) s limity z dronových záběrů; nejhorší svislé zrychlení např. pyramidy 193 → 10, outback přílet 198 → 7 j/s². Jeřáb (patka a vrchol) letí přesně podle návrhu. Nový argument `introshot=` podrží úvod v daných chvílích a uloží snímek.
+- ⚠ Zdvih sahá šest `LIFT_SECONDS` na každou stranu hřebene, ne tři: pyramidy teď letí v průměru 11,1 nad pískem místo 8,8.
+- Otevřené: `verdict-eye` (pohyb); měřeno jen na 60 fps; outback bez snímků.
+
+## 2026-11-15 — #1114 Měsíc: jedna vlajka u stop vozítka a záběr po kolejích — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: na Měsíci stojí jedna bílá vlajka (`FLAG_SIZE` 2,4) místo dvou, 4 jednotky vedle stop vozítka na svahu, asi 14° vlevo od osy herního pohledu (nad hranou paluby, mimo kolo děla). Stopy přeloženy: z pláně se stočí na jih a stoupají za vlajku (ohyb nejvýš 10,4°). Úvod: záběr kráteru nahradil „the tracks“, nízký let po kolejích nad CPU zrcadlem terénu se sluncem z boku, končí na vlajce zblízka; úvod 15,3 s místo 14,3.
+- ⚠ Shader rozkládá 24 bodů stop rovnoměrně po řídicích úsecích, ne po délce: oblouk potřebuje hodně krátkých úseků, jinak je hranatý (19°).
+- Otevřené: verdikt (`verdict-eye`): vlajka je proti stopám (1 j./m) asi 1,9× větší než Apollo; chybějící záběr kráteru; Potato neviděno; cena stop na nové trase neměřena.
+
+## 2026-11-15 — #1107 louka: úvod přistane na herní póze — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: úvod kapitoly Louka končí letem „the brook home“ — dolů po potoce mezi vrbami, přes rybník, mezerou v rákosí ven, kruh 48–60 kolem ostrova a zatočení přesně na herní pózu, bez cesty tour a bez střihu. Oblety balíků a lavičky drží tempo a vzdálenost #945, ale letí jen prostředních 108° (3,4 s). Celý úvod 21,0–21,7 s (byl 24,9), strop testu 22 s.
+- Hotovo: společný `Game/Effects/IntroLanding.cs` pro přistání (savana, poušť, šapitó: #1108, #1110, #1118); CitySwing přes něj bit po bitu stejný (digest 2 688 švihů).
+- ⚠ Benchmarkový segment Louka teď letí jinou cestou; čísla Louky z buildů před #1107 se nesrovnávají.
+- Otevřené: verdict-eye (pohyb, vrba blízko kořenů, kratší úvod místo delších letů — nabídnuto zvýšit `TARGET_SECONDS`).
+
+## 2026-11-15 — #1106 každý úvod kapitoly jde přeskočit — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: přeskočit jde každý úvod kapitoly, i úplně první otevření na prázdném uložení. Pojistka z #1021 (`_introWhole`, lekce `opening`) je pryč. Stará uložení s lekcí `opening` se načtou normálně, nic ji nečte.
+- Klik myší s volným kurzorem teď kurzor chytí a zároveň přeskočí (pravidlo v `TakeoverSkip.MouseSkips`). Dřív první klik jen chytil kurzor. Platí i pro cinematiku pádu a záložní salvu.
+- Nový argument `skiptakeover=<t1,...>` přeskočí mimo focus gate, takže běh bez fokusu ukáže přeskočení.
+- ⚠ Podmínku volání v `UpdateAim` hlídá test nad zdrojákem; bez něj by vrácení `_mouseAim.Initialized` prošlo všemi testy.
+- Otevřené: živý klik, pad ani dotyk na telefonu nikdo nezkoušel; jen `skiptakeover=` a testy.
+
 ## 2026-11-15 — #1105 logo mizí s černou v jednom prolínání — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: logo úvodu začne mizet 0,25 s po začátku zvedání černé (`SplashTimeline.LOGO_LAG_SECONDS`) a je pryč 0,15 s po ní; pauza 0,4 s zmizela, úvod trvá 3,15 s místo 4,1. Časování je v nové `Game/Screens/SplashTimeline.cs` bez zařízení a hlídá ho 7 testů (`SplashTimelineTests`). Nový testovací argument `splashshot=<s,…>` podrží věk úvodu na dané vteřině a snímek uloží.

@@ -6,11 +6,13 @@ using System.Collections.Generic;
 namespace BS3D.Effects
 {
     /// <summary>
-    /// The meadow's own shots for a chapter intro's prologue (#559, #609, #893): the valley from a hilltop, then a slow
-    /// half circle round a group of hay bales, then down the brook at the height of its reeds to the pond it runs into,
-    /// then along the footpath beside its fence to the old oak on its knoll, and last a slow half circle round the bench
-    /// under that oak — cut together, then cut to the tour's last leg. The meadow opens the whole campaign, so this is
-    /// the first thing the game shows a new player after its menu.
+    /// The meadow's own shots for a chapter intro's prologue (#559, #609, #893, #1107): the valley from a hilltop, then a
+    /// slow arc round a group of hay bales, then along the footpath beside its fence to the old oak on its knoll, then a
+    /// slow arc round the bench under that oak, and last <b>the brook home</b> (<see cref="MeadowLanding"/>): down the brook
+    /// at the height of its reeds, across the pond it runs into and round the island onto the gameplay pose itself, so no
+    /// tour leg and no cut follow. Where no flight home is clear, the brook is the old run to the pond, third, and the reel
+    /// cuts to the tour's last leg after the bench. The meadow opens the whole campaign, so this is the first thing the game
+    /// shows a new player after its menu.
     /// <para>
     /// <b>Every one is about a thing since #609.</b> Until then the meadow had nothing standing on it and its shots were
     /// about pieces of the land — the flowers at a hand's height and the climb of a slope; the rule the prologues are held
@@ -31,11 +33,12 @@ namespace BS3D.Effects
     /// path is walked the way a walker walks it, to the tree.
     /// </para>
     /// <para>
-    /// <b>The bales and the bench are looked at close and low, from a lens that goes half way round them</b> (#893, the
-    /// owner's playtest: "a detailed low-angle shot of the bench under the tree and of the cylindrical hay bales — the
+    /// <b>The bales and the bench are looked at close and low, from a lens that goes a part of the way round them</b> (#893,
+    /// the owner's playtest: "a detailed low-angle shot of the bench under the tree and of the cylindrical hay bales — the
     /// camera moves in a half circle very slowly and is close to the objects"). Each is <see cref="IntroGround.Arc"/> of
-    /// <see cref="MathF.PI"/> round the subject, 0.7 rising to 1.1 over the ground (the owner's note says 0.6 to 1.5),
-    /// <see cref="ORBIT_SECONDS"/> long, the lens held on the subject's middle. The radius is the subject's own figure and
+    /// <see cref="ORBIT_TURN"/> round the subject, 0.7 rising to 1.1 over the ground (the owner's note says 0.6 to 1.5),
+    /// <see cref="ORBIT_SECONDS"/> long, the lens held on the subject's middle. A half circle each until #1107, where the owner
+    /// found both close-ups too long and asked for the time to go to flights: the arc is shorter, the pace round it the same. The radius is the subject's own figure and
     /// nothing written here — the bench and the bales were resized once each (#891, #864) and will be again — searched out
     /// from the figure's sphere until the whole subject is in frame, so it follows them. ⚠ <b>The lens keeps off the
     /// old trees by their STEM, not their crown</b> (<see cref="MeadowFigures.Trees"/>): the oak's crown sphere is its
@@ -60,7 +63,7 @@ namespace BS3D.Effects
         //on the pond ahead. A stretch of it that ends short of the pond's bank, where the brook's own banks are planted.
         private const float BROOK_FROM = 22f;              //past the brook's inner end, where the stretch finishes, clear of the pond's reeds
         private const float BROOK_RUN = 32f;
-        private const float BROOK_ABOVE = 1.8f;             //over the field, the swale's banks; at 1.1 the bank stones and the reeds filled the corners of the frame
+        private const float BROOK_ABOVE = MeadowLanding.BROOK_ABOVE;   //over the field, the swale's banks; at 1.1 the bank stones and the reeds filled the corners of the frame
         private const float BROOK_SECONDS = 3.2f;
 
         //The path: along its centreline at a walker's height, the fence beside it, the lens on the old tree it leads to,
@@ -71,11 +74,17 @@ namespace BS3D.Effects
         private const float PATH_TREE_LOOK_UP = 7f;         //the point on the tree the lens holds: the trunk under the crown
         private const float PATH_SECONDS = 3.2f;
 
-        //The two orbits (#893): a half circle each, this long — the owner's "very slowly", and since #945 "a little more
-        //slowly" still: half a turn in 5.6 s is 32 degrees a second round the subject (39 at 4.6 s, #893's). The lens stands this high over the ground under it, rising a little: a low angle,
-        //looking up at the subject. Over 48 layouts the bales' mean radius was 10.2 with the lens at 0.7 to 1.1 and 10.3 at 0.9
-        //to 1.3: it is the subject's height (3.2 for a bale) against the lens's 47 degrees that sets the radius, not the lens's.
-        private const float ORBIT_SECONDS = 5.6f;
+        //The two orbits (#893): this far round the subject, this long. The pace is the owner's "very slowly", and since #945
+        //"a little more slowly" still: 32 degrees a second round the subject (39 before #945). Since #1107 ("the close-ups of the
+        //hay bales and the bench are too long; I would rather spend the time on animated fly-throughs") each goes 108 degrees
+        //round at that pace where it went 180. The brook home that ends the reel since (8-9 s) flies about a second longer than
+        //the brook and the tour's last leg did (7.7), so most of the 4.4 s the two gave up shortened the intro. The lens stands
+        //this high over the ground under it, rising a little: a low angle, looking up at the subject. Over 48 layouts the
+        //bales' mean radius was 10.2 with the lens at 0.7 to 1.1 and 10.3 at 0.9 to 1.3: it is the subject's height (3.2 for a
+        //bale) against the lens's 47 degrees that sets the radius, not the lens's.
+        //(internal: MeadowIntroShotsTests holds the arc, the length and the bales' distance)
+        internal const float ORBIT_TURN = MathF.PI * 0.6f;
+        internal const float ORBIT_SECONDS = 3.4f;
         //(internal: MeadowIntroShotsTests holds the lens to this band - the shot's own, inside the owner's 0.6 to 1.5)
         internal const float ORBIT_ABOVE_FROM = 0.7f;
         internal const float ORBIT_ABOVE_TO = 1.1f;
@@ -134,7 +143,11 @@ namespace BS3D.Effects
         /// tall since #609's third round and kept out of the valley shot's flight, which rides 18 to 26 over the highest
         /// ground under it; the bench and the bales the two orbits are about; and what else stands low. Null keeps nothing
         /// out and has no bench and bales to show.</param>
-        public static IntroShot[] Build(MeadowSceneConfig meadow, MeadowFigures planted, float fieldOfView, Random random)
+        /// <param name="endPosition">The pose the intro hands the camera back at (<see cref="IntroContext.GamePosition"/>),
+        /// which the brook home lands on.</param>
+        /// <param name="endTarget">What that pose looks at.</param>
+        public static IntroShot[] Build(MeadowSceneConfig meadow, MeadowFigures planted, Vector3 endPosition, Vector3 endTarget,
+            float fieldOfView, Random random)
         {
             if (meadow == null) return null;
 
@@ -147,13 +160,21 @@ namespace BS3D.Effects
                 VALLEY_SECONDS, fieldOfView * 1.1f, random, TRIES, margin: 2f,
                 score: bearing => ground.Height(MathF.Cos(bearing) * VALLEY_FROM, MathF.Sin(bearing) * VALLEY_FROM));
 
-            //The order alternates what the lens does: the valley, a slow orbit, two runs along the land, and the orbit the
-            //last run arrives at — the bench stands under the tree the path leads to
-            return IntroGround.Cut(valley, Bales(meadow, planted, fieldOfView, random), Brook(meadow, fieldOfView),
-                Path(meadow, fieldOfView), Bench(meadow, planted, fieldOfView, random));
+            //The order alternates what the lens does: the valley, a slow orbit, the walk along the path, the orbit it arrives
+            //at — the bench stands under the tree the path leads to — and the flight home (#1107)
+            IntroShot bales = Bales(meadow, planted, fieldOfView, random);
+            IntroShot path = Path(meadow, fieldOfView);
+            IntroShot bench = Bench(meadow, planted, fieldOfView, random);
+            IntroShot home = MeadowLanding.Build(meadow, planted, endPosition, endTarget, fieldOfView, random);
+            if (home != null) return IntroGround.Cut(valley, bales, path, bench, home);
+
+            //No flight home is clear: the reel as it was, the brook a run to the pond between the bales and the path, and the
+            //tour's last leg after the bench
+            return IntroGround.Cut(valley, bales, Brook(meadow, fieldOfView), path, bench);
         }
 
-        /// <summary>Down the brook a little over the water, the reeds passing either side, to the pond it runs into.</summary>
+        /// <summary>Down the brook a little over the water, the reeds passing either side, to the pond it runs into: the reel's
+        /// brook where no flight home is clear (<see cref="MeadowLanding"/>).</summary>
         private static IntroShot Brook(MeadowSceneConfig meadow, float fieldOfView)
         {
             float end = meadow.ClearingRadius * MeadowPath.BROOK_START + BROOK_FROM;
@@ -189,9 +210,10 @@ namespace BS3D.Effects
         }
 
         /// <summary>
-        /// Half a turn round the bench under the old oak (#893), on the arena's side of it: the bench faces the arena and the
-        /// oak stands behind it, so the lens sweeps across the seat's face with the trunk and the crown for its background.
-        /// Null when the planting has no bench, or when no half circle on that side clears what stands there.
+        /// An arc round the bench under the old oak (#893), on the arena's side of it: the bench faces the arena and the oak
+        /// stands behind it, so the lens sweeps across the seat's face with the trunk and the crown for its background, the
+        /// arc the middle of the half circle from the bench's one flank to the other. Null when the planting has no bench, or
+        /// when no half circle on that side clears what stands there.
         /// </summary>
         internal static IntroShot Bench(MeadowSceneConfig meadow, MeadowFigures planted, float fieldOfView, Random random)
         {
@@ -221,9 +243,9 @@ namespace BS3D.Effects
         }
 
         /// <summary>
-        /// Half a turn round a group of hay bales (#893): the group is the bales that stand within a touch of one another,
-        /// a pair before a lone bale before a row of three, nearest the arena first. A group is passed over where no half
-        /// circle of its own radius clears what stands round it.
+        /// An arc round a group of hay bales (#893): the group is the bales that stand within a touch of one another,
+        /// a pair before a lone bale before a row of three, nearest the arena first. A group is passed over where no arc of
+        /// its own radius clears what stands round it.
         /// </summary>
         internal static IntroShot Bales(MeadowSceneConfig meadow, MeadowFigures planted, float fieldOfView, Random random)
         {
@@ -252,22 +274,34 @@ namespace BS3D.Effects
         }
 
         /// <summary>
-        /// One half circle (<see cref="MathF.PI"/>) round <paramref name="look"/> from the bearing <paramref name="from"/> in
-        /// the direction <paramref name="sign"/>, or null when it is not good: the subject (<paramref name="members"/>) is in
-        /// frame from every stand along it, the lens is never over the water, every point keeps <see cref="MARGIN"/> off every
-        /// solid, and the subject is seen from every stand.
+        /// The middle <see cref="ORBIT_TURN"/> of a half circle round <paramref name="look"/> from the bearing
+        /// <paramref name="from"/> in the direction <paramref name="sign"/>, or null when the half circle is not good: the
+        /// subject (<paramref name="members"/>) is in frame from every stand along it, the lens is never over the water, every
+        /// point keeps <see cref="MARGIN"/> off every solid, and the subject is seen from every stand.
+        /// <para>
+        /// ⚠ <b>The half circle is what is asked, and its middle is flown</b> (#1107). The radius is searched out from the
+        /// nearest until an arc passes, and a shorter arc passes nearer: asked of the 108 degrees alone, the bales' mean radius fell
+        /// from 11.5 over 24 layouts (#945's figure) to 10.1, against the owner's "a little farther from the hay bales". Asked
+        /// of the half circle, the subject stands where #945 put it (<c>MeadowIntroShotsTests</c> holds the bales' mean).
+        /// </para>
         /// </summary>
         private static IntroShot Orbit(string name, IntroGround low, MeadowSceneConfig meadow, Vector3 look,
             PlantFigure[] members, float reach, float radius, float from, float sign, float fieldOfView)
         {
-            Vector3[] path = low.Arc(new Vector2(look.X, look.Z), radius, from, from + sign * MathF.PI,
-                ORBIT_ABOVE_FROM, ORBIT_ABOVE_TO, IntroGround.PATH_POINTS);
+            Vector2 centre = new(look.X, look.Z);
+            Vector3[] half = low.Arc(centre, radius, from, from + sign * MathF.PI, ORBIT_ABOVE_FROM, ORBIT_ABOVE_TO, IntroGround.PATH_POINTS);
 
             float lens = fieldOfView * 1.1f;
-            if (!Dry(meadow, path)) return null;
-            if (!Framed(path, look, members, lens)) return null;
-            if (!low.Clear(path, MARGIN, LOWEST_LENS)) return null;
-            if (!low.SightClear(path, look, reach + SIGHT_SLACK)) return null;
+            if (!Dry(meadow, half)) return null;
+            if (!Framed(half, look, members, lens)) return null;
+            if (!low.Clear(half, MARGIN, LOWEST_LENS)) return null;
+            if (!low.SightClear(half, look, reach + SIGHT_SLACK)) return null;
+
+            //Its middle, the lens at the heights the half circle has there
+            float skip = (MathF.PI - ORBIT_TURN) * 0.5f / MathF.PI;
+            Vector3[] path = low.Arc(centre, radius, from + sign * MathF.PI * skip, from + sign * MathF.PI * (1f - skip),
+                MathHelper.Lerp(ORBIT_ABOVE_FROM, ORBIT_ABOVE_TO, skip), MathHelper.Lerp(ORBIT_ABOVE_FROM, ORBIT_ABOVE_TO, 1f - skip),
+                IntroGround.PATH_POINTS);
 
             return new IntroShot(name, path, ORBIT_SECONDS, lens, lookAt: look);
         }

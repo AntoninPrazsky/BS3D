@@ -10,10 +10,12 @@ namespace BS3D.Tests
     /// <summary>
     /// The meadow's chapter-intro prologue with its two close, slow orbits (#893): the owner's playtest asked for "a detailed
     /// low-angle shot of the bench under the tree and of the cylindrical hay bales — the camera moves in a half circle very
-    /// slowly and is close to the objects". What is checked here is what a number can say: each is a half circle round its
-    /// subject, <c>4.6</c> s long, over the ground by the shot's own band, keeping off the old trees' stems and every low solid and out
-    /// of the water, with the whole subject in frame — and above the skip hint at the bottom of it — from the first pose to the
-    /// last at three window shapes. How it reads, and how slow it feels, is the eye's.
+    /// slowly and is close to the objects". What is checked here is what a number can say: each is an arc of
+    /// <c>MeadowIntroShots.ORBIT_TURN</c> (108 degrees since #1107, a half circle before) round its subject, at the pace #945 set,
+    /// over the ground by the shot's own band, keeping off the old trees' stems and every low solid and out of the water, with the
+    /// whole subject in frame — and above the skip hint at the bottom of it — from the first pose to the last at three window
+    /// shapes; and the reel ends on the brook home, which lands (<see cref="MeadowLandingTests"/>). How it reads, and how slow it
+    /// feels, is the eye's.
     /// <para>
     /// <b>Two bands over the ground, and they are not one.</b> The owner's is the issue's, <see cref="OWNERS_BAND_FROM"/> to
     /// <see cref="OWNERS_BAND_TO"/> (0.6 to 1.5): a low angle, looking up at the subject, which no shot may leave. The shot's own is
@@ -26,7 +28,9 @@ namespace BS3D.Tests
     /// The planting needs a graphics device (<see cref="MeadowScatter"/> uploads its meshes), so the planting here is built from
     /// the constants and the geometry it keeps without one: the real bench (its own vertices, where
     /// <see cref="MeadowScatter.BenchWorld"/> puts them), bales laid out as the planting lays them, an oak with the figure
-    /// <c>MeadowTreeMesh</c> gives it, and shrubs for the rest. A scene seed is a seed of the layout here, as it is there.
+    /// <c>MeadowTreeMesh</c> gives it, the two willows by the pond and the four old trees nearest the clearing at the figures
+    /// <c>MeadowTreeMesh</c> builds without a device, and shrubs for the rest. A scene seed is a seed of the layout here, as it
+    /// is there.
     /// </para>
     /// </summary>
     public class MeadowIntroShotsTests
@@ -34,7 +38,12 @@ namespace BS3D.Tests
         private const int ROLLS = 24;
 
         //The vertical field of view the game hands the intro (GameplayScreen.GAME_FOV), which every shot widens by a tenth
-        private const float INTRO_FIELD_OF_VIEW = MathF.PI / 4.2f;
+        internal const float INTRO_FIELD_OF_VIEW = MathF.PI / 4.2f;
+
+        //The gameplay pose a meadow level opens on (the Spectrum's first level's log: the lens 30.6 out on the gun's bearing,
+        //90 degrees, at the overview lens's height, looking at the field's aim height), which the brook home lands on
+        internal static readonly Vector3 GamePosition = new(0f, -8.2f, 30.6f);
+        internal static readonly Vector3 GameTarget = new(0f, -1.2f, 0f);
 
         //The window shapes the owner plays at and the release is looked at in; the projection is Hor+, so the shape changes
         //the width alone
@@ -42,6 +51,10 @@ namespace BS3D.Tests
 
         //How finely a shot is walked, poses per shot
         private const int POSES = 120;
+
+        //The least the lens's mean distance from the bales may be over the layouts (#945's "a little farther"): 11.5 since it,
+        //10.2 before it
+        private const float BALES_MEAN_RADIUS = 11f;
 
         //The owner's band for the lens over the ground (#893's issue), and the slack allowed on the shot's own band: the arc is
         //built at the ground's height under its points and the lens runs between them
@@ -63,7 +76,7 @@ namespace BS3D.Tests
         //A shrub: the sphere round the three meshes, at a middling instance
         private const float SHRUB_UP = 1.6f;
 
-        private sealed class Planting
+        internal sealed class Planting
         {
             public MeadowSceneConfig Config;
             public MeadowFigures Figures;
@@ -81,7 +94,7 @@ namespace BS3D.Tests
         private static PlantFigure Shrub(float x, float z, float ground, float radius) =>
             new(new Vector3(x, ground, z), new Vector3(x, ground + SHRUB_UP, z), radius, 0f);
 
-        private static Planting Plant(int seed, bool shrubsOffTheArenaSide = true)
+        internal static Planting Plant(int seed, bool shrubsOffTheArenaSide = true)
         {
             var config = new MeadowSceneConfig();
             float Height(float x, float z) => TerrainMirror.Meadow(x, z, config);
@@ -131,6 +144,17 @@ namespace BS3D.Tests
                 return true;
             }
 
+            //A shrub stands off the path, the brook and the pond as the planting keeps it (MeadowScatter's Free, at a shrub's
+            //2.5): a layout that put one in the pond or the brook had the brook home refused for a shrub over the water. Its
+            //radius is rolled either way, so the layout every other test was written against stays as it was.
+            void PlantShrub(float x, float z, float radius)
+            {
+                if (MathF.Abs(MeadowPath.Lateral(x, z, config)) < 2.5f + 2.2f) return;
+                if (MathF.Abs(MeadowPath.BrookLateral(x, z, config)) < 2.5f + config.BrookWidth) return;
+                if (MeadowPath.PondShore(x, z, config) < 2.5f + 4f) return;
+                solids.Add(Shrub(x, z, Height(x, z), radius));
+            }
+
             for (int i = 0, tries = 0; i < 14 && tries < 600; tries++)
             {
                 float a = (float)rng.NextDouble() * MathHelper.TwoPi;
@@ -171,7 +195,7 @@ namespace BS3D.Tests
                     {
                         float around = (float)rng.NextDouble() * MathHelper.TwoPi, out0 = 7f + 3f * (float)rng.NextDouble();
                         float sx = first.Crown.X + MathF.Cos(around) * out0, sz = first.Crown.Z + MathF.Sin(around) * out0;
-                        solids.Add(Shrub(sx, sz, Height(sx, sz), 2.5f + 0.8f * (float)rng.NextDouble()));
+                        PlantShrub(sx, sz, 2.5f + 0.8f * (float)rng.NextDouble());
                     }
                 }
             }
@@ -182,7 +206,7 @@ namespace BS3D.Tests
             {
                 float a = (float)rng.NextDouble() * MathHelper.TwoPi, d = MathF.Sqrt(MathHelper.Lerp(100f * 100f, 290f * 290f, (float)rng.NextDouble()));
                 float x = MathF.Cos(a) * d, z = MathF.Sin(a) * d;
-                solids.Add(Shrub(x, z, Height(x, z), 2.5f + 0.8f * (float)rng.NextDouble()));
+                PlantShrub(x, z, 2.5f + 0.8f * (float)rng.NextDouble());
             }
 
             float behind = MathF.Atan2(knollZ, knollX);
@@ -196,6 +220,10 @@ namespace BS3D.Tests
             solids.AddRange(bales);
             solids.Add(bench);
 
+            //The two willows by the pond and the four old trees nearest the clearing, where MeadowScatter plants them, at their
+            //own figures. Off a roll of their own, so the layout every other test here was written against stays as it was.
+            trees.AddRange(TreesNearTheWater(config, seed, Height));
+
             return new Planting
             {
                 Config = config, Oak = oak, BenchPoints = benchPoints, BalePoints = balePoints,
@@ -203,8 +231,63 @@ namespace BS3D.Tests
             };
         }
 
+        /// <summary>
+        /// The willows on the pond's far side from the arena, where the brook comes in, and four oaks and limes 95 to 150 out
+        /// kept off the path, the brook and the pond by their crown's room, as <c>MeadowScatter</c> plants them (its
+        /// <c>WILLOW_FROM_SHORE</c> 3.5, <c>PATH_CLEARANCE</c> 2.2 and <c>POND_CLEARANCE</c> 4), each the figure its mesh gives
+        /// (<see cref="MeadowTreeMesh.Build"/>, the meshes' own seeds).
+        /// </summary>
+        internal static List<PlantFigure> TreesNearTheWater(MeadowSceneConfig config, int seed, Func<float, float, float> height)
+        {
+            var rng = new Random(seed + 1107);
+            var planted = new List<PlantFigure>();
+            var occupied = new List<(float X, float Z, float R)>();
+
+            PlantFigure Tree(MeadowTreeGeometry tree, float x, float z, float scale)
+            {
+                Matrix world = Matrix.CreateScale(scale) * Matrix.CreateRotationY((float)rng.NextDouble() * MathHelper.TwoPi)
+                    * Matrix.CreateTranslation(x, height(x, z) - 0.35f * scale, z);
+                occupied.Add((x, z, tree.CrownReach * scale * 0.75f));
+                return PlantFigure.Of(tree.Bounds, world, tree.BaseRadius);
+            }
+
+            (float pondX, float pondZ) = MeadowPath.PondCentre(config);
+            float awayFromArena = MathF.Atan2(pondZ, pondX);
+            foreach (float turn in new[] { -0.75f, 0.95f })
+            {
+                float a = awayFromArena + turn, reach = config.PondRadius * MeadowPath.PondOutline(a) + 3.5f;
+                planted.Add(Tree(TreeMeshes.Value[4], pondX + MathF.Cos(a) * reach, pondZ + MathF.Sin(a) * reach, 0.9f + 0.2f * (float)rng.NextDouble()));
+            }
+
+            for (int i = 0, tries = 0; i < 4 && tries < 600; tries++)
+            {
+                float a = (float)rng.NextDouble() * MathHelper.TwoPi, d = MathF.Sqrt(MathHelper.Lerp(95f * 95f, 150f * 150f, (float)rng.NextDouble()));
+                float x = MathF.Cos(a) * d, z = MathF.Sin(a) * d;
+                MeadowTreeGeometry tree = TreeMeshes.Value[rng.Next(4)];
+                float scale = 0.9f + 0.25f * (float)rng.NextDouble(), room = tree.CrownReach * scale * 0.75f;
+
+                if (MathF.Abs(MeadowPath.Lateral(x, z, config)) < room + 2.2f) continue;
+                if (MathF.Abs(MeadowPath.BrookLateral(x, z, config)) < room + config.BrookWidth) continue;
+                if (MeadowPath.PondShore(x, z, config) < room + 4f) continue;
+                if (occupied.Exists(o => (o.X - x) * (o.X - x) + (o.Z - z) * (o.Z - z) < (o.R + room) * (o.R + room))) continue;
+
+                planted.Add(Tree(tree, x, z, scale));
+                i++;
+            }
+
+            return planted;
+        }
+
+        //The planting's five tree meshes, as MeadowScatter grows them: two oaks, two limes and the willow
+        private static readonly Lazy<MeadowTreeGeometry[]> TreeMeshes = new(() => new[]
+        {
+            MeadowTreeMesh.Build(MeadowTreeKind.Oak, 6090), MeadowTreeMesh.Build(MeadowTreeKind.Oak, 6091),
+            MeadowTreeMesh.Build(MeadowTreeKind.Lime, 6092), MeadowTreeMesh.Build(MeadowTreeKind.Lime, 6093),
+            MeadowTreeMesh.Build(MeadowTreeKind.Willow, 6094),
+        });
+
         private static IntroShot[] Shots(Planting planting, int seed) =>
-            MeadowIntroShots.Build(planting.Config, planting.Figures, INTRO_FIELD_OF_VIEW, new Random(seed * 7 + 1));
+            MeadowIntroShots.Build(planting.Config, planting.Figures, GamePosition, GameTarget, INTRO_FIELD_OF_VIEW, new Random(seed * 7 + 1));
 
         private static IntroShot Named(IntroShot[] shots, string name) => Array.Find(shots, s => s.Name == name);
 
@@ -227,8 +310,12 @@ namespace BS3D.Tests
 
                 Assert.Equal("the valley", shots[0].Name);
                 Assert.NotNull(Named(shots, "the bench"));
-                Assert.Equal("the bench", shots[^1].Name);
                 if (Named(shots, "the bales") != null) withBales++;
+
+                //The reel ends on the brook home, which lands, the bench before it; or, where no flight home is clear, on the
+                //bench, the brook a run to the pond earlier
+                if (shots[^1].Lands) Assert.Equal(new[] { MeadowLanding.NAME, "the bench" }, new[] { shots[^1].Name, shots[^2].Name });
+                else Assert.Equal("the bench", shots[^1].Name);
 
                 for (int i = 0; i + 1 < shots.Length; i++)
                     Assert.NotEqual(shots[i].Name, shots[i + 1].Name);
@@ -242,11 +329,19 @@ namespace BS3D.Tests
         {
             IntroShot[] shots = Shots(Plant(1), 1);
             string[] names = Array.ConvertAll(shots, s => s.Name);
-            Assert.Equal(new[] { "the valley", "the bales", "the brook", "the path", "the bench" }, names);
+            Assert.Equal(new[] { "the valley", "the bales", "the path", "the bench", MeadowLanding.NAME }, names);
+            Assert.True(shots[^1].Lands);
+
+            //Where no flight home is clear (a pose inside the island's own radius, which none reaches), the reel as it was,
+            //ending on the bench for the tour's last leg
+            IntroShot[] fallback = MeadowIntroShots.Build(Plant(1).Config, Plant(1).Figures, new Vector3(0f, -2f, 15f), GameTarget,
+                INTRO_FIELD_OF_VIEW, new Random(8));
+            Assert.Equal(new[] { "the valley", "the bales", "the brook", "the path", "the bench" }, Array.ConvertAll(fallback, s => s.Name));
+            Assert.False(fallback[^1].Lands);
         }
 
         [Fact]
-        public void EachOrbitIsAHalfCircleRoundItsSubjectInAboutFiveSeconds()
+        public void EachOrbitIsAnArcRoundItsSubjectAtThePaceTheOwnerAskedFor()
         {
             for (int seed = 1; seed <= ROLLS; seed++)
             {
@@ -257,16 +352,20 @@ namespace BS3D.Tests
                     IntroShot shot = Named(shots, name);
                     if (shot == null) continue;
 
-                    Assert.InRange(shot.Seconds, 5.5f, 6f);
+                    //108 degrees round (#1107: the owner found the half circles too long) at the 30-34 degrees a second #945
+                    //asked for ("a little more slowly"), so 3.2-3.6 s
+                    Assert.InRange(MathHelper.ToDegrees(MeadowIntroShots.ORBIT_TURN), 100f, 115f);
+                    Assert.InRange(MathHelper.ToDegrees(MeadowIntroShots.ORBIT_TURN) / shot.Seconds, 30f, 34f);
+                    Assert.InRange(shot.Seconds, 3.2f, 3.6f);
 
-                    //Walked pose by pose: the lens stays one distance from the look, and goes half way round it
+                    //Walked pose by pose: the lens stays one distance from the look, and goes ORBIT_TURN round it
                     Vector3 look = LookOf(shot);
                     shot.Pose(0f, out Vector3 start, out _);
                     shot.Pose(1f, out Vector3 end, out _);
                     Vector2 first = Plan(start) - Plan(look), last = Plan(end) - Plan(look);
                     float radius = first.Length();
 
-                    Assert.Equal(-1f, Vector2.Dot(Vector2.Normalize(first), Vector2.Normalize(last)), 2);
+                    Assert.Equal(MathF.Cos(MeadowIntroShots.ORBIT_TURN), Vector2.Dot(Vector2.Normalize(first), Vector2.Normalize(last)), 2);
                     Assert.InRange(last.Length(), radius - 0.05f, radius + 0.05f);
 
                     float swept = 0f;
@@ -281,7 +380,7 @@ namespace BS3D.Tests
                         before = now;
                     }
 
-                    Assert.Equal(MathF.PI, MathF.Abs(swept), 1);
+                    Assert.Equal(MeadowIntroShots.ORBIT_TURN, MathF.Abs(swept), 1);
                 }
             }
         }
@@ -311,6 +410,28 @@ namespace BS3D.Tests
 
             Assert.True(Radius(large) >= Radius(small) + bench.Reach * 0.9f,
                 $"the lens stands {Radius(small):F2} from a bench of reach {bench.Reach:F2} and {Radius(large):F2} from one of {bench.Reach * 2f:F2}");
+        }
+
+        [Fact]
+        public void TheBalesStandAsFarOffAsTheOwnerAskedThoughLessOfTheCircleIsFlown()
+        {
+            //#945: "a little farther from the hay bales". The radius is asked of the whole half circle and only its middle is
+            //flown (#1107): asked of the flown arc alone, a shorter arc passes nearer and the bales' mean over these layouts fell
+            //from 11.5 to 10.1
+            float sum = 0f;
+            int count = 0;
+            for (int seed = 1; seed <= ROLLS; seed++)
+            {
+                IntroShot bales = Named(Shots(Plant(seed), seed), "the bales");
+                if (bales == null) continue;
+
+                bales.Pose(0f, out Vector3 start, out _);
+                sum += Vector2.Distance(Plan(start), Plan(LookOf(bales)));
+                count++;
+            }
+
+            Assert.True(count >= ROLLS * 9 / 10, $"the bales' shot was built in only {count} of {ROLLS} layouts");
+            Assert.True(sum / count >= BALES_MEAN_RADIUS, $"the lens stands {sum / count:F2} from the bales on average over {count} layouts");
         }
 
         [Fact]
@@ -396,7 +517,7 @@ namespace BS3D.Tests
             Assert.Null(MeadowIntroShots.Bench(planting.Config, walled, INTRO_FIELD_OF_VIEW, new Random(1)));
 
             //And the prologue goes on without it
-            IntroShot[] shots = MeadowIntroShots.Build(planting.Config, walled, INTRO_FIELD_OF_VIEW, new Random(1));
+            IntroShot[] shots = MeadowIntroShots.Build(planting.Config, walled, GamePosition, GameTarget, INTRO_FIELD_OF_VIEW, new Random(1));
             Assert.Null(Named(shots, "the bench"));
             Assert.NotNull(Named(shots, "the valley"));
             Assert.NotNull(Named(shots, "the path"));
@@ -481,23 +602,25 @@ namespace BS3D.Tests
         [Fact]
         public void ThePrologueWithNoPlantingIsTheLandAlone()
         {
-            IntroShot[] shots = MeadowIntroShots.Build(new MeadowSceneConfig(), null, INTRO_FIELD_OF_VIEW, new Random(1));
-            Assert.Equal(new[] { "the valley", "the brook", "the path" }, Array.ConvertAll(shots, s => s.Name));
-            Assert.Null(MeadowIntroShots.Build(null, null, INTRO_FIELD_OF_VIEW, new Random(1)));
+            IntroShot[] shots = MeadowIntroShots.Build(new MeadowSceneConfig(), null, GamePosition, GameTarget, INTRO_FIELD_OF_VIEW, new Random(1));
+            Assert.Equal(new[] { "the valley", "the path", MeadowLanding.NAME }, Array.ConvertAll(shots, s => s.Name));
+            Assert.Null(MeadowIntroShots.Build(null, null, GamePosition, GameTarget, INTRO_FIELD_OF_VIEW, new Random(1)));
         }
 
         [Fact]
         public void TheWholePrologueRunsNoLongerThanTheCities()
         {
-            //The docs state 11-16 s for a prologue and 22 for the cities (chapter-intro-prologues.md). The meadow's two orbits
-            //take it past the cities' by up to three seconds since #945, where the owner asked both slower: this holds it there,
-            //the tour's last leg (4.5 s) included, for the next shot added
+            //The docs state 11-17 s for a prologue and about 20-22 for the cities (chapter-intro-prologues.md). The meadow ran
+            //24.9 s with its two half circles (#945); since #1107 the orbits are shorter and the brook home lands, so no tour leg
+            //follows it: this holds the whole intro under the cities' 22 s, the tour's last leg (4.5 s) counted where the reel
+            //has no landing
             for (int seed = 1; seed <= ROLLS; seed++)
             {
-                float seconds = 4.5f;
-                foreach (IntroShot shot in Shots(Plant(seed), seed)) seconds += shot.Seconds;
+                IntroShot[] shots = Shots(Plant(seed), seed);
+                float seconds = shots[^1].Lands ? 0f : 4.5f;
+                foreach (IntroShot shot in shots) seconds += shot.Seconds;
 
-                Assert.True(seconds <= 25f, $"seed {seed}: the meadow's intro runs {seconds:F1} s");
+                Assert.True(seconds <= 22f, $"seed {seed}: the meadow's intro runs {seconds:F1} s");
             }
         }
 

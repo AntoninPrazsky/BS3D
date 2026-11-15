@@ -35,9 +35,12 @@
     <Compile Include="..\..\Game\Effects\AridIntroPaths.cs" />
     <Compile Include="..\..\Game\Effects\MountainIntroShots.cs" />
     <Compile Include="..\..\Game\Effects\DesertIntroShots.cs" />
+    <Compile Include="..\..\Game\Effects\OutbackIntroShots.cs" />
     <Compile Include="..\..\Game\Effects\VolcanoIntroShots.cs" />
     <Compile Include="..\..\Game\Effects\CavernIntroShots.cs" />
     <Compile Include="..\..\Game\Effects\CircusIntroShots.cs" />
+    <!--The Moon's (#1114): the run up the rover's ruts to the flag, over TerrainMirror.Moon, and the two shots round it.-->
+    <Compile Include="..\..\Game\Effects\MoonIntroShots.cs" />
   </ItemGroup>
 
   <!--The tutorial's rules (#666), compiled in the same way: Tutorial is a ladder of lessons and clocks with no device
@@ -50,6 +53,8 @@
     <Compile Include="..\..\Game\Effects\NetReveal.cs" />
     <!--The "fire" chip for a player who has stopped (#925): its rules over plain values, no device.-->
     <Compile Include="..\..\Game\Screens\FireHint.cs" />
+    <!--Which click skips a camera takeover (#1106): a rule over a mouse state and the viewport's size, no device.-->
+    <Compile Include="..\..\Game\Screens\TakeoverSkip.cs" />
     <Compile Include="..\..\Game\Screens\PlayClock.cs" />
     <Compile Include="..\..\Game\Screens\TouchControls.cs" />
     <Compile Include="..\..\Game\Screens\TutorialCardLayout.cs" />
@@ -118,11 +123,13 @@
     <!--The city intro's shot builder (#488): plain geometry over City's block grid.-->
     <Compile Include="..\..\Game\Effects\CityIntroShots.cs" />
     <Compile Include="..\..\Game\Effects\CitySwing.cs" />
+    <Compile Include="..\..\Game\Effects\IntroLanding.cs" />
     <!--The meadow's prologue (#893): the ground and solids a lens is held against, and the bench and bale orbits over the
         planting's figures. The planting itself needs a device, so MeadowIntroShotsTests builds figures of its own from the
         constants and the geometry MeadowScatter keeps without one.-->
     <Compile Include="..\..\Game\Effects\IntroGround.cs" />
     <Compile Include="..\..\Game\Effects\MeadowIntroShots.cs" />
+    <Compile Include="..\..\Game\Effects\MeadowLanding.cs" />
     <!--What a nickname may be, and which words are secret (#548, #230): a string rule with no device in it.-->
     <Compile Include="..\..\Game\Online\Nickname.cs" />
     <!--The first-launch nickname question (#763): when it is asked, what an Esc on it counts for, the field's editing and

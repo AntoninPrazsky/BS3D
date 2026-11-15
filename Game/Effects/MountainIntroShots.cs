@@ -27,7 +27,7 @@ namespace BS3D.Effects
         private const float WIDE_TO_HEIGHT = 62f;
         private const float WIDE_LOOK_OUT = 300f;
         private const float WIDE_LOOK_HEIGHT = 30f;
-        private const float WIDE_CLEARANCE = 12f;
+        internal const float WIDE_CLEARANCE = 12f;
         private const float WIDE_SECONDS = 3.1f;
 
         //The pass: of PASS_BEARINGS radial runs from the basin out into the range, the one whose highest ground
@@ -36,15 +36,12 @@ namespace BS3D.Effects
         //⚠ SLOW AND SMOOTH, NOT A ROLLER COASTER (#645). The first cut flew 105 units in 3.3 s (33 u/s) with a
         //five-point window: measured over sixteen rolls, the lens's vertical acceleration was 62 u/s² rms and up
         //to 436, and the view pitched 29 degrees a second rms and up to 103. The owner's word was "jerky, bumpy
-        //and too fast". Now 85 units in 4.2 s (20 u/s), and the height is dilated and blurred over PASS_WINDOW
-        //points in PASS_SMOOTHING passes (`AridIntroPaths.Hug`), so the lens rises well before a crest and
-        //settles well after it instead of tracing it.
+        //and too fast". Now 85 units in 4.2 s (20 u/s), and the height is rounded like a drone's flight
+        //(`AridIntroPaths.Hug`, #1112), so the lens rises before a crest and settles after it instead of tracing it.
         private const int PASS_BEARINGS = 36;
         private const float PASS_FROM = 160f;
         private const float PASS_TO = 245f;
-        private const float PASS_CLEARANCE = 14f;
-        private const int PASS_WINDOW = 18;
-        private const int PASS_SMOOTHING = 3;
+        internal const float PASS_CLEARANCE = 14f;
         private const float PASS_PITCH_DOWN_DEGREES = 3f;
         private const float PASS_PITCH_DAMPING = 0.4f;
         private const float PASS_SECONDS = 4.2f;
@@ -60,7 +57,7 @@ namespace BS3D.Effects
         private const float SUMMIT_ORBIT = 70f;
         private const float SUMMIT_UNDER = 28f;
         private const float SUMMIT_SWEEP_RADIANS = 0.55f;
-        private const float SUMMIT_CLEARANCE = 10f;
+        internal const float SUMMIT_CLEARANCE = 10f;
         private const float SUMMIT_SECONDS = 3.2f;
 
         /// <summary>The prologue for the range being drawn, or null when there is no mountain config.</summary>
@@ -79,14 +76,14 @@ namespace BS3D.Effects
         }
 
         /// <summary>The establishing view: across the island at the range on the basin's far side.</summary>
-        private static IntroShot Range(MountainSceneConfig mountain, Func<float, float, float> ground, float fieldOfView, Random random)
+        internal static IntroShot Range(MountainSceneConfig mountain, Func<float, float, float> ground, float fieldOfView, Random random)
         {
             float bearing = AridIntroPaths.Roll(random, 0f, MathHelper.TwoPi);
             Vector2 stand = AridIntroPaths.Bearing(bearing) * WIDE_STAND;
             Vector2 across = AridIntroPaths.Bearing(bearing + MathHelper.PiOver2) * (random.Next(2) == 0 ? 1f : -1f);
 
             Vector2[] plan = AridIntroPaths.Line(stand - across * (WIDE_TRUCK * 0.5f), stand + across * (WIDE_TRUCK * 0.5f));
-            Vector3[] path = AridIntroPaths.Hug(plan, ground, WIDE_CLEARANCE, 4f, 6,
+            Vector3[] path = AridIntroPaths.Hug(plan, ground, WIDE_CLEARANCE, 4f, WIDE_SECONDS,
                 i => mountain.LevelY + MathHelper.Lerp(WIDE_FROM_HEIGHT, WIDE_TO_HEIGHT, i / (float)(plan.Length - 1)));
 
             Vector2 far = -AridIntroPaths.Bearing(bearing) * WIDE_LOOK_OUT;
@@ -117,14 +114,14 @@ namespace BS3D.Effects
 
             Vector2 outward = AridIntroPaths.Bearing(bestBearing);
             Vector3[] path = AridIntroPaths.Hug(AridIntroPaths.Line(outward * PASS_FROM, outward * PASS_TO), ground,
-                PASS_CLEARANCE, 4f, PASS_WINDOW, passes: PASS_SMOOTHING);
+                PASS_CLEARANCE, 4f, PASS_SECONDS);
 
             return new IntroShot("the pass", path, PASS_SECONDS, fieldOfView * 1.15f,
                 lookAhead: 24f, pitchDownDegrees: PASS_PITCH_DOWN_DEGREES, pitchDamping: PASS_PITCH_DAMPING);
         }
 
         /// <summary>Round the highest summit, a little under it, the look on the peak.</summary>
-        private static IntroShot Summit(Func<float, float, float> ground, float fieldOfView, Random random)
+        internal static IntroShot Summit(Func<float, float, float> ground, float fieldOfView, Random random)
         {
             Vector2 peak = new(SUMMIT_INNER, 0f);
             float peakY = float.MinValue;
@@ -150,7 +147,7 @@ namespace BS3D.Effects
             float from = towardsArena - sign * SUMMIT_SWEEP_RADIANS * 0.5f;
             Vector2[] plan = AridIntroPaths.Arc(peak, from, from + sign * SUMMIT_SWEEP_RADIANS, SUMMIT_ORBIT, SUMMIT_ORBIT);
 
-            Vector3[] path = AridIntroPaths.Hug(plan, ground, SUMMIT_CLEARANCE, 4f, 5, _ => peakY - SUMMIT_UNDER);
+            Vector3[] path = AridIntroPaths.Hug(plan, ground, SUMMIT_CLEARANCE, 4f, SUMMIT_SECONDS, _ => peakY - SUMMIT_UNDER);
 
             return new IntroShot("the summit", path, SUMMIT_SECONDS, fieldOfView * 1.1f,
                 lookAt: new Vector3(peak.X, peakY, peak.Y));

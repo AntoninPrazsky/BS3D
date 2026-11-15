@@ -46,7 +46,9 @@ namespace BS3D.Screens
 
         //The dearest scenes on the desktop's High (docs/game-shell/quality-measurements.md): the cavern's chamber, the neon
         //city's towers, the forest's wood and the meadow's trees under the volume clouds; then the city's biggest level played
-        //(#1018), the gun, the shots and the falls the tours never draw
+        //(#1018), the gun, the shots and the falls the tours never draw. A tour flies the scene's prologue, so a prologue that
+        //changes changes its segment: the meadow's ends on its brook home since #1107, landing on the menu's lens, and its
+        //figures from before then do not compare (docs/game-shell/benchmark.md)
         private static readonly Segment[] SEGMENTS =
         {
             new("Cavern", "CAVERN", SceneKind.Cavern, Part.Tour),
