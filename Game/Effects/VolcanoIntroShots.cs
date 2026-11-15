@@ -24,7 +24,10 @@ namespace BS3D.Effects
     /// that turns at least <c>MIN_CUT_ANGLE_DEGREES</c>, stricter than the cities' either-or, because a view that only
     /// slides along its own line is still the same picture. The village comes last, after the crater: it ends looking at
     /// the cone from the arena's side, much as the crater run starts out looking, and cut ahead of the crater the view
-    /// turned as little as 23 degrees on some rolls.
+    /// turned as little as 23 degrees on some rolls. The same rule holds the cut OUT of the reel into the tour's last leg,
+    /// which opens looking steeply down at the arena from the gun's side: the line from the village to the cone passes
+    /// over the arena, so the two views can share a heading, and the village's last look is held nearly level
+    /// (<see cref="VILLAGE_END_DOWN_DEGREES"/>) so that the tilt alone turns the view <see cref="CUT_TO_THE_MAP_DEGREES"/>.
     /// </para>
     /// <para>
     /// <b>The village is shot only where it stands</b> (<see cref="SceneRenderer.VolcanoCountryDrawn"/>): Low draws the
@@ -123,10 +126,12 @@ namespace BS3D.Effects
         //through the village, so it ends with the cone behind the village. The lens flies TREE_AIR over the tallest thing the
         //land stands (VolcanoCountryPlanting.Tallest) above the highest ground within that thing's reach, as AridIntroPaths.Hug
         //lays a drone's height, so it climbs the hillside behind the village as it comes round. The look starts on the village,
-        //VILLAGE_LOOK_RISE over the ground at its middle (its roofs), and turns VILLAGE_LOOK_SHARE of the way from the village
-        //towards a point SUMMIT_OVER_VENT over the vent, so the village stands in the frame's lower half, clear of the skip
-        //hint along its foot, and the cone and its column over it. Round the arc the view turns 18 to 24 degrees a second on
-        //average and 27 at most (IntroShotSmoothnessTests), about the pace of the cities' plaza orbit (80 degrees in 4 s).
+        //VILLAGE_LOOK_RISE over the ground at its middle (its roofs), and turns to the bearing VILLAGE_LOOK_SHARE of the way from
+        //the village towards a point SUMMIT_OVER_VENT over the vent, tilted no more than VILLAGE_END_DOWN_DEGREES down, so the
+        //village stands in the frame's lower half, clear of the skip hint along its foot, and the cone and its column over it.
+        //Round the arc the view turns 17 to 25 degrees a second on average, about the pace of the cities' plaza orbit (80
+        //degrees in 4 s), and peaks at 27 over the 12 rolls IntroShotSmoothnessTests builds and 28.5 over 64; the test holds it
+        //to its MAX_YAW_RATE.
         private const float VILLAGE_RADIUS_FROM = 150f;
         private const float VILLAGE_RADIUS_TO = 140f;
         private const float VILLAGE_SWEEP_MIN_DEGREES = 65f;
@@ -136,8 +141,20 @@ namespace BS3D.Effects
         private const float VILLAGE_LOOK_RISE = 6f;
         private const float VILLAGE_LOOK_SHARE = 0.4f;
         private const float SUMMIT_OVER_VENT = 40f;
-        private const float VILLAGE_FOV = 1.15f;
         private const float VILLAGE_SECONDS = 3.6f;
+
+        //⚠ THE CUT OUT OF THE REEL IS A CUT TOO. The tour's last leg opens looking down at the arena's centre from
+        //ChapterIntro.MAP_KEY_MIN_ELEVATION_DEGREES or more, on the gun's side, and the village's last look, at the cone over
+        //the village, runs across the arena from that same side: the two can share a heading. Looking down the 11 to 12
+        //degrees the blend alone gives, the cut turned as little as 28 degrees (36 of 400 rolls under the reel's 30). Held to
+        //VILLAGE_END_DOWN_DEGREES down, the tilt alone turns it CUT_TO_THE_MAP_DEGREES, whichever way the gun faces.
+        //
+        //The lens is the wider for it, VILLAGE_FOV of the play frame: the lens stands 53 or more over the roofs, which sit
+        //21 to 23 degrees under it at the end, and at the crater's 1.15 the village's middle went down to 0.70 of the frame's
+        //half-height under its middle, by the skip hint.
+        private const float CUT_TO_THE_MAP_DEGREES = 33f;
+        private const float VILLAGE_END_DOWN_DEGREES = ChapterIntro.MAP_KEY_MIN_ELEVATION_DEGREES - CUT_TO_THE_MAP_DEGREES;
+        private const float VILLAGE_FOV = 1.35f;
 
         /// <summary>
         /// The prologue for the volcano the renderer is drawing, starting at <paramref name="time"/> on its wall
@@ -297,11 +314,20 @@ namespace BS3D.Effects
                 VILLAGE_SECONDS);
 
             //The look: from the village's roofs to a direction part of the way from them to the column over the cone, as seen
-            //from the lens's last point, at the village's distance from it
+            //from the lens's last point, at the village's distance from it; on that bearing, tilted down no more than the cut
+            //into the tour's leg allows (see VILLAGE_END_DOWN_DEGREES)
             Vector3 roofs = new(village.X, ground(village.X, village.Y) + VILLAGE_LOOK_RISE, village.Y);
             Vector3 summit = vent + new Vector3(0f, SUMMIT_OVER_VENT, 0f);
             Vector3 last = path[^1];
             Vector3 between = Vector3.Normalize(Vector3.Lerp(Vector3.Normalize(roofs - last), Vector3.Normalize(summit - last), VILLAGE_LOOK_SHARE));
+
+            float lowest = -MathHelper.ToRadians(VILLAGE_END_DOWN_DEGREES);
+            if (MathF.Asin(between.Y) < lowest)
+            {
+                Vector2 bearing = Vector2.Normalize(new Vector2(between.X, between.Z));
+                between = new Vector3(bearing.X * MathF.Cos(lowest), MathF.Sin(lowest), bearing.Y * MathF.Cos(lowest));
+            }
+
             Vector3 framed = last + between * Vector3.Distance(last, roofs);
 
             var look = new Vector3[path.Length];
