@@ -71,7 +71,7 @@ Each chapter's heaviest level that is not its block's first (by balls; the city 
 
 ## The mid desktop: GTX 1060 6 GB, Ryzen 5 3600 (#1031)
 
-The owner's spare desktop, between the APU and the 6900 XT, and the first NVIDIA in the loop: Ryzen 5 3600 (6 cores, 12 threads), GeForce GTX 1060 6 GB on driver 582.78 (32.0.15.8278), 32 GB DDR4 at 2667 MT/s (a 3600 kit, XMP off), a 1920x1080 60 Hz 8-bit panel, Windows 11 Pro 26300. The same levels and command as the APU's table (`tier-matrix.ps1`, Release, 45 s a run, the first six readings dropped, `nocap`, `userdata=` a scratch profile), at the panel's 1920x1080 as well as 1600x900; two passes, the second in reverse order, and the minimum of each pair. Builds' sets: libraries `2c25645c`, shaders `5d545040` (`main` at 09427ce0), 2026-11-14. The budget is the 60 Hz panel's, **16.7 ms**. ms:
+The owner's spare desktop, between the APU and the 6900 XT, and the first NVIDIA in the loop: Ryzen 5 3600 (6 cores, 12 threads), GeForce GTX 1060 6 GB on driver 582.78 (32.0.15.8278), 32 GB DDR4 (a 3600 kit; the tables at 2667 MT/s, XMP off), a 1920x1080 60 Hz 8-bit panel, Windows 11 Pro 26300. The same levels and command as the APU's table (`tier-matrix.ps1`, Release, 45 s a run, the first six readings dropped, `nocap`, `userdata=` a scratch profile), at the panel's 1920x1080 as well as 1600x900; two passes, the second in reverse order, and the minimum of each pair. Builds' sets: libraries `2c25645c`, shaders `5d545040` (`main` at 09427ce0), 2026-11-14. The budget is the 60 Hz panel's, **16.7 ms**. ms:
 
 | level (scene) | `Low` 900p | `Medium` 900p | `High` 900p | `Low` 1080p | `Medium` 1080p | `High` 1080p |
 |---|---|---|---|---|---|---|
@@ -95,7 +95,7 @@ The owner's spare desktop, between the APU and the 6900 XT, and the first NVIDIA
 - **The two passes agree to 0.1 ms on most rows**; the aurora at `High` 900p spread 1.1 ms, Caldera at `High` 1080p 1.1, Ghost at `Medium` 1080p 1.0.
 - ⚠ **Space and the mountain are out of line at `High`**: Orrery reads 3.1× its `Medium` at 1080p and Spyglass 2.4×, where the other chapters read 1.1–2.2×. On the 6900 XT the swarm holds 88 728 balls in space at `High`; here the space scene alone is past the budget at 1080p ("The swarm" in `benchmark.md`).
 - **The adaptive probe lands where the table says**, with the window in focus and nothing pinned: Spyglass at 1080p read 47 FPS at `High` against its floor of 54 and stepped to `Medium`, then held 60. Amphora at `High` (17.5 ms, 57 FPS) is above the floor and is kept there, a frame short of the refresh.
-- **The benchmark agrees** (Extras > Benchmark, full screen 1080p at `High`): it recommends `Medium` (Neon City 91.9 % and Forest 78.9 % of their frames over the budget). Its physics: Girandole's step 1.21 ms median on 12 threads, 14.5 % of every frame, which is the 5900X's 1.29 on 24 threads: the CPU is nowhere near the limit here.
+- **The benchmark agrees** (Extras > Benchmark, full screen 1080p at `High`): it recommends `Medium` (Neon City 91.9 % and Forest 78.9 % of their frames over the budget). Its physics: Girandole's step 1.21 ms median on 12 threads with the memory at 2667 MT/s and 1.11 at 3600 (XMP on; the tours did not move), 13.3–14.5 % of every frame, under the 5900X's 1.29 on 24 threads: the CPU is nowhere near the limit here.
 
 ## The phone: the vivo X300 Ultra through the desktop path (#1061)
 
