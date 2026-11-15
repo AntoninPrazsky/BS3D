@@ -20,6 +20,14 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1106 každý úvod kapitoly jde přeskočit — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: přeskočit jde každý úvod kapitoly, i úplně první otevření na prázdném uložení. Pojistka z #1021 (`_introWhole`, lekce `opening`) je pryč. Stará uložení s lekcí `opening` se načtou normálně, nic ji nečte.
+- Klik myší s volným kurzorem teď kurzor chytí a zároveň přeskočí (pravidlo v `TakeoverSkip.MouseSkips`). Dřív první klik jen chytil kurzor. Platí i pro cinematiku pádu a záložní salvu.
+- Nový argument `skiptakeover=<t1,...>` přeskočí mimo focus gate, takže běh bez fokusu ukáže přeskočení.
+- ⚠ Podmínku volání v `UpdateAim` hlídá test nad zdrojákem; bez něj by vrácení `_mouseAim.Initialized` prošlo všemi testy.
+- Otevřené: živý klik, pad ani dotyk na telefonu nikdo nezkoušel; jen `skiptakeover=` a testy.
+
 ## 2026-11-15 — #1105 logo mizí s černou v jednom prolínání — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: logo úvodu začne mizet 0,25 s po začátku zvedání černé (`SplashTimeline.LOGO_LAG_SECONDS`) a je pryč 0,15 s po ní; pauza 0,4 s zmizela, úvod trvá 3,15 s místo 4,1. Časování je v nové `Game/Screens/SplashTimeline.cs` bez zařízení a hlídá ho 7 testů (`SplashTimelineTests`). Nový testovací argument `splashshot=<s,…>` podrží věk úvodu na dané vteřině a snímek uloží.

@@ -51,6 +51,8 @@
     <Compile Include="..\..\Game\Effects\NetReveal.cs" />
     <!--The "fire" chip for a player who has stopped (#925): its rules over plain values, no device.-->
     <Compile Include="..\..\Game\Screens\FireHint.cs" />
+    <!--Which click skips a camera takeover (#1106): a rule over a mouse state and the viewport's size, no device.-->
+    <Compile Include="..\..\Game\Screens\TakeoverSkip.cs" />
     <Compile Include="..\..\Game\Screens\PlayClock.cs" />
     <Compile Include="..\..\Game\Screens\TouchControls.cs" />
     <Compile Include="..\..\Game\Screens\TutorialCardLayout.cs" />
