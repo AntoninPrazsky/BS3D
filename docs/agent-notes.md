@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1115 Mars: úvod letí po kolejích vozítka — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: úvod Marsu otevírá záběr „the tracks“ (`Game/Effects/MarsIntroShots.cs`): 45 j středem kolejí 12,5 j/s, 2,6–2,95 nad `MarsCeiling`, pohled z kolejí 22 j vpředu se zvedne na ostrov a cluster. Hraje se tam, kde zem kreslí koleje (`MarsBackdrop.FullGroundAt`, Medium a výš); na Low zůstává „the plain“. Úvod 14,5 s (Low 14,1 s). `MarsTracks.TRAVERSE` je jediná kopie trasy; oblouk kolem arény překreslen (ohyb ≤ 9,3° místo 18,2°), kameny znovu rozhozeny. Chůze po kolejích Měsíce je sdílená (`RutsWalk`); Měsíc ověřen bajtově stejným výpisem.
+- ⚠ Úhel plánu se losuje na každém tieru, jinak tier posune vše, co los rozdá potom (jiná mesa).
+- Otevřené: `verdict-eye` (pohyb neviděn, zalomení kolejí přes malé krátery); cena kolejí na nové trase neměřena.
+
 ## 2026-11-15 — #1127 sopka: úvod obletí vesnici — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: úvod Erupce má čtvrtý záběr „the village“ (3,6 s, `Game/Effects/VolcanoIntroShots.cs`) po kráteru: oblet středu vesnice (150 → 140 j, 65–85°), konec na ose kužel–vesnice, vesnice v dolní třetině, kužel se sloupem nad ní. Sopka zkrácena na 3,2 s, erupce na 3,4 s; reel 20,1 s. Na Low (bez lesů a domů, `SceneRenderer.VolcanoCountryDrawn`) se vesnice nehraje, náhoda se čerpá na všech tierech stejně. `VolcanoCountryPlanting` má tabulky a `Tallest`/`Reach`, kamera letí 6 j nad nejvyšším objektem.

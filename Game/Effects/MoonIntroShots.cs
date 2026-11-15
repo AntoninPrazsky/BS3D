@@ -1,7 +1,6 @@
 using Microsoft.Xna.Framework;
 using Prazsky.Core.Render;
 using System;
-using System.Collections.Generic;
 
 namespace BS3D.Effects
 {
@@ -70,9 +69,6 @@ namespace BS3D.Effects
         private const float TRACKS_FROM_FOV_DEGREES = 50f, TRACKS_TO_FOV_DEGREES = 40f;
         private const float TRACKS_SECONDS = 4.2f;
 
-        //How finely the ruts' curve is walked to lay the lens along it: points a span of MoonPlanting.TRAVERSE
-        private const int CURVE_STEPS = 64;
-
         //The Earth: a slow push towards the highlands on the Earth's own bearing, this far out from the arena,
         //low over the plain; the frame solved so the crest stands this share of the way up it and the Earth this
         //share under its top.
@@ -132,20 +128,11 @@ namespace BS3D.Effects
         {
             Func<float, float, float> ground = (x, z) => TerrainMirror.Moon(x, z, terrain);
 
-            //The ruts' curve, walked finely, and the distance along it to each point
-            Vector2[] curve = Curve(MoonPlanting.TRAVERSE, CURVE_STEPS);
-            var along = new float[curve.Length];
-            for (int i = 1; i < curve.Length; i++) along[i] = along[i - 1] + Vector2.Distance(curve[i - 1], curve[i]);
-
-            //The flag's place along the ruts: the point of the curve nearest it
+            //Up the ruts to the flag's place along them, short of it
+            var ruts = new RutsWalk(MoonPlanting.TRAVERSE);
             Vector2 flag = MoonPlanting.FLAG;
-            int nearest = 0;
-            for (int i = 1; i < curve.Length; i++)
-                if (Vector2.DistanceSquared(curve[i], flag) < Vector2.DistanceSquared(curve[nearest], flag)) nearest = i;
-
-            float end = along[nearest] - TRACKS_STOP_SHORT, start = end - TRACKS_LENGTH;
-            var plan = new Vector2[AridIntroPaths.POINTS];
-            for (int i = 0; i < plan.Length; i++) plan[i] = PointAlong(curve, along, MathHelper.Lerp(start, end, i / (float)(plan.Length - 1)));
+            float end = ruts.AlongNearest(flag) - TRACKS_STOP_SHORT, start = end - TRACKS_LENGTH;
+            Vector2[] plan = ruts.Plan(start, end, AridIntroPaths.POINTS);
 
             Vector3[] path = AridIntroPaths.Hug(plan, ground, TRACKS_CLEARANCE, TRACKS_LATERAL, TRACKS_SECONDS);
             Vector3 lookAt = new(flag.X, ground(flag.X, flag.Y) + TRACKS_LOOK_HEIGHT, flag.Y);
@@ -195,38 +182,6 @@ namespace BS3D.Effects
             Vector3 look = new(MathF.Cos(earthBearing) * MathF.Cos(pitch), MathF.Sin(pitch), MathF.Sin(earthBearing) * MathF.Cos(pitch));
 
             return new IntroShot("the Earth", path, EARTH_SECONDS, fov, lookAt: lens + look * FAR);
-        }
-
-        /// <summary>
-        /// The curve the rover's ruts are drawn off (<see cref="RoverTracks.Resample"/>'s Catmull-Rom through
-        /// <paramref name="controls"/>, its ends doubled), <paramref name="perSpan"/> points a span. The shader draws the ruts
-        /// as straight segments between points of this curve a span or so apart, so a lens laid along the curve is never
-        /// more than a fraction of a unit off the ruts' drawn middle line, and turns through no corner where they meet.
-        /// </summary>
-        private static Vector2[] Curve(IReadOnlyList<Vector2> controls, int perSpan)
-        {
-            int spans = controls.Count - 1;
-            var points = new Vector2[spans * perSpan + 1];
-            for (int i = 0; i < points.Length; i++)
-            {
-                int k = Math.Min(i / perSpan, spans - 1);
-                float t = (i - k * perSpan) / (float)perSpan;
-                points[i] = Vector2.CatmullRom(controls[Math.Max(k - 1, 0)], controls[k], controls[k + 1],
-                    controls[Math.Min(k + 2, spans)], t);
-            }
-
-            return points;
-        }
-
-        //The point a distance along a walked curve, between the two points either side of it
-        private static Vector2 PointAlong(Vector2[] curve, float[] along, float distance)
-        {
-            int i = Array.BinarySearch(along, distance);
-            if (i >= 0) return curve[i];
-
-            i = Math.Clamp(~i, 1, curve.Length - 1);
-            float span = along[i] - along[i - 1];
-            return Vector2.Lerp(curve[i - 1], curve[i], span > 1e-6f ? (distance - along[i - 1]) / span : 0f);
         }
 
         //Holds every point of a path CLEARANCE over the highest ceiling anywhere under the path, as one height
