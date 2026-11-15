@@ -98,19 +98,21 @@ namespace BS3D.Effects
         //line one way and passes the rig on the other hand, so the island stands on the horizon beside the rig at the start
         //and crosses behind it. In from beyond and not out from the arena's side: looking out, the water would end some 800
         //past the rig, where the far ring does. The look climbs from the jacket's middle (this share of the deck's height) to
-        //the derrick's foot, so the rig grows from the horizon and towers over the lens at the end, the derrick over the deck.
-        //⚠ THE END STANDS OFF. Ended 70 off the axis, the lens was under the deck's edge, and from the waterline the deck hid
-        //the whole derrick: the last frames were the deck's dark underside and the legs.
+        //the derrick's axis at the deck, so the rig grows from the horizon and at the end stands over the lens from the
+        //waterline to the derrick's cap.
+        //⚠ THE END STANDS OFF. From the waterline the deck and the modules on it hide the derrick's foot from anywhere, and
+        //more of it the nearer the lens: ended 70 off the axis the lens was under the deck's edge and saw none of it, only the
+        //deck's dark underside and the legs; at 100, the cap. At 140 the upper half of it stands over the deck.
         private const float RIG_FROM = 300f;
-        private const float RIG_TO = 100f;
-        private const float RIG_APPROACH_MIN_DEGREES = 25f;
-        private const float RIG_APPROACH_MAX_DEGREES = 40f;
-        private const float RIG_PASS_DEGREES = 50f;
+        private const float RIG_TO = 140f;
+        private const float RIG_APPROACH_MIN_DEGREES = 10f;
+        private const float RIG_APPROACH_MAX_DEGREES = 25f;
+        private const float RIG_PASS_DEGREES = 75f;
         private const float RIG_LOOK_FROM = 0.5f;
         private const float RIG_SECONDS = 3.6f;
 
         /// <summary>The highest a crest can stand over the mean level, in units of the swell's amplitude, plus the chop's.</summary>
-        private static float CrestHeight(SeaSceneConfig sea) => sea.WaveAmplitude * CREST_REACH + sea.ChopAmplitude;
+        internal static float CrestHeight(SeaSceneConfig sea) => sea.WaveAmplitude * CREST_REACH + sea.ChopAmplitude;
 
     //How high the swell reaches, in its own amplitude: 3.93 seen over eight million samples of Sea.fx's twenty waves (their
     //weights sum to 5.0, a crest of every wave at once that independent phases never approach). Re-measure on a new set.
@@ -152,7 +154,7 @@ namespace BS3D.Effects
 
         /// <summary>
         /// The rig (#1124): a run low over the open sea in at the nearer platform from beyond it, the look on the jacket while
-        /// the rig grows on the horizon and climbing up the derrick as the lens comes in under the deck's edge and passes it.
+        /// the rig grows on the horizon and climbing to the deck as the lens comes in and passes it, the rig over the lens.
         /// </summary>
         private static IntroShot Rig(SeaSceneConfig sea, OilRig rig, float fieldOfView, Random random)
         {
@@ -171,7 +173,7 @@ namespace BS3D.Effects
 
             float y = sea.LevelY + CrestHeight(sea) + LENS_CLEARANCE;
             Vector3 jacket = rig.Foot + Vector3.Up * (OilRigLayout.DECK_Y * RIG_LOOK_FROM * rig.Scale);
-            Vector3 derrick = rig.DerrickFoot;
+            Vector3 deck = rig.ToWorld(new Vector3(OilRigLayout.DERRICK_AXIS.X, OilRigLayout.DECK_Y, OilRigLayout.DERRICK_AXIS.Y));
 
             var path = new Vector3[plan.Length];
             var look = new Vector3[plan.Length];
@@ -180,9 +182,9 @@ namespace BS3D.Effects
                 float s = i / (float)(plan.Length - 1);
                 path[i] = new Vector3(plan[i].X, y, plan[i].Y);
 
-                //On the jacket while the rig is far, up the derrick over the second half
+                //On the jacket while the rig is far, up to the deck under the derrick over the second half
                 float climb = MathHelper.Clamp((s - 0.35f) / 0.65f, 0f, 1f);
-                look[i] = Vector3.Lerp(jacket, derrick, climb * climb * (3f - 2f * climb));
+                look[i] = Vector3.Lerp(jacket, deck, climb * climb * (3f - 2f * climb));
             }
 
             return new IntroShot("the rig", path, RIG_SECONDS, fieldOfView * 1.2f, lookAtPath: look);
