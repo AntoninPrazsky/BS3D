@@ -54,9 +54,11 @@ namespace Prazsky.Core.Render
         /// <summary>How many real lights the scene hands <see cref="SceneLights"/>: the footlights, then the pools.</summary>
         public int LightCount => FOOTLIGHT_COUNT + POOL_COUNT;
 
-        //Where they stand: just inside the curb, a little over the sawdust, and their warm colour
-        private const float FOOTLIGHT_INSET = 1.2f;
-        private const float FOOTLIGHT_HEIGHT = 2.2f;
+        //Where they stand: just inside the curb, a little over the sawdust, and their warm colour. The Game's chapter intro
+        //keeps its lens off them with copies of these two and FOOTLIGHT_COUNT (CircusLanding: this class is internal, so
+        //its public constant is out of the Game's reach too), which its tests hold equal to these.
+        internal const float FOOTLIGHT_INSET = 1.2f;
+        internal const float FOOTLIGHT_HEIGHT = 2.2f;
         private static readonly Vector3 FOOTLIGHT_COLOR = new(0.95f, 0.66f, 0.38f);
 
         //The floor's annulus: segments round, and how far past the wall it reaches so no edge of it is ever in view

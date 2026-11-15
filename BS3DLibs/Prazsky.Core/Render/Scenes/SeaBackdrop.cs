@@ -162,6 +162,7 @@ namespace Prazsky.Core.Render
             _seaEffect.Parameters["WaveSpeed"].SetValue(_seaConfig.WaveSpeed);
             _seaEffect.Parameters["WaveFadeStart"].SetValue(_seaConfig.WaveFadeStart);
             _seaEffect.Parameters["WaveFadeEnd"].SetValue(_seaConfig.WaveFadeEnd);
+            _seaEffect.Parameters["CalmFrom"].SetValue(_seaConfig.CalmFrom);
             _seaEffect.Parameters["ChopAmplitude"].SetValue(_seaConfig.ChopAmplitude);
             _seaEffect.Parameters["ChopFrequency"].SetValue(_seaConfig.ChopFrequency);
             _seaEffect.Parameters["ChopSpeed"].SetValue(_seaConfig.ChopSpeed);

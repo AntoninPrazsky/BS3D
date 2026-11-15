@@ -7,7 +7,8 @@ namespace BS3D.Effects
     /// <summary>
     /// <b>A last shot that lands on the gameplay pose</b> (#972, #1107): the shared half of a chapter intro's flight home,
     /// the part that does not depend on what the scene is. A scene lays its own route (the city's staircase of streets,
-    /// <see cref="CitySwing"/>; the meadow's brook, pond and turn round the island, <see cref="MeadowLanding"/>) as a dense
+    /// <see cref="CitySwing"/>; the meadow's brook, pond and turn round the island, <see cref="MeadowLanding"/>; the big
+    /// top's run in through its entrance and round inside its king poles, <see cref="CircusLanding"/>) as a dense
     /// path that ends on the pose; this times it, points it and banks it, and the shot it returns
     /// (<see cref="IntroShot.Lands"/>) is followed by no tour leg, so the intro hands the camera over without a cut.
     /// <para>
@@ -20,8 +21,9 @@ namespace BS3D.Effects
     /// <item><b>timing</b> (<see cref="Fly"/>): the route walked at the speed the scene gives each of its points, then a
     /// cubic in time that decelerates to rest exactly on the pose, so the last half second is slow;</item>
     /// <item>a <b>look</b> along the travel (its direction averaged over a moment either side, which turns the view into a
-    /// corner before the lens), turned in towards the pose's target where the route asks it, that eases onto the pose's own
-    /// look over the last seconds and ends on it exactly;</item>
+    /// corner before the lens), turned in towards the pose's target where the route asks it and raised towards its height
+    /// where the scene asks it (<see cref="Style.LookRise"/>), that eases onto the pose's own look over the last seconds and
+    /// ends on it exactly;</item>
     /// <item>a <b>bank</b> in proportion to the heading's rate of turn, smoothed, level by the landing; and the lens easing
     /// from the scene's wide one to the game's own;</item>
     /// <item>a <b>search</b> (<see cref="Best"/>): rolled candidates each laid in full, the ones a clearance predicate
@@ -61,9 +63,14 @@ namespace BS3D.Effects
         /// <param name="MaxRollDegrees">The most it banks.</param>
         /// <param name="RollSmoothSeconds">How long either side the bank is smoothed over (three passes).</param>
         /// <param name="Points">How many evenly timed points the shot carries.</param>
+        /// <param name="LookRise">How far the point the look is held on is raised from the travel's own height towards the
+        /// pose's target's, as a share of the way, where the route asks it (<see cref="Route.Lean"/>, as
+        /// <paramref name="LookInward"/> is): 0 keeps the travel's, as the cities and the meadow do. For a route that runs
+        /// round the arena close under the cluster (the big top's, #1118), whose look along a level circle put the cluster
+        /// in the frame's top corner and the island's cap across its lower half.</param>
         internal readonly record struct Style(float WideLens, float ReleaseTimeScale, float LookPitchFollow, float LookDistance,
             float LookSmoothSeconds, float LookLandSeconds, float LookInward, float RollPerTurn, float MaxRollDegrees,
-            float RollSmoothSeconds, int Points);
+            float RollSmoothSeconds, int Points, float LookRise = 0f);
 
         /// <summary>
         /// One candidate route, laid in full: the dense path from the shot's first point to the pose, the speed at each point
@@ -288,8 +295,9 @@ namespace BS3D.Effects
 
                 heading[k] = MathF.Atan2(travel.Z, travel.X);
                 land[k] = MathHelper.SmoothStep(0f, 1f, MathHelper.Clamp((k * dt - (seconds - style.LookLandSeconds)) / style.LookLandSeconds, 0f, 1f));
-                looks[k] = Vector3.Lerp(positions[k] + Leaned(travel, positions[k], endTarget, style.LookInward * (lean?[k] ?? 1f)) * style.LookDistance,
-                    endTarget, land[k]);
+                Vector3 ahead = positions[k] + Leaned(travel, positions[k], endTarget, style.LookInward * (lean?[k] ?? 1f)) * style.LookDistance;
+                if (style.LookRise > 0f) ahead.Y = MathHelper.Lerp(ahead.Y, endTarget.Y, style.LookRise * (lean?[k] ?? 1f));
+                looks[k] = Vector3.Lerp(ahead, endTarget, land[k]);
             }
             looks[^1] = endTarget;
 

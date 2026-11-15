@@ -48,8 +48,19 @@ namespace Prazsky.Core.Render
         /// <summary>Camera distance at which the waves begin fading towards flat.</summary>
         public float WaveFadeStart { get; set; } = 340f;
 
-        /// <summary>Camera distance at which the waves are fully flat (clean hazed horizon).</summary>
+        /// <summary>Camera distance at which the waves are fully flat (clean hazed horizon), and the distance from the arena past
+        /// which they are flat whoever looks (<see cref="CalmFrom"/>).</summary>
         public float WaveFadeEnd { get; set; } = 780f;
+
+        /// <summary>
+        /// Distance from the ARENA at which the swell begins to calm, flat by <see cref="WaveFadeEnd"/> from it whatever the
+        /// camera's distance (#1124). The oil platforms stand past <see cref="WaveFadeEnd"/>, cut at a flat waterline, and the
+        /// chapter intro flies a lens out to them: with the camera's fade alone the swell came with it, and their legs stood
+        /// in front of its crests and over its troughs. A view from round the arena that looks in at it is unchanged; one that
+        /// looks out to sea sees the last stretch before <see cref="WaveFadeEnd"/> a little calmer (see <c>Sea.fx</c>'s
+        /// <c>CalmFrom</c>). 0 turns it off.
+        /// </summary>
+        public float CalmFrom { get; set; } = 600f;
 
         /// <summary>Fine per-pixel wind-chop peak height in world units.</summary>
         public float ChopAmplitude { get; set; } = 0.16f;
