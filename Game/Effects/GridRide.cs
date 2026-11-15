@@ -17,11 +17,11 @@ namespace BS3D.Effects
     /// the frame is drawn at (<see cref="IntroShot.OnTheWallClock"/>), and the cycle filmed is the cycle on screen.
     /// </para>
     /// <para>
-    /// <b>Turned with the cycle, not snapped.</b> The lens stands at a fixed place in a frame turned to the cycle's heading
-    /// averaged over <see cref="REACH_SECONDS"/> either side (a raised cosine, so the turn eases in and out): at a node, where
-    /// the cycle snaps a right angle, the lens swings round it over about two seconds, as a camera car would. Its distance from
-    /// the cycle never changes, so it is never nearer the rider and never in its path, and the rider holds its place in the
-    /// frame; only its own turn shows.
+    /// <b>Turned with the cycle, not snapped.</b> The lens stands at a fixed place in a frame turned to the cycle's heading,
+    /// averaged over <see cref="REACH_SECONDS"/> of its run either side (<see cref="Heading"/>): the cycle snaps a right angle at
+    /// a node and the lens swings round it smoothly, starting before the node and finishing after it, so the cycle shows its own
+    /// turn in the frame, its nose towards the lens or away, before the lens comes round beside it again. Its distance from the
+    /// cycle never changes, so it is never nearer the rider and never in its path, and the rider holds its place in the frame.
     /// </para>
     /// <para>
     /// <b>Low, over the walls.</b> The lens rides <see cref="HEIGHT"/> over the floor, over every wall of light and every cycle,
@@ -33,18 +33,34 @@ namespace BS3D.Effects
     /// </summary>
     internal sealed class GridRide
     {
+        /// <summary>What a choice of cycle and side keeps the ride off, the strictest first.</summary>
+        internal enum Keep
+        {
+            /// <summary>Everything the class doc names, the frame never swinging faster than <see cref="MAX_SWING_DEGREES"/>.</summary>
+            Calm,
+
+            /// <summary>Everything the class doc names, however fast the frame swings.</summary>
+            Clear,
+
+            /// <summary>The solids, the ring and the island alone: the lens rides over every wall and cycle whatever the clock,
+            /// so this is a ride with nothing inside the lens, for a shot already on screen when nothing stricter is clear.</summary>
+            Safe,
+        }
+
         //Where the lens stands in the frame turned to the cycle: this far across from the cycle's middle, this far ahead of it
         //and this high over the floor (over the walls' 2.6 and the cycle's 2.5); and what it looks at, this far behind the
-        //middle and this high, so the whole cycle stands in the frame with its wall running back from it
+        //middle and this high, so the whole cycle stands near the middle of the frame, at any aspect from 4:3, with its wall
+        //running back from it. ⚠ 1.5 behind put the front wheel at 0.94 of a 4:3 frame's half-width
         internal const float SIDE = 9f;
         internal const float AHEAD = 1.5f;
         internal const float HEIGHT = 3.4f;
-        internal const float LOOK_BEHIND = 1.5f;
+        internal const float LOOK_BEHIND = 0.5f;
         internal const float LOOK_HEIGHT = 1.2f;
 
-        //How many seconds of the cycle's run either side the heading the lens turns to is averaged over: the swing round a node
-        //takes twice this, and turns at most 2 / REACH_SECONDS radians a second (95 degrees a second) at its middle
-        internal const float REACH_SECONDS = 1.2f;
+        //How many seconds of the cycle's run either side the heading the lens turns to is averaged over: the swing round one node
+        //takes twice this and turns at most 90 / REACH_SECONDS degrees a second (37.5) at its middle; a U-turn, two right angles
+        //the same way a node apart, at up to 71
+        internal const float REACH_SECONDS = 2.4f;
 
         //What the lens keeps off, through the seconds the shot plays in: any wall seen from above; any other cycle's middle; any
         //solid or the ring (the cycles ride inside the solids' ring, but a cube near its inner edge reaches in among them); and
@@ -61,6 +77,12 @@ namespace BS3D.Effects
 
         //Nearer the axis than this the lens would be over the island; the cycles keep 56 off it, so it never binds
         private const float ISLAND_CLEARANCE = ArenaIsland.RADIUS + 6f;
+
+        //The fastest a calm ride's frame swings round its cycle, degrees a second (Keep.Calm): a cycle that turns three right
+        //angles within a few nodes (circling at the edge of its ring) swings it faster than a U-turn's 71, at up to about 100.
+        //⚠ Averaged over 1.2 s either side, one right angle swung at 75 a second and a U-turn at 123 (150 averaged as vectors,
+        //see Heading), and refusing every U-turn left two reels in five without a ride
+        internal const float MAX_SWING_DEGREES = 80f;
 
         //How finely the seconds are tested
         private const float STEP = 1f / 30f;
@@ -80,6 +102,7 @@ namespace BS3D.Effects
         private readonly bool[] _clear = new bool[LightCycleRuns.COUNT * SIDES];
         private readonly float[] _inward = new float[LightCycleRuns.COUNT * SIDES];
         private readonly Vector2[] _positions = new Vector2[LightCycleRuns.COUNT];
+        private readonly Vector2[] _headings = new Vector2[LightCycleRuns.COUNT];
 
         /// <summary>The cycle the lens rides beside.</summary>
         public int Cycle { get; private set; }
@@ -97,31 +120,37 @@ namespace BS3D.Effects
         }
 
         /// <summary>
-        /// A ride beside whichever cycle, on whichever side, is clear (see the class doc) from <paramref name="from"/> to
-        /// <paramref name="until"/> on the wall clock, the shot playing its first <paramref name="seconds"/>; null when none is.
+        /// A ride beside whichever cycle, on whichever side, keeps off what <paramref name="keep"/> names from
+        /// <paramref name="from"/> to <paramref name="until"/> on the wall clock, the shot playing its first
+        /// <paramref name="seconds"/>; null when none does.
         /// </summary>
         internal static GridRide Plan(LightCycleRuns runs, float floorY, IReadOnlyList<GridSolid> solids, GridRing? ring,
-            float from, float until, float seconds)
+            float from, float until, float seconds, Keep keep = Keep.Calm)
         {
             var ride = new GridRide(runs, floorY, solids, ring);
-            return ride.Choose(from, until, seconds) ? ride : null;
+            return ride.Choose(from, until, seconds, keep) ? ride : null;
         }
 
         /// <summary>
         /// Chooses the cycle and the side again for <paramref name="from"/> to <paramref name="until"/>, the shot playing its first
-        /// <paramref name="seconds"/>: the candidate clear through all of it that looks most squarely in towards the arena, with a
-        /// turn more than the first costing <see cref="EXTRA_TURN_COST"/>. False, and the choice left as it was, when none is clear.
+        /// <paramref name="seconds"/>: of the candidates that keep off what <paramref name="keep"/> names through all of it, the
+        /// one that looks most squarely in towards the arena, with a turn more than the first costing
+        /// <see cref="EXTRA_TURN_COST"/>. False, and the choice left as it was, when none does.
         /// </summary>
-        internal bool Choose(float from, float until, float seconds)
+        internal bool Choose(float from, float until, float seconds, Keep keep = Keep.Calm)
         {
+            bool strict = keep != Keep.Safe;
             Array.Fill(_clear, true);
             Array.Clear(_inward);
             int samples = 0;
+            float maxSwing = MathHelper.ToRadians(MAX_SWING_DEGREES);
 
-            int steps = (int)MathF.Ceiling((until - from) / STEP - 1e-3f);
+            //Evenly, at no more than STEP: a last step a hair long was a swing over no time at all, and refused every candidate
+            int steps = Math.Max((int)MathF.Ceiling((until - from) / STEP), 1);
+            float step = (until - from) / steps;
             for (int k = 0; k <= steps; k++)
             {
-                float t = MathF.Min(from + k * STEP, until);
+                float t = from + k * step;
                 for (int i = 0; i < LightCycleRuns.COUNT; i++) _runs.At(i, t, out _positions[i], out _);
 
                 bool counted = t <= from + seconds;
@@ -132,13 +161,20 @@ namespace BS3D.Effects
                     if (!_clear[cycle * SIDES] && !_clear[cycle * SIDES + 1]) continue;
 
                     Vector2 heading = Heading(cycle, t);
+                    if (keep == Keep.Calm && k > 0 && MathF.Acos(MathHelper.Clamp(Vector2.Dot(heading, _headings[cycle]), -1f, 1f)) > maxSwing * step)
+                    {
+                        _clear[cycle * SIDES] = _clear[cycle * SIDES + 1] = false;
+                        continue;
+                    }
+
+                    _headings[cycle] = heading;
                     for (int s = 0; s < SIDES; s++)
                     {
                         int candidate = cycle * SIDES + s;
                         if (!_clear[candidate]) continue;
 
                         Frame(_positions[cycle], heading, s == 0 ? 1f : -1f, out Vector2 lens, out Vector2 look);
-                        if (!Clear(cycle, t, lens))
+                        if (!Clear(cycle, t, lens, strict))
                         {
                             _clear[candidate] = false;
                             continue;
@@ -187,10 +223,16 @@ namespace BS3D.Effects
         }
 
         /// <summary>
-        /// The way the lens's frame faces at <paramref name="time"/>: cycle <paramref name="cycle"/>'s heading averaged over
+        /// The way the lens's frame faces at <paramref name="time"/>: cycle <paramref name="cycle"/>'s heading ANGLE averaged over
         /// <see cref="REACH_SECONDS"/> of its run either side, weighted by a raised cosine. The heading is constant along each
-        /// lattice segment, so the average is exact: each segment's heading times the kernel's weight over the part of it inside
-        /// the window, which changes smoothly as the window slides over a node.
+        /// lattice segment and turns a right angle or not at all at a node, so the average is exact: each segment's angle, unwound
+        /// from the first in the window, times the kernel's weight over the part of the segment inside it. A right angle is
+        /// swung over twice the reach, at most 90 / <see cref="REACH_SECONDS"/> degrees a second.
+        /// <para>
+        /// ⚠ The angle, not the heading vector: averaged as vectors, the two headings either side of a U-turn (two right angles
+        /// the same way a node apart) cancel, the average shrinks to the short leg between them and swings round it at up to 150
+        /// degrees a second, where the angle sweeps its 180 at the rate of its two turns' weights.
+        /// </para>
         /// </summary>
         internal Vector2 Heading(int cycle, float time)
         {
@@ -198,7 +240,8 @@ namespace BS3D.Effects
             float distance = MathF.Max(time, 0f) * LightCycleRuns.SPEED;
             float reach = REACH_SECONDS * LightCycleRuns.SPEED;
 
-            Vector2 sum = Vector2.Zero;
+            float start = 0f, turned = 0f, average = 0f;
+            Vector2 was = Vector2.Zero;
             long first = (long)MathF.Floor((distance - reach) / LATTICE), last = (long)MathF.Floor((distance + reach) / LATTICE);
             for (long j = first; j <= last; j++)
             {
@@ -206,13 +249,15 @@ namespace BS3D.Effects
                 if (b <= a) continue;
 
                 _runs.At(cycle, (j + 0.5f) * LATTICE / LightCycleRuns.SPEED, out _, out Vector2 heading);
-                sum += heading * (Weight(b, reach) - Weight(a, reach));
+                if (was == Vector2.Zero) start = MathF.Atan2(heading.Y, heading.X);
+                else turned += MathF.Atan2(was.X * heading.Y - was.Y * heading.X, Vector2.Dot(was, heading));
+
+                was = heading;
+                average += turned * (Weight(b, reach) - Weight(a, reach));
             }
 
-            if (sum.LengthSquared() > 1e-8f) return Vector2.Normalize(sum);
-
-            _runs.At(cycle, time, out _, out Vector2 now);
-            return now;
+            float angle = start + average;
+            return new Vector2(MathF.Cos(angle), MathF.Sin(angle));
         }
 
         //How much of a raised-cosine window of half-width `reach` lies before `u` (0 at -reach, 1 at reach)
@@ -227,8 +272,9 @@ namespace BS3D.Effects
             look = middle - heading * LOOK_BEHIND;
         }
 
-        //Whether a lens at `lens` (on the floor's plane) beside `cycle` at `time` keeps off everything the class doc names
-        private bool Clear(int cycle, float time, Vector2 lens)
+        //Whether a lens at `lens` (on the floor's plane) beside `cycle` at `time` keeps off everything the class doc names; not
+        //strict, off the island, the ring and the solids alone
+        private bool Clear(int cycle, float time, Vector2 lens, bool strict)
         {
             if (lens.Length() < ISLAND_CLEARANCE) return false;
 
@@ -236,17 +282,19 @@ namespace BS3D.Effects
             var lens3 = new Vector3(lens.X, _floorY + HEIGHT, lens.Y);
             var rider3 = new Vector3(rider.X, _floorY + LightCycleRuns.BODY_HEIGHT * 0.5f, rider.Y);
 
-            for (int i = 0; i < LightCycleRuns.COUNT; i++)
-            {
-                if (_runs.WallDistance(i, time, lens) < WALL_CLEARANCE) return false;
-                if (i != cycle && Vector2.Distance(lens, _positions[i]) < CYCLE_CLEARANCE) return false;
-            }
-
             if (_ring is GridRing ring && ring.Distance(lens3) < SOLID_CLEARANCE) return false;
             for (int i = 0; i < _solids.Count; i++)
             {
                 GridSolid solid = _solids[i];
                 if (solid.Distance(lens3) < SOLID_CLEARANCE || solid.Distance(rider3) < RIDER_SOLID_CLEARANCE) return false;
+            }
+
+            if (!strict) return true;
+
+            for (int i = 0; i < LightCycleRuns.COUNT; i++)
+            {
+                if (_runs.WallDistance(i, time, lens) < WALL_CLEARANCE) return false;
+                if (i != cycle && Vector2.Distance(lens, _positions[i]) < CYCLE_CLEARANCE) return false;
             }
 
             //Nothing between the lens and the rider: no other wall or cycle across the line, no solid

@@ -78,12 +78,18 @@ namespace BS3D.Effects
 
         //The ride (#1116): this long, on this lens (the cycle about half the frame's width, its wall running back from it). It
         //is planned for the seconds the reel puts it at, and for up to RIDE_LATE more: the intro's clock falls behind the wall
-        //clock by every frame longer than ChapterIntro.MAX_INTRO_STEP, the frame that builds the level first, and comes on screen
-        //that much later. Later still (a pause, a long stall), it chooses again as it comes on screen, for RIDE_LATE_AGAIN more
+        //clock by every frame longer than ChapterIntro.MAX_INTRO_STEP, the frame that builds the level first, and the shot comes
+        //on screen that much later (0.94 s in a level= run with a capture taken in the first shot). Later still (a pause, a long
+        //stall), it chooses again as it comes on screen, for RIDE_LATE_AGAIN more
         internal const float RIDE_SECONDS = 2.6f;
         private const float RIDE_FOV_DEGREES = 55f;
         internal const float RIDE_LATE = 1.5f;
         private const float RIDE_LATE_AGAIN = 0.5f;
+
+        //What the ride is planned to keep off, the strictest first: a calm ride, then one that swings faster; and as a late shot
+        //comes on screen, then nothing inside the lens alone
+        private static readonly GridRide.Keep[] RIDE_PLANS = { GridRide.Keep.Calm, GridRide.Keep.Clear };
+        private static readonly GridRide.Keep[] RIDE_REPLANS = { GridRide.Keep.Calm, GridRide.Keep.Clear, GridRide.Keep.Safe };
 
         //How many bearings the establishing crane tries before it gives up, and how many points each path
         //carries (every one is tested).
@@ -104,7 +110,9 @@ namespace BS3D.Effects
         /// <summary>
         /// The shots off the config, the solids and the ring alone, for a test with no renderer: the grid, the cycle, the cube
         /// and the ring, each left out where it found nothing clear. The ride is built last, so the other three draw the same
-        /// rolls with it as without it, and planned for the seconds after the grid's.
+        /// rolls with it as without it, and planned for the seconds after the grid's; where no cycle is clear for those, for the
+        /// seconds after the cube's, and then after the ring's, the reel's last shot before the tour's leg. A calm ride in any of
+        /// those places before one whose frame swings faster (<see cref="GridRide.Keep"/>).
         /// </summary>
         internal static IntroShot[] Shots(GridSceneConfig grid, IReadOnlyList<GridSolid> solids, GridRing? ring, float wallClock,
             Func<float> clock, Random random)
@@ -112,15 +120,25 @@ namespace BS3D.Effects
             float floorY = grid.Terrain.LevelY;
 
             IntroShot establishing = Establishing(solids, ring, floorY, random);
-            IntroShot cube = Cube(solids, ring, floorY, random);
-            IntroShot landmark = ring is GridRing r ? Ring(solids, r, floorY) : null;
-            IntroShot ride = Ride(grid, solids, ring, wallClock + (establishing?.Seconds ?? 0f), clock);
-
             var shots = new List<IntroShot>(4);
             AddIfAny(shots, establishing);
-            AddIfAny(shots, ride);
-            AddIfAny(shots, cube);
-            AddIfAny(shots, landmark);
+            AddIfAny(shots, Cube(solids, ring, floorY, random));
+            if (ring is GridRing r) AddIfAny(shots, Ring(solids, r, floorY));
+
+            foreach (GridRide.Keep keep in RIDE_PLANS)
+            {
+                for (int place = establishing != null ? 1 : 0; place <= shots.Count; place++)
+                {
+                    float start = wallClock;
+                    for (int i = 0; i < place; i++) start += shots[i].Seconds;
+
+                    IntroShot ride = Ride(grid, solids, ring, start, clock, keep);
+                    if (ride == null) continue;
+
+                    shots.Insert(place, ride);
+                    return shots.ToArray();
+                }
+            }
 
             return shots.Count > 0 ? shots.ToArray() : null;
         }
@@ -129,21 +147,27 @@ namespace BS3D.Effects
         /// Beside a light cycle (#1116): the lens low beside one of the cycles at its own speed, turning with it at a node, posed
         /// by the wall clock the cycles ride on, so it is beside the cycle on screen whenever the shot comes on (see
         /// <see cref="GridRide"/>). Planned for <paramref name="start"/> to <see cref="RIDE_LATE"/> after the shot's end, and chosen
-        /// again as it comes on screen if the intro has fallen further behind than that; null when no cycle is clear.
+        /// again as it comes on screen if the intro has fallen further behind than that, off the solids alone where nothing is
+        /// clear of the walls too (or left as planned where nothing is even that); null when no cycle is clear.
         /// </summary>
-        private static IntroShot Ride(GridSceneConfig grid, IReadOnlyList<GridSolid> solids, GridRing? ring, float start, Func<float> clock)
+        private static IntroShot Ride(GridSceneConfig grid, IReadOnlyList<GridSolid> solids, GridRing? ring, float start, Func<float> clock,
+            GridRide.Keep keep)
         {
             if (clock == null) return null;
 
             GridRide ride = GridRide.Plan(new LightCycleRuns(grid), grid.Terrain.LevelY, solids, ring,
-                start, start + RIDE_SECONDS + RIDE_LATE, RIDE_SECONDS);
+                start, start + RIDE_SECONDS + RIDE_LATE, RIDE_SECONDS, keep);
             if (ride == null) return null;
 
             return IntroShot.OnTheWallClock("the cycle", RIDE_SECONDS, MathHelper.ToRadians(RIDE_FOV_DEGREES), clock, ride.Pose,
                 onStart: () =>
                 {
                     float now = clock();
-                    if (now < start || now > start + RIDE_LATE) ride.Choose(now, now + RIDE_SECONDS + RIDE_LATE_AGAIN, RIDE_SECONDS);
+                    if (now >= start && now <= start + RIDE_LATE) return;
+
+                    float until = now + RIDE_SECONDS + RIDE_LATE_AGAIN;
+                    foreach (GridRide.Keep again in RIDE_REPLANS)
+                        if (ride.Choose(now, until, RIDE_SECONDS, again)) return;
                 });
         }
 
