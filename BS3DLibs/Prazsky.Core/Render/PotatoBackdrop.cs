@@ -1558,7 +1558,7 @@ namespace Prazsky.Core.Render
         //The grids of the scenes whose relief is the backdrop: finer than the open ground's, and the mountains' out to
         //where their haze would be (HorizonHazeDistance 500), the volcano's to the cone's far foot (ConeCenter.Y -
         //ConeRadius is -465), the Moon's past the highland crest (310) where its curvature has closed the horizon
-        private const int RELIEF_CELLS = 96;
+        internal const int RELIEF_CELLS = 96;
 
         //The mountains' own: finer than the other reliefs, for ridges that read as ridges and not as teeth (#1044); one
         //blended grid, where the 96-cell one was two
@@ -1570,7 +1570,7 @@ namespace Prazsky.Core.Render
 
         //Where the pixel crosses from rock to snow in the interpolated share: a pixel sharp, as Mountain.fx's edge is
         private static readonly Vector2 SNOW_EDGE = new(0.42f, 0.58f);
-        private const float MOUNTAIN_EXTENT = 600f, VOLCANO_EXTENT = 560f, MOON_EXTENT = 480f;
+        internal const float MOUNTAIN_EXTENT = 600f, VOLCANO_EXTENT = 560f, MOON_EXTENT = 480f;
 
         private static PotatoBackdrop Mountain(GraphicsDevice graphicsDevice, Effect potatoEffect, float holeRadius)
         {

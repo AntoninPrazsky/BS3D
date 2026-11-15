@@ -50,8 +50,8 @@ namespace Prazsky.Core.Render
         //through the belt's saddles. Until #551 that line would have been the 500-unit far plane's cut, which
         //came first; the far plane is 2000 now and the Moon takes no far ring (it has no air to fade into -
         //see FarField.fxh), so the edge is the constraint and occlusion is still what answers it.
-        private const int MOON_GRID_N = 360;
-        private const float MOON_EXTENT = 1200f;
+        internal const int MOON_GRID_N = 360;
+        internal const float MOON_EXTENT = 1200f;
 
         //The rocks on the plain: the shared plant material, and what it draws (MoonPlanting, on TerrainMirror.Moon)
         private readonly PlantPass _plants;

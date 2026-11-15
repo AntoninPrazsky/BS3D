@@ -141,8 +141,9 @@ namespace BS3D.Effects
         private bool _lands;
 
         //How long the tour's last leg runs on its own after a prologue — the map and the arrival (see the
-        //class doc). Long enough for one proper look at the cluster before the gun is handed over.
-        private const float ARRIVAL_SECONDS = 4.5f;
+        //class doc). Long enough for one proper look at the cluster before the gun is handed over. Internal for the
+        //tests that hold a prologue's whole length.
+        internal const float ARRIVAL_SECONDS = 4.5f;
 
         //The tour flown this time: all four keys, or after a prologue only the last two (their own arrays,
         //filled in Begin, so Frame walks whichever it is handed and allocates nothing).
@@ -394,6 +395,15 @@ namespace BS3D.Effects
             if (!Engaged) return;
 
             Frame();
+        }
+
+        /// <summary>
+        /// Testing only (<c>introshot=</c>, #1109): sets the clock to <paramref name="seconds"/>, held inside the flight, so the next
+        /// <see cref="Update"/> poses that moment. Ignored once the intro has ended.
+        /// </summary>
+        internal void Pin(float seconds)
+        {
+            if (_running) _elapsed = Math.Clamp(seconds, 0f, TotalSeconds - 1e-4f);
         }
 
         /// <summary>
