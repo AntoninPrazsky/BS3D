@@ -24,10 +24,11 @@ namespace BS3D.Effects
     /// fewer than <see cref="DIRECT_TURN"/> degrees round from the entrance is reached straight off the run in.
     /// </para>
     /// <para>
-    /// <b>The pace.</b> The run in at a walk's pace, picking up as it leaves the gap to a cruise round the island, then the
-    /// shared deceleration to rest on the pose; the look down the gap at the island, turning in towards the arena as the lens
-    /// comes off the entrance's line (<see cref="IntroLanding.Style.LookInward"/>), so the island, the gun and the cluster
-    /// stay in the frame while the lens goes round them; a light bank into the turn.
+    /// <b>The pace.</b> The run in at the old gate shot's top speed, picking up as it leaves the gap to a cruise round the
+    /// island, then the shared deceleration to rest on the pose; the look level down the gap at the island, turning in
+    /// towards the arena and lifting towards the cluster as the lens climbs out of the gap
+    /// (<see cref="IntroLanding.Style.LookInward"/>, <see cref="IntroLanding.Style.LookRise"/>), so the island, the gun, the
+    /// cluster and its glass stay in the frame while the lens goes round them; a light bank into the turn.
     /// </para>
     /// <para>
     /// <b>Found, not assumed.</b> The tent has no CPU geometry but its figures (<see cref="CircusSceneConfig"/>, which
@@ -48,7 +49,7 @@ namespace BS3D.Effects
         internal const string NAME = "the gate home";
 
         //The run in: down the entrance's gap from the old gate shot's start to this far out, past the front row (the seats'
-        //InnerRadius, 51), at a walk's pace. The release curves off the line from there, inside the gap.
+        //InnerRadius, 51), at the old gate shot's top speed. The release curves off the line from there, inside the gap.
         private const float RUN_TO_MIN = 52f, RUN_TO_MAX = 60f;
         private const float GATE_SPEED = 13f;
 
@@ -59,8 +60,8 @@ namespace BS3D.Effects
         private const float CIRCLE_ABOVE_MIN = 6f, CIRCLE_ABOVE_MAX = 9f;
 
         //The pace picks up from this far short of the run's end, and reaches the cruise's on the circle. A circle long
-        //enough to take more than CIRCLE_SECONDS at the rolled cruise is flown faster, up to CRUISE_FASTEST: the far side of
-        //the ring, 160 degrees round from the entrance, ran to 16.7 seconds.
+        //enough to take more than CIRCLE_SECONDS at the rolled cruise is flown faster, up to CRUISE_FASTEST: without it the
+        //longest flight of CircusLandingTests' sweep, round the far side of the ring, ran 12.4 seconds (11.3 with it).
         private const float ACCELERATE_BEFORE = 6f;
         private const float CRUISE_MIN = 18f, CRUISE_MAX = 23f, CRUISE_FASTEST = 27f;
         private const float CIRCLE_SECONDS = 3f;
@@ -73,9 +74,9 @@ namespace BS3D.Effects
 
         //⚠ A circle outside the poles stands over the front rows, and the gap opens only at the first of them: a release off
         //the run 52-60 out onto it turned at radii of 2 to 8. So the run goes on to OUTER_RUN_PAST further out than the
-        //circle and the curve onto it sweeps at least OUTER_SWEEP_IN (13 to 19 then), and since the curve leaves the gap
-        //over the rake there, the lens has climbed to the circle's height by the run's end, SEAT_AIR and OUTER_RISE_AIR over
-        //the rake where the run ends: the far poses' entrance rises up the gap rather than running in low.
+        //circle and the curve onto it sweeps at least OUTER_SWEEP_IN (it then turns at radii of 13 to 20), and since the
+        //curve leaves the gap over the rake there, the lens has climbed to the circle's height by the run's end, SEAT_AIR and
+        //OUTER_RISE_AIR over the rake where the run ends: the far poses' entrance rises up the gap rather than running in low.
         private const float OUTER_RUN_PAST_MIN = 10f, OUTER_RUN_PAST_MAX = 14f;
         private const float OUTER_SWEEP_IN = 45f;
         private const float OUTER_RISE_AIR = 0.5f;
@@ -95,8 +96,9 @@ namespace BS3D.Effects
         private const float SETTLE_LENGTH = 24f;
         private const float SETTLE_SECONDS = 2.6f;
 
-        //No tighter than this off the run in, and over the decelerating turn in: at a cruise of 21 u/s a 10-unit radius is
-        //120 degrees a second of heading, which the look's averaging and its lean take well under the 170 the ride is held to
+        //No tighter than this off the run in, and over the decelerating turn in: at 27 u/s, the most the pace reaches by the
+        //end of the curve onto the circle, a 10-unit radius is 155 degrees a second of heading, which the look's averaging and
+        //its lean take well under the 170 the ride is held to (73 at most over CircusLandingTests' sweep)
         private const float MIN_TURN_RADIUS = 10f;
         private const float RELEASE_TURN_RADIUS = 7f;
 
