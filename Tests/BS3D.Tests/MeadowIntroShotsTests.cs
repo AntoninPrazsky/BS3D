@@ -52,6 +52,10 @@ namespace BS3D.Tests
         //How finely a shot is walked, poses per shot
         private const int POSES = 120;
 
+        //The least the lens's mean distance from the bales may be over the layouts (#945's "a little farther"): 11.5 since it,
+        //10.2 before it
+        private const float BALES_MEAN_RADIUS = 11f;
+
         //The owner's band for the lens over the ground (#893's issue), and the slack allowed on the shot's own band: the arc is
         //built at the ground's height under its points and the lens runs between them
         private const float OWNERS_BAND_FROM = 0.6f;
@@ -406,6 +410,28 @@ namespace BS3D.Tests
 
             Assert.True(Radius(large) >= Radius(small) + bench.Reach * 0.9f,
                 $"the lens stands {Radius(small):F2} from a bench of reach {bench.Reach:F2} and {Radius(large):F2} from one of {bench.Reach * 2f:F2}");
+        }
+
+        [Fact]
+        public void TheBalesStandAsFarOffAsTheOwnerAskedThoughLessOfTheCircleIsFlown()
+        {
+            //#945: "a little farther from the hay bales". The radius is asked of the whole half circle and only its middle is
+            //flown (#1107): asked of the flown arc alone, a shorter arc passes nearer and the bales' mean over these layouts fell
+            //from 11.5 to 10.1
+            float sum = 0f;
+            int count = 0;
+            for (int seed = 1; seed <= ROLLS; seed++)
+            {
+                IntroShot bales = Named(Shots(Plant(seed), seed), "the bales");
+                if (bales == null) continue;
+
+                bales.Pose(0f, out Vector3 start, out _);
+                sum += Vector2.Distance(Plan(start), Plan(LookOf(bales)));
+                count++;
+            }
+
+            Assert.True(count >= ROLLS * 9 / 10, $"the bales' shot was built in only {count} of {ROLLS} layouts");
+            Assert.True(sum / count >= BALES_MEAN_RADIUS, $"the lens stands {sum / count:F2} from the bales on average over {count} layouts");
         }
 
         [Fact]

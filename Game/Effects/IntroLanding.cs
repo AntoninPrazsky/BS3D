@@ -150,13 +150,16 @@ namespace BS3D.Effects
         /// growing), onto <paramref name="to"/>, its bearing and its distance from the axis reached together — the distance
         /// easing in from the circle's, so the curve leaves along the circle, and the bearing easing out, so it arrives down the
         /// pose's own radial line, which for a pose looking at the axis is its facing. <paramref name="slant"/> 0 arrives
-        /// straight down that line; towards 1 more and more along the turn, the view swivelling onto the pose as it slows. The
-        /// distance only ever shrinks, so the lens is never nearer the axis than the pose. Cut finely and thinned to
-        /// <paramref name="step"/>, as <see cref="Release"/> is.
+        /// straight down that line; towards 1 more and more along the turn, the view swivelling onto the pose as it slows. For a
+        /// pose inside the circle the distance only ever shrinks, so the lens is never nearer the axis than the pose; for one
+        /// outside it the distance grows and every point is nearer, so a scene lays its circle outside the poses it lands on
+        /// (the meadow's is 48 to 60 out, the game's lens 28 to 45). Cut finely and thinned to <paramref name="step"/>, as
+        /// <see cref="Release"/> is.
         /// <para>
         /// ⚠ A <see cref="Release"/> off a circle onto a pose inside it cannot arrive down the radial line: the circle's tangent
         /// at a release 30-50 degrees short of the pose points away from it, and the cubic turned 130 degrees in 36 units, at a
-        /// radius of 5. This turns the same 120 degrees over the whole sweep.
+        /// radius of 5. This makes the same turn (90 degrees and the sweep, so 120 to 140 for the meadow's 30 to 50) over the
+        /// whole sweep.
         /// </para>
         /// </summary>
         internal static void TurnIn(List<Vector2> plan, float from, float radius, int sign, Vector2 to, float slant, float step)

@@ -46,6 +46,13 @@ namespace BS3D.Tests
         private const int POSES = 1500;
         private const float CLEARANCE = 0.5f;
 
+        //The circle round the arena (MeadowLanding: 48 to 60 out) with a unit's slack for the spline, a lens on it travelling
+        //within this many degrees of square to the radial line, and how many degrees inside the frame's edge the axis must
+        //stand there (over the sweep it stands at least 7.5 inside; with no lean it is 90 degrees off the look)
+        private const float CIRCLE_FROM = 47f, CIRCLE_TO = 61f;
+        private const float ACROSS_THE_RADIAL = 15f;
+        private const float ARENA_IN_FRAME = 5f;
+
         private static Vector3 Pose(int bearing, float radius)
         {
             float angle = MathHelper.TwoPi * bearing / BEARINGS;
@@ -228,6 +235,43 @@ namespace BS3D.Tests
         }
 
         [Fact]
+        public void Round_the_island_the_look_keeps_the_arena_in_frame()
+        {
+            //The look turns in off the travel towards the arena (MeadowLanding.Landing's LookInward, the route's Lean): along
+            //the circle's tangent the axis stands 90 degrees off the look, out of any frame, and the island, the gun and the
+            //cluster go by unseen. Wherever the lens runs round the island on its circle, the axis stands inside a 16:9 frame at
+            //the shot's own lens, ARENA_IN_FRAME short of its edge.
+            int held = 0;
+            foreach (var (layout, bearing, radius, _, shot) in Sweep.Value)
+            {
+                if (shot == null) continue;
+
+                shot.Pose(0f, out Vector3 last, out _);
+                for (int i = 1; i <= POSES; i++)
+                {
+                    float t = i / (float)POSES;
+                    shot.Pose(t, out Vector3 position, out Vector3 look);
+                    Vector2 plan = new(position.X, position.Z), step = plan - new Vector2(last.X, last.Z);
+                    last = position;
+
+                    //On the circle: as far out as it is laid, travelling across the radial line
+                    float fromAxis = plan.Length();
+                    if (fromAxis < CIRCLE_FROM || fromAxis > CIRCLE_TO || step.LengthSquared() < 1e-8f) continue;
+                    if (MathF.Abs(Vector2.Dot(Vector2.Normalize(step), plan / fromAxis)) > MathF.Sin(MathHelper.ToRadians(ACROSS_THE_RADIAL))) continue;
+
+                    float halfWidth = MathF.Atan(MathF.Tan(shot.FieldOfViewAt(t) * 0.5f) * 16f / 9f);
+                    float off = MathF.Abs(MathHelper.WrapAngle(MathF.Atan2(Target.Z - position.Z, Target.X - position.X)
+                        - MathF.Atan2(look.Z - position.Z, look.X - position.X)));
+                    Assert.True(off <= halfWidth - MathHelper.ToRadians(ARENA_IN_FRAME),
+                        $"layout {layout}, bearing {bearing}, radius {radius}, at {t:F3}: the axis {MathHelper.ToDegrees(off):F0} degrees off the look, the frame's edge {MathHelper.ToDegrees(halfWidth):F0}");
+                    held++;
+                }
+            }
+
+            Assert.True(held >= 1000, $"the lens was on the circle at only {held} poses");
+        }
+
+        [Fact]
         public void A_landing_meadow_prologue_plays_no_tour_leg_and_ends_on_the_pose()
         {
             MeadowIntroShotsTests.Planting planting = MeadowIntroShotsTests.Plant(2);
@@ -254,7 +298,7 @@ namespace BS3D.Tests
         [Fact]
         public void A_low_lens_crosses_the_ponds_shore_only_between_its_reed_clumps()
         {
-            //The flights the sweep lays all leave the pond on its arena side, 24 to 100 degrees round it, where no clump stands, so
+            //The flights the sweep lays all leave the pond on its arena side, 27 to 98 degrees round it, where no clump stands, so
             //the sweep never meets the rule (removed, no swept flight changed enough to fail): it is held here on the shore itself.
             //Low in a clump is refused, low in the gap and high over a clump are not, and low on the brook's own bank, where none
             //is planted, is not either.

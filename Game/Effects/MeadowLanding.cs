@@ -17,10 +17,10 @@ namespace BS3D.Effects
     /// run swerving off the line round the one that stands nearest it (<see cref="ROOT_REACH"/>); on over the pond's water and
     /// out across its near shore through a gap between its reed clumps
     /// (<see cref="MeadowPath.PondReedClump"/>), climbing from its middle on; a curve off the brook's line onto a circle round
-    /// the arena outside its keep-out; round that circle, the shorter way to the gun most of the time; and the shared release
-    /// onto the pose (<see cref="IntroLanding.Release"/>). The pond lies on the far side of the island from the gun's bearing
-    /// (90), so the circle is what takes the lens round the island instead of through it. Where the pose stands on the pond's
-    /// own side, the release leaves the pond straight onto it.
+    /// the arena outside its keep-out (the shared release, <see cref="IntroLanding.Release"/>); round that circle, the shorter
+    /// way to the gun most of the time; and the shared turn in onto the pose (<see cref="IntroLanding.TurnIn"/>). The pond
+    /// lies on the far side of the island from the gun's bearing (90), so the circle is what takes the lens round the island
+    /// instead of through it. Where the pose stands on the pond's own side, a release leaves the pond straight onto it.
     /// </para>
     /// <para>
     /// <b>The pace.</b> The brook at a run's pace, accelerating over the pond to a cruise round the island, then the shared
