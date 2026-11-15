@@ -6,8 +6,8 @@
 //keep; domain-warping it (feeding one field's output into another's input) is what produces filaments,
 //eddies and mixing - the structures real turbulence has and the modern look is made of.
 //
-//Mostly GPU-only, so the hashes are free to be quality-first; the exception is NoiseHash22 under MIRRORED_NOISE, whose
-//gradient noise the terrains' heights are built on and ShaderMath reproduces in C# (#598, #1134). Costs are stated per function because callers budget in noise
+//GPU-only, deliberately: unlike Clouds.fxh these fields have NO C# mirror (nothing plants objects on them),
+//so the hashes are free to be quality-first. Costs are stated per function because callers budget in noise
 //evaluations per pixel; everything here is branchless and derivative-safe (usable where ddx/ddy live).
 //
 //Included by the scene shaders and - since #337, for the ice ball's fracture - by InstancedModel.fx;
@@ -17,32 +17,11 @@
 //Sine-based hashes degrade as their argument grows and their period shows in large domains; these stay
 //uniform over any range a scene reaches.
 
-//NoiseHash22 rounded the same way on every GPU, and as ShaderMath.Hash22 rounds it in C# (#1134): PRECISE, its dot written
-//out, so every product and sum, the argument's included, rounds on its own and left to right. The product lands near
-//20 000, where a float carries a fraction to about 1/500, so one rounding more or less moves the hash by whole quanta, and
-//whether a mad or a dp3 rounds once or twice is otherwise the driver's choice (the desktop's RDNA2 fused, the laptop's
-//GCN did not, and the mountains' mirror stood 16 units off the drawn range there). It costs DXBC instructions wherever
-//it runs (the mountain's pixel program 5 % more, the reduced volcano's 9 %), so it is only where a CPU copy must agree:
-//  - MIRRORED_NOISE, defined by an effect before its first include, makes every NoiseHash22 in it this one: the effects
-//    whose terrain height TerrainMirror reproduces, where the hash is under every octave of the height;
-//  - an effect whose CPU copy reads only a few rolls calls this at those rolls (Mars's big craters, OffworldGround).
-float2 NoiseHash22Exact(float2 p)
-{
-    precise float3 q = frac(p.xyx * float3(0.1031, 0.1030, 0.0973));
-    q += q.x * (q.y + 33.33) + q.y * (q.z + 33.33) + q.z * (q.x + 33.33);
-    precise float2 h = frac((q.xx + q.yz) * q.zy);
-    return h * 2.0 - 1.0;
-}
-
 float2 NoiseHash22(float2 p)
 {
-#ifdef MIRRORED_NOISE
-    return NoiseHash22Exact(p);
-#else
     float3 q = frac(p.xyx * float3(0.1031, 0.1030, 0.0973));
     q += dot(q, q.yzx + 33.33);
     return frac((q.xx + q.yz) * q.zy) * 2.0 - 1.0;
-#endif
 }
 
 float3 NoiseHash33(float3 p)

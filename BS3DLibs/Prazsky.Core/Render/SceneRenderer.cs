@@ -875,6 +875,10 @@ namespace Prazsky.Core.Render
             _fullScreenQuad = new VertexBuffer(graphicsDevice, VertexPosition.VertexDeclaration, corners.Length, BufferUsage.WriteOnly);
             _fullScreenQuad.SetData(corners);
 
+            //--- How this GPU rounds the noise hash (#1134), asked before the first backdrop below places anything on
+            //a terrain mirror: the mirrors follow it. Once a process.
+            HashRoundingProbe.Run(graphicsDevice, content, _fullScreenQuad);
+
             //--- The far field (#551): one ring every open-ground scene draws its land over past its own grid.
             _farField = new FarField(graphicsDevice);
             _services = new BackdropServices(graphicsDevice, _fullScreenQuad, seedOffset, _gridCache, _farField);

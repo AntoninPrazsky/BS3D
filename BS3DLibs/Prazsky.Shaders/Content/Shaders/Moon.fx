@@ -31,7 +31,6 @@
 //Built by all three executables out of this directory, Shader Model 5.0.
 
 #include "ShaderTarget.fxh"
-#define MIRRORED_NOISE //a CPU mirror (TerrainMirror) reproduces this terrain's height: Noise.fxh's hash rounds exactly (#1134)
 
 //The shared starfield lattice and its uniforms (StarCellScale/Chance/Peak, StarSpread, StarFalloff, the
 //spike pair, SupersampleFactor), one copy with Space.fx.

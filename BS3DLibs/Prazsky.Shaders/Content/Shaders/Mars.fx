@@ -324,8 +324,7 @@ float MesaField(float2 p, out float mesa)
 //reach. A crater's depth and its rim are shares of its OWN radius, as a real simple crater's are (a bowl about a
 //fifth as deep as it is wide, rim to floor), so a big one is a big hole rather than a wide dimple. None stands
 //whose blanket would reach the island's bank (BIG_CRATER_CLEARING): left out whole, never cut.
-//OffworldGround.MarsBigCraters is the CPU copy - change the one and the other has to follow. Its rolls are
-//NoiseHash22Exact, so they round on every GPU as the copy rounds them (#1134).
+//OffworldGround.MarsBigCraters is the CPU copy - change the one and the other has to follow.
 static const float BIG_CRATER_DEPTH = 0.3;       //the bowl's floor under the plain, as a share of the radius
 static const float BIG_CRATER_RIM = 0.12;        //the rim's crest over it
 static const float BIG_CRATER_BLANKET = 0.3;     //the ejecta blanket at the rim's foot, as a share of the rim
@@ -367,11 +366,11 @@ void BigCraterLayer(float2 p, float period, float2 turn, float seed, float chanc
     float2 cellId = floor(q);
     float2 f = q - cellId;
 
-    float2 rollA = NoiseHash22Exact(cellId + seed) * 0.5 + 0.5;
+    float2 rollA = NoiseHash22(cellId + seed) * 0.5 + 0.5;
     if (rollA.x > chance) return;
 
-    float2 rollB = NoiseHash22Exact(cellId + seed + 47.9) * 0.5 + 0.5;
-    float2 rollC = NoiseHash22Exact(cellId + seed + 91.7) * 0.5 + 0.5;
+    float2 rollB = NoiseHash22(cellId + seed + 47.9) * 0.5 + 0.5;
+    float2 rollC = NoiseHash22(cellId + seed + 91.7) * 0.5 + 0.5;
 
     float radius = lerp(BIG_CRATER_MIN, BIG_CRATER_MAX, rollB.x);
     float margin = radius * BIG_CRATER_REACH;

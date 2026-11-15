@@ -27,7 +27,6 @@
 //which is how the light it throws on the snow and the wood moves with the curtains.
 
 #include "ShaderTarget.fxh"
-#define MIRRORED_NOISE //a CPU mirror (TerrainMirror) reproduces this terrain's height: Noise.fxh's hash rounds exactly (#1134)
 
 #include "Clouds.fxh"
 #include "Noise.fxh"
