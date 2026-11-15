@@ -13,10 +13,17 @@ namespace BS3D.Effects
     /// cuts to the tour's last leg after it.
     /// <para>
     /// The owner (#1110): "give them more time in the intro", the critters. The two close shots are cued, not waited for: each
-    /// cues the scene's featured beetle or scorpion on its first frame (<see cref="SceneRenderer.CueDesertCritter"/>) and its
-    /// look follows the creature where its life, a pure function of the clock, says it is
-    /// (<see cref="SceneRenderer.DesertFeatureAt"/>). The time is found in the shots round them: the flock shot (2.9 s) is
-    /// gone, and the crest is 0.6 s shorter at the pace it had.
+    /// cues the scene's featured beetle or scorpion (<see cref="SceneRenderer.CueDesertCritter"/>) and its look follows the
+    /// creature where its life, a pure function of the clock, says it is (<see cref="SceneRenderer.DesertFeatureAt"/>). The time
+    /// is found in the shots round them: the flock shot (2.9 s) is gone, and the crest is 0.6 s shorter at the pace it had.
+    /// </para>
+    /// <para>
+    /// ⚠ <b>The creature is re-cued on every frame of its shot</b> (<see cref="IntroShot.Track"/>), its onset counted back from
+    /// how far into the shot the intro's clock is: the scene draws it on the wall clock, which a pause does not stop and a
+    /// hitch does not hold to a frame's worth (<c>ChapterIntro.MAX_INTRO_STEP</c>), and the look is laid on the shot's own
+    /// seconds. Cued once, on the shot's first frame, a pause or a hitch left the creature ahead of its look for the rest of the
+    /// shot, the look on sand it had left or the beetle gone under before the cut. A pause still lets it walk on under the
+    /// menu; the shot's next frame puts it back.
     /// </para>
     /// <para>
     /// <b>The dunes are read off <see cref="TerrainMirror.Desert"/></b>, the CPU mirror of <c>Desert.fx</c>'s
@@ -68,9 +75,11 @@ namespace BS3D.Effects
         internal static readonly float ScorpionSeconds = SCORPION_ONSET + SceneRenderer.DesertFeatureWalkEnds() + SCORPION_AFTER;
 
         //The beetle (#1110): the featured beetle cued so that it has come up and walked BEETLE_WALKED seconds by the shot's
-        //first frame, its double line of prints behind it, then walks on, stops and digs back in nose first in a puff of sand
-        //before the cut (SceneRenderer.DesertFeatureWalkEnds and DesertFeatureSeconds say when). Somewhere on the clearing's
-        //flat sand between BEETLE_INNER and BEETLE_OUTER, walking round the island; the lens on the island's side of it, so it
+        //first frame, its double line of prints behind it, then walks on, stops and digs back in nose first in a puff of sand,
+        //the dig done as the shot cuts (SceneRenderer.DesertFeatureWalkEnds and DesertFeatureSeconds say when: its life ends on
+        //the shot's last moment, which the re-cue every frame keeps it to, so neither it, its hole nor its prints go early).
+        //Somewhere on the clearing's flat sand between BEETLE_INNER and BEETLE_OUTER, walking round the island; the lens on the
+        //island's side of it, so it
         //looks out at the dunes, BEETLE_SIDE off its line and BEETLE_AHEAD ahead along it, BEETLE_LENS_ABOVE over the sand,
         //dollying with its pace smoothed over BEETLE_SMOOTH either side; the look BEETLE_LOOK_ABOVE over its foot, so it walks
         //in the lower third with the far dunes along the top edge; BEETLE_LENS of the game's lens. From 0.9 over the sand the
@@ -90,7 +99,8 @@ namespace BS3D.Effects
         private const float PYRAMIDS_SECONDS = 4.2f;
 
         /// <summary>The prologue for the desert being drawn, or null when there is no desert config.</summary>
-        /// <param name="clock">The game's wall clock, which the beetle and the scorpion are cued on (<see cref="IntroContext.Clock"/>).</param>
+        /// <param name="clock">The game's wall clock, which the scene draws the beetle and the scorpion on and their onsets are
+        /// counted from (<see cref="IntroContext.Clock"/>).</param>
         /// <param name="endPosition">The pose the intro hands the camera back at (<see cref="IntroContext.GamePosition"/>),
         /// which the scorpion home lands on.</param>
         /// <param name="endTarget">What that pose looks at.</param>
@@ -104,10 +114,10 @@ namespace BS3D.Effects
 
         /// <summary>
         /// The prologue off a config, with no renderer: what the tests fly. <paramref name="cue"/> cues the featured beetle or
-        /// scorpion (where it comes up, its heading, its onset in seconds after the shot's first frame, and whether it is the
-        /// scorpion), null for none. The erg, the pyramids, the beetle, the crest and the scorpion home where one is clear
-        /// (#1110), which lands on the pose; where none is, the scorpion as a shot of its own last, and the tour's arrival leg
-        /// after it.
+        /// scorpion (where it comes up, its heading, its onset in seconds from the moment of the call, and whether it is the
+        /// scorpion), on every frame of its shot (see the class's note), null for none. The erg, the pyramids, the beetle, the
+        /// crest and the scorpion home where one is clear (#1110), which lands on the pose; where none is, the scorpion as a shot
+        /// of its own last, and the tour's arrival leg after it.
         /// </summary>
         internal static IntroShot[] Build(DesertSceneConfig desert, Action<Vector2, float, float, bool> cue, Vector3 endPosition,
             Vector3 endTarget, float fieldOfView, Random random)
@@ -121,7 +131,7 @@ namespace BS3D.Effects
             IntroShot scorpion = Scorpion(cue, desert, Ground, fieldOfView, random);
             IntroShot crest = Crest(desert, Ground, fieldOfView, random);
             IntroShot beetle = Beetle(cue, desert, Ground, fieldOfView, random);
-            IntroShot home = DesertLanding.Build(desert, cue == null ? null : (at, yaw) => cue(at, yaw, DesertLanding.ONSET, true),
+            IntroShot home = DesertLanding.Build(desert, cue == null ? null : (at, yaw, onset) => cue(at, yaw, onset, true),
                 endPosition, endTarget, fieldOfView, random, out _);
 
             //The two close shots apart, the crest between them: two low shots over the sand in a row read as one
@@ -134,12 +144,12 @@ namespace BS3D.Effects
         }
 
         /// <summary>
-        /// A shot whose lens and look are given on the wall clock (<paramref name="lens"/> and <paramref name="look"/> at each
-        /// second of it), as a creature's life is: the points are laid where the shot's eased clock shows them
-        /// (<see cref="IntroShot.Uneased"/>), so the look is on the creature at every frame.
+        /// A shot whose lens and look are given on its own seconds (<paramref name="lens"/> and <paramref name="look"/> at each
+        /// second of it), as its creature's life is, <paramref name="onFrame"/> keeping the creature on them: the points are laid
+        /// where the shot's eased clock shows them (<see cref="IntroShot.Uneased"/>), so the look is on the creature at every frame.
         /// </summary>
         private static IntroShot OnTheClock(string name, Func<float, Vector3> lens, Func<float, Vector3> look, float seconds,
-            float fieldOfView, Action onStart)
+            float fieldOfView, Action<float> onFrame)
         {
             var path = new Vector3[AridIntroPaths.POINTS];
             var looks = new Vector3[AridIntroPaths.POINTS];
@@ -150,13 +160,13 @@ namespace BS3D.Effects
                 looks[k] = look(shown);
             }
 
-            return new IntroShot(name, path, seconds, fieldOfView, lookAtPath: looks, onStart: onStart);
+            return new IntroShot(name, path, seconds, fieldOfView, lookAtPath: looks, onFrame: onFrame);
         }
 
         /// <summary>
         /// A darkling beetle low over the sand (#1110, the owner's "give them more time in the intro"): the featured beetle cued
         /// to be walking already on the shot's first frame (<see cref="BEETLE_WALKED"/>), its trail of prints behind it, the lens
-        /// beside it dollying with its pace, the look on it; it stops and digs back in nose first before the cut.
+        /// beside it dollying with its pace, the look on it; it stops and digs back in nose first, the dig done as the shot cuts.
         /// </summary>
         internal static IntroShot Beetle(Action<Vector2, float, float, bool> cue, DesertSceneConfig desert, Func<float, float, float> ground,
             float fieldOfView, Random random)
@@ -191,7 +201,7 @@ namespace BS3D.Effects
             }
 
             return OnTheClock("the beetle", Lens, seconds => Foot(seconds) + Vector3.Up * BEETLE_LOOK_ABOVE, BEETLE_SECONDS,
-                fieldOfView * BEETLE_LENS, cue == null ? null : () => cue(start, yaw, onset, false));
+                fieldOfView * BEETLE_LENS, cue == null ? null : seconds => cue(start, yaw, onset - seconds, false));
         }
 
         /// <summary>
@@ -248,7 +258,7 @@ namespace BS3D.Effects
             }
 
             return OnTheClock("the scorpion", Lens, shown => ScorpionAt(start, yaw, shown, desert), seconds, fieldOfView * 0.75f,
-                cue == null ? null : () => cue(start, yaw, SCORPION_ONSET, true));
+                cue == null ? null : seconds => cue(start, yaw, SCORPION_ONSET - seconds, true));
         }
 
         /// <summary>Where the look holds the scorpion cued at <paramref name="start"/> along <paramref name="yaw"/>,

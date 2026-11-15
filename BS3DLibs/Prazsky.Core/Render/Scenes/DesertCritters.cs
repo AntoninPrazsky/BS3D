@@ -55,8 +55,9 @@ namespace Prazsky.Core.Render
         private readonly ModelInstance[][] _instanceData = { new ModelInstance[BEETLES + 1], new ModelInstance[SCORPIONS + 1] };
 
         //THE FEATURED SCORPION AND BEETLE (#966, #1110): the chapter intro's close shots cue one of each to come up out of the
-        //sand where their lens is framed (SceneRenderer.CueDesertCritter, DesertIntroShots, DesertLanding), at the moment the
-        //shot comes on screen, so a shot need not wait for one of the others' cycles to bring one there. Each comes up, walks a
+        //sand where their lens is framed (SceneRenderer.CueDesertCritter, DesertIntroShots, DesertLanding), so a shot need not
+        //wait for one of the others' cycles to bring one there; re-cued on every frame of the shot, so the creature's life runs
+        //on the intro's clock though the scene draws it on the wall clock (a pause or a hitch parts the two). Each comes up, walks a
         //few lengths straight on (FEATURE_SCORPION_WALK, FEATURE_BEETLE_WALK) and digs back in, and is gone after; an onset
         //in the past (the beetle's) has it walking already on the shot's first frame. Slot 0 the beetle, 1 the scorpion, as
         //the meshes; NaN onset: none cued.

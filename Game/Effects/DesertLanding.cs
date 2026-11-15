@@ -7,9 +7,10 @@ namespace BS3D.Effects
 {
     /// <summary>
     /// <b>The scorpion home</b> (#1110): the last shot of the desert's chapter intro. It opens as the close view the scorpion
-    /// shot was (#966): the lens low on the sand a few lengths off, the featured scorpion cued to come up out of its burrow the
-    /// moment the shot is on screen and to walk across the frame (<see cref="SceneRenderer.CueDesertCritter"/>), the look
-    /// following it. Then it takes off from there: the lens lifts off the sand past the scorpion, the look lets go of it and
+    /// shot was (#966): the lens low on the sand a few lengths off, the featured scorpion cued to come up out of its burrow
+    /// <see cref="ONSET"/> into the shot and to walk across the frame (<see cref="SceneRenderer.CueDesertCritter"/>, re-cued on
+    /// every frame of the shot so its life runs on the intro's clock, <see cref="IntroShot.Track"/>), the look following it.
+    /// Then it takes off from there: the lens lifts off the sand past the scorpion, the look lets go of it and
     /// rises to the island ahead, and the flight settles onto the gameplay pose behind the gun, so the player is carried from
     /// the critter into the game without a cut, as the cities', the meadow's and the big top's are. The owner: "the final
     /// animation of the intro could also take off from this detailed view of the beetles and scorpions into the game position
@@ -46,10 +47,11 @@ namespace BS3D.Effects
         /// the sand, the look this high over its foot.</summary>
         internal const float STAND = 3.4f, LENS_ABOVE = 0.85f, LOOK_ABOVE = 0.25f;
 
-        /// <summary>How long into the shot the scorpion comes up (cued on the shot's first frame).</summary>
+        /// <summary>How long into the shot the scorpion comes up, on the shot's own seconds.</summary>
         internal const float ONSET = 0.4f;
 
-        /// <summary>When the lens takes off and the look starts to turn off the scorpion, seconds into the shot on the wall clock:
+        /// <summary>When the lens takes off and the look starts to turn off the scorpion, seconds into the shot (the scorpion's
+        /// clock, not the eased one the shot's points are spaced on):
         /// as its walk ends and it starts to dig back in, so the shot holds it through its walk rather than cutting away
         /// mid-step (#1110). The look turns off the scorpion's direction as it was then (<see cref="IntroLanding.Subject"/>), and
         /// it digs in falling away down the frame as the lens climbs.</summary>
@@ -122,10 +124,12 @@ namespace BS3D.Effects
         /// <summary>
         /// The scorpion home over <paramref name="desert"/>, landing on <paramref name="endPosition"/> looking at
         /// <paramref name="endTarget"/> with the game's <paramref name="fieldOfView"/>; null when no rolled route is clear.
-        /// <paramref name="cue"/> is called on the shot's first frame with where the scorpion comes up and its heading (the
-        /// scene's <see cref="SceneRenderer.CueDesertCritter"/>, <see cref="ONSET"/> on); <paramref name="walk"/> says the same.
+        /// <paramref name="cue"/> is called on every frame of the shot (<see cref="IntroShot.Track"/>) with where the scorpion
+        /// comes up, its heading and its onset in seconds from that frame, which is <see cref="ONSET"/> less how far into the
+        /// shot the intro's clock is (the scene's <see cref="SceneRenderer.CueDesertCritter"/>, onset counted from now);
+        /// <paramref name="walk"/> says where and which way.
         /// </summary>
-        public static IntroShot Build(DesertSceneConfig desert, Action<Vector2, float> cue, Vector3 endPosition, Vector3 endTarget,
+        public static IntroShot Build(DesertSceneConfig desert, Action<Vector2, float, float> cue, Vector3 endPosition, Vector3 endTarget,
             float fieldOfView, Random random, out Walk walk)
         {
             walk = default;
@@ -151,7 +155,7 @@ namespace BS3D.Effects
             Walk chosen = walk = walks[best];
             var subject = new IntroLanding.Subject(t => Scorpion(chosen, t, desert), LetGo, LOOK_RELEASE);
             return IntroLanding.Fly(NAME, best, endPosition, endTarget, fieldOfView, Landing, subject,
-                cue == null ? null : () => cue(chosen.Start, chosen.Yaw));
+                cue == null ? null : seconds => cue(chosen.Start, chosen.Yaw, ONSET - seconds));
         }
 
         /// <summary>The point the look holds at <paramref name="seconds"/> into the shot: over the scorpion's foot, held at its
@@ -168,12 +172,16 @@ namespace BS3D.Effects
         /// from <paramref name="start"/> to <paramref name="finish"/> (the line raised by half its height, the air widened by the
         /// other half). It never binds on the routes laid (the lens is climbing by the time it passes the walk's line), so it
         /// is held by a test of its own.</summary>
-        internal static bool ClearOfWalk(Vector3 p, Vector2 start, Vector2 finish, DesertSceneConfig desert)
-        {
-            Vector3 from = new(start.X, TerrainMirror.Desert(start.X, start.Y, desert) + CRITTER_HEIGHT * 0.5f, start.Y);
-            Vector3 to = new(finish.X, TerrainMirror.Desert(finish.X, finish.Y, desert) + CRITTER_HEIGHT * 0.5f, finish.Y);
-            return IntroPaths.DistanceToSegment(p, from, to) >= CRITTER_AIR + CRITTER_HEIGHT * 0.5f;
-        }
+        internal static bool ClearOfWalk(Vector3 p, Vector2 start, Vector2 finish, DesertSceneConfig desert) =>
+            ClearOfRaisedWalk(p, OverTheWalk(start, desert), OverTheWalk(finish, desert));
+
+        //The same off the walk's line already raised (OverTheWalk), which Lay finds once rather than at every point
+        private static bool ClearOfRaisedWalk(Vector3 p, Vector3 from, Vector3 to) =>
+            IntroPaths.DistanceToSegment(p, from, to) >= CRITTER_AIR + CRITTER_HEIGHT * 0.5f;
+
+        //A point of the scorpion's walk raised by half its height off the sand
+        private static Vector3 OverTheWalk(Vector2 at, DesertSceneConfig desert) =>
+            new(at.X, TerrainMirror.Desert(at.X, at.Y, desert) + CRITTER_HEIGHT * 0.5f, at.Y);
 
         private static IntroLanding.Route Lay(DesertSceneConfig desert, Vector3 endPosition, Vector2 facing, Random random, out Walk walk)
         {
@@ -222,9 +230,9 @@ namespace BS3D.Effects
             float sSettle = total - settleLength;
             if (sSettle <= planLength[liftAt]) return null;
 
-            //The take-off on the shot's clock, laid twice more: the lift is stated on the wall clock (the scorpion's), and the shot's
-            //points are spaced on its eased one (IntroShot.Uneased), so how long the hold lasts on that clock depends on the
-            //shot's length
+            //The take-off on the shot's clock, laid twice more: the lift is stated in the shot's seconds (the scorpion's clock),
+            //and the shot's points are spaced on its eased one (IntroShot.Uneased), so how long the hold lasts on that clock
+            //depends on the shot's length
             float hold = Lift, seconds = 0f, entry = cruise;
             (List<float> S, List<float> T) march = default;
             for (int pass = 0; pass < 3; pass++)
@@ -266,8 +274,9 @@ namespace BS3D.Effects
             speed.Add(entry);
 
             //Off the scorpion's walk at every point
+            Vector3 walkFrom = OverTheWalk(start, desert), walkTo = OverTheWalk(finish, desert);
             foreach (Vector3 p in path)
-                if (!ClearOfWalk(p, start, finish, desert)) return null;
+                if (!ClearOfRaisedWalk(p, walkFrom, walkTo)) return null;
 
             //The best is the length asked for, arriving along the pose's facing, the island behind the scorpion
             float swivel = MathF.Acos(MathHelper.Clamp(Vector2.Dot(arrive, facing), -1f, 1f));

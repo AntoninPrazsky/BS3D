@@ -1468,7 +1468,8 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Cues the desert's featured scorpion (#966), or its featured beetle (#1110), to come up out of the sand at
         /// <paramref name="at"/> (world XZ) at <paramref name="onset"/> on the scene's clock, walking along <paramref name="yaw"/>:
-        /// the chapter intro's close shots. An onset in the past has it walking already.
+        /// the chapter intro's close shots, which call this on every frame of the shot to keep the creature on the intro's own
+        /// clock. An onset in the past has it walking already.
         /// </summary>
         public void CueDesertCritter(Vector2 at, float yaw, float onset, bool scorpion = true) => _desert.Critters.Feature(at, yaw, onset, scorpion);
 

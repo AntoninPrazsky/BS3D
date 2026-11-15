@@ -89,8 +89,9 @@ namespace BS3D.Effects
         /// look had been making stopped dead, a step in its rate.
         /// </para>
         /// </summary>
-        /// <param name="At">The point to look at, at each second of the shot ON THE WALL CLOCK, which the subject moves on: the
-        /// shot's points are spaced on its eased clock (<see cref="IntroShot.Uneased"/>), and the landing reads it there.</param>
+        /// <param name="At">The point to look at, at each second of the shot ON THE SHOT'S OWN SECONDS, which the subject moves on
+        /// (the scene keeps it on them, <see cref="IntroShot.Track"/>): the shot's points are spaced on its eased clock
+        /// (<see cref="IntroShot.Uneased"/>), and the landing reads it there.</param>
         /// <param name="HoldSeconds">How long the look stays on it, seconds from the shot's start.</param>
         /// <param name="ReleaseSeconds">How long the look takes to turn off it.</param>
         internal sealed record Subject(Func<float, Vector3> At, float HoldSeconds, float ReleaseSeconds);
@@ -254,11 +255,12 @@ namespace BS3D.Effects
         /// along the travel easing onto the pose's; the bank off the heading's rate of turn, level by the landing; the lens
         /// from <see cref="Style.WideLens"/> times the game's to the game's. Its last point and look are the pose exactly.
         /// With a <paramref name="subject"/>, the look opens on it and turns off it onto the travel's (see
-        /// <see cref="Subject"/>); without one, nothing here reads it. <paramref name="onStart"/> is the shot's own
-        /// (<see cref="IntroShot.Start"/>): the desert cues its scorpion there.
+        /// <see cref="Subject"/>); without one, nothing here reads it. <paramref name="onFrame"/> is the shot's own
+        /// (<see cref="IntroShot.Track"/>): the desert re-cues its scorpion there every frame, so the scorpion stands where the
+        /// look was laid for it.
         /// </summary>
         internal static IntroShot Fly(string name, Route route, Vector3 endPosition, Vector3 endTarget, float fieldOfView, Style style,
-            Subject subject = null, Action onStart = null)
+            Subject subject = null, Action<float> onFrame = null)
         {
             List<Vector3> path = route.Path;
             int releaseFrom = route.DecelerateFrom;
@@ -319,8 +321,8 @@ namespace BS3D.Effects
             int window = Math.Max(1, (int)MathF.Round(style.LookSmoothSeconds / dt));
             direction = BoxBlur(direction, window);
 
-            //The subject's point and how much of the look is on it at each point, read at the second of the wall clock the
-            //point is shown at (Subject.At); from the moment the look starts to let go, its direction from the lens as it was then
+            //The subject's point and how much of the look is on it at each point, read at the second of the shot the point is
+            //shown at (Subject.At); from the moment the look starts to let go, its direction from the lens as it was then
             float[] held = null;
             Vector3[] subjectAt = null;
             if (subject != null)
@@ -377,7 +379,7 @@ namespace BS3D.Effects
             roll[^1] = 0f;
 
             return new IntroShot(name, positions, seconds, fieldOfView * style.WideLens, lookAtPath: looks,
-                onStart: onStart, rollPath: roll, endFieldOfView: fieldOfView, lands: true);
+                rollPath: roll, endFieldOfView: fieldOfView, lands: true, onFrame: onFrame);
         }
 
         /// <summary>

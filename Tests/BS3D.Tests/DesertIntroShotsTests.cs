@@ -79,26 +79,90 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void The_beetle_is_walking_on_the_shots_first_frame_and_digs_back_in_before_the_cut()
+        public void The_beetle_is_walking_on_the_shots_first_frame_and_has_dug_back_in_as_the_shot_cuts()
         {
             for (int seed = 1; seed <= ROLLS; seed++)
             {
                 var cue = new Cue();
                 IntroShot beetle = DesertIntroShots.Beetle(cue.Take, Desert, Ground, FieldOfView, new Random(seed));
                 Assert.True(float.IsNaN(cue.Onset), "cued before the shot came on screen");
-                beetle.Start();
+                beetle.Track(0f);
 
                 //A beetle, cued in the past: up out of the sand and walking already, its trail behind it
                 Assert.False(cue.Scorpion);
                 Assert.Equal(-(SceneRenderer.DESERT_FEATURE_EMERGE_SECONDS + DesertIntroShots.BEETLE_WALKED), cue.Onset, 4);
 
-                //Its walk ends inside the shot, and most of its dig is done by the cut
+                //Its walk ends inside the shot, and its dig is done as the shot cuts: its life (and with it its hole and its
+                //prints) ends no earlier than the cut, or they would go on screen, and within a frame of it
                 float walkEnds = SceneRenderer.DesertFeatureWalkEnds(scorpion: false) + cue.Onset;
-                float dug = (beetle.Seconds - walkEnds) / (SceneRenderer.DesertFeatureSeconds(scorpion: false) - SceneRenderer.DesertFeatureWalkEnds(scorpion: false));
+                float lifeEnds = SceneRenderer.DesertFeatureSeconds(scorpion: false) + cue.Onset;
                 Assert.InRange(walkEnds, 1f, beetle.Seconds - 1f);
-                Assert.True(dug >= 0.75f, $"roll {seed}: {dug:P0} dug in at the cut");
+                Assert.True(lifeEnds >= beetle.Seconds - 1e-4f, $"roll {seed}: gone {beetle.Seconds - lifeEnds:F2} s before the cut");
+                Assert.True(lifeEnds <= beetle.Seconds + 1f / 60f, $"roll {seed}: still digging {lifeEnds - beetle.Seconds:F2} s after the cut");
             }
         }
+
+        /// <summary>
+        /// A pause or a hitch in either close shot leaves its creature under the look (#1110): the scene draws the creature on
+        /// the wall clock, which goes on through a pause and past a hitch's capped step, and the look is laid on the shot's own
+        /// seconds, so the shot re-cues it on every frame (<see cref="IntroShot.Track"/>). Cued once on its first frame, a pause
+        /// left the look on sand the creature had left and the beetle gone under before the cut.
+        /// </summary>
+        [Fact]
+        public void A_pause_or_a_hitch_leaves_each_creature_under_its_look()
+        {
+            float worst = 0f;
+            for (int seed = 1; seed <= 6; seed++)
+            {
+                //The wall clock the scene draws on, the creatures' onsets on it (the cue's are counted from the call)
+                float wall = 100f;
+                var cued = new[] { new Cue(), new Cue() };
+                IntroShot[] reel = DesertIntroShots.Build(Desert, (at, yaw, onset, scorpion) => cued[scorpion ? 1 : 0].Take(at, yaw, wall + onset, scorpion),
+                    GamePosition, GameTarget, FieldOfView, new Random(seed));
+                Assert.Equal(DesertLanding.NAME, reel[^1].Name);
+
+                float beetleFrom = reel[0].Seconds + reel[1].Seconds, beetleTo = beetleFrom + reel[2].Seconds;
+                float homeFrom = reel.Take(reel.Length - 1).Sum(s => s.Seconds);
+
+                var intro = new ChapterIntro();
+                intro.Begin(GameTarget, GamePosition.Length(), FieldOfView, GamePosition, GameTarget, null, new Random(1), reel);
+
+                //Each close shot: a five-second pause (no frames reach the intro, the wall clock goes on) a second in, and a 400-ms
+                //hitch (the intro steps a capped frame's worth) a second later
+                float[] pauses = { beetleFrom + 1f, homeFrom + 1f }, hitches = { beetleFrom + 2f, homeFrom + 2f };
+                int pause = 0, hitch = 0;
+                while (intro.Running)
+                {
+                    float step = FRAME;
+                    if (pause < pauses.Length && intro.Elapsed >= pauses[pause]) { wall += 5f; pause++; }
+                    if (hitch < hitches.Length && intro.Elapsed >= hitches[hitch]) { step = 0.4f; hitch++; }
+                    wall += step;
+                    intro.Update(step);
+
+                    float into = intro.Elapsed;
+                    bool beetle = into >= beetleFrom && into < beetleTo, scorpion = into >= homeFrom && into - homeFrom < DesertLanding.LetGo;
+                    if (!beetle && !scorpion) continue;
+
+                    Cue cue = cued[beetle ? 0 : 1];
+                    float lived = wall - cue.Onset;
+                    Assert.True(lived <= SceneRenderer.DesertFeatureSeconds(scorpion), $"roll {seed}: the {(beetle ? "beetle" : "scorpion")} gone {into:F2} s in, {lived - SceneRenderer.DesertFeatureSeconds(scorpion):F2} s after its life");
+
+                    Vector3 foot = SceneRenderer.DesertFeatureAt(cue.At, cue.Yaw, lived, Desert, scorpion);
+                    float off = new Vector2(intro.Target.X - foot.X, intro.Target.Z - foot.Z).Length();
+                    worst = MathF.Max(worst, off);
+                    Assert.True(off <= UNDER_THE_LOOK, $"roll {seed}: the look {off:F2} off the {(beetle ? "beetle" : "scorpion")} {into:F2} s in");
+                }
+
+                Assert.Equal(pauses.Length, pause);
+                Assert.Equal(hitches.Length, hitch);
+            }
+
+            _output.WriteLine(FormattableString.Invariant($"the look at most {worst:F3} off its creature through the pauses and hitches"));
+        }
+
+        //A frame at 60 fps; and how far the look may stand off its creature's foot in plan through a close shot, its points laid
+        //on the shot's eased clock and walked on a Catmull-Rom between them
+        private const float FRAME = 1f / 60f, UNDER_THE_LOOK = 0.02f;
 
         [Fact]
         public void The_beetle_shot_holds_its_beetle_in_frame_from_its_first_frame_until_it_has_dug_in()
@@ -107,7 +171,7 @@ namespace BS3D.Tests
             {
                 var cue = new Cue();
                 IntroShot beetle = DesertIntroShots.Beetle(cue.Take, Desert, Ground, FieldOfView, new Random(seed));
-                beetle.Start();
+                beetle.Track(0f);
 
                 float under = SceneRenderer.DesertFeatureWalkEnds(scorpion: false) + cue.Onset + 0.8f;
                 for (float seconds = 0f; seconds <= MathF.Min(under, beetle.Seconds); seconds += 0.05f)
@@ -139,7 +203,7 @@ namespace BS3D.Tests
             {
                 var cue = new Cue();
                 IntroShot scorpion = DesertIntroShots.Scorpion(cue.Take, Desert, Ground, FieldOfView, new Random(seed));
-                scorpion.Start();
+                scorpion.Track(0f);
                 Assert.True(cue.Scorpion);
 
                 for (float seconds = 0f; seconds <= walkEnds; seconds += 0.05f)

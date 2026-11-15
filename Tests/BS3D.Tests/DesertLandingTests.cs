@@ -289,8 +289,8 @@ namespace BS3D.Tests
         [Fact]
         public void The_shot_cues_the_scorpion_where_the_look_expects_it_on_its_first_frame()
         {
-            //The cue is the shot's own start (ChapterIntro calls IntroShot.Start on its first frame), with the walk the look was
-            //laid on and the onset the look counts from
+            //The cue is the shot's own every frame (ChapterIntro calls IntroShot.Track with how far into it the intro is), with
+            //the walk the look was laid on and the onset the look counts from: on its first frame, ONSET from now
             Vector2 cuedAt = default;
             float cuedYaw = float.NaN, cuedOnset = float.NaN;
             IntroShot[] shots = DesertIntroShots.Build(Desert, (at, yaw, onset, scorpion) =>
@@ -300,7 +300,7 @@ namespace BS3D.Tests
                 }, GamePosition, GameTarget, FieldOfView, new Random(5));
             Assert.True(float.IsNaN(cuedYaw), "cued before the shot came on screen");
 
-            shots[^1].Start();
+            shots[^1].Track(0f);
             Assert.Equal(DesertLanding.ONSET, cuedOnset);
 
             //The look's first point is over the burrow it was cued at
