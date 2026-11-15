@@ -1259,6 +1259,12 @@ namespace Prazsky.Core.Render
         public SceneConfig GetSceneConfig(SceneKind kind) => BackdropFor(kind)?.Config;
 
         /// <summary>
+        /// Whether Mars's ground draws the rover's ruts (#745) at this tier: its full program's only, so not where the tier
+        /// drops the scene detail (<see cref="SceneDetail"/>). The chapter intro shoots them only where they are drawn (#1115).
+        /// </summary>
+        public bool MarsDrawsTracks => _mars.DrawsTracks;
+
+        /// <summary>
         /// How high <paramref name="kind"/>'s roof stands straight over (<paramref name="x"/>, <paramref name="z"/>), or
         /// infinity under an open sky (<see cref="Backdrop.RoofAbove"/>): where the ceiling plate's cables end (#896). Both
         /// roofs are drawn without depth, so a cable that ran on would be drawn across the rock or the canvas.
