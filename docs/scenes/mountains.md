@@ -22,12 +22,14 @@ A snow basin ringed by tall snow-capped peaks that rise with distance into alpin
 
 ## Low's range on the reference APU (#1035)
 
-The range was the one chapter over `Low`'s 16.1 ms budget (Spyglass 16.95 ms in #1026's table; `Low`'s far plane stays, by the owner's ruling). Taken apart with the Testbed's `mountain=` dial at `Low`'s settings (one process, `campos=0,-4,30 camtarget=0,6,-60`, 35 cycles): of a 13.27 ms frame the range is **5.48 ms**, the snowfall 0.31, the far ring 0.15 and the bank's planting nothing. Two cuts:
+The range was the one chapter over `Low`'s 16.1 ms budget (Spyglass 16.95 ms in #1026's table; `Low`'s far plane stays, by the owner's ruling), and the range was the frame's largest item: 5.48 ms of a 13.27 ms frame at the probe's pose below. Two cuts:
 
 - **The grid is drawn only where the lens looks** ("The terrain grids and the billboards" in [Terrain grids](terrain-grids-and-mirrors.md)): Spyglass −0.63 ms.
 - **`MountainReduced` takes the rock relief at one octave** (three before; the authored program's four and the fine program's stay). In one process: two octaves −0.47 ms, one −0.96, none −1.61. The far ring past the grid draws the reduced program on every tier, where the relief is band-limited away; High's captures differ only by the flakes.
 
 Both together, in the Game beside the build before them: Spyglass **17.32 → 15.44 ms** and Belfry 18.80 → 16.85 at `Low`, Belfry −0.63 at `Medium`.
+
+What `Low` draws today, taken apart with the Testbed's `mountain=` dial at `Low`'s settings (one process, `skyorder=first`, `campos=0,-4,30 camtarget=0,6,-60`, 109 cycles): of a 12.28 ms frame the range is **4.61 ms** and the snowfall 0.34; the far ring and the bank's planting read 0.01 and 0.05, nothing measurable (their signs held in 60 and 82 % of cycles).
 
 ## High and Ultra's range (#781)
 

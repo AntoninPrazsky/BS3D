@@ -78,6 +78,8 @@ namespace Prazsky.Core.Render
             //product lands near 20 000, where a float carries a fraction to about 1/500, so rounding once per step here
             //against once per multiply-add there put the CPU mirrors on different quanta from the drawn terrain: up to
             //16 units off in the mountains, measured by the Testbed's mirrorcheck. Same order as the GPU's mads.
+            //⚠ Whether a mad is fused is the driver's choice, not fxc's: the desktop's RDNA2 fuses, the laptop's Vega
+            //(GCN) does not, and there this mirror is the one 16 units off (#1134).
             float d = MathF.FusedMultiplyAdd(z, x + 33.33f, MathF.FusedMultiplyAdd(y, z + 33.33f, x * (y + 33.33f)));
 
             x += d;

@@ -82,6 +82,9 @@ namespace BS3D.Screens
     /// <param name="RevealShotSeconds">The <c>revealshot=</c> argument (#933): seconds of the floor net's opening reveal at which the
     /// frame is saved, in order, the reveal's clock held at each for a frame (<c>NetReveal.Pin</c>); empty or null for none. The
     /// reveal is two seconds and every capture's own hitch moves the next frame, so the wall clock's <c>shot=</c> cannot frame it.</param>
+    /// <param name="IntroShotSeconds">The <c>introshot=</c> argument (#1109): seconds of a chapter intro's own clock at which the
+    /// frame is saved, in order, the clock held at each for a frame (<c>ChapterIntro.Pin</c>); empty or null for none. A level's
+    /// load and every capture's own hitch move the wall clock's <c>shot=</c> off the flight.</param>
     /// <param name="ShotSpeed">The <c>shotspeed=</c> argument (#1007): the speed every shot leaves at and every preview is solved
     /// for, or null for the shipped <c>SHOOT_SPEED</c>.</param>
     internal sealed record SessionTestOptions(
@@ -103,6 +106,7 @@ namespace BS3D.Screens
         IReadOnlyList<float> CutShotSeconds = null,
         IReadOnlyList<float> SwapShotSeconds = null,
         IReadOnlyList<float> RevealShotSeconds = null,
+        IReadOnlyList<float> IntroShotSeconds = null,
         float? ShotSpeed = null)
     {
         /// <summary>
@@ -131,6 +135,7 @@ namespace BS3D.Screens
             CutShotSeconds: launch.CutShotSeconds ?? Array.Empty<float>(),
             SwapShotSeconds: launch.SwapShotSeconds ?? Array.Empty<float>(),
             RevealShotSeconds: launch.RevealShotSeconds ?? Array.Empty<float>(),
+            IntroShotSeconds: launch.IntroShotSeconds ?? Array.Empty<float>(),
             ShotSpeed: launch.ShotSpeed);
     }
 }

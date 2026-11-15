@@ -58,7 +58,7 @@ namespace BS3D.Tests
 
         //And in sight: of the RUTS_LOOKED_OVER units of ruts ahead of the lens, sampled every RUTS_SAMPLE, at least
         //MIN_RUTS_IN_SIGHT both in the frame and over the ground in every frame, at every shape. The frame's bottom edge
-        //cuts the nearest and the brow of the belt's slope hides some farther on: the fewest seen is 9 (measured)
+        //cuts the nearest and the brow of the belt's slope hides some farther on: the fewest seen is 9.5 (measured)
         private const float RUTS_LOOKED_OVER = 30f, RUTS_SAMPLE = 0.5f, MIN_RUTS_IN_SIGHT = 8f;
 
         //Sight lines are marched this far apart in plan, stopping a step short of the point (a point on the ground lies on

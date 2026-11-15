@@ -398,6 +398,15 @@ namespace BS3D.Effects
         }
 
         /// <summary>
+        /// Testing only (<c>introshot=</c>, #1109): sets the clock to <paramref name="seconds"/>, held inside the flight, so the next
+        /// <see cref="Update"/> poses that moment. Ignored once the intro has ended.
+        /// </summary>
+        internal void Pin(float seconds)
+        {
+            if (_running) _elapsed = Math.Clamp(seconds, 0f, TotalSeconds - 1e-4f);
+        }
+
+        /// <summary>
         /// The player has seen enough. Ignored for <see cref="SKIP_LOCKOUT"/> after the start, and the ease
         /// out is the ordinary one — a skip is not a cut, it just stops waiting for the tour to finish.
         /// </summary>

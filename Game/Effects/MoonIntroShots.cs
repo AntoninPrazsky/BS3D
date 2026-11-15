@@ -18,7 +18,7 @@ namespace BS3D.Effects
     /// they are over the ground whatever the lattice rolled there. The tracks shot flies a couple of units over the
     /// regolith, where a bound that takes every lip at its highest is a lens in the sky, so it follows the ground's own CPU
     /// mirror, <see cref="TerrainMirror.Moon"/> (#680), through <see cref="AridIntroPaths.Hug"/>: the highest ground a few
-    /// units round each point, plus its clearance, averaged so it rises before a rim and never through it.
+    /// units round each point, plus its clearance, rounded so it rises before a rim and never through it.
     /// </para>
     /// <para>
     /// <b>The ruts and the flag are fixed</b> (<see cref="MoonPlanting.TRAVERSE"/>, <see cref="MoonPlanting.FLAG"/>), so the
@@ -57,17 +57,15 @@ namespace BS3D.Effects
         //Over the middle line because that is where no rock stands: MoonPlanting keeps every rock off the ruts by more than
         //the ruts' width and its own half-size, and off the flag by twelve units and more, inside which the lens stops.
         //
-        //The height: TRACKS_CLEARANCE over the highest ground within TRACKS_WINDOW points either side and TRACKS_LATERAL
-        //units to either hand, averaged in TRACKS_PASSES boxes (#645), so the lens rides two to five units over the
-        //regolith and still clears what the grid draws, whose triangles stand up to two units off the exact field across the
+        //The height: TRACKS_CLEARANCE over the highest ground at and TRACKS_LATERAL units round each point, flown the way
+        //the arid runs fly it (AridIntroPaths.Hug: rounded over the shot's travel, lifted back where a rim was cut, #1109),
+        //so the lens rides 2.5 to 5.5 units over the regolith and still clears what the grid draws, whose triangles stand up to two units off the exact field across the
         //middle octave's rims (MoonPlanting's height). The look at TRACKS_LOOK_HEIGHT over the flag's foot holds the whole
         //flag in the frame at the end (its bar stands 5.5 over the ground) and its foot over the skip hint.
         private const float TRACKS_LENGTH = 48f;
         private const float TRACKS_STOP_SHORT = 11f;
-        private const float TRACKS_CLEARANCE = 2.2f;
+        internal const float TRACKS_CLEARANCE = 2.2f;
         private const float TRACKS_LATERAL = 2f;
-        private const int TRACKS_WINDOW = 8;
-        private const int TRACKS_PASSES = 3;
         private const float TRACKS_LOOK_HEIGHT = 2.4f;
         private const float TRACKS_FROM_FOV_DEGREES = 50f, TRACKS_TO_FOV_DEGREES = 40f;
         private const float TRACKS_SECONDS = 4.2f;
@@ -149,7 +147,7 @@ namespace BS3D.Effects
             var plan = new Vector2[AridIntroPaths.POINTS];
             for (int i = 0; i < plan.Length; i++) plan[i] = PointAlong(curve, along, MathHelper.Lerp(start, end, i / (float)(plan.Length - 1)));
 
-            Vector3[] path = AridIntroPaths.Hug(plan, ground, TRACKS_CLEARANCE, TRACKS_LATERAL, TRACKS_WINDOW, passes: TRACKS_PASSES);
+            Vector3[] path = AridIntroPaths.Hug(plan, ground, TRACKS_CLEARANCE, TRACKS_LATERAL, TRACKS_SECONDS);
             Vector3 lookAt = new(flag.X, ground(flag.X, flag.Y) + TRACKS_LOOK_HEIGHT, flag.Y);
 
             return new IntroShot("the tracks", path, TRACKS_SECONDS, MathHelper.ToRadians(TRACKS_FROM_FOV_DEGREES), lookAt: lookAt,

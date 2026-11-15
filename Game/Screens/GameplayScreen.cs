@@ -1639,7 +1639,24 @@ namespace BS3D.Screens
 
             //The chapter intro has no subject to read and no time scale to feed the step below — see the
             //class remarks on why. Just its own pose and blend, exactly like the line above.
-            _chapterIntro.Update(elapsed);
+            //Testing only (introshot=, #1109): its clock is held at the next stated moment for the one frame that is saved there
+            bool introShot = _introShotNext < _test.IntroShotSeconds.Count && _chapterIntro.Running
+                && _chapterIntro.Elapsed + elapsed >= _test.IntroShotSeconds[_introShotNext];
+            if (introShot)
+            {
+                _chapterIntro.Pin(_test.IntroShotSeconds[_introShotNext++]);
+                Game.RequestScreenshot();
+            }
+
+            _chapterIntro.Update(introShot ? 0f : elapsed);
+
+            //What the saved frame shows, in numbers: the moment and the lens, so two builds' frames can be laid side by side
+            if (introShot)
+            {
+                Vector3 lens = _chapterIntro.Position, look = _chapterIntro.Target;
+                Console.WriteLine(FormattableString.Invariant(
+                    $"[introshot] +{_chapterIntro.Elapsed:F3} s: lens ({lens.X:F2}, {lens.Y:F2}, {lens.Z:F2}) looking at ({look.X:F2}, {look.Y:F2}, {look.Z:F2})"));
+            }
 
             //And the cluster it held still is let go the moment it hands the lens back (#690) - see ReleaseCluster
             if (_releasePending && !_chapterIntro.Running) ReleaseCluster();
