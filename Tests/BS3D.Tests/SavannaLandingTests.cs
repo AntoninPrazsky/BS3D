@@ -328,6 +328,51 @@ namespace BS3D.Tests
         }
 
         [Fact]
+        public void A_pose_a_trees_loose_sphere_reaches_is_still_landed_on()
+        {
+            //A solid's sphere is its mesh's bounding sphere, up to 31 round a big acacia whose crown reaches 17, so the trees 60
+            //out reach a lens 40 out and more: such a pose is not clear itself by MARGIN, and the grass home holds that solid at
+            //the pose's own clearance of it instead (SavannaLanding's POSE_SLACK), never nearer it than the pose less a little
+            int inside = 0, landed = 0;
+            for (int layout = 0; layout < LAYOUTS; layout++)
+            {
+                Plain plain = Planted(layout);
+                for (int b = 0; b < BEARINGS; b++)
+                    foreach (float radius in new[] { 41f, 45f })
+                    {
+                        Vector3 pose = Pose(b, radius);
+                        if (BesideAFire(plain, pose)) continue;
+
+                        var reaching = new List<(PlantFigure Solid, float PoseOff)>();
+                        foreach (PlantFigure solid in plain.Land.Solids)
+                        {
+                            if (SavannaLanding.Obstacles.IsBank(solid)) continue;
+                            float poseOff = SavannaLanding.Obstacles.Off(solid, pose);
+                            if (poseOff < 1.2f) reaching.Add((solid, poseOff));
+                        }
+                        if (reaching.Count == 0) continue;
+
+                        inside++;
+                        IntroShot shot = Home(plain, pose, layout * 100 + b);
+                        if (shot == null) continue;
+
+                        landed++;
+                        for (int i = 0; i <= POSES; i++)
+                        {
+                            shot.Pose(i / (float)POSES, out Vector3 p, out _);
+                            foreach ((PlantFigure solid, float poseOff) in reaching)
+                                Assert.True(SavannaLanding.Obstacles.Off(solid, p) >= MathF.Min(CLEARANCE, poseOff - 0.6f),
+                                    $"layout {layout}, bearing {b}, radius {radius}: nearer a solid the pose's sphere reaches than the pose");
+                        }
+                    }
+            }
+
+            _output.WriteLine($"{landed} of {inside} poses a sphere reaches landed on");
+            Assert.True(inside >= 10, $"only {inside} poses a sphere reaches");
+            Assert.True(landed >= inside / 2, $"{landed} of {inside} poses a sphere reaches landed on");
+        }
+
+        [Fact]
         public void Only_the_bank_and_what_stands_on_it_are_held_as_the_arena_is()
         {
             //The grass home holds the bank and its dressing as the arena is, by the pose's distance and height, not by their
