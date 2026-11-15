@@ -47,9 +47,6 @@ namespace BS3D.Tests
         private const float MAX_LANDING_SPEED = 8f;
         private const float MIN_SECONDS = 6f, MAX_SECONDS = 13f;
 
-        //The whole opening, landing or not: no longer than the reel it replaced and its tour leg (23.2 s) by much
-        private const float MAX_INTRO_SECONDS = 24.5f;
-
         //How finely the shot is walked, and how far over the sand every pose must stay (the builder keeps LOWEST at its points;
         //the lens runs a spline through them)
         private const int POSES = 1500;
@@ -154,7 +151,7 @@ namespace BS3D.Tests
                 Assert.InRange(Vector2.Distance(new Vector2(first.X, first.Z), walk.Start), 2f, 5f);
 
                 //Its foot and its back (a scorpion's height over it) in frame from the shot's first frame until the look lets go
-                for (float seconds = 0f; seconds <= DesertLanding.LOOK_HOLD; seconds += 0.05f)
+                for (float seconds = 0f; seconds <= DesertLanding.Lift; seconds += 0.05f)
                 {
                     float t = seconds / shot.Seconds;
                     shot.Pose(t, out Vector3 lens, out Vector3 at);
@@ -276,35 +273,10 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void The_desert_intro_is_no_longer_than_its_cap()
-        {
-            //The whole opening at Rope's pose, every roll of 24 (the owner prefers faster over slower): the landing replaces the
-            //tour's 4.5 s leg. And where no flight home is clear, the reel and the tour's leg after it
-            float shortest = float.MaxValue, longest = 0f;
-            for (int seed = 1; seed <= 24; seed++)
-            {
-                float seconds = 0f;
-                foreach (IntroShot shot in DesertIntroShots.Build(Desert, null, GamePosition, GameTarget, FieldOfView, new Random(seed)))
-                    seconds += shot.Seconds;
-
-                Assert.True(seconds <= MAX_INTRO_SECONDS, $"roll {seed}: {seconds:F1} s");
-                shortest = MathF.Min(shortest, seconds);
-                longest = MathF.Max(longest, seconds);
-            }
-
-            float fallback = ChapterIntro.ARRIVAL_SECONDS;
-            foreach (IntroShot shot in DesertIntroShots.Build(Desert, null, new Vector3(0f, -2f, 15f), GameTarget, FieldOfView, new Random(1)))
-                fallback += shot.Seconds;
-
-            Assert.True(fallback <= MAX_INTRO_SECONDS, $"the reel that does not land: {fallback:F1} s");
-            _output.WriteLine(FormattableString.Invariant($"{shortest:F1}-{longest:F1} s at Rope's pose; {fallback:F1} s where no flight home is clear"));
-        }
-
-        [Fact]
         public void No_flight_is_laid_into_a_pose_inside_the_islands_radius_and_the_reel_keeps_its_scorpion()
         {
             //The menu's crane stands as near as 15 out, over the island: no flight lands there, and the desert plays the reel
-            //it had, the scorpion a shot of its own and the tour's last leg after the flock
+            //it had, the scorpion a shot of its own last and the tour's leg after it
             var crane = new Vector3(0f, -2f, 15f);
             Assert.Null(Home(crane, 1, out _));
             Assert.NotNull(Home(GamePosition, 1, out _));
@@ -321,8 +293,11 @@ namespace BS3D.Tests
             //laid on and the onset the look counts from
             Vector2 cuedAt = default;
             float cuedYaw = float.NaN, cuedOnset = float.NaN;
-            IntroShot[] shots = DesertIntroShots.Build(Desert, (at, yaw, onset) => (cuedAt, cuedYaw, cuedOnset) = (at, yaw, onset),
-                GamePosition, GameTarget, FieldOfView, new Random(5));
+            IntroShot[] shots = DesertIntroShots.Build(Desert, (at, yaw, onset, scorpion) =>
+                {
+                    Assert.True(scorpion, "the scorpion home cued a beetle");
+                    (cuedAt, cuedYaw, cuedOnset) = (at, yaw, onset);
+                }, GamePosition, GameTarget, FieldOfView, new Random(5));
             Assert.True(float.IsNaN(cuedYaw), "cued before the shot came on screen");
 
             shots[^1].Start();

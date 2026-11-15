@@ -26,7 +26,7 @@ namespace BS3D.Effects
     /// <b>The pace.</b> A creep towards the pose while the scorpion comes up and walks, as the old shot's push in was; the take
     /// off easing up to a cruise over <see cref="RAMP_SECONDS"/>, climbing off the sand to a little over the pose's height,
     /// then the shared deceleration to rest on it (<see cref="IntroLanding.Fly"/>). The look is the shared landing's
-    /// <see cref="IntroLanding.Subject"/>: on the scorpion until <see cref="LOOK_HOLD"/>, then turning off it onto the travel's.
+    /// <see cref="IntroLanding.Subject"/>: on the scorpion through its walk until <see cref="Lift"/>, then turning off it onto the travel's.
     /// </para>
     /// <para>
     /// <b>Found, not assumed.</b> Rolled candidates (how far behind the pose and how far round it, how far off the line the
@@ -49,10 +49,20 @@ namespace BS3D.Effects
         /// <summary>How long into the shot the scorpion comes up (cued on the shot's first frame).</summary>
         internal const float ONSET = 0.4f;
 
-        /// <summary>When the lens takes off, seconds into the shot on the wall clock, and when the look starts to turn off the
-        /// scorpion and how long it takes. The look lets go a little before the lens lifts: a lens climbing a few units off a
-        /// subject it still looks at pitches the view far faster than a drone's gimbal turns.</summary>
-        internal const float LIFT = 4.4f, LOOK_HOLD = 4.4f, LOOK_RELEASE = 2.6f;
+        /// <summary>When the lens takes off and the look starts to turn off the scorpion, seconds into the shot on the wall clock:
+        /// as its walk ends and it starts to dig back in, so the shot holds it through its walk rather than cutting away
+        /// mid-step (#1110). The look turns off the scorpion's direction as it was then (<see cref="IntroLanding.Subject"/>), and
+        /// it digs in falling away down the frame as the lens climbs.</summary>
+        internal static readonly float Lift = ONSET + SceneRenderer.DesertFeatureWalkEnds();
+
+        /// <summary>How long the look takes to turn off the scorpion onto the travel's.</summary>
+        internal const float LOOK_RELEASE = 2.6f;
+
+        /// <summary>When the look starts to let go of the scorpion: the shared landing's hand-over from the scorpion to its
+        /// direction (<see cref="IntroLanding.HANDOVER_SHARE"/> of the release) is done as the lens lifts, while the scorpion
+        /// brakes to rest at the end of its walk. Begun at the lift, the hand-over still had the look on the scorpion as the lens
+        /// started to climb, and craning down after it, the view pitched at 160 degrees a second squared.</summary>
+        internal static readonly float LetGo = Lift - LOOK_RELEASE * IntroLanding.HANDOVER_SHARE;
 
         //Where the close view stands: behind the pose, this far out past it, turned up to SPREAD degrees off the pose's own
         //line; and how far off the flight's line the scorpion's walk stands, degrees, one side or the other
@@ -60,7 +70,7 @@ namespace BS3D.Effects
         private const float SPREAD = 30f;
         private const float VIEW_OFF_MIN = 12f, VIEW_OFF_MAX = 24f;
 
-        //The hold: the lens creeps this far towards the pose until LIFT
+        //The hold: the lens creeps this far towards the pose until Lift
         private const float CREEP = 0.6f;
 
         //The take-off, laid on the shot's clock: the pace eases from the creep's to a cruise over RAMP_SECONDS, the lens climbing
@@ -74,7 +84,7 @@ namespace BS3D.Effects
         private const float SETTLE_SECONDS = 2.4f;
 
         //How long the flight should be: among clear candidates the one nearest it is preferred
-        private const float TARGET_SECONDS = 9f;
+        private const float TARGET_SECONDS = 9.5f;
 
         //No tighter than this off the creep's line onto the pose
         private const float TURN_RADIUS = 8f;
@@ -98,9 +108,11 @@ namespace BS3D.Effects
 
         /// <summary>How the scorpion home is timed, pointed and banked once laid (<see cref="IntroLanding.Fly"/>): the old
         /// scorpion shot's narrow lens, easing to the game's; the meadow's settle; the look on the island ahead turned half way
-        /// in and raised half way to the pose's target, following little of the lens's own climb off the sand (0.3 of it, the
-        /// meadow's, tipped the view up and back down at 54 degrees a second squared as the climb began); a light bank.</summary>
-        internal static readonly IntroLanding.Style Landing = new(WideLens: 0.75f, ReleaseTimeScale: 2f, LookPitchFollow: 0.1f,
+        /// in and raised half way to the pose's target, following none of the lens's own climb off the sand. ⚠ The travel's
+        /// direction is averaged over ±<c>LookSmoothSeconds</c>, and where the creep tips into the climb that average has a
+        /// corner at either end of its window: following 0.3 of the climb (the meadow's), the view's tilt changed at 54 degrees
+        /// a second squared there, and 0.1 still at 119. A light bank.</summary>
+        internal static readonly IntroLanding.Style Landing = new(WideLens: 0.75f, ReleaseTimeScale: 2f, LookPitchFollow: 0f,
             LookDistance: 30f, LookSmoothSeconds: 0.3f, LookLandSeconds: 2.2f, LookInward: 0.5f, RollPerTurn: 0.1f,
             MaxRollDegrees: 6f, RollSmoothSeconds: 0.25f, Points: 240, LookRise: 0.5f);
 
@@ -137,7 +149,7 @@ namespace BS3D.Effects
             if (best == null) return null;
 
             Walk chosen = walk = walks[best];
-            var subject = new IntroLanding.Subject(t => Scorpion(chosen, t, desert), LOOK_HOLD, LOOK_RELEASE);
+            var subject = new IntroLanding.Subject(t => Scorpion(chosen, t, desert), LetGo, LOOK_RELEASE);
             return IntroLanding.Fly(NAME, best, endPosition, endTarget, fieldOfView, Landing, subject,
                 cue == null ? null : () => cue(chosen.Start, chosen.Yaw));
         }
@@ -184,7 +196,7 @@ namespace BS3D.Effects
             Vector2 across = new Vector2(-view.Y, view.X) * side;
 
             float yaw = MathF.Atan2(across.X, across.Y);
-            Vector2 walked = Flat(SceneRenderer.DesertFeatureAt(Vector2.Zero, yaw, SceneRenderer.DesertFeatureSeconds, desert));
+            Vector2 walked = Flat(SceneRenderer.DesertFeatureAt(Vector2.Zero, yaw, SceneRenderer.DesertFeatureSeconds(), desert));
             Vector2 start = middle - walked * 0.5f, finish = start + walked;
 
             float flat = desert.ClearingRadius * CLEARING_SHARE, nearest = ArenaIsland.RADIUS + WALK_CLEAR;
@@ -213,13 +225,13 @@ namespace BS3D.Effects
             //The take-off on the shot's clock, laid twice more: the lift is stated on the wall clock (the scorpion's), and the shot's
             //points are spaced on its eased one (IntroShot.Uneased), so how long the hold lasts on that clock depends on the
             //shot's length
-            float hold = LIFT, seconds = 0f, entry = cruise;
+            float hold = Lift, seconds = 0f, entry = cruise;
             (List<float> S, List<float> T) march = default;
             for (int pass = 0; pass < 3; pass++)
             {
                 march = March(planLength[liftAt], sSettle, hold, cruise, out entry);
                 seconds = march.T[^1] + Landing.ReleaseTimeScale * settleLength / entry;
-                hold = IntroShot.Eased(LIFT / seconds) * seconds;
+                hold = IntroShot.Eased(Lift / seconds) * seconds;
             }
 
             //Long enough after the lift for the climb and the pace's ramp, so both are done before the deceleration

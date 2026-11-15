@@ -77,13 +77,16 @@ namespace BS3D.Effects
         /// <summary>
         /// A subject the look is held on from the shot's first frame (#1110, the desert's scorpion): the shot opens as a close
         /// view of it and takes off from there. The look is on <see cref="At"/> until <see cref="HoldSeconds"/>, then turns off
-        /// it onto the travel's own look over <see cref="ReleaseSeconds"/> (in yaw, pitch and distance, so it sweeps evenly),
-        /// and the bank is held level for as long as the look is on it.
+        /// it onto the travel's own look over <see cref="ReleaseSeconds"/> (in yaw, pitch and distance, so it sweeps evenly, and
+        /// eased in and out to the second derivative, so the view's turn does not step as it starts), and the bank is held level
+        /// for as long as the look is on it.
         /// <para>
         /// ⚠ <b>From <see cref="HoldSeconds"/> on, the look turns off the subject's DIRECTION as it was then</b>, not off the
         /// subject itself: a lens lifting off a few units from a subject it still looks at cranes down after it, and the desert's
         /// first cut pitched the view 57 degrees a second down and back up as it climbed past its scorpion, near three times a drone
-        /// gimbal's limit. Held, the subject falls away down the frame as the lens rises.
+        /// gimbal's limit. Held, the subject falls away down the frame as the lens rises. The look hands over from the subject
+        /// to that direction over the release's first <see cref="HANDOVER_SHARE"/>, eased: switched in one frame, the turn the
+        /// look had been making stopped dead, a step in its rate.
         /// </para>
         /// </summary>
         /// <param name="At">The point to look at, at each second of the shot ON THE WALL CLOCK, which the subject moves on: the
@@ -91,6 +94,11 @@ namespace BS3D.Effects
         /// <param name="HoldSeconds">How long the look stays on it, seconds from the shot's start.</param>
         /// <param name="ReleaseSeconds">How long the look takes to turn off it.</param>
         internal sealed record Subject(Func<float, Vector3> At, float HoldSeconds, float ReleaseSeconds);
+
+        /// <summary>How much of a subject's release the look takes to hand over from the subject to its held direction (see
+        /// <see cref="Subject"/>): a scene lifting its lens off the subject starts letting go this much of the release before
+        /// the lift, so the hand-over is done before the lens climbs.</summary>
+        internal const float HANDOVER_SHARE = 0.25f;
 
         /// <summary>
         /// One candidate route, laid in full: the dense path from the shot's first point to the pose, the speed at each point
@@ -323,14 +331,17 @@ namespace BS3D.Effects
                 for (int k = 0; k < points; k++)
                 {
                     float shown = IntroShot.Uneased(k / (float)(points - 1)) * seconds;
-                    held[k] = 1f - MathHelper.SmoothStep(0f, 1f,
-                        MathHelper.Clamp((shown - subject.HoldSeconds) / MathF.Max(subject.ReleaseSeconds, 1e-3f), 0f, 1f));
-                    if (shown < subject.HoldSeconds || letGo < 0)
-                    {
-                        subjectAt[k] = subject.At(shown);
-                        if (shown >= subject.HoldSeconds) letGo = k;
-                    }
-                    else subjectAt[k] = positions[k] + (subjectAt[letGo] - positions[letGo]);
+                    float let = MathHelper.Clamp((shown - subject.HoldSeconds) / MathF.Max(subject.ReleaseSeconds, 1e-3f), 0f, 1f);
+                    held[k] = 1f - let * let * let * (let * (let * 6f - 15f) + 10f);
+                    subjectAt[k] = subject.At(shown);
+                    if (shown < subject.HoldSeconds) continue;
+
+                    //Handed over from the subject to its held direction over the release's first HANDOVER_SHARE, eased in and out,
+                    //so the look's turn does not step at the moment it lets go
+                    if (letGo < 0) letGo = k;
+                    float hand = MathHelper.Clamp((shown - subject.HoldSeconds) / MathF.Max(subject.ReleaseSeconds * HANDOVER_SHARE, 1e-3f), 0f, 1f);
+                    hand = hand * hand * hand * (hand * (hand * 6f - 15f) + 10f);
+                    subjectAt[k] = positions[k] + Vector3.Lerp(subjectAt[k] - positions[k], subjectAt[letGo] - positions[letGo], hand);
                 }
             }
 

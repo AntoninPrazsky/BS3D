@@ -1463,27 +1463,36 @@ namespace Prazsky.Core.Render
         public void CueVolcanoBurst(float now, float onset) => _volcano.Lava.CueBurst(now, onset);
 
         /// <summary>
-        /// Cues the desert's featured scorpion (#966) to come up out of the sand at <paramref name="at"/> (world XZ) at
-        /// <paramref name="onset"/> on the scene's clock, walking along <paramref name="yaw"/>: the chapter tour's close shot.
+        /// Cues the desert's featured scorpion (#966), or its featured beetle (#1110), to come up out of the sand at
+        /// <paramref name="at"/> (world XZ) at <paramref name="onset"/> on the scene's clock, walking along <paramref name="yaw"/>:
+        /// the chapter intro's close shots. An onset in the past has it walking already.
         /// </summary>
-        public void CueDesertCritter(Vector2 at, float yaw, float onset) => _desert.Critters.Feature(at, yaw, onset);
+        public void CueDesertCritter(Vector2 at, float yaw, float onset, bool scorpion = true) => _desert.Critters.Feature(at, yaw, onset, scorpion);
 
         /// <summary>
-        /// Where the desert's featured scorpion cued at <paramref name="at"/> along <paramref name="yaw"/>
+        /// Where the desert's featured scorpion (or beetle) cued at <paramref name="at"/> along <paramref name="yaw"/>
         /// (<see cref="CueDesertCritter"/>) stands <paramref name="sinceOnset"/> seconds after its onset (#1110): its foot on
         /// the sand of <paramref name="config"/>, held at its burrow before it comes up and where it went back in after. A pure
         /// function of the clock, as its life is, so a shot can keep it in frame through its walk.
         /// </summary>
-        public static Vector3 DesertFeatureAt(Vector2 at, float yaw, float sinceOnset, DesertSceneConfig config)
+        public static Vector3 DesertFeatureAt(Vector2 at, float yaw, float sinceOnset, DesertSceneConfig config, bool scorpion = true)
         {
-            float life = DesertFeatureSeconds;
-            DesertCritters.TryFeaturePose(at, yaw, 0f, Math.Clamp(sinceOnset, 0f, life), (x, z) => TerrainMirror.Desert(x, z, config),
-                out DesertCritters.Pose pose);
+            DesertCritters.TryFeaturePose(at, yaw, 0f, Math.Clamp(sinceOnset, 0f, DesertFeatureSeconds(scorpion)),
+                (x, z) => TerrainMirror.Desert(x, z, config), out DesertCritters.Pose pose, scorpion);
             return pose.Position;
         }
 
-        /// <summary>The featured scorpion's whole life from its onset, seconds: up out of the sand, its walk, and back in (#1110).</summary>
-        public static float DesertFeatureSeconds => DesertCritters.EMERGE_SECONDS + DesertCritters.FEATURE_WALK_SECONDS + DesertCritters.BURROW_SECONDS;
+        /// <summary>The featured scorpion's (or beetle's) whole life from its onset, seconds: up out of the sand, its walk, and back
+        /// in (#1110).</summary>
+        public static float DesertFeatureSeconds(bool scorpion = true) =>
+            DesertFeatureWalkEnds(scorpion) + DesertCritters.BURROW_SECONDS;
+
+        /// <summary>When the featured scorpion's (or beetle's) walk ends and it starts to dig back in, seconds from its onset.</summary>
+        public static float DesertFeatureWalkEnds(bool scorpion = true) =>
+            DesertCritters.EMERGE_SECONDS + DesertCritters.FeatureWalkSeconds(scorpion);
+
+        /// <summary>How long the featured scorpion (or beetle) takes to come up out of the sand, seconds from its onset.</summary>
+        public const float DESERT_FEATURE_EMERGE_SECONDS = DesertCritters.EMERGE_SECONDS;
 
         /// <summary>
         /// The event this scene has staged on its own clock at <paramref name="time"/>, described as the

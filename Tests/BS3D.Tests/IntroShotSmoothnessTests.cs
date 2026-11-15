@@ -11,9 +11,10 @@ namespace BS3D.Tests
 {
     /// <summary>
     /// The chapter-intro shots that fly over rough ground ride like drone footage (#645, #530, #1109, #1112). Every
-    /// shot whose height <see cref="AridIntroPaths.Hug"/> lays — the desert's erg, pyramids, crest and flock, the
+    /// shot whose height <see cref="AridIntroPaths.Hug"/> lays — the desert's erg, pyramids and crest, the
     /// mountains' range, pass and summit, the outback's plain, approach and crown, the volcano's crater run and the
-    /// Moon's tracks (#1114) — is built through its real builder on the shipped scene config over a dozen rolls and
+    /// Moon's tracks (#1114) — and the desert's shots low over its sand (#1110: the beetle, the scorpion and the scorpion
+    /// home's take-off) is built through its real builder on the shipped scene config over a dozen rolls and
     /// sampled at sixty frames a second on its own eased clock.
     /// <para>
     /// <b>What the limits are, and why.</b> Drone footage changes height and tilt slowly: a gimbal tilts at most about
@@ -92,7 +93,10 @@ namespace BS3D.Tests
                 ["desert: the erg"] = new(r => DesertIntroShots.Erg(sand, FieldOfView, r), sand, DesertIntroShots.WIDE_CLEARANCE, false, false),
                 ["desert: the pyramids"] = new(r => DesertIntroShots.PyramidsShot(desert, sand, FieldOfView, r), sand, DesertIntroShots.PYRAMIDS_CLEARANCE, false, true),
                 ["desert: the crest"] = new(r => DesertIntroShots.Crest(desert, sand, FieldOfView, r), sand, DesertIntroShots.CREST_CLEARANCE, true, true),
-                ["desert: the flock"] = new(r => DesertIntroShots.Flock(desert, sand, FieldOfView, r), sand, DesertIntroShots.FLOCK_CLEARANCE, false, true),
+                //The two close shots (#1110): the beetle dollying beside its beetle, and the scorpion where no flight home is clear
+                ["desert: the beetle"] = new(r => DesertIntroShots.Beetle(null, desert, sand, FieldOfView, r), sand, DesertIntroShots.BEETLE_LENS_ABOVE, true, true),
+                ["desert: the scorpion"] = new(r => DesertIntroShots.Scorpion(null, desert, sand, FieldOfView, r), sand,
+                    DesertIntroShots.SCORPION_CLEARANCE * 0.9f, true, true),
                 //The take-off from the scorpion onto Rope's pose (#1110): its height is the pose's by design, so it has a floor
                 ["desert: the scorpion home"] = new(r => DesertLanding.Build(desert, null, rope, ropeTarget, FieldOfView, r, out _), sand,
                     DesertLanding.LOWEST, true, false),

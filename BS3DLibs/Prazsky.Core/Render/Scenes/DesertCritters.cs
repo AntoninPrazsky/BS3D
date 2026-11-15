@@ -50,19 +50,21 @@ namespace Prazsky.Core.Render
         private readonly IndexBuffer[] _meshIndices = new IndexBuffer[2];
         private readonly int[] _meshTriangles = new int[2];
         private readonly DynamicVertexBuffer[] _instances = new DynamicVertexBuffer[2];
-        private readonly ModelInstance[][] _instanceData = { new ModelInstance[BEETLES], new ModelInstance[SCORPIONS + 1] };
+        private readonly ModelInstance[][] _instanceData = { new ModelInstance[BEETLES + 1], new ModelInstance[SCORPIONS + 1] };
 
-        //THE FEATURED SCORPION (#966): the chapter tour's close shot cues one to come up out of the sand where its lens is
-        //framed (SceneRenderer.CueDesertCritter, DesertIntroShots), at the moment the shot comes on screen, so the shot need
-        //not wait for one of the others' cycles to bring one there. It comes up, walks a few lengths across the frame and digs
-        //back in (FEATURE_WALK_SECONDS), and is gone after. NaN onset: none cued.
-        private Vector2 _featureAt;
-        private float _featureYaw, _featureOnset = float.NaN;
-        internal const float FEATURE_WALK_SECONDS = 4.5f;
+        //THE FEATURED SCORPION AND BEETLE (#966, #1110): the chapter intro's close shots cue one of each to come up out of the
+        //sand where their lens is framed (SceneRenderer.CueDesertCritter, DesertIntroShots, DesertLanding), at the moment the
+        //shot comes on screen, so a shot need not wait for one of the others' cycles to bring one there. Each comes up, walks a
+        //few lengths straight on (FEATURE_SCORPION_WALK, FEATURE_BEETLE_WALK) and digs back in, and is gone after; an onset
+        //in the past (the beetle's) has it walking already on the shot's first frame. Slot 0 the beetle, 1 the scorpion, as
+        //the meshes; NaN onset: none cued.
+        private readonly Vector2[] _featureAt = new Vector2[2];
+        private readonly float[] _featureYaw = new float[2], _featureOnset = { float.NaN, float.NaN };
+        internal const float FEATURE_SCORPION_WALK = 3.0f, FEATURE_BEETLE_WALK = 3.2f, FEATURE_STOP_SECONDS = 0.6f;
         private readonly int[] _counts = new int[2];
 
         //The soft discs: a shadow under each creature, the burrow's hole, the puffs; four vertices a disc
-        private const int MAX_DISCS = COUNT * 8 + BEETLES * TRAIL_PRINTS;
+        private const int MAX_DISCS = (COUNT + 2) * 8 + (BEETLES + 1) * TRAIL_PRINTS;
 
         //A beetle's trail (the references' double line of footprints): this many prints behind it, a print this many of its
         //lengths apart and this far either side of its line
@@ -97,7 +99,7 @@ namespace Prazsky.Core.Render
 
             Upload(0, CritterMesh.Beetle());
             Upload(1, CritterMesh.Scorpion());
-            _instances[0] = new DynamicVertexBuffer(device, ModelInstance.VertexDeclaration, BEETLES, BufferUsage.WriteOnly);
+            _instances[0] = new DynamicVertexBuffer(device, ModelInstance.VertexDeclaration, BEETLES + 1, BufferUsage.WriteOnly);
             _instances[1] = new DynamicVertexBuffer(device, ModelInstance.VertexDeclaration, SCORPIONS + 1, BufferUsage.WriteOnly);
 
             _discBuffer = new DynamicVertexBuffer(device, VertexPositionColorTexture.VertexDeclaration, _discs.Length, BufferUsage.WriteOnly);
@@ -143,31 +145,61 @@ namespace Prazsky.Core.Render
 
         internal static bool IsScorpion(int i) => i >= BEETLES;
 
-        /// <summary>Cues the featured scorpion to come up at <paramref name="at"/> at <paramref name="onset"/>, walking along <paramref name="yaw"/>.</summary>
-        internal void Feature(Vector2 at, float yaw, float onset)
+        /// <summary>Cues the featured scorpion (or beetle) to come up at <paramref name="at"/> at <paramref name="onset"/>, walking
+        /// along <paramref name="yaw"/>.</summary>
+        internal void Feature(Vector2 at, float yaw, float onset, bool scorpion = true)
         {
-            _featureAt = at;
-            _featureYaw = yaw;
-            _featureOnset = onset;
+            int slot = scorpion ? 1 : 0;
+            _featureAt[slot] = at;
+            _featureYaw[slot] = yaw;
+            _featureOnset[slot] = onset;
         }
 
-        /// <summary>The featured scorpion's pose, on its own short timeline from its cue; false before and after it.</summary>
-        internal static bool TryFeaturePose(Vector2 at, float yaw, float onset, float time, Func<float, float, float> ground, out Pose pose)
+        /// <summary>
+        /// How far a featured creature has walked <paramref name="walked"/> seconds into a walk of <paramref name="walk"/>: the
+        /// others' stops and starts at <paramref name="speed"/>, setting off from rest over the first
+        /// <see cref="FEATURE_STOP_SECONDS"/> and braking steadily to rest over the last (#1110). The close shots' looks follow
+        /// it: setting off at the others' pace in one frame, it jerked the scorpion's look at 145 degrees a second squared, and
+        /// stopping dead at 40.
+        /// </summary>
+        internal static float FeatureDistance(float walked, float walk, float speed)
+        {
+            float from = walk - FEATURE_STOP_SECONDS;
+            if (walked <= from) return speed * Along(SetOff(walked));
+
+            float g = SetOff(from);
+            float pace = speed * (1f - 0.35f * MathF.Cos(g * 1.9f)) * MathF.Min(from / FEATURE_STOP_SECONDS, 1f), braking = walked - from;
+            return speed * Along(g) + pace * (braking - braking * braking / (2f * FEATURE_STOP_SECONDS));
+
+            //Its walk's own clock, eased in: its rate comes up from nought to one over the first FEATURE_STOP_SECONDS
+            static float SetOff(float w) => w < FEATURE_STOP_SECONDS ? w * w / (2f * FEATURE_STOP_SECONDS) : w - 0.5f * FEATURE_STOP_SECONDS;
+            //The others' stops and starts, a walk of g seconds on that clock
+            static float Along(float g) => g - 0.35f * MathF.Sin(g * 1.9f) / 1.9f;
+        }
+
+        /// <summary>How long the featured scorpion's (or beetle's) walk lasts.</summary>
+        internal static float FeatureWalkSeconds(bool scorpion) => scorpion ? FEATURE_SCORPION_WALK : FEATURE_BEETLE_WALK;
+
+        /// <summary>A featured creature's pose, on its own short timeline from its cue; false before and after it. It walks at
+        /// its kind's pace with the others' stops and starts, straight on along <paramref name="yaw"/>.</summary>
+        internal static bool TryFeaturePose(Vector2 at, float yaw, float onset, float time, Func<float, float, float> ground, out Pose pose,
+            bool scorpion = true)
         {
             pose = default;
             float local = time - onset;
-            float total = EMERGE_SECONDS + FEATURE_WALK_SECONDS + BURROW_SECONDS;
+            float walk = FeatureWalkSeconds(scorpion);
+            float total = EMERGE_SECONDS + walk + BURROW_SECONDS;
             if (float.IsNaN(onset) || local < 0f || local > total) return false;
 
-            float speed = SCORPION_SPEED * SCORPION_SIZE * 0.8f;
-            float walked = Math.Clamp(local - EMERGE_SECONDS, 0f, FEATURE_WALK_SECONDS);
-            float distance = speed * (walked - 0.35f * MathF.Sin(walked * 1.9f) / 1.9f);
+            float size = scorpion ? SCORPION_SIZE : BEETLE_SIZE;
+            float speed = scorpion ? SCORPION_SPEED * SCORPION_SIZE * 0.8f : BEETLE_SPEED * BEETLE_SIZE;
+            float distance = FeatureDistance(Math.Clamp(local - EMERGE_SECONDS, 0f, walk), walk, speed);
             Vector2 p = Arc(at, yaw, 0f, distance, out float heading);
             float emerging = Math.Clamp(local / EMERGE_SECONDS, 0f, 1f);
-            float burrowing = Math.Clamp((local - EMERGE_SECONDS - FEATURE_WALK_SECONDS) / BURROW_SECONDS, 0f, 1f);
+            float burrowing = Math.Clamp((local - EMERGE_SECONDS - walk) / BURROW_SECONDS, 0f, 1f);
             float sunk = (1f - Smooth(emerging)) + Smooth(burrowing);
             float pitch = 0.6f * (1f - Smooth(emerging)) * (emerging < 1f ? 1f : 0f) - 0.55f * Smooth(burrowing);
-            pose = new Pose(new Vector3(p.X, ground(p.X, p.Y), p.Y), heading, pitch, sunk, distance / SCORPION_SIZE * STEPS_PER_LENGTH * MathHelper.TwoPi,
+            pose = new Pose(new Vector3(p.X, ground(p.X, p.Y), p.Y), heading, pitch, sunk, distance / size * STEPS_PER_LENGTH * MathHelper.TwoPi,
                 new Vector3(burrowing > 0f ? p.X : at.X, 0f, burrowing > 0f ? p.Y : at.Y), emerging < 1f ? emerging : 0f, burrowing,
                 at, yaw, 0f, distance);
             return true;
@@ -248,13 +280,16 @@ namespace Prazsky.Core.Render
             Matrix view = frame.Camera.View;
             Vector3 right = new(view.M11, view.M21, view.M31);
 
-            for (int i = 0; i <= COUNT; i++)
+            for (int i = 0; i < COUNT + 2; i++)
             {
-                //The last is the featured scorpion, on its own timeline
+                //The last two are the featured beetle and scorpion, each on its own timeline
                 Pose pose;
-                if (i == COUNT ? !TryFeaturePose(_featureAt, _featureYaw, _featureOnset, frame.Time, _ground, out pose) : !TryPose(i, frame.Time, out pose))
+                int slot = i - COUNT;
+                if (slot >= 0
+                    ? !TryFeaturePose(_featureAt[slot], _featureYaw[slot], _featureOnset[slot], frame.Time, _ground, out pose, scorpion: slot == 1)
+                    : !TryPose(i, frame.Time, out pose))
                     continue;
-                bool scorpion = i == COUNT || IsScorpion(i);
+                bool scorpion = slot >= 0 ? slot == 1 : IsScorpion(i);
                 float size = scorpion ? SCORPION_SIZE : BEETLE_SIZE;
                 int kind = scorpion ? 1 : 0;
                 float height = size * 0.5f;
