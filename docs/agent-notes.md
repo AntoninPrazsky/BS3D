@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1115 Mars: úvod letí po kolejích vozítka — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: úvod Marsu otevírá záběr „the tracks“ (`Game/Effects/MarsIntroShots.cs`): 45 j středem kolejí 12,5 j/s, 2,6–2,95 nad `MarsCeiling`, pohled z kolejí 22 j vpředu se zvedne na ostrov a cluster. Hraje se tam, kde zem kreslí koleje (`MarsBackdrop.FullGroundAt`, Medium a výš); na Low zůstává „the plain“. Úvod 14,5 s (Low 14,1 s). `MarsTracks.TRAVERSE` je jediná kopie trasy; oblouk kolem arény překreslen (ohyb ≤ 9,3° místo 18,2°), kameny znovu rozhozeny. Chůze po kolejích Měsíce je sdílená (`RutsWalk`); Měsíc ověřen bajtově stejným výpisem.
+- ⚠ Úhel plánu se losuje na každém tieru, jinak tier posune vše, co los rozdá potom (jiná mesa).
+- Otevřené: `verdict-eye` (pohyb neviděn, zalomení kolejí přes malé krátery); cena kolejí na nové trase neměřena.
+
 ## 2026-11-15 — #1119 města: záběr fasád se zrcadlením — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: obě města mají nový záběr „the facades“ (`Game/Effects/CityIntroShots.cs`): kamera jde ulicí 1,5 j mimo osu (4 → 10 nad asfaltem), míří na jeden bod věže, který se přibližuje z 21 na 6 j, ulice zůstává pod rámem. Výběr ze 48 kandidátů podle toho, kolik tabulí zrcadlí věž. Oba reely: ulice, náměstí, fasády, střechy, cesta domů (24–26 s místo 20–22); ulice zkrácena na 4,0 s. Bez odrazů (Potato, GLES, nižší tiery) se fasády nehrají a reel zůstává starý.
