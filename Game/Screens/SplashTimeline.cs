@@ -12,9 +12,11 @@ namespace BS3D.Screens
     {
         //=== THE SEQUENCE, in seconds ===
         //
-        //A starting point rather than a measurement: the issue offered figures of this shape and said the
-        //owner's eye decides. Five legs since #621 — up out of black, held, the black away, a beat, the picture
-        //away — and the page then replaces itself with the menu the last two legs have already been showing.
+        //A starting point rather than a measurement: the issues offered figures of this shape and said the owner's
+        //eye decides. Up out of black, held, then ONE dissolve (#1105): the black lifts, and a moment after it has
+        //begun the picture starts to go too, trailing it, so the logo is gone a moment after the black rather than
+        //standing alone over a scene that has already fully arrived. The page then replaces itself with the menu
+        //the dissolve has already been showing.
 
         /// <summary>Black to the logo over black.</summary>
         internal const float FADE_UP_SECONDS = 0.7f;
@@ -27,37 +29,43 @@ namespace BS3D.Screens
         internal const float HOLD_SECONDS = 1.5f;
 
         /// <summary>
-        /// The black lifts off the scene, the picture still fully up over it (#621). Slower than the fade up: this is the leg
-        /// that shows the player a whole new picture — the island, the sky, the city — and a quicker lift reads as the cut it
-        /// replaced.
+        /// The black lifts off the scene (#621). Slower than the fade up: this is the leg that shows the player a whole new
+        /// picture — the island, the sky, the city — and a quicker lift reads as the cut it replaced.
         /// </summary>
         internal const float BLACK_OUT_SECONDS = 0.8f;
 
         /// <summary>
-        /// The picture alone over the live scene: long enough to register the scene's arrival and the title's hand-over as two
-        /// steps rather than one fade smeared into the next, short enough not to read as a second hold.
+        /// How far the picture's fade trails the black's (#1105): it starts this long after the black has begun to lift, well
+        /// inside the lift, so the two read as one dissolve with the logo a little behind — the PNG's transparency lets the
+        /// arriving scene show round its letters while it goes. Until #1105 the picture waited for the black to be gone and
+        /// then a beat more, and the scene stood fully revealed under a logo that had not yet begun to leave, which the owner
+        /// saw as the black melting into the menu faster than the logo. How long the lag should be is the owner's eye.
         /// </summary>
-        internal const float BEAT_SECONDS = 0.4f;
+        internal const float LOGO_LAG_SECONDS = 0.25f;
 
         /// <summary>
         /// The picture away, and the 3D wordmark in over the same leg (<see cref="WordmarkPresence"/>). A shade quicker than
-        /// the black: the scene is already there, and the flat logo only has to hand over to the corner title.
+        /// the black, so with <see cref="LOGO_LAG_SECONDS"/> the logo is gone shortly after the black rather than long after it.
         /// </summary>
         internal const float LOGO_OUT_SECONDS = 0.7f;
 
         /// <summary>When the black starts to lift — the end of the part of the sequence that is on black.</summary>
         internal const float EXIT_START = FADE_UP_SECONDS + HOLD_SECONDS;
 
-        /// <summary>When the picture starts to go.</summary>
-        internal const float LOGO_OUT_START = EXIT_START + BLACK_OUT_SECONDS + BEAT_SECONDS;
+        /// <summary>When the picture starts to go: <see cref="LOGO_LAG_SECONDS"/> into the black's lift.</summary>
+        internal const float LOGO_OUT_START = EXIT_START + LOGO_LAG_SECONDS;
 
-        /// <summary>The whole sequence; the front end takes the page's place at the end of it.</summary>
+        /// <summary>
+        /// The whole sequence; the front end takes the page's place at the end of it. The picture's fade ends last (the black's
+        /// lift ends <c>LOGO_LAG_SECONDS + LOGO_OUT_SECONDS - BLACK_OUT_SECONDS</c> before it), so this is where it ends.
+        /// </summary>
         internal const float SECONDS = LOGO_OUT_START + LOGO_OUT_SECONDS;
 
         /// <summary>
         /// How much faster the sequence runs once the player has asked it to go (see <see cref="SplashPage.Update"/>): the
-        /// exit's 1.9 seconds pass in about 0.6, which is quick enough to read as the press being obeyed and slow enough to
-        /// still be the fade rather than the cut #621 replaced.
+        /// exit's <see cref="LOGO_LAG_SECONDS"/> + <see cref="LOGO_OUT_SECONDS"/> pass in a third of the time, quick enough to
+        /// read as the press being obeyed and still the fade rather than the cut #621 replaced. The rate scales the age, so a
+        /// skipped exit keeps the same overlap, the logo a third of the lag behind the black.
         /// </summary>
         internal const float SKIP_RATE = 3f;
 
@@ -87,17 +95,19 @@ namespace BS3D.Screens
         internal static float Black(float age) => 1f - MathHelper.SmoothStep(0f, 1f, (age - EXIT_START) / BLACK_OUT_SECONDS);
 
         /// <summary>
-        /// How present the picture is: up out of the black, held, then away over <see cref="LOGO_OUT_SECONDS"/> — the black
-        /// gone for good before it starts to go (the beat between them).
+        /// How present the picture is: up out of the black, held, then away over <see cref="LOGO_OUT_SECONDS"/>, starting
+        /// <see cref="LOGO_LAG_SECONDS"/> into the black's lift — so through the dissolve it is always at least as present as
+        /// the black, and outlasts it.
         /// </summary>
         internal static float Logo(float age) =>
             MathHelper.SmoothStep(0f, 1f, age / FADE_UP_SECONDS)
             * (1f - MathHelper.SmoothStep(0f, 1f, (age - LOGO_OUT_START) / LOGO_OUT_SECONDS));
 
         /// <summary>
-        /// How present the 3D wordmark is under the page, 0 to 1 (#621): zero through the legs on black, the black's lift and
-        /// the beat — the picture is the only title while it is fully up — then a smoothstep to one over exactly the leg the
-        /// picture fades out on, so the two cross over. See <see cref="SplashPage.WordmarkPresence"/>.
+        /// How present the 3D wordmark is under the page, 0 to 1 (#621): zero through the legs on black and the start of the
+        /// black's lift — the picture is the only title while it is fully up — then a smoothstep to one over exactly the leg
+        /// the picture fades out on, so the two cross over: the wordmark is the picture's complement, never at full strength
+        /// while the picture is. See <see cref="SplashPage.WordmarkPresence"/>.
         /// </summary>
         internal static float WordmarkPresence(float age) => MathHelper.SmoothStep(0f, 1f, (age - LOGO_OUT_START) / LOGO_OUT_SECONDS);
     }

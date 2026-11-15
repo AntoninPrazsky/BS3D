@@ -8,9 +8,9 @@ using System.Collections.Generic;
 namespace BS3D.Screens
 {
     /// <summary>
-    /// The intro the game opens on (#454): the <b>2D logo bitmap</b> fading up out of black and held; then the
-    /// <b>black</b> fades away, revealing the front end's scene behind the still-visible picture, and a beat
-    /// later the <b>picture</b> fades out while the 3D wordmark grows in, in its menu corner (#601, #621).
+    /// The intro the game opens on (#454): the <b>2D logo bitmap</b> fading up out of black and held; then one
+    /// dissolve, the <b>black</b> fading away to reveal the front end's scene and, a moment after it has begun, the
+    /// <b>picture</b> fading out behind it while the 3D wordmark grows in, in its menu corner (#601, #621, #1105).
     /// It hands over to the main menu on its own at the end of that, or sooner when the player asks it to. The
     /// player can turn it off altogether (Settings, "Intro logo") and a run can skip it (<c>nosplash</c>), in
     /// which case it is never pushed and the game opens on the main menu (#621).
@@ -26,8 +26,10 @@ namespace BS3D.Screens
     /// the 3D lettering standing in the picture's own layout in the middle of the frame, and the letters flew
     /// to the corner as the menu arrived. The owner ruled the cross-fade and the fly out: the wordmark is in its
     /// menu position from the start. The page then cut from the logo on black straight to the menu, and the
-    /// owner asked for that cut to be a fade instead (#621): the black goes first, so for a moment the picture
-    /// stands alone over the running scene, and then the picture goes. <b>The wordmark is held back until the
+    /// owner asked for that cut to be a fade instead (#621): the black goes first and the picture trails it, its
+    /// fade starting a moment into the black's lift (<see cref="SplashTimeline.LOGO_LAG_SECONDS"/>, #1105) rather than
+    /// after the black had gone and a beat more, which left the scene fully arrived under a logo that had not yet
+    /// begun to leave. <b>The wordmark is held back until the
     /// picture starts to go and arrives over the same leg</b> (<see cref="WordmarkPresence"/>): with both at
     /// full strength at once the flat logo's centre lines ran into the corner block's and read as one garbled
     /// word ("BUBBLEOTER", photographed at 1600x900), so the two titles cross over rather than overlap. Nothing
@@ -37,9 +39,10 @@ namespace BS3D.Screens
     /// </para>
     /// <para>
     /// <b>The menu becomes interactive when the picture has gone, and not before</b>: the page stays on top of
-    /// the stack through all five legs, so the main menu's entries appear, and take input, on the frame it
-    /// replaces itself — and <see cref="BS3DGame.IsSplashUp"/>, which the startup script's pages wait on, stays
-    /// true until then too. While the black is going the scene is live behind the picture (the backdrop draws
+    /// the stack through the whole sequence (<see cref="SplashTimeline.SECONDS"/>, which the picture's fade ends),
+    /// so the main menu's entries appear, and take input, on the frame it replaces itself — and
+    /// <see cref="BS3DGame.IsSplashUp"/>, which the startup script's pages wait on, stays true until then too. While
+    /// the black is going the scene is live behind the picture (the backdrop draws
     /// under this page every frame, black or not); the wordmark under the splash is drawn at
     /// <see cref="WordmarkPresence"/>, which is zero — no draw at all — until the picture starts to go.
     /// </para>
@@ -140,7 +143,7 @@ namespace BS3D.Screens
             _age = age;
 
             //A SKIP FAST-FORWARDS, and a second one cuts (#621). The first deliberate press finishes the fade
-            //up (quickly), leaves the hold out and runs the exit — black away, beat, picture away — at SKIP_RATE,
+            //up (quickly), leaves the hold out and runs the exit — the black away, the picture trailing it — at SKIP_RATE,
             //so a player who asked for the menu gets it in well under a second and still sees it arrive the way
             //it always does, rather than the one-frame cut the owner asked to be rid of. Jumping straight to the
             //start of the exit instead would pop a half-faded logo to full on the press. A player who presses
