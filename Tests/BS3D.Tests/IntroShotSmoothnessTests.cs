@@ -12,10 +12,10 @@ namespace BS3D.Tests
     /// <summary>
     /// The chapter-intro shots that fly over rough ground ride like drone footage (#645, #530, #1109, #1112). Every
     /// shot whose height <see cref="AridIntroPaths.Hug"/> lays — the desert's erg, pyramids and crest, the
-    /// mountains' range, pass and summit, the outback's plain, approach and crown, the volcano's crater run and the
-    /// Moon's tracks (#1114) — and the desert's shots low over its sand (#1110: the beetle, the scorpion and the scorpion
-    /// home's take-off) is built through its real builder on the shipped scene config over a dozen rolls and
-    /// sampled at sixty frames a second on its own eased clock.
+    /// mountains' range, pass and summit, the outback's plain, approach and crown, the volcano's crater run and its orbit
+    /// round the village (#1127), and the Moon's tracks (#1114) — and the desert's shots low over its sand (#1110: the
+    /// beetle, the scorpion and the scorpion home's take-off) is built through its real builder on the shipped scene config
+    /// over a dozen rolls and sampled at sixty frames a second on its own eased clock.
     /// <para>
     /// <b>What the limits are, and why.</b> Drone footage changes height and tilt slowly: a gimbal tilts at most about
     /// twenty degrees a second and takes half a second or more to get there, and the craft's climb rate changes over a
@@ -107,6 +107,9 @@ namespace BS3D.Tests
                 ["outback: the approach"] = new(r => OutbackIntroShots.Approach(outback, monolith, plain, FieldOfView, r), plain, OutbackIntroShots.APPROACH_CLEARANCE, false, true),
                 ["outback: the crown"] = new(r => OutbackIntroShots.Crown(outback, monolith, plain, FieldOfView, r), plain, OutbackIntroShots.CRANE_CLEARANCE, false, false),
                 ["volcano: the crater"] = new(r => VolcanoIntroShots.Crater(cone, vent, volcano, FieldOfView, r), cone, VolcanoIntroShots.CLIMB_CLEARANCE, true, false),
+                //An orbit high over the land (#1127), not a run along the ground: held to the ride, not to the low runs' speed
+                ["volcano: the village"] = new(r => VolcanoIntroShots.Village(cone, vent, volcano, FieldOfView, r), cone,
+                    VolcanoCountryPlanting.Tallest + VolcanoIntroShots.TREE_AIR, false, true),
                 //The ruts and the flag are fixed (#1114): every roll is the same run.
                 ["moon: the tracks"] = new(_ => MoonIntroShots.Tracks(moon.Terrain), regolith, MoonIntroShots.TRACKS_CLEARANCE, true, true),
             };

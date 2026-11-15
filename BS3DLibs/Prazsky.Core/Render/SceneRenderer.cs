@@ -1564,6 +1564,12 @@ namespace Prazsky.Core.Render
         /// </summary>
         public VolcanoLava VolcanoLava => _volcano.Lava;
 
+        /// <summary>
+        /// Whether the volcano draws what stands on the land past its field (#748: the snags, the woods and the village): not
+        /// at Low, whose land is its ground alone. The chapter intro shoots the village only where it stands (#1127).
+        /// </summary>
+        public bool VolcanoCountryDrawn => _volcano.CountryDrawn;
+
         /// <summary>The big top's real lights (#690): the footlights on the curb that light the island's drum, then the pools
         /// the three island spots throw on its cap - how many, where each is and its colour now, and how far it reaches.
         /// See <see cref="CircusBackdrop.FOOTLIGHT_COUNT"/> and <see cref="CircusBackdrop.POOL_COUNT"/>.</summary>

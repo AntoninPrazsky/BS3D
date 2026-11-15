@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1127 sopka: úvod obletí vesnici — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: úvod Erupce má čtvrtý záběr „the village“ (3,6 s, `Game/Effects/VolcanoIntroShots.cs`) po kráteru: oblet středu vesnice (150 → 140 j, 65–85°), konec na ose kužel–vesnice, vesnice v dolní třetině, kužel se sloupem nad ní. Sopka zkrácena na 3,2 s, erupce na 3,4 s; reel 20,1 s. Na Low (bez lesů a domů, `SceneRenderer.VolcanoCountryDrawn`) se vesnice nehraje, náhoda se čerpá na všech tierech stejně. `VolcanoCountryPlanting` má tabulky a `Tallest`/`Reach`, kamera letí 6 j nad nejvyšším objektem.
+- ⚠ Střih z vesnice do posledního letu tour se točil jen 27,7° (mapová póza má pevný sklon); konec vesnice proto míří o 5° níž (`VILLAGE_END_DOWN_DEGREES`), test `TheCutIntoTheToursLegLandsOnAnotherPicture`.
+- Otevřené: `verdict-eye` (pohyb neviděn, délka 20,1 s, nápověda Skip kryje nejbližší domy).
+
 ## 2026-11-15 — #1108 savana: úvod přistane v trávě na herní póze — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: poslední záběr úvodu savany je „the grass home“ (`Game/Effects/SavannaLanding.cs`), let 3–4,2 nad trávou přes sdílený `IntroLanding`, buď rovně z hájů, nebo kolem ostrova; žádný let tour nenásleduje. Úvod trvá 12,2–15,8 s (15,1 s při sceneseed=0). `SavannaScatter` jde zasadit bez `GraphicsDevice`, takže testy počítají se skutečnou plání.

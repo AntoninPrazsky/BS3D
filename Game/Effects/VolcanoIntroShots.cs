@@ -5,20 +5,33 @@ using System;
 namespace BS3D.Effects
 {
     /// <summary>
-    /// The volcano's own shots for a chapter intro's prologue (#530, #975): the whole volcano from far out, a cut to
-    /// the cone from its foot as a burst goes off, then a climb up the flank that crests the rim and looks down into
-    /// the crater — cut together, then cut to the tour's last leg. The owner's verdict on #509 was that the intro
-    /// "never looks INTO the volcano from above", and the standard tour cannot: it is a spline round the arena, and
-    /// the crater is a bowl on a summit 250 units off, up 140, that every reference of #509 is built round. His note
-    /// on #975 was that the first two shots were the same picture (both from the arena's side with the lens on the
-    /// vent): "start with a global view of the volcano, then a cut to the volcano spewing, then the continuation".
+    /// The volcano's own shots for a chapter intro's prologue (#530, #975, #1127): the whole volcano from far out, a cut
+    /// to the cone from its foot as a burst goes off, a climb up the flank that crests the rim and looks down into the
+    /// crater, then an orbit round the village on the land past the field that ends with the cone smoking over it — cut
+    /// together, then cut to the tour's last leg. The owner's verdict on #509 was that the intro "never looks INTO the
+    /// volcano from above", and the standard tour cannot: it is a spline round the arena, and the crater is a bowl on a
+    /// summit 250 units off, up 140, that every reference of #509 is built round. His note on #975 was that the first two
+    /// shots were the same picture (both from the arena's side with the lens on the vent): "start with a global view of
+    /// the volcano, then a cut to the volcano spewing, then the continuation". His note on #1127, that the player never
+    /// notices the land at all ("there should also be shots of the village, the river, the mountains and the forests in
+    /// the distance"): the play camera faces the cone, the land is behind it, and only this shot looks at it.
     /// <para>
-    /// <b>The three stand on three different sides and at three distances.</b> The volcano is seen from five hundred
+    /// <b>The four stand on four different sides and at four distances.</b> The volcano is seen from five hundred
     /// units out, high, a little round from the arena's side so the island stands in the same frame as the cone; the
     /// eruption from the cone's foot, low, ninety degrees and more round the other way; the crater run climbs from
-    /// the arena's side. <c>VolcanoIntroShotsTests</c> holds every cut to a lens that moves at least
-    /// <c>MIN_CUT_DISTANCE</c> AND a view that turns at least <c>MIN_CUT_ANGLE_DEGREES</c>, stricter than the cities'
-    /// either-or, because a view that only slides along its own line is still the same picture.
+    /// the arena's side; the village is orbited on the far side of the arena from the cone, seven hundred units from it.
+    /// <c>VolcanoIntroShotsTests</c> holds every cut to a lens that moves at least <c>MIN_CUT_DISTANCE</c> AND a view
+    /// that turns at least <c>MIN_CUT_ANGLE_DEGREES</c>, stricter than the cities' either-or, because a view that only
+    /// slides along its own line is still the same picture. The village comes last, after the crater: it ends looking at
+    /// the cone from the arena's side, much as the crater run starts out looking, and cut ahead of the crater the view
+    /// turned as little as 23 degrees on some rolls. The same rule holds the cut OUT of the reel into the tour's last leg,
+    /// which opens looking steeply down at the arena from the gun's side: the line from the village to the cone passes
+    /// over the arena, so the two views can share a heading, and the village's last look is held nearly level
+    /// (<see cref="VILLAGE_END_DOWN_DEGREES"/>) so that the tilt alone turns the view <see cref="CUT_TO_THE_MAP_DEGREES"/>.
+    /// </para>
+    /// <para>
+    /// <b>The village is shot only where it stands</b> (<see cref="SceneRenderer.VolcanoCountryDrawn"/>): Low draws the
+    /// land's ground but none of its woods, snags or houses, and there the reel is the three shots it was before #1127.
     /// </para>
     /// <para>
     /// <b>The burst is cued, not hoped for.</b> A burst is on for 4.5 s of every 19, jittered inside its period, so a
@@ -58,7 +71,7 @@ namespace BS3D.Effects
         private const float VIEW_OFF_MAX_DEGREES = 45f;
         private const float VIEW_DRIFT_DEGREES = 8f;
         private const float VIEW_LOOK_UNDER_VENT = 30f;
-        private const float VIEW_SECONDS = 3.6f;
+        private const float VIEW_SECONDS = 3.2f;
 
         //The eruption: a push in along one bearing from ERUPTION_FROM to ERUPTION_TO off the axis — the cone's foot,
         //its radius being 215 — ERUPTION_CLEARANCE over the ground, the bearing rolled between the two angles round
@@ -71,7 +84,7 @@ namespace BS3D.Effects
         private const float ERUPTION_OFF_MAX_DEGREES = 125f;
         private const float ERUPTION_LOOK_OVER_VENT = 40f;
         private const float ERUPTION_FOV = 0.8f;
-        private const float ERUPTION_SECONDS = 3.8f;
+        private const float ERUPTION_SECONDS = 3.4f;
 
         /// <summary>How far into the eruption shot the cued burst goes off: long enough for the cone to be read
         /// before it lights, short enough that the attack and most of the decay play out inside the shot.</summary>
@@ -108,6 +121,41 @@ namespace BS3D.Effects
         //into the lens.
         private const float LEVEL_LATERAL = 10f;
 
+        //The village (#1127): an orbit round the village's middle, from VILLAGE_RADIUS_FROM out to VILLAGE_RADIUS_TO, swinging
+        //between the two sweeps round to a bearing rolled within VILLAGE_END_OFF_DEGREES of the line from the cone's axis
+        //through the village, so it ends with the cone behind the village. The lens flies TREE_AIR over the tallest thing the
+        //land stands (VolcanoCountryPlanting.Tallest) above the highest ground within that thing's reach, as AridIntroPaths.Hug
+        //lays a drone's height, so it climbs the hillside behind the village as it comes round. The look starts on the village,
+        //VILLAGE_LOOK_RISE over the ground at its middle (its roofs), and turns to the bearing VILLAGE_LOOK_SHARE of the way from
+        //the village towards a point SUMMIT_OVER_VENT over the vent, tilted no more than VILLAGE_END_DOWN_DEGREES down, so the
+        //village stands in the frame's lower half, clear of the skip hint along its foot, and the cone and its column over it.
+        //Round the arc the view turns 17 to 25 degrees a second on average, about the pace of the cities' plaza orbit (80
+        //degrees in 4 s), and peaks at 27 over the 12 rolls IntroShotSmoothnessTests builds and 28.5 over 64; the test holds it
+        //to its MAX_YAW_RATE.
+        private const float VILLAGE_RADIUS_FROM = 150f;
+        private const float VILLAGE_RADIUS_TO = 140f;
+        private const float VILLAGE_SWEEP_MIN_DEGREES = 65f;
+        private const float VILLAGE_SWEEP_MAX_DEGREES = 85f;
+        private const float VILLAGE_END_OFF_DEGREES = 12f;
+        internal const float TREE_AIR = 6f;
+        private const float VILLAGE_LOOK_RISE = 6f;
+        private const float VILLAGE_LOOK_SHARE = 0.4f;
+        private const float SUMMIT_OVER_VENT = 40f;
+        private const float VILLAGE_SECONDS = 3.6f;
+
+        //⚠ THE CUT OUT OF THE REEL IS A CUT TOO. The tour's last leg opens looking down at the arena's centre from
+        //ChapterIntro.MAP_KEY_MIN_ELEVATION_DEGREES or more, on the gun's side, and the village's last look, at the cone over
+        //the village, runs across the arena from that same side: the two can share a heading. Looking down the 11 to 12
+        //degrees the blend alone gives, the cut turned as little as 28 degrees (36 of 400 rolls under the reel's 30). Held to
+        //VILLAGE_END_DOWN_DEGREES down, the tilt alone turns it CUT_TO_THE_MAP_DEGREES, whichever way the gun faces.
+        //
+        //The lens is the wider for it, VILLAGE_FOV of the play frame: the lens stands 53 or more over the roofs, which sit
+        //21 to 23 degrees under it at the end, and at the crater's 1.15 the village's middle went down to 0.70 of the frame's
+        //half-height under its middle, by the skip hint.
+        private const float CUT_TO_THE_MAP_DEGREES = 33f;
+        private const float VILLAGE_END_DOWN_DEGREES = ChapterIntro.MAP_KEY_MIN_ELEVATION_DEGREES - CUT_TO_THE_MAP_DEGREES;
+        private const float VILLAGE_FOV = 1.35f;
+
         /// <summary>
         /// The prologue for the volcano the renderer is drawing, starting at <paramref name="time"/> on its wall
         /// clock, or null when it has no volcano config; cues the burst the eruption shot meets, and cues it again
@@ -124,7 +172,8 @@ namespace BS3D.Effects
                 {
                     float onset = Recue(time, clock?.Invoke() ?? time + VIEW_SECONDS);
                     if (!float.IsNaN(onset)) scenes.CueVolcanoBurst(time, onset);
-                });
+                },
+                village: scenes.VolcanoCountryDrawn);
         }
 
         /// <summary>
@@ -141,21 +190,27 @@ namespace BS3D.Effects
         internal static float BurstOnset(float time) => time + VIEW_SECONDS + BURST_LEAD;
 
         /// <summary>
-        /// The three shots off the ground, the vent and the config alone, for a test with no renderer. The volcano
-        /// and the eruption stand on opposite sides of the arena's bearing, which side rolled.
-        /// <paramref name="eruptionStarts"/> is called as the eruption shot comes on screen.
+        /// The shots off the ground, the vent and the config alone, for a test with no renderer. The volcano and the
+        /// eruption stand on opposite sides of the arena's bearing, which side rolled. <paramref name="eruptionStarts"/> is
+        /// called as the eruption shot comes on screen. <paramref name="village"/> is whether the tier draws the land's
+        /// village and woods: without them there is no shot of the village, and the reel is the three it was before #1127.
         /// </summary>
         internal static IntroShot[] Shots(Func<float, float, float> ground, Vector3 vent, VolcanoSceneConfig volcano, float fieldOfView,
-            Random random, Action eruptionStarts = null)
+            Random random, Action eruptionStarts = null, bool village = true)
         {
             float side = random.Next(2) == 0 ? 1f : -1f;
 
-            return new[]
-            {
-                Volcano(ground, vent, volcano, side, fieldOfView, random),
-                Eruption(ground, vent, volcano, -side, fieldOfView, random, eruptionStarts),
-                Crater(ground, vent, volcano, fieldOfView, random),
-            };
+            IntroShot whole = Volcano(ground, vent, volcano, side, fieldOfView, random);
+            IntroShot eruption = Eruption(ground, vent, volcano, -side, fieldOfView, random, eruptionStarts);
+            IntroShot crater = Crater(ground, vent, volcano, fieldOfView, random);
+
+            //The village is rolled LAST, off a generator of its own seeded by one draw of the reel's: the other three roll
+            //exactly what they rolled before #1127, and whether it is rolled at all (the tier) never moves what the session
+            //deals after the intro (the benchmark plays one seed on every tier)
+            var villageRandom = new Random(random.Next());
+            if (!village) return new[] { whole, eruption, crater };
+
+            return new[] { whole, eruption, crater, Village(ground, vent, volcano, fieldOfView, villageRandom) };
         }
 
         /// <summary>
@@ -233,6 +288,52 @@ namespace BS3D.Effects
             }, rise: CLIMB_RISE_SECONDS);
 
             return new IntroShot("the crater", path, CRATER_SECONDS, fieldOfView * 1.15f, lookAt: vent);
+        }
+
+        /// <summary>
+        /// The land past the field (#1127): an orbit round the village, the church and its houses on their river, that comes
+        /// round onto the far side of it from the cone, so it opens on the village against its woods and ranges and ends on the
+        /// village with the cone smoking over it. The play camera never faces this way, so it is the one look a player gets
+        /// at the land.
+        /// </summary>
+        internal static IntroShot Village(Func<float, float, float> ground, Vector3 vent, VolcanoSceneConfig volcano, float fieldOfView,
+            Random random)
+        {
+            Vector2 cone = volcano.ConeCenter.ToVector2();
+            Vector2 village = volcano.Country.Village.ToVector2();
+
+            //Ending beyond the village from the cone, so the cone stands behind it; coming round from either side
+            Vector2 away = village - cone;
+            float end = MathF.Atan2(away.Y, away.X)
+                + MathHelper.ToRadians(AridIntroPaths.Roll(random, -VILLAGE_END_OFF_DEGREES, VILLAGE_END_OFF_DEGREES));
+            float sweep = MathHelper.ToRadians(AridIntroPaths.Roll(random, VILLAGE_SWEEP_MIN_DEGREES, VILLAGE_SWEEP_MAX_DEGREES))
+                * (random.Next(2) == 0 ? 1f : -1f);
+
+            Vector2[] plan = AridIntroPaths.Arc(village, end + sweep, end, VILLAGE_RADIUS_FROM, VILLAGE_RADIUS_TO);
+            Vector3[] path = AridIntroPaths.Hug(plan, ground, VolcanoCountryPlanting.Tallest + TREE_AIR, VolcanoCountryPlanting.Reach,
+                VILLAGE_SECONDS);
+
+            //The look: from the village's roofs to a direction part of the way from them to the column over the cone, as seen
+            //from the lens's last point, at the village's distance from it; on that bearing, tilted down no more than the cut
+            //into the tour's leg allows (see VILLAGE_END_DOWN_DEGREES)
+            Vector3 roofs = new(village.X, ground(village.X, village.Y) + VILLAGE_LOOK_RISE, village.Y);
+            Vector3 summit = vent + new Vector3(0f, SUMMIT_OVER_VENT, 0f);
+            Vector3 last = path[^1];
+            Vector3 between = Vector3.Normalize(Vector3.Lerp(Vector3.Normalize(roofs - last), Vector3.Normalize(summit - last), VILLAGE_LOOK_SHARE));
+
+            float lowest = -MathHelper.ToRadians(VILLAGE_END_DOWN_DEGREES);
+            if (MathF.Asin(between.Y) < lowest)
+            {
+                Vector2 bearing = Vector2.Normalize(new Vector2(between.X, between.Z));
+                between = new Vector3(bearing.X * MathF.Cos(lowest), MathF.Sin(lowest), bearing.Y * MathF.Cos(lowest));
+            }
+
+            Vector3 framed = last + between * Vector3.Distance(last, roofs);
+
+            var look = new Vector3[path.Length];
+            for (int i = 0; i < look.Length; i++) look[i] = Vector3.Lerp(roofs, framed, i / (float)(look.Length - 1));
+
+            return new IntroShot("the village", path, VILLAGE_SECONDS, fieldOfView * VILLAGE_FOV, lookAtPath: look);
         }
 
         //A path at ONE height, the clearance over the highest ground under the plan and beside it: on the plain and

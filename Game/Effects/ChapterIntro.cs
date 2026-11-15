@@ -177,6 +177,12 @@ namespace BS3D.Effects
         //How much of the turn left after the arena key the map key takes; the rest is the arrival's.
         private const float MAP_KEY_TURN_SHARE = 0.6f;
 
+        //How high the map key stands over the arena, rolled between the two: high enough to show the glass the cluster hangs
+        //from. It looks at the arena's centre, so the leg after a prologue opens looking down this steeply, whatever the
+        //scene, which is what a prologue's last shot keeps away from to make the cut into it a cut (VolcanoIntroShots).
+        internal const float MAP_KEY_MIN_ELEVATION_DEGREES = 38f;
+        internal const float MAP_KEY_MAX_ELEVATION_DEGREES = 48f;
+
         //The band the turn from the arena key to the gun should fall in, for a stand the scene fixed (see
         //ChooseTurn): under the floor the map and arrival legs would be a near-stand-still, over the ceiling
         //most of a lap in the tour's last two thirds — 75 to 200 degrees.
@@ -341,7 +347,7 @@ namespace BS3D.Effects
 
             //KEY 2, THE MAP: on round again and up — the one proper look at the cluster, from high enough to
             //show the glass it hangs from. Most of the way round to the gun, so the arrival is the shorter leg.
-            float elev2 = _elev2 = MathHelper.ToRadians(IntroPaths.RandomRange(random, 38f, 48f));
+            float elev2 = _elev2 = MathHelper.ToRadians(IntroPaths.RandomRange(random, MAP_KEY_MIN_ELEVATION_DEGREES, MAP_KEY_MAX_ELEVATION_DEGREES));
             _polar[2] = new Vector3(azimuth1 + arrivalSign * MAP_KEY_TURN_SHARE * remaining, elev2,
                 gameDistance * IntroPaths.RandomRange(random, 1.25f, 1.45f));
             _targets[2] = centre;
