@@ -20,6 +20,14 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1106 každé úvodní video kapitoly jde přeskočit — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: přeskočit jde každý úvod kapitoly, i úplně první otevření na prázdném uložení. Pojistka z #1021 (`_introWhole`, lekce `opening`) je pryč. Stará uložení s lekcí `opening` se načtou normálně, nic ji nečte.
+- Klik myší s volným kurzorem teď kurzor chytí a zároveň přeskočí (pravidlo v `TakeoverSkip.MouseSkips`). Dřív první klik jen chytil kurzor. Platí i pro cinematiku pádu a záložní salvu.
+- Nový argument `skiptakeover=<t1,...>` přeskočí mimo focus gate, takže běh bez fokusu ukáže přeskočení.
+- ⚠ Podmínku volání v `UpdateAim` hlídá test nad zdrojákem; bez něj by vrácení `_mouseAim.Initialized` prošlo všemi testy.
+- Otevřené: živý klik, pad ani dotyk na telefonu nikdo nezkoušel; jen `skiptakeover=` a testy.
+
 ## 2026-11-15 — #1103 #1104 #1096 #1077 verdikty a cíl Ultra 75 FPS uzavřen — desktop (RDT-PC), Claude Code
 
 - majitel (chat, 15. 11.): #1104 obloha v rozlišení displeje OK, #1096 šapitó OK, #1077 priorita zvuků na Androidu OK. Zapsáno do issues, všechny tři zavřené.
