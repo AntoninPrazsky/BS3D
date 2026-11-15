@@ -43,6 +43,10 @@ namespace Prazsky.Core.Render
         /// </summary>
         public Slab[] Volume { get; }
 
+        /// <summary>The whole tree's own outline, every one of its meshes (the wood, the tufts and the sprays): what a lens
+        /// flying low among the trees is kept off where the meshes' loose spheres close the plain (#1108).</summary>
+        public PlantProfile Profile { get; }
+
         /// <param name="device">The device the buffers are created on.</param>
         /// <param name="height">The tree's full height, to the top of the crown.</param>
         /// <param name="seed">Rolls the limbs and the tufts.</param>
@@ -54,7 +58,9 @@ namespace Prazsky.Core.Render
         private BaobabMesh(GraphicsDevice device, BaobabGeometry geometry, float height, int seed)
         {
             Wood = new UploadedMesh(device, geometry.WoodVertices, geometry.WoodIndices, geometry.WoodBounds);
-            Foliage = new TuftsMesh(device, height, geometry.TwigTips, seed);
+            var profile = new PlantProfile.Builder().Add(geometry.WoodVertices, geometry.WoodIndices).Add(geometry.LeafVertices, geometry.LeafIndices);
+            Foliage = new TuftsMesh(device, height, geometry.TwigTips, seed, profile);
+            Profile = profile.Build();
             BaseRadius = geometry.BaseRadius;
 
             //The trunk as the profile has it: r at the foot, 0.78r a third of the way up and 0.55r by the neck (BuildWood)
@@ -233,7 +239,8 @@ namespace Prazsky.Core.Render
             public int PrimitiveCount { get; }
             public BoundingSphere BoundingSphere { get; }
 
-            public TuftsMesh(GraphicsDevice device, float height, List<Vector3> tips, int seed)
+            /// <param name="profile">Takes the tufts' triangles, for the tree's own outline.</param>
+            public TuftsMesh(GraphicsDevice device, float height, List<Vector3> tips, int seed, PlantProfile.Builder profile)
             {
                 Random rng = new(seed * 7 + 3);
                 var v = new List<VertexPositionNormalTexture>();
@@ -258,6 +265,7 @@ namespace Prazsky.Core.Render
 
                 PrimitiveCount = idx.Count / 3;
                 BoundingSphere = new BoundingSphere(new Vector3(0f, height * 0.8f, 0f), reach);
+                profile.Add(v, idx);
                 (VertexBuffer, IndexBuffer) = TubeGeometry.Upload(device, v, idx);
             }
 

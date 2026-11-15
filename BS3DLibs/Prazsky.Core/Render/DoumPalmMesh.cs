@@ -26,6 +26,10 @@ namespace Prazsky.Core.Render
         /// <summary>What the palm is made of, as slabs at scale 1 (#653): the trunk to its fork and the crown of heads.</summary>
         public Slab[] Volume { get; }
 
+        /// <summary>The whole palm's own outline, the wood and the fronds: what a lens flying low among the trees is kept off
+        /// where the meshes' loose spheres close the plain (#1108).</summary>
+        public PlantProfile Profile { get; }
+
         //The foot's radius as a multiple of the radius the trunk holds to its fork
         private const float FOOT_FLARE = 1.25f;
 
@@ -62,6 +66,7 @@ namespace Prazsky.Core.Render
             Wood = new UploadedMesh(device, g.WoodVertices, g.WoodIndices, g.WoodBounds);
             Fronds = new UploadedMesh(device, g.LeafVertices, g.LeafIndices, g.LeafBounds);
             Volume = g.Volume;
+            Profile = new PlantProfile.Builder().Add(g.WoodVertices, g.WoodIndices).Add(g.LeafVertices, g.LeafIndices).Build();
         }
 
         /// <summary>

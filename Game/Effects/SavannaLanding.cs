@@ -44,9 +44,18 @@ namespace BS3D.Effects
     /// (the length asked for, arriving along the pose's facing, past the most trees on both hands). ⚠ Three things the game's
     /// own lens stands inside are held by the pose instead of by their spheres, or no landing would clear: the bank round the
     /// island and what is planted on it (<see cref="BANK_REACH"/>), and any solid whose loose sphere reaches the pose
-    /// (<see cref="POSE_SLACK"/>). Null for a pose inside the island's radius (the menu's crane) or one that is not clear
-    /// itself (beside a fire), or where nothing clears, and the savanna then plays the reel it had before, the tour's arrival
-    /// leg included.
+    /// (<see cref="POSE_SLACK"/>).
+    /// </para>
+    /// <para>
+    /// <b>The trees, twice.</b> A tree's spheres are loose (its wood's reaches 31 round an acacia whose crown reaches 17, and
+    /// down under the ground), which keeps the lens well off every tree, and at some scene seeds they close every way in to
+    /// the pose (30 of 800 builds at the levels' own poses over 400 scene seeds, and the game rolls a new one every launch): a
+    /// grove's spheres stand over the pose's back, or its sides, all the way up. Where they do, the search is run again with
+    /// every tree held by its own outline instead (<see cref="SavannaScatter.TreeOutlines"/>, a stack of upright discs as
+    /// wide as its meshes reach at each height) and kept <see cref="TREE_AIR"/> off it, which opens the grass under the crowns
+    /// and between the trunks (<see cref="TreesHeldBy"/>); all 800 land. Null only for a pose inside the island's radius (the
+    /// menu's crane) or one that is not clear itself (beside a fire), or where nothing clears even so, and the savanna then
+    /// plays the reel it had before, the tour's arrival leg included.
     /// </para>
     /// <para>Built once when the intro begins, never per frame.</para>
     /// </summary>
@@ -109,7 +118,7 @@ namespace BS3D.Effects
         private const float TARGET_SECONDS = 5f, LONGEST_SECONDS = 6f;
 
         //No tighter than this at the cruise: at 26 u/s a radius of 16 is 93 degrees a second of heading, which the look's
-        //averaging takes well under the 170 the ride is held to (67 at most over the sweep, SavannaLandingTests); the
+        //averaging takes well under the 170 the ride is held to (70 at most over the sweep, SavannaLandingTests); the
         //deceleration onto the pose, slowing to rest, may take RELEASE_TURN_RADIUS
         private const float MIN_TURN_RADIUS = 16f;
         private const float RELEASE_TURN_RADIUS = 10f;
@@ -127,8 +136,8 @@ namespace BS3D.Effects
         internal const float CUT_TURN = 30f;
 
         //The plan's spacing, the candidates rolled at most and the clear ones the search stops at (a third of the rolls clear
-        //where the plain is open: rolled to the end, a build took 350 ms in a Debug build, and it takes 60 to 85), and how many
-        //of the plan's points the first look skips (see Lay)
+        //where the plain is open, and stopping there is what holds a build's cost: see the grass home in
+        //docs/game-feedback/chapter-intro-scene-shots.md), and how many of the plan's points the first look skips (see Lay)
         private const float STEP = 0.5f;
         private const int CANDIDATES = 480, ENOUGH = 32;
         private const int SCOUT_STEP = 4;
@@ -146,6 +155,10 @@ namespace BS3D.Effects
         //less POSE_SLACK: what the game's lens clears all level, a lens no nearer clears too.
         private const float POSE_SLACK = 0.5f;
         internal const float FIRE_MARGIN = 1.5f;
+
+        //Held by its own outline (TreesHeldBy.Outlines), a tree is kept this far off what its meshes draw: farther than a
+        //solid's MARGIN, for a lens passing under a crown of leaf sprays or beside a trunk at the cruise
+        internal const float TREE_AIR = 3f;
         private const float ARRIVAL_SLACK = 0.5f;
 
         //The bank round the island (IslandBerm) and what is planted on it, its grass against the wall and its stones at its
@@ -179,14 +192,25 @@ namespace BS3D.Effects
             LookDistance: 30f, LookSmoothSeconds: 0.3f, LookLandSeconds: 1.8f, LookInward: 0.5f, RollPerTurn: 0.1f,
             MaxRollDegrees: 8f, RollSmoothSeconds: 0.25f, Points: 200);
 
+        /// <summary>How the trees are held (see the class's note): by the spheres round their meshes, as everything else
+        /// planted is, or by their own outlines.</summary>
+        internal enum TreesHeldBy { Spheres, Outlines }
+
         /// <summary>
         /// The grass home over <paramref name="land"/>, landing on <paramref name="endPosition"/> looking at
-        /// <paramref name="endTarget"/> with the game's <paramref name="fieldOfView"/>; null when no rolled route is clear.
+        /// <paramref name="endTarget"/> with the game's <paramref name="fieldOfView"/>: the trees held by their spheres, or
+        /// where those leave no way in, by their outlines; null when no rolled route is clear either way.
         /// </summary>
         /// <param name="cutFrom">The last pose of the shot before it (its lens and what it looks at), whose cut the start must
         /// move or turn enough from; null for none.</param>
         public static IntroShot Build(SavannaLand land, Vector3 endPosition, Vector3 endTarget, float fieldOfView, Random random,
-            (Vector3 Position, Vector3 Target)? cutFrom = null)
+            (Vector3 Position, Vector3 Target)? cutFrom = null) =>
+            Build(land, endPosition, endTarget, fieldOfView, random, TreesHeldBy.Spheres, cutFrom)
+            ?? Build(land, endPosition, endTarget, fieldOfView, random, TreesHeldBy.Outlines, cutFrom);
+
+        /// <summary>The grass home with the trees held one way only.</summary>
+        internal static IntroShot Build(SavannaLand land, Vector3 endPosition, Vector3 endTarget, float fieldOfView, Random random,
+            TreesHeldBy trees, (Vector3 Position, Vector3 Target)? cutFrom = null)
         {
             if (land == null) return null;
 
@@ -197,7 +221,7 @@ namespace BS3D.Effects
             if (facing.LengthSquared() < 1e-6f) return null;
             facing.Normalize();
 
-            var obstacles = new Obstacles(land, endPosition);
+            var obstacles = new Obstacles(land, endPosition, trees);
             if (!obstacles.Clear(endPosition)) return null;
 
             List<Vector2> straight = StraightStarts(obstacles, endPosition, facing);
@@ -290,6 +314,16 @@ namespace BS3D.Effects
             Vector2 start = round ? IntroGround.Heading(poseBearing + startBearing) * startDistance
                 : straightStarts[pick];
 
+            //Round the island, the sweeps onto the circle and off it share the turn from the start's bearing to the pose's
+            //where they would take more than it
+            float turn = MathF.Abs(startBearing);
+            if (round && sweepIn + sweepOut > turn)
+            {
+                float share = turn / (sweepIn + sweepOut);
+                sweepIn *= share;
+                sweepOut *= share;
+            }
+
             //Round the island the run heads in for the release's last control point short of the circle's entry (so it bends
             //onto the circle once, gently), straight in for the pose, give or take the heading's roll
             float entryBearing = poseBearing + startBearing + sign * sweepIn;
@@ -323,15 +357,6 @@ namespace BS3D.Effects
             }
             else
             {
-                float turn = MathF.Abs(startBearing);
-                if (sweepIn + sweepOut > turn)
-                {
-                    float share = turn / (sweepIn + sweepOut);
-                    sweepIn *= share;
-                    sweepOut *= share;
-                }
-
-                entryBearing = poseBearing + startBearing + sign * sweepIn;
                 plan.Add(start);
                 IntroLanding.Release(plan, start, heading, IntroGround.Heading(entryBearing) * radius, Tangent(entryBearing, sign), STEP);
 
@@ -490,8 +515,9 @@ namespace BS3D.Effects
 
         /// <summary>
         /// What a point of the flight may not be near (see the class's note): the ground and the bank round the island, the
-        /// arena nearer than the pose, every campfire's hearth and flame, and everything planted. The solids are kept in a
-        /// grid, since every point of every candidate is asked and the plain plants about a thousand.
+        /// arena nearer than the pose, every campfire's hearth and flame, and everything planted, the trees held as the
+        /// <see cref="TreesHeldBy"/> it is made with says. The solids are kept in a grid, since every point of every candidate
+        /// is asked and the plain plants about a thousand.
         /// </summary>
         internal sealed class Obstacles
         {
@@ -499,36 +525,57 @@ namespace BS3D.Effects
             private readonly float _keepOut, _bankFloor;
             private readonly List<PlantFigure> _solids = new();
             private readonly List<float> _need = new();
+            private readonly List<PlantOutline> _trees = new();
+            private readonly List<float> _treeNeed = new();
+
+            //Each cell's solids, by their index, and its trees, by the complement of theirs
             private readonly Dictionary<(int, int), List<int>> _byCell = new();
 
+            /// <param name="land">The plain.</param>
             /// <param name="pose">The pose landed on: no point stands nearer the axis (<see cref="IntroLanding.KeepOutFor"/>),
             /// nor lower over the bank (see <see cref="BANK_REACH"/>).</param>
-            public Obstacles(SavannaLand land, Vector3 pose)
+            /// <param name="trees">How the trees are held: by their spheres, among the solids, or by their outlines.</param>
+            public Obstacles(SavannaLand land, Vector3 pose, TreesHeldBy trees = TreesHeldBy.Spheres)
             {
                 _land = land;
                 _keepOut = IntroLanding.KeepOutFor(pose, IntroGround.ARENA_KEEP_OUT + MARGIN, ARRIVAL_SLACK);
                 _bankFloor = pose.Y - BANK_SLACK;
 
-                foreach (PlantFigure solid in land.Solids)
+                foreach (PlantFigure solid in trees == TreesHeldBy.Outlines ? land.SolidsBesideTrees : land.Solids)
                 {
                     //The bank round the island and what is planted on it: held as the arena is, see BANK_REACH
                     if (IsBank(solid)) continue;
 
                     //Every cell the solid's sphere or capsule, with the margin, can reach into
                     float reach = MathF.Max(solid.Reach, solid.Stem) + MARGIN;
-                    float minX = MathF.Min(solid.Root.X, solid.Crown.X) - reach, maxX = MathF.Max(solid.Root.X, solid.Crown.X) + reach;
-                    float minZ = MathF.Min(solid.Root.Z, solid.Crown.Z) - reach, maxZ = MathF.Max(solid.Root.Z, solid.Crown.Z) + reach;
-
-                    int index = _solids.Count;
+                    File(_solids.Count, MathF.Min(solid.Root.X, solid.Crown.X) - reach, MathF.Max(solid.Root.X, solid.Crown.X) + reach,
+                        MathF.Min(solid.Root.Z, solid.Crown.Z) - reach, MathF.Max(solid.Root.Z, solid.Crown.Z) + reach);
                     _solids.Add(solid);
                     _need.Add(MathF.Min(MARGIN, Off(solid, pose) - POSE_SLACK));
-                    for (int i = Cell(minX); i <= Cell(maxX); i++)
-                        for (int j = Cell(minZ); j <= Cell(maxZ); j++)
-                        {
-                            if (!_byCell.TryGetValue((i, j), out List<int> list)) _byCell[(i, j)] = list = new List<int>();
-                            list.Add(index);
-                        }
                 }
+
+                if (trees != TreesHeldBy.Outlines) return;
+
+                //The trees by their outlines, each kept TREE_AIR off, or where the pose stands nearer one, no nearer than the
+                //pose less POSE_SLACK
+                foreach (PlantOutline tree in land.TreeOutlines)
+                {
+                    File(~_trees.Count, tree.Bounds.Min.X - TREE_AIR, tree.Bounds.Max.X + TREE_AIR,
+                        tree.Bounds.Min.Z - TREE_AIR, tree.Bounds.Max.Z + TREE_AIR);
+                    _trees.Add(tree);
+                    _treeNeed.Add(MathF.Min(TREE_AIR, tree.Off(pose) - POSE_SLACK));
+                }
+            }
+
+            //Files a thing under every cell from (minX, minZ) to (maxX, maxZ)
+            private void File(int index, float minX, float maxX, float minZ, float maxZ)
+            {
+                for (int i = Cell(minX); i <= Cell(maxX); i++)
+                    for (int j = Cell(minZ); j <= Cell(maxZ); j++)
+                    {
+                        if (!_byCell.TryGetValue((i, j), out List<int> list)) _byCell[(i, j)] = list = new List<int>();
+                        list.Add(index);
+                    }
             }
 
             /// <summary>Whether <paramref name="solid"/> is the bank round the island or stands on it (<c>IslandBerm</c>'s two
@@ -562,7 +609,10 @@ namespace BS3D.Effects
 
                 if (_byCell.TryGetValue((Cell(p.X), Cell(p.Z)), out List<int> near))
                     foreach (int index in near)
-                        if (Off(_solids[index], p) < _need[index]) return false;
+                    {
+                        if (index >= 0 ? Off(_solids[index], p) < _need[index]
+                            : _trees[~index].Off(p, TREE_AIR) < _treeNeed[~index]) return false;
+                    }
 
                 return true;
             }
@@ -576,20 +626,25 @@ namespace BS3D.Effects
     /// </summary>
     /// <param name="Height">The ground under a point (<see cref="SceneRenderer.SavannaGroundHeight"/>, the fires' mounds in it).</param>
     /// <param name="Solids">Every instance of every mesh planted, as the sphere round its mesh (<see cref="SavannaScatter.Solids"/>).</param>
+    /// <param name="TreeOutlines">Every tree planted as its own outline (<see cref="SavannaScatter.TreeOutlines"/>).</param>
+    /// <param name="SolidsBesideTrees">The solids less the trees' meshes (<see cref="SavannaScatter.SolidsBesideTrees"/>).</param>
     /// <param name="Acacias">The umbrella-crowned acacias (<see cref="SavannaScatter.Acacias"/>).</param>
     /// <param name="Baobabs">The baobabs (<see cref="SavannaScatter.Baobabs"/>).</param>
     /// <param name="Fires">Each campfire's foot (<see cref="SceneRenderer.SavannaCampfirePosition"/>).</param>
     /// <param name="FireReach">How far a fire's hearth and flame reach from its axis.</param>
     /// <param name="FireHeight">How tall its flame stands over its foot.</param>
     internal sealed record SavannaLand(Func<float, float, float> Height, IReadOnlyList<PlantFigure> Solids,
-        IReadOnlyList<PlantFigure> Acacias, IReadOnlyList<PlantFigure> Baobabs, IReadOnlyList<Vector3> Fires, float FireReach, float FireHeight)
+        IReadOnlyList<PlantOutline> TreeOutlines, IReadOnlyList<PlantFigure> SolidsBesideTrees, IReadOnlyList<PlantFigure> Acacias,
+        IReadOnlyList<PlantFigure> Baobabs, IReadOnlyList<Vector3> Fires, float FireReach, float FireHeight)
     {
-        //A hearth's stones (SavannaBackdrop.BuildHearthStones): a ring of FlameSize * StoneRingScale, each stone jittered out to
-        //HEARTH_RING_OUT of it, and the sphere round the largest of the three stones 1.6 of FlameSize * StoneSizeScale (its
-        //lathe's wobble included), at a scale of up to 1.27. Wider than the flame's own volume (1.45 fire sizes), so it is the
-        //fire's reach.
+        //A hearth's stones (SavannaBackdrop.BuildHearthStones; the backdrop is internal to Prazsky.Core, so its HEARTH_RING_IN
+        //+ HEARTH_RING_SPREAD and HEARTH_STONE_SCALE_MIN + HEARTH_STONE_SCALE_SPREAD are copied here): a ring of FlameSize *
+        //StoneRingScale, each stone laid out to HEARTH_RING_OUT of it, the sphere round the largest of the three rocks reaching
+        //HEARTH_ROCK_REACH of FlameSize * StoneSizeScale from the stone's place (its lathe's wobble included), at a scale of up
+        //to HEARTH_STONE_SCALE_MAX. Wider than the flame's own volume (1.45 fire sizes), so it is the fire's reach.
+        //SavannaLandingTests holds it against the backdrop's figures and the rocks themselves.
         private const float HEARTH_RING_OUT = 1.12f;
-        private const float HEARTH_STONE_REACH = 1.65f * 1.27f;
+        private const float HEARTH_ROCK_REACH = 1.65f, HEARTH_STONE_SCALE_MAX = 1.27f;
 
         /// <summary>The trees a run among them is counted against: the acacias and the baobabs.</summary>
         public IReadOnlyList<PlantFigure> Trees { get; } = Concat(Acacias, Baobabs);
@@ -609,8 +664,8 @@ namespace BS3D.Effects
         public static SavannaLand Of(SavannaSceneConfig config, SavannaScatter planting, Func<float, float, float> height, IReadOnlyList<Vector3> fires)
         {
             CampfireConfig fire = config.Campfire;
-            return new SavannaLand(height, planting.Solids, planting.Acacias, planting.Baobabs, fires,
-                fire.FlameSize * (fire.StoneRingScale * HEARTH_RING_OUT + fire.StoneSizeScale * HEARTH_STONE_REACH),
+            return new SavannaLand(height, planting.Solids, planting.TreeOutlines, planting.SolidsBesideTrees, planting.Acacias, planting.Baobabs, fires,
+                fire.FlameSize * (fire.StoneRingScale * HEARTH_RING_OUT + fire.StoneSizeScale * HEARTH_ROCK_REACH * HEARTH_STONE_SCALE_MAX),
                 fire.FlameSize * fire.FlameHeightScale);
         }
 

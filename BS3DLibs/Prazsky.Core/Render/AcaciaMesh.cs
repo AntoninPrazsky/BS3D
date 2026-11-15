@@ -173,6 +173,10 @@ namespace Prazsky.Core.Render
         /// </summary>
         public IProceduralMesh Leaves { get; }
 
+        /// <summary>The whole tree's own outline, every one of its meshes (both woods, the plate and the sprays): what a lens
+        /// flying low among the trees is kept off where the meshes' loose spheres close the plain (#1108).</summary>
+        public PlantProfile Profile { get; }
+
         public AcaciaMesh(GraphicsDevice device, AcaciaKind kind, float trunkRadius, float treeHeight, float canopyRadius, int seed)
             : this(device, Build(kind, trunkRadius, treeHeight, canopyRadius, seed))
         {
@@ -191,6 +195,19 @@ namespace Prazsky.Core.Render
                 Canopy = new UploadedMesh(device, geometry.CanopyVertices, geometry.CanopyIndices, geometry.CanopyBounds);
                 Leaves = new UploadedMesh(device, geometry.LeafVertices, geometry.LeafIndices, geometry.CanopyBounds);
             }
+
+            Profile = Outline(geometry);
+        }
+
+        /// <summary>The profile of every mesh <paramref name="geometry"/> uploads.</summary>
+        internal static PlantProfile Outline(AcaciaGeometry geometry)
+        {
+            var profile = new PlantProfile.Builder()
+                .Add(geometry.WoodVertices, geometry.WoodIndices)
+                .Add(geometry.FineWoodVertices, geometry.FineWoodIndices)
+                .Add(geometry.LeafVertices, geometry.LeafIndices);
+            if (geometry.CanopyVertices != null) profile.Add(geometry.CanopyVertices, geometry.CanopyIndices);
+            return profile.Build();
         }
 
         /// <summary>

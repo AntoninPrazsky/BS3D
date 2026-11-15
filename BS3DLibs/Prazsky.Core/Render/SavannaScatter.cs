@@ -377,6 +377,19 @@ namespace Prazsky.Core.Render
         /// </summary>
         public IReadOnlyList<PlantFigure> Solids { get; private set; }
 
+        /// <summary>
+        /// Every tree planted (every acacia, the young and the dead included, every baobab and every doum palm) as its own
+        /// outline (<see cref="PlantOutline"/>: its meshes as a stack of upright discs), where <see cref="Solids"/> holds each
+        /// of its meshes as a sphere that is loose round a tree: an acacia's wood's reaches 31 round a tree whose crown reaches
+        /// 17, and down under the ground. What a lens flying low among the trees is kept off where the spheres leave it no way
+        /// (the chapter intro's grass home, #1108).
+        /// </summary>
+        public IReadOnlyList<PlantOutline> TreeOutlines { get; private set; }
+
+        /// <summary><see cref="Solids"/> less the trees' meshes, which <see cref="TreeOutlines"/> holds: the bushes, the scrub,
+        /// the grass, the rocks, the mounds, the logs, the far treeline and the bank round the island.</summary>
+        public IReadOnlyList<PlantFigure> SolidsBesideTrees { get; private set; }
+
         private readonly List<IDisposable> _meshes = new();
 
         /// <param name="device">The device the meshes and instance buffers live on; null plants the very same plain with
@@ -1184,11 +1197,37 @@ namespace Prazsky.Core.Render
 
             Buckets = buckets.ToArray();
 
+            //The trees as their outlines, and every other mesh as Solids holds it
+            var outlines = new List<PlantOutline>();
+            var treeMeshes = new HashSet<IProceduralMesh>(ReferenceEqualityComparer.Instance);
+            for (int m = 0; m < trees.Count; m++)
+            {
+                foreach (ModelInstance instance in treeInstances[m]) outlines.Add(new PlantOutline(trees[m].Profile, instance.World));
+                treeMeshes.UnionWith(new[] { trees[m].Wood, trees[m].FineWood, trees[m].Canopy, trees[m].Leaves });
+            }
+            for (int m = 0; m < BAOBAB; m++)
+            {
+                foreach (ModelInstance instance in baobabInstances[m]) outlines.Add(new PlantOutline(baobabs[m].Profile, instance.World));
+                treeMeshes.UnionWith(new[] { baobabs[m].Wood, baobabs[m].Foliage, baobabs[m].Leaves });
+            }
+            for (int m = 0; m < DOUM; m++)
+            {
+                foreach (ModelInstance instance in doumInstances[m]) outlines.Add(new PlantOutline(doums[m].Profile, instance.World));
+                treeMeshes.UnionWith(new[] { doums[m].Wood, doums[m].Fronds });
+            }
+            TreeOutlines = outlines;
+
             var solids = new List<PlantFigure>();
+            var besideTrees = new List<PlantFigure>();
             foreach (ScatterBucket bucket in Buckets)
                 foreach (ModelInstance instance in bucket.Placed)
-                    solids.Add(PlantFigure.Of(bucket.Mesh.BoundingSphere, instance.World, 0f));
+                {
+                    PlantFigure solid = PlantFigure.Of(bucket.Mesh.BoundingSphere, instance.World, 0f);
+                    solids.Add(solid);
+                    if (!treeMeshes.Contains(bucket.Mesh)) besideTrees.Add(solid);
+                }
             Solids = solids;
+            SolidsBesideTrees = besideTrees;
         }
 
         private static void Clear(List<ModelInstance>[] lists)
