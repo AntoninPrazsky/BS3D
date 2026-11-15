@@ -20,6 +20,14 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1134 hash zrcadel se ptá GPU, jak zaokrouhluje — notebook (ThinkPad), Claude Code
+
+- Hotovo, sloučeno: `HashRoundingProbe` při prvním `SceneRenderer` nakreslí `HashProbe.fx` (64×64 vstupů) a `ShaderMath.Rounding` vezme fused/unfused podle GPU; řádek `[hash]`. Notebook: unfused 4096/4096, `mirrorcheck` všech 11 scén PASS (hory 16,19 → 0,00055). Shadery beze změny.
+- majitel: nejdřív „precise do shaderu, vzhled nevadí“; po změřené ceně zvolil sondu.
+- ⚠ `precise` se v HLSL šíří zpět přes argument do celého noise (rotace, warp; ani `int` ho nezastaví): APU Low až +1,2 ms (Colossus), Medium +1,04 (Spyglass). Přesnost jen ve VS nejde: PS stínuje ze stejné výšky.
+- ⚠ `precise` ruší i skládání konstant fxc (`seed + 23.7`).
+- Otevřené: řádek `[hash]` z desktopu, GTX 1060 a Androidu nikdo neviděl.
+
 ## 2026-11-15 — #1115 Mars: úvod letí po kolejích vozítka — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: úvod Marsu otevírá záběr „the tracks“ (`Game/Effects/MarsIntroShots.cs`): 45 j středem kolejí 12,5 j/s, 2,6–2,95 nad `MarsCeiling`, pohled z kolejí 22 j vpředu se zvedne na ostrov a cluster. Hraje se tam, kde zem kreslí koleje (`MarsBackdrop.FullGroundAt`, Medium a výš); na Low zůstává „the plain“. Úvod 14,5 s (Low 14,1 s). `MarsTracks.TRAVERSE` je jediná kopie trasy; oblouk kolem arény překreslen (ohyb ≤ 9,3° místo 18,2°), kameny znovu rozhozeny. Chůze po kolejích Měsíce je sdílená (`RutsWalk`); Měsíc ověřen bajtově stejným výpisem.
