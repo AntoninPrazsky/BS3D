@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1119 města: záběr fasád se zrcadlením — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: obě města mají nový záběr „the facades“ (`Game/Effects/CityIntroShots.cs`): kamera jde ulicí 1,5 j mimo osu (4 → 10 nad asfaltem), míří na jeden bod věže, který se přibližuje z 21 na 6 j, ulice zůstává pod rámem. Výběr ze 48 kandidátů podle toho, kolik tabulí zrcadlí věž. Oba reely: ulice, náměstí, fasády, střechy, cesta domů (24–26 s místo 20–22); ulice zkrácena na 4,0 s. Bez odrazů (Potato, GLES, nižší tiery) se fasády nehrají a reel zůstává starý.
+- ⚠ Zrcadlení se musí soudit pochodem shaderu (16 kroků, `CityReflectionField`); paprsek bez limitu kroků tvrdil „věž“ tam, kde shader ukazuje oblohu (34 % pozic ve středu ulice).
+- Otevřené: `verdict-eye` (pohyb neviděn, otevírací záběr neonu, délka reelu); frame time fasád na Ultra 3840x1600 neměřen.
+
 ## 2026-11-15 — #1118 cirkus: úvod přistane za dělem — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: poslední záběr úvodu Big Topu je „the gate home“ (`Game/Effects/CircusLanding.cs`). Kamera vjede nízko středem uličky účinkujících, vystoupá na kruh uvnitř hlavních stožárů a přes sdílený `IntroLanding` přistane přesně na herní póze. Střih a let tour odpadly; úvod trvá 16,6 s místo 15,5 s. Kde cesta není volná (menu), zůstává stará brána s letem tour. Nový `IntroLanding.Style.LookRise` (výchozí 0): louka a obě města se nezměnila ani o bit.
