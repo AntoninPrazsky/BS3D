@@ -505,7 +505,7 @@ namespace BS3D.Tests
         [Fact]
         public void The_prologue_keeps_its_shots_its_length_and_its_cut()
         {
-            float longest = 0f;
+            float longest = 0f, shortest = float.MaxValue, homeLongest = 0f, homeShortest = float.MaxValue;
             for (int layout = 0; layout < 12; layout++)
             {
                 Plain plain = Planted(layout);
@@ -540,9 +540,12 @@ namespace BS3D.Tests
                 float seconds = 0f;
                 foreach (IntroShot shot in shots) seconds += shot.Seconds;
                 longest = MathF.Max(longest, seconds);
+                shortest = MathF.Min(shortest, seconds);
+                homeLongest = MathF.Max(homeLongest, shots[^1].Seconds);
+                homeShortest = MathF.Min(homeShortest, shots[^1].Seconds);
             }
 
-            _output.WriteLine($"the prologue at most {longest:F1} s");
+            _output.WriteLine($"the prologue {shortest:F1}-{longest:F1} s, its grass home {homeShortest:F1}-{homeLongest:F1} s");
             Assert.True(longest <= 15.5f, $"the prologue runs {longest:F1} s");
         }
 

@@ -7,9 +7,10 @@ namespace BS3D.Effects
     /// <summary>
     /// <b>A last shot that lands on the gameplay pose</b> (#972, #1107): the shared half of a chapter intro's flight home,
     /// the part that does not depend on what the scene is. A scene lays its own route (the city's staircase of streets,
-    /// <see cref="CitySwing"/>; the meadow's brook, pond and turn round the island, <see cref="MeadowLanding"/>) as a dense
-    /// path that ends on the pose; this times it, points it and banks it, and the shot it returns
-    /// (<see cref="IntroShot.Lands"/>) is followed by no tour leg, so the intro hands the camera over without a cut.
+    /// <see cref="CitySwing"/>; the meadow's brook, pond and turn round the island, <see cref="MeadowLanding"/>; the savanna's
+    /// run in low over the grass, <see cref="SavannaLanding"/>) as a dense path that ends on the pose; this times it, points
+    /// it and banks it, and the shot it returns (<see cref="IntroShot.Lands"/>) is followed by no tour leg, so the intro hands
+    /// the camera over without a cut.
     /// <para>
     /// <b>What a landing needs</b>, and every scene's landing gets it from here:
     /// <list type="bullet">
