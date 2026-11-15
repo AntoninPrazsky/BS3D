@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1107 louka: úvod přistane na herní póze — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: úvod kapitoly Louka končí letem „the brook home“ — dolů po potoce mezi vrbami, přes rybník, mezerou v rákosí ven, kruh 48–60 kolem ostrova a zatočení přesně na herní pózu, bez cesty tour a bez střihu. Oblety balíků a lavičky drží tempo a vzdálenost #945, ale letí jen prostředních 108° (3,4 s). Celý úvod 21,0–21,7 s (byl 24,9), strop testu 22 s.
+- Hotovo: společný `Game/Effects/IntroLanding.cs` pro přistání (savana, poušť, šapitó: #1108, #1110, #1118); CitySwing přes něj bit po bitu stejný (digest 2 688 švihů).
+- ⚠ Benchmarkový segment Louka teď letí jinou cestou; čísla Louky z buildů před #1107 se nesrovnávají.
+- Otevřené: verdict-eye (pohyb, vrba blízko kořenů, kratší úvod místo delších letů — nabídnuto zvýšit `TARGET_SECONDS`).
+
 ## 2026-11-15 — #1103 #1104 #1096 #1077 verdikty a cíl Ultra 75 FPS uzavřen — desktop (RDT-PC), Claude Code
 
 - majitel (chat, 15. 11.): #1104 obloha v rozlišení displeje OK, #1096 šapitó OK, #1077 priorita zvuků na Androidu OK. Zapsáno do issues, všechny tři zavřené.
