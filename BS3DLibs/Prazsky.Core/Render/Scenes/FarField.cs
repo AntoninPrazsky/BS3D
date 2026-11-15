@@ -27,13 +27,20 @@ namespace Prazsky.Core.Render
         //wrong one: a camera grid is fine everywhere, so reaching 1500 at today's cells is about nine times the
         //vertices, and the far land does not need the near land's density - it needs a constant ANGLE per cell.
 
-        //The ring reaches from inside every camera grid to past the point the fade completes. The inner radius has to
-        //sit inside the grid on every side for any camera the Game uses, and the grid is centred on the CAMERA while
-        //the ring is centred on the ARENA: the smallest grid (+-500) still covers 340 units round the arena with the
-        //lens 110 off it on a diagonal, and the Game's cameras stand within about 90 (the play pose 36 out, the
-        //chapter intro's furthest viewpoint 2.4 stand-offs). 200 leaves room for the Testbed's free camera to wander
-        //three hundred units out before a gap can open on the arena's far side. A camera further out than that can
-        //see one - the ring is the arena's, by design, because a ring that followed the camera would swim.
+        //The ring reaches from inside every camera grid to past the point the fade completes. The grid is centred on the
+        //CAMERA while the ring is centred on the ARENA (a ring that followed the camera would swim), so the ring's rows
+        //from FAR_RING_INNER out are what a camera round the arena needs: the smallest grid (+-500) still covers 340 units
+        //round the arena with the lens 110 off it on a diagonal, and the Game's cameras in play and on the menu stand
+        //within about 90 (the play pose 36 out, the chapter intro's tour 2.4 stand-offs). Inside FAR_RING_INNER the mesh
+        //is a DISK down to the arena itself, its rows evenly spaced at the depth of the ring's first cell, for a lens
+        //whose grid does not reach round the arena: the sea's chapter intro flies one out to an oil rig 820 out (#1124),
+        //some 890 to 1070 from the arena, where the grid (+-800) covers little or none of the arena's water, and without
+        //the disk the island stood on a hard edge of the water some twenty degrees wide while the horizon either side
+        //faded softly.
+        //Every other view's grid covers the disk, and its rows are skipped like any covered row (DrawRing), so what those
+        //views draw is unchanged. The ring's OUTER edge still assumes a camera near the arena: it is FAR_RING_OUTER from
+        //the arena and the fade completes FAR_FADE_END from the lens, so at the end of the run at the rig, the look turned
+        //well off the arena, the ring ends about 1000 to 1300 off the lens at the frame's side edge, short of a full fade.
         private const float FAR_RING_INNER = 200f;
         private const float FAR_RING_OUTER = 1500f;
 
@@ -60,7 +67,10 @@ namespace Prazsky.Core.Render
 
         private VertexBuffer _farRingVertexBuffer;
         private IndexBuffer _farRingIndexBuffer;
+
+        //Every row of the mesh, the disk's included, and the disk's alone: the ring's first row is row _farDiskRows.
         private int _farRingRows;
+        private int _farDiskRows;
         private float _farRingGrowth;
 
         //Per effect, cached on its first draw (BestPractices §1: the by-name indexer is a linear scan, and every
@@ -184,14 +194,16 @@ namespace Prazsky.Core.Render
             slots.Ring.SetValue(new Vector4(gridOrigin.X, gridOrigin.Y, gridExtent * Constants.HALF - FAR_RING_OVERLAP, 1f));
             slots.Origin.SetValue(Vector2.Zero);
 
-            //The rings wholly inside the camera grid are not drawn at all. The rows run outward in the index buffer, so
+            //The rows wholly inside the camera grid are not drawn at all. The rows run outward in the index buffer, so
             //skipping them is a start offset: the largest circle round the arena the grid still covers is its half-width
             //less the grid's own offset from the arena, and every row inside that (less one row, for the overlap) would
-            //only be clipped away pixel by pixel. For the Game's cameras that is two fifths of the ring's rows.
+            //only be clipped away pixel by pixel. For the Game's cameras that is the whole disk and two fifths of the
+            //ring's rows; a lens whose grid covers less than FAR_RING_INNER round the arena (or none of it) draws the disk
+            //from the row inside what it covers.
             float covered = gridExtent * Constants.HALF - MathF.Max(MathF.Abs(gridOrigin.X), MathF.Abs(gridOrigin.Y)) - FAR_RING_OVERLAP;
             int firstRow = covered > FAR_RING_INNER
-                ? Math.Clamp((int)(MathF.Log(covered / FAR_RING_INNER) / MathF.Log(_farRingGrowth)) - 1, 0, _farRingRows - 2)
-                : 0;
+                ? _farDiskRows + Math.Clamp((int)(MathF.Log(covered / FAR_RING_INNER) / MathF.Log(_farRingGrowth)) - 1, 0, _farRingRows - _farDiskRows - 2)
+                : Math.Max((int)(covered / FAR_RING_INNER * _farDiskRows) - 1, 0);
 
             EffectTechnique grid = effect.CurrentTechnique;
             (EffectTechnique ring, EffectPass depth) = FarRingTechnique(effect);
@@ -230,26 +242,34 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// The ring: <see cref="FAR_RING_SEGMENTS"/> around, rings spaced geometrically from
         /// <see cref="FAR_RING_INNER"/> to <see cref="FAR_RING_OUTER"/> so a cell subtends the same angle from the
-        /// arena at every radius, flat at y 0 like the camera grids (the scenes lift it). World positions, centred on
-        /// the arena, built once. Drawn CullNone like every grid, so the winding does not matter.
+        /// arena at every radius, and inside it the disk, rows evenly spaced at the depth of the ring's first cell
+        /// from the arena itself (its first row is the centre, so its first cells are triangles), flat at y 0 like the
+        /// camera grids (the scenes lift it). World positions, centred on the arena, built once. Drawn CullNone like
+        /// every grid, so the winding does not matter.
         /// </summary>
         private void CreateFarRingMesh()
         {
             float step = FAR_RING_RADIAL_ASPECT * MathHelper.TwoPi / FAR_RING_SEGMENTS;
+            int disk = (int)MathF.Ceiling(1f / step);
             int rings = (int)MathF.Ceiling(MathF.Log(FAR_RING_OUTER / FAR_RING_INNER) / MathF.Log(1f + step)) + 1;
-            _farRingRows = rings;
+            _farDiskRows = disk;
+            _farRingRows = disk + rings;
             _farRingGrowth = 1f + step;
             int around = FAR_RING_SEGMENTS + 1;
 
-            VertexPosition[] vertices = new VertexPosition[rings * around];
-            for (int ring = 0; ring < rings; ring++)
+            VertexPosition[] vertices = new VertexPosition[_farRingRows * around];
+            for (int row = 0; row < _farRingRows; row++)
             {
-                float radius = MathF.Min(FAR_RING_INNER * MathF.Pow(1f + step, ring), FAR_RING_OUTER);
+                //The ring's radii are computed as they were before the disk was added, so its rows are the same to the bit
+                int ring = row - disk;
+                float radius = ring < 0
+                    ? FAR_RING_INNER * row / disk
+                    : MathF.Min(FAR_RING_INNER * MathF.Pow(1f + step, ring), FAR_RING_OUTER);
                 for (int segment = 0; segment < around; segment++)
                 {
                     //The last column repeats the first at exactly the same angle, so the seam closes bit for bit.
                     float angle = MathHelper.TwoPi * (segment % FAR_RING_SEGMENTS) / FAR_RING_SEGMENTS;
-                    vertices[ring * around + segment] = new VertexPosition(
+                    vertices[row * around + segment] = new VertexPosition(
                         new Vector3(radius * MathF.Cos(angle), 0f, radius * MathF.Sin(angle)));
                 }
             }
@@ -257,12 +277,12 @@ namespace Prazsky.Core.Render
             _farRingVertexBuffer = new VertexBuffer(_graphicsDevice, VertexPosition.VertexDeclaration, vertices.Length, BufferUsage.WriteOnly);
             _farRingVertexBuffer.SetData(vertices);
 
-            int[] indices = new int[(rings - 1) * FAR_RING_SEGMENTS * 6];
+            int[] indices = new int[(_farRingRows - 1) * FAR_RING_SEGMENTS * 6];
             int i = 0;
-            for (int ring = 0; ring < rings - 1; ring++)
+            for (int row = 0; row < _farRingRows - 1; row++)
                 for (int segment = 0; segment < FAR_RING_SEGMENTS; segment++)
                 {
-                    int a = ring * around + segment;
+                    int a = row * around + segment;
                     int b = a + 1;
                     int c = a + around;
                     int d = c + 1;

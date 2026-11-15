@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1124 moře: úvod přeletí kolem ropné plošiny — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: nový záběr „the rig“ mezi hlubinami a stoupáním ke slunci; objektiv nízko nad vodou míjí bližší plošinu (začne 250 za ní, 3,6 s, 48 j/s, test drží ≤ 50), pohled stoupá od nohou k vrtné věži. Ostatní záběry zkráceny, prolog 13,4 s, celé turné 17,9 s. `Sea.fx` navíc tlumí vlny se vzdáleností od arény (`CalmFrom` 600, plochá od 780), takže nohy nestojí nad údolími vln; herní pohled je pixel po pixelu stejný. Vzdálené pole má disk až k aréně (ostrov z plošiny neměl vodu). Komentář „plošiny za herním pohledem“ byl chybný: stojí před ním, ~21° po stranách.
+- ⚠ Blíž než ~100 schovají paluba a moduly věž úplně.
+- Otevřené: `verdict-eye` (rychlost běhu v pohybu, střihy); Potato a Scenery vypnuto prolog nehrají.
+
 ## 2026-11-15 — #1131 #1134 čísla z alt= na APU přeměřena, zrcadla terénu na Vega — notebook (ThinkPad), Claude Code
 
 - Hotovo, sloučeno: notebooková polovina #1131. Osmnáct sweepů v jednom procesu (města, louka, hory, sopka Low/Medium/herní póza, záře, jeskyně, aréna, hrubý kámen, MSAA z #540) přepsáno v devíti dokumentech; tabulka je v #1131. Issue zůstává otevřené pro desktopové pasáže.
