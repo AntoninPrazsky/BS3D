@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1118 cirkus: úvod přistane za dělem — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: poslední záběr úvodu Big Topu je „the gate home“ (`Game/Effects/CircusLanding.cs`). Kamera vjede nízko středem uličky účinkujících, vystoupá na kruh uvnitř hlavních stožárů a přes sdílený `IntroLanding` přistane přesně na herní póze. Střih a let tour odpadly; úvod trvá 16,6 s místo 15,5 s. Kde cesta není volná (menu), zůstává stará brána s letem tour. Nový `IntroLanding.Style.LookRise` (výchozí 0): louka a obě města se nezměnila ani o bit.
+- ⚠ Stan nemá CPU geometrii, takže kontroly kolize jsou kopie čísel stanu (`CircusLanding.Tent`); tři konstanty světel rampy hlídá test rovnosti, protože `CircusBackdrop` je `internal`.
+- Otevřené: `verdict-eye` (pohyb neviděn v plné velikosti, daleká póza mimo stožáry nezachycena, natočení 0,8 je volba).
+
 ## 2026-11-15 — #1131 #1134 čísla z alt= na APU přeměřena, zrcadla terénu na Vega — notebook (ThinkPad), Claude Code
 
 - Hotovo, sloučeno: notebooková polovina #1131. Osmnáct sweepů v jednom procesu (města, louka, hory, sopka Low/Medium/herní póza, záře, jeskyně, aréna, hrubý kámen, MSAA z #540) přepsáno v devíti dokumentech; tabulka je v #1131. Issue zůstává otevřené pro desktopové pasáže.
