@@ -346,6 +346,12 @@ namespace BS3D
         internal bool PauseOnFocusLoss { get; }
 
         /// <summary>
+        /// Testing only: the <c>splashshot=</c> argument's moments of the intro (#1105), seconds of
+        /// <see cref="SplashPage"/>'s own clock at which it holds its age for one frame and saves it. Empty when absent.
+        /// </summary>
+        internal IReadOnlyList<float> SplashShotSeconds { get; }
+
+        /// <summary>
         /// Whether Myra may be fed mouse input this frame. Cleared whenever the top screen changes and set again
         /// once the left button is seen released, so a page cannot be clicked by a button that was already down
         /// when it arrived — the menu's counterpart to <see cref="EdgeInputAllowed"/>, and needed for the same
@@ -803,6 +809,7 @@ namespace BS3D
             //See PauseOnFocusLoss: a capture schedule implies the opt-out, because a shot of the pause page is
             //not the shot that was asked for.
             PauseOnFocusLoss = !launch.NoFocusPause && launch.ShotSeconds == null;
+            SplashShotSeconds = launch.SplashShotSeconds ?? Array.Empty<float>();
 
             //An UNFOCUSED window keeps its full frame rate, on the owner's ruling (2026-09-23, on #518). MonoGame
             //sleeps InactiveSleepTime before every tick while IsActive is false, and its default of 20 ms held

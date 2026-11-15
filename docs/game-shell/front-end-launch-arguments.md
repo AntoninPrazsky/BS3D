@@ -14,7 +14,7 @@ A locked desktop takes no keystrokes, a synthetic one lands in whichever window 
 - `nickprompt`, `nickprompt=<steps>`, `nointernet`: the nickname plate ([Online rows](online-and-nickname.md#testing-it)).
 - `welcome`: the Raspberry Pi build's first-launch note on any build and in a scripted run ([Front-end pages](front-end-pages.md#the-authors-note-on-the-pis-first-launch-1083)).
 - `menucursor=<seconds>[:<steps>[:<presses>]]` (#799): at that wall-clock second the pad's cursor comes up on the page that is up and walks that many entries down (from the top of the walk, not from the page's arrival entry). `<presses>` (#807) are sideways presses made after it, 0.3 s apart, through the menu's own calls: `left`/`right` as the arrow keys, `lb`/`rb` as the shoulders, each logged as `[cursor] … turned the page`, `walked the row` or `nothing`, then where the cursor ended: `about=5 menucursor=6:1:right,right,left,left,lb` walks from Play on the player's page, the last: Next, nothing past the last page, back to Play, past the row's start to page four, and on LB to page three. `pad` pins the menus' prompts and the session's to the pad ([Menu navigation](menu-navigation.md)).
-- `nosplash`: skips the intro logo for one run.
+- `nosplash`: skips the intro logo for one run. `splashshot=<s1,...>` saves the frames at those seconds of the intro's own clock (#1105): its age is held at each for one frame, so a capture shows the stated moment of the dissolve however long the one before it took ([The splash](help-about-splash.md#the-splash-454)).
 
 ## What the front end hangs and plays
 

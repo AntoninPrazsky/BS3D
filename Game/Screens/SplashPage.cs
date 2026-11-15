@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Myra.Graphics2D.UI;
 using System;
+using System.Collections.Generic;
 
 namespace BS3D.Screens
 {
@@ -54,56 +55,8 @@ namespace BS3D.Screens
     /// </summary>
     internal sealed class SplashPage : MenuPage
     {
-        //=== THE SEQUENCE, in seconds ===
-        //
-        //A starting point rather than a measurement: the issue offered figures of this shape and said the
-        //owner's eye decides. Five legs since #621 — up out of black, held, the black away, a beat, the picture
-        //away — and the page then replaces itself with the menu the last two legs have already been showing.
-
-        //Black to the logo over black
-        private const float FADE_UP_SECONDS = 0.7f;
-
-        //The logo alone on black — long enough to be read, short enough that nobody reaches for the skip. It
-        //was 1.0 with a second leg after it that kept the picture fully up over the arriving scene; that leg
-        //went with the hand-over (#601), and this took half of it back so the picture is not gone sooner than
-        //it can be read.
-        private const float HOLD_SECONDS = 1.5f;
-
-        //The black lifts off the scene, the picture still fully up over it (#621). Slower than the fade up: this
-        //is the leg that shows the player a whole new picture — the island, the sky, the city — and a quicker
-        //lift reads as the cut it replaced.
-        private const float BLACK_OUT_SECONDS = 0.8f;
-
-        //The picture alone over the live scene: long enough to register the scene's arrival and the title's
-        //hand-over as two steps rather than one fade smeared into the next, short enough not to read as a second
-        //hold.
-        private const float BEAT_SECONDS = 0.4f;
-
-        //The picture away, and the 3D wordmark in over the same leg (WordmarkPresence). A shade quicker than the
-        //black: the scene is already there, and the flat logo only has to hand over to the corner title.
-        private const float LOGO_OUT_SECONDS = 0.7f;
-
-        /// <summary>When the black starts to lift — the end of the part of the sequence that is on black.</summary>
-        private const float EXIT_START = FADE_UP_SECONDS + HOLD_SECONDS;
-
-        /// <summary>When the picture starts to go.</summary>
-        private const float LOGO_OUT_START = EXIT_START + BLACK_OUT_SECONDS + BEAT_SECONDS;
-
-        /// <summary>The whole sequence; the front end takes the page's place at the end of it.</summary>
-        private const float SECONDS = LOGO_OUT_START + LOGO_OUT_SECONDS;
-
-        /// <summary>
-        /// How much faster the sequence runs once the player has asked it to go (see <see cref="Update"/>): the
-        /// exit's 1.9 seconds pass in about 0.6, which is quick enough to read as the press being obeyed and
-        /// slow enough to still be the fade rather than the cut #621 replaced.
-        /// </summary>
-        private const float SKIP_RATE = 3f;
-
-        /// <summary>
-        /// How long any input is ignored for. A splash that can be skipped on frame one is skipped by the very
-        /// click that gave the window focus, and the player never sees it at all.
-        /// </summary>
-        private const float SKIP_AFTER = 0.35f;
+        //The sequence's legs and what each draws at a given age are SplashTimeline's: plain functions of the age, so the
+        //tests hold them to each other without a device. This page owns the age, the skip and the draw.
 
         //=== WHERE THE PICTURE GOES ===
 
@@ -119,6 +72,10 @@ namespace BS3D.Screens
         private const int BAND_WIDTH = 3840, BAND_HEIGHT = 1600;
 
         private float _age;
+
+        //Testing only (splashshot=): how far down the schedule of held moments the run has got. Not reset by Enter: the
+        //splash is entered once a launch, and the schedule runs once
+        private int _shotNext;
 
         //Whether the player has asked the page to go: the rest of the sequence then runs at SKIP_RATE, with the
         //hold (if it was still to come) left out, and a second press cuts
@@ -141,13 +98,12 @@ namespace BS3D.Screens
 
         /// <summary>
         /// How present the 3D wordmark is under this page, 0 to 1 (#621), for <c>BackdropScreen.DrawWordmark</c>
-        /// to hand to <c>TitleWordmark.Draw</c>'s <c>presence</c>: zero through the legs on black, the black's lift
-        /// and the beat — the picture is the only title while it is fully up — then a smoothstep to one over
-        /// exactly the leg the picture fades out on, so the two cross over. It is one when the page leaves at the
-        /// end of the sequence, and a skip runs through that leg too; a second press cuts to the main menu, where
+        /// to hand to <c>TitleWordmark.Draw</c>'s <c>presence</c>: <see cref="SplashTimeline.WordmarkPresence"/> at
+        /// the page's age, so it rises over exactly the leg the picture fades out on. It is one when the page leaves at
+        /// the end of the sequence, and a skip runs through that leg too; a second press cuts to the main menu, where
         /// the title is always at one, as it is with no splash at all.
         /// </summary>
-        internal float WordmarkPresence => MathHelper.SmoothStep(0f, 1f, (_age - LOGO_OUT_START) / LOGO_OUT_SECONDS);
+        internal float WordmarkPresence => SplashTimeline.WordmarkPresence(_age);
 
         public override void Enter()
         {
@@ -167,7 +123,21 @@ namespace BS3D.Screens
             base.Update(gameTime);
 
             //Wall seconds, so the legs last the same at any frame rate; a skip only scales them
-            _age += (float)gameTime.ElapsedGameTime.TotalSeconds * (_skipping ? SKIP_RATE : 1f);
+            float age = SplashTimeline.Advance(_age, (float)gameTime.ElapsedGameTime.TotalSeconds, _skipping);
+
+            //Testing only (splashshot=): the age is held at the next stated moment for the one frame that is saved
+            //there, so a capture shows that instant of the sequence however long the capture before it took (a stall
+            //of a tenth of a second or more, which carries shot='s wall clock past the next moment of the dissolve)
+            IReadOnlyList<float> shots = Game.SplashShotSeconds;
+            if (_shotNext < shots.Count && age >= shots[_shotNext])
+            {
+                age = shots[_shotNext++];
+                Game.RequestScreenshot();
+                Console.WriteLine(FormattableString.Invariant(
+                    $"[splashshot] +{age:F3} s of {SplashTimeline.SECONDS:F2}: black {SplashTimeline.Black(age):F2}, logo {SplashTimeline.Logo(age):F2}, wordmark {SplashTimeline.WordmarkPresence(age):F2}"));
+            }
+
+            _age = age;
 
             //A SKIP FAST-FORWARDS, and a second one cuts (#621). The first deliberate press finishes the fade
             //up (quickly), leaves the hold out and runs the exit — black away, beat, picture away — at SKIP_RATE,
@@ -175,15 +145,15 @@ namespace BS3D.Screens
             //it always does, rather than the one-frame cut the owner asked to be rid of. Jumping straight to the
             //start of the exit instead would pop a half-faded logo to full on the press. A player who presses
             //again is impatient with even that, and gets the menu on that frame.
-            bool cut = _age >= SECONDS;
+            bool cut = _age >= SplashTimeline.SECONDS;
 
-            if (_age >= SKIP_AFTER && Skipped())
+            if (_age >= SplashTimeline.SKIP_AFTER && Skipped())
             {
                 if (_skipping) cut = true;
                 else _skipping = true;
             }
 
-            if (_skipping && _age >= FADE_UP_SECONDS && _age < EXIT_START) _age = EXIT_START;
+            if (_skipping) _age = SplashTimeline.SkipHold(_age);
 
             if (cut)
             {
@@ -215,12 +185,9 @@ namespace BS3D.Screens
         /// </summary>
         public override void Draw(GameTime gameTime)
         {
-            //Each leg a smoothstep of its own share of the clock; SmoothStep clamps its amount, so outside its leg
-            //each term is simply its end value. The picture: up out of the black, held, then away. The black:
-            //solid, then away — and gone for good before the picture starts to go (the beat between them).
-            float logo = MathHelper.SmoothStep(0f, 1f, _age / FADE_UP_SECONDS)
-                * (1f - MathHelper.SmoothStep(0f, 1f, (_age - LOGO_OUT_START) / LOGO_OUT_SECONDS));
-            float black = 1f - MathHelper.SmoothStep(0f, 1f, (_age - EXIT_START) / BLACK_OUT_SECONDS);
+            //The picture: up out of the black, held, then away. The black: solid, then away (SplashTimeline)
+            float logo = SplashTimeline.Logo(_age);
+            float black = SplashTimeline.Black(_age);
 
             Rectangle frame = Game.GraphicsDevice.Viewport.Bounds;
             SpriteBatch batch = Game.OverlayBatch;
@@ -252,7 +219,7 @@ namespace BS3D.Screens
         /// Any deliberate press. Read as edges against this page's own snapshots rather than the host's, and
         /// that is still right now that <see cref="Update"/> runs the shared menu chrome (which does keep the
         /// host's keyboard and pad snapshots): the host tracks no <i>mouse</i> edge at all, and these are
-        /// deliberately frozen at <see cref="Enter"/> until <see cref="SKIP_AFTER"/> passes, so a key already
+        /// deliberately frozen at <see cref="Enter"/> until <see cref="SplashTimeline.SKIP_AFTER"/> passes, so a key already
         /// down at boot never reads as a skip. Sharing the host's, which move every frame, would lose both.
         /// </summary>
         private bool Skipped()
