@@ -113,11 +113,20 @@ namespace BS3D.Effects
             return MathHelper.Lerp(_rollPath[i], _rollPath[i + 1], index - i);
         }
 
+        //How much of the shot's clock is a smoothstep (see Pose); the rest runs at a constant rate.
+        private const float EASE = 0.3f;
+
+        /// <summary>
+        /// The shot's fastest pace as a multiple of its mean: the eased clock runs at 1 - <see cref="EASE"/> of it at the
+        /// ends and at 1 + <see cref="EASE"/>/2 in the middle, where a path over rough ground is flown fastest.
+        /// </summary>
+        public const float PEAK_PACE = 1f + EASE * 0.5f;
+
         //The shot's clock, eased only a little at the ends (see Pose)
         private static float Eased(float t)
         {
             t = MathHelper.Clamp(t, 0f, 1f);
-            return MathHelper.Lerp(t, t * t * (3f - 2f * t), 0.3f);
+            return MathHelper.Lerp(t, t * t * (3f - 2f * t), EASE);
         }
 
         /// <summary>The shot has come on screen: <see cref="ChapterIntro"/> calls this once, on its first frame.</summary>
@@ -195,13 +204,22 @@ namespace BS3D.Effects
         //on the mountains' pass at 36 units a second the view turned at 5 and 15 degrees a second on alternate
         //frames, one kink per vertex. A Catmull-Rom passes through the same points with a continuous velocity,
         //so every shot keeps its course and loses its corners.
+        //
+        //⚠ PAST THE ENDS THE NEIGHBOUR IS EXTRAPOLATED, NOT REPEATED (#1109). A Catmull-Rom's speed at a point is half
+        //the span between its two neighbours, so with the end point standing in for its own missing neighbour the lens
+        //left every cut at half its speed and slowed to half again into the next: the view's turn rate doubled or halved
+        //within two frames, measured as 118-144 degrees a second squared on the crown's and the summit's arcs. Carried on along
+        //the end leg, the missing neighbour is where the path would have gone; the curve still ends on the end point,
+        //so a shot that lands still lands exactly. A two-point path (the desert's scorpion, the dream's fallback sky) is
+        //walked at the clock's own pace, where the repeated ends had eased it in and out.
         private static Vector3 At(Vector3[] path, float s)
         {
             float index = MathHelper.Clamp(s, 0f, 1f) * (path.Length - 1);
             int i = Math.Min((int)index, path.Length - 2);
 
-            return Vector3.CatmullRom(path[Math.Max(i - 1, 0)], path[i], path[i + 1],
-                path[Math.Min(i + 2, path.Length - 1)], index - i);
+            Vector3 before = i > 0 ? path[i - 1] : 2f * path[0] - path[1];
+            Vector3 after = i + 2 < path.Length ? path[i + 2] : 2f * path[^1] - path[^2];
+            return Vector3.CatmullRom(before, path[i], path[i + 1], after, index - i);
         }
     }
 }

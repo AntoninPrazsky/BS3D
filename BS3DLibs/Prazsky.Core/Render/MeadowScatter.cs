@@ -403,8 +403,7 @@ namespace Prazsky.Core.Render
             for (float a = 0f; a < MathHelper.TwoPi; a += 0.09f + 0.08f * (float)rng.NextDouble())
             {
                 float shore = config.PondRadius * MeadowPath.PondOutline(a);
-                float clump = MathF.Sin(a * 3f + 1.3f) + 0.6f * MathF.Sin(a * 7f + 0.4f);
-                if (clump > 0.1f)
+                if (MeadowPath.PondReedClump(a) > MeadowPath.POND_REEDS_FROM)
                 {
                     int reedsHere = 2 + rng.Next(3);
                     for (int k = 0; k < reedsHere; k++)

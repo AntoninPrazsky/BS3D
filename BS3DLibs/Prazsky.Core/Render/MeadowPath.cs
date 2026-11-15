@@ -92,6 +92,17 @@ namespace Prazsky.Core.Render
             1f + 0.16f * MathF.Sin(2f * a + 0.7f) + 0.09f * MathF.Sin(3f * a + 2.3f) + 0.05f * MathF.Sin(5f * a + 4.1f);
 
         /// <summary>
+        /// Where round the pond its reeds stand (#609's third round): <see cref="MeadowScatter"/> plants a clump of them at
+        /// bearing <paramref name="a"/> round its centre wherever this is over <see cref="POND_REEDS_FROM"/>, and flat stones and
+        /// the grass to the water's edge between, so the clumps are fixed arcs of the shore whatever the planting's seed. The
+        /// meadow's flight home (#1107) crosses the shore low only between them.
+        /// </summary>
+        public static float PondReedClump(float a) => MathF.Sin(a * 3f + 1.3f) + 0.6f * MathF.Sin(a * 7f + 0.4f);
+
+        /// <summary>Over this, <see cref="PondReedClump"/> is a clump of reeds.</summary>
+        public const float POND_REEDS_FROM = 0.1f;
+
+        /// <summary>
         /// Where the footpath arrives (#609's third round): its centreline at its inner end, on the knoll's top, where
         /// the old tree stands. The owner: "a path leads somewhere, to a tree or a small hill". <c>Meadow.fx</c> takes
         /// it as <c>KnollCentre</c>.

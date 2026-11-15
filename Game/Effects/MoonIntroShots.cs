@@ -6,23 +6,26 @@ using System.Collections.Generic;
 namespace BS3D.Effects
 {
     /// <summary>
-    /// The Moon's own shots for a chapter intro's prologue (#559): a crane over the crater plain with the
-    /// landing pad in the middle of it, a rise over the rim of one real crater with the black shadow in its bowl,
-    /// and the Earth over the highland skyline on a long lens — cut together, then cut to the tour's last leg.
-    /// The tour it replaces flew one spline round the arena at the stand-off's height, which from the Moon's
+    /// The Moon's own shots for a chapter intro's prologue (#559, #1114): a crane over the crater plain with the
+    /// landing pad in the middle of it, a run low along the lunar rover's ruts up the highland belt's slope to the white
+    /// flag beside them, and the Earth over the highland skyline on a long lens — cut together, then cut to the tour's
+    /// last leg. The tour it replaces flew one spline round the arena at the stand-off's height, which from the Moon's
     /// flat clearing is a skim over grey ground; each of these is about one thing the scene builds.
     /// <para>
-    /// <b>The ground has no CPU mirror, so the lens keeps off a CEILING</b>
-    /// (<see cref="OffworldGround.MoonCeiling"/>): the height the terrain can never stand above at a point —
-    /// every crater's lip at its highest, the mare, the highland belt and the curvature exact. Each path is held
-    /// a clearance over the highest ceiling under it, so it is over the ground whatever the lattice rolled there.
+    /// <b>The crane and the Earth keep off a CEILING; the tracks follow the ground.</b> The two high or far lenses are held
+    /// a clearance over <see cref="OffworldGround.MoonCeiling"/>, the height the terrain can never stand above at a point
+    /// (every crater's lip at its highest, the mare, the highland belt and the curvature exact), as one constant lift, so
+    /// they are over the ground whatever the lattice rolled there. The tracks shot flies a couple of units over the
+    /// regolith, where a bound that takes every lip at its highest is a lens in the sky, so it follows the ground's own CPU
+    /// mirror, <see cref="TerrainMirror.Moon"/> (#680), through <see cref="AridIntroPaths.Hug"/>: the highest ground a few
+    /// units round each point, plus its clearance, rounded so it rises before a rim and never through it.
     /// </para>
     /// <para>
-    /// <b>The crater is a real one</b> — the largest of <c>Moon.fx</c>'s top octave in a band round the arena,
-    /// found by <see cref="OffworldGround.MoonCraters"/> walking the shader's own cells — and <b>the Earth is a
-    /// direction</b>: at its true 0.95° it is thirty pixels in the game's frame, so its shot is the one long lens
-    /// here, solved from the crest's angle and the Earth's so that both stand in it and nothing else. The lenses
-    /// are absolute (see <see cref="GridIntroShots"/>). Built once when the intro begins.
+    /// <b>The ruts and the flag are fixed</b> (<see cref="MoonPlanting.TRAVERSE"/>, <see cref="MoonPlanting.FLAG"/>), so the
+    /// tracks shot is the same run every time, and <b>the Earth is a direction</b>: at its true 0.95° it is thirty pixels
+    /// in the game's frame, so its shot is the one long lens here, solved from the crest's angle and the Earth's so that
+    /// both stand in it and nothing else. The lenses are absolute (see <see cref="GridIntroShots"/>). Built once when the
+    /// intro begins.
     /// </para>
     /// </summary>
     internal static class MoonIntroShots
@@ -43,19 +46,32 @@ namespace BS3D.Effects
         private const float PLAIN_FOV_DEGREES = 56f;
         private const float PLAIN_SECONDS = 3.2f;
 
-        //The crater: of the top octave's craters whose centres lie in this band round the arena (out where the
-        //clearing's ramp has given the field most of its amplitude), the widest few; one of them is rolled. The
-        //lens rises from this many radii out, at the lip's height, to this many radii and this many radii up,
-        //the look pinned on the bowl — from the side away from the sun, so the shadowed wall faces the lens. ⚠ The
-        //first cut rose from 2.3 radii to 1.5 and 1.1 up: twenty units from the rim that is a fast turn of the
-        //view, and in play (#402's motion blur) the whole crater came out smeared; this is half the travel.
-        private const float CRATER_MIN_DISTANCE = 105f, CRATER_MAX_DISTANCE = 180f;
-        private const int CRATER_CANDIDATES = 3;
-        private const float CRATER_FROM_RADII = 2.1f, CRATER_TO_RADII = 1.7f;
-        private const float CRATER_TO_HEIGHT_RADII = 0.9f;
-        private const float CRATER_OFF_SUN_DEGREES = 35f;
-        private const float CRATER_FOV_DEGREES = 54f;
-        private const float CRATER_SECONDS = 3.2f;
+        //THE TRACKS (#1114). The owner: "nowhere in the intro animation do I see a close-up of the wheel tracks of the lunar
+        //rover", and the one flag "visible in a close-up". The lens runs up the ruts' middle line this far, low over the
+        //regolith, and stops this far short of the flag's place along them, the look held on the flag the whole way: the
+        //ruts lead up the slope to it and it grows from a white mark to a close-up, the lens easing from the wider field of
+        //view to the narrower as it comes. Up the straight stretch where the rover climbed the belt, heading south-east
+        //across the 16-degree sun (MoonLightingConfig's azimuth 40), so the light comes from the lens's right a little
+        //behind and rakes the berms and the cleats, every one with its shadow (looking down-sun a rut is flat).
+        //
+        //Over the middle line because that is where no rock stands: MoonPlanting keeps every rock off the ruts by more than
+        //the ruts' width and its own half-size, and off the flag by twelve units and more, inside which the lens stops.
+        //
+        //The height: TRACKS_CLEARANCE over the highest ground at and TRACKS_LATERAL units round each point, flown the way
+        //the arid runs fly it (AridIntroPaths.Hug: rounded over the shot's travel, lifted back where a rim was cut, #1109),
+        //so the lens rides 2.5 to 5.5 units over the regolith and still clears what the grid draws, whose triangles stand up to two units off the exact field across the
+        //middle octave's rims (MoonPlanting's height). The look at TRACKS_LOOK_HEIGHT over the flag's foot holds the whole
+        //flag in the frame at the end (its bar stands 5.5 over the ground) and its foot over the skip hint.
+        private const float TRACKS_LENGTH = 48f;
+        private const float TRACKS_STOP_SHORT = 11f;
+        internal const float TRACKS_CLEARANCE = 2.2f;
+        private const float TRACKS_LATERAL = 2f;
+        private const float TRACKS_LOOK_HEIGHT = 2.4f;
+        private const float TRACKS_FROM_FOV_DEGREES = 50f, TRACKS_TO_FOV_DEGREES = 40f;
+        private const float TRACKS_SECONDS = 4.2f;
+
+        //How finely the ruts' curve is walked to lay the lens along it: points a span of MoonPlanting.TRAVERSE
+        private const int CURVE_STEPS = 64;
 
         //The Earth: a slow push towards the highlands on the Earth's own bearing, this far out from the arena,
         //low over the plain; the frame solved so the crest stands this share of the way up it and the Earth this
@@ -77,16 +93,16 @@ namespace BS3D.Effects
 
             //The Moon's own sun, which is a constant of the scene and not of any dome (#508).
             Vector3 sun = scenes.TryGetSunDirection(SceneKind.Moon, out Vector3 found) ? found : Vector3.Normalize(new Vector3(0.6f, 0.3f, 0.7f));
+
+            return Build(moon, sun, random);
+        }
+
+        /// <summary>The prologue for a Moon of this config under this sun: the plain, the tracks, the Earth.</summary>
+        internal static IntroShot[] Build(MoonSceneConfig moon, Vector3 sun, Random random)
+        {
             Vector2 sunward = Vector2.Normalize(new Vector2(sun.X, sun.Z) + new Vector2(1e-4f, 0f));
 
-            var shots = new List<IntroShot>(3) { Plain(moon.Terrain, sunward, random) };
-
-            IntroShot crater = Crater(moon.Terrain, sunward, random);
-            if (crater != null) shots.Add(crater);
-
-            shots.Add(Earth(moon, random));
-
-            return shots.ToArray();
+            return new[] { Plain(moon.Terrain, sunward, random), Tracks(moon.Terrain), Earth(moon, random) };
         }
 
         /// <summary>
@@ -109,31 +125,33 @@ namespace BS3D.Effects
         }
 
         /// <summary>
-        /// One crater: a rise over its lip, from the side away from the sun, until the lens looks down into the
-        /// bowl — the sunward wall in black shadow, the far rim lit. Null when the band holds no crater at all,
-        /// which the shipped config never does.
+        /// The rover's tracks (#1114): a run low up the ruts' middle line towards the flag beside them, the look on the flag,
+        /// ending on it close up. The same every time: the ruts and the flag do not move.
         /// </summary>
-        private static IntroShot Crater(MoonTerrainConfig terrain, Vector2 sunward, Random random)
+        internal static IntroShot Tracks(MoonTerrainConfig terrain)
         {
-            var craters = new List<OffworldGround.Crater>();
-            OffworldGround.MoonCraters(terrain, CRATER_MIN_DISTANCE, CRATER_MAX_DISTANCE, craters.Add);
-            if (craters.Count == 0) return null;
+            Func<float, float, float> ground = (x, z) => TerrainMirror.Moon(x, z, terrain);
 
-            craters.Sort((a, b) => b.Radius.CompareTo(a.Radius));
-            OffworldGround.Crater crater = craters[random.Next(Math.Min(CRATER_CANDIDATES, craters.Count))];
+            //The ruts' curve, walked finely, and the distance along it to each point
+            Vector2[] curve = Curve(MoonPlanting.TRAVERSE, CURVE_STEPS);
+            var along = new float[curve.Length];
+            for (int i = 1; i < curve.Length; i++) along[i] = along[i - 1] + Vector2.Distance(curve[i - 1], curve[i]);
 
-            //From the side away from the sun, turned a little a rolled way round so the rim is not dead square on.
-            Vector2 away = IntroPaths.Rotate(-sunward, MathHelper.ToRadians(CRATER_OFF_SUN_DEGREES) * (random.Next(2) == 0 ? 1f : -1f));
-            Vector3 outward = new(away.X, 0f, away.Y);
+            //The flag's place along the ruts: the point of the curve nearest it
+            Vector2 flag = MoonPlanting.FLAG;
+            int nearest = 0;
+            for (int i = 1; i < curve.Length; i++)
+                if (Vector2.DistanceSquared(curve[i], flag) < Vector2.DistanceSquared(curve[nearest], flag)) nearest = i;
 
-            float rim = crater.Centre.Y + CLEARANCE;
-            Vector3[] path = Line(
-                crater.Centre + outward * (crater.Radius * CRATER_FROM_RADII) + Vector3.Up * (rim - crater.Centre.Y),
-                crater.Centre + outward * (crater.Radius * CRATER_TO_RADII) + Vector3.Up * (crater.Radius * CRATER_TO_HEIGHT_RADII));
-            KeepOver(path, terrain);
+            float end = along[nearest] - TRACKS_STOP_SHORT, start = end - TRACKS_LENGTH;
+            var plan = new Vector2[AridIntroPaths.POINTS];
+            for (int i = 0; i < plan.Length; i++) plan[i] = PointAlong(curve, along, MathHelper.Lerp(start, end, i / (float)(plan.Length - 1)));
 
-            return new IntroShot("the crater", path, CRATER_SECONDS, MathHelper.ToRadians(CRATER_FOV_DEGREES),
-                lookAt: crater.Centre - Vector3.Up * (crater.Depth * 0.5f));
+            Vector3[] path = AridIntroPaths.Hug(plan, ground, TRACKS_CLEARANCE, TRACKS_LATERAL, TRACKS_SECONDS);
+            Vector3 lookAt = new(flag.X, ground(flag.X, flag.Y) + TRACKS_LOOK_HEIGHT, flag.Y);
+
+            return new IntroShot("the tracks", path, TRACKS_SECONDS, MathHelper.ToRadians(TRACKS_FROM_FOV_DEGREES), lookAt: lookAt,
+                endFieldOfView: MathHelper.ToRadians(TRACKS_TO_FOV_DEGREES));
         }
 
         /// <summary>
@@ -177,6 +195,38 @@ namespace BS3D.Effects
             Vector3 look = new(MathF.Cos(earthBearing) * MathF.Cos(pitch), MathF.Sin(pitch), MathF.Sin(earthBearing) * MathF.Cos(pitch));
 
             return new IntroShot("the Earth", path, EARTH_SECONDS, fov, lookAt: lens + look * FAR);
+        }
+
+        /// <summary>
+        /// The curve the rover's ruts are drawn off (<see cref="RoverTracks.Resample"/>'s Catmull-Rom through
+        /// <paramref name="controls"/>, its ends doubled), <paramref name="perSpan"/> points a span. The shader draws the ruts
+        /// as straight segments between points of this curve a span or so apart, so a lens laid along the curve is never
+        /// more than a fraction of a unit off the ruts' drawn middle line, and turns through no corner where they meet.
+        /// </summary>
+        private static Vector2[] Curve(IReadOnlyList<Vector2> controls, int perSpan)
+        {
+            int spans = controls.Count - 1;
+            var points = new Vector2[spans * perSpan + 1];
+            for (int i = 0; i < points.Length; i++)
+            {
+                int k = Math.Min(i / perSpan, spans - 1);
+                float t = (i - k * perSpan) / (float)perSpan;
+                points[i] = Vector2.CatmullRom(controls[Math.Max(k - 1, 0)], controls[k], controls[k + 1],
+                    controls[Math.Min(k + 2, spans)], t);
+            }
+
+            return points;
+        }
+
+        //The point a distance along a walked curve, between the two points either side of it
+        private static Vector2 PointAlong(Vector2[] curve, float[] along, float distance)
+        {
+            int i = Array.BinarySearch(along, distance);
+            if (i >= 0) return curve[i];
+
+            i = Math.Clamp(~i, 1, curve.Length - 1);
+            float span = along[i] - along[i - 1];
+            return Vector2.Lerp(curve[i - 1], curve[i], span > 1e-6f ? (distance - along[i - 1]) / span : 0f);
         }
 
         //Holds every point of a path CLEARANCE over the highest ceiling anywhere under the path, as one height
