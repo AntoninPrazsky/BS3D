@@ -7,10 +7,13 @@ namespace BS3D.Effects
 {
     /// <summary>
     /// The city's own shots for a chapter intro's prologue (#488, and #433 inside it): a pass down a
-    /// street from four storeys up, an orbit over a plaza from above, a swing round a tower corner between the facades and an
-    /// arc round one dressed roof, its mast, dishes and beacon close and from above (#780; #436's equipment) — in that order, which alternates what the
-    /// lens sees so that no cut lands on the same picture nudged (the owner's second-round note) — cut together,
-    /// then cut to the ordinary tour. Both cities have spent a whole issue's worth of detail on the street
+    /// street from four storeys up, an orbit over a plaza from above, a walk up a street towards one tower's face looking up
+    /// it, where the panes mirror the towers across the street (#1119), an arc round one dressed roof, its mast, dishes and
+    /// beacon close and from above (#780; #436's equipment), and the swing home onto the gameplay pose (#972,
+    /// <see cref="CitySwing"/>) — in an order that alternates what the lens sees, a canyon shot never next to another, so
+    /// that no cut lands on the same picture nudged (the owner's second-round note). Where no swing home is clear, the old
+    /// reel: the street, the plaza, a swing round a tower corner and the rooftop, then the ordinary tour's arrival. Both
+    /// cities have spent a whole issue's worth of detail on the street
     /// level (#399: lane lines, crossings, parked cars, plazas of trees, and at night the sodium lamps and the
     /// shops' neon) that no camera in the game had ever gone down to, and the tour cannot take it there: it is
     /// a spline round the arena, and the streets are ninety units under the island, between towers.
@@ -19,18 +22,21 @@ namespace BS3D.Effects
     /// city stands its buildings inside their blocks (<see cref="City"/>: a building never reaches past the
     /// buildable square, and the square stops half a street short of the centre line), so any height over a
     /// street's centre line is clear. The one place a path leaves a centre line is the corner of the swing,
-    /// and its fillet radius is chosen for that (see <see cref="Swing"/>).
+    /// and its fillet radius is chosen for that (see <see cref="Swing"/>); the orbit, the roofs' sway and the rooftop's arc
+    /// are walked against the towers' boxes instead.
     /// </para>
     /// <para>
     /// <b>The street's paint is flat</b> — the cars, the lane lines and the plaza's trees are drawn onto the
     /// ground from above by <c>CityStreets.fx</c>, not modelled — so the street pass looks DOWN the street rather
     /// than level along it, and the plaza is shot from above: edge-on they would read as flat paint or not at
-    /// all (the trap #488 itself records).
+    /// all (the trap #488 itself records). The facades, the one shot down at the asphalt, look up from it, with the
+    /// street held wholly under the frame's bottom edge.
     /// </para>
     /// <para>
     /// <b>Chosen from the city's own grid</b> (<see cref="City.BlockBuilt"/>): the street is the deepest canyon
     /// of a few rolled candidates, the swing turns round a block that has a tower on it, the plaza is a block
-    /// the generator left open. Built once when the intro begins; nothing here runs per frame.
+    /// the generator left open, and the facades walk to the face whose panes mirror the most of the towers' boxes. Built
+    /// once when the intro begins; nothing here runs per frame.
     /// </para>
     /// </summary>
     internal static class CityIntroShots
@@ -206,9 +212,11 @@ namespace BS3D.Effects
             if (home != null)
             {
                 //The facades are rolled LAST, after the swing home, so every other shot rolls exactly what it rolled before
-                //#1119 added them. They are a canyon shot, so they stand only where the plaza (from above) stands between them
-                //and the street: the day city's after its plaza, which the street opens, the neon city's first, before its
-                //plaza. Without a plaza, or where no candidate is clear, the reel plays without them.
+                //#1119 added them. Three canyon shots (the street, the facades and the swing home, always last) and two from
+                //above (the plaza and the rooftop) alternate only as canyon, above, canyon, above, canyon, so a reel opens on
+                //a canyon: the day city's on its street, the facades after its plaza; the neon city's on the facades, which
+                //keeps its plaza before its street (#973). Without a plaza between them and the street, or where no
+                //candidate is clear, the reel plays without them; the old reel below has none (its swing is a canyon shot too).
                 IntroShot facades = reelPlaza != null ? Facades(city, fieldOfView, random) : null;
 
                 var reel = new List<IntroShot>(5);

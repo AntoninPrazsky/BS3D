@@ -35,7 +35,7 @@ Everything the game says back to the player: the HUD, the tutorial, the sound, t
 - [The end of a level goes out of focus](game-feedback/level-end-defocus.md) — why the result page does not scrim the frame, the delayed defocus and its timing trap, the outlined text (`ShadowedLabel`), the pause's blur and the overlay layer that softens the HUD, precise aim's periphery blur
 - [The drop cinematic](game-feedback/drop-cinematic.md) — when it fires (the record rule, the clearing shot, the Drop camera setting), the camera's pose/blend/focus rules, the clock (real time always, no slow motion anywhere) and render interpolation, where the lens can go per scene kind, skip rules and the skip hint
 - [The chapter intro](game-feedback/chapter-intro.md) — the trigger and once-per-run rule, the `[intro]` line, replaying a tour from the scene menu (`tour`), the four-key polar shot, handing control back (release tau, skip, HUD hidden over the tour)
-- [Chapter intro prologues](game-feedback/chapter-intro-prologues.md) — the cut-together prologue mechanism, the cities' four shots, the volcano's and the aurora's, the smoothness fixes for terrain-hugging shots
+- [Chapter intro prologues](game-feedback/chapter-intro-prologues.md) — the cut-together prologue mechanism, the cities' shots (the facades looking up the panes that mirror, #1119), the volcano's and the aurora's, the smoothness fixes for terrain-hugging shots
 - [Chapter intro: the other scenes' shots](game-feedback/chapter-intro-scene-shots.md) — how paths stay clear of ground and solids, and each remaining scene's shots with their traps
 
 ## Where the old sections went

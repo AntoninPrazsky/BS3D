@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework;
 using Prazsky.Core.Render;
 using System;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace BS3D.Tests
 {
@@ -18,6 +19,10 @@ namespace BS3D.Tests
     /// </summary>
     public class CityIntroShotsTests
     {
+        private readonly ITestOutputHelper _output;
+
+        public CityIntroShotsTests(ITestOutputHelper output) => _output = output;
+
         private const int ROLLS = 12;
         private static readonly float FieldOfView = MathHelper.ToRadians(45f);
 
@@ -168,7 +173,150 @@ namespace BS3D.Tests
 
                     int lands = Array.FindIndex(shots, s => s.Lands);
                     if (lands >= 0) Assert.Equal(shots.Length - 1, lands);
+
+                    //And since #1119, three canyon shots in one reel: the street, the facades and the swing, none beside another
+                    for (int i = 0; i + 1 < shots.Length; i++)
+                        Assert.False(Canyon(shots[i]) && Canyon(shots[i + 1]),
+                            $"seed {seed}, neon {neon}: '{shots[i].Name}' is cut straight to '{shots[i + 1].Name}', two canyon shots");
                 }
+        }
+
+        private static bool Canyon(IntroShot shot) => shot.Name is "the street" or "the facades" or "the swing" or "the swing home";
+
+        //The facades (#1119): how far every lens stays off every box, towers and cornices (CityIntroShots' own clearance), and
+        //the band the point it looks at keeps from the lens: a pane mirrors the towers at full strength to two thirds of the
+        //reach the Game draws at (CityReflection.fxh fades the last third), and closer than the near end the wall is too
+        //close for a look up it
+        private const float FACADES_CLEARANCE = 2f;
+        private const float FACADES_NEAREST = 10f;
+        private const float FACADES_FARTHEST = InstancedModelRenderer.DEFAULT_CITY_REFLECTION_REACH * 2f / 3f;
+
+        //How far over the horizon the frame's bottom edge looks: above it no ray of the frame can meet the street, whose paint is
+        //flat (#783, #973). A little under the builder's own margin, which it holds at the path's points
+        private const float FACADES_STREET_MARGIN_DEGREES = 2.5f;
+
+        //How many of a shot's poses the pane at the frame's centre must mirror a tower from (the builder asks it of its seven stands)
+        private const float FACADES_MIRRORED_SHARE = 0.9f;
+
+        /// <summary>
+        /// #1119, the owner: "shots are missing from below (almost street level) looking up at the tall buildings, where the
+        /// reflections in the windows will be clearly visible". Both cities, a dozen rolls each, the facades walked pose by pose
+        /// against the city's real boxes: every reel has them, the day city's after its plaza and the neon city's first; the lens
+        /// keeps its clearance off every box; the wall it looks at is met by the view's centre inside the reflection band; the
+        /// frame's bottom edge looks over the horizon, so the street's flat paint is never in the picture; and the pane at the
+        /// frame's centre mirrors a tower, not the sky, the reflection the shot is for.
+        /// </summary>
+        [Fact]
+        public void TheFacadesLookUpAWallCloseEnoughForItsPanesToMirrorTheTowers()
+        {
+            int poses = 0, mirrored = 0;
+            float nearest = float.MaxValue, farthest = 0f, lowestEdge = float.MaxValue, tightest = float.MaxValue;
+
+            for (int seed = 1; seed <= ROLLS; seed++)
+                foreach (bool neon in new[] { false, true })
+                {
+                    IntroShot[] shots = Shots(neon, seed, out City city);
+                    int at = Array.FindIndex(shots, s => s.Name == "the facades");
+                    Assert.True(at >= 0, $"seed {seed}, neon {neon}: the reel has no facades");
+                    Assert.Equal(neon ? 0 : 2, at);
+                    Assert.Equal("the plaza", shots[neon ? at + 1 : at - 1].Name);
+
+                    IntroShot facades = shots[at];
+                    int shotMirrored = 0;
+                    for (int step = 0; step <= POSES; step++)
+                    {
+                        facades.Pose(step / (float)POSES, out Vector3 position, out Vector3 target);
+                        Vector3 look = Vector3.Normalize(target - position);
+                        string where = $"seed {seed}, neon {neon}, at {step}/{POSES}";
+
+                        float clearance = Clearance(city, position);
+                        tightest = MathF.Min(tightest, clearance);
+                        Assert.True(clearance >= FACADES_CLEARANCE, $"{where}: the lens stands {clearance:F2} off a box");
+
+                        float wall = FirstHit(city, position, look, 500f, out Vector3 normal);
+                        nearest = MathF.Min(nearest, wall);
+                        farthest = MathF.Max(farthest, wall);
+                        Assert.True(wall >= FACADES_NEAREST && wall <= FACADES_FARTHEST,
+                            $"{where}: the view's centre meets a wall {wall:F1} from the lens, outside {FACADES_NEAREST}-{FACADES_FARTHEST:F1}");
+
+                        float edge = MathHelper.ToDegrees(MathF.Asin(look.Y) - facades.FieldOfView * 0.5f);
+                        lowestEdge = MathF.Min(lowestEdge, edge);
+                        Assert.True(edge >= FACADES_STREET_MARGIN_DEGREES,
+                            $"{where}: the frame's bottom edge looks {edge:F1} degrees over the horizon, the street in frame");
+
+                        Vector3 pane = position + look * wall;
+                        Vector3 mirror = look - 2f * Vector3.Dot(look, normal) * normal;
+                        if (FirstHit(city, pane + normal * 0.05f, mirror, 80f, out _) < 80f) shotMirrored++;
+                    }
+
+                    poses += POSES + 1;
+                    mirrored += shotMirrored;
+                    Assert.True(shotMirrored >= FACADES_MIRRORED_SHARE * (POSES + 1),
+                        $"seed {seed}, neon {neon}: the pane at the frame's centre mirrors a tower from {shotMirrored} of {POSES + 1} poses");
+                }
+
+            //Not vacuous; and the figures the documents quote
+            Assert.True(poses >= 2 * ROLLS * POSES, $"only {poses} poses were walked");
+            _output.WriteLine($"the wall at {nearest:F1}-{farthest:F1}, the bottom edge at least {lowestEdge:F1} degrees up, the lens at "
+                + $"least {tightest:F1} off a box, {mirrored} of {poses} centre panes mirroring a tower");
+        }
+
+        //How far a point stands from the nearest of the city's boxes, towers and cornices: 0 inside one
+        private static float Clearance(City city, Vector3 point)
+        {
+            float nearest = float.MaxValue;
+            foreach (ModelInstance building in city.Buildings)
+            {
+                Matrix world = building.World;
+                Vector3 half = new Vector3(MathF.Abs(world.M11), MathF.Abs(world.M22), MathF.Abs(world.M33)) * 0.5f;
+                Vector3 offset = point - new Vector3(world.M41, world.M42, world.M43);
+                Vector3 outside = Vector3.Max(Vector3.Zero, new Vector3(MathF.Abs(offset.X), MathF.Abs(offset.Y), MathF.Abs(offset.Z)) - half);
+                nearest = MathF.Min(nearest, outside.Length());
+            }
+
+            return nearest;
+        }
+
+        //How far along `direction` (a unit vector) a ray from `origin` first meets one of the city's boxes, and the face it meets
+        //it on; infinity within `reach` of nothing. The boxes are axis-aligned, scale then translate (City's own note).
+        private static float FirstHit(City city, Vector3 origin, Vector3 direction, float reach, out Vector3 normal)
+        {
+            float nearest = float.PositiveInfinity;
+            normal = Vector3.Zero;
+
+            foreach (ModelInstance building in city.Buildings)
+            {
+                Matrix world = building.World;
+                Vector3 centre = new(world.M41, world.M42, world.M43);
+                Vector3 half = new Vector3(MathF.Abs(world.M11), MathF.Abs(world.M22), MathF.Abs(world.M33)) * 0.5f;
+                float enter = 0f, exit = MathF.Min(reach, nearest);
+                int axis = -1;
+                bool through = true;
+
+                for (int a = 0; a < 3 && through; a++)
+                {
+                    float o = a == 0 ? origin.X : a == 1 ? origin.Y : origin.Z;
+                    float d = a == 0 ? direction.X : a == 1 ? direction.Y : direction.Z;
+                    float c = a == 0 ? centre.X : a == 1 ? centre.Y : centre.Z;
+                    float h = a == 0 ? half.X : a == 1 ? half.Y : half.Z;
+
+                    if (MathF.Abs(d) < 1e-6f) { through = MathF.Abs(o - c) <= h; continue; }
+
+                    float t0 = (c - h - o) / d, t1 = (c + h - o) / d;
+                    if (t0 > t1) (t0, t1) = (t1, t0);
+                    if (t0 > enter) { enter = t0; axis = a; }
+                    exit = MathF.Min(exit, t1);
+                    through = enter <= exit;
+                }
+
+                if (!through || axis < 0) continue;
+
+                nearest = enter;
+                float sign = (axis == 0 ? direction.X : axis == 1 ? direction.Y : direction.Z) > 0f ? -1f : 1f;
+                normal = axis == 0 ? new Vector3(sign, 0f, 0f) : axis == 1 ? new Vector3(0f, sign, 0f) : new Vector3(0f, 0f, sign);
+            }
+
+            return nearest;
         }
 
         /// <summary>
