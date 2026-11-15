@@ -36,8 +36,9 @@ namespace BS3D.Effects
 
         //THE TRACKS (#1115). The owner: "the intro animation does not deal with the rover tracks". The lens runs down the
         //ruts' middle line this far, low over the plain, and stops this far along them short of where they pass nearest the
-        //arena: down the straight stretch where the ruts come in from the north-west heading for the island, before their
-        //swing round it turns them away from it. It opens looking down at the ruts this far ahead of the lens, and tilts up
+        //arena: over the first stretch of their swing round it (MarsTracks.TRAVERSE's arc), where, in off the straight arm
+        //from the north-west, they still head for the island (3.5 degrees off it where the shot begins, 31 where it ends:
+        //measured), before the swing turns them away from it. It opens looking down at the ruts this far ahead of the lens, and tilts up
         //off them over the whole shot to end with the island's top this far over the frame's middle and the look turned
         //this share of the way from the ruts round to the island: the ruts run in from the frame's foot and lead the eye
         //to the island and the cluster over it. Heading south-east under the dome's 58-degree sun from the north-east

@@ -9,7 +9,7 @@ namespace Prazsky.Core.Render
     /// <para>
     /// The owner (#745): "Mars could also get the tracks of a rover ... a small easter egg". The references (745-klein,
     /// 745-zimage) run a twin chevron track off across the plain to the dusty horizon. It comes in from the mesas to the
-    /// north-west down a straight arm, swings round the arena's west side in one even arc (a hundred units' radius, its
+    /// north-west down a straight arm, swings round the arena's west side in one even arc (about 102 units' radius, its
     /// nearest about 79 from the axis, inside the clearing), and runs off down a second straight arm towards the far
     /// side's mesas; both ends fade under dust (<c>RoverTracks.fxh</c>'s <c>TRACK_END_FADE</c>). The menu's orbit and the drop
     /// look across it from wherever they stand; the intro looks along it.
