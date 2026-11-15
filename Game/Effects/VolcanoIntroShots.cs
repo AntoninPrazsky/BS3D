@@ -221,8 +221,9 @@ namespace BS3D.Effects
 
             //Hugging the flank until the ramp, which runs on the distance to the axis so it is the same climb
             //whichever side the lens passes; over the bowl the crest holds, since the ground drops away under it
-            //and the hug would have dived into the crater after the ash. The ramp is the height's FLOOR: the hug
-            //itself (the flank's highest ground round each point, climbed ahead of and rounded) can only lift it.
+            //and the hug would have dived into the crater after the ash. The ramp is the height's FLOOR, climbed ahead
+            //of and rounded with the flank's highest ground round each point, so its turns are rounded too (the lens
+            //passes at most 0.3 units under the ramp itself) while the flank's own clearance is kept by the lift.
             Vector2[] plan = AridIntroPaths.Line(start, end);
             Vector3[] path = AridIntroPaths.Hug(plan, ground, CLIMB_CLEARANCE, CLIMB_LATERAL, CRATER_SECONDS, i =>
             {

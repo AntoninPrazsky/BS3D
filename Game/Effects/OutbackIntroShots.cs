@@ -52,7 +52,7 @@ namespace BS3D.Effects
         private const float CRANE_PAST_APRON = 16f;
         private const float CRANE_SWEEP_RADIANS = 0.45f;
         private const float CRANE_FROM_HEIGHT = 4f;
-        private const float CRANE_OVER_CROWN = 18f;
+        internal const float CRANE_OVER_CROWN = 18f;
         internal const float CRANE_CLEARANCE = 4f;
         private const float CRANE_SECONDS = 3.2f;
 

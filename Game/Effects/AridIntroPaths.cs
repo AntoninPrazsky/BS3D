@@ -30,8 +30,12 @@ namespace BS3D.Effects
 
         /// <summary>
         /// How sharply the lens is lifted back where the rounding cut a crest under the clearance (#1109): the sigma of
-        /// the lift's Gaussian, in seconds of travel. The lift reaches three of these either side of a cut crest, so the
-        /// lens starts to rise over a second before it.
+        /// the lift's Gaussian, in seconds of travel. The crest's cut is first held over three of these either side of
+        /// it and then averaged over three more, so the lift is full at the crest and tapers to nothing six of these
+        /// either side of it, in travel at the shot's peak speed: the lens starts to rise that long before a crest it was
+        /// cut under and comes down as long after it. ⚠ On a short low run that is most of the shot: one 3-unit outcrop
+        /// near the end of one roll of the outback's approach lifts the lens from a sixth of the way in, and the run ends
+        /// five units over its clearance rather than one.
         /// </summary>
         public const float LIFT_SECONDS = 0.4f;
 
@@ -65,18 +69,23 @@ namespace BS3D.Effects
         /// <summary>
         /// The lens's heights over a plan flown in <paramref name="seconds"/> (#1109, #1112): never under
         /// <paramref name="clearance"/> over the highest ground at a point and on all four hands of it out to
-        /// <paramref name="lateral"/>, nor under <paramref name="floor"/> where one is given (a designed crane or a fixed
-        /// height the ground only ever lifts), and changing height the way a drone does — over a second, never from one
-        /// frame to the next. Two steps:
+        /// <paramref name="lateral"/>, laid on <paramref name="floor"/> where one is given (a designed crane, a fixed
+        /// height or the crater's ramp, which the ground only ever lifts), and changing height the way a drone does —
+        /// over a second, never from one frame to the next. Two steps:
         /// <list type="number">
         /// <item><b>Rounded</b>: each point is the Gaussian average of those heights over <see cref="ROUNDING_SECONDS"/>
-        /// of travel either side. A Gaussian keeps a straight climb and a crane's smoothstep as they are and takes only
-        /// the ground's roughness off, which the box averages it replaced could not: a box has a corner at each end, and
-        /// the lens's vertical acceleration jumped at every one (#645).</item>
-        /// <item><b>Lifted</b> where the rounding cut a crest under the clearance: by the deepest cut within the lift's
-        /// reach, averaged by a Gaussian of <see cref="LIFT_SECONDS"/> no wider than that reach. Every value averaged was
-        /// taken over the point itself, so every point is lifted by at least its own cut and the lens keeps the
-        /// clearance at every point of the path by construction; and the lift is a smooth swell, not a step.</item>
+        /// of travel either side. A Gaussian keeps a straight climb and a level height exactly as they are and takes the
+        /// ground's roughness off, which the box averages it replaced could not: a box has a corner at each end, and the
+        /// lens's vertical acceleration jumped at every one (#645). A curve it rounds: a crane's smoothstep comes out
+        /// nearer a straight climb, over the smoothstep in its lower half and under it in its upper half by about a
+        /// fourteenth of its rise on a 3.2 s shot, its foot and its top where they were laid (the ends, below).</item>
+        /// <item><b>Lifted</b> where the rounding cut a crest under the ground's clearance: by the deepest cut within the
+        /// lift's reach, averaged by a Gaussian of <see cref="LIFT_SECONDS"/> no wider than that reach. Every value
+        /// averaged was taken over the point itself, so every point is lifted by at least its own cut and the lens keeps
+        /// the clearance at every point of the path by construction; and the lift is a smooth swell, not a step. ⚠ What
+        /// the rounding takes off a floor's own curve is NOT lifted back: the lift's reach carries a cut on to points
+        /// that had none, so lifting a crane's upper half carried its top over the design (the outback crown 4.5 units
+        /// over its crown, every roll).</item>
         /// </list>
         /// <para>
         /// ⚠ <b>The heights are carried on past both ends</b> for the Gaussian's whole reach, so the first and last points
@@ -107,12 +116,14 @@ namespace BS3D.Effects
             float liftSigma = MathF.Max(LIFT_SECONDS * pointsPerSecond, 0.5f);
             int reach = (int)MathF.Ceiling(3f * sigma), liftReach = (int)MathF.Ceiling(3f * liftSigma);
 
-            //The lowest each point may be.
+            //The lowest the ground lets each point be (the clearance the lift keeps), and the height laid there (the
+            //floor, where higher, which is rounded with the ground and not lifted back: see the remarks).
+            var clear = new float[n];
             var least = new float[n];
             for (int i = 0; i < n; i++)
             {
-                least[i] = Over(ground, plan[i], plan[Math.Min(i + 1, n - 1)] - plan[Math.Max(i - 1, 0)], lateral) + clearance;
-                if (floor != null) least[i] = MathF.Max(least[i], floor(i));
+                clear[i] = Over(ground, plan[i], plan[Math.Min(i + 1, n - 1)] - plan[Math.Max(i - 1, 0)], lateral) + clearance;
+                least[i] = floor != null ? MathF.Max(clear[i], floor(i)) : clear[i];
             }
 
             //The same carried on past both ends for the rounding's whole reach (index k is point k - reach).
@@ -131,7 +142,7 @@ namespace BS3D.Effects
 
             if (rise > 0f) heights = Highest(heights, (int)MathF.Round(rise * pointsPerSecond));
 
-            //1. Rounded, and how far under its own least height that left each point.
+            //1. Rounded, and how far under the ground's clearance that left each point.
             float[] weights = Gaussian(sigma, reach);
             var rounded = new float[n];
             var cut = new float[n];
@@ -140,11 +151,12 @@ namespace BS3D.Effects
                 float sum = 0f;
                 for (int d = -reach; d <= reach; d++) sum += heights[i + reach + d] * weights[Math.Abs(d)];
                 rounded[i] = sum;
-                cut[i] = MathF.Max(0f, least[i] - sum);
+                cut[i] = MathF.Max(0f, clear[i] - sum);
             }
 
-            //2. Lifted: the deepest cut within the lift's reach, averaged over no more than that reach. Past the ends the
-            //end's own value runs on, which is still a cut taken over every point it is averaged into.
+            //2. Lifted: the deepest cut within the lift's reach, averaged over no more than that reach, so a cut reaches
+            //twice that far (LIFT_SECONDS). Past the ends the end's own value runs on, which is still a cut taken over
+            //every point it is averaged into.
             float[] deepest = Highest(cut, liftReach);
             float[] swell = Gaussian(liftSigma, liftReach);
             var path = new Vector3[n];

@@ -156,7 +156,8 @@ namespace BS3D.Effects
             float sign = random.Next(2) == 0 ? 1f : -1f;
             Vector2[] plan = AridIntroPaths.Arc(Vector2.Zero, from, from + sign * WIDE_SWEEP_RADIANS, WIDE_FROM_RADIUS, WIDE_TO_RADIUS);
 
-            //The crane is the designed height; the dunes can only lift it.
+            //The crane is the designed height, its foot and top flown as laid and its smoothstep rounded
+            //(AridIntroPaths.Hug); the dunes can only lift it.
             float level = ground(0f, 0f);
             Vector3[] path = AridIntroPaths.Hug(plan, ground, WIDE_CLEARANCE, 4f, WIDE_SECONDS,
                 i => level + Crane(i, plan.Length, WIDE_FROM_HEIGHT, WIDE_TO_HEIGHT));

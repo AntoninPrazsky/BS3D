@@ -23,14 +23,18 @@ namespace BS3D.Tests
     /// vertical acceleration peaks at <see cref="MAX_VERTICAL_ACCELERATION"/> and changes by no more than
     /// <see cref="MAX_VERTICAL_JERK"/>, 2.5 u/s² from one frame to the next. Before #1109 the box averages' corners put
     /// 36-198 u/s² peaks and 1700-10400 u/s³ jumps into ten of these shots and 71-186 °/s² of tilt into five ("the
-    /// camera judders over the dunes"); now the worst are 14 u/s², 119 u/s³ and 35 °/s². Peaks, not means: a judder is
+    /// camera judders over the dunes"); now the worst are 13 u/s², 122 u/s³ and 35 °/s². Peaks, not means: a judder is
     /// one bad frame in a hundred good ones, which an rms hides.
     /// </para>
     /// <para>
     /// ⚠ <b>Smooth is not allowed to mean high</b>: a lens flown well over the ground is trivially smooth. So every
     /// frame keeps its shot's clearance over the ground under it, and a shot with no designed floor stays on average
     /// within <see cref="MAX_MEAN_LIFT"/> of its clearance on every roll (on its worst roll the pass, over the roughest
-    /// ground, flies 8.8 over it, the crest 6.4 and the pyramids' run 5.8; before #1109, 9.4, 6.0 and 2.5). The cut is a discontinuity of everything, so the derivatives are
+    /// ground, flies 8.8 over it on average and 14.8 at its highest frame, the crest 6.4 and 10.4, the pyramids' run 5.8
+    /// and 12.1). The highest frame is not held: the lift over a cut crest is a plateau (see
+    /// <see cref="AridIntroPaths.LIFT_SECONDS"/>) whose height is the crest's cut however wide it is, so a bound on it
+    /// failed only where this mean already does (a 2 s rounding), and never with the lift made five times as wide.
+    /// The cut is a discontinuity of everything, so the derivatives are
     /// measured from <see cref="EDGE_FRAMES"/> frames inside each end (the speed at the cut has its own test below).
     /// </para>
     /// </summary>
@@ -131,9 +135,9 @@ namespace BS3D.Tests
             }
 
             _output.WriteLine(string.Format(CultureInfo.InvariantCulture,
-                "{0}: speed {1:F1} u/s, vertical {2:F1} u/s² {3:F0} u/s³, pitch {4:F1}°/s {5:F0}°/s², yaw {6:F1}°/s, clearance least {7:F2} mean {8:F1}",
+                "{0}: speed {1:F1} u/s, vertical {2:F1} u/s² {3:F0} u/s³, pitch {4:F1}°/s {5:F0}°/s², yaw {6:F1}°/s, clearance least {7:F2} mean {8:F1} highest {9:F1}",
                 name, worst.Speed, worst.PeakVerticalAcceleration, worst.PeakVerticalJerk, worst.PeakPitchRate, worst.PeakPitchAcceleration,
-                worst.PeakYawRate, worst.LeastClearance, worst.MeanClearance));
+                worst.PeakYawRate, worst.LeastClearance, worst.MeanClearance, worst.HighestClearance));
         }
 
         /// <summary>
@@ -165,9 +169,53 @@ namespace BS3D.Tests
             Assert.Equal(path[^1].X, Lens(frames - 1).X, 3);
         }
 
+        /// <summary>
+        /// A designed floor is flown where it was laid (#1109): over ground that never lifts it, a straight climb and a
+        /// level height come out of <see cref="AridIntroPaths.Hug"/> exactly as laid, and a crane's smoothstep keeps its
+        /// foot and its top (the rounding takes its S towards a straight climb in between). What the rounding takes off a
+        /// floor's own curve is not lifted back: that lift carried every crane's top over its design, the outback crown
+        /// 4.5 units over its own on every roll.
+        /// </summary>
+        [Fact]
+        public void ADesignedFloorIsFlownWhereItWasLaid()
+        {
+            Vector2[] plan = AridIntroPaths.Line(Vector2.Zero, new Vector2(80f, 0f));
+            int last = plan.Length - 1;
+            Func<float, float, float> flat = (_, _) => 0f;
+
+            float Smoothstep(int i, float from, float to)
+            {
+                float s = i / (float)last;
+                return MathHelper.Lerp(from, to, s * s * (3f - 2f * s));
+            }
+
+            Vector3[] crane = AridIntroPaths.Hug(plan, flat, 4f, 3f, 3.2f, i => Smoothstep(i, 32f, 56f));
+            Assert.Equal(32f, crane[0].Y, 2);
+            Assert.Equal(56f, crane[last].Y, 2);
+
+            Vector3[] climb = AridIntroPaths.Hug(plan, flat, 4f, 3f, 3.2f, i => MathHelper.Lerp(48f, 62f, i / (float)last));
+            Vector3[] level = AridIntroPaths.Hug(plan, flat, 4f, 3f, 3.2f, _ => 30f);
+            for (int i = 0; i <= last; i++)
+            {
+                Assert.True(MathF.Abs(climb[i].Y - MathHelper.Lerp(48f, 62f, i / (float)last)) < 0.01f, $"the straight climb is off its line at point {i}: {climb[i].Y:F3}");
+                Assert.True(MathF.Abs(level[i].Y - 30f) < 0.01f, $"the level height is off it at point {i}: {level[i].Y:F3}");
+            }
+
+            //The real crown, every roll: its top is the crown's own height plus CRANE_OVER_CROWN.
+            var outback = new OutbackSceneConfig();
+            Func<float, float, float> plain = (x, z) => TerrainMirror.Outback(x, z, outback);
+            TerrainMirror.Formation rock = OutbackIntroShots.Monolith(outback) ?? throw new InvalidOperationException("no monolith");
+            for (int seed = 1; seed <= ROLLS; seed++)
+            {
+                OutbackIntroShots.Crown(outback, rock, plain, FieldOfView, new Random(seed)).Pose(1f, out Vector3 top, out _);
+                Assert.True(MathF.Abs(top.Y - (rock.CrownY + OutbackIntroShots.CRANE_OVER_CROWN)) < 0.05f,
+                    $"the crown (roll {seed}) ends at {top.Y:F2}, its design at {rock.CrownY + OutbackIntroShots.CRANE_OVER_CROWN:F2}");
+            }
+        }
+
         private sealed class Ride
         {
-            public double Speed, LeastClearance, MeanClearance;
+            public double Speed, LeastClearance, MeanClearance, HighestClearance;
             public double PeakVerticalAcceleration, PeakVerticalAccelerationAt, PeakVerticalJerk, PeakVerticalJerkAt;
             public double PeakPitchRate, PeakPitchAcceleration, PeakPitchAccelerationAt, PeakYawRate;
 
@@ -176,6 +224,7 @@ namespace BS3D.Tests
                 Speed = Math.Max(Speed, other.Speed),
                 LeastClearance = Math.Min(LeastClearance, other.LeastClearance),
                 MeanClearance = Math.Max(MeanClearance, other.MeanClearance),
+                HighestClearance = Math.Max(HighestClearance, other.HighestClearance),
                 PeakVerticalAcceleration = Math.Max(PeakVerticalAcceleration, other.PeakVerticalAcceleration),
                 PeakVerticalJerk = Math.Max(PeakVerticalJerk, other.PeakVerticalJerk),
                 PeakPitchRate = Math.Max(PeakPitchRate, other.PeakPitchRate),
@@ -208,6 +257,7 @@ namespace BS3D.Tests
 
                 double clearance = p.Y - ground(p.X, p.Z);
                 ride.LeastClearance = Math.Min(ride.LeastClearance, clearance);
+                ride.HighestClearance = Math.Max(ride.HighestClearance, clearance);
                 ride.MeanClearance += clearance / frames;
             }
 
