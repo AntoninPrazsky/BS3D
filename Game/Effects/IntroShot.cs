@@ -122,11 +122,30 @@ namespace BS3D.Effects
         /// </summary>
         public const float PEAK_PACE = 1f + EASE * 0.5f;
 
-        //The shot's clock, eased only a little at the ends (see Pose)
-        private static float Eased(float t)
+        /// <summary>The shot's clock, eased only a little at the ends (see <see cref="Pose"/>): the share of its path shown at
+        /// <paramref name="t"/> of its seconds.</summary>
+        internal static float Eased(float t)
         {
             t = MathHelper.Clamp(t, 0f, 1f);
             return MathHelper.Lerp(t, t * t * (3f - 2f * t), EASE);
+        }
+
+        /// <summary>
+        /// The inverse of <see cref="Eased"/>: the share of the shot's seconds at which <paramref name="eased"/> of its path is
+        /// shown (#1110). A shot's points are evenly spaced on its eased clock, and a subject that moves on the wall clock (the
+        /// desert's scorpion) is where it is at this time, not at that one.
+        /// </summary>
+        internal static float Uneased(float eased)
+        {
+            eased = MathHelper.Clamp(eased, 0f, 1f);
+            float lo = 0f, hi = 1f;
+            for (int i = 0; i < 32; i++)
+            {
+                float mid = 0.5f * (lo + hi);
+                if (Eased(mid) < eased) lo = mid; else hi = mid;
+            }
+
+            return 0.5f * (lo + hi);
         }
 
         /// <summary>The shot has come on screen: <see cref="ChapterIntro"/> calls this once, on its first frame.</summary>

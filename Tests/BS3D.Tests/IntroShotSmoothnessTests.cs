@@ -85,6 +85,7 @@ namespace BS3D.Tests
             Vector3 vent = new(centre.X, cone(centre.X, centre.Y) + 2f, centre.Y);
             var moon = new MoonSceneConfig();
             Func<float, float, float> regolith = (x, z) => TerrainMirror.Moon(x, z, moon.Terrain);
+            Vector3 rope = DesertLandingTests.GamePosition, ropeTarget = DesertLandingTests.GameTarget;
 
             return new Dictionary<string, Case>
             {
@@ -92,6 +93,9 @@ namespace BS3D.Tests
                 ["desert: the pyramids"] = new(r => DesertIntroShots.PyramidsShot(desert, sand, FieldOfView, r), sand, DesertIntroShots.PYRAMIDS_CLEARANCE, false, true),
                 ["desert: the crest"] = new(r => DesertIntroShots.Crest(desert, sand, FieldOfView, r), sand, DesertIntroShots.CREST_CLEARANCE, true, true),
                 ["desert: the flock"] = new(r => DesertIntroShots.Flock(desert, sand, FieldOfView, r), sand, DesertIntroShots.FLOCK_CLEARANCE, false, true),
+                //The take-off from the scorpion onto Rope's pose (#1110): its height is the pose's by design, so it has a floor
+                ["desert: the scorpion home"] = new(r => DesertLanding.Build(desert, null, rope, ropeTarget, FieldOfView, r, out _), sand,
+                    DesertLanding.LOWEST, true, false),
                 ["mountains: the range"] = new(r => MountainIntroShots.Range(mountain, rock, FieldOfView, r), rock, MountainIntroShots.WIDE_CLEARANCE, false, false),
                 ["mountains: the pass"] = new(r => MountainIntroShots.Pass(rock, FieldOfView, r), rock, MountainIntroShots.PASS_CLEARANCE, true, true),
                 ["mountains: the summit"] = new(r => MountainIntroShots.Summit(rock, FieldOfView, r), rock, MountainIntroShots.SUMMIT_CLEARANCE, false, false),

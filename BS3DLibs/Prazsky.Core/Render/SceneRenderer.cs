@@ -1469,6 +1469,23 @@ namespace Prazsky.Core.Render
         public void CueDesertCritter(Vector2 at, float yaw, float onset) => _desert.Critters.Feature(at, yaw, onset);
 
         /// <summary>
+        /// Where the desert's featured scorpion cued at <paramref name="at"/> along <paramref name="yaw"/>
+        /// (<see cref="CueDesertCritter"/>) stands <paramref name="sinceOnset"/> seconds after its onset (#1110): its foot on
+        /// the sand of <paramref name="config"/>, held at its burrow before it comes up and where it went back in after. A pure
+        /// function of the clock, as its life is, so a shot can keep it in frame through its walk.
+        /// </summary>
+        public static Vector3 DesertFeatureAt(Vector2 at, float yaw, float sinceOnset, DesertSceneConfig config)
+        {
+            float life = DesertFeatureSeconds;
+            DesertCritters.TryFeaturePose(at, yaw, 0f, Math.Clamp(sinceOnset, 0f, life), (x, z) => TerrainMirror.Desert(x, z, config),
+                out DesertCritters.Pose pose);
+            return pose.Position;
+        }
+
+        /// <summary>The featured scorpion's whole life from its onset, seconds: up out of the sand, its walk, and back in (#1110).</summary>
+        public static float DesertFeatureSeconds => DesertCritters.EMERGE_SECONDS + DesertCritters.FEATURE_WALK_SECONDS + DesertCritters.BURROW_SECONDS;
+
+        /// <summary>
         /// The event this scene has staged on its own clock at <paramref name="time"/>, described as the
         /// <b>sound</b> needs it rather than as the light does (#219's thunder, #223's eruption boom): which
         /// event it is, when its LIGHT began, where it happened and how big it is. False for the fifteen
