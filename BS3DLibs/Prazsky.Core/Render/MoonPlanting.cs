@@ -62,8 +62,8 @@ namespace Prazsky.Core.Render
         //
         //⚠ The shader's track is RoverTracks.POINTS points spread evenly over the SPANS between these controls, so a span is
         //where the points go: the swing to the south is many short spans and the plain a few long ones. Spread evenly over
-        //the whole length, the swing's straight segments met at up to 19 degrees and read as a polygon; this way no two meet
-        //at more than the 10.7 the bend in front of the arena has always had (MoonIntroShotsTests holds it).
+        //the whole length, the swing's straight segments met at up to 19 degrees and read as a polygon; this way the sharpest
+        //is the bend in front of the arena, 10.4 degrees (MoonIntroShotsTests holds every bend under 10.8).
 
         /// <summary>The rover's traverse as designed (#746, #1114): its control points, world XZ.</summary>
         public static readonly Vector2[] TRAVERSE =
@@ -83,9 +83,11 @@ namespace Prazsky.Core.Render
         private const float FLAG_ALONG = 488f, FLAG_OFF_TRACK = 4f;
 
         /// <summary>
-        /// The flag's size against the size-1 flag's 2.4-unit pole and 1.2 by 0.78 cloth (#1114): the Apollo flag's cloth, three
-        /// feet by five (0.91 by 1.52 m), at the scenes' two units a metre (<c>OilRigs</c>, the meadow's bench), which puts the
-        /// bar 5.5 over the ground.
+        /// The flag's size against the size-1 flag's 2.4-unit pole and 1.2 by 0.78 cloth (#1114): a cloth 2.88 by 1.87 and the
+        /// bar 5.5 over the ground. ⚠ <b>Nearly twice Apollo's against the ruts beside it, on purpose</b>: the Moon is built at
+        /// about a unit a metre (the ruts' <c>TRACK_GAUGE</c>, 1.83, is the rover's own wheel track), where the Apollo flag's
+        /// three feet by five (0.91 by 1.52 m) would be a cloth 1.52 wide. The owner asked for a bigger flag, and the play
+        /// camera sees it some three hundred units out, where this size is about 25 pixels tall at 1080 lines.
         /// </summary>
         public const float FLAG_SIZE = 2.4f;
 
@@ -102,6 +104,9 @@ namespace Prazsky.Core.Render
         /// <summary>The height of the bar the cloth hangs from (<see cref="FlagCloth"/>), at size 1: the polar camp's flag (#747) is
         /// this cloth on a mast of its own.</summary>
         internal const float FlagBarY = FLAG_BAR_Y;
+
+        /// <summary>The size-1 flag's pole, its cloth's width and its cloth's drop under the bar, for the tests that frame it.</summary>
+        internal const float FlagPoleHeight = FLAG_POLE, FlagWidth = FLAG_WIDTH, FlagDrop = FLAG_DROP;
         private static readonly Vector3 FLAG_METAL = new(0.50f, 0.50f, 0.49f), FLAG_CLOTH = new(0.52f, 0.52f, 0.50f);
 
         /// <param name="height">The Moon's ground AS DRAWN: <see cref="TerrainMirror.Moon"/> across the grid's own triangles

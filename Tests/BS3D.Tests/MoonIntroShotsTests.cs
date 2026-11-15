@@ -32,7 +32,8 @@ namespace BS3D.Tests
         //it targets (BS3DGame's windowed default), the owner's 3840x1600, and 16:10 and 4:3 panels narrower still. The
         //projection is Hor+, so a narrower shape only crops the sides.
         private const float GAME_FOV = MathF.PI / 4.2f;
-        public static readonly IEnumerable<object[]> Aspects = new[] { 16f / 9f, 2.4f, 1.6f, 4f / 3f }.Select(a => new object[] { a });
+        private static readonly float[] ASPECTS = { 16f / 9f, 2.4f, 1.6f, 4f / 3f };
+        public static readonly IEnumerable<object[]> Aspects = ASPECTS.Select(a => new object[] { a });
 
         //"A few units over the regolith": every frame of the tracks shot at least this far over the ground as each path draws
         //it, and no farther than this over the exact field under it
@@ -54,6 +55,21 @@ namespace BS3D.Tests
 
         //The ruts ahead of the lens that must stay in its frame, along the ruts from its own place
         private static readonly float[] RUTS_AHEAD = { 15f, 20f, 25f };
+
+        //And in sight: of the RUTS_LOOKED_OVER units of ruts ahead of the lens, sampled every RUTS_SAMPLE, at least
+        //MIN_RUTS_IN_SIGHT both in the frame and over the ground in every frame, at every shape. The frame's bottom edge
+        //cuts the nearest and the brow of the belt's slope hides some farther on: the fewest seen is 9 (measured)
+        private const float RUTS_LOOKED_OVER = 30f, RUTS_SAMPLE = 0.5f, MIN_RUTS_IN_SIGHT = 8f;
+
+        //Sight lines are marched this far apart in plan, stopping a step short of the point (a point on the ground lies on
+        //it): a fraction of the desktop grid's 3.34 units and the Potato grid's 10, whose drawn ground is flat between vertices
+        private const float SIGHT_STEP = 0.25f;
+
+        //The island as a sight line passes it: its stone nowhere over ArenaIsland.TOP_Y out to its RADIUS, and the desktop's
+        //bank round it (IslandBerm) at most its first ring's 1.35 times its lift's 1.4 over the ground it is built off or
+        //the drum's foot, out to its last ring's 4.4 times 1.6 past the drum (where IslandBerm.SurfaceY gives up)
+        private const float BANK_ABOVE = 1.9f, BANK_REACH = ArenaIsland.RADIUS + 7.1f;
+        private const float DRUM_FOOT_Y = ArenaIsland.TOP_Y - ArenaIsland.EDGE_HEIGHT;
 
         //A close-up: at the shot's end the flag's pole spans at least this share of the frame's height
         private const float CLOSE_UP_SHARE = 0.45f;
@@ -93,15 +109,48 @@ namespace BS3D.Tests
         private static float Potato(float x, float z) =>
             TerrainMirror.OnGrid(Exact, PotatoBackdrop.RELIEF_CELLS + 1, PotatoBackdrop.MOON_EXTENT * 2f, x, z);
 
+        //The ground as each render path draws it, the planting's rocks and flag standing on each
+        private static readonly (string Name, Func<float, float, float> Height)[] GROUNDS = { ("desktop", Desktop), ("Potato", Potato) };
+
         private static Vector3 Sun =>
             SceneRenderer.DirectionFromElevationAzimuth(Moon.Lighting.SunElevationDegrees, Moon.Lighting.SunAzimuthDegrees);
 
         //The flag as the planting stands it: its foot on the ground as the desktop draws it, its pole and bar at its size, and
         //a cloth's width to either hand at the bar, since which way the bar reaches is the planting's own sum
-        private static Vector3 FlagFoot => new(MoonPlanting.FLAG.X, Desktop(MoonPlanting.FLAG.X, MoonPlanting.FLAG.Y), MoonPlanting.FLAG.Y);
-        private const float POLE = 2.4f * MoonPlanting.FLAG_SIZE;
+        private static Vector3 FlagFoot => FootOn(Desktop);
+        private static Vector3 FootOn(Func<float, float, float> ground) =>
+            new(MoonPlanting.FLAG.X, ground(MoonPlanting.FLAG.X, MoonPlanting.FLAG.Y), MoonPlanting.FLAG.Y);
+        private const float POLE = MoonPlanting.FlagPoleHeight * MoonPlanting.FLAG_SIZE;
         private const float BAR = MoonPlanting.FlagBarY * MoonPlanting.FLAG_SIZE;
-        private const float CLOTH = 1.2f * MoonPlanting.FLAG_SIZE;
+        private const float CLOTH = MoonPlanting.FlagWidth * MoonPlanting.FLAG_SIZE;
+        private const float CLOTH_HEM = (MoonPlanting.FlagBarY - MoonPlanting.FlagDrop) * MoonPlanting.FLAG_SIZE;
+
+        //What hides a point from a lens over (x, z): the ground as a path draws it, and round the arena its stone and its bank
+        private static float Occluder(Func<float, float, float> ground, float x, float z)
+        {
+            float y = ground(x, z);
+            float r2 = x * x + z * z;
+            if (r2 <= BANK_REACH * BANK_REACH) y = MathF.Max(y, MathF.Max(y, DRUM_FOOT_Y) + BANK_ABOVE);
+            if (r2 <= ArenaIsland.RADIUS * ArenaIsland.RADIUS) y = MathF.Max(y, ArenaIsland.TOP_Y);
+            return y;
+        }
+
+        //How far the sight line from the lens to a point passes over what would hide it, at its lowest: negative, hidden. A
+        //higher point over the same plan point is seen along a line higher everywhere, so a point of the pole in sight puts
+        //all of the pole above it in sight too
+        private static float SightMargin(Vector3 lens, Vector3 point, Func<float, float, float> ground)
+        {
+            Vector2 plan = new(point.X - lens.X, point.Z - lens.Z);
+            float length = plan.Length();
+            float lowest = float.MaxValue;
+            for (float s = SIGHT_STEP; s < length - SIGHT_STEP; s += SIGHT_STEP)
+            {
+                float t = s / length;
+                float x = lens.X + plan.X * t, z = lens.Z + plan.Y * t;
+                lowest = MathF.Min(lowest, lens.Y + (point.Y - lens.Y) * t - Occluder(ground, x, z));
+            }
+            return lowest;
+        }
 
         private static IEnumerable<Vector3> FlagPoints(Vector3 lens)
         {
@@ -265,6 +314,53 @@ namespace BS3D.Tests
             Assert.True((top.Y - foot.Y) / 2f >= CLOSE_UP_SHARE, $"at {aspect:F2} the flag ends {(top.Y - foot.Y) / 2f:P0} of the frame tall, not a close-up");
         }
 
+        /// <summary>
+        /// In the frame is not in sight: the tracks shot runs a few units over a slope that rises to the flag, and its brow
+        /// hides what lies past it. Over the ground as each path draws it, every third frame: the ruts ahead are seen, the
+        /// flag's bar and so the cloth's top edge and the pole over it (the brow hides the foot until the lens tops it), and
+        /// at the end the whole flag from its foot.
+        /// </summary>
+        [Fact]
+        public void TheTracksShotSeesTheRutsAndTheFlagOverTheGround()
+        {
+            List<(Vector3 Lens, Vector3 Target, float Fov)> frames = Frames(MoonIntroShots.Tracks(Terrain)).ToList();
+            var inSight = new List<Vector3>();
+
+            foreach ((string name, Func<float, float, float> ground) in GROUNDS)
+            {
+                Vector3 foot = FootOn(ground);
+                for (int i = 0; i < frames.Count; i += 3)
+                {
+                    (Vector3 lens, Vector3 target, float fov) = frames[i];
+                    float bar = SightMargin(lens, foot + Vector3.Up * BAR, ground);
+                    Assert.True(bar >= 0f, $"frame {i} over the {name} ground: the flag's bar is {-bar:F2} under the ground's brow");
+
+                    inSight.Clear();
+                    float along = AlongRuts(new Vector2(lens.X, lens.Z));
+                    for (float ahead = RUTS_SAMPLE; ahead <= RUTS_LOOKED_OVER; ahead += RUTS_SAMPLE)
+                    {
+                        Vector2 rut = MoonPlanting.BesideTrack(MoonPlanting.TRAVERSE_PATH, along + ahead, 0f, out _);
+                        Vector3 point = new(rut.X, ground(rut.X, rut.Y), rut.Y);
+                        if (SightMargin(lens, point, ground) >= 0f) inSight.Add(point);
+                    }
+
+                    Matrix view = Matrix.CreateLookAt(lens, target, Vector3.Up);
+                    foreach (float aspect in ASPECTS)
+                    {
+                        Matrix projection = Matrix.CreatePerspectiveFieldOfView(fov, aspect, 0.1f, 5000f);
+                        float seen = 0f;
+                        foreach (Vector3 point in inSight)
+                            if (InFrame(Project(point, view, projection, out bool ahead), ahead)) seen += RUTS_SAMPLE;
+                        Assert.True(seen >= MIN_RUTS_IN_SIGHT, $"frame {i} at {aspect:F2} over the {name} ground: {seen} units of the ruts ahead in the frame and in sight");
+                    }
+                }
+
+                (Vector3 endLens, _, _) = frames[^1];
+                float end = SightMargin(endLens, foot, ground);
+                Assert.True(end >= 0f, $"over the {name} ground the shot ends with the flag's foot {-end:F2} under the ground's brow");
+            }
+        }
+
         [Fact]
         public void TheMoonOpensOnThePlainThenTheTracksThenTheEarthAndNoLonger()
         {
@@ -292,8 +388,8 @@ namespace BS3D.Tests
 
         /// <summary>
         /// The play camera's opening pose on every Moon level, as the session fits it (<see cref="GameCameraFit"/>, the same
-        /// lines over the same helpers as GunPassTests): the flag stands in the frame, over the island's deck, clear of the gun
-        /// and under the field, at least <see cref="MIN_PLAY_PIXELS"/> tall at 1080 lines.
+        /// lines over the same helpers as GunPassTests): the flag stands in the frame, its cloth in sight over the island and the
+        /// ground between, clear of the gun and under the field, at least <see cref="MIN_PLAY_PIXELS"/> tall at 1080 lines.
         /// </summary>
         [Theory]
         [MemberData(nameof(Aspects))]
@@ -331,15 +427,16 @@ namespace BS3D.Tests
                     Assert.True(InFrame(ndc, inFront), $"{name} at {aspect:F2}: the flag is out of the frame at {ndc.X:F2}, {ndc.Y:F2}");
                 }
 
-                //Over the deck: the sight line to the flag's foot passes over the dish's arris, the deck's highest ring
+                //In sight: the line to the cloth's hem, and so the whole cloth and the pole over it, clears the island's stone
+                //and bank and the plain and the belt's slope past them, as each path draws them. The lens stands just over
+                //the deck and the flag far over the lens, so the line climbs all the way and what could hide the flag is the
+                //ground nearest it; the bottom of the pole is behind it (0.15 on the desktop, 0.6 on the Potato path)
+                foreach ((string groundName, Func<float, float, float> ground) in GROUNDS)
+                {
+                    float margin = SightMargin(lens, FootOn(ground) + Vector3.Up * CLOTH_HEM, ground);
+                    Assert.True(margin >= 0f, $"{name} at {aspect:F2} over the {groundName} ground: the cloth's hem is {-margin:F2} under the ground");
+                }
                 Vector3 foot = FlagFoot;
-                Vector2 plan = new(foot.X - lens.X, foot.Z - lens.Z);
-                Vector2 direction = Vector2.Normalize(plan);
-                Vector2 from = new(lens.X, lens.Z);
-                float b = Vector2.Dot(from, direction), c = from.LengthSquared() - ArenaIsland.FLOOR_RADIUS * ArenaIsland.FLOOR_RADIUS;
-                float farArris = -b + MathF.Sqrt(MathF.Max(b * b - c, 0f));
-                float overArris = lens.Y + (foot.Y - lens.Y) * farArris / plan.Length();
-                Assert.True(overArris > ArenaIsland.TOP_Y, $"{name} at {aspect:F2}: the deck hides the flag's foot ({overArris - ArenaIsland.TOP_Y:F2})");
 
                 //Clear of the gun: off to the side of its carriage as the lens sees it
                 Vector3 forward = Vector3.Normalize(new Vector3(target.X - lens.X, 0f, target.Z - lens.Z));
