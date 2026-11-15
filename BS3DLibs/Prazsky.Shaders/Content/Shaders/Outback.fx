@@ -30,6 +30,7 @@
 //CloudSunlight is a flat 1.0).
 
 #include "ShaderTarget.fxh"
+#define MIRRORED_NOISE //a CPU mirror (TerrainMirror) reproduces this terrain's height: Noise.fxh's hash rounds exactly (#1134)
 
 #include "Clouds.fxh"
 //The sun's cast shadows (#469, in this scene since #471): SceneRenderer renders the map before the scene

@@ -12,6 +12,7 @@
 //shared cloud shadows drift across it. Shader Model 5.0.
 
 #include "ShaderTarget.fxh"
+#define MIRRORED_NOISE //a CPU mirror (TerrainMirror) reproduces this terrain's height: Noise.fxh's hash rounds exactly (#1134)
 
 #include "Clouds.fxh"
 #include "Noise.fxh"

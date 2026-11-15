@@ -6,8 +6,8 @@
 //keep; domain-warping it (feeding one field's output into another's input) is what produces filaments,
 //eddies and mixing - the structures real turbulence has and the modern look is made of.
 //
-//GPU-only, deliberately: unlike Clouds.fxh these fields have NO C# mirror (nothing plants objects on them),
-//so the hashes are free to be quality-first. Costs are stated per function because callers budget in noise
+//Mostly GPU-only, so the hashes are free to be quality-first; the exception is NoiseHash22 under MIRRORED_NOISE, whose
+//gradient noise the terrains' heights are built on and ShaderMath reproduces in C# (#598, #1134). Costs are stated per function because callers budget in noise
 //evaluations per pixel; everything here is branchless and derivative-safe (usable where ddx/ddy live).
 //
 //Included by the scene shaders and - since #337, for the ice ball's fracture - by InstancedModel.fx;
@@ -17,11 +17,26 @@
 //Sine-based hashes degrade as their argument grows and their period shows in large domains; these stay
 //uniform over any range a scene reaches.
 
+//MIRRORED_NOISE, defined by an effect before its first include, says a CPU mirror reproduces a field it draws
+//(TerrainMirror's terrains, #1134), and makes this hash PRECISE with its dot written out, so that ShaderMath.Hash22 lands
+//on the same quanta: the product lands near 20 000, where a float carries a fraction to about 1/500, so one rounding more
+//or less moves the hash by whole quanta, and whether a mad or a dp3 rounds once or twice is otherwise the driver's choice
+//(the desktop's RDNA2 fused, the laptop's GCN did not, and the mountains' mirror stood 16 units off the drawn range there).
+//Under precise every product and sum, the argument's included, rounds on its own and left to right on every GPU. It is
+//not the default because it costs DXBC instructions wherever the noise is evaluated (the mountain's pixel program 9 %
+//more, the big top's 5 % had it been there), and an effect nothing mirrors has nothing to agree with.
 float2 NoiseHash22(float2 p)
 {
+#ifdef MIRRORED_NOISE
+    precise float3 q = frac(p.xyx * float3(0.1031, 0.1030, 0.0973));
+    q += q.x * (q.y + 33.33) + q.y * (q.z + 33.33) + q.z * (q.x + 33.33);
+    precise float2 h = frac((q.xx + q.yz) * q.zy);
+    return h * 2.0 - 1.0;
+#else
     float3 q = frac(p.xyx * float3(0.1031, 0.1030, 0.0973));
     q += dot(q, q.yzx + 33.33);
     return frac((q.xx + q.yz) * q.zy) * 2.0 - 1.0;
+#endif
 }
 
 float3 NoiseHash33(float3 p)

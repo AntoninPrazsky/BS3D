@@ -14,6 +14,7 @@
 //against the tessellation and turned out to be about the field the grid was oversampling ninefold.
 
 #include "ShaderTarget.fxh"
+#define MIRRORED_NOISE //a CPU mirror (TerrainMirror) reproduces this terrain's height: Noise.fxh's hash rounds exactly (#1134)
 
 #include "Clouds.fxh"
 //The sun's cast shadows (#469, in this scene since #471): SceneRenderer renders the map before the scene

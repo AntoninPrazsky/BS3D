@@ -32,9 +32,11 @@ namespace Prazsky.Core.Render
     /// <b>The four built on <see cref="ShaderMath.Noise"/> — desert, mountain, outback, polar — did not match their
     /// shaders until #598</b>, measured by <c>mirrorcheck</c> (#590): up to 16.2 units off in the mountains. The
     /// noise's hash takes the fraction of a product near 20 000, where a float carries a fraction to about 1/500,
-    /// and the shader compiler fuses the hash's dot into multiply-adds and folds the outback's <c>seed + 23.7</c>
-    /// constants. <see cref="ShaderMath.Hash22"/> now fuses the same way and the outback's rolls add their
-    /// constants first, and all four pass under a thousandth (<c>docs/scenes.md</c>, "The terrain mirrors").
+    /// so one rounding more or less moves it by whole quanta. Since #1134 the hash is <c>precise</c> in HLSL: every
+    /// product and sum, its argument's included, rounds on its own and left to right on every GPU (before it the
+    /// driver chose whether a multiply-add rounded once, and the mirrors matched only the GPUs that fused), and
+    /// <see cref="ShaderMath.Hash22"/> and the outback's rolls are written in the same order. All four pass under a
+    /// hundredth ("The terrain mirrors" in <c>docs/scenes/terrain-grids-and-mirrors.md</c>).
     /// </para>
     /// <para>
     /// None of these fields is seeded by <c>sceneseed=</c>: the dunes, the range and the monoliths are the
@@ -377,15 +379,16 @@ namespace Prazsky.Core.Render
 
         private static Vector2 FromOutcropFrame(Vector2 r) => OUTCROP_AXIS * r.X + new Vector2(-OUTCROP_AXIS.Y, OUTCROP_AXIS.X) * r.Y;
 
-        //Outback.fx's RollRock, for one cell. The constants are added to the seed FIRST, as the shader compiler folds them.
+        //Outback.fx's RollRock, for one cell. Left to right, as the shader's precise hash takes its argument (#1134): without
+        //precise the compiler folded seed + 23.7 first, and the mirror had to add the constants to the seed first too.
         private static RockRoll RollRock(float cellX, float cellZ, float cellSize, float seed, float chance,
             float minRadius, float maxRadius, float maxElongation, float ribDepth, OutbackTerrainConfig terrain)
         {
             RockRoll roll = default;
             roll.RollA = Roll01(cellX + seed, cellZ + seed);
-            roll.RollB = Roll01(cellX + (seed + 23.7f), cellZ + (seed + 23.7f));
-            Vector2 rollC = Roll01(cellX + (seed + 57.1f), cellZ + (seed + 57.1f));
-            Vector2 rollD = Roll01(cellX + (seed + 91.3f), cellZ + (seed + 91.3f));
+            roll.RollB = Roll01(cellX + seed + 23.7f, cellZ + seed + 23.7f);
+            Vector2 rollC = Roll01(cellX + seed + 57.1f, cellZ + seed + 57.1f);
+            Vector2 rollD = Roll01(cellX + seed + 91.3f, cellZ + seed + 91.3f);
 
             roll.Radius = MathHelper.Lerp(minRadius, maxRadius, roll.RollB.X);
             roll.Elongation = MathHelper.Lerp(1f, maxElongation, rollD.Y);

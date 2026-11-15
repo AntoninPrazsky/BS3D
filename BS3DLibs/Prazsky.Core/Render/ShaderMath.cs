@@ -74,13 +74,13 @@ namespace Prazsky.Core.Render
             float y = Frac(py * 0.1030f);
             float z = Frac(px * 0.0973f);
 
-            //FUSED, as the shader compiler fuses the HLSL's dot(p3, p3.yzx + 33.33) into two multiply-adds (#598). The
-            //product lands near 20 000, where a float carries a fraction to about 1/500, so rounding once per step here
-            //against once per multiply-add there put the CPU mirrors on different quanta from the drawn terrain: up to
-            //16 units off in the mountains, measured by the Testbed's mirrorcheck. Same order as the GPU's mads.
-            //⚠ Whether a mad is fused is the driver's choice, not fxc's: the desktop's RDNA2 fuses, the laptop's Vega
-            //(GCN) does not, and there this mirror is the one 16 units off (#1134).
-            float d = MathF.FusedMultiplyAdd(z, x + 33.33f, MathF.FusedMultiplyAdd(y, z + 33.33f, x * (y + 33.33f)));
+            //Every product and sum rounded on its own, left to right, exactly as the HLSL's precise lines are (#1134). The
+            //product lands near 20 000, where a float carries a fraction to about 1/500, so one rounding more or less
+            //moves the hash by whole quanta: a mirror rounded otherwise than the drawn terrain stood up to 16 units off
+            //it in the mountains (#598, measured by the Testbed's mirrorcheck). The shader used to leave the rounding of
+            //its dot to the driver, and the desktop's RDNA2 fused it where the laptop's GCN did not, so a fused copy here
+            //matched the one and an unfused copy the other; precise now fixes it on every GPU.
+            float d = x * (y + 33.33f) + y * (z + 33.33f) + z * (x + 33.33f);
 
             x += d;
             y += d;
