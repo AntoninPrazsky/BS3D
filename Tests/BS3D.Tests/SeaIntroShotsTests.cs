@@ -67,7 +67,7 @@ namespace BS3D.Tests
         [Fact]
         public void TheRigCostsTheTourLessThanItsOwnLength()
         {
-            //The island, the depths and the climb gave back a second between them, so the prologue grew by 2.6 s, not 3.6
+            //The island, the depths and the climb gave back a second between them, so the prologue grew by 2.2 s, not 3.2
             float seconds = 0f, rig = 0f;
             foreach (IntroShot shot in Shots(1, Sun(13f, 135f), out _))
             {
@@ -75,14 +75,14 @@ namespace BS3D.Tests
                 if (shot.Name == "the rig") rig = shot.Seconds;
             }
 
-            Assert.True(seconds <= 13.4f + 1e-3f, $"the prologue is {seconds:F2} s");
+            Assert.True(seconds <= 13.0f + 1e-3f, $"the prologue is {seconds:F2} s");
             Assert.True(seconds - rig <= 9.8f + 1e-3f, $"the three shots before the rig came are {seconds - rig:F2} s");
         }
 
         //Across a cut the lens moves AND the view turns by film's thirty-degree rule, as VolcanoIntroShotsTests holds, unless
         //the cut crosses the water's surface or goes to another place altogether, where no frame of the one can read as the
         //other: the island to the depths is a few tens of units but under the water, and the rig to the climb is the open sea
-        //700 units away, where with the sun behind the island the two looks can share a heading.
+        //over 700 units away, where with the sun behind the island the two looks can share a heading.
         private const float MIN_CUT_ANGLE_DEGREES = 30f;
         private const float MIN_CUT_DISTANCE = 100f;
         private const float ANOTHER_PLACE = 500f;
@@ -176,7 +176,7 @@ namespace BS3D.Tests
             }
         }
 
-        //How near any box of either rig the lens may come: a leg is 8.8 wide and the run passes at sixty units a second
+        //How near any box of either rig the lens may come: a leg is 8.8 wide and the run passes at some seventy units a second
         private const float MIN_RIG_CLEARANCE = 20f;
 
         [Fact]

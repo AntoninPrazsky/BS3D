@@ -56,7 +56,8 @@ namespace Prazsky.Core.Render
         /// Distance from the ARENA at which the swell begins to calm, flat by <see cref="WaveFadeEnd"/> from it whatever the
         /// camera's distance (#1124). The oil platforms stand past <see cref="WaveFadeEnd"/>, cut at a flat waterline, and the
         /// chapter intro flies a lens out to them: with the camera's fade alone the swell came with it, and their legs stood
-        /// in front of its crests and over its troughs. From round the arena nothing changes (see <c>Sea.fx</c>'s
+        /// in front of its crests and over its troughs. A view from round the arena that looks in at it is unchanged; one that
+        /// looks out to sea sees the last stretch before <see cref="WaveFadeEnd"/> a little calmer (see <c>Sea.fx</c>'s
         /// <c>CalmFrom</c>). 0 turns it off.
         /// </summary>
         public float CalmFrom { get; set; } = 600f;

@@ -84,8 +84,9 @@ float WaveFadeEnd;
 //WaveFadeEnd, whoever looks. The oil platforms stand past WaveFadeEnd, cut at a flat waterline (Rig.fx); from the play view the
 //camera's own fade has the water flat there, and a lens flown out to them would otherwise bring the full swell along. It never
 //undercuts the camera's fade at a point at least as near the arena as it is to the lens (its ramp is the steeper and ends at the
-//same place), which in front of a lens round the arena is all the water it sees, so those views are bit for bit what they were.
-//0 keeps the camera's fade alone (the lagoon's clone never sets it).
+//same place). A lens round the arena that looks in at it (the play view, the menu's orbit) sees no other water, so those views
+//are bit for bit what they were; one there that looks out to sea (the intro's climb to the sun) sees the last stretch before
+//WaveFadeEnd a little calmer. 0 keeps the camera's fade alone (the lagoon's clone never sets it).
 float CalmFrom;
 
 //Fine wind chop layered on top of the Gerstner geometry in the pixel shader: peak height, ripples per

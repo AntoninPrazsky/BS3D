@@ -36,9 +36,11 @@ namespace BS3D.Effects
     /// <see cref="RIG_FROM"/> off the rig, beyond it, coming in over the open sea with the island on the horizon behind
     /// it, the rig growing until it towers over the lens. It plays between the depths and the climb, so a low run over
     /// the water is never next to another (the island's flank is one, the climb starts as one): the depths cut to it from
-    /// under the water, and its last look, up the derrick, cuts to the climb's first, level over the glint. The tour paid
-    /// for it out of the other three (the island 3.0 to 2.8 s, the depths 3.2 to 3.0, the climb 4.6 to 4.0), so it grew
-    /// by 2.6 s and not 3.6.
+    /// under the water, and its last look, up at the deck with the derrick over it, cuts to the climb's first, level over
+    /// the glint, more than 700 units away. The climb was not turned at a rig instead: its heading is the sun's, which is
+    /// the shot the owner asked for (#652), and from round the arena a rig is a few degrees tall however it is framed. The
+    /// tour paid for the run out of the other three (the island 3.0 to 2.8 s, the depths 3.2 to 3.0, the climb 4.6 to
+    /// 4.0), so it is 2.2 s longer for it and not 3.2: the owner would rather the game were faster than slower.
     /// </para>
     /// <para>
     /// <b>The water is the only ground, and it is bounded rather than mirrored.</b> No crest stands higher than
@@ -94,7 +96,8 @@ namespace BS3D.Effects
         //The rig (#1124): a straight run low over the water in at the nearer platform from the open sea beyond it, coming in
         //this many degrees round from the line through the rig to the arena, either way, from this far off the rig's axis to
         //this far, where the rig stands this many degrees off the run's heading: the run passes it by rather than flying at
-        //it, so it never comes nearer the axis than RIG_TO * sin(RIG_PASS), well outside the legs. The run is turned off the
+        //it, and with the rig still ahead of abeam at the end the nearest it comes to the axis is RIG_TO, the jacket's legs
+        //standing some 30 off it (OilRig.JacketReach). The run is turned off the
         //line one way and passes the rig on the other hand, so the island stands on the horizon beside the rig at the start
         //and crosses behind it. In from beyond and not out from the arena's side: looking out, the water would end some 800
         //past the rig, where the far ring does. The look climbs from the jacket's middle (this share of the deck's height) to
@@ -109,7 +112,7 @@ namespace BS3D.Effects
         private const float RIG_APPROACH_MAX_DEGREES = 25f;
         private const float RIG_PASS_DEGREES = 75f;
         private const float RIG_LOOK_FROM = 0.5f;
-        private const float RIG_SECONDS = 3.6f;
+        private const float RIG_SECONDS = 3.2f;
 
         /// <summary>The highest a crest can stand over the mean level, in units of the swell's amplitude, plus the chop's.</summary>
         internal static float CrestHeight(SeaSceneConfig sea) => sea.WaveAmplitude * CREST_REACH + sea.ChopAmplitude;
