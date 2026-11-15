@@ -205,7 +205,7 @@ namespace BS3D.Effects
         /// as straight segments between points of this curve a span or so apart, so a lens laid along the curve is never
         /// more than a fraction of a unit off the ruts' drawn middle line, and turns through no corner where they meet.
         /// </summary>
-        internal static Vector2[] Curve(IReadOnlyList<Vector2> controls, int perSpan)
+        private static Vector2[] Curve(IReadOnlyList<Vector2> controls, int perSpan)
         {
             int spans = controls.Count - 1;
             var points = new Vector2[spans * perSpan + 1];

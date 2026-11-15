@@ -273,7 +273,7 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// The point <paramref name="off"/> units off <paramref name="path"/>'s middle line, <paramref name="along"/> units along
         /// it from its first point, on the side away from the arena (#1114); <paramref name="heading"/> is the path's direction
-        /// there. A distance past the path's length stands off its last segment's end.
+        /// there. A distance outside the path's length is taken at its nearer end.
         /// </summary>
         public static Vector2 BesideTrack(IReadOnlyList<Vector2> path, float along, float off, out Vector2 heading)
         {
