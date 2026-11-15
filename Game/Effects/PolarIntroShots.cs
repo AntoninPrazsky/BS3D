@@ -52,9 +52,10 @@ namespace BS3D.Effects
 
         //The camp (#1128): an arc of CAMP_SWEEP_DEGREES at CAMP_RADIUS from the camp's middle, CAMP_HEIGHT over the highest ice
         //under it, its middle CAMP_TOWARD_FRONT of the way round from the arena's side of the camp to the side its front faces
-        //(the dome's sun is on that side), the lens on the camp's middle all the way. Far enough out that the whole camp, from
-        //the turbine to the vehicle, stands in the frame; high enough to look down on the snow on its roofs.
-        internal const float CAMP_RADIUS = 76f;
+        //(the dome's sun is on that side), the lens on the camp's middle all the way. Far enough out that the station, the mast
+        //and its flag and the vehicle stand in a 4:3 frame; a little under the modules' roofs, so the station stands against
+        //the pressure front and the mast against the sky.
+        internal const float CAMP_RADIUS = 80f;
         internal const float CAMP_HEIGHT = 9f;
         private const float CAMP_SWEEP_DEGREES = 26f;
         private const float CAMP_TOWARD_FRONT = 0.45f;

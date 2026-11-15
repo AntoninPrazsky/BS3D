@@ -54,7 +54,7 @@ namespace BS3D.Tests
         private static readonly string[] FRAMED = { "module 1", "module 2", "module 3", "station's end", "station's other end", "mast", "flag", "vehicle" };
 
         //The camp's landmarks at least this tall in the frame at the camp shot's end, a share of its height: the mast and its
-        //flag over the station, a close look and not a far one (at 105 out the mast was 0.3)
+        //flag over the station, a close look and not a far one (at 105 out it was 0.3)
         private const float MIN_MAST_SHARE = 0.35f;
 
         //Every lens of the reel this far over the ice under it at the least

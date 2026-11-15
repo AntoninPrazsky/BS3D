@@ -54,6 +54,11 @@ namespace BS3D.Tests
         //least MIN_MAST_PIXELS; at its own figures (#747) a module was 18 and the mast 50 where it stood
         private const float MIN_MODULE_PIXELS = 40f, MIN_MAST_PIXELS = 170f;
 
+        //The HUD's cluster profile down the left edge (PlayHud's PROFILE_MARGIN and PROFILE_WIDTH, in 2160-line design units,
+        //scaled by the window's height): at 16:9 and wider the mast's top and the flag stand right of it, at 16:10 and 4:3,
+        //which squeeze the frame's width under it, they stand behind its lower part
+        private const float PROFILE_RIGHT = (92f + 480f) / 2160f;
+
         //Sight lines are marched this far apart in plan, a fraction of the desktop grid's 2.86-unit cell
         private const float SIGHT_STEP = 0.5f;
 
@@ -148,9 +153,10 @@ namespace BS3D.Tests
 
         /// <summary>
         /// The opening frame of every shipped level, played on the ice: every landmark of the camp (at 16:10 and 4:3 the
-        /// station and its mast) stands in the frame with its top and its middle, off to the side of the gun's carriage, not
-        /// behind a ball the level opens with; every module stands at least half over the island's deck, the mast's top, the
-        /// flag and the vehicle's cab over it too; and each module and the mast are big enough to read.
+        /// station, its mast and flag and the vehicle) stands in the frame with its top and its middle, off to the side of the
+        /// gun's carriage, not behind a ball the level opens with; every module stands at least half over the island's deck,
+        /// the mast's top, the flag and the vehicle's cab over it too; at 16:9 and wider the mast's top and the flag stand
+        /// clear of the HUD's cluster profile; and each module and the mast are big enough to read.
         /// </summary>
         [Theory]
         [MemberData(nameof(Aspects))]
@@ -202,6 +208,14 @@ namespace BS3D.Tests
                         float margin = SightMargin(open.Lens, seen);
                         Assert.True(margin >= 0f, $"{open.Level} at {aspect:F2}: the camp's {mark.Name} is {-margin:F2} under the deck's line");
                         leastSight = MathF.Min(leastSight, margin);
+                    }
+
+                    //Clear of the cluster profile, its right edge as a share of the frame's width from the left
+                    if (wide && (mark.Name == "mast" || mark.Name == "flag"))
+                    {
+                        float fromLeft = (Project(mark.Top, viewProjection, out _).X + 1f) * 0.5f;
+                        Assert.True(fromLeft > PROFILE_RIGHT / aspect,
+                            $"{open.Level} at {aspect:F2}: the camp's {mark.Name} stands behind the HUD's cluster profile, {fromLeft:F3} of the width in");
                     }
 
                     float pixels = (Project(mark.Top, viewProjection, out _).Y - Project(mark.Foot, viewProjection, out _).Y) * 0.5f * 1080f;
