@@ -20,6 +20,25 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1118 cirkus: úvod přistane za dělem — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: poslední záběr úvodu Big Topu je „the gate home“ (`Game/Effects/CircusLanding.cs`). Kamera vjede nízko středem uličky účinkujících, vystoupá na kruh uvnitř hlavních stožárů a přes sdílený `IntroLanding` přistane přesně na herní póze. Střih a let tour odpadly; úvod trvá 16,6 s místo 15,5 s. Kde cesta není volná (menu), zůstává stará brána s letem tour. Nový `IntroLanding.Style.LookRise` (výchozí 0): louka a obě města se nezměnila ani o bit.
+- ⚠ Stan nemá CPU geometrii, takže kontroly kolize jsou kopie čísel stanu (`CircusLanding.Tent`); tři konstanty světel rampy hlídá test rovnosti, protože `CircusBackdrop` je `internal`.
+- Otevřené: `verdict-eye` (pohyb neviděn v plné velikosti, daleká póza mimo stožáry nezachycena, natočení 0,8 je volba).
+
+## 2026-11-15 — #1124 moře: úvod přeletí kolem ropné plošiny — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: nový záběr „the rig“ mezi hlubinami a stoupáním ke slunci; objektiv nízko nad vodou míjí bližší plošinu (začne 250 za ní, 3,6 s, 48 j/s, test drží ≤ 50), pohled stoupá od nohou k vrtné věži. Ostatní záběry zkráceny, prolog 13,4 s, celé turné 17,9 s. `Sea.fx` navíc tlumí vlny se vzdáleností od arény (`CalmFrom` 600, plochá od 780), takže nohy nestojí nad údolími vln; herní pohled je pixel po pixelu stejný. Vzdálené pole má disk až k aréně (ostrov z plošiny neměl vodu). Komentář „plošiny za herním pohledem“ byl chybný: stojí před ním, ~21° po stranách.
+- ⚠ Blíž než ~100 schovají paluba a moduly věž úplně.
+- Otevřené: `verdict-eye` (rychlost běhu v pohybu, střihy); Potato a Scenery vypnuto prolog nehrají.
+
+## 2026-11-15 — #1131 #1134 čísla z alt= na APU přeměřena, zrcadla terénu na Vega — notebook (ThinkPad), Claude Code
+
+- Hotovo, sloučeno: notebooková polovina #1131. Osmnáct sweepů v jednom procesu (města, louka, hory, sopka Low/Medium/herní póza, záře, jeskyně, aréna, hrubý kámen, MSAA z #540) přepsáno v devíti dokumentech; tabulka je v #1131. Issue zůstává otevřené pro desktopové pasáže.
+- ⚠ APU má ve frontě jen ~2 snímky (`settled after 5` všude), takže stará APU čísla byla mimo jen o podíl dvou snímků za vteřinu: stejný kód před #1129 a po něm, přepínač měst při 40 ms −15 %, vrstvy sopky při 11 ms do 0,05 ms. Čísla se scratch dialy proto zůstala (zapsáno v `capture-and-measurement.md`).
+- ⚠ `mirrorcheck` na notebooku: 7 z 11 scén FAIL (hory 16,19). Vega `mad` nefúzuje, CPU zrcadlo je fúzované podle desktopu; scratch s nefúzovaným hashem projde všech 11. Založeno #1134 (rozhodnutí: `precise`, nebo nový hash).
+- Otevřené: #1134; desktopový zbytek #1131.
+
 ## 2026-11-15 — #1109 #1112 hladký let úvodů nad terénem — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: `AridIntroPaths.Hug` zaobluje výšku přes 0,7 s letu Gaussem plus hladkým zdvihem, který drží každou světlou výšku; `IntroShot.At` za koncem záběru extrapoluje, takže střih neubere rychlost. Nový test `IntroShotSmoothnessTests` hlídá všech 11 záběrů nad terénem (poušť, hory, outback, sopka) s limity z dronových záběrů; nejhorší svislé zrychlení např. pyramidy 193 → 10, outback přílet 198 → 7 j/s². Jeřáb (patka a vrchol) letí přesně podle návrhu. Nový argument `introshot=` podrží úvod v daných chvílích a uloží snímek.

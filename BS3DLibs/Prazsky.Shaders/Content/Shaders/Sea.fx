@@ -80,6 +80,15 @@ float WaveSpeed;
 float WaveFadeStart;
 float WaveFadeEnd;
 
+//THE OPEN SEA CALMS FAR OUT (#1124): the swell also fades with the distance from the ARENA, from this far out to flat at
+//WaveFadeEnd, whoever looks. The oil platforms stand past WaveFadeEnd, cut at a flat waterline (Rig.fx); from the play view the
+//camera's own fade has the water flat there, and a lens flown out to them would otherwise bring the full swell along. It never
+//undercuts the camera's fade at a point at least as near the arena as it is to the lens (its ramp is the steeper and ends at the
+//same place). A lens round the arena that looks in at it (the play view, the menu's orbit) sees no other water, so those views
+//are bit for bit what they were; one there that looks out to sea (the intro's climb to the sun) sees the last stretch before
+//WaveFadeEnd a little calmer. 0 keeps the camera's fade alone (the lagoon's clone never sets it).
+float CalmFrom;
+
 //Fine wind chop layered on top of the Gerstner geometry in the pixel shader: peak height, ripples per
 //world unit and scroll speed, plus the wind it crawls along (a unit direction in the XZ plane).
 float ChopAmplitude;
@@ -348,6 +357,10 @@ SeaVertexOutput SeaVS(SeaVertexInput input)
     //Fade the waves to flat between WaveFadeStart and WaveFadeEnd so the horizon reads as one hazed line
     float restDist = distance(CameraPosition.xz, restXZ);
     float ampScale = saturate(1.0 - (restDist - WaveFadeStart) / max(WaveFadeEnd - WaveFadeStart, 1.0));
+
+    //And with the distance from the arena (#1124): flat past WaveFadeEnd whoever looks, see CalmFrom
+    if (CalmFrom > 0.0)
+        ampScale = min(ampScale, saturate((WaveFadeEnd - length(restXZ)) / max(WaveFadeEnd - CalmFrom, 1.0)));
 
     //The island's shelter (#132): the swell dies completely under the stone, so the pool standing in the
     //drain is exactly the flat rest grid at SeaLevelY. Keyed on the REST position — displacement is zero
