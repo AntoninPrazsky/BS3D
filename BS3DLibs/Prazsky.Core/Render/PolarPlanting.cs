@@ -211,10 +211,9 @@ namespace Prazsky.Core.Render
         //reach its seat reads the ground over. The vehicle is parked before the station's +X end, the end nearest the play
         //camera once the camp is turned (#1128): at the -X end it stood behind the gun in the play view, and out beyond the
         //station's end at the frame's edge. The turbine stands behind that end too: at the -X end its blades stood behind the
-        //lower corner of the widest clusters once the overview had focused (#1006). The mast stands before the last module rather
-        //than at the station's end, where its top and the flag stood behind the HUD's cluster profile at 16:9.
+        //lower corner of the widest clusters once the overview had focused (#1006).
         private static readonly (float X, float Z) STATION = (0f, 0f), TURBINE = (12f, 6f);
-        private static readonly Vector2 VEHICLE = new(17f, -8f), MAST = new(8.5f, -3.6f);
+        private static readonly Vector2 VEHICLE = new(17f, -8f), MAST = new(13f, -3.5f);
         private const float STATION_REACH = 9f, VEHICLE_REACH = 2.5f, MAST_REACH = 0.5f;
         private const float VEHICLE_TURN = 0.25f, TURBINE_TURN = 0.5f;
 
@@ -225,7 +224,7 @@ namespace Prazsky.Core.Render
         //The snow drifts: where, and how big
         private static readonly (float X, float Z, float Size)[] BANKS =
         {
-            (-5f, 2.2f, 4.2f), (2.5f, 2.6f, 3.6f), (8.5f, 2.2f, 4f), (-9f, -1.5f, 2.4f), (8.5f, -3.4f, 1.2f),
+            (-5f, 2.2f, 4.2f), (2.5f, 2.6f, 3.6f), (8.5f, 2.2f, 4f), (-9f, -1.5f, 2.4f), (13f, -3f, 1.2f),
             (17.5f, -9.9f, 2.2f), (12f, 6.5f, 1.4f), (6f, -4.5f, 2.6f), (-1f, 4.5f, 3f),
         };
 
