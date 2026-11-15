@@ -96,13 +96,13 @@ namespace BS3D.Effects
         //The rig (#1124): a straight run low over the water in at the nearer platform from the open sea beyond it, coming in
         //this many degrees round from the line through the rig to the arena, either way, from this far off the rig's axis to
         //this far, where the rig stands this many degrees off the run's heading: the run passes it by rather than flying at
-        //it, and with the rig still ahead of abeam at the end the nearest it comes to the axis is RIG_TO, the jacket's legs
-        //standing some 30 off it (OilRig.JacketReach). The run is turned off the
-        //line one way and passes the rig on the other hand, so the island stands on the horizon beside the rig at the start
-        //and crosses behind it. In from beyond and not out from the arena's side: looking out, the water would end some 800
-        //past the rig, where the far ring does. The look climbs from the jacket's middle (this share of the deck's height) to
-        //the derrick's axis at the deck, so the rig grows from the horizon and at the end stands over the lens from the
-        //waterline to the derrick's cap.
+        //it, and with the rig still ahead of abeam at the end the nearest it comes to the axis is RIG_TO, where the legs'
+        //outer corners stand some 36 off it (OilRig.JacketReach). The run is turned off the line one way and passes the rig
+        //on the other hand, so the island stands on the horizon beside the rig at the start and crosses behind it. In from
+        //beyond and not out from the arena's side, which would have the open sea behind the rig fade into the sky some 500
+        //past it (the far ring's fade ends FarField.FAR_FADE_END, 1300, from the arena) and the island behind the lens. The
+        //look climbs from the jacket's middle (this share of the deck's height) to the derrick's axis at the deck, so the
+        //rig grows from the horizon and at the end stands over the lens from the waterline to the derrick's cap.
         //⚠ THE END STANDS OFF. From the waterline the deck and the modules on it hide the derrick's foot from anywhere, and
         //more of it the nearer the lens: ended 70 off the axis the lens was under the deck's edge and saw none of it, only the
         //deck's dark underside and the legs; at 100, the cap. At 140 the upper half of it stands over the deck.
