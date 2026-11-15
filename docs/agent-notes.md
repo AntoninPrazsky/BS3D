@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1103 #1104 #1096 #1077 verdikty a cíl Ultra 75 FPS uzavřen — desktop (RDT-PC), Claude Code
+
+- majitel (chat, 15. 11.): #1104 obloha v rozlišení displeje OK, #1096 šapitó OK, #1077 priorita zvuků na Androidu OK. Zapsáno do issues, všechny tři zavřené.
+- Hotovo: #1103 zavřeno s důkazem. Rušné vteřiny jdou naskriptovat: ohňostroj přes `level=<n> result celebrate` (a `celebrate` v menu), kaskáda přes `detonate=` na úrovních s bombami (Paroxysm, Vent, Sill). Na Ultra nejdražší vteřina ohňostroje 11,2 ms (les v menu), kaskády 9,9 (Sill); kaskáda přidá zhruba 2,6 ms na dobu svého trvání.
+- ⚠ Konec levelu s ohňostrojem není dražší než hra: kamera po výhře odjede a aréna je rozostřená.
+- Otevřené: snímek přímo v 3840×1600 (jen celá obrazovka, zakryje displej; příkaz je v #1103). Odhad je nejvýš +6,7 %.
+
 ## 2026-11-14 — #1131 čísla z alt= v docs přeměřena na desktopu — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno (8642136c): desktopová čísla z `alt=` v `docs/` přeměřena na opraveném nástroji (#1129). Issue zůstává otevřené: čísla z notebooku (příkazy jsou v komentáři) a pasáže mimo seznam (`sun-shadows`, `city`, `mountains`, `aurora`, `quality-measurements`, kupy ve `weather`).
