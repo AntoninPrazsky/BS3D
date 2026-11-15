@@ -312,7 +312,6 @@ namespace BS3D.Effects
             //in onto the pose
             var plan = new List<Vector2>();
             int releaseStart;
-            Vector2 arrive;
             if (!round)
             {
                 //⚠ No run shorter than a step: Straight lays two points for any length, and a plan with a point twice over is
@@ -320,8 +319,7 @@ namespace BS3D.Effects
                 if (run >= STEP) IntroLanding.Straight(plan, start, start + heading * run, STEP);
                 else plan.Add(start);
                 releaseStart = plan.Count - 1;
-                arrive = IntroLanding.Arrival(arrival, facing, heading);
-                IntroLanding.Release(plan, plan[^1], heading, end, arrive, STEP);
+                IntroLanding.Release(plan, plan[^1], heading, end, IntroLanding.Arrival(arrival, facing, heading), STEP);
             }
             else
             {
@@ -346,7 +344,6 @@ namespace BS3D.Effects
                 releaseStart = plan.Count - 1;
                 float slant = arrival < 0.6 ? SLANT_SOME : SLANT_MORE;
                 IntroLanding.TurnIn(plan, entryBearing + sign * arc, radius, sign, end, slant, STEP);
-                arrive = Vector2.Normalize(plan[^1] - plan[^2]);
             }
 
             //Evenly spaced along its length: a release is thinned to at least a step, not to one, and the hug spaces its heights
@@ -402,7 +399,6 @@ namespace BS3D.Effects
                 speed[i] = cruise;
             }
             path[^1] = endPosition;
-
 
             //Among the trees: the trees the run passes within TREE_NEAR of before it levels onto the pose, on each hand
             int low = 0;
