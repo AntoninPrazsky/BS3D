@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-16 — #1132 vesmír a hory na High na GTX 1060 — DESKTOP_L, Claude Code
+
+- Hotovo, sloučeno: vesmír při supersamplingu stínuje vše kromě hvězd jednou za pixel displeje (`SpaceBase`, v alfě podíl hvězdy, který projde), hvězdy se kreslí přes zvětšení v plné velikosti (`SpaceStars`, `Backdrop.ComposeDisplayResolution`). Orrery na High 19,14 → 8,51 ms; špičky hvězd beze změny (medián 0), okraj planety o pixel měkčí.
+- Hory na 1060: `finemeshes` stojí +7,2 ms při ssaa 1 (jemné pohoří +4,9, vertexová práce; kupovité mraky +2,4), na 6900 XT naopak šetří. Stín 4096 nic.
+- ⚠ Otevřený Správce úloh přidá na 1060 3–4 ms na snímek při stejných taktech; před měřením ho zavři.
+- Otevřené: pohoří na High u slabších karet (#1132 komentář); oprava údaje fyziky při XMP 3600 (#1031) na měření při 3200.
+
 ## 2026-11-15 — #1114 Měsíc: jedna vlajka u stop vozítka a záběr po kolejích — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: na Měsíci stojí jedna bílá vlajka (`FLAG_SIZE` 2,4) místo dvou, 4 jednotky vedle stop vozítka na svahu, asi 14° vlevo od osy herního pohledu (nad hranou paluby, mimo kolo děla). Stopy přeloženy: z pláně se stočí na jih a stoupají za vlajku (ohyb nejvýš 10,4°). Úvod: záběr kráteru nahradil „the tracks“, nízký let po kolejích nad CPU zrcadlem terénu se sluncem z boku, končí na vlajce zblízka; úvod 15,3 s místo 14,3.
