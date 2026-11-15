@@ -1232,8 +1232,9 @@ namespace BS3D
         }
 
         //The map of the towers the windows mirror (#1065), with each city the scene builds, while the tier reflects (High and
-        //Ultra): 12 MB the other tiers would never read. None under OpenGL ES, whose reflect technique is the plain program
-        //(GraphicsSupport.CityReflections)
+        //Ultra): 12 MB the other tiers would never read, and its CPU copy (Field, 3.6 MB) the chapter intro frames the
+        //facades by (#1119), so a tier without it shoots no facades. None under OpenGL ES, whose reflect technique is the
+        //plain program (GraphicsSupport.CityReflections)
         private CityReflectionMap _cityReflection;
 
         private void RebuildCityReflection()

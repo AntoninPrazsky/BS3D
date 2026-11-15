@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework;
 using Prazsky.Core.Render;
 using System;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace BS3D.Tests
 {
@@ -18,6 +19,10 @@ namespace BS3D.Tests
     /// </summary>
     public class CityIntroShotsTests
     {
+        private readonly ITestOutputHelper _output;
+
+        public CityIntroShotsTests(ITestOutputHelper output) => _output = output;
+
         private const int ROLLS = 12;
         private static readonly float FieldOfView = MathHelper.ToRadians(45f);
 
@@ -65,13 +70,19 @@ namespace BS3D.Tests
             return city;
         }
 
-        //The whole prologue as the game builds it, the rooftop's arc round a real dressed roof included, handing the camera
-        //back to a gameplay pose on a bearing the seed turns (the lens about 40 out and level with the gun, GameCameraFit)
-        private static IntroShot[] Shots(bool neon, int seed, out City city)
+        //The whole prologue as the game builds it on a tier that draws the windows' reflections, the rooftop's arc round a
+        //real dressed roof included, handing the camera back to a gameplay pose on a bearing the seed turns (the lens about
+        //40 out and level with the gun, GameCameraFit)
+        private static IntroShot[] Shots(bool neon, int seed, out City city) => Shots(neon, seed, FieldOfView, true, out city, out _);
+
+        //And on a lens of the caller's, with or without the reflection map (a tier that draws none hands the builder null)
+        internal static IntroShot[] Shots(bool neon, int seed, float fieldOfView, bool reflections, out City city,
+            out CityReflectionField field)
         {
             city = Build(neon, seed, out CityRooftops.RoofShowcases rooftops);
+            field = reflections ? new CityReflectionField(city) : null;
             GamePose(seed, out Vector3 position, out Vector3 target);
-            return CityIntroShots.Build(city, rooftops, neon, position, target, FieldOfView, new Random(seed));
+            return CityIntroShots.Build(city, rooftops, neon, position, target, fieldOfView, new Random(seed), field);
         }
 
         internal static void GamePose(int seed, out Vector3 position, out Vector3 target)
@@ -168,7 +179,192 @@ namespace BS3D.Tests
 
                     int lands = Array.FindIndex(shots, s => s.Lands);
                     if (lands >= 0) Assert.Equal(shots.Length - 1, lands);
+
+                    //And since #1119, three canyon shots in one reel: the street, the facades and the swing, none beside another
+                    for (int i = 0; i + 1 < shots.Length; i++)
+                        Assert.False(Canyon(shots[i]) && Canyon(shots[i + 1]),
+                            $"seed {seed}, neon {neon}: '{shots[i].Name}' is cut straight to '{shots[i + 1].Name}', two canyon shots");
                 }
+        }
+
+        private static bool Canyon(IntroShot shot) => shot.Name is "the street" or "the facades" or "the swing" or "the swing home";
+
+        //The facades (#1119): how far every lens stays off every box, towers and cornices (CityIntroShots' own clearance), and
+        //the band the point it looks at keeps from the lens: a pane mirrors the towers at full strength to two thirds of the
+        //reach the Game draws at (CityReflection.fxh fades the last third), and closer than the near end the wall is too
+        //close for a look up it
+        private const float FACADES_CLEARANCE = 2f;
+        private const float FACADES_NEAREST = 10f;
+        private const float FACADES_FARTHEST = InstancedModelRenderer.DEFAULT_CITY_REFLECTION_REACH * 2f / 3f;
+
+        //How far over the horizon the frame's bottom edge looks: above it no ray of the frame can meet the street, whose paint is
+        //flat (#783, #973). A little under the builder's own margin, which it holds at the path's points
+        private const float FACADES_STREET_MARGIN_DEGREES = 2.5f;
+
+        //How many of a shot's poses the pane at the frame's centre must mirror a tower from, as the shader marches it in the
+        //Game's steps (the builder asks it of its stands, and the lens runs a spline between them)
+        private const float FACADES_MIRRORED_SHARE = 0.9f;
+
+        /// <summary>
+        /// #1119, the owner: "shots are missing from below (almost street level) looking up at the tall buildings, where the
+        /// reflections in the windows will be clearly visible". Both cities, a dozen rolls each, on the lens the game hands the
+        /// intro, the facades walked pose by pose against the city's real boxes: every reel has them, after its street and its
+        /// plaza; the lens keeps its clearance off every box; the wall it looks at is met by the view's centre inside the
+        /// reflection band; the frame's bottom edge looks over the horizon, so the street's flat paint is never in the picture;
+        /// and the pane at the frame's centre mirrors a tower, not the sky, as the shader's own march finds it in the Game's
+        /// steps (<see cref="CityReflectionField"/>): the reflection the shot is for.
+        /// </summary>
+        [Fact]
+        public void TheFacadesLookUpAWallCloseEnoughForItsPanesToMirrorTheTowers()
+        {
+            int poses = 0, mirrored = 0, mostSteps = 0;
+            float nearest = float.MaxValue, farthest = 0f, lowestEdge = float.MaxValue, tightest = float.MaxValue, leastShare = 1f;
+
+            for (int seed = 1; seed <= ROLLS; seed++)
+                foreach (bool neon in new[] { false, true })
+                {
+                    IntroShot[] shots = Shots(neon, seed, INTRO_FIELD_OF_VIEW, true, out City city, out CityReflectionField field);
+                    int at = Array.FindIndex(shots, s => s.Name == "the facades");
+                    Assert.True(at >= 0, $"seed {seed}, neon {neon}: the reel has no facades");
+                    Assert.Equal(new[] { "the street", "the plaza", "the facades" }, new[] { shots[0].Name, shots[1].Name, shots[2].Name });
+
+                    IntroShot facades = shots[at];
+                    int shotMirrored = 0;
+                    for (int step = 0; step <= POSES; step++)
+                    {
+                        facades.Pose(step / (float)POSES, out Vector3 position, out Vector3 target);
+                        Vector3 look = Vector3.Normalize(target - position);
+                        string where = $"seed {seed}, neon {neon}, at {step}/{POSES}";
+
+                        float clearance = Clearance(city, position);
+                        tightest = MathF.Min(tightest, clearance);
+                        Assert.True(clearance >= FACADES_CLEARANCE, $"{where}: the lens stands {clearance:F2} off a box");
+
+                        float wall = FirstHit(city, position, look, 500f, out Vector3 normal);
+                        nearest = MathF.Min(nearest, wall);
+                        farthest = MathF.Max(farthest, wall);
+                        Assert.True(wall >= FACADES_NEAREST && wall <= FACADES_FARTHEST,
+                            $"{where}: the view's centre meets a wall {wall:F1} from the lens, outside {FACADES_NEAREST}-{FACADES_FARTHEST:F1}");
+
+                        float edge = MathHelper.ToDegrees(MathF.Asin(look.Y) - facades.FieldOfView * 0.5f);
+                        lowestEdge = MathF.Min(lowestEdge, edge);
+                        Assert.True(edge >= FACADES_STREET_MARGIN_DEGREES,
+                            $"{where}: the frame's bottom edge looks {edge:F1} degrees over the horizon, the street in frame");
+
+                        Vector3 pane = position + look * wall;
+                        Vector3 mirror = look - 2f * Vector3.Dot(look, normal) * normal;
+                        if (field.March(pane, normal, mirror, InstancedModelRenderer.DEFAULT_CITY_REFLECTION_STEPS, out int taken))
+                        {
+                            shotMirrored++;
+                            mostSteps = Math.Max(mostSteps, taken);
+                        }
+                    }
+
+                    poses += POSES + 1;
+                    mirrored += shotMirrored;
+                    leastShare = MathF.Min(leastShare, shotMirrored / (float)(POSES + 1));
+                    Assert.True(shotMirrored >= FACADES_MIRRORED_SHARE * (POSES + 1),
+                        $"seed {seed}, neon {neon}: the pane at the frame's centre mirrors a tower from {shotMirrored} of {POSES + 1} poses");
+                }
+
+            //Not vacuous; and the figures the documents quote
+            Assert.True(poses >= 2 * ROLLS * POSES, $"only {poses} poses were walked");
+            _output.WriteLine($"the wall at {nearest:F1}-{farthest:F1}, the bottom edge at least {lowestEdge:F2} degrees up, the lens at "
+                + $"least {tightest:F1} off a box, {mirrored} of {poses} centre panes mirroring a tower (the least in a shot {leastShare:P0}), "
+                + $"in at most {mostSteps} of {InstancedModelRenderer.DEFAULT_CITY_REFLECTION_STEPS} steps");
+        }
+
+        /// <summary>
+        /// #1119: the facades are for the panes' reflections, so a tier that draws none (Low, Medium, OpenGL ES) hands the builder
+        /// no map and gets no facades: the day city's reel is its street, plaza and rooftop and the neon city's its plaza,
+        /// street and rooftop, as accepted in #973. And the session's own roll comes out of the build the same with or without
+        /// them: the facades roll off a generator of their own, so the tier never changes what the session deals after the
+        /// intro (the benchmark plays one seed on every tier).
+        /// </summary>
+        [Fact]
+        public void WithoutTheReflectionsThereAreNoFacadesAndTheSessionRollsOnTheSame()
+        {
+            for (int seed = 1; seed <= ROLLS; seed++)
+                foreach (bool neon in new[] { false, true })
+                {
+                    City city = Build(neon, seed, out CityRooftops.RoofShowcases rooftops);
+                    GamePose(seed, out Vector3 position, out Vector3 target);
+
+                    var withRandom = new Random(seed);
+                    IntroShot[] with = CityIntroShots.Build(city, rooftops, neon, position, target, INTRO_FIELD_OF_VIEW, withRandom,
+                        new CityReflectionField(city));
+                    var withoutRandom = new Random(seed);
+                    IntroShot[] without = CityIntroShots.Build(city, rooftops, neon, position, target, INTRO_FIELD_OF_VIEW, withoutRandom, null);
+
+                    Assert.DoesNotContain(without, s => s.Name == "the facades");
+                    if (without[^1].Lands)
+                    {
+                        Assert.Contains(with, s => s.Name == "the facades");
+                        Assert.Equal(neon ? new[] { "the plaza", "the street" } : new[] { "the street", "the plaza" },
+                            new[] { without[0].Name, without[1].Name });
+                    }
+
+                    for (int draw = 0; draw < 8; draw++)
+                        Assert.Equal(withRandom.Next(), withoutRandom.Next());
+                }
+        }
+
+        //How far a point stands from the nearest of the city's boxes, towers and cornices: 0 inside one
+        private static float Clearance(City city, Vector3 point)
+        {
+            float nearest = float.MaxValue;
+            foreach (ModelInstance building in city.Buildings)
+            {
+                Matrix world = building.World;
+                Vector3 half = new Vector3(MathF.Abs(world.M11), MathF.Abs(world.M22), MathF.Abs(world.M33)) * 0.5f;
+                Vector3 offset = point - new Vector3(world.M41, world.M42, world.M43);
+                Vector3 outside = Vector3.Max(Vector3.Zero, new Vector3(MathF.Abs(offset.X), MathF.Abs(offset.Y), MathF.Abs(offset.Z)) - half);
+                nearest = MathF.Min(nearest, outside.Length());
+            }
+
+            return nearest;
+        }
+
+        //How far along `direction` (a unit vector) a ray from `origin` first meets one of the city's boxes, and the face it meets
+        //it on; infinity within `reach` of nothing. The boxes are axis-aligned, scale then translate (City's own note).
+        private static float FirstHit(City city, Vector3 origin, Vector3 direction, float reach, out Vector3 normal)
+        {
+            float nearest = float.PositiveInfinity;
+            normal = Vector3.Zero;
+
+            foreach (ModelInstance building in city.Buildings)
+            {
+                Matrix world = building.World;
+                Vector3 centre = new(world.M41, world.M42, world.M43);
+                Vector3 half = new Vector3(MathF.Abs(world.M11), MathF.Abs(world.M22), MathF.Abs(world.M33)) * 0.5f;
+                float enter = 0f, exit = MathF.Min(reach, nearest);
+                int axis = -1;
+                bool through = true;
+
+                for (int a = 0; a < 3 && through; a++)
+                {
+                    float o = a == 0 ? origin.X : a == 1 ? origin.Y : origin.Z;
+                    float d = a == 0 ? direction.X : a == 1 ? direction.Y : direction.Z;
+                    float c = a == 0 ? centre.X : a == 1 ? centre.Y : centre.Z;
+                    float h = a == 0 ? half.X : a == 1 ? half.Y : half.Z;
+
+                    if (MathF.Abs(d) < 1e-6f) { through = MathF.Abs(o - c) <= h; continue; }
+
+                    float t0 = (c - h - o) / d, t1 = (c + h - o) / d;
+                    if (t0 > t1) (t0, t1) = (t1, t0);
+                    if (t0 > enter) { enter = t0; axis = a; }
+                    exit = MathF.Min(exit, t1);
+                    through = enter <= exit;
+                }
+
+                if (!through || axis < 0) continue;
+
+                nearest = enter;
+                float sign = (axis == 0 ? direction.X : axis == 1 ? direction.Y : direction.Z) > 0f ? -1f : 1f;
+                normal = axis == 0 ? new Vector3(sign, 0f, 0f) : axis == 1 ? new Vector3(0f, sign, 0f) : new Vector3(0f, 0f, sign);
+            }
+
+            return nearest;
         }
 
         /// <summary>
