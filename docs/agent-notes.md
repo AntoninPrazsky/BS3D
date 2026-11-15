@@ -25,7 +25,7 @@ Pravidla:
 - majitel (chat, 15. 11.): #1104 obloha v rozlišení displeje OK, #1096 šapitó OK, #1077 priorita zvuků na Androidu OK. Zapsáno do issues, všechny tři zavřené.
 - Hotovo: #1103 zavřeno s důkazem. Rušné vteřiny jdou naskriptovat: ohňostroj přes `level=<n> result celebrate` (a `celebrate` v menu), kaskáda přes `detonate=` na úrovních s bombami (Paroxysm, Vent, Sill). Na Ultra nejdražší vteřina ohňostroje 11,2 ms (les v menu), kaskády 9,9 (Sill); kaskáda přidá zhruba 2,6 ms na dobu svého trvání.
 - ⚠ Konec levelu s ohňostrojem není dražší než hra: kamera po výhře odjede a aréna je rozostřená.
-- Otevřené: snímek přímo v 3840×1600 (jen celá obrazovka, zakryje displej; příkaz je v #1103). Odhad je nejvýš +6,7 %.
+- majitel spustil les v menu na celé obrazovce 3840×1600 (build `main`): medián 10,90 ms, nejdražší vteřina 12,20, nic nad 13,33. Cíl drží i bez odhadu.
 
 ## 2026-11-14 — #1031 střední desktop (GTX 1060, Ryzen 5 3600) — DESKTOP_L, Claude Code
 
