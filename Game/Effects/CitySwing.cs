@@ -75,10 +75,10 @@ namespace BS3D.Effects
         private const float RELEASE_BOTTOM_SHARE = 0.3f;
 
         //How much of the path's own rise and fall the look follows, how far out it looks, and over how long either side
-        //of the moment its direction is averaged. ⚠ Along the path's own direction, not at a point some way ahead: a
-        //chord to a point 0.35 s on cut every corner, and short across the turn while the drop into the next sag was
-        //not, it pitched the view 140 degrees a second over each corner. Averaged, the view also turns into a corner
-        //before the lens does, which takes the turn's peak down.
+        //of the moment its direction is averaged (IntroLanding.Style). ⚠ Along the path's own direction, not at a point some
+        //way ahead: a chord to a point 0.35 s on cut every corner, and short across the turn while the drop into the next
+        //sag was not, it pitched the view 140 degrees a second over each corner. Averaged, the view also turns into a
+        //corner before the lens does, which takes the turn's peak down.
         private const float LOOK_PITCH_FOLLOW = 0.3f;
         private const float LOOK_DISTANCE = 30f;
         private const float LOOK_SMOOTH_SECONDS = 0.3f;
@@ -120,28 +120,21 @@ namespace BS3D.Effects
         {
             if (city == null) return null;
 
+            //Each candidate checks its own points against the towers as it is laid (Lay), before the roll its score takes
             var towers = new Towers(city);
-            Route best = null;
-            for (int attempt = 0; attempt < CANDIDATES; attempt++)
-            {
-                Route route = Lay(city, towers, endPosition, endTarget, random, style);
-                if (route != null && (best == null || route.Score > best.Score)) best = route;
-            }
+            IntroLanding.Route best = IntroLanding.Best(CANDIDATES, () => Lay(city, towers, endPosition, endTarget, random, style));
 
-            return best == null ? null : Fly(best, endPosition, endTarget, fieldOfView, style);
+            return best == null ? null : IntroLanding.Fly("the swing home", best, endPosition, endTarget, fieldOfView, Landing(style));
         }
 
-        //One candidate, laid out in full: the dense path, where its last sag bottoms out (the release's climb starts
-        //there), the height of the swings' tops, and its score
-        private sealed class Route
-        {
-            public List<Vector3> Path;
-            public int Bottom;
-            public float Top;
-            public float Score;
-        }
+        //How the swing is timed, pointed and banked once laid: the shared landing's, at the city's figures
+        private static IntroLanding.Style Landing(Style style) => new(style.WideLens, style.ReleaseTimeScale,
+            LOOK_PITCH_FOLLOW, LOOK_DISTANCE, LOOK_SMOOTH_SECONDS, LOOK_LAND_SECONDS, LookInward: 0f,
+            ROLL_PER_TURN, MAX_ROLL_DEGREES, ROLL_SMOOTH_SECONDS, POINTS);
 
-        private static Route Lay(City city, Towers towers, Vector3 endPosition, Vector3 endTarget, Random random, Style style)
+        //One candidate, laid out in full: the dense path, the pendulum's speed at each point down to where the last sag
+        //bottoms out (the release's climb and its deceleration start there), and its score
+        private static IntroLanding.Route Lay(City city, Towers towers, Vector3 endPosition, Vector3 endTarget, Random random, Style style)
         {
             float pitch = city.BlockPitch;
             Vector2 end = new(endPosition.X, endPosition.Z);
@@ -207,32 +200,27 @@ namespace BS3D.Effects
             //length at each corner's middle is the top of a swing
             var plan = new List<Vector2>();
             var tops = new float[count];
-            float laid = Straight(plan, start, corners[0] - inbound[0] * radius);
+            float laid = IntroLanding.Straight(plan, start, corners[0] - inbound[0] * radius, STEP);
             for (int k = 0; k < count; k++)
             {
                 Vector2 outbound = k + 1 < count ? inbound[k + 1] : d;
                 tops[k] = laid + Arc(plan, corners[k], inbound[k], outbound, radius) * 0.5f;
-                laid = Straight(plan, corners[k] + outbound * radius, k + 1 < count ? corners[k + 1] - inbound[k + 1] * radius : release);
+                laid = IntroLanding.Straight(plan, corners[k] + outbound * radius,
+                    k + 1 < count ? corners[k + 1] - inbound[k + 1] * radius : release, STEP);
             }
             int releaseStart = plan.Count - 1;
 
-            //Which way the lens moves as it arrives: along the pose's facing, so it comes in towards what it will look
-            //at, or halfway, or still along the street with the view swivelling onto the pose as it slows. A pose just
-            //inside the clearing's edge on a bearing no street runs along can only be reached the last way.
-            double arrival = random.NextDouble();
-            Vector2 arrive = arrival < 0.5 ? facing : arrival < 0.8 ? Vector2.Normalize(d + facing) : d;
-            Release(plan, release, d, end, arrive);
-            float total = PlanLength(plan);
+            //Which way the lens moves as it arrives (IntroLanding.Arrival): along the pose's facing, so it comes in towards
+            //what it will look at, or halfway, or still along the street with the view swivelling onto the pose as it slows.
+            //A pose just inside the clearing's edge on a bearing no street runs along can only be reached the last way.
+            Vector2 arrive = IntroLanding.Arrival(random.NextDouble(), facing, d);
+            IntroLanding.Release(plan, release, d, end, arrive, STEP);
+            float total = IntroLanding.PlanLength(plan);
 
             //No tighter onto the pose than twice a corner's fillet: the curve's radius, read over every few of its points. A corner is
             //the top of a swing and taken slowly; the release begins at the bottom of a sag, at twice the speed, and a
             //curve as tight as a corner turned the view 170 degrees a second there
-            for (int i = releaseStart + 2; i + 2 < plan.Count; i += 2)
-            {
-                Vector2 a = plan[i] - plan[i - 2], b = plan[i + 2] - plan[i];
-                float turned = MathF.Abs(MathHelper.WrapAngle(MathF.Atan2(b.Y, b.X) - MathF.Atan2(a.Y, a.X)));
-                if (turned > 1e-4f && (a.Length() + b.Length()) * 0.5f / turned < 2f * radius) return null;
-            }
+            if (!IntroLanding.NoTighterThan(plan, releaseStart, 2f * radius)) return null;
 
             //The heights: the corners at the tops of the swings, a sag between them, and the climb out onto the pose
             float ground = city.GroundY;
@@ -288,103 +276,16 @@ namespace BS3D.Effects
             float swivel = MathF.Acos(MathHelper.Clamp(Vector2.Dot(arrive, facing), -1f, 1f));
             float curve = MathF.Acos(MathHelper.Clamp(Vector2.Dot(d, arrive), -1f, 1f));
 
-            return new Route
+            //The pendulum's speed, the height traded for it, down to the last sag's bottom, where the release decelerates
+            var speed = new float[path.Count];
+            for (int i = 1; i <= bottomIndex; i++)
+                speed[i] = MathF.Sqrt(style.TopSpeed * style.TopSpeed + 2f * style.Gravity * MathF.Max(top - path[i].Y, 0f));
+
+            return new IntroLanding.Route
             {
-                Path = path, Bottom = bottomIndex, Top = top,
+                Path = path, Speed = speed, DecelerateFrom = bottomIndex,
                 Score = walled - 4f * swivel - 2f * curve + (float)random.NextDouble() * 0.5f,
             };
-        }
-
-        //The shot off a laid route: timed by the pendulum's speed, then the look, the bank and the lens
-        private static IntroShot Fly(Route route, Vector3 endPosition, Vector3 endTarget, float fieldOfView, Style style)
-        {
-            List<Vector3> path = route.Path;
-            float top = route.Top;
-            int releaseFrom = route.Bottom;
-
-            //The time at each point: the pendulum's speed through the swing, then a cubic to rest over the release
-            var length = new float[path.Count];
-            for (int i = 1; i < path.Count; i++) length[i] = length[i - 1] + Vector3.Distance(path[i - 1], path[i]);
-
-            var time = new float[path.Count];
-            for (int i = 1; i <= releaseFrom; i++)
-            {
-                float v = MathF.Sqrt(style.TopSpeed * style.TopSpeed + 2f * style.Gravity * MathF.Max(top - path[i].Y, 0f));
-                time[i] = time[i - 1] + (length[i] - length[i - 1]) / v;
-            }
-
-            //The release: distance along it on the cubic x(τ) = v0·T·h10 + L·h01, entering at the bottom's speed, at rest on the pose
-            float v0 = MathF.Sqrt(style.TopSpeed * style.TopSpeed + 2f * style.Gravity * MathF.Max(top - path[releaseFrom].Y, 0f));
-            float releaseLength = length[^1] - length[releaseFrom];
-            float releaseSeconds = style.ReleaseTimeScale * releaseLength / v0;
-            float seconds = time[releaseFrom] + releaseSeconds;
-
-            var positions = new Vector3[POINTS];
-            for (int k = 0; k < POINTS; k++)
-            {
-                float t = seconds * k / (POINTS - 1);
-                float at;
-                if (t <= time[releaseFrom]) at = LengthAtTime(time, length, releaseFrom, t);
-                else
-                {
-                    float u = (t - time[releaseFrom]) / releaseSeconds;
-                    float h10 = u * u * u - 2f * u * u + u, h01 = -2f * u * u * u + 3f * u * u;
-                    at = length[releaseFrom] + v0 * releaseSeconds * h10 + releaseLength * h01;
-                }
-
-                positions[k] = PointAtLength(path, length, at);
-            }
-            positions[^1] = endPosition;
-
-            //The look: along the travel, a little ahead and following half its rise and fall, easing onto the pose's own
-            //look over the last seconds; the bank off the heading's rate of turn, levelling out as the look lands
-            float dt = seconds / (POINTS - 1);
-            var looks = new Vector3[POINTS];
-            var heading = new float[POINTS];
-            var land = new float[POINTS];
-
-            //The path's own direction at each point, half its climb kept, then averaged over the window
-            var direction = new Vector3[POINTS];
-            for (int k = 0; k < POINTS; k++)
-            {
-                Vector3 tangent = positions[Math.Min(k + 1, POINTS - 1)] - positions[Math.Max(k - 1, 0)];
-                if (tangent.LengthSquared() < 1e-8f) tangent = k > 0 ? direction[k - 1] : endTarget - positions[k];
-                tangent.Normalize();
-                tangent.Y *= LOOK_PITCH_FOLLOW;
-                direction[k] = tangent;
-            }
-
-            int window = Math.Max(1, (int)MathF.Round(LOOK_SMOOTH_SECONDS / dt));
-            direction = BoxBlur(direction, window);
-
-            for (int k = 0; k < POINTS; k++)
-            {
-                Vector3 travel = direction[k];
-                if (travel.LengthSquared() < 1e-8f) travel = endTarget - positions[k];
-                travel.Normalize();
-
-                heading[k] = MathF.Atan2(travel.Z, travel.X);
-                land[k] = MathHelper.SmoothStep(0f, 1f, MathHelper.Clamp((k * dt - (seconds - LOOK_LAND_SECONDS)) / LOOK_LAND_SECONDS, 0f, 1f));
-                looks[k] = Vector3.Lerp(positions[k] + travel * LOOK_DISTANCE, endTarget, land[k]);
-            }
-            looks[^1] = endTarget;
-
-            var roll = new float[POINTS];
-            float maxRoll = MathHelper.ToRadians(MAX_ROLL_DEGREES);
-            for (int k = 0; k < POINTS; k++)
-            {
-                int a = Math.Max(k - 1, 0), b = Math.Min(k + 1, POINTS - 1);
-                float turn = MathHelper.WrapAngle(heading[b] - heading[a]) / ((b - a) * dt);
-                roll[k] = MathHelper.Clamp(ROLL_PER_TURN * turn, -maxRoll, maxRoll);
-            }
-
-            int rollWindow = Math.Max(1, (int)MathF.Round(ROLL_SMOOTH_SECONDS / dt));
-            for (int pass = 0; pass < 3; pass++) roll = BoxBlur(roll, rollWindow);
-            for (int k = 0; k < POINTS; k++) roll[k] *= 1f - land[k];
-            roll[^1] = 0f;
-
-            return new IntroShot("the swing home", positions, seconds, fieldOfView * style.WideLens, lookAtPath: looks,
-                rollPath: roll, endFieldOfView: fieldOfView, lands: true);
         }
 
         /// <summary>
@@ -445,14 +346,6 @@ namespace BS3D.Effects
             }
         }
 
-        //A straight run, cut fine; the first point only if the plan is empty. Returns the plan's length after it.
-        private static float Straight(List<Vector2> plan, Vector2 from, Vector2 to)
-        {
-            int steps = Math.Max(1, (int)MathF.Ceiling(Vector2.Distance(from, to) / STEP));
-            for (int i = plan.Count == 0 ? 0 : 1; i <= steps; i++) plan.Add(Vector2.Lerp(from, to, i / (float)steps));
-            return PlanLength(plan);
-        }
-
         //A quarter-circle fillet round an intersection, from heading `inbound` to heading `outbound`. Returns its length.
         private static float Arc(List<Vector2> plan, Vector2 corner, Vector2 inbound, Vector2 outbound, float radius)
         {
@@ -467,86 +360,6 @@ namespace BS3D.Effects
             }
 
             return length;
-        }
-
-        //The curve off the street's line onto the pose: a cubic Bezier leaving along the street and arriving along
-        //`arrive`
-        private static void Release(List<Vector2> plan, Vector2 from, Vector2 heading, Vector2 to, Vector2 arrive)
-        {
-            float reach = Vector2.Distance(from, to);
-            Vector2 c1 = from + heading * (reach * 0.45f), c2 = to - arrive * (reach * 0.35f);
-
-            //Cut finely by parameter, then thinned to STEP so the plan's spacing stays even
-            Vector2 last = plan[^1];
-            for (int i = 1; i <= 400; i++)
-            {
-                float u = i / 400f, v = 1f - u;
-                Vector2 p = v * v * v * from + 3f * v * v * u * c1 + 3f * v * u * u * c2 + u * u * u * to;
-                if (Vector2.Distance(p, last) >= STEP || i == 400) { plan.Add(p); last = p; }
-            }
-        }
-
-        private static float PlanLength(List<Vector2> plan)
-        {
-            float length = 0f;
-            for (int i = 1; i < plan.Count; i++) length += Vector2.Distance(plan[i - 1], plan[i]);
-            return length;
-        }
-
-        private static float LengthAtTime(float[] time, float[] length, int last, float t)
-        {
-            int lo = 0, hi = last;
-            while (hi - lo > 1)
-            {
-                int mid = (lo + hi) / 2;
-                if (time[mid] <= t) lo = mid; else hi = mid;
-            }
-
-            float span = time[hi] - time[lo];
-            return span > 1e-6f ? MathHelper.Lerp(length[lo], length[hi], (t - time[lo]) / span) : length[lo];
-        }
-
-        private static Vector3 PointAtLength(List<Vector3> path, float[] length, float at)
-        {
-            int lo = 0, hi = length.Length - 1;
-            if (at <= 0f) return path[0];
-            if (at >= length[hi]) return path[hi];
-
-            while (hi - lo > 1)
-            {
-                int mid = (lo + hi) / 2;
-                if (length[mid] <= at) lo = mid; else hi = mid;
-            }
-
-            float span = length[hi] - length[lo];
-            return span > 1e-6f ? Vector3.Lerp(path[lo], path[hi], (at - length[lo]) / span) : path[lo];
-        }
-
-        private static Vector3[] BoxBlur(Vector3[] values, int half)
-        {
-            var result = new Vector3[values.Length];
-            for (int i = 0; i < values.Length; i++)
-            {
-                Vector3 sum = Vector3.Zero;
-                for (int j = Math.Max(0, i - half); j <= Math.Min(values.Length - 1, i + half); j++) sum += values[j];
-                result[i] = sum;
-            }
-
-            return result;
-        }
-
-        private static float[] BoxBlur(float[] values, int half)
-        {
-            var result = new float[values.Length];
-            for (int i = 0; i < values.Length; i++)
-            {
-                float sum = 0f;
-                int count = 0;
-                for (int j = Math.Max(0, i - half); j <= Math.Min(values.Length - 1, i + half); j++) { sum += values[j]; count++; }
-                result[i] = sum / count;
-            }
-
-            return result;
         }
 
         private static bool Built(City city, Vector2 position)
