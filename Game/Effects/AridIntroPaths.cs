@@ -6,23 +6,34 @@ namespace BS3D.Effects
     /// <summary>
     /// The path arithmetic the open-ground prologues share (#559: the sea, the desert, the outback and the
     /// mountains) — a plan laid out on the ground (a straight run, an arc round a point), and the height a lens
-    /// needs over it to stay out of the land. The volcano's and the aurora's shots read their ground point by
-    /// point with a clearance, which is enough on a smooth cone or under a wood's crowns; a dune's crest and a
-    /// monolith's wall are corners, and a lens that follows the ground point by point either clips the corner
-    /// between two points or leaps over it in one frame.
+    /// needs over it to stay out of the land. A dune's crest and a monolith's wall are corners, and a lens that
+    /// follows the ground point by point either clips the corner between two points or leaps over it in one frame.
     /// <para>
-    /// <b>So the ground is dilated before it is followed</b> (<see cref="Hug"/>): each point takes the highest
-    /// ground within a few points either side — and a little way off the line on both hands — plus the
-    /// clearance, and that is then averaged over no more than the same span. An average over a window no wider
-    /// than the dilation's cannot fall below any point's own clearance (every value it averages was already
-    /// raised over that point), so the lens rises BEFORE a crest and settles after it, never through it.
-    /// Built once when the intro begins; nothing here runs per frame.
+    /// <b>So the lens flies the ground the way a drone does</b> (<see cref="Hug"/>, #1109, #1112): its height is the
+    /// ground's own, clearance added, rounded over <see cref="ROUNDING_SECONDS"/> of the shot's travel, and lifted
+    /// back over the clearance by a swell no sharper than <see cref="LIFT_SECONDS"/> wherever the rounding cut under
+    /// it. Built once when the intro begins; nothing here runs per frame.
     /// </para>
     /// </summary>
     internal static class AridIntroPaths
     {
         /// <summary>Points per path. Evenly spaced along the plan, which is what <see cref="IntroShot"/> walks.</summary>
         public const int POINTS = 96;
+
+        /// <summary>
+        /// How much of the shot's travel the lens's height is rounded over (#1109, #1112): the sigma of a Gaussian, in
+        /// seconds at the shot's peak speed, so a fast run is rounded over as much time as a slow one rather than as much
+        /// ground. The ride's smoothness is set here: a dune crossed in under about two of these is flown over rather
+        /// than into, and the pyramids' run at 44 u/s and the crest's at 22 are rounded alike.
+        /// </summary>
+        public const float ROUNDING_SECONDS = 0.7f;
+
+        /// <summary>
+        /// How sharply the lens is lifted back where the rounding cut a crest under the clearance (#1109): the sigma of
+        /// the lift's Gaussian, in seconds of travel. The lift reaches three of these either side of a cut crest, so the
+        /// lens starts to rise over a second before it.
+        /// </summary>
+        public const float LIFT_SECONDS = 0.4f;
 
         /// <summary>A straight run from one ground point to another, evenly spaced.</summary>
         public static Vector2[] Line(Vector2 from, Vector2 to)
@@ -52,82 +63,96 @@ namespace BS3D.Effects
         }
 
         /// <summary>
-        /// The lens's heights over a plan: <paramref name="clearance"/> over the highest ground within
-        /// <paramref name="window"/> points either side and <paramref name="lateral"/> units off the line,
-        /// averaged over the same window — see the class remarks for why that can never dip under a crest.
-        /// Where <paramref name="floor"/> is given, a point is never lower than it (a designed crane or a fixed
-        /// height the ground only ever lifts).
+        /// The lens's heights over a plan flown in <paramref name="seconds"/> (#1109, #1112): never under
+        /// <paramref name="clearance"/> over the highest ground at a point and on all four hands of it out to
+        /// <paramref name="lateral"/>, nor under <paramref name="floor"/> where one is given (a designed crane or a fixed
+        /// height the ground only ever lifts), and changing height the way a drone does — over a second, never from one
+        /// frame to the next. Two steps:
+        /// <list type="number">
+        /// <item><b>Rounded</b>: each point is the Gaussian average of those heights over <see cref="ROUNDING_SECONDS"/>
+        /// of travel either side. A Gaussian keeps a straight climb and a crane's smoothstep as they are and takes only
+        /// the ground's roughness off, which the box averages it replaced could not: a box has a corner at each end, and
+        /// the lens's vertical acceleration jumped at every one (#645).</item>
+        /// <item><b>Lifted</b> where the rounding cut a crest under the clearance: by the deepest cut within the lift's
+        /// reach, averaged by a Gaussian of <see cref="LIFT_SECONDS"/> no wider than that reach. Every value averaged was
+        /// taken over the point itself, so every point is lifted by at least its own cut and the lens keeps the
+        /// clearance at every point of the path by construction; and the lift is a smooth swell, not a step.</item>
+        /// </list>
         /// <para>
-        /// <b><paramref name="passes"/> smooths a fast shot's ride (#645).</b> One box average over the window has a
-        /// corner at each end of the box, so a lens flying over rough ground at thirty units a second had its
-        /// vertical acceleration jump at every one — measured on the mountains' pass and the desert's crest as
-        /// 440 u/s² and a view that pitched 100-160 degrees a second. The window is split into
-        /// <paramref name="passes"/> narrower box averages run one after the other (three of them make a
-        /// piecewise-quadratic blur, continuous in acceleration), their half-widths summing to no more than the
-        /// window, so the guarantee above holds unchanged: every value averaged is within the dilation's reach
-        /// of the point, and so was raised over its clearance. The default, one pass, is the original single
-        /// box and leaves every shot that has not asked for more exactly as it was.
+        /// ⚠ <b>The heights are carried on past both ends</b> for the Gaussian's whole reach, so the first and last points
+        /// are rounded like any other: the box average simply stopped at the ends, and the first point where its window
+        /// fitted whole was a kink, measured at 70-160 u/s² a quarter of a second into nine of eleven shots. Open ground
+        /// is read on along the plan's first and last directions; over a floor the heights are turned over their end
+        /// point (2 h(end) - h(end ∓ k)) instead, which keeps a ramp running and a crane's foot where it was laid (read
+        /// on, the level plain beside the outback crane's foot rounded the foot four units up).
+        /// </para>
+        /// <para>
+        /// <paramref name="rise"/> is for a shot meant to climb well before the ground does (the volcano's crater run):
+        /// the heights rounded are then the highest within that many seconds of travel either side, which carries the
+        /// lens high over the flank ahead of it; the lift still answers to each point's own clearance.
         /// </para>
         /// </summary>
         public static Vector3[] Hug(Vector2[] plan, Func<float, float, float> ground, float clearance, float lateral,
-            int window, Func<int, float> floor = null, int passes = 1)
+            float seconds, Func<int, float> floor = null, float rise = 0f)
         {
             int n = plan.Length;
-            var raised = new float[n];
+            float length = 0f;
+            for (int i = 1; i < n; i++) length += Vector2.Distance(plan[i], plan[i - 1]);
+            float spacing = MathF.Max(length / (n - 1), 1e-3f);
 
+            //Seconds of travel in points of the plan, at the shot's peak speed (its clock eases, IntroShot.PEAK_PACE).
+            float pointsPerSecond = IntroShot.PEAK_PACE * length / MathF.Max(seconds, 1e-3f) / spacing;
+            float sigma = MathF.Max(ROUNDING_SECONDS * pointsPerSecond, 0.5f);
+            float liftSigma = MathF.Max(LIFT_SECONDS * pointsPerSecond, 0.5f);
+            int reach = (int)MathF.Ceiling(3f * sigma), liftReach = (int)MathF.Ceiling(3f * liftSigma);
+
+            //The lowest each point may be.
+            var least = new float[n];
             for (int i = 0; i < n; i++)
             {
-                Vector2 along = plan[Math.Min(i + 1, n - 1)] - plan[Math.Max(i - 1, 0)];
-                along = along.LengthSquared() > 1e-8f ? Vector2.Normalize(along) : Vector2.UnitX;
-                Vector2 across = new(-along.Y, along.X);
-
-                float highest = ground(plan[i].X, plan[i].Y);
-                for (int k = 1; k <= 2; k++)
-                {
-                    float offset = lateral * k * 0.5f;
-                    highest = MathF.Max(highest, Sample(ground, plan[i] + across * offset));
-                    highest = MathF.Max(highest, Sample(ground, plan[i] - across * offset));
-                    highest = MathF.Max(highest, Sample(ground, plan[i] + along * offset));
-                    highest = MathF.Max(highest, Sample(ground, plan[i] - along * offset));
-                }
-
-                raised[i] = highest + clearance;
-                if (floor != null) raised[i] = MathF.Max(raised[i], floor(i));
+                least[i] = Over(ground, plan[i], plan[Math.Min(i + 1, n - 1)] - plan[Math.Max(i - 1, 0)], lateral) + clearance;
+                if (floor != null) least[i] = MathF.Max(least[i], floor(i));
             }
 
-            var dilated = new float[n];
+            //The same carried on past both ends for the rounding's whole reach (index k is point k - reach).
+            int m = n + 2 * reach;
+            var heights = new float[m];
+            Vector2 head = Direction(plan[0] - plan[1]), tail = Direction(plan[n - 1] - plan[n - 2]);
+            for (int k = 0; k < m; k++)
+            {
+                int i = k - reach;
+                if (i >= 0 && i < n) heights[k] = least[i];
+                else if (floor != null)
+                    heights[k] = i < 0 ? 2f * least[0] - least[Math.Min(-i, n - 1)] : 2f * least[n - 1] - least[Math.Max(2 * (n - 1) - i, 0)];
+                else if (i < 0) heights[k] = Over(ground, plan[0] + head * (spacing * -i), head, lateral) + clearance;
+                else heights[k] = Over(ground, plan[n - 1] + tail * (spacing * (i - n + 1)), tail, lateral) + clearance;
+            }
+
+            if (rise > 0f) heights = Highest(heights, (int)MathF.Round(rise * pointsPerSecond));
+
+            //1. Rounded, and how far under its own least height that left each point.
+            float[] weights = Gaussian(sigma, reach);
+            var rounded = new float[n];
+            var cut = new float[n];
             for (int i = 0; i < n; i++)
             {
-                float top = float.MinValue;
-                for (int j = Math.Max(0, i - window); j <= Math.Min(n - 1, i + window); j++) top = MathF.Max(top, raised[j]);
-                dilated[i] = top;
+                float sum = 0f;
+                for (int d = -reach; d <= reach; d++) sum += heights[i + reach + d] * weights[Math.Abs(d)];
+                rounded[i] = sum;
+                cut[i] = MathF.Max(0f, least[i] - sum);
             }
 
-            //The averaging: `passes` boxes of half-width window / passes each (at least one point), run in turn.
-            int half = Math.Max(1, window / Math.Max(1, passes));
-            if (passes <= 1) half = window;
-
-            var averaged = new float[n];
-            for (int pass = 0; pass < Math.Max(1, passes); pass++)
-            {
-                for (int i = 0; i < n; i++)
-                {
-                    float sum = 0f;
-                    int count = 0;
-                    for (int j = Math.Max(0, i - half); j <= Math.Min(n - 1, i + half); j++)
-                    {
-                        sum += dilated[j];
-                        count++;
-                    }
-
-                    averaged[i] = sum / count;
-                }
-
-                (dilated, averaged) = (averaged, dilated);
-            }
-
+            //2. Lifted: the deepest cut within the lift's reach, averaged over no more than that reach. Past the ends the
+            //end's own value runs on, which is still a cut taken over every point it is averaged into.
+            float[] deepest = Highest(cut, liftReach);
+            float[] swell = Gaussian(liftSigma, liftReach);
             var path = new Vector3[n];
-            for (int i = 0; i < n; i++) path[i] = new Vector3(plan[i].X, dilated[i], plan[i].Y);
+            for (int i = 0; i < n; i++)
+            {
+                float sum = 0f;
+                for (int d = -liftReach; d <= liftReach; d++) sum += deepest[Math.Clamp(i + d, 0, n - 1)] * swell[Math.Abs(d)];
+                path[i] = new Vector3(plan[i].X, rounded[i] + sum, plan[i].Y);
+            }
 
             return path;
         }
@@ -140,5 +165,55 @@ namespace BS3D.Effects
 
 
         private static float Sample(Func<float, float, float> ground, Vector2 at) => ground(at.X, at.Y);
+
+        //The highest ground at a point and at half and all of `lateral` out from it on all four hands, `along` the plan.
+        private static float Over(Func<float, float, float> ground, Vector2 point, Vector2 along, float lateral)
+        {
+            along = Direction(along);
+            Vector2 across = new(-along.Y, along.X);
+
+            float highest = Sample(ground, point);
+            for (int s = 1; s <= 2; s++)
+            {
+                float offset = lateral * s * 0.5f;
+                highest = MathF.Max(highest, Sample(ground, point + across * offset));
+                highest = MathF.Max(highest, Sample(ground, point - across * offset));
+                highest = MathF.Max(highest, Sample(ground, point + along * offset));
+                highest = MathF.Max(highest, Sample(ground, point - along * offset));
+            }
+
+            return highest;
+        }
+
+        //The highest value within `reach` either side of each, the windows cut short at the ends.
+        private static float[] Highest(float[] values, int reach)
+        {
+            var highest = new float[values.Length];
+            for (int i = 0; i < values.Length; i++)
+            {
+                float top = float.MinValue;
+                for (int j = Math.Max(0, i - reach); j <= Math.Min(values.Length - 1, i + reach); j++) top = MathF.Max(top, values[j]);
+                highest[i] = top;
+            }
+
+            return highest;
+        }
+
+        //Half of a Gaussian's weights, 0..reach, normalised over the whole of it (-reach..reach).
+        private static float[] Gaussian(float sigma, int reach)
+        {
+            var weights = new float[reach + 1];
+            float total = 0f;
+            for (int d = 0; d <= reach; d++)
+            {
+                weights[d] = MathF.Exp(-d * d / (2f * sigma * sigma));
+                total += d == 0 ? weights[d] : 2f * weights[d];
+            }
+
+            for (int d = 0; d <= reach; d++) weights[d] /= total;
+            return weights;
+        }
+
+        private static Vector2 Direction(Vector2 v) => v.LengthSquared() > 1e-8f ? Vector2.Normalize(v) : Vector2.UnitX;
     }
 }

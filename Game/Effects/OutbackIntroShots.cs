@@ -33,7 +33,7 @@ namespace BS3D.Effects
         private const float WIDE_SWEEP_RADIANS = 0.30f;
         private const float WIDE_FROM_HEIGHT = 30f;
         private const float WIDE_TO_HEIGHT = 52f;
-        private const float WIDE_CLEARANCE = 10f;
+        internal const float WIDE_CLEARANCE = 10f;
         private const float WIDE_SECONDS = 3.1f;
 
         //The approach: a run this long ending this far outside the formation's apron, this low over the ground
@@ -41,7 +41,7 @@ namespace BS3D.Effects
         //wall grows in the frame as the lens closes on it.
         private const float APPROACH_RUN = 110f;
         private const float APPROACH_STOP_PAST_APRON = 22f;
-        private const float APPROACH_CLEARANCE = 2.4f;
+        internal const float APPROACH_CLEARANCE = 2.4f;
         private const float APPROACH_LOOK_FRACTION = 0.45f;
         private const float APPROACH_ARENA_CLEARANCE = 90f;
         private const float APPROACH_SECONDS = 3.2f;
@@ -53,26 +53,14 @@ namespace BS3D.Effects
         private const float CRANE_SWEEP_RADIANS = 0.45f;
         private const float CRANE_FROM_HEIGHT = 4f;
         private const float CRANE_OVER_CROWN = 18f;
-        private const float CRANE_CLEARANCE = 4f;
+        internal const float CRANE_CLEARANCE = 4f;
         private const float CRANE_SECONDS = 3.2f;
 
         /// <summary>The prologue for the outback being drawn, or null when it has no outback config or no monolith.</summary>
         public static IntroShot[] Build(SceneRenderer scenes, float fieldOfView, Random random)
         {
             if (scenes?.GetSceneConfig(SceneKind.Outback) is not OutbackSceneConfig outback) return null;
-
-            List<TerrainMirror.Formation> monoliths = TerrainMirror.OutbackMonoliths(outback, MONOLITH_SEARCH_RADIUS);
-            if (monoliths.Count == 0) return null;
-
-            //The tallest crown; among near-equals (within a tenth of the rock height) the nearer one, so the
-            //choice is not a monolith on the horizon that happens to be two units taller.
-            TerrainMirror.Formation rock = monoliths[0];
-            foreach (TerrainMirror.Formation candidate in monoliths)
-            {
-                float taller = candidate.CrownY - rock.CrownY;
-                bool nearer = candidate.Centre.Length() < rock.Centre.Length();
-                if (taller > outback.Terrain.RockHeight * 0.1f || (taller > -outback.Terrain.RockHeight * 0.1f && nearer)) rock = candidate;
-            }
+            if (Monolith(outback) is not TerrainMirror.Formation rock) return null;
 
             float Ground(float x, float z) => TerrainMirror.Outback(x, z, outback);
 
@@ -84,8 +72,29 @@ namespace BS3D.Effects
             };
         }
 
+        /// <summary>
+        /// The monolith the shots are of: the tallest crown within <see cref="MONOLITH_SEARCH_RADIUS"/>, or null where
+        /// none stands. Among near-equals (within a tenth of the rock height) the nearer one, so the choice is not a
+        /// monolith on the horizon that happens to be two units taller.
+        /// </summary>
+        internal static TerrainMirror.Formation? Monolith(OutbackSceneConfig outback)
+        {
+            List<TerrainMirror.Formation> monoliths = TerrainMirror.OutbackMonoliths(outback, MONOLITH_SEARCH_RADIUS);
+            if (monoliths.Count == 0) return null;
+
+            TerrainMirror.Formation rock = monoliths[0];
+            foreach (TerrainMirror.Formation candidate in monoliths)
+            {
+                float taller = candidate.CrownY - rock.CrownY;
+                bool nearer = candidate.Centre.Length() < rock.Centre.Length();
+                if (taller > outback.Terrain.RockHeight * 0.1f || (taller > -outback.Terrain.RockHeight * 0.1f && nearer)) rock = candidate;
+            }
+
+            return rock;
+        }
+
         /// <summary>The establishing view: the island on its plain, the monolith on the skyline behind it.</summary>
-        private static IntroShot Plain(TerrainMirror.Formation rock, Func<float, float, float> ground, float fieldOfView, Random random)
+        internal static IntroShot Plain(TerrainMirror.Formation rock, Func<float, float, float> ground, float fieldOfView, Random random)
         {
             float away = MathF.Atan2(-rock.Centre.Y, -rock.Centre.X) + AridIntroPaths.Roll(random, -0.3f, 0.3f);
             float sign = random.Next(2) == 0 ? 1f : -1f;
@@ -93,7 +102,7 @@ namespace BS3D.Effects
             Vector2[] plan = AridIntroPaths.Arc(Vector2.Zero, from, from + sign * WIDE_SWEEP_RADIANS, WIDE_FROM_RADIUS, WIDE_TO_RADIUS);
 
             float level = ground(0f, 0f);
-            Vector3[] path = AridIntroPaths.Hug(plan, ground, WIDE_CLEARANCE, 4f, 6,
+            Vector3[] path = AridIntroPaths.Hug(plan, ground, WIDE_CLEARANCE, 4f, WIDE_SECONDS,
                 i => level + MathHelper.Lerp(WIDE_FROM_HEIGHT, WIDE_TO_HEIGHT, Smooth(i, plan.Length)));
 
             return new IntroShot("the plain", path, WIDE_SECONDS, fieldOfView * 1.1f,
@@ -104,7 +113,7 @@ namespace BS3D.Effects
         /// Low over the plain towards the rock: from the arena's side of it, a little off the direct line so the
         /// wall is seen at an angle, the lens on the wall.
         /// </summary>
-        private static IntroShot Approach(OutbackSceneConfig outback, TerrainMirror.Formation rock, Func<float, float, float> ground,
+        internal static IntroShot Approach(OutbackSceneConfig outback, TerrainMirror.Formation rock, Func<float, float, float> ground,
             float fieldOfView, Random random)
         {
             Vector2 towardsArena = rock.Centre.LengthSquared() > 1e-4f ? -Vector2.Normalize(rock.Centre) : Vector2.UnitX;
@@ -133,7 +142,7 @@ namespace BS3D.Effects
                 from = to - towardsArena * APPROACH_RUN;
             }
 
-            Vector3[] path = AridIntroPaths.Hug(AridIntroPaths.Line(from, to), ground, APPROACH_CLEARANCE, 2f, 4);
+            Vector3[] path = AridIntroPaths.Hug(AridIntroPaths.Line(from, to), ground, APPROACH_CLEARANCE, 2f, APPROACH_SECONDS);
 
             float level = outback.Terrain.LevelY;
             Vector3 lookAt = new(rock.Centre.X, level + (rock.CrownY - level) * APPROACH_LOOK_FRACTION, rock.Centre.Y);
@@ -145,7 +154,7 @@ namespace BS3D.Effects
         /// Up the wall to the crown: a crane from near the foot to over the top, turning a little round the
         /// rock, the lens's aim climbing the wall with it.
         /// </summary>
-        private static IntroShot Crown(OutbackSceneConfig outback, TerrainMirror.Formation rock, Func<float, float, float> ground,
+        internal static IntroShot Crown(OutbackSceneConfig outback, TerrainMirror.Formation rock, Func<float, float, float> ground,
             float fieldOfView, Random random)
         {
             //Which side of the rock, and which way round, are rolled: every side of a bornhardt is a wall.
@@ -156,7 +165,7 @@ namespace BS3D.Effects
 
             float level = outback.Terrain.LevelY;
             float top = rock.CrownY + CRANE_OVER_CROWN;
-            Vector3[] path = AridIntroPaths.Hug(plan, ground, CRANE_CLEARANCE, 3f, 5,
+            Vector3[] path = AridIntroPaths.Hug(plan, ground, CRANE_CLEARANCE, 3f, CRANE_SECONDS,
                 i => MathHelper.Lerp(level + CRANE_FROM_HEIGHT, top, Smooth(i, plan.Length)));
 
             //The look climbs from the lower wall to the crown: pinned at the path's middle height it keeps the

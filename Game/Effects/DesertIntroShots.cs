@@ -26,24 +26,22 @@ namespace BS3D.Effects
         private const float WIDE_SWEEP_RADIANS = 0.28f;
         private const float WIDE_FROM_HEIGHT = 32f;
         private const float WIDE_TO_HEIGHT = 56f;
-        private const float WIDE_CLEARANCE = 12f;
+        internal const float WIDE_CLEARANCE = 12f;
         private const float WIDE_SECONDS = 3.2f;
 
-        //The crest: a run this long DOWNWIND — up a windward slope, over the knife edge, down the slip face — this
-        //high over the highest sand within the dilation window, somewhere in the band of full dunes past the
+        //The crest: a run this long DOWNWIND — up a windward slope, over the knife edge, down the slip face — at
+        //least this high over the highest sand at and beside the line, somewhere in the band of full dunes past the
         //clearing's ramp. Of CREST_CANDIDATES rolled runs the one with the most relief under it is taken, since a
         //run along an interdune flat is a shot of nothing. Pitched down a little so the sand is the frame.
         //
         //⚠ SLOW AND SMOOTH, NOT A ROLLER COASTER (#645). The first cut ran 95 units in 3.3 s (30 u/s) over a
         //five-point window: measured over sixteen rolls, the lens's vertical acceleration was 49 u/s² rms and up
         //to 450, and the view pitched 45 degrees a second rms and up to 159 — "jerky, and too fast, like a
-        //roller coaster" in the owner's words. Now 72 units in 4.0 s (18 u/s), dilated and blurred over
-        //CREST_WINDOW points in CREST_SMOOTHING passes (`AridIntroPaths.Hug`).
+        //roller coaster" in the owner's words. Now 72 units in 4.0 s (18 u/s), its height rounded like a drone's
+        //flight (`AridIntroPaths.Hug`, #1109).
         private const float CREST_RUN = 72f;
-        private const float CREST_CLEARANCE = 2.6f;
+        internal const float CREST_CLEARANCE = 2.6f;
         private const float CREST_LATERAL = 2.5f;
-        private const int CREST_WINDOW = 16;
-        private const int CREST_SMOOTHING = 3;
         private const float CREST_INNER = 215f;
         private const float CREST_OUTER = 360f;
         private const int CREST_CANDIDATES = 48;
@@ -57,7 +55,7 @@ namespace BS3D.Effects
         //the island is at the edge of the frame rather than behind the birds.
         private const float FLOCK_STAND = 88f;
         private const float FLOCK_DRIFT = 16f;
-        private const float FLOCK_CLEARANCE = 2.2f;
+        internal const float FLOCK_CLEARANCE = 2.2f;
         private const float FLOCK_OFF_ARENA_RADIANS = 1.35f;
         private const float FLOCK_SECONDS = 2.9f;
 
@@ -72,7 +70,7 @@ namespace BS3D.Effects
         //so the three stand staggered rather than one behind another; the lens between Khufu and Khafre, this share up
         //Khufu's height. The arena stays behind the lens: it is the far side of the whole run.
         private const float PYRAMIDS_FROM = 560f, PYRAMIDS_TO = 400f;
-        private const float PYRAMIDS_CLEARANCE = 7f;
+        internal const float PYRAMIDS_CLEARANCE = 7f;
         private const float PYRAMIDS_TURN_MIN = 0.3f, PYRAMIDS_TURN_MAX = 0.6f;
         private const float PYRAMIDS_LOOK_FRACTION = 0.3f;
         private const float PYRAMIDS_SECONDS = 4.2f;
@@ -102,7 +100,7 @@ namespace BS3D.Effects
         /// The Giza group from the sand (#1068): low over the dunes towards Khufu from the arena's side, turned off the line to
         /// the arena so Khafre stands beside Khufu rather than behind it, the lens a little up their faces.
         /// </summary>
-        private static IntroShot PyramidsShot(DesertSceneConfig desert, Func<float, float, float> ground, float fieldOfView, Random random)
+        internal static IntroShot PyramidsShot(DesertSceneConfig desert, Func<float, float, float> ground, float fieldOfView, Random random)
         {
             var placement = TerrainMirror.DesertPyramids(desert);
             if (placement.Count < 2) return null;
@@ -115,7 +113,7 @@ namespace BS3D.Effects
                 + side * AridIntroPaths.Roll(random, PYRAMIDS_TURN_MIN, PYRAMIDS_TURN_MAX));
 
             Vector2 from = foot + outward * PYRAMIDS_FROM, to = foot + outward * PYRAMIDS_TO;
-            Vector3[] path = AridIntroPaths.Hug(AridIntroPaths.Line(from, to), ground, PYRAMIDS_CLEARANCE, 3f, 4);
+            Vector3[] path = AridIntroPaths.Hug(AridIntroPaths.Line(from, to), ground, PYRAMIDS_CLEARANCE, 3f, PYRAMIDS_SECONDS);
 
             Vector3 between = Vector3.Lerp(khufu, khafre, 0.35f);
             var lookAt = new Vector3(between.X, khufu.Y + placement[0].Height * PYRAMIDS_LOOK_FRACTION, between.Z);
@@ -152,7 +150,7 @@ namespace BS3D.Effects
         }
 
         /// <summary>The establishing view: over the dunes looking back at the island standing in its clearing.</summary>
-        private static IntroShot Erg(Func<float, float, float> ground, float fieldOfView, Random random)
+        internal static IntroShot Erg(Func<float, float, float> ground, float fieldOfView, Random random)
         {
             float from = AridIntroPaths.Roll(random, 0f, MathHelper.TwoPi);
             float sign = random.Next(2) == 0 ? 1f : -1f;
@@ -160,7 +158,7 @@ namespace BS3D.Effects
 
             //The crane is the designed height; the dunes can only lift it.
             float level = ground(0f, 0f);
-            Vector3[] path = AridIntroPaths.Hug(plan, ground, WIDE_CLEARANCE, 4f, 6,
+            Vector3[] path = AridIntroPaths.Hug(plan, ground, WIDE_CLEARANCE, 4f, WIDE_SECONDS,
                 i => level + Crane(i, plan.Length, WIDE_FROM_HEIGHT, WIDE_TO_HEIGHT));
 
             return new IntroShot("the erg", path, WIDE_SECONDS, fieldOfView * 1.1f,
@@ -214,8 +212,7 @@ namespace BS3D.Effects
                 bestTo = bestFrom + wind * CREST_RUN;
             }
 
-            Vector3[] path = AridIntroPaths.Hug(AridIntroPaths.Line(bestFrom, bestTo), ground, CREST_CLEARANCE, CREST_LATERAL, CREST_WINDOW,
-                passes: CREST_SMOOTHING);
+            Vector3[] path = AridIntroPaths.Hug(AridIntroPaths.Line(bestFrom, bestTo), ground, CREST_CLEARANCE, CREST_LATERAL, CREST_SECONDS);
 
             return new IntroShot("the crest", path, CREST_SECONDS, fieldOfView * 1.15f,
                 lookAhead: 16f, pitchDownDegrees: CREST_PITCH_DOWN_DEGREES, pitchDamping: CREST_PITCH_DAMPING);
@@ -225,7 +222,7 @@ namespace BS3D.Effects
         /// The birds from the sand: a slow drift low among the dunes outside the flock's circles, the lens on the
         /// flock's centre so the birds wheel through the sky over the crests. Null when the desert has no birds.
         /// </summary>
-        private static IntroShot Flock(DesertSceneConfig desert, Func<float, float, float> ground, float fieldOfView, Random random)
+        internal static IntroShot Flock(DesertSceneConfig desert, Func<float, float, float> ground, float fieldOfView, Random random)
         {
             if (desert.Birds == null || desert.Birds.Count <= 0) return null;
 
@@ -241,7 +238,7 @@ namespace BS3D.Effects
 
             Vector2 stand = flock + outward * FLOCK_STAND;
             Vector2[] plan = AridIntroPaths.Line(stand - across * (FLOCK_DRIFT * 0.5f), stand + across * (FLOCK_DRIFT * 0.5f));
-            Vector3[] path = AridIntroPaths.Hug(plan, ground, FLOCK_CLEARANCE, 2f, 6);
+            Vector3[] path = AridIntroPaths.Hug(plan, ground, FLOCK_CLEARANCE, 2f, FLOCK_SECONDS);
 
             return new IntroShot("the flock", path, FLOCK_SECONDS, fieldOfView * 1.2f, lookAt: centre);
         }

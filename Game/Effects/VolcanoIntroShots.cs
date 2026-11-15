@@ -90,15 +90,16 @@ namespace BS3D.Effects
         //to 129 u/s, a vertical acceleration of 253 u/s² rms and up to 1141 (the flank's gullies, one bump per
         //point), and a view pitching 46 degrees a second rms and up to 142 - the owner's "the camera judders as it
         //approaches the top". Now the run starts nearer (CRATER_FROM_FRACTION 0.34), lasts 5.4 s, and the height
-        //is dilated and blurred like the mountains' and the desert's runs (`AridIntroPaths.Hug`), the ramp over
-        //the rim entering as its floor.
+        //is rounded like the mountains' and the desert's runs (`AridIntroPaths.Hug`), the ramp over the rim entering
+        //as its floor. It climbs ahead of the flank: the heights rounded are the highest within CLIMB_RISE_SECONDS of
+        //travel either side (the dilation this run was approved with, #530), so the lens stays as high over the
+        //flank as it flew before #1109 rounded the rest of it.
         private const float CRATER_FROM_FRACTION = 0.34f;
         private const float CRATER_PAST_AXIS = 55f;
         private const float CRATER_ABEAM = 50f;
-        private const float CLIMB_CLEARANCE = 16f;
+        internal const float CLIMB_CLEARANCE = 16f;
         private const float CLIMB_LATERAL = 8f;
-        private const int CLIMB_WINDOW = 21;
-        private const int CLIMB_SMOOTHING = 3;
+        private const float CLIMB_RISE_SECONDS = 1.2f;
         private const float RIM_CLEARANCE = 30f;
         private const float RAMP_FROM_FRACTION = 0.30f;
         private const float CRATER_SECONDS = 5.4f;
@@ -221,14 +222,14 @@ namespace BS3D.Effects
             //Hugging the flank until the ramp, which runs on the distance to the axis so it is the same climb
             //whichever side the lens passes; over the bowl the crest holds, since the ground drops away under it
             //and the hug would have dived into the crater after the ash. The ramp is the height's FLOOR: the hug
-            //itself (the flank's highest ground round each point, dilated and blurred) can only lift it.
+            //itself (the flank's highest ground round each point, climbed ahead of and rounded) can only lift it.
             Vector2[] plan = AridIntroPaths.Line(start, end);
-            Vector3[] path = AridIntroPaths.Hug(plan, ground, CLIMB_CLEARANCE, CLIMB_LATERAL, CLIMB_WINDOW, i =>
+            Vector3[] path = AridIntroPaths.Hug(plan, ground, CLIMB_CLEARANCE, CLIMB_LATERAL, CRATER_SECONDS, i =>
             {
                 float r = Vector2.Distance(plan[i], cone);
                 float ramp = MathHelper.SmoothStep(0f, 1f, MathHelper.Clamp((rampFrom - r) / MathF.Max(rampFrom - rampTo, 1f), 0f, 1f));
                 return MathHelper.Lerp(ground(plan[i].X, plan[i].Y) + CLIMB_CLEARANCE, crest, ramp);
-            }, CLIMB_SMOOTHING);
+            }, rise: CLIMB_RISE_SECONDS);
 
             return new IntroShot("the crater", path, CRATER_SECONDS, fieldOfView * 1.15f, lookAt: vent);
         }
