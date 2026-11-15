@@ -120,8 +120,9 @@ namespace BS3D.Effects
 
         //A skip is ignored for this long after the intro starts, for the drop cinematic's own reason: whatever
         //button just advanced into this level (Next Level, a menu Play) is one of the buttons that skips, and
-        //a player who arrived with it still held would otherwise never see the shot begin.
-        private const float SKIP_LOCKOUT = 0.3f;
+        //a player who arrived with it still held would otherwise never see the shot begin. The one wait on a
+        //skip: every opening takes one after it (#1106)
+        internal const float SKIP_LOCKOUT = 0.3f;
 
         private bool _running;
         private float _blend;

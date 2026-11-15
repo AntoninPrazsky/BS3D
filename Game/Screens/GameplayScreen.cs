@@ -1123,13 +1123,14 @@ namespace BS3D.Screens
         private bool CameraTakeoverEngaged => _cinematic.Engaged || _chapterIntro.Engaged || _lineLoss.Engaged || _spareVolley.Engaged;
 
         /// <summary>Skips whichever takeover is currently running — see <see cref="CameraTakeoverEngaged"/>
-        /// for why asking both is safe.</summary>
+        /// for why asking them all is safe. The line loss has no skip of its own.</summary>
         private void SkipCameraTakeover()
         {
             //Said in the run log, one line a skip, so a report that a button did not skip can be checked against what did
             if (_cinematic.TrySkip()) Console.WriteLine("[skip] drop cinematic");
-            //Not the player's first opening (#1021), which is seen whole
-            if (!_introWhole && _chapterIntro.TrySkip()) Console.WriteLine("[skip] chapter intro");
+            //Every opening, asked of the intro alone (#1106, the owner: always): a new chapter's, a Continue's and the player's
+            //very first on a save with nothing cleared. Its own SKIP_LOCKOUT is the one wait
+            if (_chapterIntro.TrySkip()) Console.WriteLine("[skip] chapter intro");
             if (_spareVolley.TrySkip())
             {
                 Console.WriteLine("[skip] spare volley");
@@ -1570,6 +1571,10 @@ namespace BS3D.Screens
                 if (Game.Capturing && !CameraTakeoverEngaged) StepScriptedHands();
             }
 
+            //Testing only: skiptakeover= presses the skip on the wall clock (#1106), the call every skip button makes, outside the
+            //focus gate for walk='s reason below
+            if (ScriptedPlay.Current is ScriptedPlay skipScript && skipScript.TryTakeSkip(WallClock)) SkipCameraTakeover();
+
             //Testing only: walk= and turn= hold W/S and A/D for a run nobody is sitting at (see ScriptedPlay), at the
             //rates the keys use. Outside the focus gate above on purpose — such a run is launched without focus — and
             //held off by a camera takeover exactly as the keys are.
@@ -1741,8 +1746,7 @@ namespace BS3D.Screens
             if (_cinematic.Running)
                 _hud.UpdateSkipHint(elapsed, !LevelDecided, chapterIntro: false, _cinematic.Elapsed, float.MaxValue);
             else
-                _hud.UpdateSkipHint(elapsed, _chapterIntro.Running && !_introWhole, chapterIntro: true, _chapterIntro.Elapsed, _chapterIntro.Remaining);
-            NoteFirstOpeningSeen();
+                _hud.UpdateSkipHint(elapsed, _chapterIntro.Running, chapterIntro: true, _chapterIntro.Elapsed, _chapterIntro.Remaining);
 
             //The tutorial's card (#189): the settings row read here every frame, a camera takeover hiding it, and
             //a decided level ending it. A lesson just done is answered the way a point scored is — the HUD's own
