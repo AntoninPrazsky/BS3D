@@ -96,17 +96,17 @@ namespace Prazsky.Core.Render
         /// spot that far out is clear of them by luck; the ice is cleared round the camp instead (<see cref="CampClearRadius"/>).
         /// <para>
         /// ⚠ <b>Where the play camera looks over the deck</b> (#1128): the gun opens on +Z facing -Z, its lens 1.1 over the deck,
-        /// and the camp stands 17 to 27 degrees left of that axis, between the gun's carriage and the edge of a 4:3 frame, under
-        /// the cluster, far enough out that the deck's edge hides only its stilts, and before the pressure front with no plate
-        /// under it. At -0.9 and 78 it stood at the right edge of a 16:9 frame behind the HUD's magazine, its modules under the
+        /// and the camp stands with its middle 17 degrees left of that axis, between the gun and the edge of a 4:3 frame once the
+        /// overview has focused (#1006), under the cluster, far enough out that the deck's edge hides only its stilts, and before
+        /// the pressure front with no plate under it. At -0.9 and 78 it stood at the right edge of a 16:9 frame behind the HUD's magazine, its modules under the
         /// deck's line. <c>PolarCampTests</c> holds it in the opening frame of every shipped level, which the pause's Scene
         /// list can put on the ice.
         /// </para>
         /// </summary>
-        public float CampBearing { get; set; } = -2.0f;
+        public float CampBearing { get; set; } = -1.92f;
 
         /// <inheritdoc cref="CampBearing"/>
-        public float CampDistance { get; set; } = 155f;
+        public float CampDistance { get; set; } = 150f;
 
         /// <summary>
         /// How far the camp's front is turned off facing the arena, radians, towards the sun (#1128): the dome's low sun stands

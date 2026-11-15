@@ -1,3 +1,4 @@
+using BS3D.Screens;
 using Microsoft.Xna.Framework;
 using Prazsky.BS3D;
 using Prazsky.BS3D.GameObjects;
@@ -20,10 +21,11 @@ namespace BS3D.Tests
     /// <summary>
     /// The polar research camp in the play view (#1128). The owner: "the camp should also be bigger and placed so that it is
     /// visible even while playing". No campaign level plays on the ice; the pause's Scene list puts any level there, so the
-    /// opening pose of every shipped level is held, as the session fits it (<see cref="GameCameraFit"/>, the same lines as
-    /// GunPassTests and MoonIntroShotsTests), over the camp as <see cref="PolarPlanting"/> stands it on the shipped config and
-    /// the ground's mirror: in the frame, clear of the gun, not behind a ball the level opens with, over the island's deck
-    /// and big enough to read. And the ice under it is clear of crevasses and of the pressure front.
+    /// play view of every shipped level is held, as the session fits it (<see cref="GameCameraFit"/>, the same lines as
+    /// GunPassTests and MoonIntroShotsTests) and as the overview focuses it (<see cref="OverviewFocus"/>), over the camp as
+    /// <see cref="PolarPlanting"/> stands it on the shipped config and the ground's mirror: in the frame, behind neither the gun
+    /// nor a ball the level opens with, over the island's deck, clear of the HUD's cluster profile and big enough to read.
+    /// And the ice under it is clear of crevasses and of the pressure front.
     /// </summary>
     public class PolarCampTests
     {
@@ -46,9 +48,11 @@ namespace BS3D.Tests
         //How far inside every edge a point must stay to count as in the frame, as a share of the half-frame
         private const float FRAME_MARGIN = 0.05f;
 
-        //The gun as the play camera sees it at rest (MoonIntroShotsTests): its wheels' outer faces 2.13 off the barrel's axis,
-        //held at 2.5, each WHEEL_RADIUS 1.15 nearer the lens at most
-        private const float GUN_HALF_WIDTH = 2.5f, GUN_NEAR = 1.15f;
+        //The gun as it stands at rest, in CannonRig's figures: the barrel BARREL_REACH either side of the trunnions along its aim,
+        //its glass BORE_RADIUS + WALL_THICKNESS round (0.74) and held at BARREL_AIR more for the loaded ball's ring; each wheel
+        //WHEEL_RADIUS round, WHEEL_TRACK off the barrel's axis and AXLE_DROP under the trunnions, held as a ball that big
+        private const float BARREL_REACH = 3.4f, BARREL_RADIUS = 0.74f + 0.26f;
+        private const float WHEEL_RADIUS = 1.15f, WHEEL_TRACK = 1.5f, AXLE_DROP = 1.45f;
 
         //Reads at the distance: each module at least this many pixels from its floor to its roof at 1080 lines, the mast at
         //least MIN_MAST_PIXELS; at its own figures (#747) a module was 18 and the mast 50 where it stood
@@ -58,6 +62,10 @@ namespace BS3D.Tests
         //scaled by the window's height): at 16:9 and wider the mast's top and the flag stand right of it, at 16:10 and 4:3,
         //which squeeze the frame's width under it, they stand behind its lower part
         private const float PROFILE_RIGHT = (92f + 480f) / 2160f;
+
+        //How far the loaded ball stands ahead of the gun's trunnions (CannonRig.PivotToFrontBall, which needs the rig): about
+        //what OverviewFocusTests' Zigzag muzzle stands off its gun. It only decides how far the focused look may tilt down
+        private const float PIVOT_TO_FRONT_BALL = 3f;
 
         //Sight lines are marched this far apart in plan, a fraction of the desktop grid's 2.86-unit cell
         private const float SIGHT_STEP = 0.5f;
@@ -111,11 +119,37 @@ namespace BS3D.Tests
             return new Vector3(clip.X / clip.W, clip.Y / clip.W, clip.Z / clip.W);
         }
 
+        //The nearest the line from a to b passes a point
+        private static float Off(Vector3 a, Vector3 b, Vector3 point)
+        {
+            Vector3 line = b - a;
+            float t = MathHelper.Clamp(Vector3.Dot(point - a, line) / line.LengthSquared(), 0f, 1f);
+            return Vector3.Distance(a + line * t, point);
+        }
+
+        //Whether the gun at rest stands on the line from the lens to a point: within its barrel's radius of the barrel's axis
+        //anywhere along it, or within a wheel's radius of a wheel's middle
+        private static bool BehindTheGun(Vector3 lens, Vector3 point, Vector3 trunnions, Vector3 aim)
+        {
+            for (float s = -BARREL_REACH; s <= BARREL_REACH; s += 0.25f)
+                if (Off(lens, point, trunnions + aim * s) < BARREL_RADIUS) return true;
+
+            Vector3 across = Vector3.Normalize(Vector3.Cross(new Vector3(aim.X, 0f, aim.Z), Vector3.Up));
+            foreach (float side in new[] { -WHEEL_TRACK, WHEEL_TRACK })
+                if (Off(lens, point, trunnions + across * side - Vector3.Up * AXLE_DROP) < WHEEL_RADIUS) return true;
+
+            return false;
+        }
+
         private static bool InFrame(Vector3 ndc, bool ahead) =>
             ahead && MathF.Abs(ndc.X) <= 1f - FRAME_MARGIN && MathF.Abs(ndc.Y) <= 1f - FRAME_MARGIN;
 
-        /// <summary>A level's opening as the session fits it: the lens, its look, the gun and the balls it opens with.</summary>
-        private sealed record Opening(string Level, Vector3 Lens, Vector3 Target, Vector3 Gun, List<Vector3> Balls);
+        /// <summary>
+        /// A level's play view as the session fits it: the gun, the balls it opens with, and the two poses the overview holds,
+        /// the fit's own frame it opens on and the focused one it eases into after <c>OverviewFocus.HOLD_OPENING_SECONDS</c> and
+        /// keeps while the player plays (#1006: the lens up and in, the look pulled towards the aim, the lens narrowed).
+        /// </summary>
+        private sealed record Opening(string Level, Vector3 Gun, Vector3 Aim, List<Vector3> Balls, (string Name, Vector3 Lens, Vector3 Target, float Fov)[] Poses);
 
         private static Opening Open(string file, float aspect)
         {
@@ -148,13 +182,26 @@ namespace BS3D.Tests
                         balls.Add(new Vector3(p.X, topLevelY - (size.Level - 1 - l) / Constants.SQRT_TWO, p.Z));
                     }
 
-            return new Opening(Path.GetFileName(file), lens, target, cannon.Position, balls);
+            //The focused pose: its aim point the cluster's middle (where the beam meets nothing, as the session falls back to),
+            //the muzzle the gun's at rest, the top row the glass's underside over the plate's corners (GameplayScreen.TopRowCorner)
+            Vector3 middle = Vector3.Zero;
+            foreach (Vector3 ball in balls) middle += ball;
+            middle /= Math.Max(balls.Count, 1);
+            float rowY = MathF.Min(ceilingCentreY - CeilingPlate.THICKNESS * Constants.HALF, framedTop);
+            Vector3[] topRow =
+            {
+                new(-halfX, rowY, -halfZ), new(halfX, rowY, -halfZ), new(-halfX, rowY, halfZ), new(halfX, rowY, halfZ),
+            };
+            AimPose focused = OverviewFocus.Focused(lens, target, GAME_FOV, middle, cannon.MuzzlePosition(PIVOT_TO_FRONT_BALL), topRow);
+
+            return new Opening(Path.GetFileName(file), cannon.Position, cannon.AimDirection, balls,
+                new[] { ("opening", lens, target, GAME_FOV), ("focused", focused.Position, focused.Target, focused.FieldOfView) });
         }
 
         /// <summary>
-        /// The opening frame of every shipped level, played on the ice: every landmark of the camp (at 16:10 and 4:3 the
-        /// station, its mast and flag and the vehicle) stands in the frame with its top and its middle, off to the side of the
-        /// gun's carriage, not behind a ball the level opens with; every module stands at least half over the island's deck,
+        /// The play view of every shipped level, played on the ice, in both poses the overview holds: every landmark of the camp
+        /// (at 16:10 and 4:3 the station, its mast and flag and the vehicle) stands in the frame with its top and its middle,
+        /// the gun at rest and the balls the level opens with off the line to it; every module stands at least half over the island's deck,
         /// the mast's top, the flag and the vehicle's cab over it too; at 16:9 and wider the mast's top and the flag stand
         /// clear of the HUD's cluster profile; and each module and the mast are big enough to read.
         /// </summary>
@@ -164,77 +211,78 @@ namespace BS3D.Tests
         {
             PolarPlanting.Landmark[] camp = Camp;
             bool wide = aspect >= WIDE;
-            float leastOffGun = float.MaxValue, widest = 0f, leastModule = float.MaxValue, leastMast = float.MaxValue, leastSight = float.MaxValue;
+            float aimUp = 0f, leastOffProfile = float.MaxValue, widest = 0f, leastModule = float.MaxValue, leastMast = float.MaxValue, leastSight = float.MaxValue;
 
             foreach (string file in Shipped.LevelFiles())
             {
                 Opening open = Open(file, aspect);
-                Matrix viewProjection = Matrix.CreateLookAt(open.Lens, open.Target, Vector3.Up)
-                    * Matrix.CreatePerspectiveFieldOfView(GAME_FOV, aspect, 0.1f, 5000f);
-
-                Vector3 forward = Vector3.Normalize(new Vector3(open.Target.X - open.Lens.X, 0f, open.Target.Z - open.Lens.Z));
-                Vector3 right = Vector3.Cross(forward, Vector3.Up);
-                float gunSide = MathF.Atan2(GUN_HALF_WIDTH, Vector3.Dot(open.Gun - open.Lens, forward) - GUN_NEAR);
-
-                foreach (PolarPlanting.Landmark mark in camp)
+                aimUp = MathHelper.ToDegrees(MathF.Asin(open.Aim.Y));
+                foreach ((string pose, Vector3 lens, Vector3 target, float fov) in open.Poses)
                 {
-                    if (!wide && !CORE.Contains(mark.Name)) continue;
+                    string where = $"{open.Level} at {aspect:F2}, {pose}";
+                    Matrix viewProjection = Matrix.CreateLookAt(lens, target, Vector3.Up)
+                        * Matrix.CreatePerspectiveFieldOfView(fov, aspect, 0.1f, 5000f);
 
-                    foreach (Vector3 point in new[] { mark.Top, Vector3.Lerp(mark.Foot, mark.Top, 0.5f) })
-                    {
-                        Vector3 ndc = Project(point, viewProjection, out bool ahead);
-                        Assert.True(InFrame(ndc, ahead), $"{open.Level} at {aspect:F2}: the camp's {mark.Name} is out of the frame at {ndc.X:F2}, {ndc.Y:F2}");
-                        widest = MathF.Max(widest, MathF.Abs(ndc.X));
 
-                        float side = MathF.Atan2(MathF.Abs(Vector3.Dot(point - open.Lens, right)), Vector3.Dot(point - open.Lens, forward));
-                        Assert.True(side > gunSide,
-                            $"{open.Level} at {aspect:F2}: the camp's {mark.Name} stands {MathHelper.ToDegrees(side):F1} degrees off the axis, behind the gun's {MathHelper.ToDegrees(gunSide):F1}");
-                        leastOffGun = MathF.Min(leastOffGun, MathHelper.ToDegrees(side - gunSide));
-                    }
+                    foreach (PolarPlanting.Landmark mark in camp)
+                    {
+                        if (!wide && !CORE.Contains(mark.Name)) continue;
 
-                    //Not behind the cluster: no ball the level opens with on the line to its top
-                    Vector3 line = mark.Top - open.Lens;
-                    foreach (Vector3 ball in open.Balls)
-                    {
-                        float t = MathHelper.Clamp(Vector3.Dot(ball - open.Lens, line) / line.LengthSquared(), 0f, 1f);
-                        Assert.True(Vector3.Distance(open.Lens + line * t, ball) >= BallRenderSet.BALL_RADIUS,
-                            $"{open.Level} at {aspect:F2}: a ball hangs over the camp's {mark.Name}");
-                    }
+                        foreach (Vector3 point in new[] { mark.Top, Vector3.Lerp(mark.Foot, mark.Top, 0.5f) })
+                        {
+                            Vector3 ndc = Project(point, viewProjection, out bool ahead);
+                            Assert.True(InFrame(ndc, ahead), $"{where}: the camp's {mark.Name} is out of the frame at {ndc.X:F2}, {ndc.Y:F2}");
+                            widest = MathF.Max(widest, MathF.Abs(ndc.X));
 
-                    //Over the deck: each module from its middle up, the rest from its top
-                    Vector3 seen = mark.Name.StartsWith("module", StringComparison.Ordinal) ? Vector3.Lerp(mark.Foot, mark.Top, 0.5f) : mark.Top;
-                    if (mark.Name != "turbine" && (wide || CORE.Contains(mark.Name)))
-                    {
-                        float margin = SightMargin(open.Lens, seen);
-                        Assert.True(margin >= 0f, $"{open.Level} at {aspect:F2}: the camp's {mark.Name} is {-margin:F2} under the deck's line");
-                        leastSight = MathF.Min(leastSight, margin);
-                    }
+                            Assert.False(BehindTheGun(lens, point, open.Gun, open.Aim), $"{where}: the gun stands before the camp's {mark.Name}");
+                        }
 
-                    //Clear of the cluster profile, its right edge as a share of the frame's width from the left
-                    if (wide && (mark.Name == "mast" || mark.Name == "flag"))
-                    {
-                        float fromLeft = (Project(mark.Top, viewProjection, out _).X + 1f) * 0.5f;
-                        Assert.True(fromLeft > PROFILE_RIGHT / aspect,
-                            $"{open.Level} at {aspect:F2}: the camp's {mark.Name} stands behind the HUD's cluster profile, {fromLeft:F3} of the width in");
-                    }
+                        //Not behind the cluster: no ball the level opens with on the line to its top
+                        Vector3 line = mark.Top - lens;
+                        foreach (Vector3 ball in open.Balls)
+                        {
+                            float t = MathHelper.Clamp(Vector3.Dot(ball - lens, line) / line.LengthSquared(), 0f, 1f);
+                            Assert.True(Vector3.Distance(lens + line * t, ball) >= BallRenderSet.BALL_RADIUS,
+                                $"{where}: a ball hangs over the camp's {mark.Name}");
+                        }
 
-                    float pixels = (Project(mark.Top, viewProjection, out _).Y - Project(mark.Foot, viewProjection, out _).Y) * 0.5f * 1080f;
-                    if (mark.Name.StartsWith("module", StringComparison.Ordinal))
-                    {
-                        Assert.True(pixels >= MIN_MODULE_PIXELS, $"{open.Level} at {aspect:F2}: the camp's {mark.Name} is {pixels:F0} px tall at 1080 lines");
-                        leastModule = MathF.Min(leastModule, pixels);
-                    }
-                    if (mark.Name == "mast")
-                    {
-                        Assert.True(pixels >= MIN_MAST_PIXELS, $"{open.Level} at {aspect:F2}: the mast is {pixels:F0} px tall at 1080 lines");
-                        leastMast = MathF.Min(leastMast, pixels);
+                        //Over the deck: each module from its middle up, the rest from its top
+                        Vector3 seen = mark.Name.StartsWith("module", StringComparison.Ordinal) ? Vector3.Lerp(mark.Foot, mark.Top, 0.5f) : mark.Top;
+                        if (mark.Name != "turbine" && (wide || CORE.Contains(mark.Name)))
+                        {
+                            float margin = SightMargin(lens, seen);
+                            Assert.True(margin >= 0f, $"{where}: the camp's {mark.Name} is {-margin:F2} under the deck's line");
+                            leastSight = MathF.Min(leastSight, margin);
+                        }
+
+                        //Clear of the cluster profile, its right edge as a share of the frame's width from the left
+                        if (wide && (mark.Name == "mast" || mark.Name == "flag"))
+                        {
+                            float fromLeft = (Project(mark.Top, viewProjection, out _).X + 1f) * 0.5f;
+                            leastOffProfile = MathF.Min(leastOffProfile, fromLeft - PROFILE_RIGHT / aspect);
+                            Assert.True(fromLeft > PROFILE_RIGHT / aspect,
+                                $"{where}: the camp's {mark.Name} stands behind the HUD's cluster profile, {fromLeft:F3} of the width in");
+                        }
+
+                        float pixels = (Project(mark.Top, viewProjection, out _).Y - Project(mark.Foot, viewProjection, out _).Y) * 0.5f * 1080f;
+                        if (mark.Name.StartsWith("module", StringComparison.Ordinal))
+                        {
+                            Assert.True(pixels >= MIN_MODULE_PIXELS, $"{where}: the camp's {mark.Name} is {pixels:F0} px tall at 1080 lines");
+                            leastModule = MathF.Min(leastModule, pixels);
+                        }
+                        if (mark.Name == "mast")
+                        {
+                            Assert.True(pixels >= MIN_MAST_PIXELS, $"{where}: the mast is {pixels:F0} px tall at 1080 lines");
+                            leastMast = MathF.Min(leastMast, pixels);
+                        }
                     }
                 }
             }
 
+            if (!wide) leastOffProfile = 0f;
             _output.WriteLine(string.Format(CultureInfo.InvariantCulture,
-                "{0:F2}: off the gun by {1:F1} degrees at least, out to {2:F2} of the half-frame, modules {3:F0} px and mast {4:F0} px at least, over the deck by {5:F2}",
-                aspect, leastOffGun, widest, leastModule, leastMast, leastSight));
+                "{0:F2}: out to {1:F2} of the half-frame, modules {2:F0} px and mast {3:F0} px at least, over the deck by {4:F2}, right of the profile by {5:F3} of the width; the gun aims {6:F1} degrees up",
+                aspect, widest, leastModule, leastMast, leastSight, leastOffProfile, aimUp));
         }
 
         /// <summary>
