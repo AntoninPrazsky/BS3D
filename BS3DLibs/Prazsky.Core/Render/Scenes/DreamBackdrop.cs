@@ -154,18 +154,33 @@ namespace Prazsky.Core.Render
             return true;
         }
 
-        /// <summary>See <see cref="SceneRenderer.DreamSolidCenter"/>.</summary>
-        public Vector3 SolidCenter(int index, float time, out float bound)
+        /// <summary>A solid's orbit as a share of <see cref="DreamShapesConfig.OrbitRadius"/>: this plus
+        /// <see cref="SOLID_ORBIT_SWING"/> × a sine of its index. <c>Dream.fx</c>'s <c>SHAPE_ORBIT_BASE</c>.</summary>
+        internal const float SOLID_ORBIT_BASE = 0.82f;
+
+        /// <summary><c>Dream.fx</c>'s <c>SHAPE_ORBIT_SWING</c>: see <see cref="SOLID_ORBIT_BASE"/>.</summary>
+        internal const float SOLID_ORBIT_SWING = 0.18f;
+
+        /// <summary>The bound a solid's march is gated on, in its own radius (<see cref="SolidRadius"/>): just past
+        /// the farthest of its forms. <c>Dream.fx</c>'s <c>SHAPE_BOUND_IN_RADII</c>.</summary>
+        internal const float SOLID_BOUND_IN_RADII = 1.45f;
+
+        /// <summary>See <see cref="SceneRenderer.DreamSolidCenter"/>: <c>Dream.fx</c>'s <c>ShapeCenter</c> on
+        /// <paramref name="shapes"/>, and the bound its march is gated on.</summary>
+        public static Vector3 SolidCenter(DreamShapesConfig shapes, int index, float time, out float bound)
         {
             float i = index;
-            float orbit = _dreamConfig.Shapes.OrbitRadius;
             float a = time * (0.020f + 0.011f * ShaderMath.Frac(i * 0.371f)) + i * 2.399f;
-            float r = orbit * (0.78f + 0.22f * MathF.Sin(i * 5.3f));
+            float r = shapes.OrbitRadius * (SOLID_ORBIT_BASE + SOLID_ORBIT_SWING * MathF.Sin(i * 5.3f));
             float y = 26f + 46f * MathF.Sin(time * 0.013f + i * 2.7f);
 
-            bound = _dreamConfig.Shapes.Size * 1.9f;
+            bound = SolidRadius(shapes, index) * SOLID_BOUND_IN_RADII;
             return new Vector3(MathF.Cos(a) * r, y, MathF.Sin(a) * r);
         }
+
+        /// <summary>Solid <paramref name="index"/>'s own radius: <c>Dream.fx</c>'s <c>ShapeRadius</c>, 0.4 to 1 of
+        /// <see cref="DreamShapesConfig.Size"/>.</summary>
+        public static float SolidRadius(DreamShapesConfig shapes, int index) => shapes.Size * (0.7f + 0.3f * MathF.Sin(index * 9.1f));
 
         /// <summary>See <see cref="SceneRenderer.DreamOrbCenter"/>.</summary>
         public Vector3 OrbCenter(int index, float time, out float radius)

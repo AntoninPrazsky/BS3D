@@ -1348,18 +1348,22 @@ namespace Prazsky.Core.Render
         //aimed where the shader does not draw frames empty sky. Nothing here runs per frame; the intro asks
         //once when it begins.
 
-        /// <summary>How many glass solids <c>Dream.fx</c> draws (its <c>SHAPE_COUNT</c>).</summary>
-        public const int DREAM_SOLID_COUNT = 8;
+        /// <summary>How many glass solids <c>Dream.fx</c> draws (its <c>SHAPE_COUNT</c>, held to it by
+        /// DreamSolidsSourceTests).</summary>
+        public const int DREAM_SOLID_COUNT = 12;
 
         /// <summary>How many soft orbs <c>Dream.fx</c> draws (its <c>ORB_COUNT</c>).</summary>
         public const int DREAM_ORB_COUNT = 7;
 
         /// <summary>
-        /// Where the dream's glass solid <paramref name="index"/> stands at a wall-clock time: <c>Dream.fx</c>'s
-        /// <c>ShapeCenter</c>, with <paramref name="bound"/> the radius its march is gated on (<c>ShapeSize</c>
-        /// × 1.9), which the morph never leaves.
+        /// Where the dream's glass solid <paramref name="index"/> stands at a wall-clock time on
+        /// <paramref name="shapes"/> (the live config's is <see cref="GetSceneConfig"/>'s): <c>Dream.fx</c>'s
+        /// <c>ShapeCenter</c>, with <paramref name="bound"/> the radius its march is gated on (the solid's own radius
+        /// × <c>SHAPE_BOUND_IN_RADII</c>), which the morph never leaves. Static and pure, so the intro's shots can be
+        /// rolled without a device.
         /// </summary>
-        public Vector3 DreamSolidCenter(int index, float time, out float bound) => _dream.SolidCenter(index, time, out bound);
+        public static Vector3 DreamSolidCenter(DreamShapesConfig shapes, int index, float time, out float bound) =>
+            DreamBackdrop.SolidCenter(shapes, index, time, out bound);
 
         /// <summary>
         /// Where the dream's soft orb <paramref name="index"/> stands at a wall-clock time — <c>Dream.fx</c>'s

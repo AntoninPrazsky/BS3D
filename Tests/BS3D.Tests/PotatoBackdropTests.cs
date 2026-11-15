@@ -185,7 +185,7 @@ namespace BS3D.Tests
         public void TheDreamsSolidsStayPastTheOrbitAndBreatheAboutTheirSize()
         {
             var shapes = new DreamShapesConfig();
-            for (int i = 0; i < 8; i++)
+            for (int i = 0; i < PotatoBackdrop.DREAM_SOLIDS; i++)
                 for (float t = 0f; t < 600f; t += 7.3f)
                 {
                     Matrix world = PotatoBackdrop.DreamSolidWorld(shapes, i, t);

@@ -44,6 +44,8 @@
     <Compile Include="..\..\Game\Effects\MoonIntroShots.cs" />
     <!--The sea's prologue (#1124): plain geometry over the sea's config and the oil rigs' layout, held against the rigs' own boxes.-->
     <Compile Include="..\..\Game\Effects\SeaIntroShots.cs" />
+    <!--The dream's prologue (#1126): plain geometry over the host's copy of Dream.fx's solids, rolled against their bounds.-->
+    <Compile Include="..\..\Game\Effects\DreamIntroShots.cs" />
   </ItemGroup>
 
   <!--The tutorial's rules (#666), compiled in the same way: Tutorial is a ladder of lessons and clocks with no device

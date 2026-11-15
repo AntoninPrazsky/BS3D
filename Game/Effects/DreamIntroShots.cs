@@ -74,13 +74,18 @@ namespace BS3D.Effects
         /// The prologue for the dream being drawn, starting at <paramref name="time"/> on the renderer's wall
         /// clock. <paramref name="fieldOfView"/> is the intro's own gameplay frame, which each shot widens from.
         /// </summary>
-        public static IntroShot[] Build(SceneRenderer scenes, float time, float fieldOfView, Random random)
-        {
-            if (scenes?.GetSceneConfig(SceneKind.Dream) is not DreamSceneConfig dream) return null;
+        public static IntroShot[] Build(SceneRenderer scenes, float time, float fieldOfView, Random random) =>
+            scenes?.GetSceneConfig(SceneKind.Dream) is DreamSceneConfig dream ? Shots(dream.Shapes, time, fieldOfView, random) : null;
 
-            IntroShot sky = Sky(scenes, time, fieldOfView, random);
-            IntroShot glass = Glass(scenes, dream, time + SKY_SECONDS, fieldOfView, random);
-            IntroShot under = Underside(scenes, time + SKY_SECONDS + GLASS_SECONDS, random);
+        /// <summary>
+        /// The prologue on <paramref name="shapes"/>: the solids stand where <see cref="SceneRenderer.DreamSolidCenter"/>
+        /// says, which is pure, so DreamIntroShotsTests rolls this without a device.
+        /// </summary>
+        internal static IntroShot[] Shots(DreamShapesConfig shapes, float time, float fieldOfView, Random random)
+        {
+            IntroShot sky = Sky(shapes, time, fieldOfView, random);
+            IntroShot glass = Glass(shapes, time + SKY_SECONDS, fieldOfView, random);
+            IntroShot under = Underside(shapes, time + SKY_SECONDS + GLASS_SECONDS, random);
 
             if (glass == null || under == null)
             {
@@ -93,7 +98,7 @@ namespace BS3D.Effects
         }
 
         /// <summary>The island adrift in the marbling: the establishing view, on a bearing clear of the glass.</summary>
-        private static IntroShot Sky(SceneRenderer scenes, float time, float fieldOfView, Random random)
+        private static IntroShot Sky(DreamShapesConfig shapes, float time, float fieldOfView, Random random)
         {
             Vector3 island = new(0f, ArenaIsland.TOP_Y + 6f, 0f);
             float arc = MathHelper.ToRadians(SKY_ARC_DEGREES) * (random.Next(2) == 0 ? 1f : -1f);
@@ -111,19 +116,19 @@ namespace BS3D.Effects
                     path[i] = new Vector3(MathF.Cos(b) * SKY_RADIUS, MathHelper.Lerp(SKY_FROM_HEIGHT, SKY_TO_HEIGHT, s), MathF.Sin(b) * SKY_RADIUS);
                 }
 
-                if (ClearOfSolids(scenes, path, time, SKY_SECONDS)) best = path;
+                if (ClearOfSolids(shapes, path, time, SKY_SECONDS)) best = path;
             }
 
-            //Every roll crossing a solid would take eight solids crowded onto one ring; keep the last roll.
+            //Every roll crossing a solid would take the solids crowded onto one ring; keep the last roll.
             best ??= new[] { new Vector3(SKY_RADIUS, SKY_FROM_HEIGHT, 0f), new Vector3(SKY_RADIUS, SKY_TO_HEIGHT, 0f) };
 
             return new IntroShot("the marbled sky", best, SKY_SECONDS, fieldOfView * 1.2f, lookAt: island);
         }
 
         /// <summary>A slow turn round one glass solid as it tumbles, the look riding it.</summary>
-        private static IntroShot Glass(SceneRenderer scenes, DreamSceneConfig dream, float start, float fieldOfView, Random random)
+        private static IntroShot Glass(DreamShapesConfig shapes, float start, float fieldOfView, Random random)
         {
-            float distance = dream.Shapes.Size * GLASS_DISTANCE_IN_SIZES;
+            float distance = shapes.Size * GLASS_DISTANCE_IN_SIZES;
             float arc = MathHelper.ToRadians(GLASS_ARC_DEGREES);
             float offSight = MathF.Cos(MathHelper.ToRadians(ARENA_OFF_SIGHT_DEGREES));
 
@@ -140,7 +145,7 @@ namespace BS3D.Effects
                 for (int i = 0; i < PATH_POINTS && clear; i++)
                 {
                     float s = i / (float)(PATH_POINTS - 1);
-                    Vector3 centre = scenes.DreamSolidCenter(solid, start + s * GLASS_SECONDS, out _);
+                    Vector3 centre = SceneRenderer.DreamSolidCenter(shapes, solid, start + s * GLASS_SECONDS, out _);
                     float b = bearing + sign * arc * s;
 
                     Vector3 lens = centre + new Vector3(MathF.Cos(b) * distance, GLASS_RISE, MathF.Sin(b) * distance);
@@ -156,7 +161,7 @@ namespace BS3D.Effects
                     if (Vector3.Dot(toSolid, toArena) > offSight) clear = false;
                 }
 
-                if (!clear || !ClearOfSolids(scenes, path, start, GLASS_SECONDS, solid)) continue;
+                if (!clear || !ClearOfSolids(shapes, path, start, GLASS_SECONDS, solid)) continue;
 
                 return new IntroShot("the glass", path, GLASS_SECONDS, fieldOfView * 1.1f, lookAtPath: look);
             }
@@ -170,7 +175,7 @@ namespace BS3D.Effects
         /// standing between the lens and the island would be drawn BEHIND the island it is in front of: the path is
         /// kept clear of every solid, and so is the line of sight to the funnel.
         /// </summary>
-        private static IntroShot Underside(SceneRenderer scenes, float start, Random random)
+        private static IntroShot Underside(DreamShapesConfig shapes, float start, Random random)
         {
             float hole = ArenaIsland.FUNNEL_BOTTOM_Y;
             Vector3 funnel = new(0f, (hole + ArenaIsland.TOP_Y) * 0.5f, 0f);
@@ -183,7 +188,7 @@ namespace BS3D.Effects
                 Vector3[] path = IntroPaths.Line(outward * UNDER_OUT + Vector3.Up * (hole - UNDER_FROM_BELOW),
                     outward * (UNDER_OUT * 0.85f) + Vector3.Up * (hole - UNDER_TO_BELOW), PATH_POINTS);
 
-                if (!ClearOfSolids(scenes, path, start, UNDER_SECONDS) || !LineOfSightClear(scenes, path, funnel, start, UNDER_SECONDS)) continue;
+                if (!ClearOfSolids(shapes, path, start, UNDER_SECONDS) || !LineOfSightClear(shapes, path, funnel, start, UNDER_SECONDS)) continue;
 
                 return new IntroShot("the underside", path, UNDER_SECONDS, MathHelper.ToRadians(UNDER_FOV_DEGREES), lookAt: funnel);
             }
@@ -193,7 +198,7 @@ namespace BS3D.Effects
 
         //True when no solid stands (within its bound and the margin) on the line from the lens to the look-at, at the
         //moment the lens is there — sampled along the line, since the solids are big and slow
-        private static bool LineOfSightClear(SceneRenderer scenes, Vector3[] path, Vector3 target, float start, float seconds)
+        internal static bool LineOfSightClear(DreamShapesConfig shapes, Vector3[] path, Vector3 target, float start, float seconds)
         {
             const int SAMPLES = 8;
 
@@ -203,7 +208,7 @@ namespace BS3D.Effects
 
                 for (int solid = 0; solid < SceneRenderer.DREAM_SOLID_COUNT; solid++)
                 {
-                    Vector3 centre = scenes.DreamSolidCenter(solid, t, out float bound);
+                    Vector3 centre = SceneRenderer.DreamSolidCenter(shapes, solid, t, out float bound);
 
                     for (int k = 1; k < SAMPLES; k++)
                         if (Vector3.Distance(centre, Vector3.Lerp(path[i], target, k / (float)SAMPLES)) < bound + SOLID_MARGIN) return false;
@@ -215,7 +220,7 @@ namespace BS3D.Effects
 
         //True when no point of the path, at the moment the lens passes it, stands inside any solid's bounding
         //sphere (bar the subject's own, which the glass shot keeps its distance from by construction).
-        private static bool ClearOfSolids(SceneRenderer scenes, Vector3[] path, float start, float seconds, int except = -1)
+        internal static bool ClearOfSolids(DreamShapesConfig shapes, Vector3[] path, float start, float seconds, int except = -1)
         {
             for (int i = 0; i < path.Length; i++)
             {
@@ -225,7 +230,7 @@ namespace BS3D.Effects
                 {
                     if (solid == except) continue;
 
-                    Vector3 centre = scenes.DreamSolidCenter(solid, t, out float bound);
+                    Vector3 centre = SceneRenderer.DreamSolidCenter(shapes, solid, t, out float bound);
                     if (Vector3.Distance(centre, path[i]) < bound + SOLID_MARGIN) return false;
                 }
             }
