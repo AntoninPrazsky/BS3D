@@ -42,6 +42,10 @@ namespace BS3D
     /// a second press on a level with one swap is the refusal a player would hear.</item>
     /// <item><c>brake=&lt;t1,t2,…&gt;</c> — presses the ceiling's brake key at those seconds (#213), through the very call Q
     /// makes, so a press with the glass still at rest is the refusal a player would hear.</item>
+    /// <item><c>skiptakeover=&lt;t1,t2,…&gt;</c> — presses the skip at those seconds (#1106), through the very call Space, a click, the
+    /// pad's A or right trigger and a touch make, so a press inside a takeover's lockout or with none running is spent on
+    /// nothing, as a player's is. Outside the focus gate, like <c>walk=</c>: a run that shows an opening skipped is
+    /// launched without focus, and needs <c>nofocuspause</c> so the level does not pause itself first.</item>
     /// <item><c>cut=&lt;t1,t2,…&gt;</c> — presses the anchor cut's key at those seconds (#213), through the very call R makes,
     /// so the round in the bore becomes a cutter and the next <c>fire=</c> is the cut.</item>
     /// <item><c>walk=&lt;from&gt;:&lt;to&gt;[:in|out]</c> and <c>turn=&lt;from&gt;:&lt;to&gt;[:left|right]</c> — hold W (or S)
@@ -78,6 +82,8 @@ namespace BS3D
         private int _nextBrake;
         private float[] _cut;
         private int _nextCut;
+        private float[] _skip;
+        private int _nextSkip;
         private float _walkFrom = float.NaN, _walkTo, _walkSign = 1f;
         private float _turnFrom = float.NaN, _turnTo, _turnSign = 1f;
         private float _flipPeriod;
@@ -222,6 +228,15 @@ namespace BS3D
                 if (times == null || times.Length == 0) return false;
 
                 (Current ??= new ScriptedPlay())._brake = times;
+                return true;
+            }
+
+            if (arg.StartsWith("skiptakeover=", StringComparison.OrdinalIgnoreCase))
+            {
+                float[] times = ScreenshotWriter.ParseSeconds(arg.Substring("skiptakeover=".Length));
+                if (times == null || times.Length == 0) return false;
+
+                (Current ??= new ScriptedPlay())._skip = times;
                 return true;
             }
 
@@ -449,6 +464,15 @@ namespace BS3D
             if (_brake == null || _nextBrake >= _brake.Length || clock < _brake[_nextBrake]) return false;
 
             _nextBrake++;
+            return true;
+        }
+
+        /// <summary>Whether a scheduled skip press has come due, consuming it - one a call, like <see cref="TryTakeSwap"/> (#1106).</summary>
+        internal bool TryTakeSkip(float clock)
+        {
+            if (_skip == null || _nextSkip >= _skip.Length || clock < _skip[_nextSkip]) return false;
+
+            _nextSkip++;
             return true;
         }
     }

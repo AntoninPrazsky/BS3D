@@ -275,8 +275,7 @@ namespace BS3D.Screens
             //over the title bar or another window, and those clicks are precisely the ones to leave alone.
             if (!_cursorCaptured && edgeInputAllowed
                 && mouse.LeftButton == ButtonState.Pressed && _previousMouse.LeftButton == ButtonState.Released
-                && mouse.X >= 0 && mouse.X < GraphicsDevice.Viewport.Width
-                && mouse.Y >= 0 && mouse.Y < GraphicsDevice.Viewport.Height)
+                && TakeoverSkip.InPicture(mouse, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height))
             {
                 _cursorCaptured = true;
 
@@ -289,11 +288,12 @@ namespace BS3D.Screens
 
             //While a camera takeover has the frame the barrel does not move and nothing fires — but the
             //cursor is still recentred below, so the aim is not handed back a delta measured from wherever
-            //the mouse drifted to during it. The left button skips, matching Space and the pad's A.
+            //the mouse drifted to during it. The left button skips, matching Space and the pad's A: any fresh press
+            //in the picture, the one that has just taken a free cursor above included (TakeoverSkip, #1106)
             if (CameraTakeoverEngaged)
             {
-                if (edgeInputAllowed && _mouseAim.Initialized
-                    && mouse.LeftButton == ButtonState.Pressed && _previousMouse.LeftButton == ButtonState.Released)
+                if (TakeoverSkip.MouseSkips(edgeInputAllowed, _cursorCaptured, mouse, _previousMouse,
+                    GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height))
                     SkipCameraTakeover();
 
                 //And the pad's fire, as the left button is the mouse's: the skip hint draws the right trigger on a pad
