@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1118 cirkus: úvod přistane za dělem — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: poslední záběr úvodu Big Topu je „the gate home“ (`Game/Effects/CircusLanding.cs`). Kamera vjede nízko středem uličky účinkujících, vystoupá na kruh uvnitř hlavních stožárů a přes sdílený `IntroLanding` přistane přesně na herní póze. Střih a let tour odpadly; úvod trvá 16,6 s místo 15,5 s. Kde cesta není volná (menu), zůstává stará brána s letem tour. Nový `IntroLanding.Style.LookRise` (výchozí 0): louka a obě města se nezměnila ani o bit.
+- ⚠ Stan nemá CPU geometrii, takže kontroly kolize jsou kopie čísel stanu (`CircusLanding.Tent`); tři konstanty světel rampy hlídá test rovnosti, protože `CircusBackdrop` je `internal`.
+- Otevřené: `verdict-eye` (pohyb neviděn v plné velikosti, daleká póza mimo stožáry nezachycena, natočení 0,8 je volba).
+
 ## 2026-11-15 — #1124 moře: úvod přeletí kolem ropné plošiny — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: nový záběr „the rig“ mezi hlubinami a stoupáním ke slunci; objektiv nízko nad vodou míjí bližší plošinu (začne 250 za ní, 3,6 s, 48 j/s, test drží ≤ 50), pohled stoupá od nohou k vrtné věži. Ostatní záběry zkráceny, prolog 13,4 s, celé turné 17,9 s. `Sea.fx` navíc tlumí vlny se vzdáleností od arény (`CalmFrom` 600, plochá od 780), takže nohy nestojí nad údolími vln; herní pohled je pixel po pixelu stejný. Vzdálené pole má disk až k aréně (ostrov z plošiny neměl vodu). Komentář „plošiny za herním pohledem“ byl chybný: stojí před ním, ~21° po stranách.

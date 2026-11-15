@@ -39,6 +39,7 @@
     <Compile Include="..\..\Game\Effects\VolcanoIntroShots.cs" />
     <Compile Include="..\..\Game\Effects\CavernIntroShots.cs" />
     <Compile Include="..\..\Game\Effects\CircusIntroShots.cs" />
+    <Compile Include="..\..\Game\Effects\CircusLanding.cs" />
     <!--The Moon's (#1114): the run up the rover's ruts to the flag, over TerrainMirror.Moon, and the two shots round it.-->
     <Compile Include="..\..\Game\Effects\MoonIntroShots.cs" />
     <!--The sea's prologue (#1124): plain geometry over the sea's config and the oil rigs' layout, held against the rigs' own boxes.-->
