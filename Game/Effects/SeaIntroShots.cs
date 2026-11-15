@@ -7,10 +7,11 @@ namespace BS3D.Effects
     /// <summary>
     /// The sea's own shots for a chapter intro's prologue (#559): a low pass round the island's flank at the
     /// waterline, a drift under the water looking up at the island, with a school of fish wheeling round the
-    /// funnel's cone between the lens and the stone (#759, #760), and a flight low over the water that climbs to the
-    /// sun the glint comes from (#652) — cut together, then cut to the tour's last leg. The sea has no landmark of
-    /// its own; what it builds is the swell (<c>Sea.fx</c>'s twenty Gerstner waves), the glint the sun lays across it,
-    /// and the one rock in it, which is the island.
+    /// funnel's cone between the lens and the stone (#759, #760), a run low over the open sea in at the nearer oil
+    /// platform (#1124), and a flight low over the water that climbs to the sun the glint comes from (#652) — cut
+    /// together, then cut to the tour's last leg. What the sea builds is the swell (<c>Sea.fx</c>'s twenty Gerstner
+    /// waves), the glint the sun lays across it, the one rock in it, which is the island, and the two platforms far out
+    /// (<see cref="OilRigLayout"/>), its one landmark.
     /// <para>
     /// <b>It opened on the island from far out and high, and the owner threw that shot out (#652):</b> "the high,
     /// distant view where the island is small in the middle doesn't work — an empty, boring view". One rock and a
@@ -29,6 +30,17 @@ namespace BS3D.Effects
     /// viewer somewhere instead of stuttering.
     /// </para>
     /// <para>
+    /// <b>No shot looked at the platforms (#1124, the owner: "in the intro the camera does not deal with the oil
+    /// platforms").</b> The nearer stands 820 out, past the water's calm, and cannot come nearer: its legs are cut at a
+    /// flat waterline. So the lens goes out to it: a cut may put the lens anywhere, and the run starts already
+    /// <see cref="RIG_FROM"/> off the rig, beyond it, coming in over the open sea with the island on the horizon behind
+    /// it, the rig growing until it towers over the lens. It plays between the depths and the climb, so a low run over
+    /// the water is never next to another (the island's flank is one, the climb starts as one): the depths cut to it from
+    /// under the water, and its last look, up the derrick, cuts to the climb's first, level over the glint. The tour paid
+    /// for it out of the other three (the island 3.0 to 2.8 s, the depths 3.2 to 3.0, the climb 4.6 to 4.0), so it grew
+    /// by 2.6 s and not 3.6.
+    /// </para>
+    /// <para>
     /// <b>The water is the only ground, and it is bounded rather than mirrored.</b> No crest stands higher than
     /// <see cref="CrestHeight"/> over the mean level, so a lens held <see cref="LENS_CLEARANCE"/> over that above
     /// <see cref="SeaSceneConfig.LevelY"/> is never under water. The bound was the six waves' weights summed (2.92 of
@@ -36,7 +48,8 @@ namespace BS3D.Effects
     /// independent phases never come near that — over eight million points at random times the highest stood at 3.93 —
     /// so the bound is <see cref="CREST_REACH"/> above what was seen, and the clearance is what keeps the shots where
     /// #652 framed them (the flank at its own height, the climb starting 0.27 higher than it did). The depths are the
-    /// one shot under the water, and stand far enough under it that no trough reaches the lens.
+    /// one shot under the water, and stand far enough under it that no trough reaches the lens. The run at the rig keeps
+    /// the same bound, though the water out there is flat (<see cref="SeaSceneConfig.CalmFrom"/>).
     /// </para>
     /// </summary>
     internal static class SeaIntroShots
@@ -52,7 +65,7 @@ namespace BS3D.Effects
         private const float CLIMB_TO_HEIGHT = 34f;
         private const float CLIMB_FIRST_PITCH_DEGREES = -3f;
         private const float CLIMB_LOOK_FAR = 400f;
-        private const float CLIMB_SECONDS = 4.6f;
+        private const float CLIMB_SECONDS = 4.0f;
 
         //With no sun to climb to (a dome that gives none), the elevation the climb ends at
         private const float CLIMB_FALLBACK_ELEVATION_DEGREES = 32f;
@@ -68,7 +81,7 @@ namespace BS3D.Effects
         private const float DEPTHS_UNDER_TO = 20f;
         private const float DEPTHS_SWEEP_RADIANS = 0.55f;
         private const float DEPTHS_LOOK_Y = ArenaIsland.FUNNEL_BOTTOM_Y + 8f;
-        private const float DEPTHS_SECONDS = 3.2f;
+        private const float DEPTHS_SECONDS = 3.0f;
 
         //The island: an arc round its flank at this radius (the rim is at ArenaIsland.RADIUS, 26), this low
         //over the water, the lens on the island's side a little under its rim, so the water meets the rock
@@ -76,7 +89,25 @@ namespace BS3D.Effects
         private const float FLANK_RADIUS = 47f;
         private const float FLANK_HEIGHT = 4.6f;
         private const float FLANK_SWEEP_RADIANS = 0.62f;
-        private const float FLANK_SECONDS = 3.0f;
+        private const float FLANK_SECONDS = 2.8f;
+
+        //The rig (#1124): a straight run low over the water in at the nearer platform from the open sea beyond it, coming in
+        //this many degrees round from the line through the rig to the arena, either way, from this far off the rig's axis to
+        //this far, where the rig stands this many degrees off the run's heading: the run passes it by rather than flying at
+        //it, so it never comes nearer the axis than RIG_TO * sin(RIG_PASS), well outside the legs. The run is turned off the
+        //line one way and passes the rig on the other hand, so the island stands on the horizon beside the rig at the start
+        //and crosses behind it. In from beyond and not out from the arena's side: looking out, the water would end some 800
+        //past the rig, where the far ring does. The look climbs from the jacket's middle (this share of the deck's height) to
+        //the derrick's foot, so the rig grows from the horizon and towers over the lens at the end, the derrick over the deck.
+        //⚠ THE END STANDS OFF. Ended 70 off the axis, the lens was under the deck's edge, and from the waterline the deck hid
+        //the whole derrick: the last frames were the deck's dark underside and the legs.
+        private const float RIG_FROM = 300f;
+        private const float RIG_TO = 100f;
+        private const float RIG_APPROACH_MIN_DEGREES = 25f;
+        private const float RIG_APPROACH_MAX_DEGREES = 40f;
+        private const float RIG_PASS_DEGREES = 50f;
+        private const float RIG_LOOK_FROM = 0.5f;
+        private const float RIG_SECONDS = 3.6f;
 
         /// <summary>The highest a crest can stand over the mean level, in units of the swell's amplitude, plus the chop's.</summary>
         private static float CrestHeight(SeaSceneConfig sea) => sea.WaveAmplitude * CREST_REACH + sea.ChopAmplitude;
@@ -92,10 +123,12 @@ namespace BS3D.Effects
         /// The prologue for the sea being drawn, or null when there is no sea config. <paramref name="sunDirection"/>
         /// is the direction towards the sun the dome lights the scene from (the host's rig), or null.
         /// </summary>
-        public static IntroShot[] Build(SceneRenderer scenes, Vector3? sunDirection, float fieldOfView, Random random)
-        {
-            if (scenes?.GetSceneConfig(SceneKind.Sea) is not SeaSceneConfig sea) return null;
+        public static IntroShot[] Build(SceneRenderer scenes, Vector3? sunDirection, float fieldOfView, Random random) =>
+            scenes?.GetSceneConfig(SceneKind.Sea) is SeaSceneConfig sea ? Shots(sea, sunDirection, fieldOfView, random) : null;
 
+        /// <summary>The prologue over <paramref name="sea"/>'s figures: no device in it, so the tests build it as the game does.</summary>
+        internal static IntroShot[] Shots(SeaSceneConfig sea, Vector3? sunDirection, float fieldOfView, Random random)
+        {
             //Into the sun, where there is one to go into; otherwise a rolled heading.
             Vector2 sun = sunDirection is Vector3 s ? new Vector2(s.X, s.Z) : Vector2.Zero;
             Vector2 heading = sun.LengthSquared() > 0.01f
@@ -107,12 +140,59 @@ namespace BS3D.Effects
                 ? MathF.Asin(MathHelper.Clamp(Vector3.Normalize(toSun).Y, -1f, 1f))
                 : MathHelper.ToRadians(CLIMB_FALLBACK_ELEVATION_DEGREES);
 
-            return new[]
+            //Rolled in the order the three were before the rig came (#1124), so a seed= flies the island, the depths and the
+            //climb it always did
+            IntroShot flank = Flank(sea, fieldOfView, random);
+            IntroShot depths = Depths(sea, fieldOfView, random);
+            IntroShot climb = Climb(sea, heading, elevation, fieldOfView, random);
+            IntroShot rig = Rig(sea, OilRigLayout.Near(sea.LevelY), fieldOfView, random);
+
+            return new[] { flank, depths, rig, climb };
+        }
+
+        /// <summary>
+        /// The rig (#1124): a run low over the open sea in at the nearer platform from beyond it, the look on the jacket while
+        /// the rig grows on the horizon and climbing up the derrick as the lens comes in under the deck's edge and passes it.
+        /// </summary>
+        private static IntroShot Rig(SeaSceneConfig sea, OilRig rig, float fieldOfView, Random random)
+        {
+            Vector2 foot = new(rig.Foot.X, rig.Foot.Z);
+            Vector2 inward = Vector2.Normalize(-foot);
+
+            //Coming in round from the line to the arena by the approach, the rig on the other hand at the end
+            float side = random.Next(2) == 0 ? 1f : -1f;
+            Vector2 heading = Turned(inward, side * MathHelper.ToRadians(AridIntroPaths.Roll(random, RIG_APPROACH_MIN_DEGREES, RIG_APPROACH_MAX_DEGREES)));
+            float pass = MathHelper.ToRadians(RIG_PASS_DEGREES);
+            Vector2 end = foot - Turned(heading, -side * pass) * RIG_TO;
+
+            //Back along the heading until the rig is RIG_FROM off
+            float run = -RIG_TO * MathF.Cos(pass) + MathF.Sqrt(RIG_FROM * RIG_FROM - RIG_TO * RIG_TO * MathF.Sin(pass) * MathF.Sin(pass));
+            Vector2[] plan = AridIntroPaths.Line(end - heading * run, end);
+
+            float y = sea.LevelY + CrestHeight(sea) + LENS_CLEARANCE;
+            Vector3 jacket = rig.Foot + Vector3.Up * (OilRigLayout.DECK_Y * RIG_LOOK_FROM * rig.Scale);
+            Vector3 derrick = rig.DerrickFoot;
+
+            var path = new Vector3[plan.Length];
+            var look = new Vector3[plan.Length];
+            for (int i = 0; i < plan.Length; i++)
             {
-                Flank(sea, fieldOfView, random),
-                Depths(sea, fieldOfView, random),
-                Climb(sea, heading, elevation, fieldOfView, random),
-            };
+                float s = i / (float)(plan.Length - 1);
+                path[i] = new Vector3(plan[i].X, y, plan[i].Y);
+
+                //On the jacket while the rig is far, up the derrick over the second half
+                float climb = MathHelper.Clamp((s - 0.35f) / 0.65f, 0f, 1f);
+                look[i] = Vector3.Lerp(jacket, derrick, climb * climb * (3f - 2f * climb));
+            }
+
+            return new IntroShot("the rig", path, RIG_SECONDS, fieldOfView * 1.2f, lookAtPath: look);
+        }
+
+        //A ground direction turned by an angle, from +X towards +Z as AridIntroPaths.Bearing counts
+        private static Vector2 Turned(Vector2 v, float radians)
+        {
+            float c = MathF.Cos(radians), s = MathF.Sin(radians);
+            return new Vector2(v.X * c - v.Y * s, v.X * s + v.Y * c);
         }
 
         /// <summary>
