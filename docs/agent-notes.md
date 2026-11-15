@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1108 savana: úvod přistane v trávě na herní póze — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: poslední záběr úvodu savany je „the grass home“ (`Game/Effects/SavannaLanding.cs`), let 3–4,2 nad trávou přes sdílený `IntroLanding`, buď rovně z hájů, nebo kolem ostrova; žádný let tour nenásleduje. Úvod trvá 12,2–15,8 s (15,1 s při sceneseed=0). `SavannaScatter` jde zasadit bez `GraphicsDevice`, takže testy počítají se skutečnou plání.
+- ⚠ Volné koule stromů zavřou pláň zhruba u každého 25. semene scény (záložní starý střih). Druhé hledání drží stromy podle jejich obrysu (`PlantOutline`, disky z vlastních trojúhelníků): 800 z 800 sestavení přistane. Testy se semeny 0–23 to neodhalily.
+- Otevřené: `verdict-eye` (pohyb neviděn, plamen ohně u okraje záběru, tvar trasy kolem ostrova vs. rovně).
+
 ## 2026-11-15 — #1119 města: záběr fasád se zrcadlením — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: obě města mají nový záběr „the facades“ (`Game/Effects/CityIntroShots.cs`): kamera jde ulicí 1,5 j mimo osu (4 → 10 nad asfaltem), míří na jeden bod věže, který se přibližuje z 21 na 6 j, ulice zůstává pod rámem. Výběr ze 48 kandidátů podle toho, kolik tabulí zrcadlí věž. Oba reely: ulice, náměstí, fasády, střechy, cesta domů (24–26 s místo 20–22); ulice zkrácena na 4,0 s. Bez odrazů (Potato, GLES, nižší tiery) se fasády nehrají a reel zůstává starý.
