@@ -13,21 +13,26 @@ namespace BS3D.Effects
     /// starts low over the ground and ends at the position where the game camera stands behind the cannon. This is always the
     /// finale of the intro, because the game begins after it."
     /// <para>
-    /// <b>The route.</b> From a start among the groves (<see cref="START_MIN"/> to <see cref="START_MAX"/> out, within
-    /// <see cref="START_SPREAD"/> degrees of the pose's bearing) a short straight run heading for the pose give or take
-    /// <see cref="HEADING_SPREAD"/> degrees, then the shared release onto it (<see cref="IntroLanding.Release"/>), arriving
-    /// along the pose's facing, halfway, or still along the run (<see cref="IntroLanding.Arrival"/>). The lens flies
+    /// <b>The route</b>, one of two. <b>Straight in</b>: from a clear stand among the grass and the groves
+    /// <see cref="START_RUN_MIN"/> to <see cref="START_RUN_MAX"/> from the pose, within <see cref="STRAIGHT_SPREAD"/> degrees of
+    /// straight behind it, a short run heading for the pose give or take <see cref="HEADING_SPREAD"/> degrees and the shared
+    /// release onto it (<see cref="IntroLanding.Release"/>), arriving along the pose's facing, halfway, or still along the run
+    /// (<see cref="IntroLanding.Arrival"/>). <b>Round the island</b> (<see cref="ROUND_SHARE"/> of the rolls): from a clear stand
+    /// <see cref="ROUND_FROM_MIN"/> to <see cref="ROUND_FROM_MAX"/> degrees round from the pose's bearing, in onto a circle
+    /// outside the pose, round it, and the shared turn in down the pose's facing (<see cref="IntroLanding.TurnIn"/>), as the
+    /// meadow's brook home goes round: the way onto a pose whose way straight in a grove closes. The lens flies
     /// <see cref="ABOVE_MIN"/> to <see cref="ABOVE_MAX"/> over the ground the way the arid shots do
-    /// (<see cref="AridIntroPaths.Hug"/>: rounded over the run's own travel, never under that clearance), and over the last
-    /// <see cref="CLIMB_MIN"/> to <see cref="CLIMB_MAX"/> units climbs onto the pose's height while the shared landing
-    /// decelerates.
+    /// (<see cref="AridIntroPaths.Hug"/>: rounded over the run's own travel, never under that clearance), climbs onto the
+    /// pose's height over <see cref="CLIMB_MIN"/> to <see cref="CLIMB_MAX"/> units, and comes over the bank round the island
+    /// level with the pose (<see cref="ARRIVE_LEVEL"/>).
     /// </para>
     /// <para>
-    /// <b>The pace.</b> A cruise of <see cref="CRUISE_MIN"/> to <see cref="CRUISE_MAX"/> units a second, which low over the
-    /// grass reads fast (the owner prefers faster to slower; the arid shots that look at the ground under the lens are held to
-    /// 28), then the shared deceleration to rest on the pose over at least <see cref="SETTLE_SECONDS"/>; the look along the
-    /// travel turned half way in towards the arena (<see cref="IntroLanding.Style.LookInward"/>), so the island stands ahead
-    /// the whole way; a light bank.
+    /// <b>The pace.</b> A cruise of <see cref="CRUISE_MIN"/> to <see cref="CRUISE_MAX"/> units a second straight in and up to
+    /// <see cref="CRUISE_ROUND_MAX"/> round the island, which low over the grass reads fast (the owner prefers faster to
+    /// slower; the arid shots that look at the ground under the lens are held to 28), then the shared deceleration to rest on
+    /// the pose over at least <see cref="SETTLE_SECONDS"/>, and round the island over the whole turn in; the look along the
+    /// travel turned half way in towards the arena (<see cref="IntroLanding.Style.LookInward"/>), so the island stands ahead;
+    /// a light bank. No longer than <see cref="LONGEST_SECONDS"/>.
     /// </para>
     /// <para>
     /// <b>Found, not assumed.</b> Rolled candidates are each laid in full and refused if they turn tighter than the speed
@@ -35,12 +40,13 @@ namespace BS3D.Effects
     /// nearer the axis than the pose (<see cref="IntroLanding.KeepOutFor"/>), within <see cref="MARGIN"/> of anything planted,
     /// held as its <see cref="PlantFigure"/> (every instance of every mesh, the sphere round its mesh,
     /// <see cref="SavannaScatter.Solids"/>: NOT the spacing footprints, which a bush's crown overhangs), or within
-    /// <see cref="FIRE_MARGIN"/> of a campfire's hearth and flame. Among the clear ones the one nearest the length asked for,
-    /// arriving along the pose's facing, past the most trees on both hands, flies. ⚠ The bank round the island is one of the
-    /// planting's solids, the sphere round its mesh (35 round the island's foot), and the game's lens stands inside it: it is
-    /// held as ground here (<see cref="BANK_RISE"/>), as the meadow holds its bank, or no landing would ever clear. Null for a
-    /// pose inside the island's radius (the menu's crane) or one that is not clear itself (beside a fire), and the savanna then
-    /// plays the reel it had before, the tour's arrival leg included.
+    /// <see cref="FIRE_MARGIN"/> of a campfire's hearth and flame; the best of the first <see cref="ENOUGH"/> clear ones flies
+    /// (the length asked for, arriving along the pose's facing, past the most trees on both hands). ⚠ Three things the game's
+    /// own lens stands inside are held by the pose instead of by their spheres, or no landing would clear: the bank round the
+    /// island and what is planted on it (<see cref="BANK_REACH"/>), and any solid whose loose sphere reaches the pose
+    /// (<see cref="POSE_SLACK"/>). Null for a pose inside the island's radius (the menu's crane) or one that is not clear
+    /// itself (beside a fire), or where nothing clears, and the savanna then plays the reel it had before, the tour's arrival
+    /// leg included.
     /// </para>
     /// <para>Built once when the intro begins, never per frame.</para>
     /// </summary>
@@ -49,53 +55,83 @@ namespace BS3D.Effects
         /// <summary>The shot's name, in the intro's log line.</summary>
         internal const string NAME = "the grass home";
 
-        //The start: among the groves (the acacias stand 60 to 340 out, SavannaSceneConfig's AcaciaConfig, the tufts from 40),
-        //this far from the axis and up to this many degrees round from the pose's bearing, so the run heads in to the island
-        internal const float START_MIN = 85f, START_MAX = 115f;
-        internal const float START_SPREAD = 40f;
+        //The start straight in: among the grass and the groves (the tufts stand from 40 out, the acacias from 60,
+        //SavannaSceneConfig), START_RUN_MIN to START_RUN_MAX from the pose and up to STRAIGHT_SPREAD degrees round from
+        //straight behind it. ⚠ The stands are found first, not rolled: a tree's sphere reaches 20 to 30 round it (a mesh's
+        //bounding sphere, see POSE_SLACK) and a tuft's 3 to 5, so the plain round the island is mostly closed to a lens this low
+        //and its clear ways in are narrow (at one scene seed the one way in to the Gallery's pose was a corridor 10 to 20
+        //wide), which rolled starts missed every time. So every STAND_STEP_DEGREES and STAND_STEP_OUT the stands are asked
+        //first, at the run's middle height, and a run starts from a clear one.
+        internal const float START_RUN_MIN = 40f, START_RUN_MAX = 90f;
+        private const float STRAIGHT_SPREAD = 75f;
+        private const float STAND_STEP_DEGREES = 3f, STAND_STEP_OUT = 5f;
 
         //The run: heading for the pose give or take this many degrees, straight for this long before the release curves it
         //onto the pose
-        private const float HEADING_SPREAD = 22f;
-        private const float RUN_MIN = 6f, RUN_MAX = 22f;
+        private const float HEADING_SPREAD = 10f;
+        private const float RUN_MIN = 0f, RUN_MAX = 16f;
 
-        //How high over the grass: about the acacia track's 2.2 (SavannaIntroShots), the highest ground at each point and
-        //HUG_LATERAL either side of it, rounded over the run's own travel (AridIntroPaths.Hug)
-        internal const float ABOVE_MIN = 1.8f, ABOVE_MAX = 2.6f;
+        //Or ROUND_SHARE of the time round the island: from a clear stand (asked as the straight ones are) ROUND_FROM_MIN to
+        //ROUND_FROM_MAX degrees round from the pose's bearing and START_BEYOND_MIN to START_BEYOND_MAX farther out than it, in
+        //onto a circle CIRCLE_BEYOND_MIN to CIRCLE_BEYOND_MAX farther out than the pose (the shared release, arriving along the
+        //circle SWEEP_IN_MIN to SWEEP_IN_MAX degrees round from the start), round it, and the shared turn in onto the pose from
+        //SWEEP_OUT_MIN to SWEEP_OUT_MAX degrees short of it (IntroLanding.TurnIn), partly along the turn (SLANT_SOME,
+        //SLANT_MORE). ⚠ A pose hemmed in by groves (their spheres reaching it from outside) has no clear way straight in; along
+        //the circle, between the fires' ring and the groves, it may have. ⚠ The turn in is tightest where it arrives, and the
+        //nearer the circle is to the pose and the straighter down the facing it arrives the tighter: within 15 of the pose,
+        //straight down the facing, it turned at radii of 3 to 8, so the circle stands at least 15 out from it and arrives with
+        //some of the turn kept.
+        private const float ROUND_SHARE = 0.4f;
+        private const float ROUND_FROM_MIN = 40f, ROUND_FROM_MAX = 90f;
+        internal const float START_BEYOND_MIN = 30f, START_BEYOND_MAX = 60f;
+        private const float CIRCLE_BEYOND_MIN = 15f, CIRCLE_BEYOND_MAX = 25f;
+        private const float SWEEP_IN_MIN = 35f, SWEEP_IN_MAX = 65f;
+        private const float SWEEP_OUT_MIN = 45f, SWEEP_OUT_MAX = 75f;
+        private const float SLANT_SOME = 0.3f, SLANT_MORE = 0.55f;
+
+        //How high over the grass: over the highest ground at each point and HUG_LATERAL either side of it, rounded over the
+        //run's own travel (AridIntroPaths.Hug). A little over the acacia track's 2.2 (SavannaIntroShots): a tuft's sphere, a unit
+        //up and 3 to 5 round, closes nearly every way across the plain to a lens lower than that
+        internal const float ABOVE_MIN = 3f, ABOVE_MAX = 4.2f;
         private const float HUG_LATERAL = 1.5f;
 
         //The climb onto the pose's height: over this much of the way's end
-        private const float CLIMB_MIN = 26f, CLIMB_MAX = 42f;
+        private const float CLIMB_MIN = 32f, CLIMB_MAX = 50f;
 
         //The pace: a cruise, then the shared deceleration, which takes at least SETTLE_SECONDS (the meadow's lesson: begun
         //late, a fast cruise came onto the pose at 9 u/s in its last half second)
-        internal const float CRUISE_MIN = 20f, CRUISE_MAX = 24f;
+        internal const float CRUISE_MIN = 20f, CRUISE_MAX = 24f, CRUISE_ROUND_MAX = 26f;
         private const float SETTLE_SECONDS = 2.4f;
 
-        //How long the flight should be: among clear candidates the one nearest it is preferred. It replaces the tour's
-        //4.5-second arrival leg (ChapterIntro.ARRIVAL_SECONDS), and the owner prefers faster to slower
-        private const float TARGET_SECONDS = 5f;
+        //How long the flight should be: among clear candidates the one nearest it is preferred, and none longer than the
+        //longest. It replaces the tour's 4.5-second arrival leg (ChapterIntro.ARRIVAL_SECONDS), and the owner prefers faster to
+        //slower
+        private const float TARGET_SECONDS = 5f, LONGEST_SECONDS = 6f;
 
-        //No tighter than this at the cruise: at 24 u/s a radius of 22 is 63 degrees a second of heading; the deceleration
-        //onto the pose, slowing to rest, may take RELEASE_TURN_RADIUS
-        private const float MIN_TURN_RADIUS = 22f;
+        //No tighter than this at the cruise: at 26 u/s a radius of 16 is 93 degrees a second of heading, which the look's
+        //averaging takes well under the 170 the ride is held to (67 at most over the sweep, SavannaLandingTests); the
+        //deceleration onto the pose, slowing to rest, may take RELEASE_TURN_RADIUS
+        private const float MIN_TURN_RADIUS = 16f;
         private const float RELEASE_TURN_RADIUS = 10f;
 
-        //"Among the trees": a tree whose root stands within this of the low run's line in plan has been passed, on one hand or
-        //the other (a tree's own sphere keeps the lens about 20 off its trunk); each hand counts up to TREES_COUNTED, and one
-        //on each hand is worth more
+        //"Among the trees": a tree whose root stands within this of the run's line in plan before it levels onto the pose has
+        //been passed, on one hand or the other (a tree's own sphere keeps the lens about 20 off its trunk); each hand counts up
+        //to TREES_COUNTED, each tree worth about a second off the length asked for, and one on each hand worth one more
         private const float TREE_NEAR = 36f;
         private const int TREES_COUNTED = 4;
-        private const float TREE_WORTH = 0.5f, BOTH_HANDS_WORTH = 0.75f;
+        private const float TREE_WORTH = 1f, BOTH_HANDS_WORTH = 1f;
 
         //A cut from the shot before it must move the lens this far or turn the view this much (film's thirty-degree rule, the
         //cities' 40 units): two low shots over the grass from nearly one stand read as a glitch
         internal const float CUT_TRAVEL = 40f;
         internal const float CUT_TURN = 30f;
 
-        //The plan's spacing, and the candidates rolled
+        //The plan's spacing, the candidates rolled at most and the clear ones the search stops at (a third of the rolls clear
+        //where the plain is open: rolled to the end, a build took 350 ms in a Debug build, and it takes 60 to 85), and how many
+        //of the plan's points the first look skips (see Lay)
         private const float STEP = 0.5f;
-        private const int CANDIDATES = 64;
+        private const int CANDIDATES = 480, ENOUGH = 32;
+        private const int SCOUT_STEP = 4;
 
         //Clearances. Every point keeps MARGIN off every solid (the savanna's other shots' 1.2) and LOWEST over the ground. A
         //fire is its hearth and its flame: a capsule from its foot up the flame's height, as wide as the hearth's stones reach
@@ -103,18 +139,35 @@ namespace BS3D.Effects
         //nearest the axis the lens comes.
         private const float MARGIN = 1.2f;
         private const float LOWEST = 1.2f;
+
+        //⚠ A solid's sphere is its mesh's bounding sphere, and a tree's is loose: up to 31 round a big acacia whose crown reaches
+        //17, so a tree 60 out reaches a game's lens 37 out (poses swept round the arena stood inside one, and no landing on them
+        //was clear). A solid the pose itself stands within MARGIN and POSE_SLACK of is held at the pose's own clearance of it,
+        //less POSE_SLACK: what the game's lens clears all level, a lens no nearer clears too.
+        private const float POSE_SLACK = 0.5f;
         internal const float FIRE_MARGIN = 1.5f;
         private const float ARRIVAL_SLACK = 0.5f;
 
-        //The bank round the island (IslandBerm): out to BANK_REACH from the axis it stands up to BANK_RISE over the ground it
-        //was built off (its section's 1.05 and 0.75 at its wander's lift of up to 1.4), and its inner ring up to BANK_TOP over
-        //the island's foot (1.35 at that lift)
+        //The bank round the island (IslandBerm) and what is planted on it, its grass against the wall and its stones at its
+        //foot (SavannaScatter's berm tufts and stones, all within BANK_REACH of the axis): the arena's, as the island is, and
+        //the game's own lens stands over it. Held as the arena is rather than by its spheres: ⚠ the sphere round a tuft on the
+        //bank reaches past the game's lens itself (at one scene seed a tuft 26.6 out reached the Gallery's pose, 30 out), and
+        //held by it no landing on that pose cleared. Within BANK_REACH the lens is never nearer the axis than the pose
+        //(IntroLanding.KeepOutFor) nor lower than it less BANK_SLACK: the grass leans out from the wall and falls away, so what
+        //the game's lens clears a lens no nearer and no lower clears too; the climb is over ARRIVE_LEVEL short of the pose, so
+        //the lens comes over the bank at the pose's height. The bank itself stands up to BANK_RISE over the ground it was built
+        //off (its section's 1.05 and 0.75 at its wander's lift of up to 1.4), its inner ring up to BANK_TOP over the island's
+        //foot (1.35 at that lift).
         private const float BANK_REACH = ArenaIsland.RADIUS + 8f;
+        private const float BANK_SLACK = 0.5f;
         private const float BANK_RISE = 1.5f;
         private const float BANK_TOP = ArenaIsland.TOP_Y - ArenaIsland.EDGE_HEIGHT + 1.9f;
 
         //How far outside the island's radius the pose must stand for a landing at all: the game's lens stands 28 to 45 out
         private const float ISLAND_CLEAR = 2f;
+
+        //The climb is over this far short of the pose: the bank's reach from the nearest pose landed on
+        private const float ARRIVE_LEVEL = BANK_REACH - (ArenaIsland.RADIUS + ISLAND_CLEAR);
 
         //A cell of the solids' grid, world units
         private const float CELL = 12f;
@@ -144,30 +197,105 @@ namespace BS3D.Effects
             if (facing.LengthSquared() < 1e-6f) return null;
             facing.Normalize();
 
-            var obstacles = new Obstacles(land, IntroLanding.KeepOutFor(endPosition, IntroGround.ARENA_KEEP_OUT + MARGIN, ARRIVAL_SLACK));
+            var obstacles = new Obstacles(land, endPosition);
             if (!obstacles.Clear(endPosition)) return null;
 
-            IntroLanding.Route best = IntroLanding.Best(CANDIDATES, () => Lay(land, obstacles, endPosition, facing, random, cutFrom), obstacles.Clear);
+            List<Vector2> straight = StraightStarts(obstacles, endPosition, facing);
+            List<(int Sign, float Bearing, float Distance)> round = RoundStarts(obstacles, endPosition);
+            //The best of the first ENOUGH clear routes: a third of the rolls clear where the plain is open, and the rest
+            //only cost the build its time
+            int clear = 0;
+            IntroLanding.Route best = IntroLanding.Best(CANDIDATES, () =>
+            {
+                if (clear >= ENOUGH) return null;
+                IntroLanding.Route route = Lay(land, obstacles, straight, round, endPosition, facing, random, cutFrom);
+                if (route == null || !IntroLanding.Clear(route.Path, obstacles.Clear)) return null;
+                clear++;
+                return route;
+            });
             return best == null ? null : IntroLanding.Fly(NAME, best, endPosition, endTarget, fieldOfView, Landing);
         }
 
-        private static IntroLanding.Route Lay(SavannaLand land, Obstacles obstacles, Vector3 endPosition, Vector2 facing, Random random,
+        /// <summary>
+        /// Where a run straight in may start (see <see cref="START_RUN_MIN"/>): the stands within <see cref="STRAIGHT_SPREAD"/>
+        /// degrees of straight behind the pose, every <see cref="STAND_STEP_DEGREES"/>, and <see cref="START_RUN_MIN"/> to
+        /// <see cref="START_RUN_MAX"/> from it, every <see cref="STAND_STEP_OUT"/>, where a lens at the run's middle height over
+        /// the ground is clear.
+        /// </summary>
+        private static List<Vector2> StraightStarts(Obstacles obstacles, Vector3 endPosition, Vector2 facing)
+        {
+            var starts = new List<Vector2>();
+            Vector2 end = new(endPosition.X, endPosition.Z);
+            float behind = MathF.Atan2(-facing.Y, -facing.X), above = (ABOVE_MIN + ABOVE_MAX) * 0.5f;
+
+            for (float off = -STRAIGHT_SPREAD; off <= STRAIGHT_SPREAD; off += STAND_STEP_DEGREES)
+                for (float run = START_RUN_MIN; run <= START_RUN_MAX; run += STAND_STEP_OUT)
+                {
+                    Vector2 at = end + IntroGround.Heading(behind + MathHelper.ToRadians(off)) * run;
+                    if (obstacles.Clear(new Vector3(at.X, obstacles.Ground(at.X, at.Y) + above, at.Y))) starts.Add(at);
+                }
+
+            return starts;
+        }
+
+        /// <summary>
+        /// Where a run round the island may start (see <see cref="ROUND_SHARE"/>): the stands <see cref="ROUND_FROM_MIN"/> to
+        /// <see cref="ROUND_FROM_MAX"/> degrees round from the pose's bearing either way, every <see cref="STAND_STEP_DEGREES"/>,
+        /// and <see cref="START_BEYOND_MIN"/> to <see cref="START_BEYOND_MAX"/> farther out than it, every
+        /// <see cref="STAND_STEP_OUT"/>, where a lens at the run's middle height over the ground is clear.
+        /// </summary>
+        private static List<(int Sign, float Bearing, float Distance)> RoundStarts(Obstacles obstacles, Vector3 endPosition)
+        {
+            var starts = new List<(int, float, float)>();
+            Vector2 end = new(endPosition.X, endPosition.Z);
+            float poseDistance = end.Length(), poseBearing = IntroGround.Bearing(end), above = (ABOVE_MIN + ABOVE_MAX) * 0.5f;
+
+            for (int sign = -1; sign <= 1; sign += 2)
+                for (float degrees = ROUND_FROM_MIN; degrees <= ROUND_FROM_MAX; degrees += STAND_STEP_DEGREES)
+                    for (float beyond = START_BEYOND_MIN; beyond <= START_BEYOND_MAX; beyond += STAND_STEP_OUT)
+                    {
+                        float bearing = -sign * MathHelper.ToRadians(degrees);
+                        Vector2 at = IntroGround.Heading(poseBearing + bearing) * (poseDistance + beyond);
+                        if (obstacles.Clear(new Vector3(at.X, obstacles.Ground(at.X, at.Y) + above, at.Y))) starts.Add((sign, bearing, poseDistance + beyond));
+                    }
+
+            return starts;
+        }
+
+        private static IntroLanding.Route Lay(SavannaLand land, Obstacles obstacles, List<Vector2> straightStarts,
+            List<(int Sign, float Bearing, float Distance)> roundStarts, Vector3 endPosition, Vector2 facing, Random random,
             (Vector3 Position, Vector3 Target)? cutFrom)
         {
-            float startBearing = MathHelper.ToRadians(AridIntroPaths.Roll(random, -START_SPREAD, START_SPREAD));
-            float startDistance = AridIntroPaths.Roll(random, START_MIN, START_MAX);
+            Vector2 end = new(endPosition.X, endPosition.Z);
+            float poseDistance = end.Length(), poseBearing = IntroGround.Bearing(end);
+
+            bool round = random.NextDouble() < ROUND_SHARE;
+            if ((round ? roundStarts.Count : straightStarts.Count) == 0) return null;
+
+            int pick = random.Next(round ? roundStarts.Count : straightStarts.Count);
+            int sign = round ? roundStarts[pick].Sign : 1;
+            float startBearing = round ? roundStarts[pick].Bearing : 0f;
+            float startDistance = round ? roundStarts[pick].Distance : 0f;
             float headingTurn = MathHelper.ToRadians(AridIntroPaths.Roll(random, -HEADING_SPREAD, HEADING_SPREAD));
             float run = AridIntroPaths.Roll(random, RUN_MIN, RUN_MAX);
+            float radius = poseDistance + AridIntroPaths.Roll(random, CIRCLE_BEYOND_MIN, CIRCLE_BEYOND_MAX);
+            float sweepIn = MathHelper.ToRadians(AridIntroPaths.Roll(random, SWEEP_IN_MIN, SWEEP_IN_MAX));
+            float sweepOut = MathHelper.ToRadians(AridIntroPaths.Roll(random, SWEEP_OUT_MIN, SWEEP_OUT_MAX));
             float above = AridIntroPaths.Roll(random, ABOVE_MIN, ABOVE_MAX);
             float climb = AridIntroPaths.Roll(random, CLIMB_MIN, CLIMB_MAX);
-            float cruise = AridIntroPaths.Roll(random, CRUISE_MIN, CRUISE_MAX);
+            float cruise = AridIntroPaths.Roll(random, CRUISE_MIN, round ? CRUISE_ROUND_MAX : CRUISE_MAX);
             double arrival = random.NextDouble();
             float noise = (float)random.NextDouble();
 
-            Vector2 end = new(endPosition.X, endPosition.Z);
-            Vector2 start = IntroGround.Heading(IntroGround.Bearing(end) + startBearing) * startDistance;
-            Vector2 toPose = Vector2.Normalize(end - start);
-            float heading0 = MathF.Atan2(toPose.Y, toPose.X) + headingTurn;
+            Vector2 start = round ? IntroGround.Heading(poseBearing + startBearing) * startDistance
+                : straightStarts[pick];
+
+            //Round the island the run heads in for the release's last control point short of the circle's entry (so it bends
+            //onto the circle once, gently), straight in for the pose, give or take the heading's roll
+            float entryBearing = poseBearing + startBearing + sign * sweepIn;
+            Vector2 aim = round ? Entry(start, entryBearing, radius, sign) : end;
+            Vector2 toAim = Vector2.Normalize(aim - start);
+            float heading0 = MathF.Atan2(toAim.Y, toAim.X) + (round ? headingTurn * 0.5f : headingTurn);
             Vector2 heading = IntroGround.Heading(heading0);
 
             //A cut from the shot before: the lens moved far enough, or the view turned far enough
@@ -180,19 +308,61 @@ namespace BS3D.Effects
                 if (Vector3.Distance(first, previous) < CUT_TRAVEL && MathHelper.ToDegrees(turned) < CUT_TURN) return null;
             }
 
-            //The run, then the release onto the pose
+            //The run, then the release onto the pose; or round the island, the release onto the circle, round it and the turn
+            //in onto the pose
             var plan = new List<Vector2>();
-            IntroLanding.Straight(plan, start, start + heading * run, STEP);
-            int releaseStart = plan.Count - 1;
-            Vector2 arrive = IntroLanding.Arrival(arrival, facing, heading);
-            IntroLanding.Release(plan, plan[^1], heading, end, arrive, STEP);
+            int releaseStart;
+            Vector2 arrive;
+            if (!round)
+            {
+                //⚠ No run shorter than a step: Straight lays two points for any length, and a plan with a point twice over is
+                //flown with a step in its height there (the hug spaces its points by their order along the plan)
+                if (run >= STEP) IntroLanding.Straight(plan, start, start + heading * run, STEP);
+                else plan.Add(start);
+                releaseStart = plan.Count - 1;
+                arrive = IntroLanding.Arrival(arrival, facing, heading);
+                IntroLanding.Release(plan, plan[^1], heading, end, arrive, STEP);
+            }
+            else
+            {
+                float turn = MathF.Abs(startBearing);
+                if (sweepIn + sweepOut > turn)
+                {
+                    float share = turn / (sweepIn + sweepOut);
+                    sweepIn *= share;
+                    sweepOut *= share;
+                }
 
-            //The lengths, and where the deceleration begins: at least SETTLE_SECONDS from the end at the cruise
+                entryBearing = poseBearing + startBearing + sign * sweepIn;
+                plan.Add(start);
+                IntroLanding.Release(plan, start, heading, IntroGround.Heading(entryBearing) * radius, Tangent(entryBearing, sign), STEP);
+
+                //(and no arc shorter than a step, for the same reason: the turn in takes it)
+                float arc = turn - sweepIn - sweepOut;
+                if (arc * radius < STEP) arc = 0f;
+                int arcSteps = (int)MathF.Ceiling(arc * radius / STEP);
+                for (int i = 1; i <= arcSteps; i++) plan.Add(IntroGround.Heading(entryBearing + sign * arc * i / arcSteps) * radius);
+
+                releaseStart = plan.Count - 1;
+                float slant = arrival < 0.6 ? SLANT_SOME : SLANT_MORE;
+                IntroLanding.TurnIn(plan, entryBearing + sign * arc, radius, sign, end, slant, STEP);
+                arrive = Vector2.Normalize(plan[^1] - plan[^2]);
+            }
+
+            //Evenly spaced along its length: a release is thinned to at least a step, not to one, and the hug spaces its heights
+            //by the points' order along the plan, so an uneven plan flew a ripple in its height over sloping ground (a jolt of
+            //54 u/s² up the rise 112 out)
+            float releaseAt = IntroLanding.PlanLength(plan.GetRange(0, releaseStart + 1));
+            plan = Even(plan, STEP, out float spacing);
+            releaseStart = Math.Min((int)MathF.Round(releaseAt / spacing), plan.Count - 1);
+
+            //The lengths, and where the deceleration begins: at least SETTLE_SECONDS from the end at the cruise, and round the
+            //island no later than the turn in, whose tightest turn a cruise cannot take (the meadow's rule)
             var length = new float[plan.Count];
             for (int i = 1; i < plan.Count; i++) length[i] = length[i - 1] + Vector2.Distance(plan[i - 1], plan[i]);
             float total = length[^1];
 
-            float settle = cruise * SETTLE_SECONDS / Landing.ReleaseTimeScale;
+            float settle = MathF.Max(cruise * SETTLE_SECONDS / Landing.ReleaseTimeScale, round ? total - length[releaseStart] : 0f);
             int settleFrom = plan.Count - 2;
             while (settleFrom > 0 && total - length[settleFrom] < settle) settleFrom--;
             if (settleFrom < 1) return null;
@@ -200,29 +370,43 @@ namespace BS3D.Effects
             if (!IntroLanding.NoTighterThan(plan, 0, MIN_TURN_RADIUS, settleFrom + 3)
                 || !IntroLanding.NoTighterThan(plan, Math.Max(releaseStart, settleFrom), RELEASE_TURN_RADIUS)) return null;
 
-            //The heights: low over the ground the way a drone flies it, rounded over the run's travel at the cruise (the hug
-            //takes a shot's seconds at its eased clock's peak pace, so the cruise's seconds are handed over divided by it), then
-            //eased onto the pose's height over the climb
+            //How long it will take (the shared landing's own timing): no longer than LONGEST_SECONDS, and the one nearest
+            //TARGET_SECONDS is preferred
+            float estimate = length[settleFrom] / cruise + Landing.ReleaseTimeScale * (total - length[settleFrom]) / cruise;
+            if (estimate > LONGEST_SECONDS) return null;
+
+            //A first look before the heights are flown: every SCOUT_STEP-th point at the run's height over the ground under it,
+            //eased onto the pose's as below. Nearly every roll stands in a tree's sphere or a tuft's somewhere, and refused here
+            //it costs no hug; the route that passes is asked again, whole, at the heights it is flown at
+            float sLevel = MathF.Max(total - ARRIVE_LEVEL, 0f), sClimb = MathF.Max(sLevel - climb, 0f);
+            for (int i = 0; i < plan.Count; i += SCOUT_STEP)
+            {
+                float rise = Rise(length[i], sClimb, sLevel);
+                if (!obstacles.Clear(new Vector3(plan[i].X, MathHelper.Lerp(obstacles.Ground(plan[i].X, plan[i].Y) + above, endPosition.Y, rise), plan[i].Y)))
+                    return null;
+            }
+
+            //The heights: low over the ground the way a drone flies it, rounded over the run's travel (the hug rounds at a
+            //shot's peak pace, IntroShot.PEAK_PACE times the mean its seconds give, and the landing is walked on the same eased
+            //clock, so the cruise's seconds are what it is handed), then eased onto the pose's height over the climb, which is
+            //over ARRIVE_LEVEL short of it
             Vector3[] hug = AridIntroPaths.Hug(plan.ToArray(), obstacles.Ground, above, HUG_LATERAL,
-                seconds: IntroShot.PEAK_PACE * total / cruise);
-            float sClimb = MathF.Max(total - climb, 0f);
+                seconds: total / cruise);
 
             var path = new List<Vector3>(plan.Count);
             var speed = new float[plan.Count];
             for (int i = 0; i < plan.Count; i++)
             {
-                float rise = MathHelper.SmoothStep(0f, 1f, MathHelper.Clamp((length[i] - sClimb) / MathF.Max(total - sClimb, 1e-3f), 0f, 1f));
+                float rise = Rise(length[i], sClimb, sLevel);
                 path.Add(new Vector3(plan[i].X, MathHelper.Lerp(hug[i].Y, endPosition.Y, rise), plan[i].Y));
                 speed[i] = cruise;
             }
             path[^1] = endPosition;
 
-            //How long it will take (the shared landing's own timing), so the one nearest TARGET_SECONDS is preferred
-            float estimate = length[settleFrom] / cruise + Landing.ReleaseTimeScale * (total - length[settleFrom]) / cruise;
 
-            //Among the trees: the trees the low run (before the climb) passes within TREE_NEAR of, on each hand
+            //Among the trees: the trees the run passes within TREE_NEAR of before it levels onto the pose, on each hand
             int low = 0;
-            while (low + 1 < plan.Count && length[low + 1] <= sClimb) low++;
+            while (low + 1 < plan.Count && length[low + 1] <= sLevel) low++;
             (int left, int right) = Passed(plan, low, land.Trees);
             float among = TREE_WORTH * (Math.Min(left, TREES_COUNTED) + Math.Min(right, TREES_COUNTED))
                 + (left > 0 && right > 0 ? BOTH_HANDS_WORTH : 0f);
@@ -235,6 +419,54 @@ namespace BS3D.Effects
                 Path = path, Speed = speed, DecelerateFrom = settleFrom,
                 Score = -MathF.Abs(estimate - TARGET_SECONDS) - 2f * swivel + among + noise * 0.5f,
             };
+        }
+
+        /// <summary>
+        /// <paramref name="plan"/> laid again at even spacing along its length, as near <paramref name="step"/> as divides it
+        /// (<paramref name="spacing"/>), from its first point to its last.
+        /// </summary>
+        private static List<Vector2> Even(List<Vector2> plan, float step, out float spacing)
+        {
+            float total = IntroLanding.PlanLength(plan);
+            int steps = Math.Max(1, (int)MathF.Round(total / step));
+            spacing = total / steps;
+
+            var even = new List<Vector2>(steps + 1) { plan[0] };
+            int i = 1;
+            float before = 0f, segment = Vector2.Distance(plan[0], plan[Math.Min(1, plan.Count - 1)]);
+            for (int k = 1; k < steps; k++)
+            {
+                float s = k * spacing;
+                while (i < plan.Count - 1 && before + segment < s)
+                {
+                    before += segment;
+                    i++;
+                    segment = Vector2.Distance(plan[i - 1], plan[i]);
+                }
+                even.Add(Vector2.Lerp(plan[i - 1], plan[i], segment > 1e-6f ? MathHelper.Clamp((s - before) / segment, 0f, 1f) : 1f));
+            }
+            even.Add(plan[^1]);
+            return even;
+        }
+
+        /// <summary>The circle's direction of travel at <paramref name="bearing"/>, going round the way <paramref name="sign"/>
+        /// says (positive is the bearing growing).</summary>
+        private static Vector2 Tangent(float bearing, int sign) => new(-sign * MathF.Sin(bearing), sign * MathF.Cos(bearing));
+
+        //The release's last control point onto the circle at a bearing (IntroLanding.Release puts it 0.35 of the way's reach
+        //back along the arrival), which a run headed for bends onto the circle once
+        private static Vector2 Entry(Vector2 start, float bearing, float radius, int sign)
+        {
+            Vector2 entry = IntroGround.Heading(bearing) * radius;
+            return entry - Tangent(bearing, sign) * (Vector2.Distance(start, entry) * 0.35f);
+        }
+
+        //How far onto the pose's height the lens has climbed at a length along the way: a quintic ease from sClimb to sLevel,
+        //whose climb rate changes from nothing at both ends (a smoothstep's jumps there)
+        private static float Rise(float s, float sClimb, float sLevel)
+        {
+            float u = MathHelper.Clamp((s - sClimb) / MathF.Max(sLevel - sClimb, 1e-3f), 0f, 1f);
+            return u * u * u * (u * (u * 6f - 15f) + 10f);
         }
 
         /// <summary>
@@ -268,19 +500,22 @@ namespace BS3D.Effects
         internal sealed class Obstacles
         {
             private readonly SavannaLand _land;
-            private readonly float _keepOut;
+            private readonly float _keepOut, _bankFloor;
             private readonly List<PlantFigure> _solids = new();
+            private readonly List<float> _need = new();
             private readonly Dictionary<(int, int), List<int>> _byCell = new();
 
-            /// <param name="keepOut">The nearest the axis a point may stand (<see cref="IntroLanding.KeepOutFor"/>).</param>
-            public Obstacles(SavannaLand land, float keepOut)
+            /// <param name="pose">The pose landed on: no point stands nearer the axis (<see cref="IntroLanding.KeepOutFor"/>),
+            /// nor lower over the bank (see <see cref="BANK_REACH"/>).</param>
+            public Obstacles(SavannaLand land, Vector3 pose)
             {
                 _land = land;
-                _keepOut = keepOut;
+                _keepOut = IntroLanding.KeepOutFor(pose, IntroGround.ARENA_KEEP_OUT + MARGIN, ARRIVAL_SLACK);
+                _bankFloor = pose.Y - BANK_SLACK;
 
                 foreach (PlantFigure solid in land.Solids)
                 {
-                    //The bank round the island, the one solid centred on the axis: held as ground (BANK_RISE), see the class's note
+                    //The bank round the island and what is planted on it: held as the arena is, see BANK_REACH
                     if (IsBank(solid)) continue;
 
                     //Every cell the solid's sphere or capsule, with the margin, can reach into
@@ -290,6 +525,7 @@ namespace BS3D.Effects
 
                     int index = _solids.Count;
                     _solids.Add(solid);
+                    _need.Add(MathF.Min(MARGIN, Off(solid, pose) - POSE_SLACK));
                     for (int i = Cell(minX); i <= Cell(maxX); i++)
                         for (int j = Cell(minZ); j <= Cell(maxZ); j++)
                         {
@@ -299,11 +535,17 @@ namespace BS3D.Effects
                 }
             }
 
-            /// <summary>Whether <paramref name="solid"/> is the bank round the island (<c>IslandBerm</c>'s two meshes, the
-            /// one thing planted on the axis), which the flight holds as ground rather than as a sphere.</summary>
-            internal static bool IsBank(PlantFigure solid) => new Vector2(solid.Crown.X, solid.Crown.Z).Length() < ArenaIsland.RADIUS;
+            /// <summary>Whether <paramref name="solid"/> is the bank round the island or stands on it (<c>IslandBerm</c>'s two
+            /// meshes, centred on the axis, and the grass and the stones planted on it), which the flight holds as the arena is
+            /// (see <see cref="BANK_REACH"/>) rather than by its sphere.</summary>
+            internal static bool IsBank(PlantFigure solid) => new Vector2(solid.Root.X, solid.Root.Z).Length() < BANK_REACH;
 
             private static int Cell(float v) => (int)MathF.Floor(v / CELL);
+
+            /// <summary>How far <paramref name="p"/> stands off <paramref name="solid"/>: off its crown's sphere or its stem,
+            /// whichever is nearer (negative inside).</summary>
+            internal static float Off(PlantFigure solid, Vector3 p) => MathF.Min(Vector3.Distance(p, solid.Crown) - solid.Reach,
+                IntroPaths.DistanceToSegment(p, solid.Root, solid.Crown) - solid.Stem);
 
             /// <summary>The ground a lens is held over: the land, and the bank round the island where it stands.</summary>
             public float Ground(float x, float z)
@@ -315,7 +557,8 @@ namespace BS3D.Effects
             /// <summary>Whether a lens at <paramref name="p"/> is clear of everything the flight keeps off.</summary>
             public bool Clear(Vector3 p)
             {
-                if (MathF.Sqrt(p.X * p.X + p.Z * p.Z) < _keepOut) return false;
+                float fromAxis = MathF.Sqrt(p.X * p.X + p.Z * p.Z);
+                if (fromAxis < _keepOut || (fromAxis < BANK_REACH && p.Y < _bankFloor)) return false;
                 if (p.Y < Ground(p.X, p.Z) + LOWEST) return false;
 
                 foreach (Vector3 fire in _land.Fires)
@@ -323,11 +566,7 @@ namespace BS3D.Effects
 
                 if (_byCell.TryGetValue((Cell(p.X), Cell(p.Z)), out List<int> near))
                     foreach (int index in near)
-                    {
-                        PlantFigure solid = _solids[index];
-                        if (Vector3.Distance(p, solid.Crown) - solid.Reach < MARGIN) return false;
-                        if (IntroPaths.DistanceToSegment(p, solid.Root, solid.Crown) - solid.Stem < MARGIN) return false;
-                    }
+                        if (Off(_solids[index], p) < _need[index]) return false;
 
                 return true;
             }
@@ -350,10 +589,11 @@ namespace BS3D.Effects
         IReadOnlyList<PlantFigure> Acacias, IReadOnlyList<PlantFigure> Baobabs, IReadOnlyList<Vector3> Fires, float FireReach, float FireHeight)
     {
         //A hearth's stones (SavannaBackdrop.BuildHearthStones): a ring of FlameSize * StoneRingScale, each stone jittered out to
-        //HEARTH_RING_OUT of it, a stone FlameSize * StoneSizeScale times up to 1.18 for its variant, 1.34 for its lathe's
-        //wobble and 1.27 for its scale. Wider than the flame's own volume (1.45 fire sizes), so it is the fire's reach.
+        //HEARTH_RING_OUT of it, and the sphere round the largest of the three stones 1.6 of FlameSize * StoneSizeScale (its
+        //lathe's wobble included), at a scale of up to 1.27. Wider than the flame's own volume (1.45 fire sizes), so it is the
+        //fire's reach.
         private const float HEARTH_RING_OUT = 1.12f;
-        private const float HEARTH_STONE_REACH = 1.18f * 1.34f * 1.27f;
+        private const float HEARTH_STONE_REACH = 1.65f * 1.27f;
 
         /// <summary>The trees a run among them is counted against: the acacias and the baobabs.</summary>
         public IReadOnlyList<PlantFigure> Trees { get; } = Concat(Acacias, Baobabs);
