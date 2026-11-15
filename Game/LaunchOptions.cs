@@ -366,6 +366,10 @@ namespace BS3D
         //Testing only: seconds of the floor net's opening reveal at which the frame is saved (#933). See SessionTestOptions.RevealShotSeconds.
         internal float[] RevealShotSeconds { get; private set; }
 
+        //Testing only: seconds of a chapter intro's own clock at which the frame is saved (#1118). See
+        //SessionTestOptions.IntroShotSeconds.
+        internal float[] IntroShotSeconds { get; private set; }
+
         //Testing only: seconds of the intro's own clock at which the frame is saved (#1105). See BS3DGame.SplashShotSeconds.
         internal float[] SplashShotSeconds { get; private set; }
 
@@ -726,6 +730,11 @@ namespace BS3D
             //reveal's clock is held at each in turn for one frame, so a capture shows the housings and the light at the stated
             //moment of a two-second show however long the capture before it took (shot= is the wall clock and cannot frame it).
             Row.List("revealshot", (o, v) => o.RevealShotSeconds = v),
+            //"introshot=<s1,s2,…>" saves the frame at those seconds of a chapter intro's own clock (#1118), prologue included:
+            //the clock is held at each in turn for one frame, so a capture shows the stated moment of the flight however long
+            //the level took to load and the capture before it took (a hitch holds the intro, ChapterIntro.MAX_INTRO_STEP, so
+            //shot='s wall clock drifts off it by about half a second a capture).
+            Row.List("introshot", (o, v) => o.IntroShotSeconds = v),
             //"splashshot=<s1,s2,…>" saves the frame at those seconds of the intro's own clock (#1105), 0 to its length: the age is
             //held at each in turn for one frame, so a capture shows the stated moment of the dissolve however long the capture
             //before it took. shot= cannot frame it: a capture's stall moves the wall clock on by a tenth of a second or more,

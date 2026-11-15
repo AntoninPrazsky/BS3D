@@ -1638,8 +1638,9 @@ namespace BS3D.Screens
             if (!_cinematic.Engaged) _cinematicSubject.Clear();
 
             //The chapter intro has no subject to read and no time scale to feed the step below — see the
-            //class remarks on why. Just its own pose and blend, exactly like the line above.
-            _chapterIntro.Update(elapsed);
+            //class remarks on why. Just its own pose and blend, exactly like the line above (or, testing only, its
+            //frame held at the next moment introshot= names).
+            if (!TryIntroShot(elapsed)) _chapterIntro.Update(elapsed);
 
             //And the cluster it held still is let go the moment it hands the lens back (#690) - see ReleaseCluster
             if (_releasePending && !_chapterIntro.Running) ReleaseCluster();

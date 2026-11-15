@@ -84,6 +84,10 @@ namespace BS3D.Screens
     /// reveal is two seconds and every capture's own hitch moves the next frame, so the wall clock's <c>shot=</c> cannot frame it.</param>
     /// <param name="ShotSpeed">The <c>shotspeed=</c> argument (#1007): the speed every shot leaves at and every preview is solved
     /// for, or null for the shipped <c>SHOOT_SPEED</c>.</param>
+    /// <param name="IntroShotSeconds">The <c>introshot=</c> argument (#1118): seconds of a chapter intro's own clock, prologue
+    /// included, at which the frame is saved, in order, the clock held at each for a frame (<c>ChapterIntro.Pin</c>); empty or
+    /// null for none. A capture's hitch holds the intro (<c>ChapterIntro.MAX_INTRO_STEP</c>) while the wall clock runs on, so
+    /// <c>shot=</c> drifts off a moment of the flight by about half a second a capture.</param>
     internal sealed record SessionTestOptions(
         int? ForcedStreak,
         int ForcedWildcardEvery,
@@ -103,7 +107,8 @@ namespace BS3D.Screens
         IReadOnlyList<float> CutShotSeconds = null,
         IReadOnlyList<float> SwapShotSeconds = null,
         IReadOnlyList<float> RevealShotSeconds = null,
-        float? ShotSpeed = null)
+        float? ShotSpeed = null,
+        IReadOnlyList<float> IntroShotSeconds = null)
     {
         /// <summary>
         /// Reads the levers out of what the command line said. The one place their interpretation lives: any
@@ -131,6 +136,7 @@ namespace BS3D.Screens
             CutShotSeconds: launch.CutShotSeconds ?? Array.Empty<float>(),
             SwapShotSeconds: launch.SwapShotSeconds ?? Array.Empty<float>(),
             RevealShotSeconds: launch.RevealShotSeconds ?? Array.Empty<float>(),
-            ShotSpeed: launch.ShotSpeed);
+            ShotSpeed: launch.ShotSpeed,
+            IntroShotSeconds: launch.IntroShotSeconds ?? Array.Empty<float>());
     }
 }
