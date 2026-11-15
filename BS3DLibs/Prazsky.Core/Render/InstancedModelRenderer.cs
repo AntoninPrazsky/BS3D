@@ -333,11 +333,25 @@ namespace Prazsky.Core.Render
         /// <summary>How far from the lens, in world units, a pane mirrors the towers round it; past it a pane keeps only the
         /// sky. Close to a facade is where a reflection reads (the chapter intros' flights between the towers); from the play
         /// camera a window is a few pixels, and the march there was most of the cost (#1065).</summary>
-        public float CityReflectionReach { get; set; } = 40f;
+        public float CityReflectionReach { get; set; } = DEFAULT_CITY_REFLECTION_REACH;
+
+        /// <summary>
+        /// <see cref="CityReflectionReach"/> as the Game draws it. A pane mirrors at full strength to two thirds of it and fades
+        /// to the plain pane at it (<c>CityReflection.fxh</c>), which is what the city's chapter intro frames its look up the
+        /// facades inside (#1119).
+        /// </summary>
+        public const float DEFAULT_CITY_REFLECTION_REACH = 40f;
 
         /// <summary>How many steps a mirror ray takes before it gives up and keeps the sky: a jump across empty texels
         /// or a texel beside a tower each (CityReflection.fxh's march).</summary>
-        public int CityReflectionSteps { get; set; } = 16;
+        public int CityReflectionSteps { get; set; } = DEFAULT_CITY_REFLECTION_STEPS;
+
+        /// <summary>
+        /// <see cref="CityReflectionSteps"/> as the Game draws it, and the budget the city's chapter intro asks
+        /// <see cref="CityReflectionField.March"/> to mirror a tower within (#1119): a ray grazing down a street can spend
+        /// every one of them before it gets across.
+        /// </summary>
+        public const int DEFAULT_CITY_REFLECTION_STEPS = 16;
 
         //The reflect technique's own uniforms. Null on OpenGL ES, where the technique is the plain program and declares none
         private EffectParameter _cityReflectMapParam, _cityReflectOriginParam, _cityReflectSizeParam, _cityReflectTexelParam,

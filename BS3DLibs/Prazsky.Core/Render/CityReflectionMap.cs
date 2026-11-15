@@ -47,6 +47,12 @@ namespace Prazsky.Core.Render
         public float Ground { get; }
 
         /// <summary>
+        /// The same map's heights and distances on the CPU, and the shader's march over them (#1119): what the city's chapter
+        /// intro asks whether a pane it frames mirrors a tower in the game's own steps.
+        /// </summary>
+        public CityReflectionField Field { get; }
+
+        /// <summary>
         /// The id's packing: <c>(x + ID_BIAS) * ID_SPAN + (z + ID_BIAS)</c>, a whole number a float holds exactly for any
         /// id the grid makes (a few hundred either way). <c>CityReflection.fxh</c> unpacks it with the same two figures.
         /// </summary>
@@ -65,6 +71,7 @@ namespace Prazsky.Core.Render
             Size = new Vector2(width, height);
             Top = top;
             Ground = city.GroundY;
+            Field = new CityReflectionField(texels, width, height, origin, top, city.GroundY);
         }
 
         /// <summary>

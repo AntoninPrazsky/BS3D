@@ -7,8 +7,10 @@ namespace BS3D.Effects
 {
     /// <summary>
     /// The savanna's own shots for a chapter intro's prologue (#559): the plain from above with the arena and
-    /// its ring of campfires in it, a slow walk round a baobab, and a track past an acacia in its grove — cut
-    /// together, then cut to the tour's last leg. The spline it replaces circled the arena at stand-off
+    /// its ring of campfires in it, a slow walk round a baobab, a track past an acacia in its grove, and last
+    /// <b>the grass home</b> (<see cref="SavannaLanding"/>, #1108), a run low over the grass among the trees that
+    /// lands on the gameplay pose, so no tour leg follows; where no flight home is clear, the tour's last leg
+    /// follows the acacia as it did. The spline it replaces circled the arena at stand-off
     /// height and turned to the campfire and back, which the owner read as neck-breaking turns; the plain's
     /// own things — #451's baobabs and acacias — stand a hundred units and more out, where it never went.
     /// <para>
@@ -51,36 +53,52 @@ namespace BS3D.Effects
         private const int TRIES = 24;
 
         /// <summary>The prologue for the savanna on screen, or null when its planting is not built.</summary>
-        public static IntroShot[] Build(SceneRenderer scenes, float fieldOfView, Random random)
+        /// <param name="endPosition">The pose the intro hands the camera back at (<see cref="IntroContext.GamePosition"/>),
+        /// which the grass home lands on.</param>
+        /// <param name="endTarget">What that pose looks at.</param>
+        public static IntroShot[] Build(SceneRenderer scenes, Vector3 endPosition, Vector3 endTarget, float fieldOfView, Random random) =>
+            Build(SavannaLand.Of(scenes), endPosition, endTarget, fieldOfView, random);
+
+        /// <summary>The prologue over <paramref name="land"/>, or null without one: the same, with no device (a test's).</summary>
+        internal static IntroShot[] Build(SavannaLand land, Vector3 endPosition, Vector3 endTarget, float fieldOfView, Random random)
         {
-            SavannaScatter planting = scenes?.SavannaPlanting;
-            if (planting == null) return null;
+            if (land == null) return null;
 
             //Every instance of every mesh planted, as the sphere round its mesh — NOT the spacing footprints,
             //which a bush's crown overhangs: held clear of those, the first cut's walk round the baobab
             //photographed as a frame of foliage at arm's length.
-            var ground = new IntroGround(scenes.SavannaGroundHeight);
-            foreach (PlantFigure solid in planting.Solids) ground.Add(solid);
+            var ground = new IntroGround(land.Height);
+            foreach (PlantFigure solid in land.Solids) ground.Add(solid);
 
             //The plain: the bearing that puts one of the fires nearest the middle of the frame, a little to one
             //side of the line to the arena — the ring of fires is the one thing here that is also a light.
-            int fires = scenes.SavannaCampfireCount;
             IntroShot plain = ground.Establishing("the plain", PLAIN_FROM, PLAIN_TO, PLAIN_ABOVE_FROM, PLAIN_ABOVE_TO,
                 PLAIN_SECONDS, fieldOfView * 1.1f, random, TRIES, MARGIN,
                 score: bearing =>
                 {
                     float nearest = MathF.PI;
-                    for (int fire = 0; fire < fires; fire++)
+                    foreach (Vector3 at in land.Fires)
                     {
-                        Vector3 at = scenes.SavannaCampfirePosition(fire);
                         float off = MathF.Abs(MathHelper.WrapAngle(MathF.Atan2(at.Z, at.X) - bearing - 0.2f));
                         nearest = MathF.Min(nearest, off);
                     }
                     return -nearest;
                 });
+            IntroShot baobab = Baobab(ground, land.Baobabs, fieldOfView, random);
+            IntroShot acacia = Acacia(ground, land.Acacias, fieldOfView, random);
 
-            return IntroGround.Cut(plain, Baobab(ground, planting.Baobabs, fieldOfView, random),
-                Acacia(ground, planting.Acacias, fieldOfView, random));
+            //Last the flight home, cut from whichever shot stands before it (#1108); off the same roll after the three, so they
+            //are the shots they were
+            IntroShot before = acacia ?? baobab ?? plain;
+            (Vector3, Vector3)? cutFrom = null;
+            if (before != null)
+            {
+                before.Pose(1f, out Vector3 lens, out Vector3 look);
+                cutFrom = (lens, look);
+            }
+
+            IntroShot home = SavannaLanding.Build(land, endPosition, endTarget, fieldOfView, random, cutFrom);
+            return IntroGround.Cut(plain, baobab, acacia, home);
         }
 
         /// <summary>A slow walk round a baobab, the lens on its crown.</summary>
