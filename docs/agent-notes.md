@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1131 #1134 čísla z alt= na APU přeměřena, zrcadla terénu na Vega — notebook (ThinkPad), Claude Code
+
+- Hotovo, sloučeno: notebooková polovina #1131. Osmnáct sweepů v jednom procesu (města, louka, hory, sopka Low/Medium/herní póza, záře, jeskyně, aréna, hrubý kámen, MSAA z #540) přepsáno v devíti dokumentech; tabulka je v #1131. Issue zůstává otevřené pro desktopové pasáže.
+- ⚠ APU má ve frontě jen ~2 snímky (`settled after 5` všude), takže stará APU čísla byla mimo jen o podíl dvou snímků za vteřinu: stejný kód před #1129 a po něm, přepínač měst při 40 ms −15 %, vrstvy sopky při 11 ms do 0,05 ms. Čísla se scratch dialy proto zůstala (zapsáno v `capture-and-measurement.md`).
+- ⚠ `mirrorcheck` na notebooku: 7 z 11 scén FAIL (hory 16,19). Vega `mad` nefúzuje, CPU zrcadlo je fúzované podle desktopu; scratch s nefúzovaným hashem projde všech 11. Založeno #1134 (rozhodnutí: `precise`, nebo nový hash).
+- Otevřené: #1134; desktopový zbytek #1131.
+
 ## 2026-11-15 — #1109 #1112 hladký let úvodů nad terénem — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: `AridIntroPaths.Hug` zaobluje výšku přes 0,7 s letu Gaussem plus hladkým zdvihem, který drží každou světlou výšku; `IntroShot.At` za koncem záběru extrapoluje, takže střih neubere rychlost. Nový test `IntroShotSmoothnessTests` hlídá všech 11 záběrů nad terénem (poušť, hory, outback, sopka) s limity z dronových záběrů; nejhorší svislé zrychlení např. pyramidy 193 → 10, outback přílet 198 → 7 j/s². Jeřáb (patka a vrchol) letí přesně podle návrhu. Nový argument `introshot=` podrží úvod v daných chvílích a uloží snímek.
