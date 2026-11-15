@@ -12,9 +12,10 @@ namespace BS3D.Effects
     /// <para>
     /// <b>Posed by the wall clock, every frame.</b> A cycle is a pure function of the wall clock (<see cref="LightCycleRuns"/>,
     /// riders made by the drawn cycles' own code on their own seeds), and a shot's own clock is not: it is eased, held to a
-    /// frame's worth through a hitch and stopped by a pause, and on a path laid out in advance the eased clock alone drifts 2.2
-    /// units off a cycle over three seconds, the whole of the gap beside it. So the lens is put where the cycle is at the second
-    /// the frame is drawn at (<see cref="IntroShot.OnTheWallClock"/>), and the cycle filmed is the cycle on screen.
+    /// frame's worth through a hitch and stopped by a pause, and on a path laid out in advance the eased clock alone drifts 1.8
+    /// units off a cycle over the shot's 2.6 seconds; a level's first frames put the shot on screen nearly a second late, 23
+    /// units of the cycle's run. So the lens is put where the cycle is at the second the frame is drawn at
+    /// (<see cref="IntroShot.OnTheWallClock"/>), and the cycle filmed is the cycle on screen.
     /// </para>
     /// <para>
     /// <b>Turned with the cycle, not snapped.</b> The lens stands at a fixed place in a frame turned to the cycle's heading,
@@ -59,7 +60,8 @@ namespace BS3D.Effects
 
         //How many seconds of the cycle's run either side the heading the lens turns to is averaged over: the swing round one node
         //takes twice this and turns at most 90 / REACH_SECONDS degrees a second (37.5) at its middle; a U-turn, two right angles
-        //the same way a node apart, at up to 71
+        //the same way a node apart, at up to 71. ⚠ Both sides together (115 units) stay inside the eight lattice segments a rider
+        //keeps behind the newest node it made: past 2.67 s, every frame would make the cycle's run again from its start
         internal const float REACH_SECONDS = 2.4f;
 
         //What the lens keeps off, through the seconds the shot plays in: any wall seen from above; any other cycle's middle; any
@@ -145,7 +147,7 @@ namespace BS3D.Effects
             int samples = 0;
             float maxSwing = MathHelper.ToRadians(MAX_SWING_DEGREES);
 
-            //Evenly, at no more than STEP: a last step a hair long was a swing over no time at all, and refused every candidate
+            //Evenly, at no more than STEP apart, so every step's swing is measured over the same time
             int steps = Math.Max((int)MathF.Ceiling((until - from) / STEP), 1);
             float step = (until - from) / steps;
             for (int k = 0; k <= steps; k++)
@@ -161,7 +163,8 @@ namespace BS3D.Effects
                     if (!_clear[cycle * SIDES] && !_clear[cycle * SIDES + 1]) continue;
 
                     Vector2 heading = Heading(cycle, t);
-                    if (keep == Keep.Calm && k > 0 && MathF.Acos(MathHelper.Clamp(Vector2.Dot(heading, _headings[cycle]), -1f, 1f)) > maxSwing * step)
+                    float swing = k > 0 ? MathF.Acos(MathHelper.Clamp(Vector2.Dot(heading, _headings[cycle]), -1f, 1f)) : 0f;
+                    if (keep == Keep.Calm && swing > maxSwing * step)
                     {
                         _clear[cycle * SIDES] = _clear[cycle * SIDES + 1] = false;
                         continue;
