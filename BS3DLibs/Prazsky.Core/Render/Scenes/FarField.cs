@@ -34,8 +34,9 @@ namespace Prazsky.Core.Render
         //within about 90 (the play pose 36 out, the chapter intro's tour 2.4 stand-offs). Inside FAR_RING_INNER the mesh
         //is a DISK down to the arena itself, its rows evenly spaced at the depth of the ring's first cell, for a lens
         //whose grid does not reach round the arena: the sea's chapter intro flies one out to an oil rig 820 out (#1124),
-        //some 900 to 1070 from the arena, where the grid (+-800) covers none of the arena's water, and without the disk
-        //the island stood on a hard edge of the water some twenty degrees wide while the horizon either side faded softly.
+        //some 890 to 1070 from the arena, where the grid (+-800) covers little or none of the arena's water, and without
+        //the disk the island stood on a hard edge of the water some twenty degrees wide while the horizon either side
+        //faded softly.
         //Every other view's grid covers the disk, and its rows are skipped like any covered row (DrawRing), so what those
         //views draw is unchanged. The ring's OUTER edge still assumes a camera near the arena: it is FAR_RING_OUTER from
         //the arena and the fade completes FAR_FADE_END from the lens, so at the end of the run at the rig, the look turned
