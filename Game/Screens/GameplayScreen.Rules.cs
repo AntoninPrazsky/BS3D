@@ -474,30 +474,6 @@ namespace BS3D.Screens
                 + (_run.Benchmark ? "for the benchmark, " : welcome ? "on Continue, " : "") + _chapterIntro.Describe());
         }
 
-        //Testing only (introshot=, #1118): how far down the schedule the intro's frames have got
-        private int _introShotNext;
-
-        /// <summary>
-        /// Testing only (<c>introshot=</c>, #1118): when this frame would carry the running chapter intro to the next moment
-        /// the schedule names, holds its clock there (<see cref="ChapterIntro.Pin"/>), poses it without advancing, asks for
-        /// the frame and says where the lens stands. False, and nothing done, on every other frame.
-        /// </summary>
-        private bool TryIntroShot(float elapsed)
-        {
-            IReadOnlyList<float> moments = _test.IntroShotSeconds;
-            if (moments == null || _introShotNext >= moments.Count || !_chapterIntro.Running
-                || _chapterIntro.Elapsed + elapsed < moments[_introShotNext]) return false;
-
-            _chapterIntro.Pin(moments[_introShotNext++]);
-            _chapterIntro.Update(0f);
-            Game.RequestScreenshot();
-
-            Vector3 p = _chapterIntro.Position, t = _chapterIntro.Target;
-            Console.WriteLine(FormattableString.Invariant(
-                $"[introshot] +{_chapterIntro.Elapsed:F3} s of {_chapterIntro.Elapsed + _chapterIntro.Remaining:F2}: lens ({p.X:F2}, {p.Y:F2}, {p.Z:F2}) {new Vector2(p.X, p.Z).Length():F1} out, looking at ({t.X:F2}, {t.Y:F2}, {t.Z:F2}), fov {MathHelper.ToDegrees(_chapterIntro.FieldOfView):F1} deg, roll {MathHelper.ToDegrees(_chapterIntro.Roll):F1} deg"));
-            return true;
-        }
-
         /// <summary>
         /// Asks the next <see cref="BuildLevel"/> for the scene's whole intro whatever the level (#870), as the main menu's
         /// Continue does. The owner: a player continuing from the menu has probably not played for a while and needs a moment

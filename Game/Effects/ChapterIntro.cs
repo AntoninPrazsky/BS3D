@@ -397,16 +397,6 @@ namespace BS3D.Effects
         }
 
         /// <summary>
-        /// Testing only (<c>introshot=</c>): holds the intro's clock at <paramref name="seconds"/>, short of its end, for
-        /// the frame a capture saves there; the <see cref="Update"/> that follows with no time poses it. Ignored when it
-        /// is not running.
-        /// </summary>
-        internal void Pin(float seconds)
-        {
-            if (_running) _elapsed = MathHelper.Clamp(seconds, 0f, MathF.Max(TotalSeconds - 1e-3f, 0f));
-        }
-
-        /// <summary>
         /// The player has seen enough. Ignored for <see cref="SKIP_LOCKOUT"/> after the start, and the ease
         /// out is the ordinary one — a skip is not a cut, it just stops waiting for the tour to finish.
         /// </summary>
