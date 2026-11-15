@@ -5,14 +5,15 @@ using System;
 namespace BS3D.Effects
 {
     /// <summary>
-    /// Space's own shots for a chapter intro's prologue (#559): the station hanging beside the gas giant, the
-    /// drain seen from under the island against the stars, and the teal nebula with the volume drifting past
-    /// the lens — cut together, then cut to the tour's last leg. The tour it replaces swung round the arena on
-    /// one spline, and #409 had already found it "looking down into the island from an odd angle" in this very
-    /// scene; each of these is about one thing the scene draws.
+    /// Space's own shots for a chapter intro's prologue (#559): the station held still in front of the gas giant
+    /// while the saucer crosses close to the lens (#1117), the drain seen from under the island against the stars,
+    /// and the teal nebula with the volume drifting past the lens — cut together, then cut to the tour's last leg.
+    /// The tour it replaces swung round the arena on one spline, and #409 had already found it "looking down into
+    /// the island from an odd angle" in this very scene; each of these is about one thing the scene draws.
     /// <para>
-    /// <b>Nothing out here has a surface but the island</b>, so safety is the island's own figures
-    /// (<see cref="ArenaIsland"/>): the establishing shot stands ninety units off, the drain shot stays twice the
+    /// <b>Nothing out here has a surface but the island and the saucer</b>, so safety is the island's own figures
+    /// (<see cref="ArenaIsland"/>) and the saucer's pass: the saucer's shot stands far outside the island and outside
+    /// the saucer's loop, the craft crossing its frame a few dozen units off the lens; the drain shot stays twice the
     /// funnel's depth under its hole and well outside its axis, and the nebula shot stands outside the island's
     /// rim at a radius the gun cannot reach. The planet and the nebula are directions
     /// (<see cref="SpaceSceneConfig"/>), not places: every lens looks at a fixed point far out along one, so a
@@ -25,16 +26,29 @@ namespace BS3D.Effects
     /// </summary>
     internal static class SpaceIntroShots
     {
-        //The station: a lens this far out, this many degrees below the arena's centre and this many degrees
-        //round from straight opposite the planet, dollying in, looking at a point part-way from the station to
-        //the planet — so the island and its cluster stand in one half of the frame and the planet's lit limb in
-        //the other. Straight opposite, the planet (10 degrees in radius) hides behind the station exactly.
-        private const float STATION_FROM = 90f, STATION_TO = 74f;
-        private const float STATION_BELOW_DEGREES = 7f;
-        private const float STATION_OFFSET_DEGREES = 30f;
-        private const float STATION_TOWARDS_PLANET = 0.45f;
-        private const float STATION_FOV_DEGREES = 56f;
-        private const float STATION_SECONDS = 3.4f;
+        //The saucer (#1117; the owner: "one shot of the intro animation static, with a big planet in the background, the
+        //smaller island somewhere lower, and then an unexpected flying saucer flying through this static shot, relatively
+        //close to the camera"). A lens standing still this far out from the axis, outside the saucer's loop
+        //(SaucerFlight.ORBIT_RADIUS), this far over the island's deck and this many degrees round from straight opposite
+        //the planet, a rolled way, looking at a point part-way from the station to the planet through a long lens: the
+        //planet's whole disc in the frame's upper half and the station small under it to one side. Straight opposite, the
+        //planet (10 degrees in radius) stands right over the station.
+        private const float SAUCER_DISTANCE = 280f;
+        private const float SAUCER_OVER_DECK = 2.5f;
+        private const float SAUCER_OFFSET_DEGREES = 20f;
+        private const float SAUCER_TOWARDS_PLANET = 0.52f;
+        private const float SAUCER_FOV_DEGREES = 46f;
+        internal const float SAUCER_SECONDS = 4.1f;
+
+        //The craft, cued as the shot comes on screen (SceneRenderer.CueSpaceSaucer) to cross the frame from the planet's side
+        //(the loop runs right to left as a lens outside it sees it): its middle this far from the lens, along a line this many
+        //degrees under the look and this many towards that side, this far into the shot, on SaucerPass's run. Turned to that
+        //side, the frame's two edges cut the run about as long before the moment as after it, so it comes in after a second
+        //of stillness and is gone before the cut.
+        internal const float PASS_DISTANCE = 34f;
+        private const float PASS_DROP_DEGREES = 9f;
+        private const float PASS_ASIDE_DEGREES = 8f;
+        internal const float PASS_AT_SECONDS = 2.4f;
 
         //The drain from under the island: a crane up from this far under the funnel's hole to this far, this far
         //out from the axis, the look on the funnel's middle — the glass, the gold beads and the machined underside
@@ -42,7 +56,7 @@ namespace BS3D.Effects
         private const float DRAIN_FROM_BELOW = 34f, DRAIN_TO_BELOW = 22f;
         private const float DRAIN_OUT = 24f;
         private const float DRAIN_FOV_DEGREES = 60f;
-        private const float DRAIN_SECONDS = 3.0f;
+        internal const float DRAIN_SECONDS = 2.8f;
 
         //The nebula: a sideways drift across the island from the side away from the nebula, this far out from the
         //axis, this far to one side of the line through it (so the cluster stands at the frame's edge rather
@@ -56,7 +70,7 @@ namespace BS3D.Effects
         private const float NEBULA_DRIFT = 16f;
         private const float NEBULA_TIP_DEGREES = 7f;
         private const float NEBULA_FOV_DEGREES = 56f;
-        private const float NEBULA_SECONDS = 3.0f;
+        internal const float NEBULA_SECONDS = 2.8f;
 
         //A fixed look-at far out along a direction stands in for the direction itself.
         private const float FAR = 5000f;
@@ -64,40 +78,54 @@ namespace BS3D.Effects
         private const int PATH_POINTS = IntroPaths.POINTS;
 
         /// <summary>The prologue for the space scene the renderer is drawing, or null when it has no config.</summary>
-        public static IntroShot[] Build(SceneRenderer scenes, Random random)
+        /// <param name="scenes">The live scene renderer, whose saucer the first shot cues.</param>
+        /// <param name="clock">The game's wall clock, read as the saucer's shot comes on screen: the craft flies on it.</param>
+        /// <param name="random">The intro's own roll.</param>
+        public static IntroShot[] Build(SceneRenderer scenes, Func<float> clock, Random random)
         {
             if (scenes?.GetSceneConfig(SceneKind.Space) is not SpaceSceneConfig space) return null;
+            return Build(space, scenes.CueSpaceSaucer, clock, random);
+        }
 
-            return new[]
+        /// <summary>The prologue off the space config, the saucer's pass cued through <paramref name="cueSaucer"/> with the point
+        /// its middle passes and the wall-clock moment it is there.</summary>
+        internal static IntroShot[] Build(SpaceSceneConfig space, Action<Vector3, float> cueSaucer, Func<float> clock, Random random) =>
+            new[]
             {
-                Station(space, random),
+                Saucer(space, cueSaucer, clock, random),
                 Drain(space, random),
                 Nebula(space, random),
             };
-        }
 
         /// <summary>
-        /// The establishing view: the whole station — the island, its drain and the cluster over it — from far
-        /// out and a little under it, beside the gas giant.
+        /// The establishing view, held still (#1117): the station small and low in front of the gas giant from far out, the lens
+        /// standing where the saucer's loop passes between it and the station, and the craft cued as the shot comes on screen to
+        /// cross the frame close to the lens <see cref="PASS_AT_SECONDS"/> into it.
         /// </summary>
-        private static IntroShot Station(SpaceSceneConfig space, Random random)
+        internal static IntroShot Saucer(SpaceSceneConfig space, Action<Vector3, float> cueSaucer, Func<float> clock, Random random)
         {
             Vector3 planet = Direction(space.Planet.Direction, -Vector3.UnitZ);
             Vector3 centre = StationCentre;
 
-            //Opposite the planet's bearing, turned a rolled way round so the two stand side by side.
-            float bearing = MathF.Atan2(planet.Z, planet.X) + MathF.PI
-                + MathHelper.ToRadians(STATION_OFFSET_DEGREES) * (random.Next(2) == 0 ? 1f : -1f);
-            float below = MathHelper.ToRadians(STATION_BELOW_DEGREES);
-            Vector3 outward = new(MathF.Cos(bearing) * MathF.Cos(below), -MathF.Sin(below), MathF.Sin(bearing) * MathF.Cos(below));
+            //Opposite the planet's bearing, turned a rolled way round so the planet stands to one side over the station
+            float side = random.Next(2) == 0 ? 1f : -1f;
+            float bearing = MathF.Atan2(planet.Z, planet.X) + MathF.PI + MathHelper.ToRadians(SAUCER_OFFSET_DEGREES) * side;
+            var lens = new Vector3(MathF.Cos(bearing) * SAUCER_DISTANCE, ArenaIsland.TOP_Y + SAUCER_OVER_DECK,
+                MathF.Sin(bearing) * SAUCER_DISTANCE);
 
-            Vector3[] path = Line(centre + outward * STATION_FROM, centre + outward * STATION_TO);
+            //Part-way from the station towards the planet, pinned
+            Vector3 look = Vector3.Normalize(Vector3.Normalize(centre - lens) * (1f - SAUCER_TOWARDS_PLANET) + planet * SAUCER_TOWARDS_PLANET);
 
-            //Part-way from the station towards the planet, seen from where the dolly starts, pinned there.
-            Vector3 look = Vector3.Normalize(Vector3.Normalize(centre - path[0]) * (1f - STATION_TOWARDS_PLANET) + planet * STATION_TOWARDS_PLANET);
+            //Where the craft's middle passes: down from the look about the horizontal across it, then turned about the vertical
+            //towards the planet's side
+            Vector3 across = Vector3.Normalize(Vector3.Cross(look, Vector3.Up));
+            Vector3 towards = Vector3.Transform(look, Matrix.CreateFromAxisAngle(across, -MathHelper.ToRadians(PASS_DROP_DEGREES)));
+            towards = Vector3.Normalize(Vector3.Transform(towards, Matrix.CreateRotationY(side * MathHelper.ToRadians(PASS_ASIDE_DEGREES))));
+            Vector3 pass = lens + towards * PASS_DISTANCE;
 
-            return new IntroShot("the station", path, STATION_SECONDS, MathHelper.ToRadians(STATION_FOV_DEGREES),
-                lookAt: path[0] + look * STATION_FROM);
+            return new IntroShot("the saucer", new[] { lens, lens }, SAUCER_SECONDS, MathHelper.ToRadians(SAUCER_FOV_DEGREES),
+                lookAt: lens + look * FAR,
+                onStart: () => cueSaucer?.Invoke(pass, (clock?.Invoke() ?? 0f) + PASS_AT_SECONDS));
         }
 
         /// <summary>
