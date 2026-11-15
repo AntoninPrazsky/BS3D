@@ -145,6 +145,8 @@ namespace Prazsky.Core.Render
             DetailOnly = detailOnly;
             ModelInstance[] placed = instances.ToArray();
             Placed = placed;
+            if (device == null) return;     //a planting with no device (SavannaScatter's own note): its instances alone
+
             Instances = new VertexBuffer(device, ModelInstance.VertexDeclaration, placed.Length, BufferUsage.WriteOnly);
             Instances.SetData(placed);
         }
@@ -377,7 +379,9 @@ namespace Prazsky.Core.Render
 
         private readonly List<IDisposable> _meshes = new();
 
-        /// <param name="device">The device the meshes and instance buffers live on.</param>
+        /// <param name="device">The device the meshes and instance buffers live on; null plants the very same plain with
+        /// nothing uploaded, every mesh its lists and bounds alone: what a test reads the planting's figures off without a
+        /// device (the chapter intro's landing over the plain, #1108). Nothing so planted can be drawn.</param>
         /// <param name="config">The savanna's config: the acacias' and the dressing's counts, sizes and colours.</param>
         /// <param name="terrainHeight">The ground under (x, z) — <c>TerrainMirror.Savanna</c>,
         /// the C# mirror of the shader's field, so a plant stands on the ground it is drawn over.</param>

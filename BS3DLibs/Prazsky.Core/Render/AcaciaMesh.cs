@@ -1350,6 +1350,9 @@ namespace Prazsky.Core.Render
             if (v.Count > 65536)
                 throw new InvalidOperationException($"{v.Count} vertices under 16-bit indices: build the mesh with int indices.");
 
+            //No device, no buffers: the mesh is its lists and its bounds alone, which is all a test planting the savanna reads (#1108)
+            if (device == null) return (null, null);
+
             var vb = new VertexBuffer(device, VertexPositionNormalTexture.VertexDeclaration, v.Count, BufferUsage.WriteOnly);
             vb.SetData(v.ToArray());
             var ib = new IndexBuffer(device, IndexElementSize.SixteenBits, idx.Count, BufferUsage.WriteOnly);
@@ -1364,6 +1367,8 @@ namespace Prazsky.Core.Render
         /// </summary>
         public static (VertexBuffer, IndexBuffer) Upload(GraphicsDevice device, List<VertexPositionNormalTexture> v, List<int> idx)
         {
+            if (device == null) return (null, null);
+
             var vb = new VertexBuffer(device, VertexPositionNormalTexture.VertexDeclaration, v.Count, BufferUsage.WriteOnly);
             vb.SetData(v.ToArray());
             IndexBuffer ib;

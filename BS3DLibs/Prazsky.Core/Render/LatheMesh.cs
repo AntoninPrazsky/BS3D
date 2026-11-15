@@ -264,29 +264,8 @@ namespace Prazsky.Core.Render
 
             PrimitiveCount = indices.Length / 3;
 
-            VertexBuffer = new VertexBuffer(graphicsDevice, VertexPositionNormalTexture.VertexDeclaration,
-                vertexCount, BufferUsage.WriteOnly);
-            VertexBuffer.SetData(vertices);
-
-            //The outline's fins on the Potato path (#804); nothing unless the host asked for them
-            EdgeFins.Register(graphicsDevice, VertexBuffer, vertices, indices);
-
-            //Sixteen-bit indices silently wrap past 65 535 vertices and send far triangles to the wrong
-            //corners of the mesh - the bug that cost a long hunt on the mountain grid. A lathe crosses
-            //that line at a few hundred segments, so the width is chosen rather than assumed.
-            if (vertexCount <= ushort.MaxValue)
-            {
-                var narrow = new short[indices.Length];
-                for (int n = 0; n < indices.Length; n++) narrow[n] = (short)indices[n];
-
-                IndexBuffer = new IndexBuffer(graphicsDevice, IndexElementSize.SixteenBits, narrow.Length, BufferUsage.WriteOnly);
-                IndexBuffer.SetData(narrow);
-            }
-            else
-            {
-                IndexBuffer = new IndexBuffer(graphicsDevice, IndexElementSize.ThirtyTwoBits, indices.Length, BufferUsage.WriteOnly);
-                IndexBuffer.SetData(indices);
-            }
+            //With no device the lathe is its shape alone and nothing is uploaded: a test planting the savanna (#1108)
+            if (graphicsDevice != null) Upload(graphicsDevice, vertices, indices);
 
             float lowest = float.MaxValue, highest = float.MinValue, widest = 0f;
 
@@ -301,6 +280,33 @@ namespace Prazsky.Core.Render
 
             BoundingSphere = new BoundingSphere(new Vector3(0f, centreY, 0f),
                 new Vector2(widest, (highest - lowest) * 0.5f).Length());
+        }
+
+        private void Upload(GraphicsDevice graphicsDevice, VertexPositionNormalTexture[] vertices, int[] indices)
+        {
+            VertexBuffer = new VertexBuffer(graphicsDevice, VertexPositionNormalTexture.VertexDeclaration,
+                vertices.Length, BufferUsage.WriteOnly);
+            VertexBuffer.SetData(vertices);
+
+            //The outline's fins on the Potato path (#804); nothing unless the host asked for them
+            EdgeFins.Register(graphicsDevice, VertexBuffer, vertices, indices);
+
+            //Sixteen-bit indices silently wrap past 65 535 vertices and send far triangles to the wrong
+            //corners of the mesh - the bug that cost a long hunt on the mountain grid. A lathe crosses
+            //that line at a few hundred segments, so the width is chosen rather than assumed.
+            if (vertices.Length <= ushort.MaxValue)
+            {
+                var narrow = new short[indices.Length];
+                for (int n = 0; n < indices.Length; n++) narrow[n] = (short)indices[n];
+
+                IndexBuffer = new IndexBuffer(graphicsDevice, IndexElementSize.SixteenBits, narrow.Length, BufferUsage.WriteOnly);
+                IndexBuffer.SetData(narrow);
+            }
+            else
+            {
+                IndexBuffer = new IndexBuffer(graphicsDevice, IndexElementSize.ThirtyTwoBits, indices.Length, BufferUsage.WriteOnly);
+                IndexBuffer.SetData(indices);
+            }
         }
 
         public void Dispose()
