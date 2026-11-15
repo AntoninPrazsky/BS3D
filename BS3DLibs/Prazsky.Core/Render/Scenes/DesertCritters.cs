@@ -46,9 +46,11 @@ namespace Prazsky.Core.Render
         private readonly Effect _effect;
         private readonly EffectTechnique _critterTechnique, _discTechnique;
         private readonly EffectParameter _view, _projection, _cameraPosition, _sunDirection, _sunColor, _zenith, _horizon, _time;
-        private readonly VertexBuffer[] _meshes = new VertexBuffer[2];
-        private readonly IndexBuffer[] _meshIndices = new IndexBuffer[2];
-        private readonly int[] _meshTriangles = new int[2];
+        //The meshes: the beetle's and the scorpion's, then High and Ultra's finer two (CritterMesh.FineBeetle, FineScorpion,
+        //#1110), drawn where SceneRenderer.FineMeshes is on, off the same instances
+        private readonly VertexBuffer[] _meshes = new VertexBuffer[4];
+        private readonly IndexBuffer[] _meshIndices = new IndexBuffer[4];
+        private readonly int[] _meshTriangles = new int[4];
         private readonly DynamicVertexBuffer[] _instances = new DynamicVertexBuffer[2];
         private readonly ModelInstance[][] _instanceData = { new ModelInstance[BEETLES + 1], new ModelInstance[SCORPIONS + 1] };
 
@@ -63,13 +65,23 @@ namespace Prazsky.Core.Render
         internal const float FEATURE_SCORPION_WALK = 3.0f, FEATURE_BEETLE_WALK = 3.2f, FEATURE_STOP_SECONDS = 0.6f;
         private readonly int[] _counts = new int[2];
 
-        //The soft discs: a shadow under each creature, the burrow's hole, the puffs; four vertices a disc
+        //The soft discs: a shadow under each creature, the burrow's hole, the puffs; four vertices a disc. ⚠ THE SAND'S
+        //RADIANCE IS LINEAR AND HDR: a disc that darkens it is premultiplied BLACK with an alpha, which takes that share of
+        //whatever the sand is. The prints were once a premultiplied brown (0.18, 0.12, 0.06 at half), a dark brown read as
+        //sRGB but nearly the sunlit sand's own radiance as linear: they changed the sand by 3 to 5 per cent, and no capture
+        //ever showed the trail (#1110). The shadow's 0.42 left only its faint rim outside the body showing.
         private const int MAX_DISCS = (COUNT + 2) * 8 + (BEETLES + 1) * TRAIL_PRINTS;
+        //The shadow: an ellipse this long and this wide either side of its middle, in body lengths, cast off the body by the
+        //height of its middle (no further than a sun this high casts it), and this dark at its middle
+        private const float SHADOW_LENGTH = 0.5f, SHADOW_WIDTH = 0.3f, SHADOW_HEIGHT = 0.2f, SHADOW_LOWEST_SUN = 0.25f;
+        private const float SHADOW_ALPHA = 0.7f, PRINT_ALPHA = 0.55f;
+        //How far over the sand a disc lies: the clearing is flat and the mirror is the sand's own height there
+        private const float DISC_LIFT = 0.03f;
 
         //A beetle's trail (the references' double line of footprints): this many prints behind it, a print this many of its
-        //lengths apart and this far either side of its line
+        //lengths apart, this far either side of its line and this wide
         private const int TRAIL_PRINTS = 14;
-        private const float PRINT_SPACING = 0.22f, PRINT_SIDE = 0.16f;
+        private const float PRINT_SPACING = 0.22f, PRINT_SIDE = 0.16f, PRINT_RADIUS = 0.07f;
         private readonly VertexPositionColorTexture[] _discs = new VertexPositionColorTexture[MAX_DISCS * 4];
         private readonly DynamicVertexBuffer _discBuffer;
         private readonly IndexBuffer _discIndices;
@@ -99,6 +111,8 @@ namespace Prazsky.Core.Render
 
             Upload(0, CritterMesh.Beetle());
             Upload(1, CritterMesh.Scorpion());
+            Upload(2, CritterMesh.FineBeetle());
+            Upload(3, CritterMesh.FineScorpion());
             _instances[0] = new DynamicVertexBuffer(device, ModelInstance.VertexDeclaration, BEETLES + 1, BufferUsage.WriteOnly);
             _instances[1] = new DynamicVertexBuffer(device, ModelInstance.VertexDeclaration, SCORPIONS + 1, BufferUsage.WriteOnly);
 
@@ -270,8 +284,9 @@ namespace Prazsky.Core.Render
             return (h & 0xFFFFFF) / (float)0xFFFFFF;
         }
 
-        /// <summary>Draws the creatures that are above the sand, their shadows, their burrows and the sand they throw.</summary>
-        public void Draw(in SceneFrame frame)
+        /// <summary>Draws the creatures that are above the sand, their shadows, their burrows and the sand they throw;
+        /// <paramref name="fine"/> in High and Ultra's finer bodies (<see cref="SceneRenderer.FineMeshes"/>).</summary>
+        public void Draw(in SceneFrame frame, bool fine)
         {
             int[] counts = _counts;
             counts[0] = counts[1] = 0;
@@ -308,13 +323,23 @@ namespace Prazsky.Core.Render
                         float side = (k & 1) == 0 ? 1f : -1f;
                         var print = new Vector3(at.X + MathF.Cos(yawAt) * side * PRINT_SIDE * size, 0f, at.Y - MathF.Sin(yawAt) * side * PRINT_SIDE * size);
                         print.Y = _ground(print.X, print.Z);
-                        FlatDisc(ref discs, print, size * 0.06f, new Color(0.18f, 0.12f, 0.06f, 0.5f) * (1f - k / (float)(TRAIL_PRINTS + 1)));
+                        FlatDisc(ref discs, print, size * PRINT_RADIUS, new Color(0f, 0f, 0f, PRINT_ALPHA) * (1f - k / (float)(TRAIL_PRINTS + 1)));
                     }
 
-                //Its shadow while it stands on the sand, the hole while it comes up or goes down, the sand thrown from it
+                //Its shadow while it stands on the sand: a soft ellipse along its body, cast off it away from the sun by the
+                //height of its body's middle, so it lies beside the body rather than under it, where the body hid it
                 float above = 1f - Math.Clamp(pose.Sunk, 0f, 1f);
                 if (above > 0.05f && discs < MAX_DISCS)
-                    FlatDisc(ref discs, pose.Position, size * 0.55f, new Color(0f, 0f, 0f, 0.42f * above));
+                {
+                    Vector3 sun = frame.SunDirection;
+                    Vector3 shadow = pose.Position + new Vector3(-sun.X, 0f, -sun.Z) * (size * SHADOW_HEIGHT / MathF.Max(sun.Y, SHADOW_LOWEST_SUN));
+                    shadow.Y = _ground(shadow.X, shadow.Z) + DISC_LIFT;
+                    var along = new Vector3(MathF.Sin(pose.Yaw), 0f, MathF.Cos(pose.Yaw));
+                    Quad(ref discs, shadow, new Vector3(along.Z, 0f, -along.X) * (size * SHADOW_WIDTH), along * (size * SHADOW_LENGTH),
+                        new Color(0f, 0f, 0f, SHADOW_ALPHA * above));
+                }
+
+                //The hole while it comes up or goes down, and the sand thrown from it
                 float digging = MathF.Max(pose.Emerging > 0f ? 1f - pose.Emerging * 0.6f : 0f, pose.Burrowing);
                 if (digging > 0f && discs < MAX_DISCS)
                 {
@@ -353,10 +378,11 @@ namespace Prazsky.Core.Render
             {
                 if (counts[kind] == 0) continue;
                 _instances[kind].SetData(_instanceData[kind], 0, counts[kind], SetDataOptions.Discard);
-                InstanceBinding.Set(_device, _meshes[kind], 0, _instances[kind], 0);
-                _device.Indices = _meshIndices[kind];
+                int mesh = fine ? kind + 2 : kind;
+                InstanceBinding.Set(_device, _meshes[mesh], 0, _instances[kind], 0);
+                _device.Indices = _meshIndices[mesh];
                 _effect.CurrentTechnique.Passes[0].Apply();
-                _device.DrawInstanced(PrimitiveType.TriangleList, 0, 0, _meshTriangles[kind], counts[kind]);
+                _device.DrawInstanced(PrimitiveType.TriangleList, 0, 0, _meshTriangles[mesh], counts[kind]);
             }
 
             //The discs over the sand and in front of the bodies, premultiplied, reading the depth and writing none
@@ -381,7 +407,7 @@ namespace Prazsky.Core.Render
         //A disc lying on the sand a hair over it
         private void FlatDisc(ref int discs, Vector3 centre, float radius, Color color)
         {
-            centre.Y += 0.03f;
+            centre.Y += DISC_LIFT;
             Quad(ref discs, centre, Vector3.UnitX * radius, Vector3.UnitZ * radius, color);
         }
 
@@ -401,12 +427,12 @@ namespace Prazsky.Core.Render
 
         public void Dispose()
         {
-            for (int k = 0; k < 2; k++)
+            for (int k = 0; k < _meshes.Length; k++)
             {
                 _meshes[k]?.Dispose();
                 _meshIndices[k]?.Dispose();
-                _instances[k]?.Dispose();
             }
+            for (int k = 0; k < _instances.Length; k++) _instances[k]?.Dispose();
             _discBuffer?.Dispose();
             _discIndices?.Dispose();
         }
