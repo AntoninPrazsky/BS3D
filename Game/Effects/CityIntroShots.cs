@@ -63,7 +63,8 @@ namespace BS3D.Effects
         private const float NEON_STREET_PITCH_DEGREES = 24f;
 
         //4.5 until #1119 put the facades into both reels: the half second went to make room for it, the owner preferring a
-        //faster reel to a longer one, and the street is still over CityIntroShotsTests' least length
+        //faster reel to a longer one, and the street is still over CityIntroShotsTests' least length. The one shot longer
+        //than that is the rooftop, and ROOFTOP_SECONDS is what holds three of its beacon's flashes (docs/scenes/city.md)
         private const float STREET_SECONDS = 4.0f;
 
         //THE FACADES (#1119), the owner: "shots are missing from below (almost street level) looking up at the tall
