@@ -39,7 +39,7 @@ namespace BS3D.Tests
         private const float MAX_PITCH_RATE = 80f;
         private const float MAX_ROLL_DEGREES = 8f;
         private const float MAX_LANDING_SPEED = 8f;
-        private const float MIN_SECONDS = 5f, MAX_SECONDS = 13f;
+        private const float MIN_SECONDS = 4.5f, MAX_SECONDS = 13f;
 
         //How finely the shot is walked, and how far from everything every pose must stay (the builder keeps 1.5 at its points;
         //the lens runs a spline through them)
@@ -116,7 +116,8 @@ namespace BS3D.Tests
                 shot.Pose(0f, out Vector3 first, out _);
                 Assert.True(MathF.Abs(MeadowPath.BrookLateral(first.X, first.Z, config)) < 0.5f, $"{where}: opens off the brook's line");
                 Assert.InRange(first.Y - TerrainMirror.MeadowGround(first.X, first.Z, config), MeadowLanding.BROOK_ABOVE - 0.1f, MeadowLanding.BROOK_ABOVE + 0.1f);
-                Assert.True(MeadowPath.PondShore(first.X, first.Z, config) > 20f, $"{where}: opens too near the pond");
+                //(a run of at least 28 up the brook from the pond's middle, which is about 11 inside its shore)
+                Assert.True(MeadowPath.PondShore(first.X, first.Z, config) > 14f, $"{where}: opens too near the pond");
 
                 //And passes over the pond's water, well inside its shore
                 float deepest = float.MaxValue;
@@ -152,11 +153,12 @@ namespace BS3D.Tests
                     Assert.True(fromAxis >= MathF.Min(IntroGround.ARENA_KEEP_OUT, radius) - 1f, $"{where}: {fromAxis:F1} from the axis");
                     Assert.True(fromAxis >= ArenaIsland.RADIUS + 2f, $"{where}: over the island");
 
-                    //Every tree by its stem; by its crown too wherever the lens is not low over the field
+                    //Every tree by its stem and the roots round its foot, which run out to about twice its flare's radius (the
+                    //builder keeps 2.5 past them at its points); by its crown too wherever the lens is not low over the field
                     float overField = p.Y - TerrainMirror.MeadowGround(p.X, p.Z, config);
                     foreach (PlantFigure tree in planting.Figures.Trees)
                     {
-                        Assert.True(IntroPaths.DistanceToSegment(p, tree.Root, tree.Crown) - tree.Stem >= CLEARANCE, $"{where}: against a trunk at {tree.Root}");
+                        Assert.True(IntroPaths.DistanceToSegment(p, tree.Root, tree.Crown) - tree.Stem * 2.1f >= 2f, $"{where}: against a trunk at {tree.Root}");
                         if (overField > 3.5f)
                             Assert.True(Vector3.Distance(p, tree.Crown) - tree.Reach >= CLEARANCE, $"{where}: in a crown at {tree.Crown}");
                     }

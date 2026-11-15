@@ -594,7 +594,7 @@ namespace BS3D.Tests
                 float seconds = shots[^1].Lands ? 0f : 4.5f;
                 foreach (IntroShot shot in shots) seconds += shot.Seconds;
 
-                Assert.True(seconds <= 22.5f, $"seed {seed}: the meadow's intro runs {seconds:F1} s");
+                Assert.True(seconds <= 22f, $"seed {seed}: the meadow's intro runs {seconds:F1} s");
             }
         }
 

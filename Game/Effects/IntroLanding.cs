@@ -52,9 +52,10 @@ namespace BS3D.Effects
         /// the city's swing and pitched the view 140 degrees a second over each.</param>
         /// <param name="LookLandSeconds">The last seconds, over which the look eases from along the travel onto the pose's own
         /// and the bank levels out.</param>
-        /// <param name="LookInward">How far the look leans from the travel towards the pose's target, across the travel only:
-        /// 0 looks along the travel, 1 halfway to the target (45 degrees off a travel square to it). A route that goes round
-        /// the arena keeps the island in the frame by it.</param>
+        /// <param name="LookInward">How far the look turns in plan from the travel towards the pose's target, as a share of the
+        /// angle between them (where the route asks it: <see cref="Route.Lean"/>): 0 looks along the travel; 0.7 on a circle
+        /// round the arena looks 63 degrees in from it, the cluster 27 degrees off the frame's middle in a 16:9 frame, where 0.6 of the way across
+        /// the travel's square (31 degrees) left the island at the frame's edge.</param>
         /// <param name="RollPerTurn">Degrees of bank per degree a second of the heading's turn.</param>
         /// <param name="MaxRollDegrees">The most it banks.</param>
         /// <param name="RollSmoothSeconds">How long either side the bank is smoothed over (three passes).</param>
@@ -73,6 +74,10 @@ namespace BS3D.Effects
             public float[] Speed;
             public int DecelerateFrom;
             public float Score;
+
+            /// <summary>How much of <see cref="Style.LookInward"/> the look takes at each point, 0-1, or null for all of it
+            /// everywhere: a route that runs along something before it goes round the arena looks along it there.</summary>
+            public float[] Lean;
         }
 
         /// <summary>How the lens arrives on the pose, off one roll: along the pose's
@@ -232,6 +237,7 @@ namespace BS3D.Effects
 
             int points = style.Points;
             var positions = new Vector3[points];
+            float[] lean = route.Lean == null ? null : new float[points];
             for (int k = 0; k < points; k++)
             {
                 float t = seconds * k / (points - 1);
@@ -245,6 +251,7 @@ namespace BS3D.Effects
                 }
 
                 positions[k] = PointAtLength(path, length, at);
+                if (lean != null) lean[k] = ValueAtLength(route.Lean, length, at);
             }
             positions[^1] = endPosition;
 
@@ -277,7 +284,7 @@ namespace BS3D.Effects
 
                 heading[k] = MathF.Atan2(travel.Z, travel.X);
                 land[k] = MathHelper.SmoothStep(0f, 1f, MathHelper.Clamp((k * dt - (seconds - style.LookLandSeconds)) / style.LookLandSeconds, 0f, 1f));
-                looks[k] = Vector3.Lerp(positions[k] + Leaned(travel, positions[k], endTarget, style.LookInward) * style.LookDistance,
+                looks[k] = Vector3.Lerp(positions[k] + Leaned(travel, positions[k], endTarget, style.LookInward * (lean?[k] ?? 1f)) * style.LookDistance,
                     endTarget, land[k]);
             }
             looks[^1] = endTarget;
@@ -301,23 +308,21 @@ namespace BS3D.Effects
         }
 
         /// <summary>
-        /// The look's direction off the travel's: leaned across the travel towards <paramref name="target"/> by
-        /// <paramref name="inward"/> (see <see cref="Style.LookInward"/>), the travel's own rise and fall kept. 0 returns the
-        /// travel untouched.
+        /// The look's direction off the travel's: turned in plan towards <paramref name="target"/> through
+        /// <paramref name="inward"/> of the angle between them (see <see cref="Style.LookInward"/>), the travel's own rise and
+        /// fall kept. 0 returns the travel untouched.
         /// </summary>
         private static Vector3 Leaned(Vector3 travel, Vector3 position, Vector3 target, float inward)
         {
             if (inward <= 0f) return travel;
 
-            Vector2 flat = new(travel.X, travel.Z), toTarget = new(target.X - position.X, target.Z - position.Z);
-            if (flat.LengthSquared() < 1e-8f || toTarget.LengthSquared() < 1e-8f) return travel;
+            float flat = MathF.Sqrt(travel.X * travel.X + travel.Z * travel.Z);
+            Vector2 toTarget = new(target.X - position.X, target.Z - position.Z);
+            if (flat < 1e-4f || toTarget.LengthSquared() < 1e-8f) return travel;
 
-            //The part of the way to the target that lies across the travel: along it the travel already goes there
-            flat.Normalize();
-            toTarget.Normalize();
-            Vector2 across = toTarget - flat * Vector2.Dot(toTarget, flat);
-            Vector3 leaned = travel + new Vector3(across.X, 0f, across.Y) * (inward * MathF.Sqrt(travel.X * travel.X + travel.Z * travel.Z));
-            return leaned.LengthSquared() < 1e-8f ? travel : Vector3.Normalize(leaned);
+            float heading = MathF.Atan2(travel.Z, travel.X);
+            heading += inward * MathHelper.WrapAngle(MathF.Atan2(toTarget.Y, toTarget.X) - heading);
+            return new Vector3(MathF.Cos(heading) * flat, travel.Y, MathF.Sin(heading) * flat);
         }
 
         private static float LengthAtTime(float[] time, float[] length, int last, float t)
@@ -331,6 +336,22 @@ namespace BS3D.Effects
 
             float span = time[hi] - time[lo];
             return span > 1e-6f ? MathHelper.Lerp(length[lo], length[hi], (t - time[lo]) / span) : length[lo];
+        }
+
+        private static float ValueAtLength(float[] values, float[] length, float at)
+        {
+            int lo = 0, hi = length.Length - 1;
+            if (at <= 0f) return values[0];
+            if (at >= length[hi]) return values[hi];
+
+            while (hi - lo > 1)
+            {
+                int mid = (lo + hi) / 2;
+                if (length[mid] <= at) lo = mid; else hi = mid;
+            }
+
+            float span = length[hi] - length[lo];
+            return span > 1e-6f ? MathHelper.Lerp(values[lo], values[hi], (at - length[lo]) / span) : values[lo];
         }
 
         private static Vector3 PointAtLength(List<Vector3> path, float[] length, float at)
