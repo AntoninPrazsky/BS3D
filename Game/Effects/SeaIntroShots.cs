@@ -33,14 +33,15 @@ namespace BS3D.Effects
     /// <b>No shot looked at the platforms (#1124, the owner: "in the intro the camera does not deal with the oil
     /// platforms").</b> The nearer stands 820 out, past the water's calm, and cannot come nearer: its legs are cut at a
     /// flat waterline. So the lens goes out to it: a cut may put the lens anywhere, and the run starts already
-    /// <see cref="RIG_FROM"/> off the rig, beyond it, coming in over the open sea with the island on the horizon behind
+    /// <see cref="RIG_FROM"/> off the rig, beyond it, coming in over the open sea with the island on the horizon beside
     /// it, the rig growing until it towers over the lens. It plays between the depths and the climb, so a low run over
     /// the water is never next to another (the island's flank is one, the climb starts as one): the depths cut to it from
     /// under the water, and its last look, up at the deck with the derrick over it, cuts to the climb's first, level over
     /// the glint, more than 700 units away. The climb was not turned at a rig instead: its heading is the sun's, which is
     /// the shot the owner asked for (#652), and from round the arena a rig is a few degrees tall however it is framed. The
     /// tour paid for the run out of the other three (the island 3.0 to 2.8 s, the depths 3.2 to 3.0, the climb 4.6 to
-    /// 4.0), so it is 2.2 s longer for it and not 3.2: the owner would rather the game were faster than slower.
+    /// 4.0), so it is 2.6 s longer for it and not 3.6: the owner would rather the game were faster than slower. The run
+    /// takes 3.6 s because in less it would fly faster than a low run may (<see cref="RIG_MAX_SPEED"/>, #645).
     /// </para>
     /// <para>
     /// <b>The water is the only ground, and it is bounded rather than mirrored.</b> No crest stands higher than
@@ -51,7 +52,7 @@ namespace BS3D.Effects
     /// so the bound is <see cref="CREST_REACH"/> above what was seen, and the clearance is what keeps the shots where
     /// #652 framed them (the flank at its own height, the climb starting 0.27 higher than it did). The depths are the
     /// one shot under the water, and stand far enough under it that no trough reaches the lens. The run at the rig keeps
-    /// the same bound, though the water out there is flat (<see cref="SeaSceneConfig.CalmFrom"/>).
+    /// the same bound, 4.2 over the mean level, though the water out there is flat (<see cref="SeaSceneConfig.CalmFrom"/>).
     /// </para>
     /// </summary>
     internal static class SeaIntroShots
@@ -98,21 +99,32 @@ namespace BS3D.Effects
         //this far, where the rig stands this many degrees off the run's heading: the run passes it by rather than flying at
         //it, and with the rig still ahead of abeam at the end the nearest it comes to the axis is RIG_TO, where the legs'
         //outer corners stand some 36 off it (OilRig.JacketReach). The run is turned off the line one way and passes the rig
-        //on the other hand, so the island stands on the horizon beside the rig at the start and crosses behind it. In from
-        //beyond and not out from the arena's side, which would have the open sea behind the rig fade into the sky some 500
-        //past it (the far ring's fade ends FarField.FAR_FADE_END, 1300, from the arena) and the island behind the lens. The
-        //look climbs from the jacket's middle (this share of the deck's height) to the derrick's axis at the deck, so the
-        //rig grows from the horizon and at the end stands over the lens from the waterline to the derrick's cap.
+        //on the other hand, so the island stands on the horizon beside the rig at the start (6 to 18 degrees off it, at the
+        //jacket's edge on the steepest approach) and drifts away from it, out of the frame, as the rig grows. In from beyond and
+        //not out from the arena's side: looking out, the open sea behind the rig would end some 700 past it, where the far ring
+        //ends (1500 from the arena), short of where the fade to the sky completes (FarField.FAR_FADE_END, 1300 from the LENS),
+        //and the island would be behind the lens. The look climbs from the jacket's middle (this share of the deck's height)
+        //to the derrick's axis at the deck, so the rig grows from under half the frame's height and at the end stands over
+        //the lens from the waterline to the derrick's cap.
         //⚠ THE END STANDS OFF. From the waterline the deck and the modules on it hide the derrick's foot from anywhere, and
         //more of it the nearer the lens: ended 70 off the axis the lens was under the deck's edge and saw none of it, only the
         //deck's dark underside and the legs; at 100, the cap. At 140 the upper half of it stands over the deck.
-        private const float RIG_FROM = 300f;
+        //⚠ THE RUN IS THE FASTEST LOW SHOT, AND HELD (RIG_MAX_SPEED). Some 174 units in 3.6 s, 48 a second on average and 56 at
+        //the eased clock's peak (IntroShot.PEAK_PACE), 4.2 over the mean level. The terrain runs were "too fast" at 30-59
+        //(#645) and are held to 28; the outback's approach, its subject ahead as this one's is, flies 34 a second at a
+        //clearance of 2.4. What the water at the frame's foot streams by with goes as speed over height: 11.5 a second here
+        //against the approach's 14 at its clearance. Begun 300 off in 3.2 s the run flew 72 a second (17 in that measure);
+        //the start is what was traded: from 250 the rig grows from about 47 % of the frame's height, not 39 %.
+        private const float RIG_FROM = 250f;
         private const float RIG_TO = 140f;
         private const float RIG_APPROACH_MIN_DEGREES = 10f;
         private const float RIG_APPROACH_MAX_DEGREES = 25f;
         private const float RIG_PASS_DEGREES = 75f;
         private const float RIG_LOOK_FROM = 0.5f;
-        private const float RIG_SECONDS = 3.2f;
+        private const float RIG_SECONDS = 3.6f;
+
+        /// <summary>How fast the run at the rig may fly on average, in units a second (see RIG_SECONDS's notes).</summary>
+        internal const float RIG_MAX_SPEED = 50f;
 
         /// <summary>The highest a crest can stand over the mean level, in units of the swell's amplitude, plus the chop's.</summary>
         internal static float CrestHeight(SeaSceneConfig sea) => sea.WaveAmplitude * CREST_REACH + sea.ChopAmplitude;
@@ -146,7 +158,8 @@ namespace BS3D.Effects
                 : MathHelper.ToRadians(CLIMB_FALLBACK_ELEVATION_DEGREES);
 
             //Rolled in the order the three were before the rig came (#1124), so a seed= flies the island, the depths and the
-            //climb it always did
+            //climb it always did. Only those: the rig's two rolls come after them on the same stream, so what the host rolls
+            //from it after the prologue (the tour's last leg, and in a level the magazine's picks) is not what it was.
             IntroShot flank = Flank(sea, fieldOfView, random);
             IntroShot depths = Depths(sea, fieldOfView, random);
             IntroShot climb = Climb(sea, heading, elevation, fieldOfView, random);

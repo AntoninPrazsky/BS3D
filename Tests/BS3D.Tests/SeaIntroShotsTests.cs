@@ -11,8 +11,9 @@ namespace BS3D.Tests
     /// The sea's prologue (#1124, the owner: "in the intro the camera does not deal with the oil platforms"), held over the real
     /// builder on the shipped config and the rigs' own boxes (<see cref="OilRigs.Parts"/>, the ones the mesh is built from): the
     /// four shots in their order and the prologue's length, every cut a different picture, every lens over the water (the depths
-    /// under it), the run at the rig clear of both rigs' legs, decks, derrick and booms at every point, the rig in frame from
-    /// the waterline to the derrick's top through the whole run, and the derrick's top in sight over the deck at its end.
+    /// under it), the run at the rig clear of both rigs' legs, decks, derrick and booms at every point, no faster than a low
+    /// run may fly, the rig in frame from the waterline to the derrick's top through the whole run, the derrick's top in sight
+    /// over the deck at its end, and both rigs' legs standing where the swell is flat whoever looks.
     /// </summary>
     public class SeaIntroShotsTests
     {
@@ -67,7 +68,7 @@ namespace BS3D.Tests
         [Fact]
         public void TheRigCostsTheTourLessThanItsOwnLength()
         {
-            //The island, the depths and the climb gave back a second between them, so the prologue grew by 2.2 s, not 3.2
+            //The island, the depths and the climb gave back a second between them, so the prologue grew by 2.6 s, not 3.6
             float seconds = 0f, rig = 0f;
             foreach (IntroShot shot in Shots(1, Sun(13f, 135f), out _))
             {
@@ -75,8 +76,49 @@ namespace BS3D.Tests
                 if (shot.Name == "the rig") rig = shot.Seconds;
             }
 
-            Assert.True(seconds <= 13.0f + 1e-3f, $"the prologue is {seconds:F2} s");
+            Assert.True(seconds <= 13.4f + 1e-3f, $"the prologue is {seconds:F2} s");
             Assert.True(seconds - rig <= 9.8f + 1e-3f, $"the three shots before the rig came are {seconds - rig:F2} s");
+        }
+
+        [Fact]
+        public void TheRunAtTheRigIsNoFasterThanALowRunMayFly()
+        {
+            //Flown on its own eased clock at sixty frames a second, as IntroShotSmoothnessTests measures a terrain run: the
+            //distance over the shot's length. Seen to fire at 72 a second, the run first built (300 off in 3.2 s).
+            for (int seed = 1; seed <= ROLLS; seed++)
+            {
+                IntroShot rig = Rig(Shots(seed, Sun(13f, 135f), out _));
+                int frames = (int)MathF.Round(rig.Seconds * 60f);
+                float travelled = 0f;
+                rig.Pose(0f, out Vector3 last, out _);
+                for (int frame = 1; frame <= frames; frame++)
+                {
+                    rig.Pose(frame / (float)frames, out Vector3 lens, out _);
+                    travelled += Vector3.Distance(last, lens);
+                    last = lens;
+                }
+
+                float speed = travelled / rig.Seconds;
+                Assert.True(speed <= SeaIntroShots.RIG_MAX_SPEED, $"seed {seed}: the run at the rig flies {speed:F1} units a second");
+            }
+        }
+
+        [Fact]
+        public void BothRigsStandWhereTheSwellIsFlatWhoeverLooks()
+        {
+            //Why the run flies out to the rig rather than the rig standing nearer (#1124): its legs are cut at a flat waterline
+            //(Rig.fx), so every leg must stand where Sea.fx's calm with the distance from the arena has the water flat, from
+            //CalmFrom to flat at WaveFadeEnd, whatever the lens's own distance. Seen to fire with NEAR_DISTANCE at 800.
+            var sea = new SeaSceneConfig();
+            Assert.True(sea.CalmFrom > 0f && sea.CalmFrom < sea.WaveFadeEnd,
+                $"the swell calms from {sea.CalmFrom} to flat at {sea.WaveFadeEnd} from the arena");
+
+            foreach (OilRig rig in new[] { OilRigLayout.Near(sea.LevelY), OilRigLayout.Far(sea.LevelY) })
+            {
+                float nearest = new Vector2(rig.Foot.X, rig.Foot.Z).Length() - rig.JacketReach;
+                Assert.True(nearest >= sea.WaveFadeEnd,
+                    $"a leg of the rig at {rig.Foot} stands {nearest:F1} from the arena, inside the swell's {sea.WaveFadeEnd}");
+            }
         }
 
         //Across a cut the lens moves AND the view turns by film's thirty-degree rule, as VolcanoIntroShotsTests holds, unless
@@ -176,7 +218,7 @@ namespace BS3D.Tests
             }
         }
 
-        //How near any box of either rig the lens may come: a leg is 8.8 wide and the run passes at some seventy units a second
+        //How near any box of either rig the lens may come: a leg is 8.8 wide and the run passes at some fifty units a second
         private const float MIN_RIG_CLEARANCE = 20f;
 
         [Fact]
@@ -205,7 +247,7 @@ namespace BS3D.Tests
         public void TheRigGrowsFromTheHorizonUntilItTowersOverTheLens()
         {
             //From the waterline at its jacket to its derrick's top, at the game's lens: under half the frame's height as the run
-            //starts, about two fifths, and over two thirds at its end, about three quarters
+            //starts, a little under, and over two thirds at its end, about three quarters
             var sea = new SeaSceneConfig();
             OilRig near = OilRigLayout.Near(sea.LevelY);
 
