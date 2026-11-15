@@ -252,6 +252,34 @@ namespace BS3D.Tests
         }
 
         [Fact]
+        public void A_low_lens_crosses_the_ponds_shore_only_between_its_reed_clumps()
+        {
+            //The flights the sweep lays all leave the pond on its arena side, 24 to 100 degrees round it, where no clump stands, so
+            //the sweep never meets the rule (removed, no swept flight changed enough to fail): it is held here on the shore itself.
+            //Low in a clump is refused, low in the gap and high over a clump are not, and low on the brook's own bank, where none
+            //is planted, is not either.
+            var config = new MeadowSceneConfig();
+            var obstacles = new MeadowLanding.Obstacles(config, null, 0f);
+            (float pondX, float pondZ) = MeadowPath.PondCentre(config);
+
+            Vector3 OnTheShore(float degrees, float overField)
+            {
+                float a = MathHelper.ToRadians(degrees), shore = config.PondRadius * MeadowPath.PondOutline(a);
+                float x = pondX + MathF.Cos(a) * shore, z = pondZ + MathF.Sin(a) * shore;
+                return new Vector3(x, TerrainMirror.MeadowGround(x, z, config) + overField, z);
+            }
+
+            Assert.True(MeadowPath.PondReedClump(MathHelper.ToRadians(-120f)) > MeadowPath.POND_REEDS_FROM, "the premise: reeds at -120 degrees");
+            Assert.False(obstacles.Clear(OnTheShore(-120f, 2f)), "low in a clump of reeds");
+            Assert.True(obstacles.Clear(OnTheShore(60f, 2f)), "low in the gap on the arena's side");
+            Assert.True(obstacles.Clear(OnTheShore(-120f, 6f)), "over the clump");
+
+            (float mouthX, float mouthZ) = MeadowPath.BrookPoint(config.ClearingRadius * MeadowPath.BROOK_START + config.PondRadius, 0f, config);
+            Assert.True(obstacles.Clear(new Vector3(mouthX, TerrainMirror.MeadowGround(mouthX, mouthZ, config) + MeadowLanding.BROOK_ABOVE, mouthZ)),
+                "on the brook's own bank at its mouth");
+        }
+
+        [Fact]
         public void No_flight_is_laid_into_a_pose_inside_the_islands_radius()
         {
             //The menu's crane stands as near as 15 out, over the island: no flight from the meadow reaches it without crossing
