@@ -22,7 +22,7 @@ The twenty-first `SceneKind` (#690): **the inside of a circus tent between shows
 
 ## The chapter intro
 
-`Game/Effects/CircusIntroShots.cs` (#752): *the canvas*, *the seats*, *the gate*; see "Big Top" in [the chapter intro's scene shots](../game-feedback/chapter-intro-scene-shots.md).
+`Game/Effects/CircusIntroShots.cs` (#752): *the canvas*, *the seats*, and *the gate home* (`CircusLanding`, #1118), in through the performers' entrance and round the island inside the king poles onto the gameplay pose; see "Big Top" in [the chapter intro's scene shots](../game-feedback/chapter-intro-scene-shots.md). It keeps its lens off the tent by the same figures the pass traces, the footlights' two (`FOOTLIGHT_INSET`, `FOOTLIGHT_HEIGHT`) copied into the Game and held equal by its tests.
 
 ## The wear (#976)
 
