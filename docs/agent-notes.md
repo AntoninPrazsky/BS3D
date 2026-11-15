@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1109 #1112 hladký let úvodů nad terénem — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: `AridIntroPaths.Hug` zaobluje výšku přes 0,7 s letu Gaussem plus hladkým zdvihem, který drží každou světlou výšku; `IntroShot.At` za koncem záběru extrapoluje, takže střih neubere rychlost. Nový test `IntroShotSmoothnessTests` hlídá všech 11 záběrů nad terénem (poušť, hory, outback, sopka) s limity z dronových záběrů; nejhorší svislé zrychlení např. pyramidy 193 → 10, outback přílet 198 → 7 j/s². Jeřáb (patka a vrchol) letí přesně podle návrhu. Nový argument `introshot=` podrží úvod v daných chvílích a uloží snímek.
+- ⚠ Zdvih sahá šest `LIFT_SECONDS` na každou stranu hřebene, ne tři: pyramidy teď letí v průměru 11,1 nad pískem místo 8,8.
+- Otevřené: `verdict-eye` (pohyb); měřeno jen na 60 fps; outback bez snímků.
+
 ## 2026-11-15 — #1114 Měsíc: jedna vlajka u stop vozítka a záběr po kolejích — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: na Měsíci stojí jedna bílá vlajka (`FLAG_SIZE` 2,4) místo dvou, 4 jednotky vedle stop vozítka na svahu, asi 14° vlevo od osy herního pohledu (nad hranou paluby, mimo kolo děla). Stopy přeloženy: z pláně se stočí na jih a stoupají za vlajku (ohyb nejvýš 10,4°). Úvod: záběr kráteru nahradil „the tracks“, nízký let po kolejích nad CPU zrcadlem terénu se sluncem z boku, končí na vlajce zblízka; úvod 15,3 s místo 14,3.
