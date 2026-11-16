@@ -68,14 +68,22 @@ namespace Prazsky.Core.Render
         private const float WATERLINE_RISE = 0.2f;
 
         /// <summary>
-        /// The lighthouse on its rock: a low, uneven rock some 24 out from its middle at the waterline (faceted, dark and wet,
-        /// with pale crust on some of its upper faces), a tower tapering from a stone plinth to a red band under the gallery,
-        /// the lantern lit, a red cap, and a keeper's house on the rock beside it.
+        /// The lighthouse on its rock: a low, uneven rock some 24 out from its middle at the waterline, higher on one side
+        /// (faceted, dark and wet, with pale crust on some of its upper faces) with a few boulders off its foot, so the surf
+        /// round it is broken; a tower tapering from a stone plinth to a red band under the gallery, with a door and a few
+        /// small windows up it, the lantern lit and a red cap; and a keeper's house on the rock beside it.
         /// </summary>
         internal static List<RigVertex> Lighthouse()
         {
             var b = new Builder();
-            Rock(b, 24f, 6.5f, new Random(1125));
+            var random = new Random(1125);
+            Rock(b, Vector3.Zero, 24f, 6.5f, 2.2f, 28, random);
+            for (int i = 0; i < 6; i++)
+            {
+                float a = i * MathHelper.TwoPi / 6f + (float)random.NextDouble() * 0.7f, out0 = 25f + (float)random.NextDouble() * 6f;
+                float size = 2.5f + (float)random.NextDouble() * 3f;
+                Rock(b, new Vector3(MathF.Cos(a) * out0, 0f, MathF.Sin(a) * out0), size, size * 0.7f, size * 0.15f, 9, random);
+            }
 
             b.Frustum(new Vector3(0f, 4.5f, 0f), 5.8f, 9f, 5.4f, 16, STONE, RigVertex.PAINTED);
             b.Frustum(new Vector3(0f, 9f, 0f), 4.6f, 41f, 3.6f, 16, TOWER_WHITE, RigVertex.PAINTED);
@@ -85,6 +93,14 @@ namespace Prazsky.Core.Render
             b.Frustum(new Vector3(0f, 55.6f, 0f), 3.1f, 59f, 0.3f, 12, TOWER_RED, RigVertex.PAINTED);
             b.Box(new Vector3(0f, 60f, 0f), new Vector3(0.15f, 1f, 0.15f), IRON, RigVertex.PAINTED);
 
+            //The door at its foot and the stair's small windows up it, each a dark slot standing just out of the wall
+            foreach ((float y, float turn, float halfHeight) in new[] { (11f, 0.2f, 1.6f), (19f, 1.5f, 0.9f), (27f, 3.1f, 0.9f), (35f, 4.6f, 0.9f) })
+            {
+                float wall = MathHelper.Lerp(4.6f, 3.6f, (y - 9f) / 32f);
+                b.Box(new Vector3(MathF.Cos(turn) * wall, y, MathF.Sin(turn) * wall), new Vector3(0.2f, halfHeight, 0.55f), GLASS,
+                    RigVertex.PAINTED, -turn);
+            }
+
             //The keeper's house beside it, its floor sunk into the rock, under a red pitched roof
             b.Box(new Vector3(11f, 6.5f, 0f), new Vector3(4.5f, 2.5f, 3.5f), HOUSE_WHITE, RigVertex.PAINTED);
             b.Roof(new Vector3(11f, 9f, 0f), 4.9f, 3.9f, 2.4f, ROOF_RED);
@@ -92,57 +108,60 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// A rock some <paramref name="radius"/> out at the waterline and <paramref name="height"/> high: rings of uneven radius
-        /// and height round a low crown, faceted, going on under the water to a flat foot. Lit flat, a face at a time.
+        /// A rock about <paramref name="centre"/>, some <paramref name="radius"/> out at the waterline and
+        /// <paramref name="height"/> high: rings of uneven radius and height round a low crown, its top tipped
+        /// <paramref name="tilt"/> higher on one side than the other, faceted, going on under the water to a flat foot. Lit flat,
+        /// a face at a time.
         /// </summary>
-        private static void Rock(Builder b, float radius, float height, Random random)
+        private static void Rock(Builder b, Vector3 centre, float radius, float height, float tilt, int segments, Random random)
         {
-            const int SEGMENTS = 22;
             float[] rings = { 0f, 0.3f, 0.58f, 0.82f, 1f, 1.14f };
-            float[] lift = new float[SEGMENTS * rings.Length];
-            float[] reach = new float[SEGMENTS];
+            float[] lift = new float[segments * rings.Length];
+            float[] reach = new float[segments];
             float p1 = (float)random.NextDouble() * MathHelper.TwoPi, p2 = (float)random.NextDouble() * MathHelper.TwoPi;
-            for (int s = 0; s < SEGMENTS; s++)
+            float high = (float)random.NextDouble() * MathHelper.TwoPi;
+            for (int s = 0; s < segments; s++)
             {
-                float a = s * MathHelper.TwoPi / SEGMENTS;
-                reach[s] = 1f + 0.12f * MathF.Sin(2f * a + p1) + 0.07f * MathF.Sin(5f * a + p2) + 0.05f * ((float)random.NextDouble() - 0.5f);
-                for (int r = 1; r < rings.Length - 1; r++) lift[s * rings.Length + r] = ((float)random.NextDouble() - 0.5f) * 1.6f;
+                float a = s * MathHelper.TwoPi / segments;
+                reach[s] = 1f + 0.14f * MathF.Sin(2f * a + p1) + 0.08f * MathF.Sin(5f * a + p2) + 0.08f * ((float)random.NextDouble() - 0.5f);
+                for (int r = 1; r < rings.Length - 1; r++) lift[s * rings.Length + r] = ((float)random.NextDouble() - 0.5f) * height * 0.45f;
             }
 
-            //Inside the waterline's ring the crown falls away unevenly; on it the rock stands just out of the water, and past
-            //it the rock goes on down under the water
+            //Inside the waterline's ring the crown falls away unevenly, higher towards one side; on it the rock stands just out of
+            //the water, and past it the rock goes on down under the water
             Vector3 Point(int s, int r)
             {
-                s %= SEGMENTS;
-                float f = rings[r], a = s * MathHelper.TwoPi / SEGMENTS;
-                float y = f < 1f ? height * MathF.Pow(1f - f * f, 0.6f) + lift[s * rings.Length + r] * (1f - f)
+                s %= segments;
+                float f = rings[r], a = s * MathHelper.TwoPi / segments;
+                float y = f < 1f
+                    ? height * MathF.Pow(1f - f * f, 0.6f) + lift[s * rings.Length + r] * (1f - f) + tilt * f * (1f - f) * 4f * MathF.Cos(a - high)
                     : f == 1f ? WATERLINE_RISE : -DRAUGHT;
                 float out0 = radius * f * reach[s];
-                return new Vector3(MathF.Cos(a) * out0, y, MathF.Sin(a) * out0);
+                return centre + new Vector3(MathF.Cos(a) * out0, y, MathF.Sin(a) * out0);
             }
 
-            Vector3 crown = new(0f, height + 0.6f, 0f);
-            for (int s = 0; s < SEGMENTS; s++)
+            Vector3 crown = centre + new Vector3(0f, height + height * 0.1f, 0f);
+            for (int s = 0; s < segments; s++)
             {
-                RockFace(b, crown, Point(s + 1, 1), Point(s, 1), random);
+                RockFace(b, centre, crown, Point(s + 1, 1), Point(s, 1), random);
                 for (int r = 1; r < rings.Length - 1; r++)
                 {
-                    RockFace(b, Point(s, r), Point(s + 1, r), Point(s + 1, r + 1), random);
-                    RockFace(b, Point(s, r), Point(s + 1, r + 1), Point(s, r + 1), random);
+                    RockFace(b, centre, Point(s, r), Point(s + 1, r), Point(s + 1, r + 1), random);
+                    RockFace(b, centre, Point(s, r), Point(s + 1, r + 1), Point(s, r + 1), random);
                 }
                 //The foot, under the water
-                b.Triangle(new Vector3(0f, -DRAUGHT, 0f), Point(s, rings.Length - 1), Point(s + 1, rings.Length - 1), -Vector3.UnitY, ROCK, RigVertex.PAINTED);
+                b.Triangle(centre + new Vector3(0f, -DRAUGHT, 0f), Point(s, rings.Length - 1), Point(s + 1, rings.Length - 1), -Vector3.UnitY, ROCK, RigVertex.PAINTED);
             }
         }
 
-        //One face of the rock, lit flat: its normal the one that points out and up, its colour the stone's with a little of
-        //its own, or the pale crust on some faces that look up
-        private static void RockFace(Builder b, Vector3 p0, Vector3 p1, Vector3 p2, Random random)
+        //One face of a rock about its centre, lit flat: its normal the one that points out and up, its colour the stone's with a
+        //little of its own, or the pale crust on some faces that look up
+        private static void RockFace(Builder b, Vector3 centre, Vector3 p0, Vector3 p1, Vector3 p2, Random random)
         {
             Vector3 n = Vector3.Cross(p1 - p0, p2 - p0);
             if (n.LengthSquared() < 1e-10f) return;
             n = Vector3.Normalize(n);
-            Vector3 middle = (p0 + p1 + p2) / 3f;
+            Vector3 middle = (p0 + p1 + p2) / 3f - centre;
             //Out from the rock's axis, and up
             if (Vector3.Dot(n, new Vector3(middle.X, 0f, middle.Z)) + n.Y * 4f < 0f) n = -n;
 

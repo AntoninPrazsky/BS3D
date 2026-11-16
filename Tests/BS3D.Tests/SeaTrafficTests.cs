@@ -137,7 +137,7 @@ namespace BS3D.Tests
         {
             //Rig.fx cuts everything at a flat waterline, so it has to stand where Sea.fx's calm with the distance from the arena has
             //the water flat (#1124): past WaveFadeEnd. A vessel's nearest to the arena anywhere on its lane is its lane's nearest
-            //point less its reach across it. Seen to fire with the yacht's lane at 790.
+            //point less its reach across it. Seen to fire with the yacht's lane at 780.
             foreach ((string name, List<RigVertex> mesh, float lane, _, _) in Vessels())
             {
                 float nearest = Band(mesh, lane).Near;
@@ -275,8 +275,8 @@ namespace BS3D.Tests
         {
             //The play view of every shipped level, played on the sea through the pause's Scene list, in every pose the overview
             //holds: the lantern, the tower's middle and the rock under it in the frame, the gun at rest and every ball the level
-            //opens with off the line to them. Seen to fire with the lighthouse's bearing at -1.37 (a ball of Balloon over the
-            //lantern in the focused view) and at -1.0 (past the frame's right edge at 4:3).
+            //opens with off the line to them. Seen to fire with the lighthouse's bearing at -1.37 (the gun's wheel before its rock
+            //on Analemma), and at -1.37 and 860 out before the rock was held (a ball of Balloon over the lantern, focused).
             Matrix frame = SeaTrafficLayout.Lighthouse(Sea.LevelY);
             Vector3 lantern = Vector3.Transform(new Vector3(0f, 53f, 0f), frame), middle = Vector3.Transform(new Vector3(0f, 30f, 0f), frame);
             Vector3 rock = Vector3.Transform(new Vector3(0f, 3f, 0f), frame);
