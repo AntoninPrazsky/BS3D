@@ -56,11 +56,20 @@ namespace Prazsky.Core.Render
 
         //And the island's foot (#983): clumps on the bank against the drum, how many round the ring, and how far out from the
         //drum's face they stand, nearest and the span past it
-        /// <summary>Round every frond of a fern clump at scale 1: what its cells are culled by (#1099), so no frond may reach past it.</summary>
-        internal static readonly BoundingSphere FERN_BOUNDS = new(new Vector3(0f, 0.5f, 0f), 1.6f);
-
         private const int FERN_FOOT_CLUMPS = 14;
         private const float FERN_FOOT_FROM = 0.5f, FERN_FOOT_SPAN = 2.6f;
+
+        /// <summary>
+        /// One of the <see cref="FERN_VARIANTS"/> fern clumps a dressing of <paramref name="seed"/> plants, and the sphere its
+        /// cells are culled by (#1099): round every vertex (<see cref="FernClump.Bounds"/>), so no frond is cut at the screen's
+        /// edge.
+        /// </summary>
+        internal static (List<VertexPositionNormalTexture> Vertices, List<int> Indices, BoundingSphere Bounds) Fern(int seed, int variant)
+        {
+            (List<VertexPositionNormalTexture> vertices, List<int> indices) = FernClump.Build(seed * 31 + 9620 + variant);
+            return (vertices, indices, FernClump.Bounds(vertices));
+        }
+
         public ForestDressing(GraphicsDevice device, ForestSceneConfig config, ForestScatter planting, int seed)
         {
             ForestTreeConfig trees = config.Trees;
@@ -126,8 +135,8 @@ namespace Prazsky.Core.Render
             for (int k = 0; k < FERN_VARIANTS; k++)
             {
                 if (ferns[k].Count == 0) continue;
-                (List<VertexPositionNormalTexture> vertices, List<int> indices) = FernClump.Build(seed * 31 + 9620 + k);
-                var mesh = Own(new UploadedMesh(device, vertices, indices, FERN_BOUNDS));
+                (List<VertexPositionNormalTexture> vertices, List<int> indices, BoundingSphere bounds) = Fern(seed, k);
+                var mesh = Own(new UploadedMesh(device, vertices, indices, bounds));
                 cards.Add(Own(new ScatterBucket(device, mesh, ferns[k], FERN, FERN_DRY, dapple: 0f, bark: 0f, detailOnly: false,
                     leaves: 1f, castsShadow: false, fineMeshes: true, cells: true)));
                 cardKinds.Add(ForestLayer.Ferns);

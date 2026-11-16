@@ -46,6 +46,24 @@ namespace Prazsky.Core.Render
             return (vertices, indices);
         }
 
+        /// <summary>
+        /// A sphere round every vertex of a clump, about its axis: what the clump's cells are culled by (#1099). Measured from
+        /// the vertices, never assumed: how far a clump reaches is its fronds' rolled lengths, rises and offsets, and a fixed
+        /// sphere of 1.6 left a frond tip outside it at about one seed in twelve.
+        /// </summary>
+        public static BoundingSphere Bounds(List<VertexPositionNormalTexture> vertices)
+        {
+            float lowest = float.MaxValue, highest = float.MinValue, widest = 0f;
+            foreach (VertexPositionNormalTexture vertex in vertices)
+            {
+                lowest = MathF.Min(lowest, vertex.Position.Y);
+                highest = MathF.Max(highest, vertex.Position.Y);
+                widest = MathF.Max(widest, new Vector2(vertex.Position.X, vertex.Position.Z).Length());
+            }
+            return new BoundingSphere(new Vector3(0f, (lowest + highest) * 0.5f, 0f),
+                new Vector2(widest, (highest - lowest) * 0.5f).Length());
+        }
+
         //A frond from the crown out along `bearing`, `length` long, leaving at `rise` above the level and arching over until its
         //tip hangs; rolled about its own length by `roll`
         private static void AddFrond(List<VertexPositionNormalTexture> vertices, List<int> indices, float bearing, float length,

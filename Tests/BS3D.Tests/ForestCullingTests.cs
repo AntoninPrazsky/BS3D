@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using Prazsky.Core.Render;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Xunit;
 
 namespace BS3D.Tests
@@ -9,7 +10,9 @@ namespace BS3D.Tests
     /// <summary>
     /// The forest's wood drawn by what a frustum meets (#1099) and its near crowns round the focus (#1120): a sector is skipped
     /// only when nothing in it can reach the frustum, the play camera's share is a run or two, a planted tree is tested by its
-    /// placed bounds, and the focus moves on a cut and never during a flight.
+    /// placed bounds, and the focus moves on a cut and never during a flight. <see cref="ForestPasses"/> is reached whole: a pass
+    /// takes what its frustum meets and nothing else, and on a cut the sun's pass, which comes first, already splits by the new
+    /// focus, so a tree casts the crown it is drawn in.
     /// </summary>
     public class ForestCullingTests
     {
@@ -164,10 +167,21 @@ namespace BS3D.Tests
                             $"broadleaf {variant.Seed}: a vertex at {vertex.Position} lies {Vector3.Distance(vertex.Position, g.Bounds.Center):F2} from the bounds' centre, radius {g.Bounds.Radius:F2}");
             }
 
-            for (int k = 0; k < 3; k++)
-                foreach (var vertex in FernClump.Build(ForestScatterRenderer.DEFAULT_SEED * 31 + 9620 + k).Vertices)
-                    Assert.True(Vector3.Distance(vertex.Position, ForestDressing.FERN_BOUNDS.Center) <= ForestDressing.FERN_BOUNDS.Radius,
-                        $"fern {k}: a vertex at {vertex.Position} lies outside its bounds");
+            //The ferns at the seeds the hosts roll (the default plus a random offset a launch, unless sceneseed= pins it): a sphere
+            //of 1.6 left a frond tip outside at about one in twelve
+            var offsets = new List<int>();
+            for (int o = 0; o < 500; o++) offsets.Add(o);
+            var rng = new Random(1099);
+            for (int o = 0; o < 300; o++) offsets.Add(rng.Next());
+            foreach (int offset in offsets)
+                for (int k = 0; k < 3; k++)
+                {
+                    (List<Microsoft.Xna.Framework.Graphics.VertexPositionNormalTexture> vertices, _, BoundingSphere bounds) =
+                        ForestDressing.Fern(ForestScatterRenderer.DEFAULT_SEED + offset, k);
+                    foreach (var vertex in vertices)
+                        Assert.True(Vector3.Distance(vertex.Position, bounds.Center) <= bounds.Radius * 1.0001f,
+                            $"fern {k} at offset {offset}: a vertex at {vertex.Position} lies {Vector3.Distance(vertex.Position, bounds.Center):F3} from the bounds' centre, radius {bounds.Radius:F3}");
+                }
         }
 
         [Fact]
@@ -203,6 +217,105 @@ namespace BS3D.Tests
             Vector3 cut = new(30f, -4f, 0f);
             focus = ForestScatterRenderer.NextFocus(true, focus, last, cut);
             Assert.Equal(cut, focus);
+        }
+
+        //The forest's own planting, with stand-in bounds for the meshes a device would build: a tree some twenty units tall
+        private static ForestPasses Passes(out ForestScatter scatter)
+        {
+            var config = new ForestSceneConfig();
+            scatter = ForestScatterRenderer.Plant(ForestScatterRenderer.DEFAULT_SEED, config, (x, z) => TerrainMirror.Forest(x, z, config));
+            var tree = new BoundingSphere(new Vector3(0f, 9f, 0f), 10f);
+            var low = new BoundingSphere(new Vector3(0f, 0.5f, 0f), 2f);
+            static BoundingSphere[] Each(ModelInstance[][] kind, BoundingSphere sphere)
+            {
+                var all = new BoundingSphere[kind.Length];
+                Array.Fill(all, sphere);
+                return all;
+            }
+            return new ForestPasses(scatter, Each(scatter.FineConifers, tree), Each(scatter.FineBroadleaves, tree),
+                Each(scatter.FineRocks, low), Each(scatter.FineStumps, low), Each(scatter.FineSnags, tree), Each(scatter.FineLogs, low));
+        }
+
+        private static Matrix ViewProjection(Vector3 at, Vector3 target) =>
+            Matrix.CreateLookAt(at, target, Vector3.Up) * Matrix.CreatePerspectiveFieldOfView(0.9f, 2.4f, 0.1f, 3000f);
+
+        //The sun's map: a box round the clearing seen from the forest's low sun, as SunShadowMap lays it
+        private static readonly Matrix SUN = Matrix.CreateLookAt(new Vector3(-490f, 95f, -150f), Vector3.Zero, Vector3.Up)
+            * Matrix.CreateOrthographic(700f, 700f, 1f, 1200f);
+
+        private static HashSet<Vector3> Where(ForestPasses.Culled set)
+        {
+            var at = new HashSet<Vector3>();
+            for (int v = 0; v < set.Items.Length; v++)
+                for (int i = 0; i < set.Counts[v]; i++) at.Add(set.Items[v][i].World.Translation);
+            return at;
+        }
+
+        [Fact]
+        public void A_cut_puts_the_near_crowns_round_the_new_lens_in_the_sun_s_pass_as_in_the_camera_s()
+        {
+            ForestPasses passes = Passes(out ForestScatter scatter);
+            var play = new Vector3(0f, -4f, 30f);
+            passes.Pass(SUN, play, true, false);
+            passes.Pass(ViewProjection(play, new Vector3(0f, -2f, -60f)), play, true, true);
+
+            //The cut, to an intro's lens among the far trees, the frame's sun pass first, as SceneRenderer.DrawShadowMaps runs it
+            var lens = new Vector3(-150f, 2f, 40f);
+            Matrix camera = ViewProjection(lens, new Vector3(-120f, 0f, 80f));
+            passes.Pass(SUN, lens, true, false);
+            Assert.Equal(lens, passes.Focus);
+            HashSet<Vector3> castNear = Where(passes.NearConifers), castFar = Where(passes.FarConifers);
+            passes.Pass(camera, lens, true, true);
+            HashSet<Vector3> drawnNear = Where(passes.NearConifers), drawnFar = Where(passes.FarConifers);
+
+            //What the camera's frustum meets is drawn, and nothing else, each spruce in the crown its place gives it
+            var frustum = new BoundingFrustum(camera);
+            var tree = new BoundingSphere(new Vector3(0f, 9f, 0f), 10f);
+            int nearByFocus = 0;
+            foreach (ModelInstance[] bucket in scatter.FineConifers)
+                foreach (ModelInstance planted in bucket)
+                {
+                    Vector3 at = planted.World.Translation;
+                    bool seen = ForestScatterRenderer.Meets(frustum, tree, planted.World);
+                    Assert.Equal(seen, drawnNear.Contains(at) || drawnFar.Contains(at));
+                    if (!seen) continue;
+                    bool near = ForestScatterRenderer.WearsNearCrown(at, lens);
+                    Assert.Equal(near, drawnNear.Contains(at));
+                    float fromLens = new Vector2(at.X - lens.X, at.Z - lens.Z).Length();
+                    if (near && new Vector2(at.X, at.Z).Length() >= ForestScatterRenderer.FINE_NEAR_RADIUS && fromLens > 30f) nearByFocus++;
+                }
+            Assert.True(nearByFocus > 0, "no spruce 30 or more units from the cut's lens, past the arena's reach, wears the near crown");
+            Assert.Equal(passes.Conifers.Counts.Sum(), drawnNear.Count + drawnFar.Count);
+
+            //And every spruce both passes take casts the crown it is drawn in
+            int both = 0;
+            foreach (Vector3 at in drawnNear) if (castNear.Contains(at) || castFar.Contains(at)) { both++; Assert.Contains(at, castNear); }
+            foreach (Vector3 at in drawnFar) if (castNear.Contains(at) || castFar.Contains(at)) { both++; Assert.Contains(at, castFar); }
+            Assert.True(both > 0);
+        }
+
+        [Fact]
+        public void No_spruce_changes_its_crown_during_a_flight()
+        {
+            ForestPasses passes = Passes(out _);
+            var start = new Vector3(-150f, 2f, 40f);
+            var heading = Vector3.Normalize(new Vector3(30f, -2f, 40f));
+            HashSet<Vector3> near = null, far = null;
+            for (int frame = 0; frame < 60; frame++)
+            {
+                Vector3 lens = start + heading * (0.9f * frame);
+                passes.Pass(SUN, lens, true, false);
+                passes.Pass(ViewProjection(lens, lens + heading * 30f), lens, true, true);
+                Assert.Equal(start, passes.Focus);
+                HashSet<Vector3> nowNear = Where(passes.NearConifers), nowFar = Where(passes.FarConifers);
+                if (near != null)
+                {
+                    foreach (Vector3 at in nowNear) Assert.DoesNotContain(at, far);
+                    foreach (Vector3 at in nowFar) Assert.DoesNotContain(at, near);
+                }
+                near = nowNear;
+                far = nowFar;
+            }
         }
     }
 }
