@@ -64,8 +64,9 @@ namespace BS3D.Effects
         private const float ARENA_CLEARANCE = 48f;
         private const float ARENA_OFF_SIGHT_DEGREES = 50f;
 
-        //How close to any solid's bounding sphere a lens may come: inside it, the march starts at the lens.
-        private const float SOLID_MARGIN = 10f;
+        //How close to any solid's bounding sphere a lens may come: inside it, the march starts at the lens. Internal for
+        //DreamIntroShotsTests.
+        internal const float SOLID_MARGIN = 10f;
 
         private const int CANDIDATES = 48;
         private const int PATH_POINTS = IntroPaths.POINTS;
@@ -119,7 +120,9 @@ namespace BS3D.Effects
                 if (ClearOfSolids(shapes, path, time, SKY_SECONDS)) best = path;
             }
 
-            //Every roll crossing a solid would take the solids crowded onto one ring; keep the last roll.
+            //Every roll crossing a solid would take the solids crowded onto one ring: then a fixed rise at bearing 0, which
+            //nothing checks against the solids (DreamIntroShotsTests would see it come near one: it holds every lens of the
+            //reel to the margin the checked paths keep)
             best ??= new[] { new Vector3(SKY_RADIUS, SKY_FROM_HEIGHT, 0f), new Vector3(SKY_RADIUS, SKY_TO_HEIGHT, 0f) };
 
             return new IntroShot("the marbled sky", best, SKY_SECONDS, fieldOfView * 1.2f, lookAt: island);

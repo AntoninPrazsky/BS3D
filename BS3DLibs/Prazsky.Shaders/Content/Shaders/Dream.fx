@@ -58,7 +58,8 @@
 
 //Where the solids orbit, as a share of ShapeOrbitRadius: SHAPE_ORBIT_BASE plus SHAPE_ORBIT_SWING x sin, so 0.64 to 1.
 //It was 0.78 plus 0.22 (0.56 to 1), and the solids grew 1.4 times in #1126: lifted, the nearest surface stays as far
-//out as before, past every lens the game stands at (DreamBackdrop.SOLID_ORBIT_BASE/SWING are the host's copy).
+//out as before, past the game's lens, the front end's orbit and the chapter tour's leg into the pose
+//(DreamIntroShotsTests; DreamBackdrop.SOLID_ORBIT_BASE/SWING are the host's copy).
 #define SHAPE_ORBIT_BASE 0.82
 #define SHAPE_ORBIT_SWING 0.18
 

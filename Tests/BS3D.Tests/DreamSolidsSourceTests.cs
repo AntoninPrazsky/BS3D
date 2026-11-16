@@ -1,3 +1,4 @@
+using Microsoft.Xna.Framework;
 using Prazsky.Core.Render;
 using System;
 using System.Globalization;
@@ -13,8 +14,9 @@ namespace BS3D.Tests
     /// many there are (the intro's loops and the Potato path's low-poly bodies, #829). #1126 changed their count, their
     /// orbit and the bound their march is gated on, and the two sides agree only by hand: a count, an orbit or a bound
     /// changed on one side alone aims the intro at empty sky, lets a lens into a solid, or gives the Pi and the phones
-    /// a different sky. No test runs the shader, so these read its source: its numbers against the host's, and the
-    /// bound against the farthest of the forms the distance field melts between.
+    /// a different sky. No test runs the shader, so these read its source: its numbers against the host's, its placement
+    /// and its radius evaluated from the figures in its source beside the host's copies, and the bound against the
+    /// farthest of the forms the distance field melts between.
     /// </summary>
     public class DreamSolidsSourceTests
     {
@@ -56,11 +58,77 @@ namespace BS3D.Tests
             Assert.Equal(DreamBackdrop.SOLID_ORBIT_SWING, Define("SHAPE_ORBIT_SWING"), 5);
             Assert.Equal(DreamBackdrop.SOLID_BOUND_IN_RADII, Define("SHAPE_BOUND_IN_RADII"), 5);
 
-            //And the shader uses them where the host does: the orbit's radius and the march's gate
-            string code = Code();
-            Assert.Matches(@"ShapeOrbitRadius\s*\*\s*\(\s*SHAPE_ORBIT_BASE\s*\+\s*SHAPE_ORBIT_SWING\s*\*\s*sin\(\s*i\s*\*\s*5\.3\s*\)\s*\)", code);
-            Assert.Matches(@"float\s+bound\s*=\s*ShapeRadius\(\s*fi\s*\)\s*\*\s*SHAPE_BOUND_IN_RADII\s*;", code);
-            Assert.Matches(@"return\s+ShapeSize\s*\*\s*\(\s*0\.7\s*\+\s*0\.3\s*\*\s*sin\(\s*i\s*\*\s*9\.1\s*\)\s*\)\s*;", code);
+            //And the shader gates the march where the host does
+            Assert.Matches(@"float\s+bound\s*=\s*ShapeRadius\(\s*fi\s*\)\s*\*\s*SHAPE_BOUND_IN_RADII\s*;", Code());
+        }
+
+        //A number in the effect's source, captured
+        private const string N = @"([0-9]+(?:\.[0-9]+)?)";
+
+        private static float[] Numbers(Match match)
+        {
+            var numbers = new float[match.Groups.Count - 1];
+            for (int g = 1; g < match.Groups.Count; g++)
+                numbers[g - 1] = float.Parse(match.Groups[g].Value, CultureInfo.InvariantCulture);
+            return numbers;
+        }
+
+        private static string Function(string signature)
+        {
+            Match match = Regex.Match(Code(), signature + @"\s*\{(?<body>[^}]*)\}");
+            Assert.True(match.Success, $"Dream.fx has no {signature}");
+            return match.Groups["body"].Value;
+        }
+
+        private static float Frac(float x) => x - MathF.Floor(x);
+
+        [Fact]
+        public void TheHostPlacesEverySolidWhereTheShaderDoes()
+        {
+            //ShapeCenter's own formula, its figures read off the source and evaluated here beside the host's copy: an angle
+            //term, a height term or an orbit hash changed on one side alone moves the solids the intro lays its lenses against
+            string body = Function(@"float3\s+ShapeCenter\(\s*float\s+i\s*,\s*float\s+t\s*\)");
+            Match angle = Regex.Match(body, $@"float\s+a\s*=\s*t\s*\*\s*\(\s*{N}\s*\+\s*{N}\s*\*\s*frac\(\s*i\s*\*\s*{N}\s*\)\s*\)\s*\+\s*i\s*\*\s*{N}\s*;");
+            Match orbit = Regex.Match(body, $@"float\s+r\s*=\s*ShapeOrbitRadius\s*\*\s*\(\s*SHAPE_ORBIT_BASE\s*\+\s*SHAPE_ORBIT_SWING\s*\*\s*sin\(\s*i\s*\*\s*{N}\s*\)\s*\)\s*;");
+            Match height = Regex.Match(body, $@"float\s+y\s*=\s*{N}\s*\+\s*{N}\s*\*\s*sin\(\s*t\s*\*\s*{N}\s*\+\s*i\s*\*\s*{N}\s*\)\s*;");
+            Assert.True(angle.Success && orbit.Success && height.Success, "ShapeCenter is no longer the angle, orbit and height this test reads");
+            Assert.Matches(@"return\s+float3\(\s*cos\(\s*a\s*\)\s*\*\s*r\s*,\s*y\s*,\s*sin\(\s*a\s*\)\s*\*\s*r\s*\)\s*;", body);
+
+            float[] a = Numbers(angle), r = Numbers(orbit), y = Numbers(height);
+            float orbitBase = Define("SHAPE_ORBIT_BASE"), orbitSwing = Define("SHAPE_ORBIT_SWING");
+            var shapes = new DreamShapesConfig();
+
+            for (int index = 0; index < SceneRenderer.DREAM_SOLID_COUNT; index++)
+                foreach (float t in new[] { 0f, 41.3f, 613.7f, 3599.1f })
+                {
+                    float i = index;
+                    float turn = t * (a[0] + a[1] * Frac(i * a[2])) + i * a[3];
+                    float radius = shapes.OrbitRadius * (orbitBase + orbitSwing * MathF.Sin(i * r[0]));
+                    var shader = new Vector3(MathF.Cos(turn) * radius, y[0] + y[1] * MathF.Sin(t * y[2] + i * y[3]), MathF.Sin(turn) * radius);
+
+                    Vector3 host = DreamBackdrop.SolidCenter(shapes, index, t, out _);
+                    Assert.True(Vector3.Distance(shader, host) < 0.01f, $"solid {index} at {t} s: the shader puts it at {shader}, the host at {host}");
+                }
+        }
+
+        [Fact]
+        public void TheHostSizesEverySolidAsTheShaderDoes()
+        {
+            //ShapeRadius's hash, read off the source: the host's bound is this radius times SHAPE_BOUND_IN_RADII
+            Match match = Regex.Match(Function(@"float\s+ShapeRadius\(\s*float\s+i\s*\)"),
+                $@"return\s+ShapeSize\s*\*\s*\(\s*{N}\s*\+\s*{N}\s*\*\s*sin\(\s*i\s*\*\s*{N}\s*\)\s*\)\s*;");
+            Assert.True(match.Success, "ShapeRadius is no longer the hash this test reads");
+            float[] k = Numbers(match);
+            var shapes = new DreamShapesConfig();
+
+            for (int index = 0; index < SceneRenderer.DREAM_SOLID_COUNT; index++)
+            {
+                float shader = shapes.Size * (k[0] + k[1] * MathF.Sin(index * k[2]));
+                Assert.Equal(shader, DreamBackdrop.SolidRadius(shapes, index), 3);
+
+                DreamBackdrop.SolidCenter(shapes, index, 0f, out float bound);
+                Assert.Equal(shader * Define("SHAPE_BOUND_IN_RADII"), bound, 3);
+            }
         }
 
         [Fact]

@@ -181,6 +181,11 @@ namespace BS3D.Tests
             Assert.Equal(12f, off[1].From, 3);
         }
 
+        //How near the axis a Potato dream body may reach: as near as the desktop's bounds may (DreamIntroShotsTests), past
+        //the game's lens (28 to 45 out) and the front end's orbit (about 44). The tour's opening leg on this path flies
+        //further out than this (see PotatoBackdrop.Dream).
+        private const float DREAM_BODY_KEEP_OUT = 60f;
+
         [Fact]
         public void TheDreamsSolidsStayPastTheOrbitAndBreatheAboutTheirSize()
         {
@@ -190,9 +195,15 @@ namespace BS3D.Tests
                 {
                     Matrix world = PotatoBackdrop.DreamSolidWorld(shapes, i, t);
                     Vector3 centre = world.Translation;
-                    Assert.True(MathF.Sqrt(centre.X * centre.X + centre.Z * centre.Z) >= shapes.OrbitRadius, $"solid {i} at {t}s inside the orbit");
+                    float fromAxis = MathF.Sqrt(centre.X * centre.X + centre.Z * centre.Z);
+                    Assert.True(fromAxis >= shapes.OrbitRadius, $"solid {i} at {t}s inside the orbit");
                     float width = world.Right.Length();
                     Assert.InRange(width, shapes.Size * 2f * 0.5f, shapes.Size * 2f * 1.5f);
+
+                    //Every body, a unit box or a sphere of half a unit, scaled, reaches no further than its scaled box's
+                    //corner: past the game's lens and the front end's orbit
+                    float reach = 0.5f * new Vector3(world.Right.Length(), world.Up.Length(), world.Backward.Length()).Length();
+                    Assert.True(fromAxis - reach >= DREAM_BODY_KEEP_OUT, $"solid {i} at {t}s reaches {fromAxis - reach:F1} from the axis");
                 }
 
             Vector3 colour = PotatoBackdrop.DreamPalette(new DreamPaletteConfig(), 0.5f);
