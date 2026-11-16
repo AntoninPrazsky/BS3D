@@ -1864,6 +1864,20 @@ namespace Prazsky.Core.Render
         private Vector4 _ceilingShadowCentre, _ceilingShadowSize, _ceilingShadowCut;
         private bool _ceilingShadowStated;
 
+        //The backdrop DrawShadowMaps last handed BeforeShadowMaps, null where it served none (#1100)
+        private Backdrop _shadowPassBackdrop;
+
+        /// <summary>
+        /// The shadow pass turns from the backdrop it served last frame, <paramref name="last"/>, to <paramref name="next"/>
+        /// (null where it serves none: the host draws no scenery): the one left behind gives back what it holds only while
+        /// drawn (<see cref="Backdrop.Leave"/>, #1100: Mars's bake, 171 MiB). Returns the one now served.
+        /// </summary>
+        internal static Backdrop ServeShadowPass(Backdrop last, Backdrop next)
+        {
+            if (last != null && !ReferenceEquals(last, next)) last.Leave();
+            return next;
+        }
+
         /// <summary>
         /// Renders this frame's sun shadow map and hands it to the receivers' effects. <b>Call it before
         /// binding the scene target</b>: the map is its own render target, and switching away from the scene
@@ -1913,7 +1927,8 @@ namespace Prazsky.Core.Render
         /// clip matrix. Called with the target bound and the states set; see
         /// <see cref="ArenaIsland.DrawShadow"/>.</param>
         /// <param name="sceneryCasts">False when the host draws no scenery (the Game's Scenery row off, #808): the backdrop's
-        /// own casters stay out of the map, so nothing that is not drawn casts a shadow.</param>
+        /// own casters stay out of the map, so nothing that is not drawn casts a shadow, and it bakes nothing of its own
+        /// (<see cref="Backdrop.BeforeShadowMaps"/>) and gives back what it holds only while drawn (<see cref="Backdrop.Leave"/>).</param>
         public void DrawShadowMaps(SceneKind scene, ICamera camera, Vector3 sunDirection,
             Effect instancedEffect = null, Action<Matrix> extraCasters = null, bool sceneryCasts = true)
         {
@@ -1929,8 +1944,11 @@ namespace Prazsky.Core.Render
 
             PushInstancedFog(scene);
 
-            //A backdrop's own off-frame target, before anything else binds one (#967: the outback's baked land shadows)
-            BackdropFor(scene)?.BeforeShadowMaps(sunDirection);
+            //A backdrop's own off-frame target, before anything else binds one (#967: the outback's baked land shadows), for
+            //the scenery the host draws; the one served last frame and not this one gives back what it holds (#1100)
+            Backdrop served = sceneryCasts ? BackdropFor(scene) : null;
+            _shadowPassBackdrop = ServeShadowPass(_shadowPassBackdrop, served);
+            served?.BeforeShadowMaps(sunDirection);
 
             //Is there anything to cast at all? A scene with planting of its own casts it (Backdrop.HasShadowCasters -
             //the savanna, the beach, the meadow, the volcano, the Moon's rocks and the rest); in the others the casters are

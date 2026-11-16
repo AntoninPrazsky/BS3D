@@ -4,7 +4,8 @@
 //atmosphere, so it is an ordinary IsSolidTerrainScene backdrop - real ground under an ordinary dome, one
 //more of the nineteen SkyDome palettes rather than a domeless void.
 //
-//Two techniques over two draws of one frame:
+//Two draws of one frame (the ground's techniques beside MarsTerrain: its reduced program, the bank's two, their depth
+//twins, and on DirectX the bake and the ground that reads it, THE BAKE below):
 //  - MarsTerrain: the crater field lifted VERBATIM from Moon.fx (CraterLayer/TurnCrater/CraterField/
 //    MareBase - the last two shared with it through Craters.fxh since #581 - are generic height-field math with nothing Moon-specific in them - only the constants that
 //    tune it and the colour it is coloured by are this scene's own), retextured rust/ochre instead of
@@ -511,17 +512,115 @@ MarsTerrainVertexOutput MarsTerrainVS(MarsTerrainVertexInput input)
     return output;
 }
 
+// * The MESAS' strata: layers of pale and dark sediment banded by height, the band wobbling a little so it does not read
+//   as ruled lines, blended in with how far up the landform a point stands - the plain at their feet stays rust, their
+//   dusty tops lighten.
+float3 MarsStrata(float3 rust, float3 worldPosition, float3 baseNormal, float mesa, bool detail)
+{
+    //The wobble's noise is the reduced program's third cut: without it the bands are ruled lines, which at
+    //the mesas' distance and haze Low's player will not tell apart.
+    float wobble = detail ? GradientNoise2(worldPosition.xz * 0.02) * 2.5 : 0.0;
+    float band = sin(worldPosition.y * StrataFrequency + wobble) * 0.5 + 0.5;
+    float3 strata = lerp(StrataColorDark, StrataColorPale, band * band);
+    float cliff = 1.0 - smoothstep(0.55, 0.95, baseNormal.y);
+    return lerp(rust, lerp(RustColorPale, strata, cliff), saturate(mesa * 1.6));
+}
+
+//The bake's relief (#1100): PerturbNormalFromHeight on a texel's own differences (ddx_fine) rather than its 2 x 2 quad's,
+//which would hold one tilt over every two texels and step what the bake keeps of the relief (the stone mounds' face) in
+//blocks. OpenGL ES has no fine derivative and never bakes, so there the name only has to compile.
+#if OPENGL
+float3 MarsBakeRelief(float3 normal, float3 worldPosition, float height)
+{
+    return PerturbNormalFromHeight(normal, worldPosition, height);
+}
+#else
+float3 MarsBakeRelief(float3 normal, float3 worldPosition, float height)
+{
+    float3 dpdx = ddx_fine(worldPosition);
+    float3 dpdy = ddy_fine(worldPosition);
+
+    float3 r1 = cross(dpdy, normal);
+    float3 r2 = cross(normal, dpdx);
+
+    float determinant = dot(dpdx, r1);
+    float3 surfaceGradient = sign(determinant) * (ddx_fine(height) * r1 + ddy_fine(height) * r2);
+
+    return normalize(max(abs(determinant), 1e-4) * normal - surfaceGradient);
+}
+#endif
+
+//How far apart the base normal's taps of the height field stand (MarsGroundFields)
+static const float MARS_TAP = 1.5;
+
+//The mesas' own three taps (#1100): their slope at a point and how far up one the point stands, as MarsGroundFields adds
+//them into the height field's. The bake leaves them out of the slope it keeps and MarsGroundBaked takes them per pixel: a
+//cliff stands on a few texels of a map laid flat, and its tilt and its bands came out of them as a comb.
+float2 MarsMesaSlope(float2 p, out float mesa)
+{
+    float mesaX, mesaZ;
+    float m = MesaField(p, mesa);
+    return float2(MesaField(p + float2(MARS_TAP, 0.0), mesaX) - m, MesaField(p + float2(0.0, MARS_TAP), mesaZ) - m) / MARS_TAP;
+}
+
+//Whether a point is near enough the mesas' ring for them to have any share in its taps (MarsHeight)
+bool MarsNearMesas(float2 p)
+{
+    return length(p) > MesaInnerRadius - 2.0 * MARS_TAP;
+}
+
+//How much a crack darkens a slab, and how much a stone mound of the height field dims the rust it is made of and how much
+//of the basalt it takes: MarsGroundFields lays them, and MarsGroundBaked lays the cracks over the bake (#1100)
+static const float MARS_CRACK_DARKEN = 0.3;
+static const float MARS_MOUND_DIM = 0.93;
+static const float MARS_MOUND_BASALT = 0.1;
+
+//The slabs' cracks: a noise's zero-crossings - a connected web of thin lines - faded out before they could shimmer. A
+//crack is 0.08 to 0.16 units wide, one or two of the bake's texels near the arena, so the baked ground lays it per pixel
+float MarsSlabCrack(float2 xz, float footprint)
+{
+    return (1.0 - smoothstep(0.0, 0.07, abs(GradientNoise2(xz * 0.85 + 5.0)))) * saturate(1.0 - footprint * 3.0);
+}
+
+//The bake's band limit's knee (#1100). A pixel's fade begins at once, since a point sample shimmers more as a crest nears
+//it; a texel's sample holds a ripple's or the coarse grain's whole contrast until the texel nears what it can carry, and
+//the mips do the rest at the lens. So the bake's fade ends where the pixel's does and holds the whole term up to half
+//that: the ripples on every texel within about 55 of the arena, the coarse grain within 85. Faded as a pixel's, a ripple
+//40 to 60 out would keep a half to three quarters of its contrast in the map, where the lens's own fade keeps nearly all.
+static const float MARS_BAKE_KNEE = 2.0;
+
+//What the ground is at a point before the light falls on it (#1100): MarsGroundFields works it out, MarsLight lights it.
+//One body for the three programs that need it - the exact ground (MarsGroundAt), the bake (MarsBakePS) and the ground
+//that reads the bake (MarsGroundBaked) - so the bake cannot drift from the ground it stands in for.
+struct MarsGround
+{
+    float3 Albedo;
+    float3 Normal;       //the shading normal
+    float3 BaseNormal;   //the height field's own: the sun shadow's bias, the mesas' cliffs
+    float Sun;           //how much of the sun a big crater's rim leaves (BigCraterSample.Sun)
+    float Occlusion;     //the share of the sky a big crater's walls hide
+    float Mesa;          //how far up a mesa the point stands, 0..1 (MesaField)
+    float RockMask;      //where the stone lattice's mounds stand
+    float Slab;          //where pale bedrock shows through
+    float GrainShare;    //how much of the albedo the near grain still reaches once the sand and the slabs are laid
+};
+
 //The rust at a point of the ground: the plain's own (MarsTerrain) or the bank against the island's drum (MarsBankPS, #983),
 //whose surface is its mesh's. Both literals at each entry point, so each is a program of its own; the bank's keeps the
-//plain's gradient, which it blends to at its edge.
-float4 MarsGroundAt(float3 worldPosition, float3 meshNormal, bool onBank, bool detail)
+//plain's gradient, which it blends to at its edge. `baking` (a literal too) is the bake's (#1100, MarsBakePS): it leaves
+//out what is finer than a texel of the bake - the fine relief, the small craters' relief, the rover's tracks, the fine
+//grain, the gravel and the slabs' cracks - and the mesas' strata, which follow the height of the pixel itself;
+//MarsGroundBaked adds those back per pixel. ⚠ What it keeps is band-limited against the texel's footprint, which near the
+//lens is several pixels': faded as a pixel's, a term reaches the lens with less contrast than the exact ground gives it
+//there. The ripples and the coarse grain fade with MARS_BAKE_KNEE; the stone mounds' face keeps the pixel's fade, its
+//finest octave at a half to two thirds of its contrast 30 to 50 units out.
+MarsGround MarsGroundFields(float3 worldPosition, float3 meshNormal, bool onBank, bool detail, bool baking)
 {
-    float dist = distance(CameraPosition, worldPosition);
     float footprint = length(fwidth(worldPosition.xz));
 
     //The base normal, taken PER PIXEL from the height field's own gradient (three taps) rather than
     //interpolated from a per-vertex normal - every terrain scene's rule.
-    float e = 1.5;
+    float e = MARS_TAP;
     float ejecta, ejectaX, ejectaZ, rockShape, rockShapeX, rockShapeZ;
     float h = MarsHeight(worldPosition.xz, ejecta, rockShape);
     float hx = MarsHeight(worldPosition.xz + float2(e, 0.0), ejectaX, rockShapeX);
@@ -560,7 +659,7 @@ float4 MarsGroundAt(float3 worldPosition, float3 meshNormal, bool onBank, bool d
     float smallCraters = CraterLayer(TurnCrater(worldPosition.xz, CRATER_TURN_3) * (1.0 / 7.2), 133.7, 0.64, smallEjecta)
         * saturate(1.0 - footprint * (2.0 / 5.0)) * (1.0 - buried);
 
-    float relief = Fbm2BandLimited(worldPosition.xz * 1.7, 3, footprint * 1.7);
+    float relief = baking ? 0.0 : Fbm2BandLimited(worldPosition.xz * 1.7, 3, footprint * 1.7);
 
     //The rock's own face, height-folded (Outback's rule: a field of XZ alone is constant down a vertical
     //flank, and a boulder is mostly flank). Only blended in where the stone field actually stands.
@@ -568,16 +667,19 @@ float4 MarsGroundAt(float3 worldPosition, float3 meshNormal, bool onBank, bool d
     float rockSurface = Fbm2BandLimited(worldPosition.xz * 0.42 + worldPosition.y * 0.24, 3, footprint * 0.42);
 
     //The rover's tracks (#745, RoverTracks.fxh): pressed into the regolith, never over a rock or the island's bank. The
-    //full program's: the reduced one keeps its budget (the drifts and slabs go the same way, below)
+    //full program's: the reduced one keeps its budget (the drifts and slabs go the same way, below). Not baked: a rut and
+    //its cleats are finer than the bake's texel (MarsGroundBaked presses them per pixel)
     TrackPrint track;
     track.Height = 0.0;
     track.Disturbed = 0.0;
-    if (detail) track = RoverTrack(worldPosition.xz, footprint);
+    if (detail && !baking) track = RoverTrack(worldPosition.xz, footprint);
     float trackShare = (1.0 - rockMask) * (1.0 - buried);
 
-    float3 normal = PerturbNormalFromHeight(baseNormal, worldPosition,
-        lerp(smallCraters * (MicroReliefStrength * 3.0) + relief * MicroReliefStrength + track.Height * trackShare,
-            rockSurface * RockRelief, rockMask));
+    //The small craters' relief is not baked either (their ejecta is): a rim is a few texels wide, and a normal taken off
+    //a few texels draws it as a smudge of blocks (MarsGroundBaked tilts it per pixel)
+    float bump = lerp((baking ? 0.0 : smallCraters * (MicroReliefStrength * 3.0)) + relief * MicroReliefStrength
+        + track.Height * trackShare, rockSurface * RockRelief, rockMask);
+    float3 normal = baking ? MarsBakeRelief(baseNormal, worldPosition, bump) : PerturbNormalFromHeight(baseNormal, worldPosition, bump);
 
     ejecta = max(max(ejecta, smallEjecta * 0.5), big.Ejecta) * (1.0 - buried);
 
@@ -598,10 +700,12 @@ float4 MarsGroundAt(float3 worldPosition, float3 meshNormal, bool onBank, bool d
     //of tiles across the near plain - the "blocky ground" the flat Mars read as close up. The 5.5-unit term is
     //gone outright rather than smoothed, the sand drifts and the slabs now carrying variation at that scale.
     //The fine grain stays a hash, being sub-pixel by the time its cells could show.
+    float knee = baking ? MARS_BAKE_KNEE : 1.0;
     float grainFine = saturate(1.0 - footprint * 96.0);
-    float grainCoarse = saturate(1.0 - footprint * 1.5);
+    float grainCoarse = saturate((1.0 - footprint * 1.5) * knee);
     float coarse = detail ? GradientNoise2(worldPosition.xz * 0.75 + 17.0) * 1.2 * grainCoarse : 0.0;
-    rust *= 1.0 + GrainStrength * (NoiseHash22(floor(worldPosition.xz * 48.0)).x * grainFine + coarse);
+    float fine = baking ? 0.0 : NoiseHash22(floor(worldPosition.xz * 48.0)).x * grainFine;
+    rust *= 1.0 + GrainStrength * (fine + coarse);
 
     //--- The ground's own materials ------------------------------------------------------------------
     //Three things a rover photograph shows on a plain besides rust and stones, each read off the references
@@ -611,6 +715,7 @@ float4 MarsGroundAt(float3 worldPosition, float3 meshNormal, bool onBank, bool d
     //   and only where the ground is level: sand does not hold on a crater wall or a boulder.
     //Wide, so a patch thins out up a crater's wall instead of stopping on it (#775: the owner's "torn" areas)
     float level = smoothstep(0.78, 0.97, baseNormal.y);
+    float slabShare = 0.0, grainShare = 1.0;
     [branch]
     if (detail)
     {
@@ -619,32 +724,33 @@ float4 MarsGroundAt(float3 worldPosition, float3 meshNormal, bool onBank, bool d
     float sandField = GradientNoise2(drift * 0.060);
     float sand = smoothstep(0.30 - SandCoverage, 0.70 - SandCoverage, sandField) * level;
 
-    // * Pale bedrock SLABS where the dust is thin: flat plates the colour of dry clay, broken by dark cracks.
-    //   The cracks are a noise's zero-crossings - a connected web of thin lines - faded out before they could
-    //   shimmer.
+    // * Pale bedrock SLABS where the dust is thin: flat plates the colour of dry clay, broken by dark cracks
+    //   (MarsSlabCrack).
     float slabField = GradientNoise2(worldPosition.xz * 0.055 + 23.0);
     float slab = smoothstep(0.52 - SlabCoverage, 0.60 - SlabCoverage, slabField) * level * (1.0 - sand);
     float crack = 0.0;
     [branch]
-    if (slab > 0.001)
-        crack = (1.0 - smoothstep(0.0, 0.07, abs(GradientNoise2(worldPosition.xz * 0.85 + 5.0))))
-            * saturate(1.0 - footprint * 3.0);
+    if (!baking && slab > 0.001)
+        crack = MarsSlabCrack(worldPosition.xz, footprint);
 
     //Wind ripples across the drift - fine crests square to the wind, which is what tells sand from a shadow
     //lying on the plain. Wobbled by a slower sine across them so they are not ruled lines (a noise did it first,
     //for a cost the eye could not tell apart), band-limited so they are gone long before a crest could shrink
-    //to a pixel.
-    float rippleFade = saturate(1.0 - footprint * 2.2);
+    //to a pixel (or, baked, to what a texel can carry: MARS_BAKE_KNEE).
+    float rippleFade = saturate((1.0 - footprint * 2.2) * knee);
     float ripple = sin(dot(worldPosition.xz, float2(0.81, 0.59)) * 3.1
         + sin(dot(worldPosition.xz, float2(-0.59, 0.81)) * 0.45) * 1.8 + broad * 6.0);
     rust = lerp(rust, SandColor * (1.0 + 0.25 * broad) * (1.0 + 0.12 * ripple * rippleFade), sand * 0.85);
-    rust = lerp(rust, SlabColor * (1.0 - 0.3 * crack), slab);
+    rust = lerp(rust, SlabColor * (1.0 - MARS_CRACK_DARKEN * crack), slab);
+    slabShare = slab;
+    grainShare = (1.0 - sand * 0.85) * (1.0 - slab);
 
     // * GRAVEL (#775): every rover frame's plain is carpeted with small dark stones, scattered by a power law - many
     //   pebbles, few cobbles. A jittered point a cell, most cells empty, dark basalt, faded out before it is a pixel, and
     //   not evaluated at all past that (the branch is coherent across the frame: the footprint grows with distance).
+    //   Not baked: a pebble is finer than the bake's texel (MarsGroundBaked lays it per pixel).
     [branch]
-    if (footprint < 1.0 / 6.0)
+    if (!baking && footprint < 1.0 / 6.0)
     {
         float2 pebbleCell = floor(worldPosition.xz * 1.3);
         float2 pebbleRoll = NoiseHash22(pebbleCell + 41.0);
@@ -657,21 +763,12 @@ float4 MarsGroundAt(float3 worldPosition, float3 meshNormal, bool onBank, bool d
     }
     }
 
-    // * The MESAS' strata: layers of pale and dark sediment banded by height, the band wobbling a little so it
-    //   does not read as ruled lines, blended in with how far up the landform a point stands - the plain at
-    //   their feet stays rust, their dusty tops lighten.
-    //`mesa` came out of the height field's own centre tap, so the landform is not evaluated a fourth time here.
+    // * The MESAS' strata (MarsStrata). `mesa` came out of the height field's own centre tap, so the landform is not
+    //   evaluated a fourth time here. Not baked: the bands follow the pixel's own height, which a texel up a cliff
+    //   spans many of (MarsGroundBaked lays them).
     [branch]
-    if (mesa > 0.001)
-    {
-        //The wobble's noise is the reduced program's third cut: without it the bands are ruled lines, which at
-        //the mesas' distance and haze Low's player will not tell apart.
-        float wobble = detail ? GradientNoise2(worldPosition.xz * 0.02) * 2.5 : 0.0;
-        float band = sin(worldPosition.y * StrataFrequency + wobble) * 0.5 + 0.5;
-        float3 strata = lerp(StrataColorDark, StrataColorPale, band * band);
-        float cliff = 1.0 - smoothstep(0.55, 0.95, baseNormal.y);
-        rust = lerp(rust, lerp(RustColorPale, strata, cliff), saturate(mesa * 1.6));
-    }
+    if (!baking && mesa > 0.001)
+        rust = MarsStrata(rust, worldPosition, baseNormal, mesa, detail);
 
     //--- The stones ----------------------------------------------------------------------------------
     //Dark volcanic basalt, not more of the ground's own rust - the one thing on the plain that is not
@@ -681,7 +778,24 @@ float4 MarsGroundAt(float3 worldPosition, float3 meshNormal, bool onBank, bool d
 
     //The height field's stones are mounds of the plain's own dust now (#775): coloured basalt they were low dark mounds the
     //grid gave no silhouette, and from any distance dark ovals, holes in the ground. The rock is MarsBackdrop's geometry.
-    float3 albedo = lerp(rust, lerp(rust * 0.93, boulder, 0.1), rockMask);
+    MarsGround ground;
+    ground.Albedo = lerp(rust, lerp(rust * MARS_MOUND_DIM, boulder, MARS_MOUND_BASALT), rockMask);
+    ground.Normal = normal;
+    ground.BaseNormal = baseNormal;
+    ground.Sun = big.Sun;
+    ground.Occlusion = big.Occlusion;
+    ground.Mesa = mesa;
+    ground.RockMask = rockMask;
+    ground.Slab = slabShare;
+    ground.GrainShare = grainShare;
+    return ground;
+}
+
+//The light on a point of the ground and the air between it and the lens: what moves (the clouds' shadow, the sun's
+//shadow map) and what the lens decides (the haze), so no bake can hold it (#1100)
+float4 MarsLight(float3 worldPosition, MarsGround ground)
+{
+    float dist = distance(CameraPosition, worldPosition);
 
     //--- Lighting ------------------------------------------------------------------------------------
     float sunlight = CloudSunlight(worldPosition, SunDirection);
@@ -690,17 +804,17 @@ float4 MarsGroundAt(float3 worldPosition, float3 meshNormal, bool onBank, bool d
     //is shadowed at once. What casts here: the island and the gun on the rust.
     [branch]
     if (ShadowStrength > 0.0)
-        sunlight *= SunShadow(worldPosition, baseNormal, SunDirection);
+        sunlight *= SunShadow(worldPosition, ground.BaseNormal, SunDirection);
 
     //And inside the big craters, the rim's shadow and the walls' share of the sky (BigCraterLayer)
-    sunlight *= big.Sun;
+    sunlight *= ground.Sun;
 
-    float ndotl = saturate(dot(normal, SunDirection));
+    float ndotl = saturate(dot(ground.Normal, SunDirection));
 
     //Hemisphere sky light: up-facing ground takes the zenith, faces turned to the skyline take the horizon
-    float3 skyAmbient = lerp(HorizonColor, ZenithColor, saturate(normal.y * 0.5 + 0.5)) * (1.0 - big.Occlusion);
+    float3 skyAmbient = lerp(HorizonColor, ZenithColor, saturate(ground.Normal.y * 0.5 + 0.5)) * (1.0 - ground.Occlusion);
 
-    float3 color = albedo * (skyAmbient * AmbientStrength + SunColor * ndotl * sunlight);
+    float3 color = ground.Albedo * (skyAmbient * AmbientStrength + SunColor * ndotl * sunlight);
 
     //--- The air -------------------------------------------------------------------------------------
     //Aerial perspective through rust dust, the outback's own two-stage fade: the mid-distance keeps Mars's
@@ -719,6 +833,13 @@ float4 MarsGroundAt(float3 worldPosition, float3 meshNormal, bool onBank, bool d
     color = lerp(color, HorizonColor, haze * haze * haze * haze);
 
     return float4(FarFadeToSky(color, worldPosition), 1.0);
+}
+
+//The ground worked out in full at the pixel: every tier's on OpenGL ES, Low's and Medium's, and High's and Ultra's
+//wherever the bake does not reach (MarsBackdrop.DrawsBaked)
+float4 MarsGroundAt(float3 worldPosition, float3 meshNormal, bool onBank, bool detail)
+{
+    return MarsLight(worldPosition, MarsGroundFields(worldPosition, meshNormal, onBank, detail, false));
 }
 
 //=====================================================================================================
@@ -1043,6 +1164,224 @@ technique MarsTerrainDepth
 };
 
 technique MarsTerrainReducedDepth
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MarsTerrainVS();
+        PixelShader = compile PS_SHADERMODEL MarsGroundDepthPS();
+    }
+};
+#endif
+
+//=====================================================================================================
+//THE BAKE (#1100): the ground does not change, so on High and Ultra what it is at a point - its albedo, its normal, the
+//big craters' light, its masks - is worked out once into textures (MarsBakePS, MarsBackdrop.BeforeShadowMaps) and the
+//ground reads them (MarsGroundBaked) instead of working it out for every pixel of every frame: a pass bound by the width of
+//its program (BestPractices.md section 7), which a texture read does not have. What moves (the clouds' shadow, the sun's
+//shadow map), what the lens decides (the haze) and what is finer than a texel near the lens (the fine relief, the small
+//craters' relief, the rover's ruts, the fine grain, the gravel, the slabs' cracks, the strata's bands) stay the pixel's.
+//THE MAPPING is polar round the arena, the bearing across and the log of the radius down, so a texel is as small near the
+//island as the lens there needs and grows with the distance as a pixel's footprint does; the camera that sees Mars orbits
+//the arena (the front end, the drop), and one bake then serves every frame. Past MarsBackdrop.BAKE_CAMERA_REACH the lens
+//is drawn the exact ground (MarsGroundAt). DirectX only (Shader Model 5's fine derivatives, three targets at once, half
+//floats): what OpenGL ES would need is in docs/scenes/mars.md, "The bake".
+#if !OPENGL
+float4 MarsBakePolar;   //x: MIN + R0, y: R0, z: ln((MAX + R0) / (MIN + R0)), w: its inverse (MarsBackdrop.BakePolar)
+float2 MarsBakeTexel;   //one over the bake's width and height
+
+//The albedo (the square root of linear, so the darks of an 8-bit target do not band: the big top's canvas, #976); the
+//normal as the height field's slope less the mesas', which averages down the mips as a coarser field's would, and the big
+//craters' sun and sky; the stone mounds, the slabs and the grain's share. Anisotropic: the lens looks across the plain.
+texture MarsBakeAlbedo;
+sampler MarsBakeAlbedoSampler = sampler_state
+{
+    Texture = <MarsBakeAlbedo>;
+    MinFilter = Anisotropic;
+    MagFilter = Linear;
+    MipFilter = Linear;
+    MaxAnisotropy = 16;
+    AddressU = Wrap;
+    AddressV = Clamp;
+};
+texture MarsBakeShape;
+sampler MarsBakeShapeSampler = sampler_state
+{
+    Texture = <MarsBakeShape>;
+    MinFilter = Anisotropic;
+    MagFilter = Linear;
+    MipFilter = Linear;
+    MaxAnisotropy = 16;
+    AddressU = Wrap;
+    AddressV = Clamp;
+};
+texture MarsBakeMasks;
+sampler MarsBakeMasksSampler = sampler_state
+{
+    Texture = <MarsBakeMasks>;
+    MinFilter = Anisotropic;
+    MagFilter = Linear;
+    MipFilter = Linear;
+    MaxAnisotropy = 16;
+    AddressU = Wrap;
+    AddressV = Clamp;
+};
+
+static const float TWO_PI = 6.28318531;
+
+//A world point's place in the bake: the bearing (a turn from -pi) and the log of its radius over the span
+float2 MarsBakeUV(float2 xz)
+{
+    float radius = max(length(xz), MarsBakePolar.x - MarsBakePolar.y);
+    return float2(atan2(xz.y, xz.x) / TWO_PI + 0.5, log((radius + MarsBakePolar.y) / MarsBakePolar.x) * MarsBakePolar.w);
+}
+
+float4 MarsBakeVS(float4 position : POSITION0) : SV_POSITION
+{
+    return position;
+}
+
+struct MarsBakeOutput
+{
+    float4 Albedo : COLOR0;
+    float4 Shape : COLOR1;
+    float4 Masks : COLOR2;
+};
+
+MarsBakeOutput MarsBakePS(float4 screen : SV_POSITION)
+{
+    //The texel's centre, back out of the mapping into the world
+    float2 uv = screen.xy * MarsBakeTexel;
+    float bearing = (uv.x - 0.5) * TWO_PI;
+    float radius = MarsBakePolar.x * exp(uv.y * MarsBakePolar.z) - MarsBakePolar.y;
+    float2 p = float2(cos(bearing), sin(bearing)) * radius;
+
+    //Its height as the vertex program lifts it, which the rock's face and the normal's tilt read
+    float ejectaUnused, rockShapeUnused, mesaUnused;
+    float y = MarsHeight(p, ejectaUnused, rockShapeUnused) + MesaField(p, mesaUnused) + BigCraters(p, SunDirection).Height;
+
+    MarsGround ground = MarsGroundFields(float3(p.x, y, p.y), float3(0.0, 1.0, 0.0), false, true, true);
+
+    //The mesas' share of the slope, which the map does not keep (MarsMesaSlope)
+    float2 mesaSlope = 0.0;
+    float mesaUnusedToo;
+    [branch]
+    if (MarsNearMesas(p))
+        mesaSlope = MarsMesaSlope(p, mesaUnusedToo);
+
+    MarsBakeOutput output;
+    output.Albedo = float4(sqrt(saturate(ground.Albedo)), 1.0);
+    //The normal over its own height, the mesas' slope taken back out (a normal's x and z over its y are the field's
+    //slope, negated): normalize(x, 1, z) gives it back, and what the mips average is the field's slope
+    float up = max(ground.Normal.y, 0.05);
+    output.Shape = float4(ground.Normal.xz / up + mesaSlope, ground.Sun, ground.Occlusion);
+    output.Masks = float4(ground.RockMask, ground.Slab, ground.GrainShare, 0.0);
+    return output;
+}
+
+//The ground read off the bake, and what the bake leaves to the pixel laid over it
+float4 MarsGroundBaked(float3 worldPosition)
+{
+    float footprint = length(fwidth(worldPosition.xz));
+
+    //The bearing wraps where it meets itself behind the arena: its derivative across that seam is a whole turn, which
+    //would take the coarsest mip there, so the step is taken the short way round
+    float2 uv = MarsBakeUV(worldPosition.xz);
+    float2 du = ddx(uv), dv = ddy(uv);
+    du.x -= round(du.x);
+    dv.x -= round(dv.x);
+
+    float4 albedo = tex2Dgrad(MarsBakeAlbedoSampler, uv, du, dv);
+    float4 shape = tex2Dgrad(MarsBakeShapeSampler, uv, du, dv);
+    float4 masks = tex2Dgrad(MarsBakeMasksSampler, uv, du, dv);
+
+    //The mesas' slope and share at the pixel itself (MarsMesaSlope)
+    MarsGround ground;
+    float2 slope = shape.xy;
+    ground.Mesa = 0.0;
+    [branch]
+    if (MarsNearMesas(worldPosition.xz))
+        slope -= MarsMesaSlope(worldPosition.xz, ground.Mesa);
+
+    ground.BaseNormal = normalize(float3(slope.x, 1.0, slope.y));
+    ground.Sun = shape.z;
+    ground.Occlusion = shape.w;
+    ground.RockMask = masks.x;
+    ground.Slab = masks.y;
+    ground.GrainShare = masks.z;
+
+    //The fine relief, the small craters' and the rover's ruts, off the stone mounds (whose face the bake holds), as
+    //MarsGroundFields tilts them: there the plain's share is lerped against the face by the mound's mask, and the ruts'
+    //share is the plain's once more
+    float plain = 1.0 - ground.RockMask;
+    float relief = Fbm2BandLimited(worldPosition.xz * 1.7, 3, footprint * 1.7);
+    float smallEjectaUnused;
+    float smallCraters = CraterLayer(TurnCrater(worldPosition.xz, CRATER_TURN_3) * (1.0 / 7.2), 133.7, 0.64, smallEjectaUnused)
+        * saturate(1.0 - footprint * (2.0 / 5.0));
+    TrackPrint track = RoverTrack(worldPosition.xz, footprint);
+    ground.Normal = PerturbNormalFromHeight(ground.BaseNormal, worldPosition,
+        (smallCraters * (MicroReliefStrength * 3.0) + relief * MicroReliefStrength + track.Height * plain) * plain);
+
+    //The ground the wheels turned over and the fine grain, where the rust they darken still shows through the sand and
+    //the slabs (both come before them in MarsGroundFields)
+    float3 rust = albedo.rgb * albedo.rgb;
+    float grainFine = saturate(1.0 - footprint * 96.0);
+    rust *= (1.0 - TRACK_DARKEN * track.Disturbed * plain * ground.GrainShare)
+        * (1.0 + GrainStrength * NoiseHash22(floor(worldPosition.xz * 48.0)).x * grainFine * ground.GrainShare);
+
+    //The slabs' cracks, as MarsGroundFields' lerp to the slab lays them, times the share of the rust the stone mounds'
+    //lerp leaves (its last)
+    [branch]
+    if (ground.Slab > 0.001)
+        rust -= SlabColor * (MARS_CRACK_DARKEN * MarsSlabCrack(worldPosition.xz, footprint) * ground.Slab
+            * lerp(1.0, MARS_MOUND_DIM * (1.0 - MARS_MOUND_BASALT), ground.RockMask));
+
+    //The gravel, as MarsGroundFields lays it (#775), off the slabs
+    [branch]
+    if (footprint < 1.0 / 6.0)
+    {
+        float2 pebbleCell = floor(worldPosition.xz * 1.3);
+        float2 pebbleRoll = NoiseHash22(pebbleCell + 41.0);
+        float pebbleSize = 0.05 + 0.16 * pebbleRoll.y * pebbleRoll.y;
+        float2 pebbleAt = (pebbleCell + 0.5 + 0.22 * NoiseHash22(pebbleCell + 7.0)) / 1.3;
+        float pebble = step(0.62, pebbleRoll.x) * (1.0 - smoothstep(pebbleSize * 0.6, pebbleSize, length(worldPosition.xz - pebbleAt)))
+            * saturate(1.0 - footprint * 6.0) * (1.0 - ground.Slab);
+        rust = lerp(rust, BoulderColorDeep * 1.6, pebble * 0.85);
+    }
+
+    //The mesas' bands by the pixel's own height
+    [branch]
+    if (ground.Mesa > 0.001)
+        rust = MarsStrata(rust, worldPosition, ground.BaseNormal, ground.Mesa, true);
+
+    ground.Albedo = rust;
+    return MarsLight(worldPosition, ground);
+}
+
+float4 MarsTerrainBakedPS(MarsTerrainVertexOutput input) : COLOR
+{
+    MarsCuts(input.WorldPosition.xz);
+    return MarsGroundBaked(input.WorldPosition);
+}
+
+technique MarsBake
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MarsBakeVS();
+        PixelShader = compile PS_SHADERMODEL MarsBakePS();
+    }
+};
+
+technique MarsTerrainBaked
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MarsTerrainVS();
+        PixelShader = compile PS_SHADERMODEL MarsTerrainBakedPS();
+    }
+};
+
+technique MarsTerrainBakedDepth
 {
     pass P0
     {

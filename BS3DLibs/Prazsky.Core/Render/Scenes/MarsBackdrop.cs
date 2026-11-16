@@ -39,8 +39,51 @@ namespace Prazsky.Core.Render
         //The moons pass shares the sky-replacing scenes' full-screen-quad machinery (Services.FullScreenQuad), so
         //only its two per-frame ray-reconstruction parameters are cached (BestPractices §1) — the terrain pass's
         //own are TerrainPass's.
-        private EffectParameter _marsMoonsViewRayBasis, _marsMoonsCameraPosition;
+        private EffectParameter _marsMoonsViewRayBasis, _marsMoonsCameraPosition, _sunDirection;
         private EffectTechnique _marsTerrainTechnique, _marsTerrainFull, _marsTerrainReduced, _marsMoonsTechnique;
+
+        //THE BAKE (#1100): the ground's static fields worked out once into three maps round the arena (Mars.fx's MarsBake,
+        //THE BAKE there for what is in them and why the mapping is polar), which the ground reads on High and Ultra
+        //(MarsTerrainBaked) wherever the lens stands within BAKE_CAMERA_REACH of the arena. Null on OpenGL ES, which does
+        //not compile them.
+        private readonly EffectTechnique _marsBakeTechnique, _marsTerrainBaked;
+        private readonly EffectParameter _bakeAlbedoMap, _bakeShapeMap, _bakeMasksMap;
+        private RenderTarget2D _bakeAlbedo, _bakeShape, _bakeMasks;
+        private RenderTargetBinding[] _bakeTargets;
+        private Vector3 _bakedSun;
+
+        /// <summary>The bake's texels: <see cref="BAKE_WIDTH"/> round the bearing, <see cref="BAKE_HEIGHT"/> out along the
+        /// log of the radius. A texel is 0.09 units out and 0.05 across at 30 from the arena, 0.22 and 0.15 at 100, 0.58 and
+        /// 0.46 at 300. Three maps, 16 bytes a texel: 128 MiB, 171 with the mips.</summary>
+        internal const int BAKE_WIDTH = 4096, BAKE_HEIGHT = 2048;
+
+        /// <summary>The radii the bake spans (inside <see cref="BAKE_MIN_RADIUS"/> is the island) and its log's offset, which
+        /// keeps the texels near the arena from shrinking below what the lens needs there.</summary>
+        internal const float BAKE_MIN_RADIUS = 5f, BAKE_MAX_RADIUS = 1000f, BAKE_RADIUS_OFFSET = 20f;
+
+        /// <summary>
+        /// How far from the arena the lens may stand and still be drawn the baked ground, world units on the plain. The
+        /// front end's orbit (its wide leg 33 to 47 units out at the shipped window shapes, docs/game-shell/menu-camera.md)
+        /// and the play camera stand inside it. Every shot of the chapter intro's prologue stands outside it the whole way
+        /// (<c>MarsBakeReachTests</c>), so no shot turns from one ground to the other in flight, and a lens a few units over
+        /// the ruts is never drawn the coarser texels the bake has out there.
+        /// ⚠ Only while the window is at least about 0.73 as wide as it is tall: the wide leg stands
+        /// <see cref="ArenaIsland.RADIUS"/> over the sine of the Game's <c>BackdropScreen.ISLAND_FRAME_SHARE</c> of the horizontal
+        /// half-angle (68.7 units at 3:4), so a narrower
+        /// window (the Game's is resizable) takes it past the reach, and the lens turns grounds as it crosses on every fly-in
+        /// and retreat; at 9:16 the tour's last leg starts past it too.
+        /// </summary>
+        internal const float BAKE_CAMERA_REACH = 70f;
+
+        /// <summary><c>Mars.fx</c>'s <c>MarsBakePolar</c>: the mapping from a radius to the bake's rows and back.</summary>
+        internal static Vector4 BakePolar
+        {
+            get
+            {
+                float span = MathF.Log((BAKE_MAX_RADIUS + BAKE_RADIUS_OFFSET) / (BAKE_MIN_RADIUS + BAKE_RADIUS_OFFSET));
+                return new Vector4(BAKE_MIN_RADIUS + BAKE_RADIUS_OFFSET, BAKE_RADIUS_OFFSET, span, 1f / span);
+            }
+        }
 
         //Look/tuning parameters (clearing, craters, rust surface, dust haze, the two moons) live in
         //MarsSceneConfig; the backdrop reads them from _marsConfig.
@@ -69,6 +112,19 @@ namespace Prazsky.Core.Render
 
             _marsMoonsViewRayBasis = _marsEffect.Parameters["ViewRayBasis"];
             _marsMoonsCameraPosition = _marsEffect.Parameters["CameraPosition"];
+            _sunDirection = _marsEffect.Parameters["SunDirection"];
+
+            //The bake (#1100): DirectX compiles it, OpenGL ES does not, and there the ground is the exact one on every tier
+            _marsBakeTechnique = _marsEffect.Techniques["MarsBake"];
+            _marsTerrainBaked = _marsEffect.Techniques["MarsTerrainBaked"];
+            _bakeAlbedoMap = _marsEffect.Parameters["MarsBakeAlbedo"];
+            _bakeShapeMap = _marsEffect.Parameters["MarsBakeShape"];
+            _bakeMasksMap = _marsEffect.Parameters["MarsBakeMasks"];
+            if (_marsBakeTechnique != null)
+            {
+                _marsEffect.Parameters["MarsBakePolar"].SetValue(BakePolar);
+                _marsEffect.Parameters["MarsBakeTexel"].SetValue(new Vector2(1f / BAKE_WIDTH, 1f / BAKE_HEIGHT));
+            }
 
             ApplyMarsParameters();
 
@@ -297,7 +353,8 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Whether Mars draws its full ground at this scene detail (<see cref="SceneRenderer.SceneDetail"/>): the one
         /// threshold <see cref="SelectMarsTechnique"/> picks the program and its grid by. Only the full program draws the
-        /// rover's ruts (<c>Mars.fx</c>'s <c>MarsGroundAt</c>, its <c>detail</c> branch), so this is also the question whether
+        /// rover's ruts (<c>Mars.fx</c>'s <c>MarsGroundFields</c>, its <c>detail</c> branch, and the baked ground's
+        /// <c>MarsGroundBaked</c>, which is drawn only where the full program would be), so this is also the question whether
         /// the chapter intro may shoot them (#1115, <see cref="SceneRenderer.MarsDrawsTracks"/>).
         /// </summary>
         internal static bool FullGroundAt(float sceneDetail) => sceneDetail > 0.5f;
@@ -305,8 +362,8 @@ namespace Prazsky.Core.Render
         /// <inheritdoc/>
         public override void OnDetailChanged(float sceneDetail) => SelectMarsTechnique(sceneDetail);
 
-        /// <summary>Whether the ground draws the rover's ruts: the full program does, the reduced one keeps its budget (Mars.fx's
-        /// <c>MarsGroundAt</c>, its <c>detail</c> branch).</summary>
+        /// <summary>Whether the ground draws the rover's ruts: the full program does, and the baked ground that stands in for
+        /// it, the reduced one keeps its budget (Mars.fx's <c>MarsGroundFields</c>, its <c>detail</c> branch).</summary>
         internal bool DrawsTracks => _marsTerrainTechnique == _marsTerrainFull;
 
         /// <summary>The ground and what stands on it.</summary>
@@ -344,6 +401,7 @@ namespace Prazsky.Core.Render
             _bank = null;
             foreach (IDisposable owned in _rockOwned) owned.Dispose();
             _rockOwned.Clear();
+            DisposeBake();
         }
 
         /// <summary>
@@ -355,8 +413,93 @@ namespace Prazsky.Core.Render
         private void DrawMarsTerrain(in SceneFrame frame)
         {
             //The ground technique first: the moons pass leaves its own as the current one, and the pass applies the current
-            _marsEffect.CurrentTechnique = _marsTerrainTechnique;
+            _marsEffect.CurrentTechnique = DrawsBaked(frame.Camera.Position) ? _marsTerrainBaked : _marsTerrainTechnique;
             _marsPass.Draw(frame, Services.TerrainHoleRadius, _drawBank);
+        }
+
+        //The bake is wanted where the full ground is drawn on the finer tiers (High and Ultra, the outback's sun bake's
+        //line), and where the effect has it at all
+        private bool BakeWanted => _marsBakeTechnique != null && Services.FineMeshes && _marsTerrainTechnique == _marsTerrainFull;
+
+        /// <summary>
+        /// Whether this frame's ground reads the bake (#1100): it is baked and wanted, and the lens stands within
+        /// <see cref="BAKE_CAMERA_REACH"/> of the arena. The bank round the island is drawn the exact ground either way
+        /// (<see cref="DrawBank"/>): its program blends the plain's normal into its own mesh's.
+        /// </summary>
+        private bool DrawsBaked(Vector3 camera) =>
+            _bakeAlbedo != null && BakeWanted && camera.X * camera.X + camera.Z * camera.Z < BAKE_CAMERA_REACH * BAKE_CAMERA_REACH;
+
+        /// <summary>
+        /// Bakes the ground's static fields (#1100) when they are wanted and the sun has moved since the last bake (the big
+        /// craters' light follows it): one pass of <c>Mars.fx</c>'s <c>MarsBake</c> into the three maps at once, mipmapped,
+        /// here where nothing of the frame is bound yet (the outback's sun bake's place, #967). Where the bake is not wanted
+        /// (a lower tier, the reduced ground) its maps are given back, as they are when the host leaves Mars (<see cref="Leave"/>).
+        /// </summary>
+        public override void BeforeShadowMaps(Vector3 sunDirection)
+        {
+            if (!BakeWanted)
+            {
+                DisposeBake();
+                return;
+            }
+
+            if (_bakeAlbedo != null && Vector3.DistanceSquared(sunDirection, _bakedSun) < 1e-8f) return;
+
+            if (_bakeAlbedo == null)
+            {
+                _bakeAlbedo = new RenderTarget2D(_graphicsDevice, BAKE_WIDTH, BAKE_HEIGHT, true, SurfaceFormat.Color, DepthFormat.None);
+                _bakeShape = new RenderTarget2D(_graphicsDevice, BAKE_WIDTH, BAKE_HEIGHT, true, SurfaceFormat.HalfVector4, DepthFormat.None);
+                _bakeMasks = new RenderTarget2D(_graphicsDevice, BAKE_WIDTH, BAKE_HEIGHT, true, SurfaceFormat.Color, DepthFormat.None);
+                _bakeTargets = new[] { new RenderTargetBinding(_bakeAlbedo), new RenderTargetBinding(_bakeShape), new RenderTargetBinding(_bakeMasks) };
+            }
+
+            BlendState blend = _graphicsDevice.BlendState;
+            DepthStencilState depth = _graphicsDevice.DepthStencilState;
+            RasterizerState rasterizer = _graphicsDevice.RasterizerState;
+            EffectTechnique technique = _marsEffect.CurrentTechnique;
+
+            _bakeAlbedoMap.SetValue((Texture2D)null);
+            _bakeShapeMap.SetValue((Texture2D)null);
+            _bakeMasksMap.SetValue((Texture2D)null);
+            _sunDirection.SetValue(sunDirection);
+
+            _graphicsDevice.SetRenderTargets(_bakeTargets);
+            _graphicsDevice.BlendState = BlendState.Opaque;
+            _graphicsDevice.DepthStencilState = DepthStencilState.None;
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+            _graphicsDevice.SetVertexBuffer(Services.FullScreenQuad);
+            _marsEffect.CurrentTechnique = _marsBakeTechnique;
+            _marsBakeTechnique.Passes[0].Apply();
+            _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
+            _graphicsDevice.SetRenderTarget(null);
+
+            _marsEffect.CurrentTechnique = technique;
+            _graphicsDevice.BlendState = blend;
+            _graphicsDevice.DepthStencilState = depth;
+            _graphicsDevice.RasterizerState = rasterizer;
+
+            _bakeAlbedoMap.SetValue(_bakeAlbedo);
+            _bakeShapeMap.SetValue(_bakeShape);
+            _bakeMasksMap.SetValue(_bakeMasks);
+            _bakedSun = sunDirection;
+        }
+
+        /// <summary>The host has turned to another scene or stopped drawing Mars's scenery: the bake's 171 MiB are given back,
+        /// and baked again, in one frame, when Mars is next drawn where it is wanted.</summary>
+        public override void Leave() => DisposeBake();
+
+        private void DisposeBake()
+        {
+            if (_bakeAlbedo == null) return;
+
+            _bakeAlbedoMap.SetValue((Texture2D)null);
+            _bakeShapeMap.SetValue((Texture2D)null);
+            _bakeMasksMap.SetValue((Texture2D)null);
+            _bakeAlbedo.Dispose();
+            _bakeShape.Dispose();
+            _bakeMasks.Dispose();
+            _bakeAlbedo = _bakeShape = _bakeMasks = null;
+            _bakeTargets = null;
         }
 
         /// <summary>
@@ -371,7 +514,7 @@ namespace Prazsky.Core.Render
         {
             _marsMoonsViewRayBasis.SetValue(SkyRay.Basis(frame.Camera));
             _marsMoonsCameraPosition.SetValue(frame.Camera.Position);
-            _marsEffect.Parameters["SunDirection"].SetValue(frame.SunDirection);
+            _sunDirection.SetValue(frame.SunDirection);
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;

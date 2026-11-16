@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1100 Mars: pevná pole země předpečená do map — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: na High/Ultra (DirectX) se pevná pole země Marsu (albedo, sklon, velké krátery, masky skal, desek a zrna) pečou jednou do tří polárních map 4096×2048 (úhel × log vzdálenosti) v `BeforeShadowMaps`, znovu jen při pohybu slunce. Země je čte (`MarsTerrainBaked`), dokud kamera stojí do 70 od arény; jemné detaily (okraje malých kráterů, koleje roveru, praskliny desek, pruhy mes) zůstávají po pixelech. Jedna funkce `MarsGroundFields` krmí obě cesty. Odchod z Marsu nebo vypnutá Scenery vrací 171 MiB (`Backdrop.Leave`). Game menu Ultra 7,31 → 4,75 ms (strop 4,50).
+- ⚠ Detail široký pár texelů čtený z mapy vypadá jako bloky nebo hřeben; patří k pixelu.
+- Otevřené: verdikt oka; rozhodnutí majitele, zda péct jen na High/Ultra (pin Testbedu ušetří 0,7 ms, pod hranicí 1 ms) a zda menší bake pro Low/APU; pohyb, mihotání a GL cesta neověřeny.
+
 ## 2026-11-16 — #1101 stíny slunce čtou mapu čtyřmi gathery — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: `SunShadow` (Shadows.fxh) čte na DirectX blok 4×4 texelů čtyřmi `GatherRed` místo šestnácti `tex2Dlod`; GL (GameAndroid) drží šestnáct čtení pod `#if OPENGL`. Šířka texelu ve světě je uniforma `ShadowTexelWorld` (`SunShadowMap.TexelWorld`), ne `length()` sloupce matice v každém pixelu; `ShadowReceiver.Push` bere celou mapu. Obraz beze změny na deseti pevných pohledech (proti třem během mainu), levnější o ~0,1 ms (les Ultra 3840×1500 10,58 → 10,47 ms). Testy `SunShadowTexelTests` hlídají uniformu i pořadí řádků gatherů.
