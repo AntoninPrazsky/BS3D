@@ -172,8 +172,9 @@ namespace Prazsky.Core.Render
             //?. because Outback.fx declares it and reads it nowhere: the OpenGL ES build drops such a uniform (#1059)
             _outbackEffect.Parameters["HorizonHazeDistance"]?.SetValue(air.HorizonHazeDistance);
 
-            //The plain's haze ends in the drawn sky, so its last fade may begin as late as the config says (#1123): at the far
-            //field's usual 600 it laid a pale band along every raised lens's skyline
+            //The plain is still mostly its own colour where its last fade begins, so the fade may begin as late as the config
+            //says and the skyline's pixels show the plain's own edge (#1123): at the far field's usual 600 it laid a pale band
+            //along every raised lens's skyline
             _outbackPass.FarFadeStartLatest = air.HorizonHazeDistance;
         }
 

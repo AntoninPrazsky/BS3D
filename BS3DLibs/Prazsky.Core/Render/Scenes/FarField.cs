@@ -63,8 +63,10 @@ namespace Prazsky.Core.Render
         /// FarFieldSlots), but three scenes state 700-900 and their haze ends in the rig's HorizonColor, which is not
         /// the sky's: begun that late, the last few hundred units - all of them squeezed into the pixel or two at the
         /// skyline - stayed that colour and drew a thin line of it along the whole horizon (the icesheet's was teal
-        /// under a lilac sky). A ground whose haze ends in the drawn sky has no such line to draw, and its pass may state
-        /// a later latest start (<see cref="TerrainPass.FarFadeStartLatest"/>; the outback's 1000, #1123).
+        /// under a lilac sky, its haze having made the ground wholly teal by 900). A ground still mostly its OWN colour where
+        /// the fade begins has no foreign colour to squeeze into those pixels: they show its own edge going into the sky, and
+        /// its pass may state a later latest start (<see cref="TerrainPass.FarFadeStartLatest"/>; the outback's plain is
+        /// 0.85 its own colour at its 1000, #1123). A ground whose haze is strong by then, towards HorizonColor, may not.
         /// </summary>
         public const float FAR_FADE_START_LATEST = 600f;
 

@@ -80,8 +80,9 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The latest the far field may begin this ground's last fade into the sky (<see cref="FarField.Begin"/>):
-        /// <see cref="FarField.FAR_FADE_START_LATEST"/> unless the scene states a later one. Only a ground whose own haze ends
-        /// in the drawn sky may (the outback, #1123); see the constant for what a later start did to one whose haze does not.
+        /// <see cref="FarField.FAR_FADE_START_LATEST"/> unless the scene states a later one. Only a ground still mostly its own
+        /// colour where the fade begins may, so the pixels at the skyline show its own edge (the outback's plain, 0.85 its own
+        /// colour at 1000, #1123); see the constant for the line a later start drew under a haze strong by then.
         /// </summary>
         public float FarFadeStartLatest { get; set; } = FarField.FAR_FADE_START_LATEST;
 

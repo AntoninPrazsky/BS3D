@@ -762,7 +762,8 @@ float3 ShadeOutback(float3 worldPosition, bool rocky, float3 meshNormal, bool on
     //NOTHING HERE MOVES. A "heat shimmer" once added gradient noise of the view ray to the haze, sliding upwards with
     //the clock: blotches up to 11 levels of 255 paler over the whole middle plain, fixed to the lens's directions
     //rather than to the ground, so a moving lens saw them creep along it - the "strange low pale fog" of #1123. A real
-    //shimmer bends the far horizon line by a pixel or so, which a surface's colour cannot do, so there is none.
+    //shimmer bends the far horizon line by a pixel or so, which a surface's colour cannot do, so there is none here:
+    //one belongs to a pass that reads the frame already drawn (#1135).
     //
     //The air's colour is the sky's at the horizon, never the HorizonColor uniform: that one is an average over the
     //dome's bottom fifth, the sun's tint, which under some domes is a colour the dome never draws above the skyline.

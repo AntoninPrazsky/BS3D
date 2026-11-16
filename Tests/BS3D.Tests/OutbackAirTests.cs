@@ -30,8 +30,15 @@ namespace BS3D.Tests
             throw new FileNotFoundException($"No {relative} was found above the test assembly.");
         }
 
-        //The text of the effect without its comments, so a word in a note is not taken for code
-        private static string Code() => Regex.Replace(File.ReadAllText(Source), @"//[^\n]*", string.Empty);
+        //The text of a source file without its comments, so a word in a note is not taken for code
+        private static string CodeOf(string path) => Regex.Replace(File.ReadAllText(path), @"//[^\n]*", string.Empty);
+
+        private static string Code() => CodeOf(Source);
+
+        //Prazsky.Core's folder, for the C# side of the lift
+        private static string CoreDirectory() =>
+            Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(
+                FindFile(Path.Combine("BS3DLibs", "Prazsky.Core", "Render", "Scenes", "TerrainPass.cs")))));
 
         /// <summary>
         /// Nothing in the outback's ground moves with the clock: a uniform named for time is what the shimmer slid on, and
@@ -80,21 +87,55 @@ namespace BS3D.Tests
 
             Assert.True(Haze(300f) <= 0.05f, $"the plain 300 units out is {Haze(300f):F3} air");
 
-            //The pass lifts the far field's cap to the config's figure; read off the backdrop, which no test can build
-            string backdrop = Regex.Replace(File.ReadAllText(FindFile(Path.Combine("BS3DLibs", "Prazsky.Core", "Render", "Scenes", "OutbackBackdrop.cs"))),
-                @"//[^\n]*", string.Empty);
-            Assert.Matches(@"_outbackPass\.FarFadeStartLatest\s*=\s*air\.HorizonHazeDistance\s*;", backdrop);
+            //Where FarField.Begin starts the plain's fade: the effect's HorizonHazeDistance read back (the config's figure on
+            //DirectX; null on OpenGL ES, whose build drops the uniform Outback.fx never reads) under the cap the outback's pass
+            //states, which its backdrop sets to the same figure (TheOutbackPassAloneLiftsTheCap)
+            float latest = air.HorizonHazeDistance;
+            foreach (float? effectHaze in new float?[] { air.HorizonHazeDistance, null })
+            {
+                float start = FarField.FadeStart(effectHaze, latest);
+                string api = effectHaze == null ? "OpenGL ES" : "DirectX";
+                Assert.True(start >= 1000f, $"on {api} the plain's last fade begins {start} units out");
+                Assert.True(start < FarField.FAR_FADE_END, $"on {api} the plain's last fade begins at {start}, not short of its end at {FarField.FAR_FADE_END}");
+                Assert.True(Haze(start) <= 1f / 6f, $"on {api} the plain is {Haze(start):F3} air where its last fade begins");
+            }
 
-            float start = FarField.FadeStart(air.HorizonHazeDistance, air.HorizonHazeDistance);
-            Assert.True(start >= 1000f, $"the plain's last fade begins {start} units out");
-            Assert.True(start < FarField.FAR_FADE_END, $"the plain's last fade begins at {start}, not short of its end at {FarField.FAR_FADE_END}");
-            Assert.True(Haze(start) <= 1f / 6f, $"the plain is {Haze(start):F3} air where its last fade begins");
+            //Under the far field's own cap the plain would begin at 600 again: the lift is what moves it
+            Assert.Equal(FarField.FAR_FADE_START_LATEST, FarField.FadeStart(air.HorizonHazeDistance, FarField.FAR_FADE_START_LATEST));
         }
 
         /// <summary>
-        /// Every other ground still begins its fade by the far field's 600, whatever haze distance it states: the lift is the
-        /// outback pass's own, and the icesheet's teal line (a fade begun at 900 under a haze that ends in another colour) stays
-        /// fixed.
+        /// The lift reaches the far field, and only from the outback: a <c>TerrainPass</c>'s cap is the far field's own unless
+        /// a backdrop states another, the pass hands it to <c>FarField.Begin</c>, the outback's backdrop sets it to its config's
+        /// figure, and nothing else in Prazsky.Core sets it. No test can build a pass (it needs a graphics device), so these are
+        /// read off the source with its comments taken out.
+        /// </summary>
+        [Fact]
+        public void TheOutbackPassAloneLiftsTheCap()
+        {
+            string core = CoreDirectory();
+            string scenes = Path.Combine(core, "Render", "Scenes");
+
+            string pass = CodeOf(Path.Combine(scenes, "TerrainPass.cs"));
+            Assert.Matches(@"public\s+float\s+FarFadeStartLatest\s*\{\s*get\s*;\s*set\s*;\s*\}\s*=\s*FarField\.FAR_FADE_START_LATEST\s*;", pass);
+            Assert.Matches(@"_farField\.Begin\(\s*Effect\s*,\s*frame\s*,\s*_extent\s*,\s*FarFadeStartLatest\s*\)", pass);
+
+            Assert.Matches(@"_outbackPass\.FarFadeStartLatest\s*=\s*air\.HorizonHazeDistance\s*;", CodeOf(Path.Combine(scenes, "OutbackBackdrop.cs")));
+
+            foreach (string file in Directory.GetFiles(core, "*.cs", SearchOption.AllDirectories))
+            {
+                string relative = Path.GetRelativePath(core, file);
+                if (relative.StartsWith("bin", StringComparison.Ordinal) || relative.StartsWith("obj", StringComparison.Ordinal)) continue;
+
+                bool sets = Regex.IsMatch(CodeOf(file), @"\.FarFadeStartLatest\s*=[^=]");
+                bool outback = Path.GetFileName(file) == "OutbackBackdrop.cs";
+                Assert.True(sets == outback, $"{relative} {(sets ? "sets" : "does not set")} a pass's FarFadeStartLatest");
+            }
+        }
+
+        /// <summary>
+        /// Every other ground still begins its fade by the far field's 600, whatever haze distance it states: the icesheet's
+        /// teal line (a fade begun at 900, where its haze had made the ground wholly <c>HorizonColor</c>) stays fixed.
         /// </summary>
         [Fact]
         public void OtherGroundsStillFadeBy600()
