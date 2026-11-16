@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1136 Mřížka: cykly mimo krychle — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: světelné cykly ani jejich zdi už nevjedou do těles (sceneseed=18, modrý cyklus v 25,5 s stál napůl v krychli). Rozmístění těles je v `GridLayout` (bez grafiky, stejný proud náhod, desktop i Životy beze změny); `LightCycles.Lattice` povolí krok jen se `SOLID_CLEARANCE` 6,85 od půdorysu a jen tam, odkud vede další krok bez otočky. Bez těles v prstenci jedou cykly přesně jako dřív. Potato teď staví tělesa jako desktop (na Pi dá stejné sceneseed jiné rozmístění) a úvod #1116 bere běhy postavené mezi tělesy.
+- ⚠ Kontrola podle obalové kružnice přeháněla dosah krychle (116 místo 98 z 205 rozmístění); počítej podle krabice.
+- Otevřené: pohyb nových zatáček nikdo neviděl; GameAndroid nesestaven; `GridRideTests` dál rolují tělesa vlastním zjednodušeným `Solids(seed)`.
+
 ## 2026-11-15 — #1121 les: soumrakové barvy podle referencí — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: `ForestHaze` už nemlží k tyrkysové `HorizonColor` rigu (průměr spodní pětiny dómu, skoro celý pod obzorem), ale k obloze kreslené za bodem (`FarSkyAt` jeho směrem) se zatažením mraků (`ForestSkyBehind`, stejný smoothstep jako Sky.fx). První stupeň je tmavá břidlicová mlha `ForestMurk` počítaná z oblohy na obzoru; stupeň k obloze jde jen do `FOREST_SKY_REACH` 0,45. Listnáče olivové (1,35× jas jehličnanů) a kreslené v počasí (`PlantPass.DrawInWeather`).

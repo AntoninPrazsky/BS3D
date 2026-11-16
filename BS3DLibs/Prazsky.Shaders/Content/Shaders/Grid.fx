@@ -295,7 +295,7 @@ float4 GridSkyPS(GridSkyVertexOutput input) : COLOR
 //--- Towers: distant solids with glowing seams, their windows running a Game of Life -----------------------
 //
 //MAGI/SynthaVision's combinatorial-solid discipline (see the header): plain closed rectangular prisms, built
-//once on the CPU (SceneRenderer.BuildGridTowers) with their final WORLD-SPACE positions baked directly into the
+//once on the CPU (GridBackdrop.BuildGridTowers) with their final WORLD-SPACE positions baked directly into the
 //vertex buffer - no per-draw world matrix, no instancing, because there are only ever a few dozen of these.
 //Two shapes, a tall narrow TOWER and a large, close-to-equilateral CUBE (see GridTowerConfig's own class doc for
 //why the owner's review asked for the second).

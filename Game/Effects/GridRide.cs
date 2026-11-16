@@ -68,8 +68,10 @@ namespace BS3D.Effects
         internal const float REACH_SECONDS = 2.4f;
 
         //What the lens keeps off, through the seconds the shot plays in: any wall seen from above; any other cycle's middle; any
-        //solid or the ring (the cycles ride inside the solids' ring, but a cube near its inner edge reaches in among them); and
-        //the cycle it films keeps its own body off any solid, so a rider passing through a cube is never what is filmed
+        //solid or the ring (the cycles ride inside the solids' ring, but a cube near its inner edge reaches in among them, and
+        //the lens rides 9 aside of its cycle); and the cycle it films keeps its own body off any solid. Every run keeps further
+        //off the solids it was made among (LightCycles.SOLID_CLEARANCE, #1136), so that last binds only on a solid handed to
+        //the ride and not to its runs
         internal const float WALL_CLEARANCE = 3f;
         internal const float CYCLE_CLEARANCE = LightCycleRuns.BODY_REACH + 2f;
         internal const float SOLID_CLEARANCE = 6f;

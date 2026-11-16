@@ -158,7 +158,7 @@ namespace BS3D.Effects
         {
             if (clock == null) return null;
 
-            GridRide ride = GridRide.Plan(new LightCycleRuns(grid), grid.Terrain.LevelY, solids, ring,
+            GridRide ride = GridRide.Plan(new LightCycleRuns(grid, solids), grid.Terrain.LevelY, solids, ring,
                 start, start + RIDE_SECONDS + RIDE_LATE, RIDE_SECONDS, keep);
             if (ride == null) return null;
 

@@ -14,8 +14,8 @@ namespace BS3D.Tests
     /// at the real wall clock, however late the shot comes on and through a pause; never in a wall, a cycle or a solid; the cycle
     /// whole in the frame; a turn ridden, not snapped; nothing allocated choosing again; and the reel it opens the Grid's prologue
     /// with. The cycle it is held against is made the way
-    /// <see cref="LightCycles"/> makes the one it draws (its <c>Rider</c> on its <c>RiderSeed</c>, its wall by <c>Trail</c>), not
-    /// through <see cref="LightCycleRuns"/>, which the ride itself reads.
+    /// <see cref="LightCycles"/> makes the one it draws (its <c>Rider</c> on its <c>RiderSeed</c> over a <c>Lattice</c> of the
+    /// same solids, its wall by <c>Trail</c>), not through <see cref="LightCycleRuns"/>, which the ride itself reads.
     /// </summary>
     public class GridRideTests
     {
@@ -37,7 +37,7 @@ namespace BS3D.Tests
         private const float FRAME = 1f / 60f;
         private static readonly float[] ASPECTS = { 4f / 3f, 16f / 10f, 16f / 9f, 21f / 9f };
 
-        /// <summary>The landmark ring of <paramref name="grid"/>, where <c>GridBackdrop.GridLandmarkShape</c> stands it.</summary>
+        /// <summary>The landmark ring of <paramref name="grid"/>, where <c>GridLayout.Landmark</c> stands it.</summary>
         private static GridRing RingOf(GridSceneConfig grid)
         {
             GridLandmarkConfig landmark = grid.Landmark;
@@ -74,15 +74,17 @@ namespace BS3D.Tests
             return solids;
         }
 
-        /// <summary>The cycles as <see cref="LightCycles.Draw"/> makes them: where each stands and its wall's foot, at a second.</summary>
+        /// <summary>The cycles as <see cref="LightCycles.Draw"/> makes them, clear of <c>solids</c> (#1136): where each stands and
+        /// its wall's foot, at a second.</summary>
         private sealed class DrawnCycles
         {
             private readonly LightCycles.Rider[] _riders = new LightCycles.Rider[LightCycles.RIDERS];
             private readonly VertexPositionTexture[] _trail = new VertexPositionTexture[LightCycles.TRAIL_POINTS * 2];
 
-            public DrawnCycles()
+            public DrawnCycles(IReadOnlyList<GridSolid> solids)
             {
-                for (int i = 0; i < _riders.Length; i++) _riders[i] = new LightCycles.Rider(LightCycles.RiderSeed(Grid, i));
+                var lattice = new LightCycles.Lattice(solids);
+                for (int i = 0; i < _riders.Length; i++) _riders[i] = new LightCycles.Rider(LightCycles.RiderSeed(Grid, i), lattice);
             }
 
             public void At(int i, float time, out Vector2 position, out Vector2 heading) =>
@@ -187,11 +189,12 @@ namespace BS3D.Tests
             {
                 foreach (float late in LATENESS)
                 {
-                    List<Frame> ride = Ride(BuildTime(b), late, Solids(b), out _);
+                    List<GridSolid> solids = Solids(b);
+                    List<Frame> ride = Ride(BuildTime(b), late, solids, out _);
                     if (ride == null) continue;
                     rides++;
 
-                    var cycles = new DrawnCycles();
+                    var cycles = new DrawnCycles(solids);
                     int filmed = Filmed(cycles, ride[0]);
                     foreach (Frame frame in ride)
                     {
@@ -225,7 +228,7 @@ namespace BS3D.Tests
                     List<Frame> ride = Ride(BuildTime(b), late, solids, out _);
                     if (ride == null) continue;
 
-                    var cycles = new DrawnCycles();
+                    var cycles = new DrawnCycles(solids);
                     int filmed = Filmed(cycles, ride[0]);
                     foreach (Frame frame in ride)
                     {
@@ -258,10 +261,11 @@ namespace BS3D.Tests
             {
                 foreach (float late in LATENESS)
                 {
-                    List<Frame> ride = Ride(BuildTime(b), late, Solids(b), out _);
+                    List<GridSolid> solids = Solids(b);
+                    List<Frame> ride = Ride(BuildTime(b), late, solids, out _);
                     if (ride == null) continue;
 
-                    var cycles = new DrawnCycles();
+                    var cycles = new DrawnCycles(solids);
                     int filmed = Filmed(cycles, ride[0]);
                     foreach (Frame frame in ride)
                     {
@@ -299,12 +303,13 @@ namespace BS3D.Tests
             int turns = 0, rides = 0, swift = 0;
             for (int b = 0; b < BUILDS; b++)
             {
-                List<Frame> ride = Ride(BuildTime(b), 0f, Solids(b), out _);
+                List<GridSolid> solids = Solids(b);
+                List<Frame> ride = Ride(BuildTime(b), 0f, solids, out _);
                 if (ride == null) continue;
                 rides++;
                 float rideTurn = 0f;
 
-                var cycles = new DrawnCycles();
+                var cycles = new DrawnCycles(solids);
                 int filmed = Filmed(cycles, ride[0]);
                 cycles.At(filmed, ride[0].Time, out _, out Vector2 was);
                 for (int f = 1; f < ride.Count; f++)
@@ -382,7 +387,7 @@ namespace BS3D.Tests
                     if (ride == null) continue;
                     rides++;
 
-                    var cycles = new DrawnCycles();
+                    var cycles = new DrawnCycles(solids);
                     bool ok = true;
                     foreach (Frame frame in ride)
                     {
@@ -425,7 +430,7 @@ namespace BS3D.Tests
                     if (ride == null) continue;
                     rides++;
 
-                    var cycles = new DrawnCycles();
+                    var cycles = new DrawnCycles(solids);
                     bool ok = true;
                     int was = Filmed(cycles, ride[0]);
                     foreach (Frame frame in ride)
@@ -482,7 +487,8 @@ namespace BS3D.Tests
             for (int b = 0; b < BUILDS; b += 4)
             {
                 float start = BuildTime(b) + 3.2f;
-                GridRide ride = GridRide.Plan(new LightCycleRuns(Grid), FloorY, Solids(b), RingOf(Grid), start, start + stretch,
+                List<GridSolid> solids = Solids(b);
+                GridRide ride = GridRide.Plan(new LightCycleRuns(Grid, solids), FloorY, solids, RingOf(Grid), start, start + stretch,
                     GridIntroShots.RIDE_SECONDS);
                 if (ride == null) continue;
 
@@ -552,7 +558,7 @@ namespace BS3D.Tests
                     //The cycle second, after the grid's crane; later only where no cycle is clear for the second place's seconds
                     Assert.Equal("the grid", names[0]);
                     if (names[1] == "the cycle") second++;
-                    else Assert.Null(GridRide.Plan(new LightCycleRuns(Grid), FloorY, Solids(b), RingOf(Grid), now + reel[0].Seconds,
+                    else Assert.Null(GridRide.Plan(new LightCycleRuns(Grid, Solids(b)), FloorY, Solids(b), RingOf(Grid), now + reel[0].Seconds,
                         now + reel[0].Seconds + GridIntroShots.RIDE_SECONDS + GridIntroShots.RIDE_LATE, GridIntroShots.RIDE_SECONDS,
                         GridRide.Keep.Calm));
                     names.Remove("the cycle");
