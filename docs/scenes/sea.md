@@ -92,6 +92,8 @@ Desktop, 3840 x 1600, ssaa 2, play-height view, alternating pairs (#674):
 - the tropical lagoon: 10.83 to 11.09 (+0.26);
 - **the laptop is not measured**; an estimate by fill rate puts the sea's `Low` near +0.6 ms on a scene that sat at 14.2 against the 16.1 budget.
 
+The lighthouse, the ship and the yacht (#1125) are three draws of 1252, 1362 and 198 triangles. Desktop, the Game at `Ultra`, 3840 x 1500 windowed (ssaa 2), the sea level in play with all three in view, uncapped, five alternating pairs of processes: 5.11, 5.15, 5.16, 5.15 and 5.16 ms before against 5.16, 5.15, 5.17, 5.16 and 5.16 after, about +0.01 ms, inside the pairs' own spread.
+
 The shading retune (#503) cost about 0.3 % (6.74 / 6.75 against 6.76 / 6.77 ms, desktop, fixed camera, 3840 x 1600 at ssaa 2, `nopost nooverc`, `fpscap=400`). ⚠ At ssaa 1 both builds sat on exactly 2.50 ms, the cap, which measures nothing; raise the load before a pair means anything. The spray's blend fix (#675) cost one multiply (laptop, 22.36 against 22.24 ms).
 
 `Tools/LatticeProbe` on three pinned captures (`sceneseed=3`, `nopost`) measures whether the field still reads as a repeating grid: the sea from above fell from 71 % to 32 % of tiles above its null, near from 18 % to 9 %, play height from 17 % to 12 %; the lagoon from above from 29 % to 7 % (what is left is single-orientation crests, which a wave train is allowed).

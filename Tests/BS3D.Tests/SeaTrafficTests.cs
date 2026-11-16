@@ -129,6 +129,7 @@ namespace BS3D.Tests
                         Assert.True(agreement < 0f, $"{name}: triangle {i / 3} faces its normal at {agreement:F2}");
                     }
                 }
+                _output.WriteLine($"{name}: {mesh.Count / 3} triangles");
             }
         }
 
