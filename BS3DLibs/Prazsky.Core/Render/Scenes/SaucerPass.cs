@@ -4,10 +4,10 @@ using System;
 namespace Prazsky.Core.Render
 {
     /// <summary>
-    /// The saucer caught close by a lens (#1117): a pass the space chapter's intro cues on the first frame of its still shot of
-    /// the planet (<see cref="SceneRenderer.CueSpaceSaucer"/>), so the craft crosses that frame near the lens at a moment the
-    /// shot is laid round instead of being hoped for. The owner asked for "an unexpected flying saucer flying through this static
-    /// shot, relatively close to the camera".
+    /// The saucer caught close by a lens (#1117): a pass the space chapter's intro cues on every frame of its still shot of the
+    /// planet (<see cref="SceneRenderer.CueSpaceSaucer"/>, its moment counted on the intro's own clock), so the craft crosses
+    /// that frame near the lens at a moment the shot is laid round instead of being hoped for. The owner asked for "an
+    /// unexpected flying saucer flying through this static shot, relatively close to the camera".
     /// <para>
     /// <b>Two parts, and only the first outlives the pass.</b> From the cue on, the craft's loop is turned on by
     /// <see cref="LoopShift"/>, so the loop itself brings it to the bearing of the pass's <see cref="Point"/> at the pass's
@@ -16,7 +16,9 @@ namespace Prazsky.Core.Render
     /// side of the moment the craft leaves the loop for a straight run through the point along the loop's own way round, level,
     /// at <see cref="SPEED"/>, leaning its outer side (the lens's side, the lens standing outside the loop) down by
     /// <see cref="LEAN"/> so the dome and its crew face the lens; it eases off the loop onto the run and back onto the loop over
-    /// <see cref="EASE_SECONDS"/> at each end (<see cref="Weight"/>), where the shot that cued it does not see it.
+    /// <see cref="EASE_SECONDS"/> at each end (<see cref="Weight"/>), where the shot that cued it does not see it. A cue less
+    /// than <see cref="HOLD_SECONDS"/> before the moment, as the intro's is, puts the craft straight onto the run: the cut into
+    /// the shot hides the jump from wherever the loop had it, and only the ease back is flown.
     /// </para>
     /// <para>
     /// A pure function of the wall clock and the cue, as the loop is: <c>default</c> is no pass, under which

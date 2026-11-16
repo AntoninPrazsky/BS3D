@@ -23,6 +23,15 @@ namespace BS3D.Effects
     /// The lenses are absolute (see <see cref="GridIntroShots"/>), so the planet stands where it does in the
     /// frame in the scene menu's tour and in play alike. Built once when the intro begins.
     /// </para>
+    /// <para>
+    /// ⚠ <b>The saucer is re-cued on every frame of its shot</b> (<see cref="IntroShot.Track"/>), its moment counted on from
+    /// how far into the shot the intro's clock is, as the desert's creatures are (<see cref="DesertIntroShots"/>): the craft
+    /// flies on the wall clock, which a pause does not stop and a hitch does not hold to a frame's worth
+    /// (<c>ChapterIntro.MAX_INTRO_STEP</c>), and the shot is laid on its own seconds. Cued once, on the shot's first frame, a
+    /// hitch in a level's first seconds (the physics warm-up's slices among them) would bring the craft in early by what the
+    /// intro's clock lost, and a pause would send it past before the frame it was laid for. A pause still lets it fly on
+    /// under the menu; the shot's next frame puts it back.
+    /// </para>
     /// </summary>
     internal static class SpaceIntroShots
     {
@@ -40,7 +49,7 @@ namespace BS3D.Effects
         private const float SAUCER_FOV_DEGREES = 47f;
         internal const float SAUCER_SECONDS = 4.2f;
 
-        //The craft, cued as the shot comes on screen (SceneRenderer.CueSpaceSaucer) to cross the frame from the planet's side
+        //The craft, cued while the shot is on screen (SceneRenderer.CueSpaceSaucer) to cross the frame from the planet's side
         //(the loop runs right to left as a lens outside it sees it): its middle this far from the lens, along a line this many
         //degrees under the look and this many towards that side, this far into the shot, on SaucerPass's run. Turned to that
         //side, the frame's two edges cut the run about as long before the moment as after it, so it comes in after a second
@@ -79,7 +88,7 @@ namespace BS3D.Effects
 
         /// <summary>The prologue for the space scene the renderer is drawing, or null when it has no config.</summary>
         /// <param name="scenes">The live scene renderer, whose saucer the first shot cues.</param>
-        /// <param name="clock">The game's wall clock, read as the saucer's shot comes on screen: the craft flies on it.</param>
+        /// <param name="clock">The game's wall clock, read on every frame of the saucer's shot: the craft flies on it.</param>
         /// <param name="random">The intro's own roll.</param>
         public static IntroShot[] Build(SceneRenderer scenes, Func<float> clock, Random random)
         {
@@ -99,8 +108,9 @@ namespace BS3D.Effects
 
         /// <summary>
         /// The establishing view, held still (#1117): the station small and low in front of the gas giant from far out, the lens
-        /// standing where the saucer's loop passes between it and the station, and the craft cued as the shot comes on screen to
-        /// cross the frame close to the lens <see cref="PASS_AT_SECONDS"/> into it.
+        /// standing where the saucer's loop passes between it and the station, and the craft cued on every frame of the shot
+        /// (<see cref="IntroShot.Track"/>) to cross the frame close to the lens <see cref="PASS_AT_SECONDS"/> into it on the
+        /// intro's own clock.
         /// </summary>
         internal static IntroShot Saucer(SpaceSceneConfig space, Action<Vector3, float> cueSaucer, Func<float> clock, Random random)
         {
@@ -123,9 +133,11 @@ namespace BS3D.Effects
             towards = Vector3.Normalize(Vector3.Transform(towards, Matrix.CreateRotationY(side * MathHelper.ToRadians(PASS_ASIDE_DEGREES))));
             Vector3 pass = lens + towards * PASS_DISTANCE;
 
+            //Re-cued on every frame of the shot, its moment counted on from how far into the shot the intro's clock is (see the
+            //class remarks)
             return new IntroShot("the saucer", new[] { lens, lens }, SAUCER_SECONDS, MathHelper.ToRadians(SAUCER_FOV_DEGREES),
                 lookAt: lens + look * FAR,
-                onStart: () => cueSaucer?.Invoke(pass, (clock?.Invoke() ?? 0f) + PASS_AT_SECONDS));
+                onFrame: seconds => cueSaucer?.Invoke(pass, (clock?.Invoke() ?? 0f) + PASS_AT_SECONDS - seconds));
         }
 
         /// <summary>

@@ -1511,8 +1511,8 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Cues the space scene's saucer (#1117) to pass with its middle at <paramref name="point"/> at <paramref name="closest"/>
         /// on the scene's clock, on a straight run along its loop's way round, and to rejoin the loop after: the chapter intro's
-        /// still shot of the planet, which the craft crosses close to the lens. The loop keeps the phase that brought the craft
-        /// there; see <c>SaucerPass</c>.
+        /// still shot of the planet, which the craft crosses close to the lens, and which calls this on every frame of it. A cue
+        /// replaces the one before it, and the loop keeps the phase the last one turned it to; see <c>SaucerPass</c>.
         /// </summary>
         public void CueSpaceSaucer(Vector3 point, float closest) => _space.CueSaucer(SaucerPass.Through(point, closest));
 

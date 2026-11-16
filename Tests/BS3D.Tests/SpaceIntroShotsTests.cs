@@ -73,13 +73,15 @@ namespace BS3D.Tests
 
         private static Vector3 Planet => Vector3.Normalize(Space.Planet.Direction.ToVector3());
 
-        //The shot for a roll, with the pass it cues when it comes on screen at the wall-clock moment wall
+        //The shot for a roll, with the pass it cues on its first frame when that comes on screen at the wall-clock moment wall.
+        //A run that keeps up (no hitch, no pause) cues the same pass on every frame after
         private static (IntroShot Shot, SaucerPass Pass) Saucer(int seed, float wall)
         {
             SaucerPass pass = default;
             IntroShot shot = SpaceIntroShots.Saucer(Space, (point, closest) => pass = SaucerPass.Through(point, closest), () => wall,
                 new Random(seed));
             shot.Start();
+            shot.Track(0f);
             Assert.True(pass.Cued, "the shot cued no pass as it came on screen");
             return (shot, pass);
         }
@@ -306,6 +308,55 @@ namespace BS3D.Tests
             Assert.True(nearestAxis >= ArenaIsland.RADIUS + CRAFT_REACH + 100f, $"the craft comes {nearestAxis:F1} from the island's axis");
             //A jump would be a frame's leap; the eases' quickest is a swoop out of every frame
             Assert.True(fastest < 120f, $"the craft moves {fastest:F1} units a second at its quickest");
+        }
+
+        [Fact]
+        public void The_saucer_keeps_to_the_intros_clock_through_hitches_and_a_pause()
+        {
+            //A level's first seconds as the intro sees them: frames that keep up, hitches the intro's clock is held to a frame's
+            //worth through (ChapterIntro.MAX_INTRO_STEP) and a pause the wall clock runs on through while the intro stands still
+            var frames = new List<(float Elapsed, bool Paused)>();
+            for (int k = 0; k < 400; k++)
+            {
+                float elapsed = k % 37 == 5 ? 0.11f : k % 53 == 20 ? 0.23f : FRAME;
+                frames.Add((elapsed, k is >= 90 and < 120));
+            }
+
+            float worst = 0f;
+            foreach (float wall0 in WALL_CLOCKS)
+            {
+                SaucerPass pass = default;
+                double wall = wall0;
+                IntroShot shot = SpaceIntroShots.Saucer(Space, (point, closest) => pass = SaucerPass.Through(point, closest),
+                    () => (float)wall, new Random(3));
+
+                //Where a run that keeps up has the craft at each second of the shot: its first frame's cue, flown on the wall clock
+                shot.Start();
+                shot.Track(0f);
+                SaucerPass kept = pass;
+
+                double intro = 0.0;
+                bool lagged = false;
+                foreach ((float elapsed, bool paused) in frames)
+                {
+                    wall += elapsed;
+                    if (paused) continue;
+
+                    intro += MathF.Min(elapsed, ChapterIntro.MAX_INTRO_STEP);
+                    if (intro >= shot.Seconds) break;
+                    lagged |= wall - wall0 - intro > 0.5;
+
+                    shot.Track((float)intro);
+                    Vector3 craft = SaucerFlight.WorldAt((float)wall, pass).Translation;
+                    Vector3 laid = SaucerFlight.WorldAt(wall0 + (float)intro, kept).Translation;
+                    worst = MathF.Max(worst, Vector3.Distance(craft, laid));
+                }
+
+                Assert.True(lagged, $"at {wall0}: the run never fell behind the wall clock, so it tests nothing");
+            }
+
+            _output.WriteLine(FormattableString.Invariant($"the craft at most {worst:F3} off where the shot was laid for it"));
+            Assert.True(worst < 0.1f, $"the craft is {worst:F2} off where the shot was laid for it after a hitch or a pause");
         }
 
         [Fact]
