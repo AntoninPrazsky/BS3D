@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1123 outback: mlha nad plání — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: bledý závoj nad plání outbacku dělaly tři věci, poznané vypínáním po jedné v záběrech úvodu: tetelení vzduchu v `Outback.fx` (šum podle směru pohledu, skvrny ±11 úrovní zelené, při pohybu kamery se plazí po zemi), `HazeDistance` 3000 a poslední fade od 600. Tetelení odstraněno (s uniformami a hodinami), haze 6000 pro plán i skály, fade plání od 1000 (`TerrainPass.FarFadeStartLatest`, ostatní scény dál 600 kvůli tyrkysové čáře ledovce). Cena: −0,08–0,10 ms. Testy `OutbackAirTests` (5).
+- ⚠ Jasný HDR vzduch zbledí tmavě červenou plán už při pár setinách podílu; saturace plání 0,34–0,41 s haze, 0,59–0,65 bez ní.
+- Otevřené: `verdict-eye` (pohyb neviděn, Low/Medium/Ultra a menu nezachyceny); skutečná refrakce na obzoru #1135; trsy spinifexu u nízké kamery jako šedé šmouhy (bez issue).
+
 ## 2026-11-15 — #1116 Mřížka: úvod jede vedle světelného cyklu — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: druhý záběr úvodu Mřížky „the cycle“ (`Game/Effects/GridRide.cs`): čočka jede 3,4 nad podlahou vedle jednoho cyklu jeho rychlostí, kolem uzlu se točí nejvýš 37,5 °/s (U-obrat 71). Pózuje se podle nástěnných hodin (`IntroShot.OnTheWallClock`), cyklus bere z `LightCycleRuns` (stejné semínko jako kreslené). Po pauze nebo pod 20 fps volí znovu (`GridIntroShots.Again`). Úvod 16,5 s (dřív 13,9).
