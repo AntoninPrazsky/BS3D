@@ -58,7 +58,7 @@ namespace Prazsky.Core.Render
         private const int OUTBACK_GRID_N = 400;
         private const float OUTBACK_EXTENT = 1000f;
 
-        //Look/tuning parameters (plain, monoliths, rock and ground materials, dust, shimmer) live in
+        //Look/tuning parameters (plain, monoliths, rock and ground materials, the air) live in
         //OutbackSceneConfig; the backdrop reads them from _outbackConfig.
 
         /// <summary>
@@ -72,7 +72,8 @@ namespace Prazsky.Core.Render
             //--- Outback (#112): the desert's machinery with rock on it — the same flat lattice, displaced into
             //a near-flat spinifex plain with red monoliths standing on a jittered single-cell lattice
             _outbackEffect = content.Load<Effect>("Shaders/Outback");
-            _outbackPass = new TerrainPass(Services, _outbackEffect, OUTBACK_GRID_N, OUTBACK_EXTENT, "OutbackTime");
+            //No clock: nothing on the plain moves but the cloud shadows (their own) and the birds (#1123)
+            _outbackPass = new TerrainPass(Services, _outbackEffect, OUTBACK_GRID_N, OUTBACK_EXTENT, null);
 
             ApplyOutbackParameters();
 
@@ -170,8 +171,10 @@ namespace Prazsky.Core.Render
             _outbackEffect.Parameters["HazeDistance"].SetValue(MathF.Max(air.HazeDistance, 1f));
             //?. because Outback.fx declares it and reads it nowhere: the OpenGL ES build drops such a uniform (#1059)
             _outbackEffect.Parameters["HorizonHazeDistance"]?.SetValue(air.HorizonHazeDistance);
-            _outbackEffect.Parameters["HeatShimmer"].SetValue(air.HeatShimmer);
-            _outbackEffect.Parameters["WindDirection"].SetValue(air.Wind.ToVector2());
+
+            //The plain's haze ends in the drawn sky, so its last fade may begin as late as the config says (#1123): at the far
+            //field's usual 600 it laid a pale band along every raised lens's skyline
+            _outbackPass.FarFadeStartLatest = air.HorizonHazeDistance;
         }
 
         /// <summary>

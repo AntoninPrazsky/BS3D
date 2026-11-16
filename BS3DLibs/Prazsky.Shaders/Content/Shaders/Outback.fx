@@ -136,18 +136,15 @@ float SoilBounce;
 //How hard the desert varnish glints - the one part of this scene that is not matte
 float VarnishGloss;
 
-//The air (#967): an extinction by distance. HazeDistance is the distance over which the light from a surface
+//The air (#967, #1123): an extinction by distance. HazeDistance is the distance over which the light from a surface
 //falls to 1/e; what replaces it is the colour the sky is drawn at the skyline, leaned towards the dust's own hue
-//(HazeTint) by DustStrength. HorizonHazeDistance is where FarField may begin the last fade into the drawn sky.
+//(HazeTint) by DustStrength. HorizonHazeDistance is where FarField begins the last fade into the drawn sky (the
+//outback's pass lets it begin later than the far field's usual 600, OutbackBackdrop). Nothing in the air moves: it
+//has no clock (#1123, see the end of ShadeOutback).
 float3 HazeTint;
 float DustStrength;
 float HazeDistance;
 float HorizonHazeDistance;
-
-//Heat shimmer over the middle distance, and the wall clock and wind that drive it.
-float HeatShimmer;
-float OutbackTime;
-float2 WindDirection;
 
 //The formations' cast shadows (#967), baked once per sun into a square of the world round the arena by the
 //OutbackSunBake technique below (OutbackBackdrop.BakeSunShadows). xy: the square's lowest corner in world XZ,
@@ -756,6 +753,17 @@ float3 ShadeOutback(float3 worldPosition, bool rocky, float3 meshNormal, bool on
     //BEHIND them, stood up as pale "hats" against it. Now a far formation keeps its own colour and shading to the
     //far ring, darker than the skyline behind it, and only the last stretch dissolves into the sky (FarFadeToSky).
     //
+    //THE AIR IS FAR BRIGHTER THAN THE GROUND, so a few hundredths of it veil the red plain (#1123): the skyline is HDR
+    //sky and the plain a dark red reflectance. At HazeDistance 3000 the plain 300 units out was a tenth air and read as
+    //a pale fog lying on it (its saturation 0.34-0.41 in the intro's wide shot, against 0.59-0.65 with no air at all),
+    //where every reference keeps the plain red to the horizon. So HazeDistance is a dry air's, long, and the paling at
+    //the skyline is left to the last fade.
+    //
+    //NOTHING HERE MOVES. A "heat shimmer" once added gradient noise of the view ray to the haze, sliding upwards with
+    //the clock: blotches up to 11 levels of 255 paler over the whole middle plain, fixed to the lens's directions
+    //rather than to the ground, so a moving lens saw them creep along it - the "strange low pale fog" of #1123. A real
+    //shimmer bends the far horizon line by a pixel or so, which a surface's colour cannot do, so there is none.
+    //
     //The air's colour is the sky's at the horizon, never the HorizonColor uniform: that one is an average over the
     //dome's bottom fifth, the sun's tint, which under some domes is a colour the dome never draws above the skyline.
     //
@@ -775,17 +783,12 @@ float3 ShadeOutback(float3 worldPosition, bool rocky, float3 meshNormal, bool on
 
     float haze = 1.0 - exp(-dist / HazeDistance);
 
-    //HEAT SHIMMER, keyed to the VIEW RAY, never to the surface (on a near-vertical flank `y` is stripes one unit
-    //apart): features of a fixed angular size sliding up against the clock. It rides haze * (1 - haze), so the
-    //near ground stays steady and the skyline clean.
-    float3 ray = -towardsEye;
-    float2 shimmerP = float2(dot(ray.xz, WindDirection) * 44.0 + ray.x * 30.0, ray.y * 90.0 - OutbackTime * 0.55);
-    float shimmer = GradientNoise2(shimmerP) * HeatShimmer * haze * (1.0 - haze) * 4.0;
+    color = lerp(color, air, haze);
 
-    color = lerp(color, air, saturate(haze + shimmer));
-
-    //THE LAST FADE: the plain takes the far field's (FarFadeToSky, from 600), which is what hides its edge; the ROCK
-    //takes its own, later one, towards the same sky. A formation standing above the skyline fades into the sky drawn
+    //THE LAST FADE: the plain takes the far field's (FarFadeToSky, from HorizonHazeDistance to FarField.FAR_FADE_END),
+    //which is what hides its edge. Begun at the far field's usual 600 it laid a pale band a couple of degrees deep along
+    //the skyline of every raised lens; begun at 1000 it is the thin pale strip a flat horizon has (#1123). The ROCK
+    //takes its own, longer one, towards the same sky. A formation standing above the skyline fades into the sky drawn
     //BEHIND it, which over a pale skyline is what made the far ones pale ghosts, so it holds its own colour to
     //ROCK_FADE_START and is gone by ROCK_FADE_END, inside the distance the discs are laid out to
     //(OutbackRockDiscs.SEARCH_RADIUS). Blended by the rock mask, so where a disc's own plain meets the grid's at the

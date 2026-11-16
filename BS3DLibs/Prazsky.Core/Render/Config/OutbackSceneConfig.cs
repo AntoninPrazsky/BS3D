@@ -235,7 +235,7 @@ namespace Prazsky.Core.Render
         public float SoilBounce { get; set; } = 0.35f;
     }
 
-    /// <summary>The air: the red dust the distance haze is tinted by, and the heat coming off the ground.</summary>
+    /// <summary>The air: how far the dry air reaches, the red dust its haze is tinted by, and where the plain's last fade begins.</summary>
     public sealed class OutbackAirConfig
     {
         /// <summary>The dust's own colour (linear): its hue, taken at the skyline's brightness where the air is applied.</summary>
@@ -250,24 +250,27 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The distance over which the light from a surface falls to 1/e in the air (#967): an extinction by distance and
-        /// nothing else, so a formation 1 000 units out keeps seven tenths of its own colour and stands darker than the skyline. The
-        /// two-stage haze it replaced reached a pale murk by 480 whatever stood there, which is what turned every far
-        /// formation into a pale "hat" (see the air in <c>Outback.fx</c>).
+        /// nothing else. The two-stage haze before it reached a pale murk by 480 whatever stood there, which is what turned
+        /// every far formation into a pale "hat"; at 3 000 the air, far brighter than the red ground, still lay on the plain as
+        /// a pale fog (#1123: the plain 300 units out a tenth air). At 6 000 the plain 300 units out is a twentieth air and a
+        /// formation 1 000 units out keeps 0.85 of its own colour (see the air in <c>Outback.fx</c>).
         /// </summary>
-        public float HazeDistance { get; set; } = 3000f;
-
-        /// <summary>Where the far field's last fade into the drawn sky may begin (<c>FarField.fxh</c>); FarField starts it
-        /// at 600 at the latest, so a larger figure is 600.</summary>
-        public float HorizonHazeDistance { get; set; } = 600f;
+        public float HazeDistance { get; set; } = 6000f;
 
         /// <summary>
-        /// Heat shimmer over the middle distance — the one thing here that moves besides the cloud shadows and
-        /// the birds. It rides <c>haze · (1 − haze)</c>, so it dies at both ends: the near ground stays steady
-        /// and the skyline stays clean.
+        /// Where the plain's last fade into the drawn sky begins (<c>FarField.fxh</c>), and the plants' haze distance. The far
+        /// field begins the fade by 600 for every other scene, whose haze ends in a colour that is not the sky's; the
+        /// outback's plain hazes towards the sky itself, so its pass lifts that cap to this (<see cref="TerrainPass.FarFadeStartLatest"/>).
+        /// Begun at 600 the fade laid a pale band a couple of degrees deep along every raised lens's skyline (#1123); begun at
+        /// 1 000, short of the fade's end at <see cref="FarField.FAR_FADE_END"/>, it is a thin strip.
         /// </summary>
-        public float HeatShimmer { get; set; } = 0.16f;
+        public float HorizonHazeDistance { get; set; } = 1000f;
 
-        /// <summary>The wind, a direction in the XZ plane. It only leans the shimmer — nothing else here blows.</summary>
+        /// <summary>
+        /// The wind, a direction in the XZ plane: the heading the hanging cluster sways along (<c>SceneWind</c>). Nothing on
+        /// the plain blows, and nothing in its air moves: the heat shimmer it once leaned crept over the plain as a pale fog
+        /// (#1123).
+        /// </summary>
         public Vec2 Wind { get; set; } = new(0.91f, 0.41f);
     }
 }
