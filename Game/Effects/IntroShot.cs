@@ -20,9 +20,19 @@ namespace BS3D.Effects
     /// <b>Built once when the intro begins</b>, never per frame: the arrays are allocated there and only read
     /// here, so a running shot allocates nothing.
     /// </para>
+    /// <para>
+    /// <b>Or posed by the wall clock</b> (<see cref="OnTheWallClock"/>, #1116): a shot beside a subject that is a function of
+    /// the wall clock — the Grid's light cycles — asks where to stand at the second the frame is drawn at, because this
+    /// shot's own clock is eased (<see cref="PEAK_PACE"/>), held to <see cref="ChapterIntro"/>'s <c>MAX_INTRO_STEP</c>
+    /// through a hitch and stopped by a pause, and a lens a few units beside a subject at 24 units a second has no
+    /// room for any of that.
+    /// </para>
     /// </summary>
     internal sealed class IntroShot
     {
+        /// <summary>Where a shot on the wall clock stands and what it looks at, at <paramref name="wallClock"/>.</summary>
+        internal delegate void WallClockPose(float wallClock, out Vector3 position, out Vector3 target);
+
         /// <summary>What the shot is of, for the intro's one log line.</summary>
         public string Name { get; }
 
@@ -49,6 +59,9 @@ namespace BS3D.Effects
         private readonly float _pitchDown;
         private readonly float _pitchDamping;
         private readonly Action _onStart;
+        private readonly Action<float> _onFrame;
+        private readonly Func<float> _wallClock;
+        private readonly WallClockPose _wallPose;
 
         /// <param name="name">What the shot is of.</param>
         /// <param name="path">The lens's path, at least two points, evenly spaced along it.</param>
@@ -77,10 +90,13 @@ namespace BS3D.Effects
         /// <param name="endFieldOfView">The field of view the shot eases to by its end, or NaN to hold
         /// <paramref name="fieldOfView"/> throughout.</param>
         /// <param name="lands">Whether the path and the look end on the gameplay pose: see <see cref="Lands"/>.</param>
+        /// <param name="onFrame">Called on every frame the shot is on screen while the intro runs, with how far into it the
+        /// intro's own clock is, seconds (#1110, <see cref="Track"/>): for a shot whose look follows something the scene moves on
+        /// the wall clock, which it keeps in step with the shot.</param>
         public IntroShot(string name, Vector3[] path, float seconds, float fieldOfView,
             Vector3? lookAt = null, float lookAhead = 12f, float pitchDownDegrees = 0f, Vector3[] lookAtPath = null,
             float pitchDamping = 0f, Action onStart = null, float[] rollPath = null, float endFieldOfView = float.NaN,
-            bool lands = false)
+            bool lands = false, Action<float> onFrame = null)
         {
             if (path == null || path.Length < 2) throw new ArgumentException("A shot needs at least two points.", nameof(path));
 
@@ -94,10 +110,32 @@ namespace BS3D.Effects
             _pitchDown = MathHelper.ToRadians(pitchDownDegrees);
             _pitchDamping = MathHelper.Clamp(pitchDamping, 0f, 1f);
             _onStart = onStart;
+            _onFrame = onFrame;
             _rollPath = rollPath != null && rollPath.Length >= 2 ? rollPath : null;
             _endFieldOfView = endFieldOfView;
             Lands = lands;
         }
+
+        private IntroShot(string name, float seconds, float fieldOfView, Func<float> wallClock, WallClockPose pose, Action onStart)
+        {
+            Name = name;
+            Seconds = seconds;
+            FieldOfView = fieldOfView;
+            _endFieldOfView = float.NaN;
+            _wallClock = wallClock ?? throw new ArgumentNullException(nameof(wallClock));
+            _wallPose = pose ?? throw new ArgumentNullException(nameof(pose));
+            _onStart = onStart;
+        }
+
+        /// <summary>
+        /// A shot posed by the wall clock (#1116): every frame it is on screen, <paramref name="pose"/> is asked where the lens
+        /// stands at <paramref name="wallClock"/>'s second, whatever this shot's own clock says. The shot still holds for
+        /// <paramref name="seconds"/> of the intro's clock, so a pause or a hitch lengthens it on the wall clock and never
+        /// moves the lens off its subject. <paramref name="fieldOfView"/> is held; the lens never banks.
+        /// </summary>
+        internal static IntroShot OnTheWallClock(string name, float seconds, float fieldOfView, Func<float> wallClock,
+            WallClockPose pose, Action onStart = null) =>
+            new(name, seconds, fieldOfView, wallClock, pose, onStart);
 
         /// <summary>The field of view at <paramref name="t"/> (0–1 of the shot), on the pose's own eased clock.</summary>
         public float FieldOfViewAt(float t) =>
@@ -122,23 +160,57 @@ namespace BS3D.Effects
         /// </summary>
         public const float PEAK_PACE = 1f + EASE * 0.5f;
 
-        //The shot's clock, eased only a little at the ends (see Pose)
-        private static float Eased(float t)
+        /// <summary>The shot's clock, eased only a little at the ends (see <see cref="Pose"/>): the share of its path shown at
+        /// <paramref name="t"/> of its seconds.</summary>
+        internal static float Eased(float t)
         {
             t = MathHelper.Clamp(t, 0f, 1f);
             return MathHelper.Lerp(t, t * t * (3f - 2f * t), EASE);
+        }
+
+        /// <summary>
+        /// The inverse of <see cref="Eased"/>: the share of the shot's seconds at which <paramref name="eased"/> of its path is
+        /// shown (#1110). A shot's points are evenly spaced on its eased clock, and a subject that moves on the shot's own
+        /// seconds (the desert's scorpion, kept on them by <see cref="Track"/>) is where it is at this time, not at that one.
+        /// </summary>
+        internal static float Uneased(float eased)
+        {
+            eased = MathHelper.Clamp(eased, 0f, 1f);
+            float lo = 0f, hi = 1f;
+            for (int i = 0; i < 32; i++)
+            {
+                float mid = 0.5f * (lo + hi);
+                if (Eased(mid) < eased) lo = mid; else hi = mid;
+            }
+
+            return 0.5f * (lo + hi);
         }
 
         /// <summary>The shot has come on screen: <see cref="ChapterIntro"/> calls this once, on its first frame.</summary>
         public void Start() => _onStart?.Invoke();
 
         /// <summary>
+        /// The shot is on screen <paramref name="seconds"/> into it on the intro's own clock: <see cref="ChapterIntro"/> calls this
+        /// on every frame of it while the intro runs (#1110). A subject the scene moves on the wall clock, re-cued here every
+        /// frame, is where the shot's look was laid for that moment whatever the wall clock did meanwhile: a pause stops the
+        /// intro's clock and a hitch holds it to a frame's worth, and the wall clock goes on through both.
+        /// </summary>
+        public void Track(float seconds) => _onFrame?.Invoke(seconds);
+
+        /// <summary>
         /// The pose at <paramref name="t"/> (0–1 of the shot). The clock is eased only a little at the ends —
         /// a cut lands on a camera already moving, which is what makes it read as a cut between two moving
-        /// shots rather than a slideshow of starts and stops.
+        /// shots rather than a slideshow of starts and stops. A shot on the wall clock (<see cref="OnTheWallClock"/>) reads
+        /// its clock instead and ignores <paramref name="t"/>.
         /// </summary>
         public void Pose(float t, out Vector3 position, out Vector3 target)
         {
+            if (_wallPose != null)
+            {
+                _wallPose(_wallClock(), out position, out target);
+                return;
+            }
+
             float eased = Eased(t);
 
             position = At(_path, eased);

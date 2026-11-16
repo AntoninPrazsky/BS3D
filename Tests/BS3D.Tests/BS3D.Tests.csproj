@@ -42,10 +42,18 @@
     <Compile Include="..\..\Game\Effects\CircusLanding.cs" />
     <!--The Moon's (#1114): the run up the rover's ruts to the flag, over TerrainMirror.Moon, and the two shots round it.-->
     <Compile Include="..\..\Game\Effects\MoonIntroShots.cs" />
+    <!--Mars's (#1115): the run along the rover's ruts towards the arena, over OffworldGround's ceiling, the mesa and Phobos;
+        and the ruts walked, which both tracks shots lay their lens on.-->
+    <Compile Include="..\..\Game\Effects\MarsIntroShots.cs" />
+    <Compile Include="..\..\Game\Effects\RutsWalk.cs" />
     <!--The sea's prologue (#1124): plain geometry over the sea's config and the oil rigs' layout, held against the rigs' own boxes.-->
     <Compile Include="..\..\Game\Effects\SeaIntroShots.cs" />
     <!--The dream's prologue (#1126): plain geometry over the host's copy of Dream.fx's solids, rolled against their bounds.-->
     <Compile Include="..\..\Game\Effects\DreamIntroShots.cs" />
+    <!--The Grid's (#1116): the ride beside a light cycle, posed by the wall clock off the cycles' own runs (LightCycleRuns),
+        and the three shots of the solids and the ring round it.-->
+    <Compile Include="..\..\Game\Effects\GridIntroShots.cs" />
+    <Compile Include="..\..\Game\Effects\GridRide.cs" />
   </ItemGroup>
 
   <!--The tutorial's rules (#666), compiled in the same way: Tutorial is a ladder of lessons and clocks with no device
@@ -129,6 +137,8 @@
     <Compile Include="..\..\Game\Effects\CityIntroShots.cs" />
     <Compile Include="..\..\Game\Effects\CitySwing.cs" />
     <Compile Include="..\..\Game\Effects\IntroLanding.cs" />
+    <!--The desert's scorpion home (#1110): the take-off from its scorpion onto the pose, over the desert's height mirror.-->
+    <Compile Include="..\..\Game\Effects\DesertLanding.cs" />
     <!--The meadow's prologue (#893): the ground and solids a lens is held against, and the bench and bale orbits over the
         planting's figures. The planting itself needs a device, so MeadowIntroShotsTests builds figures of its own from the
         constants and the geometry MeadowScatter keeps without one.-->

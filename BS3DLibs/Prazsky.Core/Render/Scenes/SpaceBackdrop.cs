@@ -22,7 +22,11 @@ namespace Prazsky.Core.Render
 
         //The handful of parameters that change per frame, resolved once (BestPractices §1: the by-name
         //indexer is a linear scan). Everything else is pushed by ApplySpaceParameters when a config lands.
-        private readonly EffectParameter _spaceViewRayBasis, _spaceCameraPosition, _spaceSunDirection, _spaceSupersample, _spaceTime;
+        private readonly EffectParameter _spaceViewRayBasis, _spaceCameraPosition, _spaceSunDirection, _spaceSupersample, _spaceTime, _spaceBaseTexture;
+
+        //The whole sky in one pass, and a supersampled frame's two halves (#1132): all but the stars once a display
+        //pixel, then the stars at the supersampled size over it
+        private readonly EffectTechnique _techniqueWhole, _techniqueBase, _techniqueStars;
 
         //The flying saucer (#955), far out round the station
         private readonly SaucerFlight _saucer;
@@ -42,6 +46,11 @@ namespace Prazsky.Core.Render
             _spaceSunDirection = _spaceEffect.Parameters["SunDirection"];
             _spaceSupersample = _spaceEffect.Parameters["SupersampleFactor"];
             _spaceTime = _spaceEffect.Parameters["SpaceTime"];
+            _spaceBaseTexture = _spaceEffect.Parameters["SpaceBaseTexture"];
+
+            _techniqueWhole = _spaceEffect.Techniques["Space"];
+            _techniqueBase = _spaceEffect.Techniques["SpaceBase"];
+            _techniqueStars = _spaceEffect.Techniques["SpaceStars"];
 
             ApplySpaceParameters();
 
@@ -56,6 +65,14 @@ namespace Prazsky.Core.Render
 
         /// <inheritdoc/>
         public override SceneConfig Config => _spaceConfig;
+
+        /// <summary>
+        /// True (#1132): a supersampled frame shades all of space but its stars at the back buffer's size, with what of
+        /// a star gets through in alpha, and <see cref="ComposeDisplayResolution"/> draws the stars over the scale-up at
+        /// the supersampled size. The stars are the one layer that shaded once a display pixel loses its peak (#1096); the
+        /// rest is what the pass costs. See "Cost" in docs/scenes/space.md.
+        /// </summary>
+        public override bool DrawsAtDisplayResolution => true;
 
         /// <summary>
         /// Pushes the whole space sky at the shader. Everything here is fixed for as long as the config is —
@@ -198,18 +215,49 @@ namespace Prazsky.Core.Render
             _graphicsDevice.DepthStencilState = DepthStencilState.None;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
 
+            //Into the display-resolution target, the first half: no stars, and no saucer (that target has no depth;
+            //the saucer goes in with the stars, ComposeDisplayResolution)
+            bool firstHalf = Services.ShadingAtDisplayResolution;
+            _spaceEffect.CurrentTechnique = firstHalf ? _techniqueBase : _techniqueWhole;
+
             _graphicsDevice.SetVertexBuffer(Services.FullScreenQuad);
             _spaceEffect.CurrentTechnique.Passes[0].Apply();
             _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
 
             //The saucer over the sky, writing depth so the station stands in front of it (#955)
-            _saucer.Draw(frame, _spaceConfig.Lighting);
+            if (!firstHalf) _saucer.Draw(frame, _spaceConfig.Lighting);
 
             //Put back what the rest of the opaque scene wants. The depth state especially: left at None, the
             //island would not occlude the cluster and the whole frame would draw in submission order.
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
+        /// <summary>
+        /// The second half of a supersampled frame (#1132): the first half's picture scaled up bilinearly with the stars
+        /// added at the scene target's own size, through the weight the first half left in alpha, then the saucer.
+        /// <see cref="Draw"/> has set the frame's camera, sun and clock on the effect already.
+        /// </summary>
+        public override bool ComposeDisplayResolution(Texture2D shaded, in SceneFrame frame)
+        {
+            _spaceBaseTexture.SetValue(shaded);
+            _spaceEffect.CurrentTechnique = _techniqueStars;
+
+            _graphicsDevice.BlendState = BlendState.Opaque;
+            _graphicsDevice.DepthStencilState = DepthStencilState.None;
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+            _graphicsDevice.SetVertexBuffer(Services.FullScreenQuad);
+            _techniqueStars.Passes[0].Apply();
+            _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
+
+            //Let the target go from the effect before it is drawn into again next frame
+            _spaceBaseTexture.SetValue((Texture2D)null);
+            _graphicsDevice.Textures[0] = null;
+
+            _saucer.Draw(frame, _spaceConfig.Lighting);
+            return true;
         }
 
         /// <inheritdoc/>

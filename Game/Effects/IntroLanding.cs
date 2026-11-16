@@ -9,9 +9,9 @@ namespace BS3D.Effects
     /// the part that does not depend on what the scene is. A scene lays its own route (the city's staircase of streets,
     /// <see cref="CitySwing"/>; the meadow's brook, pond and turn round the island, <see cref="MeadowLanding"/>; the big
     /// top's run in through its entrance and round inside its king poles, <see cref="CircusLanding"/>; the savanna's run in
-    /// low over the grass, <see cref="SavannaLanding"/>) as a dense path that ends on the pose; this times it, points it and
-    /// banks it, and the shot it returns (<see cref="IntroShot.Lands"/>) is followed by no tour leg, so the intro hands the
-    /// camera over without a cut.
+    /// low over the grass, <see cref="SavannaLanding"/>; the desert's take-off from beside its scorpion,
+    /// <see cref="DesertLanding"/>) as a dense path that ends on the pose; this times it, points it and banks it, and the shot
+    /// it returns (<see cref="IntroShot.Lands"/>) is followed by no tour leg, so the intro hands the camera over without a cut.
     /// <para>
     /// <b>What a landing needs</b>, and every scene's landing gets it from here:
     /// <list type="bullet">
@@ -24,7 +24,8 @@ namespace BS3D.Effects
     /// <item>a <b>look</b> along the travel (its direction averaged over a moment either side, which turns the view into a
     /// corner before the lens), turned in towards the pose's target where the route asks it and raised towards its height
     /// where the scene asks it (<see cref="Style.LookRise"/>), that eases onto the pose's own look over the last seconds and
-    /// ends on it exactly;</item>
+    /// ends on it exactly; or, for a shot that opens as a close view of something (the desert's scorpion,
+    /// <see cref="DesertLanding"/>, #1110), held on that <see cref="Subject"/> first and turned off it onto the travel's;</item>
     /// <item>a <b>bank</b> in proportion to the heading's rate of turn, smoothed, level by the landing; and the lens easing
     /// from the scene's wide one to the game's own;</item>
     /// <item>a <b>search</b> (<see cref="Best"/>): rolled candidates each laid in full, the ones a clearance predicate
@@ -72,6 +73,33 @@ namespace BS3D.Effects
         internal readonly record struct Style(float WideLens, float ReleaseTimeScale, float LookPitchFollow, float LookDistance,
             float LookSmoothSeconds, float LookLandSeconds, float LookInward, float RollPerTurn, float MaxRollDegrees,
             float RollSmoothSeconds, int Points, float LookRise = 0f);
+
+        /// <summary>
+        /// A subject the look is held on from the shot's first frame (#1110, the desert's scorpion): the shot opens as a close
+        /// view of it and takes off from there. The look is on <see cref="At"/> until <see cref="HoldSeconds"/>, then turns off
+        /// it onto the travel's own look over <see cref="ReleaseSeconds"/> (in yaw, pitch and distance, so it sweeps evenly, and
+        /// eased in and out to the second derivative, so the view's turn does not step as it starts), and the bank is held level
+        /// for as long as the look is on it.
+        /// <para>
+        /// ⚠ <b>From <see cref="HoldSeconds"/> on, the look turns off the subject's DIRECTION as it was then</b>, not off the
+        /// subject itself: a lens lifting off a few units from a subject it still looks at cranes down after it, and the desert's
+        /// first cut pitched the view 57 degrees a second down and back up as it climbed past its scorpion, near three times a drone
+        /// gimbal's limit. Held, the subject falls away down the frame as the lens rises. The look hands over from the subject
+        /// to that direction over the release's first <see cref="HANDOVER_SHARE"/>, eased: switched in one frame, the turn the
+        /// look had been making stopped dead, a step in its rate.
+        /// </para>
+        /// </summary>
+        /// <param name="At">The point to look at, at each second of the shot ON THE SHOT'S OWN SECONDS, which the subject moves on
+        /// (the scene keeps it on them, <see cref="IntroShot.Track"/>): the shot's points are spaced on its eased clock
+        /// (<see cref="IntroShot.Uneased"/>), and the landing reads it there.</param>
+        /// <param name="HoldSeconds">How long the look stays on it, seconds from the shot's start.</param>
+        /// <param name="ReleaseSeconds">How long the look takes to turn off it.</param>
+        internal sealed record Subject(Func<float, Vector3> At, float HoldSeconds, float ReleaseSeconds);
+
+        /// <summary>How much of a subject's release the look takes to hand over from the subject to its held direction (see
+        /// <see cref="Subject"/>): a scene lifting its lens off the subject starts letting go this much of the release before
+        /// the lift, so the hand-over is done before the lens climbs.</summary>
+        internal const float HANDOVER_SHARE = 0.25f;
 
         /// <summary>
         /// One candidate route, laid in full: the dense path from the shot's first point to the pose, the speed at each point
@@ -226,8 +254,13 @@ namespace BS3D.Effects
         /// The shot off a laid route: timed by the route's own speeds, then a cubic to rest over the deceleration; the look
         /// along the travel easing onto the pose's; the bank off the heading's rate of turn, level by the landing; the lens
         /// from <see cref="Style.WideLens"/> times the game's to the game's. Its last point and look are the pose exactly.
+        /// With a <paramref name="subject"/>, the look opens on it and turns off it onto the travel's (see
+        /// <see cref="Subject"/>); without one, nothing here reads it. <paramref name="onFrame"/> is the shot's own
+        /// (<see cref="IntroShot.Track"/>): the desert re-cues its scorpion there every frame, so the scorpion stands where the
+        /// look was laid for it.
         /// </summary>
-        internal static IntroShot Fly(string name, Route route, Vector3 endPosition, Vector3 endTarget, float fieldOfView, Style style)
+        internal static IntroShot Fly(string name, Route route, Vector3 endPosition, Vector3 endTarget, float fieldOfView, Style style,
+            Subject subject = null, Action<float> onFrame = null)
         {
             List<Vector3> path = route.Path;
             int releaseFrom = route.DecelerateFrom;
@@ -288,6 +321,32 @@ namespace BS3D.Effects
             int window = Math.Max(1, (int)MathF.Round(style.LookSmoothSeconds / dt));
             direction = BoxBlur(direction, window);
 
+            //The subject's point and how much of the look is on it at each point, read at the second of the shot the point is
+            //shown at (Subject.At); from the moment the look starts to let go, its direction from the lens as it was then
+            float[] held = null;
+            Vector3[] subjectAt = null;
+            if (subject != null)
+            {
+                held = new float[points];
+                subjectAt = new Vector3[points];
+                int letGo = -1;
+                for (int k = 0; k < points; k++)
+                {
+                    float shown = IntroShot.Uneased(k / (float)(points - 1)) * seconds;
+                    float let = MathHelper.Clamp((shown - subject.HoldSeconds) / MathF.Max(subject.ReleaseSeconds, 1e-3f), 0f, 1f);
+                    held[k] = 1f - let * let * let * (let * (let * 6f - 15f) + 10f);
+                    subjectAt[k] = subject.At(shown);
+                    if (shown < subject.HoldSeconds) continue;
+
+                    //Handed over from the subject to its held direction over the release's first HANDOVER_SHARE, eased in and out,
+                    //so the look's turn does not step at the moment it lets go
+                    if (letGo < 0) letGo = k;
+                    float hand = MathHelper.Clamp((shown - subject.HoldSeconds) / MathF.Max(subject.ReleaseSeconds * HANDOVER_SHARE, 1e-3f), 0f, 1f);
+                    hand = hand * hand * hand * (hand * (hand * 6f - 15f) + 10f);
+                    subjectAt[k] = positions[k] + Vector3.Lerp(subjectAt[k] - positions[k], subjectAt[letGo] - positions[letGo], hand);
+                }
+            }
+
             for (int k = 0; k < points; k++)
             {
                 Vector3 travel = direction[k];
@@ -298,6 +357,7 @@ namespace BS3D.Effects
                 land[k] = MathHelper.SmoothStep(0f, 1f, MathHelper.Clamp((k * dt - (seconds - style.LookLandSeconds)) / style.LookLandSeconds, 0f, 1f));
                 Vector3 ahead = positions[k] + Leaned(travel, positions[k], endTarget, style.LookInward * (lean?[k] ?? 1f)) * style.LookDistance;
                 if (style.LookRise > 0f) ahead.Y = MathHelper.Lerp(ahead.Y, endTarget.Y, style.LookRise * (lean?[k] ?? 1f));
+                if (held != null && held[k] > 0f) ahead = Towards(positions[k], ahead, subjectAt[k], held[k]);
                 looks[k] = Vector3.Lerp(ahead, endTarget, land[k]);
             }
             looks[^1] = endTarget;
@@ -314,10 +374,12 @@ namespace BS3D.Effects
             int rollWindow = Math.Max(1, (int)MathF.Round(style.RollSmoothSeconds / dt));
             for (int pass = 0; pass < 3; pass++) roll = BoxBlur(roll, rollWindow);
             for (int k = 0; k < points; k++) roll[k] *= 1f - land[k];
+            if (held != null)
+                for (int k = 0; k < points; k++) roll[k] *= 1f - held[k];
             roll[^1] = 0f;
 
             return new IntroShot(name, positions, seconds, fieldOfView * style.WideLens, lookAtPath: looks,
-                rollPath: roll, endFieldOfView: fieldOfView, lands: true);
+                rollPath: roll, endFieldOfView: fieldOfView, lands: true, onFrame: onFrame);
         }
 
         /// <summary>
@@ -336,6 +398,22 @@ namespace BS3D.Effects
             float heading = MathF.Atan2(travel.Z, travel.X);
             heading += inward * MathHelper.WrapAngle(MathF.Atan2(toTarget.Y, toTarget.X) - heading);
             return new Vector3(MathF.Cos(heading) * flat, travel.Y, MathF.Sin(heading) * flat);
+        }
+
+        /// <summary>
+        /// The look point <paramref name="weight"/> of the way from the travel's (<paramref name="ahead"/>) to
+        /// <paramref name="subject"/>, from <paramref name="position"/>: its yaw, pitch and distance each taken that share of the
+        /// way, so the view sweeps evenly between them. A straight line between the two points would turn the view fastest
+        /// where it passes nearest the lens, which a subject a few units off and a look thirty out made a whip.
+        /// </summary>
+        private static Vector3 Towards(Vector3 position, Vector3 ahead, Vector3 subject, float weight)
+        {
+            Vector3 a = ahead - position, b = subject - position;
+            float yaw = MathF.Atan2(a.Z, a.X);
+            yaw += weight * MathHelper.WrapAngle(MathF.Atan2(b.Z, b.X) - yaw);
+            float pitch = MathHelper.Lerp(MathF.Atan2(a.Y, new Vector2(a.X, a.Z).Length()), MathF.Atan2(b.Y, new Vector2(b.X, b.Z).Length()), weight);
+            float distance = MathHelper.Lerp(a.Length(), b.Length(), weight);
+            return position + new Vector3(MathF.Cos(yaw) * MathF.Cos(pitch), MathF.Sin(pitch), MathF.Sin(yaw) * MathF.Cos(pitch)) * distance;
         }
 
         private static float LengthAtTime(float[] time, float[] length, int last, float t)

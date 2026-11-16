@@ -208,8 +208,8 @@ namespace Testbed
                     _streets?.Draw(sceneFrame, _cityConfig.Streets, neon, _cityConfig.NeonLook);
                 }
                 else
-                    //The target goes in so the dream, the cavern and the big top can be shaded at the back buffer's
-                    //size and scaled up (#155, #1096). Passed rather than remembered, so it cannot be the one the pipeline held
+                    //The target goes in so space, the dream, the cavern and the big top can be shaded at the back buffer's
+                    //size and scaled up (#155, #1096, #1132). Passed rather than remembered, so it cannot be the one the pipeline held
                     //before a resize or a supersample change replaced it.
                     //The backdrop's first half (#1098): everything of it up to its first draw that writes no depth.
                     //The second is drawn after the wood, below.
@@ -292,9 +292,9 @@ namespace Testbed
                 //the barrel is seen against. Composited first it would let both of those bleed through it.
                 _cannonRig.DrawGlass(_camera, barrelWorld, _sceneEffectParams);
 
-                //The savanna's fires and the meadow's water (#892), then falling snow, which settles over everything, so
-                //it is drawn last, in front of what it should hide. The Testbed's plate bends nothing, so neither need go
-                //before it here.
+                //The savanna's fires, the meadow's water (#892) and the Grid's walls of light (#1116), then falling
+                //snow, which settles over everything, so it is drawn last, in front of what it should hide. The
+                //Testbed's plate bends nothing, so neither need go before it here.
                 _sceneRenderer.DrawGrounded(_scene, sceneFrame);
                 _sceneRenderer.DrawOverlays(_scene, sceneFrame);
             }

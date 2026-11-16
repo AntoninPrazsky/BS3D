@@ -20,6 +20,40 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1116 Mřížka: úvod jede vedle světelného cyklu — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: druhý záběr úvodu Mřížky „the cycle“ (`Game/Effects/GridRide.cs`): čočka jede 3,4 nad podlahou vedle jednoho cyklu jeho rychlostí, kolem uzlu se točí nejvýš 37,5 °/s (U-obrat 71). Pózuje se podle nástěnných hodin (`IntroShot.OnTheWallClock`), cyklus bere z `LightCycleRuns` (stejné semínko jako kreslené). Po pauze nebo pod 20 fps volí znovu (`GridIntroShots.Again`). Úvod 16,5 s (dřív 13,9).
+- Zdi cyklů se kreslí až po ostrově (`LightCycles.DrawWalls` z `GridBackdrop.DrawGrounded`); dřív je nízká čočka mohla vidět zakryté ostrovem.
+- ⚠ Průměr vektorů směru přes 1,2 s otočil pohled při U-obratu 150 °/s; průměruje se úhel přes 2,4 s.
+- Otevřené: verdikt oka (pohyb nikdo neviděl); cykly mohou projet krychlí (od #956, chce vlastní issue); asi 1 úvod ze 40 nemá volný cyklus a jede bez jízdy.
+
+## 2026-11-16 — #1132 vesmír a hory na High na GTX 1060 — DESKTOP_L, Claude Code
+
+- Hotovo, sloučeno: vesmír při supersamplingu stínuje vše kromě hvězd jednou za pixel displeje (`SpaceBase`, v alfě podíl hvězdy, který projde), hvězdy se kreslí přes zvětšení v plné velikosti (`SpaceStars`, `Backdrop.ComposeDisplayResolution`). Orrery na High 19,14 → 8,51 ms; špičky hvězd beze změny (medián 0), okraj planety o pixel měkčí.
+- Hory na 1060: `finemeshes` stojí +7,2 ms při ssaa 1 (jemné pohoří +4,9, vertexová práce; kupovité mraky +2,4), na 6900 XT naopak šetří. Stín 4096 nic.
+- ⚠ Otevřený Správce úloh přidá na 1060 3–4 ms na snímek při stejných taktech; před měřením ho zavři.
+- Otevřené: pohoří na High u slabších karet (#1132 komentář); oprava údaje fyziky při XMP 3600 (#1031) na měření při 3200.
+
+## 2026-11-15 — #1134 hash zrcadel se ptá GPU, jak zaokrouhluje — notebook (ThinkPad), Claude Code
+
+- Hotovo, sloučeno: `HashRoundingProbe` při prvním `SceneRenderer` nakreslí `HashProbe.fx` (64×64 vstupů) a `ShaderMath.Rounding` vezme fused/unfused podle GPU; řádek `[hash]`. Notebook: unfused 4096/4096, `mirrorcheck` všech 11 scén PASS (hory 16,19 → 0,00055). Shadery beze změny.
+- majitel: nejdřív „precise do shaderu, vzhled nevadí“; po změřené ceně zvolil sondu.
+- ⚠ `precise` se v HLSL šíří zpět přes argument do celého noise (rotace, warp; ani `int` ho nezastaví): APU Low až +1,2 ms (Colossus), Medium +1,04 (Spyglass). Přesnost jen ve VS nejde: PS stínuje ze stejné výšky.
+- ⚠ `precise` ruší i skládání konstant fxc (`seed + 23.7`).
+- Otevřené: řádek `[hash]` z desktopu, GTX 1060 a Androidu nikdo neviděl.
+
+## 2026-11-15 — #1110 poušť: brouk, štír a přistání z úvodu — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: High a Ultra kreslí nové sítě `CritterMesh.FineBeetle` (5 584 tr.) a `FineScorpion` (8 940) podle referencí z #966; Low/Medium staré, Potato nic. Cena nerozlišitelná od nuly (alt=finemeshes, 7680x3200). Úvod: nový záběr brouka (3,6 s), štír držen celou chůzí, poslední záběr vzlétne od štíra a přistane na herní póze (`DesertLanding` přes sdílené `IntroLanding`); hejno vypadlo, hřeben 3,4 s. Úvod 23,9–24,2 s (dřív 23,2), test drží ≤ 24,5. Tvorové se znovu cuejí každý snímek (`IntroShot.Track`), takže pauza ani zásek nenechá pohled na prázdném písku. Opravena stopa brouka z #966 (byla barvou písku) a stín padá od slunce.
+- ⚠ Bash heredoc snědl zpětná lomítka, `userdata=` prázdné, jeden běh šel do profilu majitele: Stats.json a Outbox.json vráceny z .bak, last-run.log ztracen. Skripty spouštění psát nástrojem Write.
+- Otevřené: `verdict-eye` (pohyb neviděn, úvod o ~1 s delší).
+
+## 2026-11-15 — #1115 Mars: úvod letí po kolejích vozítka — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: úvod Marsu otevírá záběr „the tracks“ (`Game/Effects/MarsIntroShots.cs`): 45 j středem kolejí 12,5 j/s, 2,6–2,95 nad `MarsCeiling`, pohled z kolejí 22 j vpředu se zvedne na ostrov a cluster. Hraje se tam, kde zem kreslí koleje (`MarsBackdrop.FullGroundAt`, Medium a výš); na Low zůstává „the plain“. Úvod 14,5 s (Low 14,1 s). `MarsTracks.TRAVERSE` je jediná kopie trasy; oblouk kolem arény překreslen (ohyb ≤ 9,3° místo 18,2°), kameny znovu rozhozeny. Chůze po kolejích Měsíce je sdílená (`RutsWalk`); Měsíc ověřen bajtově stejným výpisem.
+- ⚠ Úhel plánu se losuje na každém tieru, jinak tier posune vše, co los rozdá potom (jiná mesa).
+- Otevřené: `verdict-eye` (pohyb neviděn, zalomení kolejí přes malé krátery); cena kolejí na nové trase neměřena.
+
 ## 2026-11-15 — #1127 sopka: úvod obletí vesnici — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: úvod Erupce má čtvrtý záběr „the village“ (3,6 s, `Game/Effects/VolcanoIntroShots.cs`) po kráteru: oblet středu vesnice (150 → 140 j, 65–85°), konec na ose kužel–vesnice, vesnice v dolní třetině, kužel se sloupem nad ní. Sopka zkrácena na 3,2 s, erupce na 3,4 s; reel 20,1 s. Na Low (bez lesů a domů, `SceneRenderer.VolcanoCountryDrawn`) se vesnice nehraje, náhoda se čerpá na všech tierech stejně. `VolcanoCountryPlanting` má tabulky a `Tallest`/`Reach`, kamera letí 6 j nad nejvyšším objektem.
@@ -62,7 +96,6 @@ Pravidla:
 - Hotovo, sloučeno: `AridIntroPaths.Hug` zaobluje výšku přes 0,7 s letu Gaussem plus hladkým zdvihem, který drží každou světlou výšku; `IntroShot.At` za koncem záběru extrapoluje, takže střih neubere rychlost. Nový test `IntroShotSmoothnessTests` hlídá všech 11 záběrů nad terénem (poušť, hory, outback, sopka) s limity z dronových záběrů; nejhorší svislé zrychlení např. pyramidy 193 → 10, outback přílet 198 → 7 j/s². Jeřáb (patka a vrchol) letí přesně podle návrhu. Nový argument `introshot=` podrží úvod v daných chvílích a uloží snímek.
 - ⚠ Zdvih sahá šest `LIFT_SECONDS` na každou stranu hřebene, ne tři: pyramidy teď letí v průměru 11,1 nad pískem místo 8,8.
 - Otevřené: `verdict-eye` (pohyb); měřeno jen na 60 fps; outback bez snímků.
-
 ## 2026-11-15 — #1114 Měsíc: jedna vlajka u stop vozítka a záběr po kolejích — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: na Měsíci stojí jedna bílá vlajka (`FLAG_SIZE` 2,4) místo dvou, 4 jednotky vedle stop vozítka na svahu, asi 14° vlevo od osy herního pohledu (nad hranou paluby, mimo kolo děla). Stopy přeloženy: z pláně se stočí na jih a stoupají za vlajku (ohyb nejvýš 10,4°). Úvod: záběr kráteru nahradil „the tracks“, nízký let po kolejích nad CPU zrcadlem terénu se sluncem z boku, končí na vlajce zblízka; úvod 15,3 s místo 14,3.

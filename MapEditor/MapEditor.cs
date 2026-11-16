@@ -972,8 +972,8 @@ namespace MapEditor
             GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
             _aabb.Draw(Camera3D);
 
-            //The savanna's fires, then falling snow (mountain), which settles in front of everything; each a no-op for
-            //every other scene
+            //The savanna's fires, the meadow's water and the Grid's walls of light, then falling snow (mountain), which
+            //settles in front of everything; each a no-op for every other scene
             _sceneRenderer.DrawGrounded(_scene, sceneFrame);
             _sceneRenderer.DrawOverlays(_scene, sceneFrame);
 
