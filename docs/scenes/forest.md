@@ -82,3 +82,31 @@ Testbed, `sky=13` (pass it: the forest now brings dome 15 and the Testbed's own 
 - **`ForestShadow`**: about +1 ms on the laptop (`benchmark.ps1 -Scenes forest -Ssaa 2`, `quality=high`, `sceneseed=0`).
 - **High and Ultra's wood** (#962): High 12.60 to 14.91 ms (+2.3), Ultra 12.89 to 15.53 (+2.6); a Medium-like run (`ssaa=1 msaa=4 finemeshes=0 shadowmap=2048`) 4.55 against 4.54, unchanged. Desktop, Testbed, 3840 x 1600, `ssaa=2` (`shadowmap=4096` and `8192`), the play camera `campos=0,-4,30 camtarget=0,-2,-60`, an empty field (no map: 1 000 balls make the Testbed CPU-bound at about 5.5 ms and hide the scene), `nopost nooverc fpscap=1000`, origin/main and the branch alternated, medians of 60 s runs. ⚠ **An `alt=` variant that pins `ssaa` leaks it into the next one**: pin it in every variant. Past `FINE_NEAR_RADIUS` a broadleaf's leaves cast nothing into the sun's map; its wood alone does.
 - **High and Ultra's spruce boughs** (#733) and the stem they grow out of (#960) are not priced apart from the rest of High's wood: the Testbed's `finemeshes=` swaps the crowns and #962's wood together. All of it, at the Testbed's play camera `campos=0,-4,30 camtarget=0,-2,-60` on `Maps\Full.json` (1 000 balls), `sky=1`, desktop, 3840 x 1600 `ssaa=2`, `nopost`, `sceneseed=0`, `alt=finemeshes=0;finemeshes=1`, 39 paired cycles in each of two runs (the sign held in all, the runs agreeing to 0.01 ms): **+2.20 ms at High** (6.68 to 8.89) and **+2.39 at Ultra** (`shadowmap=8192`, 6.86 to 9.25). No shipped level stands in this scene.
+
+## What each layer costs (#1102)
+
+The Testbed's `forest=` dial (`ForestLayer`, "The dials" in [Capturing and measuring](../testbed/capture-and-measurement.md)), at the pin the three layer sweeps of #1102 share: desktop (RX 6900 XT), Testbed Release, `scene=forest sceneseed=0 fpscap=1000 width=3840 height=1500`, the game-mode camera (`at=3:F10`), dome 15, the scene's own 4096 map (Ultra's is 8192), post on. One process a column, the variants in settled windows (#1129), each one's difference from `forest=all` within its cycle; the median of 13 to 25 cycles, the sign of every figure over 0.02 held in at least 92 % of them. `ssaa=1` is the Testbed's eight samples with the sky first; `ssaa=2` is High and Ultra's frame, the sky behind the opaque scene at display resolution, so a layer there is priced net of the sky it hides. The empty field and `Maps/Full.json` agree to 0.04 ms a layer, and a second process with the variants in the reverse order read the `ssaa=2` Full column again to 0.03 ms a layer (its frame 0.2 ms cheaper).
+
+| ms (saved with the layer out) | `ssaa=1` empty | `ssaa=1` Full | `ssaa=2` empty | `ssaa=2` Full |
+|---|---|---|---|---|
+| the frame | 6.84 | 7.44 | 7.66 | 8.89 |
+| every layer (`forest=none`) | 5.13 | 5.04 | 5.40 | 5.38 |
+| `Spruces`, the hosts' wood | 1.34 | 1.32 | 1.87 | 1.86 |
+| `Floor`, the camera grid | 1.47 | 1.43 | 1.24 | 1.23 |
+| `Leaves`, the broadleaves' cards | 0.44 | 0.43 | 0.78 | 0.78 |
+| `Broadleaves`, their wood | 0.25 | 0.25 | 0.36 | 0.36 |
+| `WoodShadow`, what the wood casts | 0.29 | 0.30 | 0.31 | 0.31 |
+| `FarStand` | 0.51 | 0.50 | 0.23 | 0.23 |
+| `FarRing` | 0.40 | 0.40 | 0.05 | 0.05 |
+| `LeafShadow` | 0.11 | 0.10 | 0.11 | 0.11 |
+| `Ferns` | 0.07 | 0.07 | 0.03 | 0.03 |
+| `Bank` | 0.06 | 0.05 | 0 | 0 |
+| `Twigs`, `Deadwood`, `Stones` | 0.02 or less | | | |
+| `Needles` | 0.03 | 0.04 | **−0.25** | **−0.24** |
+| the sun's map (`shadow=0`) | 0.74 | 0.91 | 0.96 | 1.20 |
+
+- **The Game's frame at Ultra over the forest's front end** (Game Release of #1102's branch, `scene=forest preview=1 quality=ultra fpscap=1000 sceneseed=0`, a 3840x1500 window, a scratch profile, two runs, the `[fps]` seconds 9 to 47 of each): **10.27 and 10.40 ms**, the dearest second 11.5, under #1103's 13.33.
+- **The forest is the dearest of the three**: its own layers are 5.4 ms of an 8.9 ms frame on High and Ultra's path, where Mars's are 0.7 and the outback's 4.1. Two layers carry half of it, the spruces (1.9) and the floor's grid (1.2), then the broadleaves' leaf cards (0.8); the twigs, the ferns and the dead wood are a tenth of a millisecond between them, as #1122's figures in [Drawn by what each pass sees](#drawn-by-what-each-pass-sees-1099) found at their own pin.
+- **The far ring and the far stand are mostly sky at `ssaa=2`**: out, the sky drawn behind gives back most of what they cost (0.05 and 0.23 against 0.40 and 0.51 alone at `ssaa=1`), so a tier cutting either saves little there.
+- ⚠ **The needles still save a quarter of a millisecond at `ssaa=2`**: without the depth pass they bring, the near crowns are shaded plate over plate.
+- The leaf cards and the spruces grow with the pixels (0.78 and 1.86 at `ssaa=2` against 0.44 and 1.34 at `ssaa=1`); the floor does not (1.47 and 1.24): at `ssaa=2` its depth is laid first and it is shaded once a pixel, at `ssaa=1` with its overdraw.

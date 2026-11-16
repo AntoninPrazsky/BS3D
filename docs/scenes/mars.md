@@ -64,3 +64,26 @@ The ground does not change, and its full program (`MarsTerrain`, 4203 instructio
 
 - **`MarsTerrainReduced`**: `MarsTerrain(input, detail)` behind two techniques by `SceneDetail`, so the Game's `Low` takes it; it drops sand, slabs, the strata wobble and the coarse grain, keeps the mesas (geometry must light the same on every tier), and runs on a coarser grid (`MARS_GRID_N_REDUCED`, #540). Not taken: dropping the pebble lattice (-1.12 ms) emptied the plain, and a crater octave (-0.25 ms) lost the small craters.
 - **Costs** (reference APU, Testbed, 1600x900 ssaa 2): Mars 31.2 ms against the outback's 31.7 (same pin, dome 13), the same band. The mesa ring +0.39 ms from the play level, +0.85 from above (`campos=0,25,20 camtarget=0,-13,120`). Big craters at the pixel: about +0.1 ms (Game front end, 1920x1080). The stones and the gravel (#775, desktop Testbed 3840x1600 ssaa 2, paired): the planted stones about +0.04 ms; the whole change 15.89/15.93 against 15.86/15.93 ms from the play pose (`campos=0,-2,34 camtarget=0,-9,0`) and 15.51/15.52 against 15.37/15.41 from the ground (`campos=0,-9,60 camtarget=0,-11,200`). High and Ultra's fractured rock over the faceted block, casters included (`Maps/Full.json`, `sceneseed=0`, `alt=finemeshes=0;finemeshes=1`, which on Mars, under its clear sky, then swapped the rocks and nothing else that costs (it now turns the bake too); two runs of 32 to 33 paired cycles a camera): **+0.04 to +0.06 ms** from the play pose (8.70 to 8.75, the sign held in every cycle) and nothing measurable from the ground (+0.02 and −0.01, the sign a coin toss).
+
+## What each layer costs (#1102)
+
+The Testbed's `mars=` dial takes the scene apart (`MarsLayer`, "The dials" in [Capturing and measuring](../testbed/capture-and-measurement.md)): `alt=mars=all;mars=all/-ground;…`, every variant naming `mars=` and `shadow=`. Desktop (RX 6900 XT), Testbed Release, `scene=mars sceneseed=0 fpscap=1000 width=3840 height=1500`, the game-mode camera (`at=3:F10`), the scene's own 4096 map (Ultra's is 8192), post on. One process a column, the variants in settled windows (#1129), each one's difference from `mars=all` taken within its cycle; the median of 17 to 27 cycles, the sign held in every cycle unless a share is given. `ssaa=1` is the Testbed's eight samples, the sky first and the terrain not laid depth first; `ssaa=2` is High and Ultra's frame: no samples, the terrain's depth first, the sky behind the opaque scene at display resolution, so a layer there is priced net of the sky it hides. The empty field and `Maps/Full.json` read every layer alike to 0.02 ms (the balls cover little ground at this camera; the sun's map's row differs by their casting), and a second process with the variants in the reverse order read the `ssaa=2` Full column again to the hundredth.
+
+| ms (saved with the layer out) | `ssaa=1` empty | `ssaa=1` Full | `ssaa=2` empty | `ssaa=2` Full |
+|---|---|---|---|---|
+| the frame | 3.19 | 4.00 | 2.99 | 4.14 |
+| every layer (`mars=none`) | 1.49 | 1.47 | 0.74 | 0.72 |
+| `Ground`, the camera grid | 0.90 | 0.88 | 0.29 | 0.28 |
+| `FarRing` | 0.27 | 0.27 | 0.14 | 0.14 |
+| `Moons` | 0.13 | 0.13 | 0.13 | 0.13 |
+| `Bank` | 0.08 | 0.08 | 0 | 0 |
+| `Rocks`, the clearing's stones | 0.06 | 0.06 | 0 | 0 |
+| `Stones` (the bank's), `Casters` | 0 to 0.01 (the sign a coin toss) | | | |
+| `Bake` out: the exact ground where the baked one is | **+2.50** | **+2.48** | **+0.69** | **+0.69** |
+| the sun's map (`shadow=0`) | 0.20 | 0.40 | 0.18 | 0.44 |
+
+- **The Game's frame at Ultra over Mars's front end** (Game Release of #1102's branch, `scene=mars preview=1 quality=ultra fpscap=1000 sceneseed=0`, a 3840x1500 window, a scratch profile, two runs, the `[fps]` seconds 9 to 47 of each): **4.74 and 5.29 ms**, the dearest second 6.4. #1103's goal is under 13.33.
+- **What is left of Mars on High and Ultra is 0.7 ms of a 4.1 ms frame**: the ground and its far ring 0.4 of it, the moons 0.13. The rest of the frame is the sky, the island, the gun and the cluster, as in any other scene under a dome.
+- **The bake is worth 0.7 ms at `ssaa=2` and 2.5 at `ssaa=1`**, where the terrain is not laid depth first and the exact program shades every overdrawn pixel (the figures [The bake](#the-bake-1100) gives). No tier ships that column: Medium draws the exact ground at 1x without the fine meshes.
+- ⚠ **The moons cost the same 0.13 ms in all four columns**: two specks of sky, at a cost that does not follow the pixel count. `MarsMoons` is one full-screen quad, depth-read at the far plane and blended; where its 0.13 ms goes was not taken apart, and a quad bounded to the two moons could save at most that.
+- The bank's stones, the clearing's stones and everything the scene casts into the sun's map cost nothing measurable here; the map's 0.2 to 0.44 ms is the island's, the gun's and the balls' casting.
