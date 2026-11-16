@@ -83,6 +83,7 @@ namespace Prazsky.Core.Render
                 (x, z) => TerrainMirror.Forest(x, z, config));
             _farStand = new ForestFarStand(services.GraphicsDevice, _forestEffect, config, _planting);
             _dressing = new ForestDressing(services.GraphicsDevice, config, _planting, ForestScatterRenderer.DEFAULT_SEED + Services.SeedOffset);
+            _dressingDrawn = _dressing.Buckets;
 
             _plants = new PlantPass(services.GraphicsDevice, content);
             _berm = new IslandBermPlanting(services.GraphicsDevice, (x, z) => TerrainMirror.Forest(x, z, _forestConfig),
@@ -185,21 +186,50 @@ namespace Prazsky.Core.Render
             Vector3 murk = Murk(frame, _forestConfig);
             _murk.SetValue(murk);
 
-            _forestPass.Draw(frame, Services.TerrainHoleRadius, _drawBank);
+            if ((_layers & ForestLayer.Floor) != 0) _forestPass.Draw(frame, Services.TerrainHoleRadius, _drawBank);
 
             //The wood on the hills (#962), after the floor so the depth test turns away every tree a nearer hill hides
-            if (Services.FineMeshes) _farStand?.Draw();
+            if (Services.FineMeshes && (_layers & ForestLayer.FarStand) != 0) _farStand?.Draw(frame.Camera);
 
             //The plant material in the weather the rest of the wood stands in (#1121): under the overcast lid the floor, the far
             //stand and the hosts' trees take about half the sun (CloudSunlight), and drawn in full sun the broadleaves in leaf
             //came out the lightest thing in the wood. Hazed to the murk the floor under them recedes into first (ForestHaze),
             //and not to the light rig's horizon, whose teal is a colour no part of this sky is drawn in.
-            if (_berm != null)
+            if (_berm != null && (_layers & ForestLayer.Stones) != 0)
                 _plants.DrawInWeather(frame, _bermStones, _forestConfig.HorizonHazeDistance, _sceneDetail > 0.5f, Services.FineMeshes, murk);
 
             //What the wood wears on High and Ultra (#962); every bucket of it is FineMeshes, so Low and Medium skip the lot
             if (_dressing != null && Services.FineMeshes)
-                _plants.DrawInWeather(frame, _dressing.Buckets, _forestConfig.HorizonHazeDistance, _sceneDetail > 0.5f, fineMeshes: true, murk);
+                _plants.DrawInWeather(frame, _dressingDrawn, _forestConfig.HorizonHazeDistance, _sceneDetail > 0.5f, fineMeshes: true, murk);
+        }
+
+        /// <summary>
+        /// The layers drawn (#1099, #1122): a measurement dial (<see cref="SceneRenderer.ForestLayers"/>, the Testbed's
+        /// <c>forest=</c>), <see cref="ForestLayer.All"/> for every other caller. The host's wood takes the same value through its
+        /// own renderer. Each layer is drawn or not on the next frame; nothing carries.
+        /// </summary>
+        public ForestLayer Layers
+        {
+            get => _layers;
+            set
+            {
+                _layers = value;
+                _dressingDrawn = _dressing == null ? Array.Empty<ScatterBucket>() : Of(_dressing, value);
+            }
+        }
+
+        private ForestLayer _layers = ForestLayer.All;
+
+        //The dressing's buckets the layers draw, all of them unless the dial says otherwise
+        private ScatterBucket[] _dressingDrawn;
+
+        //The buckets of the dressing whose kind is among the layers, drawn and cast (the cast as a whole is LeafShadow)
+        private static ScatterBucket[] Of(ForestDressing dressing, ForestLayer layers)
+        {
+            var kept = new List<ScatterBucket>();
+            for (int i = 0; i < dressing.Buckets.Length; i++)
+                if ((dressing.Kinds[i] & layers) != 0) kept.Add(dressing.Buckets[i]);
+            return kept.ToArray();
         }
 
         /// <summary>
@@ -222,7 +252,8 @@ namespace Prazsky.Core.Render
         public override void DrawShadowCasters(Matrix shadowViewProjection)
         {
             if (_berm != null) _plants.DrawShadowCasters(shadowViewProjection, _berm.Buckets, Services.FineMeshes);
-            if (_dressing != null && Services.FineMeshes) _plants.DrawShadowCasters(shadowViewProjection, _dressing.Buckets, fineMeshes: true);
+            if (_dressing != null && Services.FineMeshes && (_layers & ForestLayer.LeafShadow) != 0)
+                _plants.DrawShadowCasters(shadowViewProjection, _dressingDrawn, fineMeshes: true);
         }
 
         /// <inheritdoc/>

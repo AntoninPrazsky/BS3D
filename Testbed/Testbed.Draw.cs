@@ -389,8 +389,8 @@ namespace Testbed
             //The wood, on the same gate the scene block draws it on (#471). It is the host's object like the
             //island is, which is why it casts from here and not from inside the renderer. The aurora's casts under
             //its Moon (#963).
-            if (_scene == SceneKind.Forest) _forestScatter?.DrawShadow(shadowViewProjection, _sceneRenderer.FineMeshes);
-            if (_scene == SceneKind.Aurora) _auroraScatter?.DrawShadow(shadowViewProjection, _sceneRenderer.FineMeshes);
+            if (_scene == SceneKind.Forest) _forestScatter?.DrawShadow(shadowViewProjection, _sceneRenderer.FineMeshes, _camera.Position);
+            if (_scene == SceneKind.Aurora) _auroraScatter?.DrawShadow(shadowViewProjection, _sceneRenderer.FineMeshes, _camera.Position);
 
             //And the city's towers (#471). ⚠ ALL of them rather than City.Visible, which is culled to the
             //CAMERA's frustum — a tower just off the side of the screen is exactly the one whose shadow falls

@@ -679,10 +679,13 @@ namespace Testbed.Diagnostics
             return members;
         }
 
-        //The volcano's layers (#540), the aurora's (#1027), the cavern's (#1029), the meadow's (#1028) and the mountain's (#1035), the arena members' grammar - names of the flags, each added
+        //The volcano's layers (#540), the aurora's (#1027), the cavern's (#1029), the meadow's (#1028), the mountain's (#1035) and the
+        //forest's (#1099), the arena members' grammar - names of the flags, each added
         //or, with a leading '-', removed, left to right - separated by '/' as well as ',' so a list fits in one alternation
         //pin, where ',' already separates pins: "alt=volcano=all;volcano=all/-plume;volcano=all/-ash".
         public static VolcanoLayer ParseVolcanoLayers(string list) => ParseLayers<VolcanoLayer>(list);
+
+        public static ForestLayer ParseForestLayers(string list) => ParseLayers<ForestLayer>(list);
 
         public static AuroraLayer ParseAuroraLayers(string list) => ParseLayers<AuroraLayer>(list);
 

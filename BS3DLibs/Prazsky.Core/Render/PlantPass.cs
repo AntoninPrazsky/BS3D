@@ -145,6 +145,7 @@ namespace Prazsky.Core.Render
 
             _graphicsDevice.BlendState = BlendState.Opaque;
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
+            _frustum.Matrix = frame.Camera.View * frame.Camera.Projection;
 
             for (int i = 0; i < buckets.Count; i++)
             {
@@ -166,7 +167,7 @@ namespace Prazsky.Core.Render
                 _graphicsDevice.RasterizerState = bucket.Leaves > 0f ? RasterizerState.CullNone : RasterizerState.CullCounterClockwise;
                 Effect.CurrentTechnique = TechniqueFor(bucket);
                 Effect.CurrentTechnique.Passes[0].Apply();
-                DrawBucket(bucket, bucket.Mesh);
+                DrawBucket(bucket, bucket.Mesh, frame.Camera.Position, reach: true);
             }
 
             //Nothing of a rock's, a bale's or a lit window's stays on the one effect the savanna's own draw shares (it states
@@ -192,6 +193,7 @@ namespace Prazsky.Core.Render
         {
             Effect.CurrentTechnique = _shadowTechnique;
             _shadowViewProjection.SetValue(shadowViewProjection);
+            _frustum.Matrix = shadowViewProjection;
 
             for (int i = 0; i < buckets.Count; i++)
             {
@@ -200,18 +202,36 @@ namespace Prazsky.Core.Render
                 if (!ScatterBucket.DrawnAt(bucket.FineMeshes, fineMeshes)) continue;
                 _leaves.SetValue(bucket.Leaves);
                 Effect.CurrentTechnique.Passes[0].Apply();
-                DrawBucket(bucket, bucket.CasterMesh);
+                DrawBucket(bucket, bucket.CasterMesh, Vector3.Zero, reach: false);
             }
 
             _leaves.SetValue(0f);
             Effect.CurrentTechnique = _technique;
         }
 
-        private void DrawBucket(ScatterBucket bucket, IProceduralMesh mesh)
+        //A bucket whole, or one with cells (#1099) as the runs of them inside this pass's frustum (_frustum) and, drawn on the
+        //screen, within its reach of the lens. Each run is bound from its first instance (not a base instance, which MonoGame's
+        //OpenGL ES backend refuses: InstancedDraws)
+        private void DrawBucket(ScatterBucket bucket, IProceduralMesh mesh, Vector3 lens, bool reach)
         {
-            InstanceBinding.Set(_graphicsDevice, mesh.VertexBuffer, 0, bucket.Instances, 0);
             _graphicsDevice.Indices = mesh.IndexBuffer;
-            _graphicsDevice.DrawInstanced(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, bucket.Count);
+            InstanceCells cells = bucket.Cells;
+            if (cells == null)
+            {
+                InstanceBinding.Set(_graphicsDevice, mesh.VertexBuffer, 0, bucket.Instances, 0);
+                _graphicsDevice.DrawInstanced(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, bucket.Count);
+                return;
+            }
+
+            int runs = cells.Runs(_frustum, lens, reach ? bucket.Reach : 0f);
+            for (int r = 0; r < runs; r++)
+            {
+                InstanceBinding.Set(_graphicsDevice, mesh.VertexBuffer, 0, bucket.Instances, cells.RunStart[r]);
+                _graphicsDevice.DrawInstanced(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, cells.RunCount[r]);
+            }
         }
+
+        //The frustum a pass culls a bucket's cells by: the camera's, or the sun's map's box (#1099). One instance, set per pass
+        private readonly BoundingFrustum _frustum = new(Matrix.Identity);
     }
 }

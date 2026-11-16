@@ -54,6 +54,21 @@ namespace Prazsky.Core.Render
     public enum MountainLayer { None = 0, Range = 1, FarRing = 2, Berm = 4, Snow = 8, All = Range | FarRing | Berm | Snow }
 
     /// <summary>
+    /// The forest's separately drawn layers, for <see cref="SceneRenderer.ForestLayers"/> (#1099, #1122): the floor (the camera
+    /// grid and the bank), the far stand, High and Ultra's dressing (the broadleaves' wood, their twigs, their leaf cards, the
+    /// ferns), the bank's stones; and the host's wood (<see cref="ForestScatterRenderer.Layers"/>, which the host sets from the
+    /// same value): the spruces, the needles on the near crowns (off draws those crowns' plain program), the rocks, stumps and
+    /// dead wood, and what the host's wood and the dressing cast into the sun's map.
+    /// </summary>
+    [System.Flags]
+    public enum ForestLayer
+    {
+        None = 0, Floor = 1, FarStand = 2, Broadleaves = 4, Twigs = 8, Leaves = 16, Ferns = 32, Stones = 64,
+        Spruces = 128, Needles = 256, Deadwood = 512, WoodShadow = 1024, LeafShadow = 2048,
+        All = Floor | FarStand | Broadleaves | Twigs | Leaves | Ferns | Stones | Spruces | Needles | Deadwood | WoodShadow | LeafShadow
+    }
+
+    /// <summary>
     /// The per-frame inputs a scene needs that are not its own static tuning: the camera, the sun direction,
     /// the sky palette in <b>linear</b> radiance (zenith and horizon), the sun's own radiance already tinted
     /// by the dome (for the sea glint and the warm cast on the terrain), the wall-clock time its motion runs
@@ -500,6 +515,17 @@ namespace Prazsky.Core.Render
         {
             get => _mountain.Layers;
             set => _mountain.Layers = value;
+        }
+
+        /// <summary>
+        /// The forest's layers (#1099, #1122), the same kind of measurement dial: the Testbed's <c>forest=</c> sets it, every other
+        /// caller leaves it at <see cref="ForestLayer.All"/>. The host's wood is the host's to honour, through
+        /// <see cref="ForestScatterRenderer.Layers"/>.
+        /// </summary>
+        public ForestLayer ForestLayers
+        {
+            get => _forest.Layers;
+            set => _forest.Layers = value;
         }
 
         #region The sun's shadow map (#469, in every terrain scene since #471)
