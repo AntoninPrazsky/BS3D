@@ -115,11 +115,25 @@ namespace Prazsky.Core.Render
         public float AmbientStrength { get; set; } = 0.5f;
 
         /// <summary>
-        /// Distance over which the clearing melts into the skyline. Must complete before the terrain grid
-        /// runs out (its extent over two), or the mesh edge shows against the dome; the wooded hills keep
-        /// their colour through the ramp because the haze passes through a forest murk first (see Forest.fx).
+        /// Distance over which the clearing melts into the skyline: the murk is complete by it and the sky most of the way
+        /// (<c>Forest.fx</c>'s <c>FOREST_SKY_REACH</c>), and the far fade (<c>FarFadeToSky</c>, which starts here) carries
+        /// the rest, so the terrain grid's edge never shows against the dome. The wooded hills keep their colour through the
+        /// ramp because the haze passes through a forest murk first (<see cref="MurkShade"/>).
         /// </summary>
         public float HorizonHazeDistance { get; set; } = 520f;
+
+        /// <summary>
+        /// The murk the wooded hills recede into before the sky takes them (<c>Forest.fx</c>'s <c>ForestHaze</c>, #1121), and the
+        /// haze of the plant material standing on them: the sky drawn at the horizon, greyed to <see cref="MurkSaturation"/>
+        /// of its own colour and multiplied by this. Darker than that sky, so a ridge stays a ridge, and cooler, because the air
+        /// on a short path to a hill scatters blue where the horizon's long path has reddened (every #1121 reference draws the
+        /// far ridges slate blue under a violet sky). It used to be made of the light rig's horizon colour, whose teal under the
+        /// forest's dome is a colour no part of this sky is drawn in.
+        /// </summary>
+        public Rgb MurkShade { get; set; } = new(0.16f, 0.33f, 0.40f);
+
+        /// <summary>How much of the sky's own colour the murk keeps against its grey, 0 to 1 (see <see cref="MurkShade"/>).</summary>
+        public float MurkSaturation { get; set; } = 0.5f;
 
         /// <summary>Wind direction combing the undergrowth and drifting the fine relief.</summary>
         public Vec2 Wind { get; set; } = new(0.82f, 0.57f);

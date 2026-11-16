@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
+using Prazsky.Core.Tools;
 using System;
 using System.Collections.Generic;
 
@@ -22,6 +23,9 @@ namespace Prazsky.Core.Render
         private float _sceneDetail;
 
         private readonly Effect _forestEffect;
+
+        //ForestHaze's murk, worked out off each frame's sky (#1121)
+        private readonly EffectParameter _murk;
 
         //Its camera grid and the pass that draws it (#580)
         private readonly TerrainPass _forestPass;
@@ -69,6 +73,7 @@ namespace Prazsky.Core.Render
 
             //--- Forest: a mossy needle-strewn clearing ringed by wooded hills (the eighth scene)
             _forestEffect = content.Load<Effect>("Shaders/Forest");
+            _murk = _forestEffect.Parameters["ForestMurk"];
             _forestPass = new TerrainPass(Services, _forestEffect, FOREST_GRID_N, FOREST_EXTENT, "ForestTime");
 
             ApplyForestParameters();
@@ -174,17 +179,41 @@ namespace Prazsky.Core.Render
         /// <inheritdoc/>
         public override void Draw(in SceneFrame frame)
         {
+            //The murk the floor and the far stand recede into (ForestHaze), off this frame's sky
+            Vector3 murk = Murk(frame, _forestConfig);
+            _murk.SetValue(murk);
+
             _forestPass.Draw(frame, Services.TerrainHoleRadius, _drawBank);
 
             //The wood on the hills (#962), after the floor so the depth test turns away every tree a nearer hill hides
             if (Services.FineMeshes) _farStand?.Draw();
 
-            if (_berm != null) _plants.Draw(frame, _bermStones, _forestConfig.HorizonHazeDistance, _sceneDetail > 0.5f, Services.FineMeshes);
+            //The plant material in the weather the rest of the wood stands in (#1121): under the overcast lid the floor, the far
+            //stand and the hosts' trees take about half the sun (CloudSunlight), and drawn in full sun the broadleaves in leaf
+            //came out the lightest thing in the wood. Hazed to the murk the floor under them recedes into first (ForestHaze),
+            //and not to the light rig's horizon, whose teal is a colour no part of this sky is drawn in.
+            if (_berm != null)
+                _plants.DrawInWeather(frame, _bermStones, _forestConfig.HorizonHazeDistance, _sceneDetail > 0.5f, Services.FineMeshes, murk);
 
             //What the wood wears on High and Ultra (#962); every bucket of it is FineMeshes, so Low and Medium skip the lot
             if (_dressing != null && Services.FineMeshes)
-                _plants.Draw(frame, _dressing.Buckets, _forestConfig.HorizonHazeDistance, _sceneDetail > 0.5f, fineMeshes: true);
+                _plants.DrawInWeather(frame, _dressing.Buckets, _forestConfig.HorizonHazeDistance, _sceneDetail > 0.5f, fineMeshes: true, murk);
         }
+
+        /// <summary>
+        /// The murk the wood recedes into (#1121, <see cref="ForestSceneConfig.MurkShade"/>): the sky as it is drawn at the
+        /// horizon, greyed to <see cref="ForestSceneConfig.MurkSaturation"/> of its own colour and shaded. Off the drawn dome
+        /// (<see cref="SceneFrame.FarSky"/>'s direction.y 0), the light rig's horizon only where a frame hands none over.
+        /// </summary>
+        internal static Vector3 Murk(in SceneFrame frame, ForestSceneConfig config) =>
+            Murk(frame.FarSky != null ? frame.FarSky[FAR_SKY_HORIZON] : frame.HorizonLinear, config);
+
+        /// <summary>The murk off a given sky colour (linear): <see cref="Murk(in SceneFrame, ForestSceneConfig)"/>'s arithmetic.</summary>
+        internal static Vector3 Murk(Vector3 skyAtHorizon, ForestSceneConfig config) =>
+            Vector3.Lerp(new Vector3(ColorSpace.Luminance(skyAtHorizon)), skyAtHorizon, config.MurkSaturation) * config.MurkShade.ToVector3();
+
+        //FarSky's slot at direction.y 0 (FarField.fxh's FAR_SKY_Y0 -0.10 and FAR_SKY_DY 0.05), as the volcano reads it
+        private const int FAR_SKY_HORIZON = 2;
 
         /// <inheritdoc/>
         public override bool HasShadowCasters => _berm != null || _dressing != null;

@@ -124,22 +124,36 @@ static const float FOREST_SHADOW_STRENGTH_MAX = 0.80;
 #include "BankCover.fxh"
 
 //Horizon haze in two stages, the floor's and everything standing on the hills (the far stand, #962), so a tree on a ridge
-//recedes exactly as the ground under it does. Straight to the horizon colour - the one stage every other terrain uses -
-//the dark wooded hills bleach cream long before the skyline and read as bare slopes; what distant forested ridges
-//actually do is turn BLUE, because the air between scatters skylight. So the hills first recede into a murk built
-//mostly from the zenith (tinted green so the canopy keeps reading through it; a fraction of the dome's own colours, so a
-//dusk's murk is dark), and only the last stretch melts into the horizon itself - reaching it exactly at the haze
-//distance, which is what keeps the terrain grid's edge invisible against the dome behind it - and on into the sky as it
-//is drawn (FarFadeToSky).
+//recedes exactly as the ground under it does. Straight to the sky - the one stage every other terrain uses - the dark
+//wooded hills bleach long before the skyline and read as bare slopes; what distant forested ridges actually do is go
+//dark slate, each ridge paler than the one before and the last one only a little darker than the sky behind it. So the
+//hills first recede into a murk (ForestMurk, below), and then towards the sky itself, FOREST_SKY_REACH of the way by the
+//haze distance; FarFadeToSky takes them the rest of the way past it, so the farthest ridges stand a shade darker than the
+//sky until the far ring's fade has them.
+//
+//⚠ THE SKY IS THE ONE DRAWN BEHIND THE POINT (#1121), FarSkyAt along its own direction, the colour FarFadeToSky ends at too,
+//never the light rig's HorizonColor. That one is the average of the bottom fifth of the dome's capture, nearly all of it
+//below the skyline where no one sees it, and under the forest's own dome 15 it is a teal (linear 0.055, 0.282, 0.315) while
+//the sky drawn over the ridges is a violet (0.217, 0.092, 0.438): hazed to it, the far spires came out azure and brighter
+//than the purple sky behind them, cut-outs on every ridge. HorizonColor stands in only for a host that hands no drawn dome
+//over (FarFade off).
+static const float FOREST_SKY_REACH = 0.6;
+
+//The murk (linear): a darker, greyer and cooler shade of the sky drawn at the horizon, worked out by ForestBackdrop
+//(ForestSceneConfig.MurkShade, MurkSaturation) and handed to the plant material as its haze too, so the broadleaves in leaf
+//recede into the very air the floor under them does
+float3 ForestMurk;
+
 float3 ForestHaze(float3 color, float3 worldPosition)
 {
-    float dist = distance(CameraPosition, worldPosition);
+    float3 toPoint = worldPosition - CameraPosition;
+    float dist = length(toPoint);
     float haze = saturate(dist / HorizonHazeDistance);
-    float3 murk = (ZenithColor * 0.7 + HorizonColor * 0.3) * float3(0.5, 0.65, 0.58);
-    color = lerp(color, murk, saturate(haze * haze * 1.2) * 0.6);
+    color = lerp(color, ForestMurk, saturate(haze * haze * 1.2) * 0.6);
     float skyward = haze * haze;
     skyward *= skyward;
-    color = lerp(color, HorizonColor, skyward);
+    float3 sky = FarFade.y > FarFade.x ? FarSkyAt(toPoint.y / max(dist, 1e-3)) : HorizonColor;
+    color = lerp(color, sky, skyward * FOREST_SKY_REACH);
 
     return FarFadeToSky(color, worldPosition);
 }
