@@ -167,7 +167,7 @@ namespace Prazsky.Core.Render
                 _graphicsDevice.RasterizerState = bucket.Leaves > 0f ? RasterizerState.CullNone : RasterizerState.CullCounterClockwise;
                 Effect.CurrentTechnique = TechniqueFor(bucket);
                 Effect.CurrentTechnique.Passes[0].Apply();
-                DrawBucket(bucket, bucket.Mesh, frame.Camera.Position, reach: true);
+                DrawBucket(bucket, bucket.Mesh);
             }
 
             //Nothing of a rock's, a bale's or a lit window's stays on the one effect the savanna's own draw shares (it states
@@ -202,17 +202,16 @@ namespace Prazsky.Core.Render
                 if (!ScatterBucket.DrawnAt(bucket.FineMeshes, fineMeshes)) continue;
                 _leaves.SetValue(bucket.Leaves);
                 Effect.CurrentTechnique.Passes[0].Apply();
-                DrawBucket(bucket, bucket.CasterMesh, Vector3.Zero, reach: false);
+                DrawBucket(bucket, bucket.CasterMesh);
             }
 
             _leaves.SetValue(0f);
             Effect.CurrentTechnique = _technique;
         }
 
-        //A bucket whole, or one with cells (#1099) as the runs of them inside this pass's frustum (_frustum) and, drawn on the
-        //screen, within its reach of the lens. Each run is bound from its first instance (not a base instance, which MonoGame's
-        //OpenGL ES backend refuses: InstancedDraws)
-        private void DrawBucket(ScatterBucket bucket, IProceduralMesh mesh, Vector3 lens, bool reach)
+        //A bucket whole, or one with cells (#1099) as the runs of them inside this pass's frustum (_frustum). Each run is bound
+        //from its first instance (not a base instance, which MonoGame's OpenGL ES backend refuses: InstancedDraws)
+        private void DrawBucket(ScatterBucket bucket, IProceduralMesh mesh)
         {
             _graphicsDevice.Indices = mesh.IndexBuffer;
             InstanceCells cells = bucket.Cells;
@@ -223,7 +222,7 @@ namespace Prazsky.Core.Render
                 return;
             }
 
-            int runs = cells.Runs(_frustum, lens, reach ? bucket.Reach : 0f);
+            int runs = cells.Runs(_frustum);
             for (int r = 0; r < runs; r++)
             {
                 InstanceBinding.Set(_graphicsDevice, mesh.VertexBuffer, 0, bucket.Instances, cells.RunStart[r]);

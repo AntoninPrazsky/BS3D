@@ -56,18 +56,11 @@ namespace Prazsky.Core.Render
 
         //And the island's foot (#983): clumps on the bank against the drum, how many round the ring, and how far out from the
         //drum's face they stand, nearest and the span past it
+        /// <summary>Round every frond of a fern clump at scale 1: what its cells are culled by (#1099), so no frond may reach past it.</summary>
+        internal static readonly BoundingSphere FERN_BOUNDS = new(new Vector3(0f, 0.5f, 0f), 1.6f);
+
         private const int FERN_FOOT_CLUMPS = 14;
         private const float FERN_FOOT_FROM = 0.5f, FERN_FOOT_SPAN = 2.6f;
-
-        /// <summary>
-        /// How far from the lens the twigs and the ferns are drawn (#1099, #1122): a cell of them wholly past it is not sent. 0
-        /// draws them wherever a frustum meets them.
-        /// </summary>
-        public const float TWIG_REACH = 0f, FERN_REACH = 0f;
-
-        //How wide a ring of the cells a reached bucket is laid out by: the reach's edge is this soft
-        private const float REACH_RING = 30f;
-
         public ForestDressing(GraphicsDevice device, ForestSceneConfig config, ForestScatter planting, int seed)
         {
             ForestTreeConfig trees = config.Trees;
@@ -92,23 +85,23 @@ namespace Prazsky.Core.Render
 
                 //A shade under the solid crowns' colour: the plant material lights a card on both faces and lets the sky through it
                 Vector3 leaf = foliage * ForestScatterRenderer.BroadleafTint(v) * LEAF_SHADE;
-                //Every bucket is laid out by cell round the axis and drawn only where a frustum meets it (#1099); the twigs only
-                //within TWIG_REACH of the lens as well
+                //Every bucket is laid out by cell round the axis and drawn only where a frustum meets it (#1099). Nothing is cut by
+                //distance: the twigs and the ferns cost 0.03 and 0.05 ms at the play camera once culled (docs/scenes/forest.md)
                 if (nearAt.Count > 0)
                 {
                     buckets.Add(Own(new ScatterBucket(device, tree.FineWood, nearAt, BARK, BARK * 1.15f, dapple: 0f, bark: 0.45f,
-                        detailOnly: false, fineMeshes: true, cellRing: 0f)));
+                        detailOnly: false, fineMeshes: true, cells: true)));
                     bucketKinds.Add(ForestLayer.Broadleaves);
                     //The twigs every clump's leaves grow from: bark, too thin to cast anything worth a second draw, and drawn
                     //only where a tree is near enough for a twig to be more than a pixel
                     buckets.Add(Own(new ScatterBucket(device, tree.Twigs, nearAt, BARK, BARK * 1.15f, dapple: 0f, bark: 0.3f,
-                        detailOnly: false, castsShadow: false, fineMeshes: true, cellRing: REACH_RING, reach: TWIG_REACH)));
+                        detailOnly: false, castsShadow: false, fineMeshes: true, cells: true)));
                     bucketKinds.Add(ForestLayer.Twigs);
                 }
                 if (farAt.Count > 0)
                 {
                     buckets.Add(Own(new ScatterBucket(device, tree.Wood, farAt, BARK, BARK * 1.15f, dapple: 0f, bark: 0.45f,
-                        detailOnly: false, fineMeshes: true, cellRing: 0f)));
+                        detailOnly: false, fineMeshes: true, cells: true)));
                     bucketKinds.Add(ForestLayer.Broadleaves);
                 }
                 //The leaves cast the crown's shade, cut by their own leaves (the meadow's #697), round the arena; past it the wood
@@ -117,13 +110,13 @@ namespace Prazsky.Core.Render
                 if (nearAt.Count > 0)
                 {
                     cards.Add(Own(new ScatterBucket(device, tree.Leaves, nearAt, leaf, leafDry, dapple: 0f, bark: 0f, detailOnly: false,
-                        leaves: 2f, fineMeshes: true, cellRing: 0f)));
+                        leaves: 2f, fineMeshes: true, cells: true)));
                     cardKinds.Add(ForestLayer.Leaves);
                 }
                 if (farAt.Count > 0)
                 {
                     cards.Add(Own(new ScatterBucket(device, tree.Leaves, farAt, leaf, leafDry, dapple: 0f, bark: 0f, detailOnly: false,
-                        leaves: 2f, castsShadow: false, fineMeshes: true, cellRing: 0f)));
+                        leaves: 2f, castsShadow: false, fineMeshes: true, cells: true)));
                     cardKinds.Add(ForestLayer.Leaves);
                 }
             }
@@ -134,9 +127,9 @@ namespace Prazsky.Core.Render
             {
                 if (ferns[k].Count == 0) continue;
                 (List<VertexPositionNormalTexture> vertices, List<int> indices) = FernClump.Build(seed * 31 + 9620 + k);
-                var mesh = Own(new UploadedMesh(device, vertices, indices, new BoundingSphere(new Vector3(0f, 0.5f, 0f), 1.6f)));
+                var mesh = Own(new UploadedMesh(device, vertices, indices, FERN_BOUNDS));
                 cards.Add(Own(new ScatterBucket(device, mesh, ferns[k], FERN, FERN_DRY, dapple: 0f, bark: 0f, detailOnly: false,
-                    leaves: 1f, castsShadow: false, fineMeshes: true, cellRing: REACH_RING, reach: FERN_REACH)));
+                    leaves: 1f, castsShadow: false, fineMeshes: true, cells: true)));
                 cardKinds.Add(ForestLayer.Ferns);
                 Ferns += ferns[k].Count;
             }

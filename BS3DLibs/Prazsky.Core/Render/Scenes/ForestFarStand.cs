@@ -92,7 +92,7 @@ namespace Prazsky.Core.Render
         private readonly BoundingFrustum _frustum = new(Matrix.Identity);
 
         /// <summary>
-        /// <paramref name="planted"/> in the order of its cells (<see cref="InstanceCells"/>, one ring), each tree's bounds its
+        /// <paramref name="planted"/> in the order of its sectors (<see cref="InstanceCells"/>), each tree's bounds its
         /// mesh's as <c>Forest.fx</c>'s <c>StandVS</c> places it: stretched in height by <c>Look.z</c>, scaled by <c>Place.w</c>,
         /// turned about the vertical (so the sphere's centre off the axis is taken as reach) and stood at <c>Place.xyz</c>.
         /// </summary>
@@ -108,7 +108,7 @@ namespace Prazsky.Core.Render
                 centres[i] = new Vector3(place.X, place.Y + mesh.Center.Y * stretch * place.W, place.Z);
                 radii[i] = (mesh.Radius * MathF.Max(1f, stretch) + offAxis) * place.W;
             }
-            cells = InstanceCells.Build(centres, radii, 0f, out int[] order);
+            cells = InstanceCells.Build(centres, radii, out int[] order);
             var laid = new StandInstance[planted.Count];
             for (int k = 0; k < order.Length; k++) laid[k] = planted[order[k]];
             return laid;
@@ -143,7 +143,7 @@ namespace Prazsky.Core.Render
 
                 //Each run bound from its first instance (not a base instance, which MonoGame's OpenGL ES backend refuses)
                 InstanceCells cells = _cells[k];
-                int runs = cells.Runs(_frustum, Vector3.Zero);
+                int runs = cells.Runs(_frustum);
                 for (int r = 0; r < runs; r++)
                 {
                     InstanceBinding.Set(_device, _meshes[k].VertexBuffer, 0, _instances[k], cells.RunStart[r]);

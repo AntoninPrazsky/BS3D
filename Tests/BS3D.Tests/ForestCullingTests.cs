@@ -7,9 +7,9 @@ using Xunit;
 namespace BS3D.Tests
 {
     /// <summary>
-    /// The forest's wood drawn by what a frustum meets (#1099) and its near crowns round the focus (#1120): a cell is skipped only
-    /// when nothing in it can reach the frustum, a run never splits what is drawn, a reach drops only what lies wholly past
-    /// it, and the focus moves on a cut and never during a flight.
+    /// The forest's wood drawn by what a frustum meets (#1099) and its near crowns round the focus (#1120): a sector is skipped
+    /// only when nothing in it can reach the frustum, the play camera's share is a run or two, a planted tree is tested by its
+    /// placed bounds, and the focus moves on a cut and never during a flight.
     /// </summary>
     public class ForestCullingTests
     {
@@ -44,14 +44,13 @@ namespace BS3D.Tests
         }
 
         [Theory]
-        [InlineData(0f, 0f)]
-        [InlineData(30f, 0f)]
-        [InlineData(30f, 90f)]
-        [InlineData(25f, 140f)]
-        public void Every_instance_that_meets_the_frustum_and_the_reach_is_in_a_run(float ringWidth, float reach)
+        [InlineData(7, 34f, 560f)]
+        [InlineData(13, 270f, 560f)]
+        [InlineData(17, 34f, 150f)]
+        public void Every_instance_that_meets_the_frustum_is_in_a_run(int seed, float inner, float outer)
         {
-            (Vector3[] centres, float[] radii) = Ring(7, 3000, 34f, 560f);
-            InstanceCells cells = InstanceCells.Build(centres, radii, ringWidth, out int[] order);
+            (Vector3[] centres, float[] radii) = Ring(seed, 3000, inner, outer);
+            InstanceCells cells = InstanceCells.Build(centres, radii, out int[] order);
 
             Assert.Equal(centres.Length, cells.Total);
             Assert.Equal(centres.Length, new HashSet<int>(order).Count);
@@ -60,7 +59,7 @@ namespace BS3D.Tests
                 foreach (float fov in new[] { 0.5f, 1.1f })
                 {
                     BoundingFrustum frustum = Lens(at, target, fov, 2.4f, 3000f);
-                    int runs = cells.Runs(frustum, at, reach);
+                    int runs = cells.Runs(frustum);
                     var drawn = new bool[centres.Length];
                     for (int r = 0; r < runs; r++)
                     {
@@ -69,48 +68,26 @@ namespace BS3D.Tests
                         for (int k = cells.RunStart[r]; k < cells.RunStart[r] + cells.RunCount[r]; k++) drawn[order[k]] = true;
                     }
 
-                    int needed = 0, kept = 0;
                     for (int i = 0; i < centres.Length; i++)
                     {
                         var sphere = new BoundingSphere(centres[i], radii[i]);
-                        bool meets = frustum.Contains(sphere) != ContainmentType.Disjoint;
-                        bool inReach = reach <= 0f || Vector3.Distance(centres[i], at) - radii[i] <= reach;
-                        if (!meets || !inReach) continue;
-                        needed++;
+                        if (frustum.Contains(sphere) == ContainmentType.Disjoint) continue;
                         Assert.True(drawn[i], $"instance {i} at {centres[i]} meets the lens at {at} but is in no run");
                     }
-                    for (int i = 0; i < centres.Length; i++) if (drawn[i]) kept++;
-                    //And it cuts: a lens in the clearing looking out across the wood sees a part of the ring (one looking down
-                    //on the axis, or across it from the far side, meets every sector, each of which reaches in towards it)
-                    bool inClearing = at.X * at.X + at.Z * at.Z < 60f * 60f && at.Y < 100f;
-                    if (needed > 0 && inClearing) Assert.True(kept < centres.Length, $"the lens at {at} drew all {centres.Length}");
                 }
         }
 
         [Fact]
-        public void A_reach_drops_the_rings_wholly_past_it()
+        public void The_play_camera_draws_under_half_of_the_ring_in_a_run_or_two_a_ring()
         {
             (Vector3[] centres, float[] radii) = Ring(11, 2000, 34f, 300f);
-            for (int i = 0; i < radii.Length; i++) radii[i] = 1.6f;
-            InstanceCells cells = InstanceCells.Build(centres, radii, 30f, out int[] order);
+            InstanceCells cells = InstanceCells.Build(centres, radii, out _);
             var at = new Vector3(0f, -4f, 30f);
-            BoundingFrustum frustum = Lens(at, new Vector3(0f, -2f, -60f), 1.1f, 2.4f, 3000f);
-
-            int all = Count(cells, cells.Runs(frustum, at)), near = Count(cells, cells.Runs(frustum, at, 90f));
-            Assert.True(near < all / 2, $"a reach of 90 kept {near} of the {all} the frustum alone keeps");
-
-            //Nothing drawn lies farther than the reach and the ring's own width allow
-            int runs = cells.Runs(frustum, at, 90f);
-            for (int r = 0; r < runs; r++)
-                for (int k = cells.RunStart[r]; k < cells.RunStart[r] + cells.RunCount[r]; k++)
-                    Assert.True(Vector3.Distance(centres[order[k]], at) < 90f + 2f * 30f + 40f);
-        }
-
-        private static int Count(InstanceCells cells, int runs)
-        {
-            int n = 0;
-            for (int r = 0; r < runs; r++) n += cells.RunCount[r];
-            return n;
+            int runs = cells.Runs(Lens(at, new Vector3(0f, -2f, -60f), 0.7f, 2.4f, 3000f));
+            int drawn = 0;
+            for (int r = 0; r < runs; r++) drawn += cells.RunCount[r];
+            Assert.True(runs >= 1 && runs <= 2 * cells.Rings && drawn < centres.Length * 0.5f,
+                $"the play camera drew {drawn} of {centres.Length} in {runs} runs over {cells.Rings} rings");
         }
 
         [Fact]
@@ -122,17 +99,16 @@ namespace BS3D.Tests
                 instances.Add(new ModelInstance(Matrix.CreateScale(1f + i % 3) * Matrix.CreateTranslation(centres[i]), new Vector4(i, 0f, 0f, 0f)));
             var mesh = new BoundsOnly(new BoundingSphere(new Vector3(0f, 0.5f, 0f), 1.6f));
 
-            var bucket = new ScatterBucket(null, mesh, instances, Vector3.One, Vector3.One, 0f, 0f, false, cellRing: 30f, reach: 90f);
+            var bucket = new ScatterBucket(null, mesh, instances, Vector3.One, Vector3.One, 0f, 0f, false, cells: true);
 
             Assert.NotNull(bucket.Cells);
-            Assert.Equal(90f, bucket.Reach);
             Assert.Equal(instances.Count, bucket.Placed.Count);
             var seen = new HashSet<float>();
             foreach (ModelInstance placed in bucket.Placed) Assert.True(seen.Add(placed.Custom.X));
             //In the cells' order: each instance stands in the cell its run is counted in
-            for (int c = 0; c < bucket.Cells.Count.Length; c++)
+            for (int c = 0; c < bucket.Cells.Start.Length; c++)
                 for (int k = bucket.Cells.Start[c]; k < bucket.Cells.Start[c] + bucket.Cells.Count[c]; k++)
-                    Assert.Equal(c, bucket.Cells.CellOf(bucket.Placed[k].World.Translation + new Vector3(0f, 0.5f * bucket.Placed[k].World.M11, 0f)));
+                    Assert.Equal(c, bucket.Cells.CellOf(bucket.Placed[k].World.Translation));
 
             //And a bucket asked for no cells is as planted
             var plain = new ScatterBucket(null, mesh, instances, Vector3.One, Vector3.One, 0f, 0f, false);
@@ -168,6 +144,30 @@ namespace BS3D.Tests
                 if (expected) met++;
             }
             Assert.InRange(met, 200, 3800);
+        }
+
+        //The cull is only as exact as the bounds it is handed: every vertex the dressing draws lies inside the sphere its bucket
+        //is culled by, or a crown at the screen's edge loses its outer leaves
+        [Fact]
+        public void Every_vertex_of_the_dressing_lies_inside_the_bounds_it_is_culled_by()
+        {
+            var config = new ForestSceneConfig();
+            foreach (ForestScatterRenderer.BroadleafVariant variant in ForestScatterRenderer.BROADLEAF_SHAPES)
+            {
+                (float trunkRadius, float trunkHeight, float crownRadius, float crownHeight) =
+                    ForestScatterRenderer.BroadleafFigures(config.Trees, variant);
+                MeadowTreeGeometry g = MeadowTreeMesh.ForestGeometry(trunkRadius, trunkHeight, crownRadius, crownHeight, variant.Seed, inLeaf: true);
+                foreach (List<Microsoft.Xna.Framework.Graphics.VertexPositionNormalTexture> part in
+                    new[] { g.WoodVertices, g.FineWoodVertices, g.CrownVertices, g.TwigVertices, g.LeafVertices })
+                    foreach (var vertex in part)
+                        Assert.True(Vector3.Distance(vertex.Position, g.Bounds.Center) <= g.Bounds.Radius * 1.0001f,
+                            $"broadleaf {variant.Seed}: a vertex at {vertex.Position} lies {Vector3.Distance(vertex.Position, g.Bounds.Center):F2} from the bounds' centre, radius {g.Bounds.Radius:F2}");
+            }
+
+            for (int k = 0; k < 3; k++)
+                foreach (var vertex in FernClump.Build(ForestScatterRenderer.DEFAULT_SEED * 31 + 9620 + k).Vertices)
+                    Assert.True(Vector3.Distance(vertex.Position, ForestDressing.FERN_BOUNDS.Center) <= ForestDressing.FERN_BOUNDS.Radius,
+                        $"fern {k}: a vertex at {vertex.Position} lies outside its bounds");
         }
 
         [Fact]
