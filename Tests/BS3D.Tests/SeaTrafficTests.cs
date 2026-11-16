@@ -16,8 +16,10 @@ namespace BS3D.Tests
     /// its rock, the container ship and the yacht (<see cref="SeaTrafficLayout"/>, <see cref="SeaTrafficMeshes"/>), held over the
     /// very triangles that are drawn: every one wound clockwise seen from outside; all of it where the swell is flat; the lanes
     /// clear of both platforms, of the lighthouse and of each other; no lens the chapter intro flies near a lane or the lighthouse;
-    /// a vessel under the horizon from every lens before it wraps round, and the platforms never; the vessels on the clock alone;
-    /// the lighthouse in the play view of every shipped level at every window shape, and each vessel crossing it.
+    /// a vessel under the horizon from every lens before it wraps round; the vessels on their clock alone, which starts again
+    /// when the sea is selected; the lighthouse in the play view of every shipped level at every window shape, each vessel
+    /// crossing it, and what of the three the sea's prologue frames. <see cref="SeaTrafficSourceTests"/> read the sink in
+    /// <c>Rig.fx</c> and which draws take it.
     /// </summary>
     public class SeaTrafficTests
     {
@@ -86,7 +88,7 @@ namespace BS3D.Tests
         //many points along each shot: the run at the platform flies 174 units, so they are under five apart
         private const int POSES = 40;
 
-        private static IEnumerable<(string What, Vector3 Lens)> IntroLenses()
+        private static List<Vector3?> Suns()
         {
             var suns = new List<Vector3?> { Sun(13f, 135f), null };
             for (float azimuth = 0f; azimuth < 360f; azimuth += 30f)
@@ -94,8 +96,12 @@ namespace BS3D.Tests
                 suns.Add(Sun(6f, azimuth));
                 suns.Add(Sun(50f, azimuth));
             }
+            return suns;
+        }
 
-            foreach (Vector3? sun in suns)
+        private static IEnumerable<(string What, Vector3 Lens)> IntroLenses()
+        {
+            foreach (Vector3? sun in Suns())
                 for (int seed = 1; seed <= 24; seed++)
                     foreach (IntroShot shot in SeaIntroShots.Shots(Sea, sun, GAME_FOV, new Random(seed)))
                         for (int i = 0; i < POSES; i++)
@@ -223,21 +229,42 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void ThePlatformsAndTheLighthouseNeverSinkFromAnyLens()
+        public void TheVesselsStartTheirPassageAgainWhenTheSeaIsSelected()
         {
-            //The sink must not reach anything that stands still: from every lens the intro flies, and from anywhere within the
-            //play view's and the menu's reach of the arena, every corner of both platforms and the whole lighthouse are nearer
-            //than SINK_FROM. Seen to fire with SINK_FROM at 1200.
-            const float NEAR_THE_ARENA = 150f;
-            List<Vector3> still = RigCorners().Concat(Placed(Lighthouse(), SeaTrafficLayout.Lighthouse(Sea.LevelY))).ToList();
-            float farthest = still.Max(p => new Vector2(p.X, p.Z).Length()) + NEAR_THE_ARENA;
-            Assert.True(farthest < SeaTrafficLayout.SINK_FROM, $"a platform stands {farthest:F0} from a lens near the arena");
+            //The Game selects the sea (SceneRenderer.Prepare) wherever it sets its scene, and a player comes to the sea minutes
+            //into a session: the vessels' zero is then the first draw after the selection, so the ship comes in at the opening
+            //view's right edge again. Seen to fire with Read never setting the zero, and with the on-screen guard taken out.
+            var clock = new SeaTrafficClock();
 
-            foreach ((string what, Vector3 lens) in IntroLenses())
-            {
-                float most = still.Max(p => new Vector2(p.X - lens.X, p.Z - lens.Z).Length());
-                Assert.True(most < SeaTrafficLayout.SINK_FROM, $"{what}: a platform or the lighthouse stands {most:F0} from the lens");
-            }
+            //Never selected (the Testbed, the editor): the wall clock, which clock= pins
+            Assert.Equal(300f, clock.Read(300f));
+            Assert.Equal(300.5f, clock.Read(300.5f));
+
+            //Selected off the screen: the next draw is the zero, and the clock runs on from it
+            clock.Select();
+            Assert.Equal(0f, clock.Read(420f));
+            Assert.Equal(10f, clock.Read(430f));
+
+            //Selected again while the sea is drawn every frame (the same scene chosen again): nothing moves
+            float t = 430f;
+            for (int frame = 0; frame < 60; frame++) clock.Read(t += 1f / 60f);
+            clock.Select();
+            float next = t + 1f / 60f;
+            Assert.Equal(next - 420f, clock.Read(next));
+
+            //Away for a while, and then selected: the zero again
+            clock.Select();
+            float back = next + SeaTrafficClock.ON_SCREEN + 30f;
+            Assert.Equal(0f, clock.Read(back));
+
+            //Away for a while without a selection (a page that draws no scene over it): the vessels' seconds run on
+            float later = back + 60f;
+            Assert.Equal(later - back, clock.Read(later));
+
+            //And what the zero is for: the ship at the right edge of the opening view, coming left
+            Matrix start = SeaTrafficLayout.ShipAt(0f, Sea.LevelY);
+            Assert.True(Vector2.Dot(new Vector2(start.Translation.X, start.Translation.Z), SeaTrafficLayout.LaneAlong) > 0f, "the ship does not start right of its nearest point");
+            Assert.True(Vector2.Dot(new Vector2(start.Right.X, start.Right.Z), SeaTrafficLayout.LaneAlong) < 0f, "the ship does not start heading left");
         }
 
         [Fact]
@@ -308,12 +335,14 @@ namespace BS3D.Tests
         {
             //The first level's opening pose (the lens on +Z looking at the cluster): over a whole lane, each vessel's middle stands in
             //the frame, out of the gun's way and over the horizon's cut for at least SHIP_SECONDS (57 at 4:3, the narrowest frame)
-            //and YACHT_SECONDS, and both are in the frame for at least a third of the clock's first two minutes, the Game's seconds
-            //since launch. Seen to fire with the ship's lane bearing at 0.5, behind the lens.
+            //and YACHT_SECONDS, and both are in the frame for at least a third of the first two minutes from their zero, the
+            //moment the Game selected the sea (SeaTrafficClock). Seen to fire with the ship's lane bearing at 0.5, behind the lens.
+            //It also says how much of the time past those minutes either is in the view, and both, over the two lanes' common period.
             Opening open = Open(Shipped.LevelFiles().First(), aspect);
             (_, Vector3 lens, Vector3 target, float fov) = open.Poses[0];
             Matrix viewProjection = Matrix.CreateLookAt(lens, target, Vector3.Up) * Matrix.CreatePerspectiveFieldOfView(fov, aspect, 0.1f, 5000f);
 
+            var seen = new List<Func<float, bool>>();
             foreach ((string name, List<RigVertex> mesh, _, Func<float, Matrix> at, float speed) in Vessels())
             {
                 float height = mesh.Max(v => v.Position.Y);
@@ -323,6 +352,7 @@ namespace BS3D.Tests
                     bool over = SeaTrafficLayout.Sink(Vector2.Distance(new Vector2(middle.X, middle.Z), new Vector2(lens.X, lens.Z))) < height * 0.25f;
                     return over && InFrame(Project(middle, viewProjection, out bool ahead), ahead) && !BehindTheGun(lens, middle, open.Gun, open.Aim);
                 }
+                seen.Add(Seen);
 
                 float period = 2f * SeaTrafficLayout.LANE_HALF_LENGTH / speed;
                 int seconds = 0;
@@ -336,6 +366,73 @@ namespace BS3D.Tests
                 _output.WriteLine(string.Format(CultureInfo.InvariantCulture, "{0:F2}: {1} in the opening view {2} s a lane ({3:F0} s), {4} s of the first two minutes",
                     aspect, name, seconds, period, early));
             }
+
+            //Both lanes come round together every 6000 s (500 s and 1200 s a lane)
+            const int COMMON = 6000;
+            int either = 0, both = 0;
+            for (int t = 0; t < COMMON; t++)
+            {
+                bool ship = seen[0](t), yacht = seen[1](t);
+                if (ship || yacht) either++;
+                if (ship && yacht) both++;
+            }
+            _output.WriteLine(string.Format(CultureInfo.InvariantCulture, "{0:F2}: either vessel in the opening view {1:F0} % of the time, both {2:F1} %",
+                aspect, 100f * either / COMMON, 100f * both / COMMON));
+        }
+
+        [Fact]
+        public void ThePrologueFramesTheLighthouseInMostRolls()
+        {
+            //The sea's prologue is not aimed at the lighthouse or the vessels (the run at the rig is held off them, above), so
+            //what it frames of them is what its rolls happen to point at. Every roll and sun of IntroLenses, the shots in the
+            //order they play, the vessels' clock starting with the prologue (a pick in the Scene list selects the sea and then
+            //flies it; a level on the sea builds, selecting it, and then flies it), at the game's lens and 16:9, geometry only:
+            //the lantern, and each vessel's middle over the horizon's cut, in the frame at some pose of some shot over the
+            //water. The lighthouse must be in most rolls' frames. Seen to fire with the lighthouse's bearing at 1.8, behind the
+            //opening view.
+            const float ASPECT = 16f / 9f;
+            Vector3 lantern = Vector3.Transform(new Vector3(0f, 53f, 0f), SeaTrafficLayout.Lighthouse(Sea.LevelY));
+            var heights = Vessels().Select(v => v.Mesh.Max(p => p.Position.Y)).ToArray();
+            var ats = Vessels().Select(v => v.At).ToArray();
+
+            int rolls = 0, lighthouse = 0, ship = 0, yacht = 0, any = 0;
+            foreach (Vector3? sun in Suns())
+                for (int seed = 1; seed <= 24; seed++)
+                {
+                    rolls++;
+                    bool sawLighthouse = false;
+                    var sawVessel = new bool[2];
+                    float clock = 0f;
+                    foreach (IntroShot shot in SeaIntroShots.Shots(Sea, sun, GAME_FOV, new Random(seed)))
+                    {
+                        for (int i = 0; i < POSES; i++)
+                        {
+                            float u = i / (POSES - 1f);
+                            shot.Pose(u, out Vector3 lens, out Vector3 target);
+                            if (lens.Y < Sea.LevelY) continue;
+
+                            Matrix viewProjection = Matrix.CreateLookAt(lens, target, Vector3.Up)
+                                * Matrix.CreatePerspectiveFieldOfView(shot.FieldOfViewAt(u), ASPECT, 0.1f, 5000f);
+                            sawLighthouse |= InFrame(Project(lantern, viewProjection, out bool ahead), ahead);
+
+                            for (int v = 0; v < 2; v++)
+                            {
+                                Vector3 middle = Vector3.Transform(new Vector3(0f, heights[v] * 0.5f, 0f), ats[v](clock + u * shot.Seconds));
+                                bool over = SeaTrafficLayout.Sink(Vector2.Distance(new Vector2(middle.X, middle.Z), new Vector2(lens.X, lens.Z))) < heights[v] * 0.25f;
+                                sawVessel[v] |= over && InFrame(Project(middle, viewProjection, out bool vesselAhead), vesselAhead);
+                            }
+                        }
+                        clock += shot.Seconds;
+                    }
+
+                    if (sawLighthouse) lighthouse++;
+                    if (sawVessel[0]) ship++;
+                    if (sawVessel[1]) yacht++;
+                    if (sawVessel[0] || sawVessel[1]) any++;
+                }
+
+            _output.WriteLine($"of {rolls} rolls the prologue frames the lighthouse in {lighthouse}, the ship in {ship}, the yacht in {yacht}, a vessel in {any}");
+            Assert.True(lighthouse * 2 > rolls, $"the prologue frames the lighthouse in {lighthouse} rolls of {rolls}");
         }
     }
 }

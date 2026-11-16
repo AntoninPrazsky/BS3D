@@ -18,8 +18,10 @@
 //
 //THE HORIZON. Past SinkFrom from the lens a part sinks, by the square of how far past (SinkScale): the curve of a real
 //sea, which takes a ship from its waterline up as it goes away, here so that a vessel at the end of its lane has gone under
-//the cut from every lens before it wraps round (SeaTrafficLayout). Nearer than SinkFrom nothing moves, which is everywhere
-//the platforms are seen from.
+//the cut from every lens before it wraps round (SeaTrafficLayout). Nearer than SinkFrom nothing moves. Only the vessels
+//are drawn with a SinkFrom a lens can reach: the platforms and the lighthouse stand still and take one no lens stands
+//that far from (SeaTrafficLayout.NO_SINK), so they never sink, from the Testbed's or the editor's free lenses either.
+//SeaTrafficSourceTests read this drop.
 //
 //THE AIR. The sea's own horizon colour, lighter than the water's haze, so a rig a kilometre off still stands on the horizon.
 //
@@ -39,7 +41,7 @@ float3 ZenithColor;
 float3 HorizonColor;
 float RigHaze;           //the distance over which the air thickens to the horizon's colour
 float WaterY;            //the sea's mean level
-float SinkFrom;          //the distance from the lens past which a part sinks under the horizon
+float SinkFrom;          //the distance from the lens past which a part sinks under the horizon, set per draw
 float SinkScale;         //how slowly: the drop is (distance - SinkFrom)^2 / SinkScale
 
 static const float FOAM_BAND = 1.2;       //the foam round a leg, world units over the water

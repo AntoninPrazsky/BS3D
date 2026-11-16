@@ -187,8 +187,11 @@ namespace Prazsky.Core.Render
             b.Loft(keel, KEEL_Y, boot, BOOT_Y, BOOT_RED, capBottom: true, capTop: false);
             b.Loft(boot, BOOT_Y, deck, DECK_Y, HULL_DARK, capBottom: false, capTop: true, topColor: DECK_RUST);
 
-            //The forecastle, raised over the bow
-            b.Box(new Vector3(110f, DECK_Y + 2.5f, 0f), new Vector3(12f, 2.5f, 13f), HULL_DARK, RigVertex.PAINTED);
+            //The forecastle, raised over the bow: the deck's own outline forward of its aft end, stood straight up, so its sides
+            //run on from the hull's and no corner of it stands out past the bow
+            const float FORECASTLE_AFT = 98f, FORECASTLE_HEIGHT = 5f;
+            Vector2[] forecastle = ForwardOf(deck, FORECASTLE_AFT);
+            b.Loft(forecastle, DECK_Y, forecastle, DECK_Y + FORECASTLE_HEIGHT, HULL_DARK, capBottom: false, capTop: true);
 
             //Seven bays of containers, each tier three boxes across, its colours rolled once
             var random = new Random(1125);
@@ -233,8 +236,8 @@ namespace Prazsky.Core.Render
                 b.Box(new Vector3(-112f, 30f, side * 14.6f), new Vector3(4f, 1.4f, 1.4f), LIFEBOAT, RigVertex.PAINTED);
             b.Box(new Vector3(-106f, 54f, 0f), new Vector3(0.4f, 6.5f, 0.4f), MAST_GREY, RigVertex.PAINTED);
             b.Box(new Vector3(-106f, 61f, 0f), new Vector3(0.6f, 0.6f, 0.6f), MASTHEAD, RigVertex.LIGHT);
-            b.Box(new Vector3(116f, DECK_Y + 13f, 0f), new Vector3(0.4f, 8f, 0.4f), MAST_GREY, RigVertex.PAINTED);
-            b.Box(new Vector3(116f, DECK_Y + 21.5f, 0f), new Vector3(0.6f, 0.6f, 0.6f), MASTHEAD, RigVertex.LIGHT);
+            b.Box(new Vector3(116f, DECK_Y + FORECASTLE_HEIGHT + 8f, 0f), new Vector3(0.4f, 8f, 0.4f), MAST_GREY, RigVertex.PAINTED);
+            b.Box(new Vector3(116f, DECK_Y + FORECASTLE_HEIGHT + 16.5f, 0f), new Vector3(0.6f, 0.6f, 0.6f), MASTHEAD, RigVertex.LIGHT);
             return b.Vertices;
         }
 
@@ -284,6 +287,20 @@ namespace Prazsky.Core.Render
             var points = new List<Vector2>();
             foreach ((float x, float z) in starboard) points.Add(new Vector2(x, z));
             for (int i = starboard.Length - 2; i >= 0; i--) points.Add(new Vector2(starboard[i].X, -starboard[i].Z));
+            return points.ToArray();
+        }
+
+        //The part of a convex outline forward of x = `aft` (x >= aft), cut straight across there, in the outline's own order
+        private static Vector2[] ForwardOf(Vector2[] outline, float aft)
+        {
+            var points = new List<Vector2>();
+            for (int i = 0; i < outline.Length; i++)
+            {
+                Vector2 a = outline[i], b = outline[(i + 1) % outline.Length];
+                bool aIn = a.X >= aft, bIn = b.X >= aft;
+                if (aIn) points.Add(a);
+                if (aIn != bIn) points.Add(Vector2.Lerp(a, b, (aft - a.X) / (b.X - a.X)));
+            }
             return points.ToArray();
         }
 

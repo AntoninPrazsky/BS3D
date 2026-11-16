@@ -238,7 +238,8 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The host has selected this scene (<see cref="SceneRenderer.Prepare"/>): a backdrop that builds itself off the
-        /// frame starts then, so a launch that never shows it builds nothing. Nothing by default.
+        /// frame starts then, so a launch that never shows it builds nothing, and the sea starts its vessels' passage again
+        /// (#1125). Nothing by default.
         /// </summary>
         public virtual void Prepare() { }
 

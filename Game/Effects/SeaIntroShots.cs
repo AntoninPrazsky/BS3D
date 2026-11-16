@@ -10,8 +10,11 @@ namespace BS3D.Effects
     /// funnel's cone between the lens and the stone (#759, #760), a run low over the open sea in at the nearer oil
     /// platform (#1124), and a flight low over the water that climbs to the sun the glint comes from (#652) — cut
     /// together, then cut to the tour's last leg. What the sea builds is the swell (<c>Sea.fx</c>'s twenty Gerstner
-    /// waves), the glint the sun lays across it, the one rock in it, which is the island, and the two platforms far out
-    /// (<see cref="OilRigLayout"/>), its one landmark.
+    /// waves), the glint the sun lays across it, the island, and far out where the water is calm the two platforms
+    /// (<see cref="OilRigLayout"/>), a lighthouse on a rock of its own, and a container ship and a yacht on their lanes
+    /// (<see cref="SeaTrafficLayout"/>, #1125). No shot is aimed at the lighthouse or the vessels, and the run at the rig is
+    /// held off them: what the rolls happen to point at frames the lighthouse in about three rolls in four and a vessel in
+    /// five in six (<c>SeaTrafficTests</c>, the vessels' clock starting with the prologue).
     /// <para>
     /// <b>It opened on the island from far out and high, and the owner threw that shot out (#652):</b> "the high,
     /// distant view where the island is small in the middle doesn't work — an empty, boring view". One rock and a

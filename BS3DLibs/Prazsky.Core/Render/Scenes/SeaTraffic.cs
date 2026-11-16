@@ -7,7 +7,7 @@ using System.Collections.Generic;
 namespace Prazsky.Core.Render
 {
     /// <summary>
-    /// Where the sea's lighthouse stands and where its two vessels sail (#1125), as pure functions of the wall clock: what
+    /// Where the sea's lighthouse stands and where its two vessels sail (#1125), as pure functions of their clock: what
     /// <see cref="SeaTraffic"/> draws and what the tests hold. The owner: the sea is "still quite empty" apart from the oil
     /// platforms; the references (<c>C:\Users\panrd\AI\sd\out\1125-zimage</c>, <c>1125-klein</c>, <c>1125-flux3</c>) put a
     /// container ship on the horizon, a yacht nearer and a lighthouse on a low rock beside the platforms.
@@ -28,16 +28,20 @@ namespace Prazsky.Core.Render
     /// </para>
     /// <para>
     /// <b>A lane is <see cref="LANE_HALF_LENGTH"/> either way of its nearest point</b>, and a vessel at its end wraps round to
-    /// the other. It has gone under the horizon by then from every lens: <c>Rig.fx</c> sinks what stands past
+    /// the other. It has gone under the horizon by then from every lens: <c>Rig.fx</c> sinks a vessel's part that stands past
     /// <see cref="SINK_FROM"/> from the lens by the square of how far past (<see cref="SINK_SCALE"/>), the curve of a real sea
     /// that takes a ship from its waterline up, and the lanes are long enough that the wrap is under the cut from any lens the
-    /// game flies. Nothing nearer than <see cref="SINK_FROM"/> moves, which is everywhere the platforms are seen from.
+    /// game flies. What stands still, the platforms and the lighthouse, is drawn with <see cref="NO_SINK"/> and never moves,
+    /// from any lens: the Testbed's and the editor's free lenses can stand far enough out that it would.
     /// </para>
     /// <para>
-    /// <b>The ship comes in from the right and the yacht from the left</b> at the clock's start (<see cref="SHIP_START"/>,
-    /// <see cref="YACHT_START"/>): the Game's clock is the seconds since launch, so the first minutes put both in the opening
-    /// view, the ship passing behind the lighthouse at about 30 s and the yacht at about 65. After that each comes round once a lane:
-    /// <see cref="SHIP_SPEED"/> (about twelve knots) and <see cref="YACHT_SPEED"/> (about five) at two units a metre.
+    /// <b>The ship comes in from the right and the yacht from the left</b> at the vessels' zero (<see cref="SHIP_START"/>,
+    /// <see cref="YACHT_START"/>), and the Game sets that zero whenever it selects the sea (<see cref="SeaTrafficClock"/>): no
+    /// shipped level plays on the sea, so a player comes to it through the Scene list minutes into a session, and on the
+    /// seconds since launch the vessels would be anywhere on their lanes by then. The first minutes after the selection put
+    /// both in the opening view, the ship passing behind the lighthouse at about 30 s and the yacht at about 65. After that
+    /// each comes round once a lane: <see cref="SHIP_SPEED"/> (about twelve knots) and <see cref="YACHT_SPEED"/> (about five)
+    /// at two units a metre.
     /// </para>
     /// <para>
     /// <b>The yacht runs before the wind.</b> The sea's wind (<c>SeaSceneConfig.Wind</c>) blows across the opening view, so a
@@ -71,11 +75,17 @@ namespace Prazsky.Core.Render
         public const float LIGHTHOUSE_BEARING = -1.30f, LIGHTHOUSE_DISTANCE = 850f, LIGHTHOUSE_TURN = 0.4f;
 
         /// <summary>
-        /// How far from the lens a part of the sea's structures begins to sink under the horizon (<c>Rig.fx</c>), and how
-        /// slowly: the drop is (distance - <see cref="SINK_FROM"/>)^2 / <see cref="SINK_SCALE"/>. Past every platform from every
-        /// lens the game flies, so they never move.
+        /// How far from the lens a vessel's part begins to sink under the horizon (<c>Rig.fx</c>), and how slowly: the drop is
+        /// (distance - <see cref="SINK_FROM"/>)^2 / <see cref="SINK_SCALE"/>.
         /// </summary>
         public const float SINK_FROM = 1400f, SINK_SCALE = 3400f;
+
+        /// <summary>
+        /// The <c>SinkFrom</c> what stands still is drawn with, the platforms and the lighthouse: farther than any lens can
+        /// stand, so they never sink. Not <see cref="SINK_FROM"/>: a Testbed or editor lens some 180 out from the arena on the
+        /// side away from the farther platform puts that platform's far corner past it, and it would tilt into the sea.
+        /// </summary>
+        public const float NO_SINK = 1e9f;
 
         /// <summary>The way from the arena to both lanes' nearest points.</summary>
         public static Vector2 LaneNormal => new(MathF.Cos(LANE_BEARING), MathF.Sin(LANE_BEARING));
@@ -90,11 +100,13 @@ namespace Prazsky.Core.Render
             return past * past / SINK_SCALE;
         }
 
-        /// <summary>The ship's frame at <paramref name="time"/> on the wall clock, standing on water at <paramref name="waterY"/>.</summary>
+        /// <summary>The ship's frame <paramref name="time"/> seconds from the vessels' zero (<see cref="SeaTrafficClock"/>),
+        /// standing on water at <paramref name="waterY"/>.</summary>
         public static Matrix ShipAt(float time, float waterY) =>
             VesselAt(Along(time, SHIP_START, -SHIP_SPEED), SHIP_LANE, -1f, waterY);
 
-        /// <summary>The yacht's frame at <paramref name="time"/> on the wall clock, standing on water at <paramref name="waterY"/>.</summary>
+        /// <summary>The yacht's frame <paramref name="time"/> seconds from the vessels' zero (<see cref="SeaTrafficClock"/>),
+        /// standing on water at <paramref name="waterY"/>.</summary>
         public static Matrix YachtAt(float time, float waterY) =>
             VesselAt(Along(time, YACHT_START, YACHT_SPEED), YACHT_LANE, 1f, waterY);
 
@@ -141,20 +153,53 @@ namespace Prazsky.Core.Render
     }
 
     /// <summary>
+    /// The vessels' seconds (#1125): the wall clock less the moment the sea was last selected while it was off the screen.
+    /// The Game selects it through <see cref="SceneRenderer.Prepare"/> wherever it sets its scene (the Scene list over the
+    /// front end or the pause, a level, the start), so a player who comes to the sea minutes into a session sees the ship come
+    /// in at the opening view's right edge and the yacht from its left, as a launch straight into it does. A selection while
+    /// the sea is on the screen (drawn less than <see cref="ON_SCREEN"/> ago: the same scene chosen again) moves nothing.
+    /// The Testbed and the editor never select it, so their vessels keep the wall clock, which <c>clock=</c> pins.
+    /// </summary>
+    public sealed class SeaTrafficClock
+    {
+        /// <summary>How long after its last draw, wall-clock seconds, the sea still counts as on the screen.</summary>
+        public const float ON_SCREEN = 1f;
+
+        private float _zero, _lastRead = float.NegativeInfinity;
+        private bool _selected;
+
+        /// <summary>The host has selected the sea: the vessels start their passage again at the next read, unless the sea
+        /// is on the screen.</summary>
+        public void Select() => _selected = true;
+
+        /// <summary>The vessels' seconds at <paramref name="wallClock"/>; read by every draw of them.</summary>
+        public float Read(float wallClock)
+        {
+            if (_selected && wallClock - _lastRead > ON_SCREEN) _zero = wallClock;
+            _selected = false;
+            _lastRead = wallClock;
+            return wallClock - _zero;
+        }
+    }
+
+    /// <summary>
     /// The lighthouse on its rock, the container ship and the yacht (#1125), shaded by <c>Rig.fx</c> as the oil platforms are
     /// and drawn after them: opaque, writing depth, cut at the waterline with foam where they meet it. One buffer holds the
     /// three meshes (<see cref="SeaTrafficMeshes"/>), each in its own frame, and each is one draw with its frame
-    /// (<see cref="SeaTrafficLayout"/>): the vessels' are taken off the wall clock every frame, so they sail on while the
-    /// simulation is paused. The Potato path draws no sea and so none of this.
+    /// (<see cref="SeaTrafficLayout"/>): the vessels' are taken off their clock (<see cref="SeaTrafficClock"/>, the wall clock
+    /// from the moment the sea was selected) every frame, so they sail on while the simulation is paused. Only the vessels
+    /// sink under the horizon; the lighthouse is drawn with <see cref="SeaTrafficLayout.NO_SINK"/>. The Potato path draws no
+    /// sea and so none of this.
     /// </summary>
     internal sealed class SeaTraffic : IDisposable
     {
         private readonly GraphicsDevice _graphicsDevice;
         private readonly Effect _effect;
-        private readonly EffectParameter _world, _view, _projection, _cameraPosition, _sunDirection, _sunColor, _zenith, _horizon, _waterY;
+        private readonly EffectParameter _world, _view, _projection, _cameraPosition, _sunDirection, _sunColor, _zenith, _horizon, _waterY, _sinkFrom;
         private readonly VertexBuffer _vertices;
         private readonly int _shipStart, _shipTriangles, _yachtStart, _yachtTriangles, _lighthouseTriangles;
         private readonly Matrix _lighthouse;
+        private readonly SeaTrafficClock _clock = new();
 
         public SeaTraffic(GraphicsDevice graphicsDevice, ContentManager content, SeaSceneConfig config)
         {
@@ -169,6 +214,7 @@ namespace Prazsky.Core.Render
             _zenith = _effect.Parameters["ZenithColor"];
             _horizon = _effect.Parameters["HorizonColor"];
             _waterY = _effect.Parameters["WaterY"];
+            _sinkFrom = _effect.Parameters["SinkFrom"];
 
             List<RigVertex> lighthouse = SeaTrafficMeshes.Lighthouse();
             List<RigVertex> ship = SeaTrafficMeshes.ContainerShip();
@@ -189,10 +235,15 @@ namespace Prazsky.Core.Render
             _lighthouse = SeaTrafficLayout.Lighthouse(config.LevelY);
         }
 
-        /// <summary>Draws the lighthouse and the two vessels where the clock has them, opaque and writing depth, after the water.
-        /// Leaves the states as it found them.</summary>
+        /// <summary>The host has selected the sea: the vessels start their passage again (<see cref="SeaTrafficClock.Select"/>).</summary>
+        public void Select() => _clock.Select();
+
+        /// <summary>Draws the lighthouse and the two vessels where their clock has them, opaque and writing depth, after the
+        /// water. Leaves the states as it found them.</summary>
         public void Draw(in SceneFrame frame, float waterY)
         {
+            float time = _clock.Read(frame.Time);
+
             _view.SetValue(frame.Camera.View);
             _projection.SetValue(frame.Camera.Projection);
             _cameraPosition.SetValue(frame.Camera.Position);
@@ -211,18 +262,20 @@ namespace Prazsky.Core.Render
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
             _graphicsDevice.SetVertexBuffer(_vertices);
 
-            DrawPart(_lighthouse, 0, _lighthouseTriangles);
-            DrawPart(SeaTrafficLayout.ShipAt(frame.Time, waterY), _shipStart, _shipTriangles);
-            DrawPart(SeaTrafficLayout.YachtAt(frame.Time, waterY), _yachtStart, _yachtTriangles);
+            //The lighthouse stands still and never sinks; the vessels go under the horizon before they wrap round
+            DrawPart(_lighthouse, 0, _lighthouseTriangles, SeaTrafficLayout.NO_SINK);
+            DrawPart(SeaTrafficLayout.ShipAt(time, waterY), _shipStart, _shipTriangles, SeaTrafficLayout.SINK_FROM);
+            DrawPart(SeaTrafficLayout.YachtAt(time, waterY), _yachtStart, _yachtTriangles, SeaTrafficLayout.SINK_FROM);
 
             _graphicsDevice.BlendState = blend;
             _graphicsDevice.DepthStencilState = depth;
             _graphicsDevice.RasterizerState = rasterizer;
         }
 
-        private void DrawPart(Matrix world, int start, int triangles)
+        private void DrawPart(Matrix world, int start, int triangles, float sinkFrom)
         {
             _world.SetValue(world);
+            _sinkFrom.SetValue(sinkFrom);
             _effect.CurrentTechnique.Passes[0].Apply();
             _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleList, start, triangles);
         }

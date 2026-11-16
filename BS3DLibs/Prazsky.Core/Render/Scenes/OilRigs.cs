@@ -127,7 +127,7 @@ namespace Prazsky.Core.Render
 
         private readonly GraphicsDevice _graphicsDevice;
         private readonly Effect _effect;
-        private readonly EffectParameter _world, _view, _projection, _cameraPosition, _sunDirection, _sunColor, _zenith, _horizon, _waterY;
+        private readonly EffectParameter _world, _view, _projection, _cameraPosition, _sunDirection, _sunColor, _zenith, _horizon, _waterY, _sinkFrom;
         private readonly VertexBuffer _vertices;
         private readonly int _triangles;
 
@@ -144,6 +144,7 @@ namespace Prazsky.Core.Render
             _zenith = _effect.Parameters["ZenithColor"];
             _horizon = _effect.Parameters["HorizonColor"];
             _waterY = _effect.Parameters["WaterY"];
+            _sinkFrom = _effect.Parameters["SinkFrom"];
 
             var v = new List<RigVertex>();
             void Add(Matrix world, Vector3 half, Vector3 color, float kind) => Box(v, world, half, color, kind);
@@ -155,15 +156,15 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// <c>Rig.fx</c> as the content manager caches it, its once-only values set: the air's haze and the horizon's sink
-        /// (<see cref="SeaTrafficLayout.SINK_FROM"/>). The platforms and <see cref="SeaTraffic"/> draw through the one effect, so
-        /// each sets what its own draw needs before it draws.
+        /// <c>Rig.fx</c> as the content manager caches it, its once-only values set: the air's haze and how slowly a vessel
+        /// sinks under the horizon (<see cref="SeaTrafficLayout.SINK_SCALE"/>). The platforms and <see cref="SeaTraffic"/> draw
+        /// through the one effect, so each sets what its own draw needs before it draws, where the sink starts among it
+        /// (<see cref="SeaTrafficLayout.NO_SINK"/> for what stands still).
         /// </summary>
         internal static Effect LoadEffect(ContentManager content)
         {
             Effect effect = content.Load<Effect>("Shaders/Rig");
             effect.Parameters["RigHaze"].SetValue(HAZE);
-            effect.Parameters["SinkFrom"].SetValue(SeaTrafficLayout.SINK_FROM);
             effect.Parameters["SinkScale"].SetValue(SeaTrafficLayout.SINK_SCALE);
             return effect;
         }
@@ -257,8 +258,10 @@ namespace Prazsky.Core.Render
         /// <summary>Draws the rigs, opaque and writing depth, after the water. Leaves the states as it found them.</summary>
         public void Draw(in SceneFrame frame, float waterY)
         {
-            //The rigs' vertices are the world's; the effect is shared with SeaTraffic, which sets a part's own frame here
+            //The rigs' vertices are the world's, and they stand still, so they never sink under the horizon from any lens; the
+            //effect is shared with SeaTraffic, which sets a part's own frame and its sink here
             _world.SetValue(Matrix.Identity);
+            _sinkFrom.SetValue(SeaTrafficLayout.NO_SINK);
             _view.SetValue(frame.Camera.View);
             _projection.SetValue(frame.Camera.Projection);
             _cameraPosition.SetValue(frame.Camera.Position);

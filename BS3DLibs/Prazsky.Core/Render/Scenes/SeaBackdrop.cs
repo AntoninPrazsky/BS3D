@@ -110,6 +110,12 @@ namespace Prazsky.Core.Render
         /// <inheritdoc/>
         public override SceneConfig Config => _seaConfig;
 
+        /// <summary>
+        /// The host has selected the sea: the ship and the yacht start their passage across the opening view again
+        /// (<see cref="SeaTrafficClock"/>, #1125), unless the sea is on the screen already.
+        /// </summary>
+        public override void Prepare() => _traffic.Select();
+
         /// <summary><see cref="SceneRenderer.SeaLevelY"/>.</summary>
         public float LevelY => _seaConfig.LevelY;
 
@@ -209,7 +215,8 @@ namespace Prazsky.Core.Render
         /// <see cref="Draw"/> draws nothing and the sea comes after whatever it lies over. It follows the island's depth
         /// like any other scene (<see cref="Backdrop.FollowsIslandDepth"/>): the island's stone is opaque here too (its
         /// triplanar program takes no submerge fade, which only the drain's parts and the balls do), so the water it
-        /// stands in front of was always painted over, and the platforms and the school are opaque.
+        /// stands in front of was always painted over, and the platforms, the lighthouse, the vessels and the school are
+        /// opaque.
         /// </para>
         /// </summary>
         public override void DrawBlended(in SceneFrame frame)
@@ -247,7 +254,7 @@ namespace Prazsky.Core.Render
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
 
             //The oil platforms, after the water (which writes no depth) and cut by their own shader at its line (#969), and the
-            //lighthouse and the two vessels through the same shader, the vessels where the wall clock has them (#1125)
+            //lighthouse and the two vessels through the same shader, the vessels where their clock has them (#1125)
             _rigs.Draw(frame, _seaConfig.LevelY);
             _traffic.Draw(frame, _seaConfig.LevelY);
 
