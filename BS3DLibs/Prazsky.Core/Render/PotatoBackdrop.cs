@@ -1126,11 +1126,10 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The Grid (#829): the desktop's is <c>Grid.fx</c>, a circuit-board floor, distant solids running Life on their
-        /// faces and a void. Here the floor as a plane with the arena's hole, a little of the traces' light in it, and the
-        /// solids as dark boxes with glowing seams: as many as the config asks for, in its band of radii and sizes, cubes
-        /// first, each kept a gap off the ones before it (the desktop's own retry) and off the landmark ring, which stands
-        /// here too (#1044), on the config's seed and the launch's roll. Not the desktop's stream to the number: its draws
-        /// are shared with the Life boards, which this path does not run.
+        /// faces and a void. Here the floor as a plane with the arena's hole, a little of the traces' light in it, the solids
+        /// as dark boxes with glowing seams, standing where the desktop's do on the config's seed and the launch's roll
+        /// (<see cref="GridLayout.PlaceSolids"/>, #1136), and the landmark ring, which stands here too (#1044). The light cycles
+        /// ride clear of those same solids, so they ride the desktop's runs.
         /// </summary>
         private static PotatoBackdrop Grid(GraphicsDevice graphicsDevice, Effect potatoEffect, float holeRadius, int seedOffset)
         {
@@ -1143,50 +1142,15 @@ namespace Prazsky.Core.Render
                 new[] { new ModelInstance(Matrix.Identity, OPEN) }, config.Terrain.BodyColor.ToVector3(),
                 config.Terrain.LineColor.ToVector3() * GRID_FLOOR_GLOW, "floor");
 
-            const float SOLID_GAP = 15f;
-            var placement = new Random(towers.Seed + seedOffset);
-
-            //The landmark ring's place (#1044, GridBackdrop.GridLandmarkShape): every solid keeps off its footprint (#559)
-            GridLandmarkConfig landmark = config.Landmark;
-            bool ring = landmark.Enabled && landmark.Segments >= 3;
-            float ringBearing = MathHelper.ToRadians(landmark.Bearing);
-            Vector2 ringStand = new(MathF.Cos(ringBearing) * landmark.Distance, MathF.Sin(ringBearing) * landmark.Distance);
-            float ringTube = MathF.Max(landmark.TubeRadius, 0.1f), ringOuter = MathF.Max(landmark.Radius, 1f) + ringTube;
-            int cubeCount = (int)MathF.Round(towers.Count * MathHelper.Clamp(towers.CubeFraction, 0f, 1f));
-            var placed = new List<(Vector2 Centre, float Radius)>();
-            var solids = new List<ModelInstance>();
+            //The desktop's solids, where it stands them (GridLayout, #1136): the light cycles ride clear of them on either path
+            List<GridSolid> placed = GridLayout.PlaceSolids(config, seedOffset, null, out _);
+            var solids = new List<ModelInstance>(placed.Count);
             var seams = new List<ModelInstance>();
-            for (int i = 0; i < Math.Max(towers.Count, 0); i++)
+            foreach (GridSolid solid in placed)
             {
-                bool cube = i < cubeCount;
-                Vector3 size = default;
-                Vector2 xz = default;
-                float footprint = 0f;
-                for (int attempt = 0; attempt < 20; attempt++)
-                {
-                    float angle = (float)(placement.NextDouble() * MathHelper.TwoPi);
-                    float radius = MathHelper.Lerp(towers.RadiusMin, towers.RadiusMax, (float)placement.NextDouble());
-                    if (cube)
-                    {
-                        float side = MathHelper.Lerp(towers.CubeSizeMin, towers.CubeSizeMax, (float)placement.NextDouble());
-                        size = new Vector3(side * (0.94f + 0.12f * (float)placement.NextDouble()), side * (0.94f + 0.12f * (float)placement.NextDouble()), side * (0.94f + 0.12f * (float)placement.NextDouble()));
-                    }
-                    else
-                    {
-                        size = new Vector3(MathHelper.Lerp(towers.TowerFootprintMin, towers.TowerFootprintMax, (float)placement.NextDouble()),
-                            MathHelper.Lerp(towers.TowerHeightMin, towers.TowerHeightMax, (float)placement.NextDouble()),
-                            MathHelper.Lerp(towers.TowerFootprintMin, towers.TowerFootprintMax, (float)placement.NextDouble()));
-                    }
-                    xz = new Vector2(MathF.Cos(angle) * radius, MathF.Sin(angle) * radius);
-                    footprint = 0.5f * MathF.Sqrt(size.X * size.X + size.Z * size.Z);
-                    bool overlaps = ring && Vector2.Distance(xz, ringStand) < footprint + ringOuter + SOLID_GAP;
-                    foreach ((Vector2 other, float otherRadius) in placed)
-                        if (Vector2.Distance(xz, other) < footprint + otherRadius + SOLID_GAP) { overlaps = true; break; }
-                    if (!overlaps) break;
-                }
-                placed.Add((xz, footprint));
-                solids.Add(new ModelInstance(Matrix.CreateScale(size) * Matrix.CreateTranslation(xz.X, level + size.Y * 0.5f, xz.Y), OPEN));
-                AddBoxSeams(seams, new Vector3(xz.X, level + size.Y * 0.5f, xz.Y), size, towers.EdgeWidth * GRID_SEAM_SCALE);
+                Vector3 size = solid.Size, centre = solid.Centre;
+                solids.Add(new ModelInstance(Matrix.CreateScale(size) * Matrix.CreateTranslation(centre), OPEN));
+                AddBoxSeams(seams, centre, size, towers.EdgeWidth * GRID_SEAM_SCALE);
             }
 
             //The solids as the desktop's are (#1044): near-black bodies, flat-shaded a face at a time by the rig, with a
@@ -1200,13 +1164,12 @@ namespace Prazsky.Core.Render
             //The landmark (#1044): GridBackdrop's faceted ring on edge, facing the arena, resting on the floor, its
             //segments dark and its four long borders glowing as rails (the desktop lights only a quad's long borders, so the
             //joins between segments never draw)
-            if (ring)
+            if (GridLayout.Landmark(config) is GridRing ring)
             {
-                Vector3 stand = new(ringStand.X, level, ringStand.Y);
-                Vector3 planeNormal = stand.LengthSquared() < 1e-6f ? Vector3.Forward : Vector3.Normalize(new Vector3(-stand.X, 0f, -stand.Z));
+                GridLandmarkConfig landmark = config.Landmark;
+                Vector3 planeNormal = ring.PlaneNormal, centre = ring.Centre;
                 Vector3 side = Vector3.Normalize(Vector3.Cross(Vector3.Up, planeNormal));
-                Vector3 centre = stand + Vector3.Up * (landmark.Radius + ringTube);
-                float inner = MathF.Max(landmark.Radius - ringTube, 0.2f), halfWidth = MathF.Max(landmark.Width, 0.1f) * 0.5f;
+                float inner = ring.InnerRadius, ringOuter = ring.OuterRadius, halfWidth = ring.HalfWidth;
                 float rail = towers.EdgeWidth * GRID_SEAM_SCALE;
                 var segments = new List<ModelInstance>(landmark.Segments);
                 for (int i = 0; i < landmark.Segments; i++)
@@ -1264,7 +1227,7 @@ namespace Prazsky.Core.Render
             //The light cycles (#1044, #956): the desktop's riders on their runs, each cycle LightCycles' primitives - a long
             //low body, a cowl and the rider's hood as boxes, two disc wheels - near-black with their rider's light in them,
             //the wheels brightest, following the run every frame; and the walls behind them (PotatoLightCycles.DrawWalls)
-            backdrop._cycles = PotatoLightCycles.Create(graphicsDevice, potatoEffect, config);
+            backdrop._cycles = PotatoLightCycles.Create(graphicsDevice, potatoEffect, config, placed);
             if (backdrop._cycles != null)
             {
                 backdrop._owned.Add(backdrop._cycles);

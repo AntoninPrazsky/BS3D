@@ -2,14 +2,15 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Prazsky.Core.Camera;
 using System;
+using System.Collections.Generic;
 
 namespace Prazsky.Core.Render
 {
     /// <summary>
     /// The Grid's light cycles on the Potato path (#1044): the desktop's three riders (<see cref="LightCycles.Rider"/>, on
-    /// the same seeds, so the same runs at the same moment), each a cycle the backdrop draws as lit pieces
-    /// (<see cref="World"/>) and the wall behind it, added through <c>PotatoModel.fx</c>'s <c>PotatoTrail</c>: a strip
-    /// rewritten every frame into one dynamic buffer, as the desktop's is.
+    /// the same seeds and clear of the same solids, #1136, so the same runs at the same moment), each a cycle the backdrop
+    /// draws as lit pieces (<see cref="World"/>) and the wall behind it, added through <c>PotatoModel.fx</c>'s
+    /// <c>PotatoTrail</c>: a strip rewritten every frame into one dynamic buffer, as the desktop's is.
     /// </summary>
     public sealed class PotatoLightCycles : IDisposable
     {
@@ -26,7 +27,8 @@ namespace Prazsky.Core.Render
         //LightCycle.fx's TRAIL_RADIANCE: the wall's middle against the rider's colour
         private const float TRAIL_RADIANCE = 0.9f;
 
-        private PotatoLightCycles(GraphicsDevice device, Effect effect, EffectTechnique technique, GridSceneConfig config)
+        private PotatoLightCycles(GraphicsDevice device, Effect effect, EffectTechnique technique, GridSceneConfig config,
+            IReadOnlyList<GridSolid> solids)
         {
             _device = device;
             _effect = effect;
@@ -34,15 +36,17 @@ namespace Prazsky.Core.Render
             _floorY = config.Terrain.LevelY;
             EffectParameterCollection p = effect.Parameters;
             _view = p["View"]; _projection = p["Projection"]; _color = p["TrailColor"];
-            for (int i = 0; i < _riders.Length; i++) _riders[i] = new LightCycles.Rider(LightCycles.RiderSeed(config, i));
+            var lattice = new LightCycles.Lattice(solids);
+            for (int i = 0; i < _riders.Length; i++) _riders[i] = new LightCycles.Rider(LightCycles.RiderSeed(config, i), lattice);
             _vertices = new DynamicVertexBuffer(device, VertexPositionTexture.VertexDeclaration, _trail.Length, BufferUsage.WriteOnly);
         }
 
-        /// <summary>The cycles on <paramref name="config"/>; null when the effect has no <c>PotatoTrail</c> yet.</summary>
-        public static PotatoLightCycles Create(GraphicsDevice device, Effect effect, GridSceneConfig config)
+        /// <summary>The cycles on <paramref name="config"/>, riding clear of <paramref name="solids"/> (the solids the backdrop
+        /// stands, <see cref="GridLayout.PlaceSolids"/>); null when the effect has no <c>PotatoTrail</c> yet.</summary>
+        public static PotatoLightCycles Create(GraphicsDevice device, Effect effect, GridSceneConfig config, IReadOnlyList<GridSolid> solids)
         {
             EffectTechnique technique = effect.Techniques["PotatoTrail"];
-            return technique == null ? null : new PotatoLightCycles(device, effect, technique, config);
+            return technique == null ? null : new PotatoLightCycles(device, effect, technique, config, solids);
         }
 
         /// <summary>How many riders there are.</summary>

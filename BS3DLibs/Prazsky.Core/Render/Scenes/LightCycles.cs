@@ -12,13 +12,16 @@ namespace Prazsky.Core.Render
     /// lit only by its glowing seams.
     /// <para>
     /// <b>Where they ride.</b> Along the lattice every <see cref="LATTICE"/> units (the Hilbert trace's own stride), in a ring
-    /// from <see cref="RING_MIN"/> to <see cref="RING_MAX"/> round the axis: clear of the island's hole and inside the solids' ring
-    /// (<c>GridTowerConfig.RadiusMin</c>, 140). ⚠ That radius is where a solid's footprint is centred, and a cube near it reaches
-    /// in among the cycles (to about 100 from the axis square on an axis, 84 on a diagonal), so a cycle can ride through one: a
-    /// host filming a cycle keeps it off them itself (#1116). At every node a rider goes on
-    /// straight or turns a right angle, from a hash of its own seed and the node's place in its run, never back the way it came
-    /// and never out of the ring: the run is the same whatever the frame rate, and where a rider is at a time is its run's
-    /// point at <see cref="SPEED"/> times that time. Off the wall clock, so they ride on while the game is paused.
+    /// from <see cref="RING_MIN"/> to <see cref="RING_MAX"/> round the axis: clear of the island's hole, and out among the solids'
+    /// inner edge, for a solid's footprint is centred from <c>GridTowerConfig.RadiusMin</c> (140) out and a large cube there
+    /// reaches in to about 100 from the axis. So every segment a rider takes keeps <see cref="SOLID_CLEARANCE"/> off every
+    /// solid's footprint (#1136, <see cref="Lattice"/>): its body, which reaches <see cref="BODY_REACH"/> from the run's point,
+    /// and its wall, which stands on the run, never enter one. At every node a rider goes on straight or turns a right angle,
+    /// from a hash of its own seed and the node's place in its run: the rolled move where the lattice lets it, else the other
+    /// two in turn, so it never turns back, never leaves the ring and never rides into a solid. The run is a function of the
+    /// seed, the solids' layout (the config's seed and the launch's roll, <see cref="GridLayout"/>) and the wall clock alone:
+    /// the same whatever the frame rate, and where a rider is at a time is its run's point at <see cref="SPEED"/> times that
+    /// time. Off the wall clock, so they ride on while the game is paused.
     /// </para>
     /// <para>
     /// <b>The cycles with the backdrop, their walls after the island</b> (<see cref="Draw"/>, <see cref="DrawWalls"/>): a body is
@@ -46,9 +49,14 @@ namespace Prazsky.Core.Render
 
         //The lattice they ride, the ring they keep to, how fast they ride (units a second) and how often one goes straight on
         internal const float LATTICE = 16f;
-        private const float RING_MIN = 56f, RING_MAX = 124f;
+        internal const float RING_MIN = 56f, RING_MAX = 124f;
         internal const float SPEED = 24f;
         private const float STRAIGHT_SHARE = 0.6f;
+
+        //How far every segment of a run keeps off every solid's footprint seen from above (#1136): the body's reach from the
+        //run's point (BODY_REACH; its corners, BODY_HALF_WIDTH aside of the run, reach a few hundredths further) and three
+        //units of floor between its nose and a face. The wall stands on the run itself, so it keeps the whole of it.
+        internal const float SOLID_CLEARANCE = BODY_REACH + 3f;
 
         //The trail: how long a wall stands behind a rider, how tall, and how far behind the cycle's middle it starts (its back wheel)
         private const float TRAIL_LENGTH = 110f;
@@ -74,7 +82,9 @@ namespace Prazsky.Core.Render
 
         private static readonly BlendState ADDITIVE = BlendState.Additive;
 
-        public LightCycles(GraphicsDevice graphicsDevice, ContentManager content, GridSceneConfig config)
+        /// <summary>The cycles on <paramref name="config"/>, riding clear of <paramref name="solids"/>: the solids the backdrop
+        /// stands (<see cref="GridLayout.PlaceSolids"/>).</summary>
+        public LightCycles(GraphicsDevice graphicsDevice, ContentManager content, GridSceneConfig config, IReadOnlyList<GridSolid> solids)
         {
             _graphicsDevice = graphicsDevice;
             _floorY = config.Terrain.LevelY;
@@ -95,7 +105,8 @@ namespace Prazsky.Core.Render
             _bodyVertices.SetData(body);
             _trailVertices = new DynamicVertexBuffer(graphicsDevice, VertexPositionTexture.VertexDeclaration, _trail.Length, BufferUsage.WriteOnly);
 
-            for (int i = 0; i < RIDERS; i++) _riders[i] = new Rider(RiderSeed(config, i));
+            var lattice = new Lattice(solids);
+            for (int i = 0; i < RIDERS; i++) _riders[i] = new Rider(RiderSeed(config, i), lattice);
         }
 
         /// <summary>Rider <paramref name="index"/>'s seed on <paramref name="config"/>: the Potato path rides the same runs (#1044).</summary>
@@ -200,29 +211,36 @@ namespace Prazsky.Core.Render
         internal sealed class Rider
         {
             private readonly int _seed;
+            private readonly Lattice _lattice;
             private readonly Vector2[] _nodes;
             private long _made;          //how many nodes of the run have been made (the newest is _made - 1)
 
-            /// <summary>The rider on <paramref name="seed"/>'s run, keeping the <see cref="KEPT"/> nodes its wall needs.</summary>
-            public Rider(int seed) : this(seed, KEPT) { }
+            /// <summary>The rider on <paramref name="seed"/>'s run over <paramref name="lattice"/>, keeping the <see cref="KEPT"/>
+            /// nodes its wall needs.</summary>
+            public Rider(int seed, Lattice lattice) : this(seed, lattice, KEPT) { }
 
-            /// <summary>The rider on <paramref name="seed"/>'s run, keeping its last <paramref name="kept"/> nodes, and never fewer
-            /// than its wall needs (<see cref="KEPT"/>).</summary>
-            public Rider(int seed, int kept)
+            /// <summary>The rider on <paramref name="seed"/>'s run over <paramref name="lattice"/>, keeping its last
+            /// <paramref name="kept"/> nodes, and never fewer than its wall needs (<see cref="KEPT"/>).</summary>
+            public Rider(int seed, Lattice lattice, int kept)
             {
                 _seed = seed;
+                _lattice = lattice;
                 _nodes = new Vector2[Math.Max(kept, KEPT)];
                 Restart();
             }
 
             private void Restart()
             {
-                //A start on the lattice inside the ring, its first step along an axis
+                //A start on the lattice inside the ring, its first step along an axis: the drawn one where the lattice calls it
+                //live, else the other three round from it, else the live step nearest the drawn start (#1136: a cube reaching
+                //into the ring can stand on the drawn start)
                 var random = new Random(_seed);
                 float bearing = (float)random.NextDouble() * MathHelper.TwoPi;
                 float radius = MathHelper.Lerp(RING_MIN + LATTICE, RING_MAX - LATTICE, (float)random.NextDouble());
                 var start = new Vector2(MathF.Round(MathF.Cos(bearing) * radius / LATTICE) * LATTICE, MathF.Round(MathF.Sin(bearing) * radius / LATTICE) * LATTICE);
                 Vector2 step = Math.Abs(start.X) > Math.Abs(start.Y) ? new Vector2(0f, LATTICE) : new Vector2(LATTICE, 0f);
+                for (int turn = 0; turn < 4 && !_lattice.Live(start + step, step); turn++) step = new Vector2(-step.Y, step.X);
+                if (!_lattice.Live(start + step, step)) _lattice.NearestLive(ref start, ref step);
                 _nodes[0] = start;
                 _nodes[1] = start + step;
                 _made = 2;
@@ -230,11 +248,13 @@ namespace Prazsky.Core.Render
 
             private Vector2 Node(long index) => _nodes[(int)(index % _nodes.Length)];
 
-            //The next node: on straight or a right angle, by the rider's hash at this place in the run, never back and never
-            //out of the ring. The rolled move first, then the other two (#1069: the first picker tried two of the three and
-            //then went back the way it came, so a cycle at the ring's edge turned round - 3119 times over 200 riders' 10,000
-            //units, LightCycleRouteTests). Of the three, the first that stays in the ring with a way on from where it lands,
-            //so no node is a dead end; the first that only stays in when none has; back only when no move stays in at all.
+            //The next node: on straight or a right angle, by the rider's hash at this place in the run, never back, never out of
+            //the ring and never into a solid. The rolled move first, then the other two (#1069: the first picker tried two of
+            //the three and then went back the way it came, so a cycle at the ring's edge turned round - 3119 times over 200
+            //riders' 10,000 units, LightCycleRouteTests). Of the three, the first the lattice calls live (#1136: in the ring,
+            //clear of every solid, and with a way on from there that never needs to turn back), and a rider on a live step
+            //always has one. Only on a floor with no live step at all (solids filling the ring): the first that is open, and
+            //back where none is.
             private void MakeNext()
             {
                 Vector2 last = Node(_made - 1), before = Node(_made - 2);
@@ -249,30 +269,16 @@ namespace Prazsky.Core.Render
                 Vector2 third = first == ahead ? -second : -first;
 
                 Vector2 next;
-                if (Onward(last + first, first)) next = last + first;
-                else if (Onward(last + second, second)) next = last + second;
-                else if (Onward(last + third, third)) next = last + third;
-                else if (InRing(last + first)) next = last + first;
-                else if (InRing(last + second)) next = last + second;
-                else if (InRing(last + third)) next = last + third;
+                if (_lattice.Live(last + first, first)) next = last + first;
+                else if (_lattice.Live(last + second, second)) next = last + second;
+                else if (_lattice.Live(last + third, third)) next = last + third;
+                else if (_lattice.Open(last + first, first)) next = last + first;
+                else if (_lattice.Open(last + second, second)) next = last + second;
+                else if (_lattice.Open(last + third, third)) next = last + third;
                 else next = last - ahead;
 
                 _nodes[(int)(_made % _nodes.Length)] = next;
                 _made++;
-            }
-
-            //Whether a node in the ring, reached by moving along `move`, leaves a way on that is not back
-            private static bool Onward(Vector2 node, Vector2 move)
-            {
-                if (!InRing(node)) return false;
-                var side = new Vector2(-move.Y, move.X);
-                return InRing(node + move) || InRing(node + side) || InRing(node - side);
-            }
-
-            private static bool InRing(Vector2 p)
-            {
-                float r = p.Length();
-                return r >= RING_MIN && r <= RING_MAX;
             }
 
             /// <summary>Where the rider is after <paramref name="distance"/> along its run, and which way it is heading.</summary>
@@ -352,6 +358,144 @@ namespace Prazsky.Core.Render
             }
         }
 
+        /// <summary>
+        /// The floor a rider may take (#1136): every node of the lattice within <see cref="RING_MAX"/> of the axis along both
+        /// axes, as reached along each of the four ways. Such a step is <b>open</b> where the node and the one it is reached
+        /// from are in the ring and the segment between them keeps <see cref="SOLID_CLEARANCE"/> off every solid's footprint (its
+        /// box seen from above); it is <b>live</b> where it is open and at least one of the three steps on from it that are not
+        /// back is live. The live steps are the open ones less every step struck out for having no live step after it, struck
+        /// again until none is left to strike: so a rider that takes only live steps always has one to take, however far it
+        /// rides, and never turns back. Built once per set of solids and shared by the riders on it; asked without allocating.
+        /// </summary>
+        internal sealed class Lattice
+        {
+            //The nodes kept: those within RING_MAX of the axis along both axes (7 lattice steps each way), so every node in the
+            //ring is among them
+            private const int SPAN = (int)(RING_MAX / LATTICE);
+            private const int SIDE = 2 * SPAN + 1;
+
+            //The four ways a step goes, in the order a left turn takes them (+X, +Z, -X, -Z), and the three a step on from one
+            //may take: straight on, left and right, never back
+            private static readonly int[] STEP_X = { 1, 0, -1, 0 }, STEP_Z = { 0, 1, 0, -1 };
+            private static readonly int[] ONWARD = { 0, 1, 3 };
+
+            private readonly bool[] _open = new bool[SIDE * SIDE * 4], _live = new bool[SIDE * SIDE * 4];
+
+            /// <summary>The ring with nothing standing in it.</summary>
+            public static readonly Lattice Bare = new(Array.Empty<GridSolid>());
+
+            /// <summary>The lattice clear of <paramref name="solids"/> (none when null).</summary>
+            public Lattice(IReadOnlyList<GridSolid> solids)
+            {
+                solids ??= Array.Empty<GridSolid>();
+                for (int i = -SPAN; i <= SPAN; i++)
+                    for (int j = -SPAN; j <= SPAN; j++)
+                        for (int way = 0; way < 4; way++)
+                        {
+                            var node = new Vector2(i * LATTICE, j * LATTICE);
+                            var from = new Vector2((i - STEP_X[way]) * LATTICE, (j - STEP_Z[way]) * LATTICE);
+                            _open[Index(i, j, way)] = InRing(node) && InRing(from) && Clear(from, node, solids);
+                        }
+
+                Array.Copy(_open, _live, _open.Length);
+                for (bool struck = true; struck;)
+                {
+                    struck = false;
+                    for (int i = -SPAN; i <= SPAN; i++)
+                        for (int j = -SPAN; j <= SPAN; j++)
+                            for (int way = 0; way < 4; way++)
+                            {
+                                int index = Index(i, j, way);
+                                if (!_live[index]) continue;
+
+                                bool onward = false;
+                                foreach (int turn in ONWARD)
+                                {
+                                    int next = (way + turn) & 3;
+                                    if (IsLive(i + STEP_X[next], j + STEP_Z[next], next)) { onward = true; break; }
+                                }
+
+                                if (!onward)
+                                {
+                                    _live[index] = false;
+                                    struck = true;
+                                }
+                            }
+                }
+            }
+
+            /// <summary>Whether the step reaching <paramref name="node"/> along <paramref name="move"/> (one lattice long, along an
+            /// axis) is one a rider may take and never need to turn back after.</summary>
+            public bool Live(Vector2 node, Vector2 move) => Find(node, move, out int index) && _live[index];
+
+            /// <summary>Whether the step reaching <paramref name="node"/> along <paramref name="move"/> stays in the ring and clear
+            /// of every solid, whatever comes after it.</summary>
+            public bool Open(Vector2 node, Vector2 move) => Find(node, move, out int index) && _open[index];
+
+            /// <summary>Of the live steps, the one whose node it is reached from stands nearest <paramref name="start"/>, as that
+            /// node and the step; both left as they are when no step is live.</summary>
+            public void NearestLive(ref Vector2 start, ref Vector2 step)
+            {
+                float best = float.PositiveInfinity;
+                Vector2 bestStart = start, bestStep = step;
+                for (int i = -SPAN; i <= SPAN; i++)
+                    for (int j = -SPAN; j <= SPAN; j++)
+                        for (int way = 0; way < 4; way++)
+                        {
+                            if (!_live[Index(i, j, way)]) continue;
+                            var from = new Vector2((i - STEP_X[way]) * LATTICE, (j - STEP_Z[way]) * LATTICE);
+                            float d = Vector2.DistanceSquared(from, start);
+                            if (d < best)
+                            {
+                                best = d;
+                                bestStart = from;
+                                bestStep = new Vector2(STEP_X[way] * LATTICE, STEP_Z[way] * LATTICE);
+                            }
+                        }
+
+                start = bestStart;
+                step = bestStep;
+            }
+
+            private bool IsLive(int i, int j, int way) => Math.Abs(i) <= SPAN && Math.Abs(j) <= SPAN && _live[Index(i, j, way)];
+
+            private static int Index(int i, int j, int way) => ((i + SPAN) * SIDE + j + SPAN) * 4 + way;
+
+            //The node's place and the step's way; false for a node past the lattice kept (out of the ring)
+            private static bool Find(Vector2 node, Vector2 move, out int index)
+            {
+                int i = (int)MathF.Round(node.X / LATTICE), j = (int)MathF.Round(node.Y / LATTICE);
+                int way = move.X > 0f ? 0 : move.Y > 0f ? 1 : move.X < 0f ? 2 : 3;
+                index = 0;
+                if (Math.Abs(i) > SPAN || Math.Abs(j) > SPAN) return false;
+                index = Index(i, j, way);
+                return true;
+            }
+
+            private static bool InRing(Vector2 p)
+            {
+                float r = p.Length();
+                return r >= RING_MIN && r <= RING_MAX;
+            }
+
+            //Whether the segment from a to b (along an axis) keeps SOLID_CLEARANCE off every solid's footprint: the gap between
+            //two rectangles along both axes, the segment a rectangle with no width
+            private static bool Clear(Vector2 a, Vector2 b, IReadOnlyList<GridSolid> solids)
+            {
+                float minX = MathF.Min(a.X, b.X), maxX = MathF.Max(a.X, b.X), minZ = MathF.Min(a.Y, b.Y), maxZ = MathF.Max(a.Y, b.Y);
+                for (int k = 0; k < solids.Count; k++)
+                {
+                    GridSolid solid = solids[k];
+                    float halfX = solid.Size.X * 0.5f, halfZ = solid.Size.Z * 0.5f;
+                    float gapX = MathF.Max(0f, MathF.Max(solid.BaseCentre.X - halfX - maxX, minX - solid.BaseCentre.X - halfX));
+                    float gapZ = MathF.Max(0f, MathF.Max(solid.BaseCentre.Z - halfZ - maxZ, minZ - solid.BaseCentre.Z - halfZ));
+                    if (gapX * gapX + gapZ * gapZ < SOLID_CLEARANCE * SOLID_CLEARANCE) return false;
+                }
+
+                return true;
+            }
+        }
+
         //--- The cycle's body ------------------------------------------------------------------------------------------------
 
         /// <summary>A vertex of the cycle: position, the face's normal, and its face-local seam data (see <c>LightCycle.fx</c>).</summary>
@@ -381,14 +525,15 @@ namespace Prazsky.Core.Render
         private const float WHEEL_RADIUS = 1.25f, WHEEL_WIDTH = 0.7f, WHEEL_BASE = 2.6f;
         private const int WHEEL_SIDES = 20;
 
-        //How far the cycle reaches from its middle along its heading (a wheel's rim) and how tall it stands (a wheel's top, over
-        //the hood's 2.32): the body a lens filming it (#1116) frames and keeps out of
-        internal const float BODY_REACH = WHEEL_BASE + WHEEL_RADIUS, BODY_HEIGHT = 2f * WHEEL_RADIUS;
+        //How far the cycle reaches from its middle along its heading (a wheel's rim), how far aside of it (the body's flank, over
+        //a wheel's 0.35) and how tall it stands (a wheel's top, over the hood's 2.32): the body a lens filming it (#1116) frames
+        //and keeps out of, and the run keeps off every solid (SOLID_CLEARANCE)
+        internal const float BODY_REACH = WHEEL_BASE + WHEEL_RADIUS, BODY_HALF_WIDTH = 0.42f, BODY_HEIGHT = 2f * WHEEL_RADIUS;
 
         private static CycleVertex[] CycleBody()
         {
             var v = new List<CycleVertex>();
-            Box(v, new Vector3(0f, 1.25f, 0f), new Vector3(2.2f, 0.45f, 0.42f));      //the body
+            Box(v, new Vector3(0f, 1.25f, 0f), new Vector3(2.2f, 0.45f, BODY_HALF_WIDTH));    //the body
             Box(v, new Vector3(1.5f, 1.95f, 0f), new Vector3(1.0f, 0.25f, 0.38f));    //the cowl
             Box(v, new Vector3(-0.6f, 2.0f, 0f), new Vector3(0.9f, 0.32f, 0.36f));    //the rider's hood
             Wheel(v, new Vector3(WHEEL_BASE, WHEEL_RADIUS, 0f));

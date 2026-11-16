@@ -1,15 +1,17 @@
 using Microsoft.Xna.Framework;
+using System.Collections.Generic;
 
 namespace Prazsky.Core.Render
 {
     /// <summary>
     /// The Grid's light cycles as the runs they ride, for a host that films one (the chapter intro's ride, #1116): the very
     /// riders <see cref="LightCycles"/> draws, made by the same code (<see cref="LightCycles.Rider"/>) from the same seeds
-    /// (<see cref="LightCycles.RiderSeed"/>), so where this says a cycle stands at a wall-clock second is where the frame
-    /// drawn at that second puts it. Riders of its own, not the drawn ones: a host asking ahead of the frame would have the
-    /// drawn ones make their runs again. Nothing here allocates once it is built while a host reads no point of a cycle's run more
-    /// than <see cref="KEPT_SECONDS"/> before the furthest it has asked that cycle at: further back, a rider makes its run again
-    /// from its start (a <see cref="System.Random"/>, and every node since, more the longer the game has run).
+    /// (<see cref="LightCycles.RiderSeed"/>), clear of the same solids (#1136, <see cref="SceneRenderer.GridSolids"/>), so
+    /// where this says a cycle stands at a wall-clock second is where the frame drawn at that second puts it. Riders of its
+    /// own, not the drawn ones: a host asking ahead of the frame would have the drawn ones make their runs again. Nothing here
+    /// allocates once it is built while a host reads no point of a cycle's run more than <see cref="KEPT_SECONDS"/> before the
+    /// furthest it has asked that cycle at: further back, a rider makes its run again from its start (a
+    /// <see cref="System.Random"/>, and every node since, more the longer the game has run).
     /// </summary>
     public sealed class LightCycleRuns
     {
@@ -47,13 +49,15 @@ namespace Prazsky.Core.Render
         private readonly LightCycles.Rider[] _riders = new LightCycles.Rider[COUNT];
         private readonly LightCycles.Rider[] _walls = new LightCycles.Rider[COUNT];
 
-        /// <summary>The runs on <paramref name="config"/>, the Grid the renderer draws.</summary>
-        public LightCycleRuns(GridSceneConfig config)
+        /// <summary>The runs on <paramref name="config"/>, the Grid the renderer draws, clear of <paramref name="solids"/>: the
+        /// solids it stands (<see cref="SceneRenderer.GridSolids"/>), or the runs are not the ones it draws.</summary>
+        public LightCycleRuns(GridSceneConfig config, IReadOnlyList<GridSolid> solids)
         {
+            var lattice = new LightCycles.Lattice(solids);
             for (int i = 0; i < COUNT; i++)
             {
-                _riders[i] = new LightCycles.Rider(LightCycles.RiderSeed(config, i), KEPT);
-                _walls[i] = new LightCycles.Rider(LightCycles.RiderSeed(config, i), KEPT);
+                _riders[i] = new LightCycles.Rider(LightCycles.RiderSeed(config, i), lattice, KEPT);
+                _walls[i] = new LightCycles.Rider(LightCycles.RiderSeed(config, i), lattice, KEPT);
             }
         }
 
