@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1128 polární tábor ve hře a v úvodu — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: tábor (`PolarPlanting`) je 2,5× větší (stožár 27,5, dosah 55,8, `CampClearRadius` 58) a stojí na azimutu −1,92 ve vzdálenosti 150, takže ho herní pohled vidí vlevo nad palubou ve 4:3 až 2.4. `CampTurn` 0,96 ho natáčí čelem ke slunci. Úvod má nový záběr „the camp“ (3,2 s, oblouk 26°), ostatní tři záběry ubraly 1,2 s, reel 16,1 s. Stínová krabice sahá nad stožár (`SceneRenderer.ShadowBoxTop`), texely o ~8 % hrubší. Mrtvé dotazy na zem (`PolarGroundHeight` aj.) odstraněny.
+- ⚠ Test herního pohledu mířil na těžiště clusteru, kam session nikdy nemíří; teď míří přes `OverviewFocus.FollowAim` jako session.
+- Otevřené: `verdict-eye` (velikost tábora a záběr v pohybu neviděny, úvod 16,1 s); na Potato tábor chybí; cena neměřena; žádná kampaňová úroveň na ledu.
+
 ## 2026-11-16 — #1132 vesmír a hory na High na GTX 1060 — DESKTOP_L, Claude Code
 
 - Hotovo, sloučeno: vesmír při supersamplingu stínuje vše kromě hvězd jednou za pixel displeje (`SpaceBase`, v alfě podíl hvězdy, který projde), hvězdy se kreslí přes zvětšení v plné velikosti (`SpaceStars`, `Backdrop.ComposeDisplayResolution`). Orrery na High 19,14 → 8,51 ms; špičky hvězd beze změny (medián 0), okraj planety o pixel měkčí.
