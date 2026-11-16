@@ -15,9 +15,10 @@ namespace BS3D.Tests
     /// this static shot, relatively close to the camera". Held over the real builder, the shipped config and the craft's own
     /// flight (<see cref="SaucerFlight.WorldAt(float, in SaucerPass)"/>) at every roll and at moments all round the wall
     /// clock: the lens stands still; the planet's whole disc stands in the frame's upper half, larger than the station, which
-    /// stands low to one side of it clear of the skip hint; the craft, cued on the shot's first frame, comes into the frame
+    /// stands low to one side of it clear of the skip hint; the craft, cued on every frame of the shot, comes into the frame
     /// after a moment of stillness, crosses it close to the lens and is gone before the cut, on its run in every frame of the
-    /// shot; it never comes near the lens or the island; and with no pass cued the loop flies exactly as it always did.
+    /// shot, where the shot was laid for it through hitches and a pause; it never comes near the lens or the island; and with
+    /// no pass cued the loop flies exactly as it always did.
     /// </summary>
     public class SpaceIntroShotsTests
     {
