@@ -14,7 +14,8 @@ namespace BS3D.Tests
     /// <summary>
     /// What stands on the open sea besides the oil platforms (#1125, the owner: the sea is "still quite empty"): the lighthouse on
     /// its rock, the container ship and the yacht (<see cref="SeaTrafficLayout"/>, <see cref="SeaTrafficMeshes"/>), held over the
-    /// very triangles that are drawn: every one wound clockwise seen from outside; all of it where the swell is flat; the lanes
+    /// very triangles that are drawn: every one wound clockwise seen from outside; all of it where the swell is flat; nothing on
+    /// the ship out past its hull but the bridge wings; the lanes
     /// clear of both platforms, of the lighthouse and of each other; no lens the chapter intro flies near a lane or the lighthouse;
     /// a vessel under the horizon from every lens before it wraps round; the vessels on their clock alone, which starts again
     /// when the sea is selected; the lighthouse in the play view of every shipped level at every window shape, each vessel
@@ -153,6 +154,62 @@ namespace BS3D.Tests
 
             float rock = Placed(Lighthouse(), SeaTrafficLayout.Lighthouse(Sea.LevelY)).Min(p => new Vector2(p.X, p.Z).Length());
             Assert.True(rock >= Sea.WaveFadeEnd, $"the lighthouse's rock comes {rock:F1} near the arena, inside the swell's {Sea.WaveFadeEnd}");
+        }
+
+        [Fact]
+        public void NothingOnTheShipStandsOutPastItsHullButTheBridgeWings()
+        {
+            //Seen from above, everything over the deck stands inside the hull's edge there (the outline round the hull's vertices
+            //at SHIP_DECK_Y), or it hangs in the air beside the hull. The bridge wings are the one thing out over the side, a
+            //unit (half a metre) as a real ship's are. Seen to fire with the forecastle a box again, 24 long and 26 wide, its
+            //forward corners out past the bow.
+            const float WINGS = 1f;
+            List<RigVertex> ship = Ship();
+            Vector2[] edge = ConvexHull(ship.Where(v => MathF.Abs(v.Position.Y - SeaTrafficMeshes.SHIP_DECK_Y) < 1e-3f)
+                .Select(v => new Vector2(v.Position.X, v.Position.Z)));
+            float farthest = float.MinValue;
+            foreach (RigVertex v in ship.Where(v => v.Position.Y > SeaTrafficMeshes.SHIP_DECK_Y + 1e-3f))
+            {
+                float beyond = Beyond(edge, new Vector2(v.Position.X, v.Position.Z));
+                farthest = MathF.Max(farthest, beyond);
+                Assert.True(beyond <= WINGS + 1e-3f, $"the ship's vertex at {v.Position} stands {beyond:F2} out past its hull's edge");
+            }
+            _output.WriteLine(string.Format(CultureInfo.InvariantCulture, "the farthest out past the hull's edge anything stands is {0:F2}", farthest));
+        }
+
+        //The convex outline round points in a plane, counter-clockwise (Andrew's monotone chain)
+        private static Vector2[] ConvexHull(IEnumerable<Vector2> points)
+        {
+            static float Turn(Vector2 o, Vector2 a, Vector2 b) => (a.X - o.X) * (b.Y - o.Y) - (a.Y - o.Y) * (b.X - o.X);
+
+            var sorted = points.Distinct().OrderBy(p => p.X).ThenBy(p => p.Y).ToList();
+            var hull = new List<Vector2>();
+            for (int pass = 0; pass < 2; pass++)
+            {
+                int start = hull.Count;
+                foreach (Vector2 p in sorted)
+                {
+                    while (hull.Count >= start + 2 && Turn(hull[^2], hull[^1], p) <= 0f) hull.RemoveAt(hull.Count - 1);
+                    hull.Add(p);
+                }
+                hull.RemoveAt(hull.Count - 1);
+                sorted.Reverse();
+            }
+            return hull.ToArray();
+        }
+
+        //How far a point stands out past a counter-clockwise convex outline (negative inside it): the farthest it stands out
+        //past any edge's line
+        private static float Beyond(Vector2[] outline, Vector2 point)
+        {
+            float beyond = float.MinValue;
+            for (int i = 0; i < outline.Length; i++)
+            {
+                Vector2 a = outline[i], way = outline[(i + 1) % outline.Length] - a;
+                Vector2 outward = Vector2.Normalize(new Vector2(way.Y, -way.X));
+                beyond = MathF.Max(beyond, Vector2.Dot(point - a, outward));
+            }
+            return beyond;
         }
 
         [Fact]
@@ -381,15 +438,16 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void ThePrologueFramesTheLighthouseInMostRolls()
+        public void ThePrologueFramesTheLighthouseAndAVesselAsTheDocsSay()
         {
             //The sea's prologue is not aimed at the lighthouse or the vessels (the run at the rig is held off them, above), so
             //what it frames of them is what its rolls happen to point at. Every roll and sun of IntroLenses, the shots in the
             //order they play, the vessels' clock starting with the prologue (a pick in the Scene list selects the sea and then
             //flies it; a level on the sea builds, selecting it, and then flies it), at the game's lens and 16:9, geometry only:
             //the lantern, and each vessel's middle over the horizon's cut, in the frame at some pose of some shot over the
-            //water. The lighthouse must be in most rolls' frames. Seen to fire with the lighthouse's bearing at 1.8, behind the
-            //opening view.
+            //water. docs/scenes/sea.md and SeaIntroShots say the lighthouse in about three rolls in four and a vessel in five in
+            //six, so a change to the prologue or the layout that moves either says so here. Seen to fire with the lighthouse's
+            //bearing at 1.8 (every roll) and -2.6 (five in six), and with the ship starting 1500 along its lane (a vessel in 57 %).
             const float ASPECT = 16f / 9f;
             Vector3 lantern = Vector3.Transform(new Vector3(0f, 53f, 0f), SeaTrafficLayout.Lighthouse(Sea.LevelY));
             var heights = Vessels().Select(v => v.Mesh.Max(p => p.Position.Y)).ToArray();
@@ -432,7 +490,10 @@ namespace BS3D.Tests
                 }
 
             _output.WriteLine($"of {rolls} rolls the prologue frames the lighthouse in {lighthouse}, the ship in {ship}, the yacht in {yacht}, a vessel in {any}");
-            Assert.True(lighthouse * 2 > rolls, $"the prologue frames the lighthouse in {lighthouse} rolls of {rolls}");
+            Assert.True(lighthouse >= 0.70f * rolls && lighthouse <= 0.80f * rolls,
+                $"the prologue frames the lighthouse in {lighthouse} rolls of {rolls}, not about three in four as the docs say");
+            Assert.True(any >= 0.78f * rolls && any <= 0.88f * rolls,
+                $"the prologue frames a vessel in {any} rolls of {rolls}, not about five in six as the docs say");
         }
     }
 }

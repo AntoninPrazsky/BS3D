@@ -64,6 +64,12 @@ namespace Prazsky.Core.Render
         /// <summary>How far under the waterline a hull or the rock goes on, so the cut at the water (<c>Rig.fx</c>) is a clean line.</summary>
         private const float DRAUGHT = 5f;
 
+        /// <summary>
+        /// The container ship's deck over the waterline, the hull's top edge: nothing the ship carries stands out past it seen
+        /// from above but the bridge wings (<c>SeaTrafficTests</c>).
+        /// </summary>
+        internal const float SHIP_DECK_Y = 13f;
+
         //How far over the water the rock's waterline ring stands: under the foam's band, so the surf runs round its foot
         private const float WATERLINE_RISE = 0.2f;
 
@@ -182,7 +188,7 @@ namespace Prazsky.Core.Render
             //The hull: from its keel to the boot-top's line, red, then near black to the deck
             Vector2[] keel = HullOutline(new[] { (-124f, 17f), (80f, 17.5f), (100f, 14f), (112f, 8f), (118f, 3f), (120f, 0f) });
             Vector2[] deck = HullOutline(new[] { (-128f, 19f), (80f, 19f), (102f, 16.5f), (118f, 10f), (128f, 4f), (132f, 0f) });
-            const float KEEL_Y = -DRAUGHT, BOOT_Y = 3f, DECK_Y = 13f;
+            const float KEEL_Y = -DRAUGHT, BOOT_Y = 3f, DECK_Y = SHIP_DECK_Y;
             Vector2[] boot = Between(keel, deck, (BOOT_Y - KEEL_Y) / (DECK_Y - KEEL_Y));
             b.Loft(keel, KEEL_Y, boot, BOOT_Y, BOOT_RED, capBottom: true, capTop: false);
             b.Loft(boot, BOOT_Y, deck, DECK_Y, HULL_DARK, capBottom: false, capTop: true, topColor: DECK_RUST);
