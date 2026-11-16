@@ -29,6 +29,12 @@ namespace Prazsky.Core.Render
         /// <summary>Everything, in draw order.</summary>
         public ScatterBucket[] Buckets { get; }
 
+        /// <summary>Which of the outback's layers each of <see cref="Buckets"/> is (<see cref="OutbackLayer.Spinifex"/>,
+        /// <see cref="OutbackLayer.Saltbush"/>, <see cref="OutbackLayer.Timber"/>, <see cref="OutbackLayer.Trees"/>,
+        /// <see cref="OutbackLayer.Gibber"/>), for the measurement dial (<see cref="SceneRenderer.OutbackLayers"/>, #1102).
+        /// Filled with the buckets by the one call that adds both, so the two cannot fall out of step.</summary>
+        public OutbackLayer[] Kinds { get; }
+
         //How far from the arena things grow, and how many of each
         private const float NEAREST = ArenaIsland.RADIUS + 8f, FARTHEST = 320f;
         private const int SALTBUSH_COUNT = 300, DEADWOOD_COUNT = 110, TREES = 40;
@@ -63,7 +69,14 @@ namespace Prazsky.Core.Render
             int seed)
         {
             var buckets = new List<ScatterBucket>();
+            var kinds = new List<OutbackLayer>();
             Random rng = new(seed);
+
+            void Add(ScatterBucket bucket, OutbackLayer kind)
+            {
+                buckets.Add(Own(bucket));
+                kinds.Add(kind);
+            }
 
             bool OnRock(float x, float z, float margin)
             {
@@ -136,14 +149,14 @@ namespace Prazsky.Core.Render
                 //The near band at full needles where FineMeshes is on, and as the far band's hummock below it
                 if (spinifexAt[m].Count > 0)
                 {
-                    buckets.Add(Own(new ScatterBucket(device, spinifex[m], spinifexAt[m], SPINIFEX_GREEN, SPINIFEX_DRY, dapple: 0.25f,
-                        bark: 0f, detailOnly: false, fineMeshes: true, casterMesh: spinifexCaster[m])));
-                    buckets.Add(Own(new ScatterBucket(device, spinifexFar[m], spinifexAt[m], SPINIFEX_GREEN, SPINIFEX_DRY, dapple: 0.25f,
-                        bark: 0f, detailOnly: false, fineMeshes: false, casterMesh: spinifexCaster[m])));
+                    Add(new ScatterBucket(device, spinifex[m], spinifexAt[m], SPINIFEX_GREEN, SPINIFEX_DRY, dapple: 0.25f,
+                        bark: 0f, detailOnly: false, fineMeshes: true, casterMesh: spinifexCaster[m]), OutbackLayer.Spinifex);
+                    Add(new ScatterBucket(device, spinifexFar[m], spinifexAt[m], SPINIFEX_GREEN, SPINIFEX_DRY, dapple: 0.25f,
+                        bark: 0f, detailOnly: false, fineMeshes: false, casterMesh: spinifexCaster[m]), OutbackLayer.Spinifex);
                 }
                 if (spinifexFarAt[m].Count > 0)
-                    buckets.Add(Own(new ScatterBucket(device, spinifexFar[m], spinifexFarAt[m], SPINIFEX_GREEN, SPINIFEX_DRY, dapple: 0.25f,
-                        bark: 0f, detailOnly: false, casterMesh: spinifexCaster[m])));
+                    Add(new ScatterBucket(device, spinifexFar[m], spinifexFarAt[m], SPINIFEX_GREEN, SPINIFEX_DRY, dapple: 0.25f,
+                        bark: 0f, detailOnly: false, casterMesh: spinifexCaster[m]), OutbackLayer.Spinifex);
             }
 
             //--- The saltbush: the dome at Low and Medium and on the Potato path, stems and round leaves at High and Ultra, off
@@ -163,12 +176,12 @@ namespace Prazsky.Core.Render
             for (int m = 0; m < SALT_VARIANTS; m++)
             {
                 if (saltAt[m].Count == 0) continue;
-                buckets.Add(Own(new ScatterBucket(device, domes[m], saltAt[m], SALTBUSH, SALTBUSH_DRY, dapple: 0.5f, bark: 0f,
-                    detailOnly: false, fineMeshes: false)));
-                buckets.Add(Own(new ScatterBucket(device, fine[m].Wood, saltAt[m], MULGA_BARK * 2f, MULGA_BARK * 2.3f, dapple: 0f,
-                    bark: 0.35f, detailOnly: false, castsShadow: false, fineMeshes: true)));
-                buckets.Add(Own(new ScatterBucket(device, fine[m].Leaves, saltAt[m], SALTBUSH, SALTBUSH_DRY, dapple: 0f, bark: 0f,
-                    detailOnly: false, leaves: 3f, fineMeshes: true)));
+                Add(new ScatterBucket(device, domes[m], saltAt[m], SALTBUSH, SALTBUSH_DRY, dapple: 0.5f, bark: 0f,
+                    detailOnly: false, fineMeshes: false), OutbackLayer.Saltbush);
+                Add(new ScatterBucket(device, fine[m].Wood, saltAt[m], MULGA_BARK * 2f, MULGA_BARK * 2.3f, dapple: 0f,
+                    bark: 0.35f, detailOnly: false, castsShadow: false, fineMeshes: true), OutbackLayer.Saltbush);
+                Add(new ScatterBucket(device, fine[m].Leaves, saltAt[m], SALTBUSH, SALTBUSH_DRY, dapple: 0f, bark: 0f,
+                    detailOnly: false, leaves: 3f, fineMeshes: true), OutbackLayer.Saltbush);
             }
 
             //--- The dead timber: logs and limbs lying where they fell, bleached
@@ -178,8 +191,8 @@ namespace Prazsky.Core.Render
             Scatter(timberAt, DEADWOOD_COUNT, 0.7f, 1.4f, 1.8f, 1f, 0.15f, 0.12f);
             for (int m = 0; m < timber.Length; m++)
                 if (timberAt[m].Count > 0)
-                    buckets.Add(Own(new ScatterBucket(device, timber[m], timberAt[m], TIMBER, TIMBER_DRY, dapple: 0f, bark: 0.5f,
-                        detailOnly: false, earthed: true)));
+                    Add(new ScatterBucket(device, timber[m], timberAt[m], TIMBER, TIMBER_DRY, dapple: 0f, bark: 0.5f,
+                        detailOnly: false, earthed: true), OutbackLayer.Timber);
 
             //--- The trees: mulga (upright, dark, feathery) and dead ones, most of them at a formation's foot
             var trees = new List<AcaciaMesh>();
@@ -219,16 +232,16 @@ namespace Prazsky.Core.Render
                 if (tree.Canopy != null)
                 {
                     //The plate for the Low tier, the leaf sprays for every other (the savanna's acacias, #610)
-                    buckets.Add(Own(new ScatterBucket(device, tree.Canopy, treeAt[m], MULGA, MULGA_DRY, dapple: 0.6f, bark: 0f,
-                        detailOnly: false, lowOnly: true)));
-                    buckets.Add(Own(new ScatterBucket(device, tree.Leaves, treeAt[m], MULGA, MULGA_DRY, dapple: 0.35f, bark: 0f,
-                        detailOnly: true, leaves: 1f)));
+                    Add(new ScatterBucket(device, tree.Canopy, treeAt[m], MULGA, MULGA_DRY, dapple: 0.6f, bark: 0f,
+                        detailOnly: false, lowOnly: true), OutbackLayer.Trees);
+                    Add(new ScatterBucket(device, tree.Leaves, treeAt[m], MULGA, MULGA_DRY, dapple: 0.35f, bark: 0f,
+                        detailOnly: true, leaves: 1f), OutbackLayer.Trees);
                 }
                 Vector3 bark = dead ? DEAD_TREE : MULGA_BARK;
-                buckets.Add(Own(new ScatterBucket(device, tree.Wood, treeAt[m], bark, bark * 1.15f, dapple: 0f, bark: 0.6f,
-                    detailOnly: false, earthed: true, fineMeshes: false)));
-                buckets.Add(Own(new ScatterBucket(device, tree.FineWood, treeAt[m], bark, bark * 1.15f, dapple: 0f, bark: 0.6f,
-                    detailOnly: false, earthed: true, fineMeshes: true)));
+                Add(new ScatterBucket(device, tree.Wood, treeAt[m], bark, bark * 1.15f, dapple: 0f, bark: 0.6f,
+                    detailOnly: false, earthed: true, fineMeshes: false), OutbackLayer.Trees);
+                Add(new ScatterBucket(device, tree.FineWood, treeAt[m], bark, bark * 1.15f, dapple: 0f, bark: 0.6f,
+                    detailOnly: false, earthed: true, fineMeshes: true), OutbackLayer.Trees);
             }
 
             //--- The gibber (#776), last so that it moves nothing above it: the small dark iron-stained stones of the plain, at High and Ultra (where Outback.fx cracks the
@@ -242,10 +255,11 @@ namespace Prazsky.Core.Render
             Scatter(gibberAt, GIBBER_FAR, 0.2f, 0.45f, 0.5f, 0.5f, 0.05f, 0.6f, GIBBER_NEAR_TO, GIBBER_FARTHEST);
             for (int m = 0; m < gibber.Length; m++)
                 if (gibberAt[m].Count > 0)
-                    buckets.Add(Own(new ScatterBucket(device, gibber[m], gibberAt[m], GIBBER, GIBBER_DUSTED, dapple: 0.2f, bark: 0.3f,
-                        detailOnly: false, fineMeshes: true)));
+                    Add(new ScatterBucket(device, gibber[m], gibberAt[m], GIBBER, GIBBER_DUSTED, dapple: 0.2f, bark: 0.3f,
+                        detailOnly: false, fineMeshes: true), OutbackLayer.Gibber);
 
             Buckets = buckets.ToArray();
+            Kinds = kinds.ToArray();
         }
 
         //A saltbush's leaf card against its clump (the meadow's shrub is 0.55): small round leaves, a little bigger than a

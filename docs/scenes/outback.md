@@ -91,3 +91,28 @@ Desktop (RX 6900 XT), the Game's front end on the outback, 3840 x 1581 windowed,
 - The bake is once per sun and not in these figures: one pass at the scene's first frame and on a dome change.
 - **The table's After column still includes the heat shimmer** (#1123), which cost 0.08-0.10 ms a frame: the Testbed at 1920x1080 and ssaa 2, `sceneseed=3`, under dome 21, with and without it alternated in one process (`alt=`, 27-28 settled cycles a run): 0.08 at the low lens among the hummocks (`campos=-20,-9,40 camtarget=-35,-12,60`, sign held 93 %), 0.09 and 0.10 over the plain from above (`campos=40,10,60 camtarget=120,-12,180`, 74 % and 68 %, another session on the card). The longer haze and the later fade change figures, not instructions.
 - Not measured on the APU or the laptop.
+
+## What each layer costs (#1102)
+
+The Testbed's `outback=` dial (`OutbackLayer`, "The dials" in [Capturing and measuring](../testbed/capture-and-measurement.md)), at the pin the three layer sweeps of #1102 share: desktop (RX 6900 XT), Testbed Release, `scene=outback sceneseed=0 fpscap=1000 width=3840 height=1500`, the game-mode camera (`at=3:F10`), dome 21, the scene's own 4096 map (Ultra's is 8192), post on. One process a column, the variants in settled windows (#1129), each one's difference from `outback=all` within its cycle; the median of 13 to 24 cycles, the sign held in every cycle for every figure over 0.02. `ssaa=1` is the Testbed's eight samples with the sky first; `ssaa=2` is High and Ultra's frame, the sky behind the opaque scene at display resolution, so a layer there is priced net of the sky it hides (a formation out shows the sky through its footprint). The empty field and `Maps/Full.json` agree to 0.06 ms a layer (every layer at once to 0.07), and a second process with the variants in the reverse order read the `ssaa=2` Full column again to 0.01 ms a layer.
+
+| ms (saved with the layer out) | `ssaa=1` empty | `ssaa=1` Full | `ssaa=2` empty | `ssaa=2` Full |
+|---|---|---|---|---|
+| the frame | 5.56 | 6.13 | 7.01 | 8.09 |
+| every layer (`outback=none`) | 3.40 | 3.33 | 4.21 | 4.14 |
+| `Formations`, the discs | **1.81** | **1.77** | **3.32** | **3.26** |
+| `Plain`, the camera grid | 0.51 | 0.50 | 0.20 | 0.20 |
+| `Spinifex` | 0.34 | 0.33 | 0.05 | 0.05 |
+| `Saltbush` | 0.24 | 0.23 | 0.12 | 0.12 |
+| `Casters` | 0.10 | 0.09 | 0.09 | 0.09 |
+| `FarRing` | 0.08 | 0.08 | 0.08 | 0.08 |
+| `Trees` | 0.07 | 0.06 | 0.03 | 0.03 |
+| `Gibber` | 0.04 | 0.03 | 0.01 | 0.01 |
+| `Bank` | 0.03 | 0.03 | −0.01 | −0.02 |
+| `Stones`, `Timber`, `Birds`, `Crust`, `SunBake` | 0.02 or less, either way | | | |
+| the sun's map (`shadow=0`) | 0.39 | 0.53 | 0.44 | 0.65 |
+
+- **The Game's frame at Ultra over the outback's front end** (Game Release of #1102's branch, `scene=outback preview=1 quality=ultra fpscap=1000 sceneseed=0`, a 3840x1500 window, a scratch profile, two runs, the median of the `[fps]` lines of seconds 9 to 47 of each): **8.59 and 9.03 ms**, the dearest second 12.1, under #1103's 13.33.
+- ⚠ **The formations are most of the scene**: 3.3 ms of the 4.2 its layers cost on High and Ultra's path, 1.8 of 3.4 at `ssaa=1`. **It is their pixels**: at `ssaa=1` without samples, the render scale alternated in the same process (`alt=outback=all,ssaa=1,msaa=0,rscale=1;outback=all/-formations,ssaa=1,msaa=0,rscale=1;…`, 33 cycles), they cost 0.68 ms at 3840x1500, 0.39 at 1920x750 and 0.10 at 960x375, so the vertex shader that runs the whole `OutbackHeight` field at every vertex of the discs is a tenth of a millisecond at most. Each pixel of rock takes three taps of that field for its normal (`ShadeOutback` with `rocky`), under a `clip`, drawn two-sided before the plain with no depth pass of its own. What could cut it is #1137.
+- **The plain and what grows on it are cheap at `ssaa=2`**: the grid's depth is laid first and it is shaded once a pixel (0.20 against 0.51 at `ssaa=1`), and the spinifex hummocks' needles, which eight samples make dear (0.34), cost 0.05. The crust (#776) costs nothing measurable at the game camera (it is computed only where a plate spans `CRUST_PIXELS`).
+- Reading the formations' baked shadows costs 0.02 ms at most (`SunBake`), and the sun's map's 0.4 to 0.65 ms is the island's, the gun's and the balls' casting with the planting's 0.09.

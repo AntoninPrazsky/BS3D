@@ -679,21 +679,25 @@ namespace Testbed.Diagnostics
             return members;
         }
 
-        //The volcano's layers (#540), the aurora's (#1027), the cavern's (#1029), the meadow's (#1028), the mountain's (#1035) and the
-        //forest's (#1099), the arena members' grammar - names of the flags, each added
-        //or, with a leading '-', removed, left to right - separated by '/' as well as ',' so a list fits in one alternation
-        //pin, where ',' already separates pins: "alt=volcano=all;volcano=all/-plume;volcano=all/-ash".
-        public static VolcanoLayer ParseVolcanoLayers(string list) => ParseLayers<VolcanoLayer>(list);
+        //The volcano's layers (#540), the aurora's (#1027), the cavern's (#1029), the meadow's (#1028), the mountain's (#1035), the
+        //forest's (#1099), Mars's and the outback's (#1102), in one grammar (LayerDial.Parse, in Prazsky.Core so the tests reach
+        //it): names of the flags, each added or, with a leading '-', removed, left to right, separated by '/' as well as ','
+        //so a list fits in one alternation pin, where ',' already separates pins: "alt=volcano=all;volcano=all/-plume".
+        public static VolcanoLayer ParseVolcanoLayers(string list) => LayerDial.Parse<VolcanoLayer>(list);
 
-        public static ForestLayer ParseForestLayers(string list) => ParseLayers<ForestLayer>(list);
+        public static ForestLayer ParseForestLayers(string list) => LayerDial.Parse<ForestLayer>(list);
 
-        public static AuroraLayer ParseAuroraLayers(string list) => ParseLayers<AuroraLayer>(list);
+        public static AuroraLayer ParseAuroraLayers(string list) => LayerDial.Parse<AuroraLayer>(list);
 
-        public static CavernLayer ParseCavernLayers(string list) => ParseLayers<CavernLayer>(list);
+        public static CavernLayer ParseCavernLayers(string list) => LayerDial.Parse<CavernLayer>(list);
 
-        public static MeadowLayer ParseMeadowLayers(string list) => ParseLayers<MeadowLayer>(list);
+        public static MeadowLayer ParseMeadowLayers(string list) => LayerDial.Parse<MeadowLayer>(list);
 
-        public static MountainLayer ParseMountainLayers(string list) => ParseLayers<MountainLayer>(list);
+        public static MountainLayer ParseMountainLayers(string list) => LayerDial.Parse<MountainLayer>(list);
+
+        public static MarsLayer ParseMarsLayers(string list) => LayerDial.Parse<MarsLayer>(list);
+
+        public static OutbackLayer ParseOutbackLayers(string list) => LayerDial.Parse<OutbackLayer>(list);
 
         /// <summary><c>envorder=</c>'s value (<see cref="EnvironmentOrder"/>); anything unread is <c>auto</c>, the scene's answer.</summary>
         public static EnvironmentOrder ParseEnvironmentOrder(string value) => value.Trim().ToLowerInvariant() switch
@@ -714,27 +718,6 @@ namespace Testbed.Diagnostics
 
         /// <summary><c>skyres=</c>'s value: <c>full</c> is the sky at every sample; anything else is <c>display</c>, once a display pixel.</summary>
         public static bool ParseSkyAtDisplayResolution(string value) => !value.Trim().Equals("full", StringComparison.OrdinalIgnoreCase);
-
-        private static T ParseLayers<T>(string list) where T : struct, Enum
-        {
-            long layers = 0;
-
-            foreach (string token in list.Split(',', '/'))
-            {
-                string name = token.Trim();
-                if (name.Length == 0) continue;
-
-                bool remove = name[0] == '-';
-                if (remove) name = name.Substring(1);
-
-                if (!Enum.TryParse(name, ignoreCase: true, out T one)) continue;
-
-                long bits = Convert.ToInt64(one);
-                layers = remove ? layers & ~bits : layers | bits;
-            }
-
-            return (T)Enum.ToObject(typeof(T), layers);
-        }
 
         //Parses the alternation cycle: variants separated by ';', each an arena member list with an optional
         //'/N' cap probe after it. ';' and '/' are used because ',' and '-' already mean something inside a

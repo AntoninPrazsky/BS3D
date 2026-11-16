@@ -246,7 +246,7 @@ namespace Prazsky.Core.Render
         //Inside the terrain pass, the frame's parameters pushed: the bank in the program the tier draws the plain with
         private void DrawBank()
         {
-            if (_bank == null) return;
+            if (_bank == null || (Layers & MarsLayer.Bank) == 0) return;
 
             EffectTechnique grid = _marsEffect.CurrentTechnique;
             _marsEffect.CurrentTechnique = grid == _marsTerrainReduced ? _bankReducedTechnique : _bankTechnique;
@@ -369,16 +369,28 @@ namespace Prazsky.Core.Render
         /// <summary>The ground and what stands on it.</summary>
         public override void Draw(in SceneFrame frame)
         {
-            DrawMarsTerrain(frame);
-            if (_berm != null) _plants.Draw(frame, _bermStones, _marsConfig.Air.HorizonHazeDistance, detail: true, Services.FineMeshes);
-            _plants.Draw(frame, _rocks, _marsConfig.Air.HorizonHazeDistance, detail: true, Services.FineMeshes);
+            if ((Layers & (MarsLayer.Ground | MarsLayer.FarRing | MarsLayer.Bank)) != 0) DrawMarsTerrain(frame);
+            if (_berm != null && (Layers & MarsLayer.Stones) != 0)
+                _plants.Draw(frame, _bermStones, _marsConfig.Air.HorizonHazeDistance, detail: true, Services.FineMeshes);
+            if ((Layers & MarsLayer.Rocks) != 0) _plants.Draw(frame, _rocks, _marsConfig.Air.HorizonHazeDistance, detail: true, Services.FineMeshes);
         }
+
+        /// <summary>
+        /// The layers drawn (#1102): a measurement dial (<see cref="SceneRenderer.MarsLayers"/>, the Testbed's <c>mars=</c>),
+        /// <see cref="MarsLayer.All"/> for every other caller. Each layer is drawn or not on the next frame; nothing carries:
+        /// <see cref="MarsLayer.Bake"/> off draws the exact ground where the baked one would be and keeps the maps, so turning it
+        /// back on bakes nothing.
+        /// </summary>
+        public MarsLayer Layers { get; set; } = MarsLayer.All;
 
         /// <summary>
         /// Phobos and Deimos, blended over the dome. They are drawn at the far plane and depth-read, so they show only where
         /// nothing in the frame has written depth.
         /// </summary>
-        public override void DrawBlended(in SceneFrame frame) => DrawMarsMoons(frame);
+        public override void DrawBlended(in SceneFrame frame)
+        {
+            if ((Layers & MarsLayer.Moons) != 0) DrawMarsMoons(frame);
+        }
 
         /// <inheritdoc/>
         public override bool HasShadowCasters => true;
@@ -386,6 +398,7 @@ namespace Prazsky.Core.Render
         /// <summary>The bank round the island (#646) and the clearing's stones (#775) cast into the sun's map.</summary>
         public override void DrawShadowCasters(Matrix shadowViewProjection)
         {
+            if ((Layers & MarsLayer.Casters) == 0) return;
             if (_berm != null) _plants.DrawShadowCasters(shadowViewProjection, _berm.Buckets, Services.FineMeshes);
             _plants.DrawShadowCasters(shadowViewProjection, _rocks, Services.FineMeshes);
         }
@@ -414,6 +427,8 @@ namespace Prazsky.Core.Render
         {
             //The ground technique first: the moons pass leaves its own as the current one, and the pass applies the current
             _marsEffect.CurrentTechnique = DrawsBaked(frame.Camera.Position) ? _marsTerrainBaked : _marsTerrainTechnique;
+            _marsPass.DrawsGrid = (Layers & MarsLayer.Ground) != 0;
+            _marsPass.DrawsFarRing = (Layers & MarsLayer.FarRing) != 0;
             _marsPass.Draw(frame, Services.TerrainHoleRadius, _drawBank);
         }
 
@@ -423,11 +438,13 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Whether this frame's ground reads the bake (#1100): it is baked and wanted, and the lens stands within
-        /// <see cref="BAKE_CAMERA_REACH"/> of the arena. The bank round the island is drawn the exact ground either way
-        /// (<see cref="DrawBank"/>): its program blends the plain's normal into its own mesh's.
+        /// <see cref="BAKE_CAMERA_REACH"/> of the arena, and the measurement dial has not taken it out (<see cref="MarsLayer.Bake"/>).
+        /// The bank round the island is drawn the exact ground either way (<see cref="DrawBank"/>): its program blends the
+        /// plain's normal into its own mesh's.
         /// </summary>
         private bool DrawsBaked(Vector3 camera) =>
-            _bakeAlbedo != null && BakeWanted && camera.X * camera.X + camera.Z * camera.Z < BAKE_CAMERA_REACH * BAKE_CAMERA_REACH;
+            _bakeAlbedo != null && BakeWanted && (Layers & MarsLayer.Bake) != 0
+            && camera.X * camera.X + camera.Z * camera.Z < BAKE_CAMERA_REACH * BAKE_CAMERA_REACH;
 
         /// <summary>
         /// Bakes the ground's static fields (#1100) when they are wanted and the sun has moved since the last bake (the big

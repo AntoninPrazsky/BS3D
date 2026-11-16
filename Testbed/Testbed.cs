@@ -878,13 +878,18 @@ namespace Testbed
             if (_arenaIsolated && _environmentOrder == EnvironmentOrder.Auto)
                 Console.WriteLine("[envorder] first in every window: this run isolates the arena (arena=, capprobe=), and the island's depth laid first would price the ground its members hide with them (#1098)");
 
-            //A run that takes a domed scene's layers apart (volcano=, meadow=, mountain=, forest=, which are alt= pins only) prices a
+            //A run that takes a domed scene's layers apart (volcano=, meadow=, mountain=, forest=, mars=, outback=, which are alt= pins only) prices a
             //layer net of the sky it hides while the sky is drawn behind the opaque scene: a layer left out gives back the sky
             //behind it, which is what a tier cutting the layer would save. skyorder=first prices the layer alone, the way
             //every layer price was taken before #1104. Said, not forced: both are true figures, of two different questions.
+            //Which one this run gives is SkyPass.BehindScene's answer for the target it opens with: never behind into a
+            //multisampled one, so ssaa=1 (eight samples unless msaa=0) prices the layer alone. A variant pinning ssaa= or
+            //msaa= rebuilds the target and the frame asks again (Testbed.Draw.cs); this line reads the run's own.
             if (_skyOrderPin == null
-                && _options.Alternation.Any(variant => variant.Pins.Any(pin => pin.Dial is "volcano" or "meadow" or "mountain" or "forest")))
-                Console.WriteLine("[skyorder] this run takes a scene's layers apart under the sky drawn behind the opaque scene: a layer's price is net of the sky it hides (what a tier cutting it saves); skyorder=first prices the layer alone (#1104)");
+                && _options.Alternation.Any(variant => variant.Pins.Any(pin => pin.Dial is "volcano" or "meadow" or "mountain" or "forest" or "mars" or "outback")))
+                Console.WriteLine(SkyPass.BehindScene(_pipeline.SceneTarget)
+                    ? "[skyorder] this run takes a scene's layers apart with the sky drawn behind the opaque scene: a layer's price is net of the sky it hides (what a tier cutting it saves); skyorder=first prices the layer alone (#1104)"
+                    : "[skyorder] this run takes a scene's layers apart with the sky drawn first (the scene target carries samples, and the sky is never drawn behind into one): a layer is priced alone, not net of the sky it hides; skyorder=late prices it net (#1104)");
 
             //#1096: "bdres=0" draws space, the dream, the cavern and the big top into the scene target with its samples rather
             //than at display resolution: the big top's frame before #1096; the dream and the cavern have taken the path since #155, space since #1132
@@ -1456,7 +1461,7 @@ namespace Testbed
         /// behind alike and <see cref="MarkVariantSwitch"/> waits out (#1129).
         /// </summary>
         private static readonly string[] ALTERNATION_DIALS =
-            { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "finemeshes", "envorder", "skyorder", "skyres", "bdres", "cityreflect", "cityreflectreach", "cityreflectsteps", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano", "aurora", "cavern", "meadow", "mountain", "forest" };
+            { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "finemeshes", "envorder", "skyorder", "skyres", "bdres", "cityreflect", "cityreflectreach", "cityreflectsteps", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano", "aurora", "cavern", "meadow", "mountain", "forest", "mars", "outback" };
 
         /// <summary>
         /// Prints the sweep's plan before the first window, and names anything it will not switch. A pin that
@@ -1630,6 +1635,16 @@ namespace Testbed
                     case "forest":
                         _sceneRenderer.ForestLayers = TestOptions.ParseForestLayers(pin.Value);
                         if (_forestScatter != null) _forestScatter.Layers = _sceneRenderer.ForestLayers;
+                        break;
+
+                    //Mars's layers (#1102): "mars=all/-moons"; "-bake" draws the exact ground where the baked one would be
+                    case "mars":
+                        _sceneRenderer.MarsLayers = TestOptions.ParseMarsLayers(pin.Value);
+                        break;
+
+                    //The outback's layers (#1102): "outback=all/-spinifex"
+                    case "outback":
+                        _sceneRenderer.OutbackLayers = TestOptions.ParseOutbackLayers(pin.Value);
                         break;
 
                     //Whether the island's depth is laid before the environment (#1098): "envorder=first" is the frame
