@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-11-16 — #1136 test alokací Gridu: falešné bajty z background GC — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: `Choosing_again_and_posing_allocate_nothing` padal na linux-arm64 náhodně (328 B). Příčina není okno `KEPT_SECONDS`: žádný restart běhu, nejtěsnější čtení má 5 uzlů rezervy na obou platformách. Background GC (spuštěný souběžnými testy) při svém druhém pozastavení odebere vláknu rozjetý alokační buffer a `GC.GetAllocatedBytesForCurrentThread` započte jeho nevyužitý zbytek (128–8 104 B). Test teď před počítanými fázemi vyprázdní buffer `GC.Collect(0)`; skutečná alokace se počítá dál celá (mutace kratšího okna: 325 584 B).
+- ⚠ Měřič alokací vlákna ukazuje falešné bajty, když vlákno má rozjetý buffer a běží BGC; s `DOTNET_gcConcurrent=0` ani z prázdného bufferu se to nestalo.
+
 ## 2026-11-16 — #1136 červený main: test alokací jízdy Gridu — desktop (RDT-PC), Claude Code
 
 - Hotovo: CI na `main` po sloučení #1136 (bf91188a) padalo na `GridRideTests.Choosing_again_and_posing_allocate_nothing`, 464 B na obou runnerech; lokálně test prošel sám i v celé sadě. Test teď všechny jízdy jednou projede nepočítaně a teprve druhý průchod počítá, po fázích, a při chybě je jmenuje. Na větvi zelené všechny tři joby.
