@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1120 #1122 #1099 les: hustší smrky a ořez podle pohledu — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: každý průchod (kamera i slunce) kreslí jen stromy ve svém frustu (`ForestPasses`, `InstanceCells` pro statickou výzdobu a vzdálený porost), průchody kamery řadí od nejbližšího. Na High/Ultra nosí blízkou korunu i stromy do 90 jednotek od ohniska, které skočí ke kameře jen při střihu (> 8 jednotek za snímek). Blízká koruna hustší (91–179 větví). Testbed má číselník `forest=`.
+- Ultra, Heart v lese: 10,15 → 10,06 ms; háj v úvodu +0,20 ms; aurora na Fish ~+0,1 ms.
+- ⚠ Jehličí, větvičky a kapradí stojí dohromady jen ~0,1 ms; cena je ve větvích a listových kartách (0,89 ms), ořez podle tmy by nic neušetřil.
+- Otevřené: verdikt oka (#1120, aurora); #1122 rozhodnutí majitele; #1099 hrubší koruna za vzdáleností; pohyb střihů neviděn.
+
 ## 2026-11-16 — #1136 test alokací Gridu: falešné bajty z background GC — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: `Choosing_again_and_posing_allocate_nothing` padal na linux-arm64 náhodně (328 B). Příčina není okno `KEPT_SECONDS`: žádný restart běhu, nejtěsnější čtení má 5 uzlů rezervy na obou platformách. Background GC (spuštěný souběžnými testy) při svém druhém pozastavení odebere vláknu rozjetý alokační buffer a `GC.GetAllocatedBytesForCurrentThread` započte jeho nevyužitý zbytek (128–8 104 B). Test teď před počítanými fázemi vyprázdní buffer `GC.Collect(0)`; skutečná alokace se počítá dál celá (mutace kratšího okna: 325 584 B).

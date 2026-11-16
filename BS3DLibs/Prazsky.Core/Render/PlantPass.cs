@@ -145,6 +145,7 @@ namespace Prazsky.Core.Render
 
             _graphicsDevice.BlendState = BlendState.Opaque;
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
+            _frustum.Matrix = frame.Camera.View * frame.Camera.Projection;
 
             for (int i = 0; i < buckets.Count; i++)
             {
@@ -192,6 +193,7 @@ namespace Prazsky.Core.Render
         {
             Effect.CurrentTechnique = _shadowTechnique;
             _shadowViewProjection.SetValue(shadowViewProjection);
+            _frustum.Matrix = shadowViewProjection;
 
             for (int i = 0; i < buckets.Count; i++)
             {
@@ -207,11 +209,28 @@ namespace Prazsky.Core.Render
             Effect.CurrentTechnique = _technique;
         }
 
+        //A bucket whole, or one with cells (#1099) as the runs of them inside this pass's frustum (_frustum). Each run is bound
+        //from its first instance (not a base instance, which MonoGame's OpenGL ES backend refuses: InstancedDraws)
         private void DrawBucket(ScatterBucket bucket, IProceduralMesh mesh)
         {
-            InstanceBinding.Set(_graphicsDevice, mesh.VertexBuffer, 0, bucket.Instances, 0);
             _graphicsDevice.Indices = mesh.IndexBuffer;
-            _graphicsDevice.DrawInstanced(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, bucket.Count);
+            InstanceCells cells = bucket.Cells;
+            if (cells == null)
+            {
+                InstanceBinding.Set(_graphicsDevice, mesh.VertexBuffer, 0, bucket.Instances, 0);
+                _graphicsDevice.DrawInstanced(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, bucket.Count);
+                return;
+            }
+
+            int runs = cells.Runs(_frustum);
+            for (int r = 0; r < runs; r++)
+            {
+                InstanceBinding.Set(_graphicsDevice, mesh.VertexBuffer, 0, bucket.Instances, cells.RunStart[r]);
+                _graphicsDevice.DrawInstanced(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, cells.RunCount[r]);
+            }
         }
+
+        //The frustum a pass culls a bucket's cells by: the camera's, or the sun's map's box (#1099). One instance, set per pass
+        private readonly BoundingFrustum _frustum = new(Matrix.Identity);
     }
 }

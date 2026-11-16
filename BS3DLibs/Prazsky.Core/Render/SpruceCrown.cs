@@ -138,18 +138,25 @@ namespace Prazsky.Core.Render
         /// <summary>Added to the seed, so the two details of one variant roll their own arms.</summary>
         public int Salt { get; init; }
 
-        /// <summary>The spruces round the arena: a whorl every 1.15 units, five rings an arm.</summary>
+        /// <summary>
+        /// The spruces round the arena: a whorl every unit of six or seven arms and one to three smaller ones between, three
+        /// rings an arm (#1120). The references of a spruce at dusk (<c>C:\Users\panrd\AI\sd\out\1120-*</c>) draw a dense cone
+        /// of many narrow layered sprays, dark between them, its outline hundreds of tips; five to seven wide arms a whorl every
+        /// 1.15 units read as a few paddles on a pole. Three rings an arm where there were five pay for the arms in triangles,
+        /// but a fuller crown covers more of the screen, and that is its price: half again as many arms as before cost 0.3 ms
+        /// of the Game's frame at Ultra in play, so it has a sixth to two fifths more.
+        /// </summary>
         public static readonly SpruceDetail Near = new()
         {
-            WhorlSpacing = 1.15f,
-            Arms = 5, ArmsSpread = 3, Between = 1, BetweenSpread = 2,
-            Width = 0.13f,
-            RingT = new[] { 0f, 0.22f, 0.45f, 0.66f, 0.86f },
-            RingWidth = new[] { 0.25f, 0.75f, 1f, 0.8f, 0.45f },
-            RingHang = new[] { 0.35f, 1f, 0.55f, 1f, 0.45f },
-            RingRidge = new[] { 0.3f, 0.85f, 1f, 0.75f, 0.4f },
-            ShortRings = new[] { 0, 2, 4 },
-            Shade = 0.2f,
+            WhorlSpacing = 1f,
+            Arms = 6, ArmsSpread = 2, Between = 1, BetweenSpread = 3,
+            Width = 0.115f,
+            RingT = new[] { 0f, 0.42f, 0.78f },
+            RingWidth = new[] { 0.28f, 1f, 0.6f },
+            RingHang = new[] { 0.38f, 1f, 0.8f },
+            RingRidge = new[] { 0.32f, 1f, 0.55f },
+            ShortRings = new[] { 0, 2 },
+            Shade = 0.28f,
             Salt = 0,
         };
 

@@ -74,22 +74,55 @@ namespace Prazsky.Core.Render
             List<StandInstance>[] planted = Plant(config, planting);
             _instances = new VertexBuffer[planted.Length];
             _counts = new int[planted.Length];
+            _cells = new InstanceCells[planted.Length];
             for (int k = 0; k < planted.Length; k++)
             {
-                _counts[k] = planted[k].Count;
-                _instances[k] = new VertexBuffer(device, StandInstance.Declaration, Math.Max(planted[k].Count, 1), BufferUsage.WriteOnly);
-                if (planted[k].Count > 0) _instances[k].SetData(planted[k].ToArray());
-                Count += planted[k].Count;
-                Triangles += (long)planted[k].Count * _meshes[k].PrimitiveCount;
+                StandInstance[] laid = LaidOut(planted[k], _meshes[k].BoundingSphere, out _cells[k]);
+                _counts[k] = laid.Length;
+                _instances[k] = new VertexBuffer(device, StandInstance.Declaration, Math.Max(laid.Length, 1), BufferUsage.WriteOnly);
+                if (laid.Length > 0) _instances[k].SetData(laid);
+                Count += laid.Length;
+                Triangles += (long)laid.Length * _meshes[k].PrimitiveCount;
             }
         }
 
+        //Each draw's instances laid out by sector round the axis (#1099), so a draw sends the sectors the lens looks across:
+        //from the play camera about a quarter of the ring, and the stand is ten thousand trees all round it
+        private readonly InstanceCells[] _cells;
+        private readonly BoundingFrustum _frustum = new(Matrix.Identity);
+
         /// <summary>
-        /// Draws the eight through the forest's effect, whose view, projection and light the terrain pass has just set;
-        /// the technique, the culling and the blend it found are put back.
+        /// <paramref name="planted"/> in the order of its sectors (<see cref="InstanceCells"/>), each tree's bounds its
+        /// mesh's as <c>Forest.fx</c>'s <c>StandVS</c> places it: stretched in height by <c>Look.z</c>, scaled by <c>Place.w</c>,
+        /// turned about the vertical (so the sphere's centre off the axis is taken as reach) and stood at <c>Place.xyz</c>.
         /// </summary>
-        public void Draw()
+        private static StandInstance[] LaidOut(List<StandInstance> planted, BoundingSphere mesh, out InstanceCells cells)
         {
+            var centres = new Vector3[planted.Count];
+            var radii = new float[planted.Count];
+            float offAxis = new Vector2(mesh.Center.X, mesh.Center.Z).Length();
+            for (int i = 0; i < planted.Count; i++)
+            {
+                Vector4 place = planted[i].Place;
+                float stretch = planted[i].Look.Z;
+                centres[i] = new Vector3(place.X, place.Y + mesh.Center.Y * stretch * place.W, place.Z);
+                radii[i] = (mesh.Radius * MathF.Max(1f, stretch) + offAxis) * place.W;
+            }
+            cells = InstanceCells.Build(centres, radii, out int[] order);
+            var laid = new StandInstance[planted.Count];
+            for (int k = 0; k < order.Length; k++) laid[k] = planted[order[k]];
+            return laid;
+        }
+
+        /// <summary>
+        /// Draws the eight through the forest's effect, whose view, projection and light the terrain pass has just set, each
+        /// as the runs of its sectors <paramref name="camera"/>'s frustum meets (#1099); the technique, the culling and the
+        /// blend it found are put back.
+        /// </summary>
+        public void Draw(Prazsky.Core.Camera.ICamera camera)
+        {
+            _frustum.Matrix = camera.View * camera.Projection;
+
             EffectTechnique technique = _effect.CurrentTechnique;
             RasterizerState raster = _device.RasterizerState;
             BlendState blend = _device.BlendState;
@@ -106,9 +139,16 @@ namespace Prazsky.Core.Render
                 if (_counts[k] == 0) continue;
                 _albedo.SetValue(k < CROWNS ? _spruceColor : _broadleafColor);
                 _technique.Passes[0].Apply();
-                InstanceBinding.Set(_device, _meshes[k].VertexBuffer, 0, _instances[k], 0);
                 _device.Indices = _meshes[k].IndexBuffer;
-                _device.DrawInstanced(PrimitiveType.TriangleList, 0, 0, _meshes[k].PrimitiveCount, _counts[k]);
+
+                //Each run bound from its first instance (not a base instance, which MonoGame's OpenGL ES backend refuses)
+                InstanceCells cells = _cells[k];
+                int runs = cells.Runs(_frustum);
+                for (int r = 0; r < runs; r++)
+                {
+                    InstanceBinding.Set(_device, _meshes[k].VertexBuffer, 0, _instances[k], cells.RunStart[r]);
+                    _device.DrawInstanced(PrimitiveType.TriangleList, 0, 0, _meshes[k].PrimitiveCount, cells.RunCount[r]);
+                }
             }
 
             _effect.CurrentTechnique = technique;

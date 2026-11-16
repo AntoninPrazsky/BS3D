@@ -1281,10 +1281,10 @@ namespace BS3D
             _balls?.DrawShadow(shadowViewProjection);
 
             //Scenery only where it is drawn (#808): the wood and the towers stay out of the map with the Scenery row off
-            if (_scene == SceneKind.Forest && SceneryShown) _forestScatter?.DrawShadow(shadowViewProjection, _sceneRenderer.FineMeshes);
+            if (_scene == SceneKind.Forest && SceneryShown) _forestScatter?.DrawShadow(shadowViewProjection, _sceneRenderer.FineMeshes, _camera.Position);
 
             //The aurora's wood under its Moon (#963): the spruces' long shadows across the snow
-            if (_scene == SceneKind.Aurora && SceneryShown) _auroraScatter?.DrawShadow(shadowViewProjection, _sceneRenderer.FineMeshes);
+            if (_scene == SceneKind.Aurora && SceneryShown) _auroraScatter?.DrawShadow(shadowViewProjection, _sceneRenderer.FineMeshes, _camera.Position);
 
             //And the city's towers (#471). ⚠ ALL of them, not City.Visible: that set is culled to the
             //CAMERA's frustum, and a tower just off the side of the screen is exactly the one whose shadow
