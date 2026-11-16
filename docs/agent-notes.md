@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1116 Mřížka: úvod jede vedle světelného cyklu — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: druhý záběr úvodu Mřížky „the cycle“ (`Game/Effects/GridRide.cs`): čočka jede 3,4 nad podlahou vedle jednoho cyklu jeho rychlostí, kolem uzlu se točí nejvýš 37,5 °/s (U-obrat 71). Pózuje se podle nástěnných hodin (`IntroShot.OnTheWallClock`), cyklus bere z `LightCycleRuns` (stejné semínko jako kreslené). Po pauze nebo pod 20 fps volí znovu (`GridIntroShots.Again`). Úvod 16,5 s (dřív 13,9).
+- Zdi cyklů se kreslí až po ostrově (`LightCycles.DrawWalls` z `GridBackdrop.DrawGrounded`); dřív je nízká čočka mohla vidět zakryté ostrovem.
+- ⚠ Průměr vektorů směru přes 1,2 s otočil pohled při U-obratu 150 °/s; průměruje se úhel přes 2,4 s.
+- Otevřené: verdikt oka (pohyb nikdo neviděl); cykly mohou projet krychlí (od #956, chce vlastní issue); asi 1 úvod ze 40 nemá volný cyklus a jede bez jízdy.
+
 ## 2026-11-16 — #1132 vesmír a hory na High na GTX 1060 — DESKTOP_L, Claude Code
 
 - Hotovo, sloučeno: vesmír při supersamplingu stínuje vše kromě hvězd jednou za pixel displeje (`SpaceBase`, v alfě podíl hvězdy, který projde), hvězdy se kreslí přes zvětšení v plné velikosti (`SpaceStars`, `Backdrop.ComposeDisplayResolution`). Orrery na High 19,14 → 8,51 ms; špičky hvězd beze změny (medián 0), okraj planety o pixel měkčí.
