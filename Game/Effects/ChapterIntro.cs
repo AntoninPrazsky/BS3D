@@ -370,7 +370,7 @@ namespace BS3D.Effects
         }
 
         /// <summary>The most one frame may advance the intro's clock (#645): a 20 fps frame; see <see cref="Update"/>.</summary>
-        private const float MAX_INTRO_STEP = 0.05f;
+        internal const float MAX_INTRO_STEP = 0.05f;
 
         /// <summary>One frame. Call every frame regardless of <see cref="Engaged"/>; a no-op once it is not.</summary>
         public void Update(float elapsed)

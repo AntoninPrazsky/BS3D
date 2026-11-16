@@ -80,14 +80,17 @@ namespace BS3D.Effects
         //is planned for the seconds the reel puts it at, and for up to RIDE_LATE more: the intro's clock falls behind the wall
         //clock by every frame longer than ChapterIntro.MAX_INTRO_STEP, the frame that builds the level first, and the shot comes
         //on screen that much later (0.94 s in a level= run with a capture taken in the first shot). Later still (a pause, a long
-        //stall), it chooses again as it comes on screen, for RIDE_LATE_AGAIN more
+        //stall), it chooses again as it comes on screen, for RIDE_SECONDS and RIDE_LATE_AGAIN more; and again whenever the wall
+        //clock passes the seconds the last choice was made for with the shot still on screen (a pause mid-ride, a run under
+        //20 fps, where the shot's 2.6 seconds take longer than that on the wall clock)
         internal const float RIDE_SECONDS = 2.6f;
         private const float RIDE_FOV_DEGREES = 55f;
         internal const float RIDE_LATE = 1.5f;
         private const float RIDE_LATE_AGAIN = 0.5f;
 
         //What the ride is planned to keep off, the strictest first: a calm ride, then one that swings faster; and as a late shot
-        //comes on screen, then nothing inside the lens alone
+        //comes on screen, then nothing inside the lens alone. A shot already on screen keeps its cycle and side through the first
+        //two where it can (RIDE_PLANS), for another is a cut
         private static readonly GridRide.Keep[] RIDE_PLANS = { GridRide.Keep.Calm, GridRide.Keep.Clear };
         private static readonly GridRide.Keep[] RIDE_REPLANS = { GridRide.Keep.Calm, GridRide.Keep.Clear, GridRide.Keep.Safe };
 
@@ -147,8 +150,8 @@ namespace BS3D.Effects
         /// Beside a light cycle (#1116): the lens low beside one of the cycles at its own speed, turning with it at a node, posed
         /// by the wall clock the cycles ride on, so it is beside the cycle on screen whenever the shot comes on (see
         /// <see cref="GridRide"/>). Planned for <paramref name="start"/> to <see cref="RIDE_LATE"/> after the shot's end, and chosen
-        /// again as it comes on screen if the intro has fallen further behind than that, off the solids alone where nothing is
-        /// clear of the walls too (or left as planned where nothing is even that); null when no cycle is clear.
+        /// again as it comes on screen if the intro has fallen further behind than that, and on any frame posed past the seconds
+        /// the last choice was made for (<see cref="Again"/>); null when no cycle is clear.
         /// </summary>
         private static IntroShot Ride(GridSceneConfig grid, IReadOnlyList<GridSolid> solids, GridRing? ring, float start, Func<float> clock,
             GridRide.Keep keep)
@@ -159,16 +162,37 @@ namespace BS3D.Effects
                 start, start + RIDE_SECONDS + RIDE_LATE, RIDE_SECONDS, keep);
             if (ride == null) return null;
 
-            return IntroShot.OnTheWallClock("the cycle", RIDE_SECONDS, MathHelper.ToRadians(RIDE_FOV_DEGREES), clock, ride.Pose,
+            return IntroShot.OnTheWallClock("the cycle", RIDE_SECONDS, MathHelper.ToRadians(RIDE_FOV_DEGREES), clock,
+                (float time, out Vector3 position, out Vector3 target) =>
+                {
+                    if (time > ride.Until) Again(ride, time, onScreen: true);
+                    ride.Pose(time, out position, out target);
+                },
                 onStart: () =>
                 {
                     float now = clock();
-                    if (now >= start && now <= start + RIDE_LATE) return;
-
-                    float until = now + RIDE_SECONDS + RIDE_LATE_AGAIN;
-                    foreach (GridRide.Keep again in RIDE_REPLANS)
-                        if (ride.Choose(now, until, RIDE_SECONDS, again)) return;
+                    if (now < start || now > start + RIDE_LATE) Again(ride, now, onScreen: false);
                 });
+        }
+
+        /// <summary>
+        /// Chooses the ride again for <see cref="RIDE_SECONDS"/> and <see cref="RIDE_LATE_AGAIN"/> from <paramref name="now"/>: on
+        /// screen, beside the same cycle on the same side where that keeps off what <see cref="RIDE_PLANS"/> name (another is a
+        /// cut, which a pause page at least hides); then whichever keeps off what <see cref="RIDE_REPLANS"/> name, off the solids
+        /// alone where nothing is clear of the walls too; and where nothing is even that, held as it is through those seconds, so
+        /// the next frames do not ask again.
+        /// </summary>
+        private static void Again(GridRide ride, float now, bool onScreen)
+        {
+            float until = now + RIDE_SECONDS + RIDE_LATE_AGAIN;
+            if (onScreen)
+                foreach (GridRide.Keep keep in RIDE_PLANS)
+                    if (ride.Choose(now, until, RIDE_SECONDS, keep, stay: true)) return;
+
+            foreach (GridRide.Keep keep in RIDE_REPLANS)
+                if (ride.Choose(now, until, RIDE_SECONDS, keep)) return;
+
+            ride.Hold(until);
         }
 
         /// <summary>

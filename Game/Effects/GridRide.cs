@@ -29,7 +29,9 @@ namespace BS3D.Effects
     /// so it is inside none of them whatever the clock. Which cycle, and which side of it, is chosen (<see cref="Choose"/>) for
     /// the seconds the shot will play in: the lens keeps off every wall seen from above (its own rider's too, which a turn
     /// towards the lens brings round beside it), off every other cycle, off every solid and the ring, with nothing standing
-    /// between it and the rider.
+    /// between it and the rider. Those seconds are the wall clock's, and the shot holds for its own: a pause stops the intro and
+    /// not the wall clock, and under 20 fps every frame is held to a twentieth of a second of the shot. So a choice says how far
+    /// it reaches (<see cref="Until"/>), and the shot chooses again past it (<see cref="GridIntroShots"/>).
     /// </para>
     /// </summary>
     internal sealed class GridRide
@@ -60,8 +62,9 @@ namespace BS3D.Effects
 
         //How many seconds of the cycle's run either side the heading the lens turns to is averaged over: the swing round one node
         //takes twice this and turns at most 90 / REACH_SECONDS degrees a second (37.5) at its middle; a U-turn, two right angles
-        //the same way a node apart, at up to 71. ⚠ Both sides together (115 units) stay inside the eight lattice segments a rider
-        //keeps behind the newest node it made: past 2.67 s, every frame would make the cycle's run again from its start
+        //the same way a node apart, at up to 71. ⚠ Both sides together, with the longest stretch a choice is made over, stay
+        //inside the run a rider keeps (LightCycleRuns.KEPT_SECONDS): past it, the first frame posed after a choice would make the
+        //cycle's run again from its start
         internal const float REACH_SECONDS = 2.4f;
 
         //What the lens keeps off, through the seconds the shot plays in: any wall seen from above; any other cycle's middle; any
@@ -100,9 +103,13 @@ namespace BS3D.Effects
         private readonly IReadOnlyList<GridSolid> _solids;
         private readonly GridRing? _ring;
 
-        //The candidates' state while they are tested, made once so a choice made as the shot comes on screen allocates nothing
+        //The candidates' state while they are tested, made once, so a choice made while the shot is on screen allocates nothing.
+        //A choice reads its stretch and REACH_SECONDS either side, and the frames posed after it, or another choice at its first
+        //second, read back across all of it: inside LightCycleRuns.KEPT_SECONDS, so no rider makes its run again from its start
+        //(GridRideTests holds the intro's longest stretch to it)
         private readonly bool[] _clear = new bool[LightCycleRuns.COUNT * SIDES];
         private readonly float[] _inward = new float[LightCycleRuns.COUNT * SIDES];
+        private readonly int[] _turns = new int[LightCycleRuns.COUNT];
         private readonly Vector2[] _positions = new Vector2[LightCycleRuns.COUNT];
         private readonly Vector2[] _headings = new Vector2[LightCycleRuns.COUNT];
 
@@ -112,6 +119,10 @@ namespace BS3D.Effects
         /// <summary>Which side of it the lens rides: 1 where its heading turned a quarter turn from +X towards +Z points, -1 the
         /// other.</summary>
         public float Side { get; private set; }
+
+        /// <summary>The last second on the wall clock the cycle and side were chosen for (<see cref="Choose"/>), or held to
+        /// (<see cref="Hold"/>): posed later than that, nothing has checked what the lens keeps off.</summary>
+        public float Until { get; private set; }
 
         private GridRide(LightCycleRuns runs, float floorY, IReadOnlyList<GridSolid> solids, GridRing? ring)
         {
@@ -137,15 +148,20 @@ namespace BS3D.Effects
         /// Chooses the cycle and the side again for <paramref name="from"/> to <paramref name="until"/>, the shot playing its first
         /// <paramref name="seconds"/>: of the candidates that keep off what <paramref name="keep"/> names through all of it, the
         /// one that looks most squarely in towards the arena, with a turn more than the first costing
-        /// <see cref="EXTRA_TURN_COST"/>. False, and the choice left as it was, when none does.
+        /// <see cref="EXTRA_TURN_COST"/>; with <paramref name="stay"/>, the cycle and side already chosen or none, for a shot on
+        /// screen, where another is a cut. False, and the choice left as it was, when none does.
         /// </summary>
-        internal bool Choose(float from, float until, float seconds, Keep keep = Keep.Calm)
+        internal bool Choose(float from, float until, float seconds, Keep keep = Keep.Calm, bool stay = false)
         {
             bool strict = keep != Keep.Safe;
-            Array.Fill(_clear, true);
+            Array.Fill(_clear, !stay);
+            if (stay) _clear[Cycle * SIDES + (Side > 0f ? 0 : 1)] = true;
             Array.Clear(_inward);
             int samples = 0;
             float maxSwing = MathHelper.ToRadians(MAX_SWING_DEGREES);
+
+            //How often each cycle turns while the shot plays: once a cycle, for both its sides
+            for (int cycle = 0; cycle < LightCycleRuns.COUNT; cycle++) _turns[cycle] = Turns(cycle, from, from + seconds);
 
             //Evenly, at no more than STEP apart, so every step's swing is measured over the same time
             int steps = Math.Max((int)MathF.Ceiling((until - from) / STEP), 1);
@@ -199,8 +215,7 @@ namespace BS3D.Effects
             {
                 if (!_clear[candidate]) continue;
 
-                float score = _inward[candidate] / Math.Max(samples, 1)
-                    - EXTRA_TURN_COST * Math.Max(Turns(candidate / SIDES, from, from + seconds) - 1, 0);
+                float score = _inward[candidate] / Math.Max(samples, 1) - EXTRA_TURN_COST * Math.Max(_turns[candidate / SIDES] - 1, 0);
                 if (score > bestScore)
                 {
                     bestScore = score;
@@ -212,8 +227,13 @@ namespace BS3D.Effects
 
             Cycle = best / SIDES;
             Side = best % SIDES == 0 ? 1f : -1f;
+            Until = until;
             return true;
         }
+
+        /// <summary>Keeps the cycle and the side as they are through <paramref name="until"/> on the wall clock, unchecked: for a
+        /// shot that found nothing clear to choose (<see cref="Until"/>).</summary>
+        internal void Hold(float until) => Until = until;
 
         /// <summary>Where the lens stands and what it looks at, at <paramref name="time"/> on the wall clock: the ride's
         /// <see cref="IntroShot.WallClockPose"/>.</summary>
@@ -321,7 +341,7 @@ namespace BS3D.Effects
         }
 
         //How many times `cycle` snaps a right angle from `from` to `until` on the wall clock: once at every node it turns at
-        internal int Turns(int cycle, float from, float until)
+        private int Turns(int cycle, float from, float until)
         {
             const float HALF = LightCycleRuns.LATTICE * 0.5f / LightCycleRuns.SPEED;
             int turns = 0;

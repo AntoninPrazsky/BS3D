@@ -12,11 +12,20 @@ namespace Prazsky.Core.Render
     /// lit only by its glowing seams.
     /// <para>
     /// <b>Where they ride.</b> Along the lattice every <see cref="LATTICE"/> units (the Hilbert trace's own stride), in a ring
-    /// from <see cref="RING_MIN"/> to <see cref="RING_MAX"/> round the axis: clear of the island's hole and well inside the solids'
-    /// ring (<c>GridTowerConfig.RadiusMin</c>, 140), so a cycle never rides through a solid. At every node a rider goes on
+    /// from <see cref="RING_MIN"/> to <see cref="RING_MAX"/> round the axis: clear of the island's hole and inside the solids' ring
+    /// (<c>GridTowerConfig.RadiusMin</c>, 140). ⚠ That radius is where a solid's footprint is centred, and a cube near it reaches
+    /// in among the cycles (to about 100 from the axis square on an axis, 84 on a diagonal), so a cycle can ride through one: a
+    /// host filming a cycle keeps it off them itself (#1116). At every node a rider goes on
     /// straight or turns a right angle, from a hash of its own seed and the node's place in its run, never back the way it came
     /// and never out of the ring: the run is the same whatever the frame rate, and where a rider is at a time is its run's
     /// point at <see cref="SPEED"/> times that time. Off the wall clock, so they ride on while the game is paused.
+    /// </para>
+    /// <para>
+    /// <b>The cycles with the backdrop, their walls after the island</b> (<see cref="Draw"/>, <see cref="DrawWalls"/>): a body is
+    /// opaque and writes its depth, so whatever is drawn after it is hidden behind it; a wall is added over the frame and writes
+    /// none, so whatever opaque is drawn after it paints over it, the island included. Drawn with the backdrop, a wall standing
+    /// between the lens and the island was cut out wherever the island stood behind it (#1116: a lens low beside a cycle looks
+    /// across the walls at the island).
     /// </para>
     /// <para>
     /// <b>No allocation a frame</b>: each rider keeps the last nodes of its run in a fixed ring, and the trails are written into one
@@ -92,8 +101,8 @@ namespace Prazsky.Core.Render
         /// <summary>Rider <paramref name="index"/>'s seed on <paramref name="config"/>: the Potato path rides the same runs (#1044).</summary>
         internal static int RiderSeed(GridSceneConfig config, int index) => 7919 * (index + 1) + config.Towers.Seed;
 
-        /// <summary>Draws the cycles (opaque, writing depth) and then their walls (added over the frame, depth read only).
-        /// Leaves the blend, depth and rasterizer states as it found them.</summary>
+        /// <summary>Draws the cycles, opaque and writing depth, with the backdrop. Leaves the blend, depth and rasterizer states
+        /// as it found them.</summary>
         public void Draw(in SceneFrame frame)
         {
             BlendState blend = _graphicsDevice.BlendState;
@@ -103,19 +112,9 @@ namespace Prazsky.Core.Render
             _view.SetValue(frame.Camera.View);
             _projection.SetValue(frame.Camera.Projection);
 
-            int written = 0;
             float distance = frame.Time * SPEED;
-            for (int i = 0; i < RIDERS; i++)
-            {
-                _riders[i].At(distance, out _positions[i], out _headings[i]);
-                _trailCounts[i] = _riders[i].Trail(distance, _trail, written, _floorY);
-                written += _trailCounts[i];
-            }
-            //⚠ Nothing to upload in the clock's first moments (no rider has cleared TRAIL_FROM yet), and MonoGame's SetData
-            //throws on a count of 0: the Grid at boot took the game down within its first tenth of a second
-            if (written > 0) _trailVertices.SetData(_trail, 0, written, SetDataOptions.Discard);
+            for (int i = 0; i < RIDERS; i++) _riders[i].At(distance, out _positions[i], out _headings[i]);
 
-            //The cycles
             _graphicsDevice.BlendState = BlendState.Opaque;
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
@@ -132,8 +131,40 @@ namespace Prazsky.Core.Render
                 _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleList, 0, _bodyTriangles);
             }
 
-            //The walls
+            _graphicsDevice.BlendState = blend;
+            _graphicsDevice.DepthStencilState = depth;
+            _graphicsDevice.RasterizerState = rasterizer;
+        }
+
+        /// <summary>
+        /// Draws the cycles' walls of light, added over the frame and depth read only: after the island and everything opaque
+        /// the setting draws (the backdrop's <see cref="Backdrop.DrawGrounded"/>), so the island hides a wall behind it and
+        /// never one in front of it (the class doc). Leaves the blend, depth and rasterizer states as it found them.
+        /// </summary>
+        public void DrawWalls(in SceneFrame frame)
+        {
+            BlendState blend = _graphicsDevice.BlendState;
+            DepthStencilState depth = _graphicsDevice.DepthStencilState;
+            RasterizerState rasterizer = _graphicsDevice.RasterizerState;
+
+            _view.SetValue(frame.Camera.View);
+            _projection.SetValue(frame.Camera.Projection);
+
+            //Each rider made up to the frame's second first, as Trail needs (Draw has, on the same clock: this costs nothing more)
+            int written = 0;
+            float distance = frame.Time * SPEED;
+            for (int i = 0; i < RIDERS; i++)
+            {
+                _riders[i].At(distance, out _, out _);
+                _trailCounts[i] = _riders[i].Trail(distance, _trail, written, _floorY);
+                written += _trailCounts[i];
+            }
+            //⚠ Nothing to upload in the clock's first moments (no rider has cleared TRAIL_FROM yet), and MonoGame's SetData
+            //throws on a count of 0: the Grid at boot took the game down within its first tenth of a second
+            if (written > 0) _trailVertices.SetData(_trail, 0, written, SetDataOptions.Discard);
+
             _graphicsDevice.BlendState = ADDITIVE;
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
             _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
             _graphicsDevice.SetVertexBuffer(_trailVertices);
             _effect.CurrentTechnique = _trailTechnique;
@@ -161,18 +192,26 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// One rider's run: the nodes it passes, made one at a time from its seed, the last <see cref="KEPT"/> of them in a ring.
-        /// Every segment is one <see cref="LATTICE"/> long, so the node a distance falls after is that distance over the lattice.
+        /// One rider's run: the nodes it passes, made one at a time from its seed, the last of them in a ring (<see cref="KEPT"/>,
+        /// what the wall behind it needs, or more for a host that reads ahead of the frame, <see cref="LightCycleRuns"/>). Every
+        /// segment is one <see cref="LATTICE"/> long, so the node a distance falls after is that distance over the lattice. Asked
+        /// further back than the ring holds, it makes its run again from its start.
         /// </summary>
         internal sealed class Rider
         {
             private readonly int _seed;
-            private readonly Vector2[] _nodes = new Vector2[KEPT];
+            private readonly Vector2[] _nodes;
             private long _made;          //how many nodes of the run have been made (the newest is _made - 1)
 
-            public Rider(int seed)
+            /// <summary>The rider on <paramref name="seed"/>'s run, keeping the <see cref="KEPT"/> nodes its wall needs.</summary>
+            public Rider(int seed) : this(seed, KEPT) { }
+
+            /// <summary>The rider on <paramref name="seed"/>'s run, keeping its last <paramref name="kept"/> nodes, and never fewer
+            /// than its wall needs (<see cref="KEPT"/>).</summary>
+            public Rider(int seed, int kept)
             {
                 _seed = seed;
+                _nodes = new Vector2[Math.Max(kept, KEPT)];
                 Restart();
             }
 
@@ -189,7 +228,7 @@ namespace Prazsky.Core.Render
                 _made = 2;
             }
 
-            private Vector2 Node(long index) => _nodes[(int)(index % KEPT)];
+            private Vector2 Node(long index) => _nodes[(int)(index % _nodes.Length)];
 
             //The next node: on straight or a right angle, by the rider's hash at this place in the run, never back and never
             //out of the ring. The rolled move first, then the other two (#1069: the first picker tried two of the three and
@@ -218,7 +257,7 @@ namespace Prazsky.Core.Render
                 else if (InRing(last + third)) next = last + third;
                 else next = last - ahead;
 
-                _nodes[(int)(_made % KEPT)] = next;
+                _nodes[(int)(_made % _nodes.Length)] = next;
                 _made++;
             }
 
@@ -240,7 +279,7 @@ namespace Prazsky.Core.Render
             public void At(float distance, out Vector2 position, out Vector2 heading)
             {
                 long segment = (long)(distance / LATTICE);
-                if (segment + 2 < _made - KEPT + 2) Restart();   //the clock went back: make the run again from its start
+                if (segment + 2 < _made - _nodes.Length + 2) Restart();   //the clock went back: make the run again from its start
                 while (_made < segment + 2) MakeNext();
                 Vector2 a = Node(segment), b = Node(segment + 1);
                 heading = (b - a) / LATTICE;
@@ -288,7 +327,7 @@ namespace Prazsky.Core.Render
 
                 //Every node the wall passes still kept, or the run made again from its start: Trail is only ever asked right
                 //after At at the same distance, but a host may have asked this rider further ahead first
-                if ((long)(end / LATTICE) < _made - KEPT) Restart();
+                if ((long)(end / LATTICE) < _made - _nodes.Length) Restart();
                 long segment = (long)(distance / LATTICE);
                 while (_made < segment + 2) MakeNext();
 

@@ -11,8 +11,9 @@ namespace BS3D.Tests
 {
     /// <summary>
     /// The Grid's ride beside a light cycle (#1116, <see cref="GridRide"/>): the lens a few units beside the cycle the frame draws,
-    /// at the real wall clock, however late the shot comes on; never in a wall, a cycle or a solid; the cycle whole in the frame;
-    /// a turn ridden, not snapped; and the reel it opens the Grid's prologue with. The cycle it is held against is made the way
+    /// at the real wall clock, however late the shot comes on and through a pause; never in a wall, a cycle or a solid; the cycle
+    /// whole in the frame; a turn ridden, not snapped; nothing allocated choosing again; and the reel it opens the Grid's prologue
+    /// with. The cycle it is held against is made the way
     /// <see cref="LightCycles"/> makes the one it draws (its <c>Rider</c> on its <c>RiderSeed</c>, its wall by <c>Trail</c>), not
     /// through <see cref="LightCycleRuns"/>, which the ride itself reads.
     /// </summary>
@@ -49,7 +50,8 @@ namespace BS3D.Tests
 
         /// <summary>
         /// Solids rolled the way the config draws them (<c>GridTowerConfig</c>'s count, radii and sizes, cubes first): a cube near
-        /// the ring's inner edge reaches in among the cycles (a 75 cube at 140 reaches to 100, and the cycles ride out to 124).
+        /// the ring's inner edge reaches in among the cycles (a 75 cube centred at 140 reaches to 102.5 square on an axis and to 87
+        /// on a diagonal, and the cycles ride from 56 to 124).
         /// </summary>
         private static List<GridSolid> Solids(int seed)
         {
@@ -110,9 +112,13 @@ namespace BS3D.Tests
 
         /// <summary>
         /// The ride of a reel built at <paramref name="built"/> on the wall clock, coming on <paramref name="late"/> seconds after
-        /// the second the reel puts it at, played frame by frame at 60 fps on the wall clock; null when the reel has none.
+        /// the second the reel puts it at, played a frame every <paramref name="frame"/> seconds of the wall clock (60 fps unless
+        /// said), each advancing the intro's clock by at most <see cref="ChapterIntro.MAX_INTRO_STEP"/>, and stopped for
+        /// <paramref name="pause"/> seconds of the wall clock once <paramref name="pauseAt"/> seconds of the shot have played (the
+        /// pause page stops the intro and not the wall clock); null when the reel has none.
         /// </summary>
-        private static List<Frame> Ride(float built, float late, IReadOnlyList<GridSolid> solids, out IntroShot[] reel)
+        private static List<Frame> Ride(float built, float late, IReadOnlyList<GridSolid> solids, out IntroShot[] reel,
+            float frame = FRAME, float pause = 0f, float pauseAt = 0f)
         {
             float now = built;
             reel = GridIntroShots.Shots(Grid, solids, RingOf(Grid), built, () => now, new Random(7));
@@ -137,10 +143,11 @@ namespace BS3D.Tests
             ride.Start();
 
             var frames = new List<Frame>();
-            int count = (int)MathF.Round(ride.Seconds / FRAME);
+            float step = MathF.Min(frame, ChapterIntro.MAX_INTRO_STEP);
+            int count = (int)MathF.Round(ride.Seconds / step);
             for (int f = 0; f <= count; f++)
             {
-                now = on + late + f * FRAME;
+                now = on + late + f * frame + (pause > 0f && f * step > pauseAt ? pause : 0f);
                 ride.Pose(f / (float)count, out Vector3 lens, out Vector3 look);
                 frames.Add(new Frame(now, lens, look, ride.FieldOfViewAt(f / (float)count)));
             }
@@ -394,6 +401,127 @@ namespace BS3D.Tests
             _output.WriteLine($"{clear} of {rides} rides that came on 3 to 31 s late kept off every wall; the nearest a solid {nearestSolid:F2}");
             Assert.True(nearestSolid >= GridRide.SOLID_CLEARANCE - 0.05f, $"a late ride came {nearestSolid:F2} from a solid");
             Assert.True(clear >= rides * 85 / 100, $"only {clear} of {rides} late rides kept off every wall");
+        }
+
+        //A pause a second into the ride (Escape, or the focus lost), as long as these on the wall clock; and a run at 10 fps,
+        //whose shot of 2.6 seconds on the intro's clock takes 5.2 on the wall clock
+        private static readonly float[] PAUSES = { 2f, 5f, 15f };
+        private const float PAUSE_AT = 1f;
+        private const float SLOW_FRAME = 0.1f;
+
+        [Fact]
+        public void A_pause_mid_ride_or_a_slow_frame_rate_chooses_again()
+        {
+            int rides = 0, clear = 0, cuts = 0;
+            float nearestSolid = float.PositiveInfinity, nearestRider = float.PositiveInfinity, worstBeside = 0f;
+            for (int b = 0; b < BUILDS; b++)
+            {
+                List<GridSolid> solids = Solids(b);
+                for (int run = 0; run <= PAUSES.Length; run++)
+                {
+                    List<Frame> ride = run < PAUSES.Length
+                        ? Ride(BuildTime(b), 0f, solids, out _, pause: PAUSES[run], pauseAt: PAUSE_AT)
+                        : Ride(BuildTime(b), 0f, solids, out _, frame: SLOW_FRAME);
+                    if (ride == null) continue;
+                    rides++;
+
+                    var cycles = new DrawnCycles();
+                    bool ok = true;
+                    int was = Filmed(cycles, ride[0]);
+                    foreach (Frame frame in ride)
+                    {
+                        //Beside a drawn cycle at every frame, whichever it is after a choice made again
+                        int filmed = Filmed(cycles, frame);
+                        if (filmed != was) cuts++;
+                        was = filmed;
+                        cycles.At(filmed, frame.Time, out Vector2 rider, out _);
+                        var lens = new Vector2(frame.Lens.X, frame.Lens.Z);
+                        worstBeside = MathF.Max(worstBeside, MathF.Abs(Vector2.Distance(rider, lens) - Beside));
+
+                        var body = new Vector3(rider.X, FloorY + LightCycleRuns.BODY_HEIGHT * 0.5f, rider.Y);
+                        foreach (GridSolid solid in solids)
+                        {
+                            nearestSolid = MathF.Min(nearestSolid, solid.Distance(frame.Lens));
+                            nearestRider = MathF.Min(nearestRider, solid.Distance(body));
+                        }
+                        nearestSolid = MathF.Min(nearestSolid, RingOf(Grid).Distance(frame.Lens));
+
+                        for (int i = 0; i < LightCycles.RIDERS; i++)
+                            if (cycles.WallDistance(i, frame.Time, lens) < GridRide.WALL_CLEARANCE - 0.05f) ok = false;
+                    }
+
+                    if (ok) clear++;
+                }
+            }
+
+            _output.WriteLine($"{rides} rides paused {string.Join(", ", PAUSES)} s a second in or played at {1f / SLOW_FRAME:F0} fps: {clear} kept "
+                + $"off every wall, {cuts} cuts to another cycle; the lens {worstBeside:F4} off its place beside one at worst, the nearest a "
+                + $"solid {nearestSolid:F2}, the filmed cycle's middle {nearestRider:F2} from one");
+            Assert.True(rides >= BUILDS * (PAUSES.Length + 1) * 95 / 100, $"only {rides} reels had a ride");
+            Assert.True(worstBeside < 0.05f, $"the lens came {worstBeside:F2} off its place beside the cycle");
+            Assert.True(nearestSolid >= GridRide.SOLID_CLEARANCE - 0.05f, $"a ride came {nearestSolid:F2} from a solid after a pause or slow frames");
+            Assert.True(nearestRider >= GridRide.RIDER_SOLID_CLEARANCE - 0.05f, $"the filmed cycle came {nearestRider:F2} from a solid");
+            Assert.True(clear >= rides * 95 / 100, $"only {clear} of {rides} paused or slow rides kept off every wall");
+        }
+
+        /// <summary>
+        /// What a ride asks of the runs it reads once it is built: planned over the longest stretch the intro plans one for, posed
+        /// from its start, chosen again at one second with every keep a shot on screen tries (<c>GridIntroShots.Again</c>) and
+        /// posed on, and the same again past a pause. A rider asked back further than it keeps makes its run again from its start
+        /// (<see cref="LightCycleRuns.KEPT_SECONDS"/>): a <see cref="Random"/>, and every node since, 5,400 of them an hour in.
+        /// </summary>
+        [Fact]
+        public void Choosing_again_and_posing_allocate_nothing()
+        {
+            float stretch = GridIntroShots.RIDE_SECONDS + GridIntroShots.RIDE_LATE;
+            Assert.True(stretch + 2f * GridRide.REACH_SECONDS < LightCycleRuns.KEPT_SECONDS,
+                $"a choice over {stretch} s reads {stretch + 2f * GridRide.REACH_SECONDS} s of a run, more than the {LightCycleRuns.KEPT_SECONDS} kept");
+
+            int rides = 0;
+            long allocated = 0;
+            for (int b = 0; b < BUILDS; b += 4)
+            {
+                float start = BuildTime(b) + 3.2f;
+                GridRide ride = GridRide.Plan(new LightCycleRuns(Grid), FloorY, Solids(b), RingOf(Grid), start, start + stretch,
+                    GridIntroShots.RIDE_SECONDS);
+                if (ride == null) continue;
+
+                //The first ride runs every path once untimed: the runtime compiles a method the first time it is called
+                if (rides++ == 0)
+                {
+                    PlayChosenAgain(ride, start, stretch);
+                    continue;
+                }
+
+                long before = GC.GetAllocatedBytesForCurrentThread();
+                PlayChosenAgain(ride, start, stretch);
+                allocated += GC.GetAllocatedBytesForCurrentThread() - before;
+            }
+
+            _output.WriteLine($"{rides} rides chosen again twice each: {allocated} bytes allocated");
+            Assert.True(rides >= 10, $"only {rides} reels had a ride");
+            Assert.Equal(0L, allocated);
+        }
+
+        //A second of frames from `start`, every choice GridIntroShots.Again can make at the second it ends on, a second more, a
+        //pause; twice
+        private static void PlayChosenAgain(GridRide ride, float start, float stretch)
+        {
+            float now = start;
+            for (int pass = 0; pass < 2; pass++)
+            {
+                for (int f = 0; f < 60; f++, now += FRAME) ride.Pose(now, out _, out _);
+
+                float until = now + stretch;
+                ride.Choose(now, until, GridIntroShots.RIDE_SECONDS, GridRide.Keep.Calm, stay: true);
+                ride.Choose(now, until, GridIntroShots.RIDE_SECONDS, GridRide.Keep.Clear, stay: true);
+                ride.Choose(now, until, GridIntroShots.RIDE_SECONDS, GridRide.Keep.Calm);
+                ride.Choose(now, until, GridIntroShots.RIDE_SECONDS, GridRide.Keep.Clear);
+                ride.Choose(now, until, GridIntroShots.RIDE_SECONDS, GridRide.Keep.Safe);
+
+                for (int f = 0; f < 60; f++, now += FRAME) ride.Pose(now, out _, out _);
+                now += PAUSES[^1];
+            }
         }
 
         [Fact]

@@ -7,7 +7,9 @@ namespace Prazsky.Core.Render
     /// riders <see cref="LightCycles"/> draws, made by the same code (<see cref="LightCycles.Rider"/>) from the same seeds
     /// (<see cref="LightCycles.RiderSeed"/>), so where this says a cycle stands at a wall-clock second is where the frame
     /// drawn at that second puts it. Riders of its own, not the drawn ones: a host asking ahead of the frame would have the
-    /// drawn ones make their runs again. Nothing here allocates once it is built.
+    /// drawn ones make their runs again. Nothing here allocates once it is built while a host reads no point of a cycle's run more
+    /// than <see cref="KEPT_SECONDS"/> before the furthest it has asked that cycle at: further back, a rider makes its run again
+    /// from its start (a <see cref="System.Random"/>, and every node since, more the longer the game has run).
     /// </summary>
     public sealed class LightCycleRuns
     {
@@ -29,6 +31,17 @@ namespace Prazsky.Core.Render
         /// <summary>How tall a cycle's body stands over the floor.</summary>
         public const float BODY_HEIGHT = LightCycles.BODY_HEIGHT;
 
+        /// <summary>
+        /// How many seconds of a cycle's run a host may read back across without the run being made again: from the furthest
+        /// second it has asked that cycle at to the earliest point of the run it then reads, a wall's whole length behind the
+        /// second it is asked at included (<see cref="WallDistance"/>, 4.7 seconds of run). A host that chooses over a stretch
+        /// ahead and then films from its start reads back across all of it: the chapter intro's ride, under nine seconds.
+        /// </summary>
+        public const float KEPT_SECONDS = 12f;
+
+        //The nodes each rider keeps: KEPT_SECONDS of its run, and the segment at either end
+        private const int KEPT = (int)(KEPT_SECONDS * SPEED / LATTICE) + 3;
+
         //One rider a cycle for where it is and one for its wall: the wall reaches seven nodes back and the heading a host smooths
         //reads ahead, and one ring of kept nodes asked both ways makes its run again from the start
         private readonly LightCycles.Rider[] _riders = new LightCycles.Rider[COUNT];
@@ -39,8 +52,8 @@ namespace Prazsky.Core.Render
         {
             for (int i = 0; i < COUNT; i++)
             {
-                _riders[i] = new LightCycles.Rider(LightCycles.RiderSeed(config, i));
-                _walls[i] = new LightCycles.Rider(LightCycles.RiderSeed(config, i));
+                _riders[i] = new LightCycles.Rider(LightCycles.RiderSeed(config, i), KEPT);
+                _walls[i] = new LightCycles.Rider(LightCycles.RiderSeed(config, i), KEPT);
             }
         }
 
