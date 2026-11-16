@@ -79,11 +79,11 @@ The Testbed's `mars=` dial takes the scene apart (`MarsLayer`, "The dials" in [C
 | `Bank` | 0.08 | 0.08 | 0 | 0 |
 | `Rocks`, the clearing's stones | 0.06 | 0.06 | 0 | 0 |
 | `Stones` (the bank's), `Casters` | 0 to 0.01 (the sign a coin toss) | | | |
-| `Bake` out: the exact ground where the baked one is | **+2.50** | **+2.48** | **+0.69** | **+0.69** |
+| `Bake` out: the exact ground where the baked one is | **−2.50** | **−2.48** | **−0.69** | **−0.69** |
 | the sun's map (`shadow=0`) | 0.20 | 0.40 | 0.18 | 0.44 |
 
-- **The Game's frame at Ultra over Mars's front end** (Game Release of #1102's branch, `scene=mars preview=1 quality=ultra fpscap=1000 sceneseed=0`, a 3840x1500 window, a scratch profile, two runs, the `[fps]` seconds 9 to 47 of each): **4.74 and 5.29 ms**, the dearest second 6.4. #1103's goal is under 13.33.
+- **The Game's frame at Ultra over Mars's front end** (Game Release of #1102's branch, `scene=mars preview=1 quality=ultra fpscap=1000 sceneseed=0`, a 3840x1500 window, a scratch profile, two runs, the median of the `[fps]` lines of seconds 9 to 47 of each): **4.75 and 5.31 ms**, the dearest second 6.4. #1103's goal is under 13.33.
 - **What is left of Mars on High and Ultra is 0.7 ms of a 4.1 ms frame**: the ground and its far ring 0.4 of it, the moons 0.13. The rest of the frame is the sky, the island, the gun and the cluster, as in any other scene under a dome.
 - **The bake is worth 0.7 ms at `ssaa=2` and 2.5 at `ssaa=1`**, where the terrain is not laid depth first and the exact program shades every overdrawn pixel (the figures [The bake](#the-bake-1100) gives). No tier ships that column: Medium draws the exact ground at 1x without the fine meshes.
-- ⚠ **The moons cost the same 0.13 ms in all four columns**: two specks of sky, at a cost that does not follow the pixel count. `MarsMoons` is one full-screen quad, depth-read at the far plane and blended; where its 0.13 ms goes was not taken apart, and a quad bounded to the two moons could save at most that.
-- The bank's stones, the clearing's stones and everything the scene casts into the sun's map cost nothing measurable here; the map's 0.2 to 0.44 ms is the island's, the gun's and the balls' casting.
+- ⚠ **The moons cost the same 0.13 ms in all four columns**: two specks of sky, at a cost that does not follow the pixel count. `MarsMoons` is one full-screen quad, depth-read at the far plane and blended, so a quad bounded to the two moons could save at most that (#1138).
+- The clearing's stones cost 0.06 ms at `ssaa=1` and nothing measurable on High and Ultra's path. The bank's stones and everything the scene casts into the sun's map cost nothing measurable in any column; the map's 0.2 to 0.44 ms is the island's, the gun's and the balls' casting.

@@ -85,7 +85,7 @@ Testbed, `sky=13` (pass it: the forest now brings dome 15 and the Testbed's own 
 
 ## What each layer costs (#1102)
 
-The Testbed's `forest=` dial (`ForestLayer`, "The dials" in [Capturing and measuring](../testbed/capture-and-measurement.md)), at the pin the three layer sweeps of #1102 share: desktop (RX 6900 XT), Testbed Release, `scene=forest sceneseed=0 fpscap=1000 width=3840 height=1500`, the game-mode camera (`at=3:F10`), dome 15, the scene's own 4096 map (Ultra's is 8192), post on. One process a column, the variants in settled windows (#1129), each one's difference from `forest=all` within its cycle; the median of 13 to 25 cycles, the sign of every figure over 0.02 held in at least 92 % of them. `ssaa=1` is the Testbed's eight samples with the sky first; `ssaa=2` is High and Ultra's frame, the sky behind the opaque scene at display resolution, so a layer there is priced net of the sky it hides. The empty field and `Maps/Full.json` agree to 0.04 ms a layer, and a second process with the variants in the reverse order read the `ssaa=2` Full column again to 0.03 ms a layer (its frame 0.2 ms cheaper).
+The Testbed's `forest=` dial (`ForestLayer`, "The dials" in [Capturing and measuring](../testbed/capture-and-measurement.md)), at the pin the three layer sweeps of #1102 share: desktop (RX 6900 XT), Testbed Release, `scene=forest sceneseed=0 fpscap=1000 width=3840 height=1500`, the game-mode camera (`at=3:F10`), dome 15, the scene's own 4096 map (Ultra's is 8192), post on. One process a column, the variants in settled windows (#1129), each one's difference from `forest=all` within its cycle; the median of 13 to 25 cycles, the sign of every figure over 0.02 held in at least 92 % of them. `ssaa=1` is the Testbed's eight samples with the sky first; `ssaa=2` is High and Ultra's frame, the sky behind the opaque scene at display resolution, so a layer there is priced net of the sky it hides. The empty field and `Maps/Full.json` agree to 0.04 ms a layer (every layer at once to 0.09), and a second process with the variants in the reverse order read the `ssaa=2` Full column again to 0.03 ms a layer (every layer at once to 0.09, its frame 0.2 ms cheaper).
 
 | ms (saved with the layer out) | `ssaa=1` empty | `ssaa=1` Full | `ssaa=2` empty | `ssaa=2` Full |
 |---|---|---|---|---|
@@ -101,11 +101,12 @@ The Testbed's `forest=` dial (`ForestLayer`, "The dials" in [Capturing and measu
 | `LeafShadow` | 0.11 | 0.10 | 0.11 | 0.11 |
 | `Ferns` | 0.07 | 0.07 | 0.03 | 0.03 |
 | `Bank` | 0.06 | 0.05 | 0 | 0 |
-| `Twigs`, `Deadwood`, `Stones` | 0.02 or less | | | |
+| `Twigs` | 0.02 | 0.02 | 0.03 | 0.03 |
+| `Deadwood`, `Stones` | 0.02 or less | | | |
 | `Needles` | 0.03 | 0.04 | **−0.25** | **−0.24** |
 | the sun's map (`shadow=0`) | 0.74 | 0.91 | 0.96 | 1.20 |
 
-- **The Game's frame at Ultra over the forest's front end** (Game Release of #1102's branch, `scene=forest preview=1 quality=ultra fpscap=1000 sceneseed=0`, a 3840x1500 window, a scratch profile, two runs, the `[fps]` seconds 9 to 47 of each): **10.27 and 10.40 ms**, the dearest second 11.5, under #1103's 13.33.
+- **The Game's frame at Ultra over the forest's front end** (Game Release of #1102's branch, `scene=forest preview=1 quality=ultra fpscap=1000 sceneseed=0`, a 3840x1500 window, a scratch profile, two runs, the median of the `[fps]` lines of seconds 9 to 47 of each): **10.29 and 10.40 ms**, the dearest second 11.5, under #1103's 13.33.
 - **The forest is the dearest of the three**: its own layers are 5.4 ms of an 8.9 ms frame on High and Ultra's path, where Mars's are 0.7 and the outback's 4.1. Two layers carry half of it, the spruces (1.9) and the floor's grid (1.2), then the broadleaves' leaf cards (0.8); the twigs, the ferns and the dead wood are a tenth of a millisecond between them, as #1122's figures in [Drawn by what each pass sees](#drawn-by-what-each-pass-sees-1099) found at their own pin.
 - **The far ring and the far stand are mostly sky at `ssaa=2`**: out, the sky drawn behind gives back most of what they cost (0.05 and 0.23 against 0.40 and 0.51 alone at `ssaa=1`), so a tier cutting either saves little there.
 - ⚠ **The needles still save a quarter of a millisecond at `ssaa=2`**: without the depth pass they bring, the near crowns are shaded plate over plate.

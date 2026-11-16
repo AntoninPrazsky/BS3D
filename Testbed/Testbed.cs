@@ -882,9 +882,14 @@ namespace Testbed
             //layer net of the sky it hides while the sky is drawn behind the opaque scene: a layer left out gives back the sky
             //behind it, which is what a tier cutting the layer would save. skyorder=first prices the layer alone, the way
             //every layer price was taken before #1104. Said, not forced: both are true figures, of two different questions.
+            //Which one this run gives is SkyPass.BehindScene's answer for the target it opens with: never behind into a
+            //multisampled one, so ssaa=1 (eight samples unless msaa=0) prices the layer alone. A variant pinning ssaa= or
+            //msaa= rebuilds the target and the frame asks again (Testbed.Draw.cs); this line reads the run's own.
             if (_skyOrderPin == null
                 && _options.Alternation.Any(variant => variant.Pins.Any(pin => pin.Dial is "volcano" or "meadow" or "mountain" or "forest" or "mars" or "outback")))
-                Console.WriteLine("[skyorder] this run takes a scene's layers apart under the sky drawn behind the opaque scene: a layer's price is net of the sky it hides (what a tier cutting it saves); skyorder=first prices the layer alone (#1104)");
+                Console.WriteLine(SkyPass.BehindScene(_pipeline.SceneTarget)
+                    ? "[skyorder] this run takes a scene's layers apart with the sky drawn behind the opaque scene: a layer's price is net of the sky it hides (what a tier cutting it saves); skyorder=first prices the layer alone (#1104)"
+                    : "[skyorder] this run takes a scene's layers apart with the sky drawn first (the scene target carries samples, and the sky is never drawn behind into one): a layer is priced alone, not net of the sky it hides; skyorder=late prices it net (#1104)");
 
             //#1096: "bdres=0" draws space, the dream, the cavern and the big top into the scene target with its samples rather
             //than at display resolution: the big top's frame before #1096; the dream and the cavern have taken the path since #155, space since #1132
