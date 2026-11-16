@@ -52,8 +52,9 @@ namespace Prazsky.Core.Render
         private readonly FishSchool _fish;
         private readonly SeaLightShafts _shafts;
 
-        //The oil platforms far out where the swell is flat (#969)
+        //The oil platforms far out where the swell is flat (#969), and the lighthouse, the container ship and the yacht (#1125)
         private readonly OilRigs _rigs;
+        private readonly SeaTraffic _traffic;
 
         //The six values the spray takes every frame, resolved once at load (BestPractices §1: the by-name indexer is a
         //linear scan). The look it takes once is pushed by ApplySprayParameters and needs no reference kept.
@@ -100,6 +101,7 @@ namespace Prazsky.Core.Render
             _fish = new FishSchool(_graphicsDevice, content);
             _shafts = new SeaLightShafts(_graphicsDevice, content, services);
             _rigs = new OilRigs(_graphicsDevice, content, _seaConfig);
+            _traffic = new SeaTraffic(_graphicsDevice, content, _seaConfig);
         }
 
         /// <inheritdoc/>
@@ -244,8 +246,10 @@ namespace Prazsky.Core.Render
 
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
 
-            //The oil platforms, after the water (which writes no depth) and cut by their own shader at its line (#969)
+            //The oil platforms, after the water (which writes no depth) and cut by their own shader at its line (#969), and the
+            //lighthouse and the two vessels through the same shader, the vessels where the wall clock has them (#1125)
             _rigs.Draw(frame, _seaConfig.LevelY);
+            _traffic.Draw(frame, _seaConfig.LevelY);
 
             //The school (#760), with the lens under the water and only then: from above, the surface hides it, and in
             //play the lens never goes under. After the surface, which writes no depth, so a fish between the lens and
@@ -329,6 +333,7 @@ namespace Prazsky.Core.Render
         public override void Dispose()
         {
             _rigs?.Dispose();
+            _traffic?.Dispose();
             _seaEffect?.Dispose();
             _sprayVertexBuffer?.Dispose();
             _sprayIndexBuffer?.Dispose();

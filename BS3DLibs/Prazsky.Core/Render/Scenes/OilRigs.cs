@@ -104,7 +104,8 @@ namespace Prazsky.Core.Render
     /// The sea's oil platforms (#969): the two rigs <see cref="OilRigLayout"/> places, built of boxes - four legs with their
     /// bracing, a deck of two levels with its modules, a lattice derrick, a crane, a flare boom with its flame, a helideck and
     /// a few steady lamps - shaded by <c>Rig.fx</c>, which cuts them at the waterline (the surface writes no depth) and puts
-    /// foam round the legs.
+    /// foam round the legs. Their vertices are the world's (the effect's <c>World</c> is the identity for them); the lighthouse
+    /// and the two vessels (<see cref="SeaTraffic"/>, #1125) draw through the same effect in their own frames.
     /// </summary>
     internal sealed class OilRigs : IDisposable
     {
@@ -112,7 +113,7 @@ namespace Prazsky.Core.Render
         private const float HAZE = 1700f;
 
         //The kinds Rig.fx reads off a vertex's alpha
-        private const float PAINTED = 0f, LATTICE = 0.5f, LIGHT = 1f;
+        private const float PAINTED = RigVertex.PAINTED, LATTICE = RigVertex.LATTICE, LIGHT = RigVertex.LIGHT;
 
         private static readonly Vector3 STEEL = new(0.30f, 0.31f, 0.32f);
         private static readonly Vector3 LEG_YELLOW = new(0.55f, 0.40f, 0.06f);
@@ -126,14 +127,15 @@ namespace Prazsky.Core.Render
 
         private readonly GraphicsDevice _graphicsDevice;
         private readonly Effect _effect;
-        private readonly EffectParameter _view, _projection, _cameraPosition, _sunDirection, _sunColor, _zenith, _horizon, _waterY;
+        private readonly EffectParameter _world, _view, _projection, _cameraPosition, _sunDirection, _sunColor, _zenith, _horizon, _waterY;
         private readonly VertexBuffer _vertices;
         private readonly int _triangles;
 
         public OilRigs(GraphicsDevice graphicsDevice, ContentManager content, SeaSceneConfig config)
         {
             _graphicsDevice = graphicsDevice;
-            _effect = content.Load<Effect>("Shaders/Rig");
+            _effect = LoadEffect(content);
+            _world = _effect.Parameters["World"];
             _view = _effect.Parameters["View"];
             _projection = _effect.Parameters["Projection"];
             _cameraPosition = _effect.Parameters["CameraPosition"];
@@ -142,15 +144,28 @@ namespace Prazsky.Core.Render
             _zenith = _effect.Parameters["ZenithColor"];
             _horizon = _effect.Parameters["HorizonColor"];
             _waterY = _effect.Parameters["WaterY"];
-            _effect.Parameters["RigHaze"].SetValue(HAZE);
 
-            var v = new List<VertexPositionNormalColor>();
+            var v = new List<RigVertex>();
             void Add(Matrix world, Vector3 half, Vector3 color, float kind) => Box(v, world, half, color, kind);
             Parts(OilRigLayout.Near(config.LevelY), Add);
             Parts(OilRigLayout.Far(config.LevelY), Add);
             _triangles = v.Count / 3;
-            _vertices = new VertexBuffer(graphicsDevice, VertexPositionNormalColor.Declaration, v.Count, BufferUsage.WriteOnly);
+            _vertices = new VertexBuffer(graphicsDevice, RigVertex.Declaration, v.Count, BufferUsage.WriteOnly);
             _vertices.SetData(v.ToArray());
+        }
+
+        /// <summary>
+        /// <c>Rig.fx</c> as the content manager caches it, its once-only values set: the air's haze and the horizon's sink
+        /// (<see cref="SeaTrafficLayout.SINK_FROM"/>). The platforms and <see cref="SeaTraffic"/> draw through the one effect, so
+        /// each sets what its own draw needs before it draws.
+        /// </summary>
+        internal static Effect LoadEffect(ContentManager content)
+        {
+            Effect effect = content.Load<Effect>("Shaders/Rig");
+            effect.Parameters["RigHaze"].SetValue(HAZE);
+            effect.Parameters["SinkFrom"].SetValue(SeaTrafficLayout.SINK_FROM);
+            effect.Parameters["SinkScale"].SetValue(SeaTrafficLayout.SINK_SCALE);
+            return effect;
         }
 
         /// <summary>
@@ -219,7 +234,7 @@ namespace Prazsky.Core.Render
         }
 
         //A box as six quads through `world`, its normals turned with it
-        private static void Box(List<VertexPositionNormalColor> v, Matrix world, Vector3 half, Vector3 color, float kind)
+        private static void Box(List<RigVertex> v, Matrix world, Vector3 half, Vector3 color, float kind)
         {
             var c = new Color(new Vector4(color, kind));
             Vector3[] axes = { Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ };
@@ -232,7 +247,7 @@ namespace Prazsky.Core.Render
                     Vector3 middle = n * d;
                     Vector3 p00 = middle - u * hu - w * hw, p10 = middle + u * hu - w * hw, p11 = middle + u * hu + w * hw, p01 = middle - u * hu + w * hw;
                     Vector3 wn = Vector3.Normalize(Vector3.TransformNormal(n, world));
-                    VertexPositionNormalColor V(Vector3 p) => new(Vector3.Transform(p, world), wn, c);
+                    RigVertex V(Vector3 p) => new(Vector3.Transform(p, world), wn, c);
                     v.Add(V(p00)); v.Add(V(p10)); v.Add(V(p11));
                     v.Add(V(p00)); v.Add(V(p11)); v.Add(V(p01));
                 }
@@ -242,6 +257,8 @@ namespace Prazsky.Core.Render
         /// <summary>Draws the rigs, opaque and writing depth, after the water. Leaves the states as it found them.</summary>
         public void Draw(in SceneFrame frame, float waterY)
         {
+            //The rigs' vertices are the world's; the effect is shared with SeaTraffic, which sets a part's own frame here
+            _world.SetValue(Matrix.Identity);
             _view.SetValue(frame.Camera.View);
             _projection.SetValue(frame.Camera.Projection);
             _cameraPosition.SetValue(frame.Camera.Position);
@@ -268,27 +285,42 @@ namespace Prazsky.Core.Render
         }
 
         public void Dispose() => _vertices?.Dispose();
+    }
 
-        /// <summary>Position, normal, colour (rgb and, in alpha, the part's kind).</summary>
-        private struct VertexPositionNormalColor : IVertexType
+    /// <summary>
+    /// A vertex of what <c>Rig.fx</c> shades (the oil platforms and <see cref="SeaTraffic"/>): position, normal, colour (rgb and,
+    /// in alpha, the part's kind: <see cref="PAINTED"/>, <see cref="LATTICE"/>, <see cref="CLOTH"/> or <see cref="LIGHT"/>).
+    /// </summary>
+    internal struct RigVertex : IVertexType
+    {
+        /// <summary>Plain painted steel, stone or hull: lit by the sun on its outer side and the sky.</summary>
+        internal const float PAINTED = 0f;
+
+        /// <summary>A lattice: members crossing in bays over darker steel (the derrick).</summary>
+        internal const float LATTICE = 0.5f;
+
+        /// <summary>Sailcloth: one sheet, lit on whichever side faces the lens and glowing where the sun is behind it.</summary>
+        internal const float CLOTH = 0.8f;
+
+        /// <summary>A light: its own colour, steady.</summary>
+        internal const float LIGHT = 1f;
+
+        public Vector3 Position;
+        public Vector3 Normal;
+        public Color Color;
+
+        public static readonly VertexDeclaration Declaration = new(
+            new VertexElement(0, VertexElementFormat.Vector3, VertexElementUsage.Position, 0),
+            new VertexElement(12, VertexElementFormat.Vector3, VertexElementUsage.Normal, 0),
+            new VertexElement(24, VertexElementFormat.Color, VertexElementUsage.Color, 0));
+
+        VertexDeclaration IVertexType.VertexDeclaration => Declaration;
+
+        public RigVertex(Vector3 position, Vector3 normal, Color color)
         {
-            public Vector3 Position;
-            public Vector3 Normal;
-            public Color Color;
-
-            public static readonly VertexDeclaration Declaration = new(
-                new VertexElement(0, VertexElementFormat.Vector3, VertexElementUsage.Position, 0),
-                new VertexElement(12, VertexElementFormat.Vector3, VertexElementUsage.Normal, 0),
-                new VertexElement(24, VertexElementFormat.Color, VertexElementUsage.Color, 0));
-
-            VertexDeclaration IVertexType.VertexDeclaration => Declaration;
-
-            public VertexPositionNormalColor(Vector3 position, Vector3 normal, Color color)
-            {
-                Position = position;
-                Normal = normal;
-                Color = color;
-            }
+            Position = position;
+            Normal = normal;
+            Color = color;
         }
     }
 }

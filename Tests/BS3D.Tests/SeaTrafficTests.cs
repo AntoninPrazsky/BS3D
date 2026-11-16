@@ -1,0 +1,340 @@
+using BS3D.Effects;
+using Microsoft.Xna.Framework;
+using Prazsky.Core.Render;
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using Xunit;
+using Xunit.Abstractions;
+using static BS3D.Tests.PlayViewOpenings;
+
+namespace BS3D.Tests
+{
+    /// <summary>
+    /// What stands on the open sea besides the oil platforms (#1125, the owner: the sea is "still quite empty"): the lighthouse on
+    /// its rock, the container ship and the yacht (<see cref="SeaTrafficLayout"/>, <see cref="SeaTrafficMeshes"/>), held over the
+    /// very triangles that are drawn: every one wound clockwise seen from outside; all of it where the swell is flat; the lanes
+    /// clear of both platforms, of the lighthouse and of each other; no lens the chapter intro flies near a lane or the lighthouse;
+    /// a vessel under the horizon from every lens before it wraps round, and the platforms never; the vessels on the clock alone;
+    /// the lighthouse in the play view of every shipped level at every window shape, and each vessel crossing it.
+    /// </summary>
+    public class SeaTrafficTests
+    {
+        private readonly ITestOutputHelper _output;
+
+        public SeaTrafficTests(ITestOutputHelper output) => _output = output;
+
+        public static readonly IEnumerable<object[]> Aspects = ASPECTS.Select(a => new object[] { a });
+
+        private static readonly SeaSceneConfig Sea = new();
+
+        //How near a lane or the lighthouse anything else may come: a leg of a platform is 8.8 wide, and the intro's lens flies
+        //by at some fifty units a second (SeaIntroShotsTests' own clearance off the platforms)
+        private const float CLEARANCE = 20f;
+
+        //The farthest from the arena any lens the game flies stands: the intro's run at the nearer platform, out to some 1070
+        //(held below), and the play view, the menu's orbit and the tour's last leg nearer the arena than that
+        private const float LENS_REACH = 1100f;
+
+        //How long a lane each vessel must spend in the opening play view at the least, seconds
+        private const float SHIP_SECONDS = 50f, YACHT_SECONDS = 120f;
+
+        private static List<RigVertex> Ship() => SeaTrafficMeshes.ContainerShip();
+        private static List<RigVertex> Yacht() => SeaTrafficMeshes.Yacht(SeaTrafficLayout.YachtLeeward(Sea.Wind.ToVector2()));
+        private static List<RigVertex> Lighthouse() => SeaTrafficMeshes.Lighthouse();
+
+        private static IEnumerable<Vector3> Placed(List<RigVertex> mesh, Matrix frame) => mesh.Select(v => Vector3.Transform(v.Position, frame));
+
+        //Each vessel with its mesh, its lane and how it is placed at a moment
+        private static IEnumerable<(string Name, List<RigVertex> Mesh, float Lane, Func<float, Matrix> At, float Speed)> Vessels()
+        {
+            yield return ("the ship", Ship(), SeaTrafficLayout.SHIP_LANE, t => SeaTrafficLayout.ShipAt(t, Sea.LevelY), SeaTrafficLayout.SHIP_SPEED);
+            yield return ("the yacht", Yacht(), SeaTrafficLayout.YACHT_LANE, t => SeaTrafficLayout.YachtAt(t, Sea.LevelY), SeaTrafficLayout.YACHT_SPEED);
+        }
+
+        //Where a point stands across the lanes: its distance out along their normal
+        private static float Across(Vector3 point) => Vector2.Dot(new Vector2(point.X, point.Z), SeaTrafficLayout.LaneNormal);
+
+        //The band across the lanes a vessel's hull, rigging and sails sweep along its lane (its every vertex, wherever on it)
+        private static (float Near, float Far) Band(List<RigVertex> mesh, float lane)
+        {
+            float near = float.MaxValue, far = float.MinValue;
+            foreach (Vector3 p in Placed(mesh, SeaTrafficLayout.VesselAt(0f, lane, 1f, Sea.LevelY)))
+            {
+                near = MathF.Min(near, Across(p));
+                far = MathF.Max(far, Across(p));
+            }
+            return (near, far);
+        }
+
+        //Every corner of every box of both platforms
+        private static List<Vector3> RigCorners()
+        {
+            var corners = new List<Vector3>();
+            void Collect(Matrix world, Vector3 half, Vector3 color, float kind)
+            {
+                for (int i = 0; i < 8; i++)
+                    corners.Add(Vector3.Transform(new Vector3((i & 1) == 0 ? -half.X : half.X, (i & 2) == 0 ? -half.Y : half.Y, (i & 4) == 0 ? -half.Z : half.Z), world));
+            }
+            OilRigs.Parts(OilRigLayout.Near(Sea.LevelY), Collect);
+            OilRigs.Parts(OilRigLayout.Far(Sea.LevelY), Collect);
+            return corners;
+        }
+
+        //Every lens of the sea's prologue (SeaIntroShotsTests' rolls and suns: dome 13's and a sweep round the compass), at this
+        //many points along each shot: the run at the platform flies 174 units, so they are under five apart
+        private const int POSES = 40;
+
+        private static IEnumerable<(string What, Vector3 Lens)> IntroLenses()
+        {
+            var suns = new List<Vector3?> { Sun(13f, 135f), null };
+            for (float azimuth = 0f; azimuth < 360f; azimuth += 30f)
+            {
+                suns.Add(Sun(6f, azimuth));
+                suns.Add(Sun(50f, azimuth));
+            }
+
+            foreach (Vector3? sun in suns)
+                for (int seed = 1; seed <= 24; seed++)
+                    foreach (IntroShot shot in SeaIntroShots.Shots(Sea, sun, GAME_FOV, new Random(seed)))
+                        for (int i = 0; i < POSES; i++)
+                        {
+                            shot.Pose(i / (POSES - 1f), out Vector3 lens, out _);
+                            yield return ($"sun {sun}, seed {seed}, '{shot.Name}' at {i}/{POSES}", lens);
+                        }
+        }
+
+        private static Vector3? Sun(float elevation, float azimuth)
+        {
+            float e = MathHelper.ToRadians(elevation), a = MathHelper.ToRadians(azimuth);
+            return new Vector3(MathF.Cos(e) * MathF.Sin(a), MathF.Sin(e), MathF.Cos(e) * MathF.Cos(a));
+        }
+
+        [Fact]
+        public void EveryTriangleIsWoundClockwiseSeenFromOutside()
+        {
+            //CLAUDE.md "Triangle winding": a triangle's (b - a) x (c - a) points away from the normals it is lit by. The sails are
+            //single sheets lit from the side the wind fills, and hold the same rule against that side. Seen to fire with the
+            //builder's swap taken out.
+            foreach ((string name, List<RigVertex> mesh) in new[] { ("the lighthouse", Lighthouse()), ("the ship", Ship()), ("the yacht", Yacht()) })
+            {
+                Assert.True(mesh.Count > 0 && mesh.Count % 3 == 0, $"{name} has {mesh.Count} vertices");
+                for (int i = 0; i < mesh.Count; i += 3)
+                {
+                    Vector3 geometric = Vector3.Normalize(Vector3.Cross(mesh[i + 1].Position - mesh[i].Position, mesh[i + 2].Position - mesh[i].Position));
+                    for (int k = 0; k < 3; k++)
+                    {
+                        float agreement = Vector3.Dot(geometric, mesh[i + k].Normal);
+                        Assert.True(agreement < 0f, $"{name}: triangle {i / 3} faces its normal at {agreement:F2}");
+                    }
+                }
+            }
+        }
+
+        [Fact]
+        public void AllOfItStandsWhereTheSwellIsFlatWhoeverLooks()
+        {
+            //Rig.fx cuts everything at a flat waterline, so it has to stand where Sea.fx's calm with the distance from the arena has
+            //the water flat (#1124): past WaveFadeEnd. A vessel's nearest to the arena anywhere on its lane is its lane's nearest
+            //point less its reach across it. Seen to fire with the yacht's lane at 790.
+            foreach ((string name, List<RigVertex> mesh, float lane, _, _) in Vessels())
+            {
+                float nearest = Band(mesh, lane).Near;
+                Assert.True(nearest >= Sea.WaveFadeEnd, $"{name} comes {nearest:F1} near the arena, inside the swell's {Sea.WaveFadeEnd}");
+            }
+
+            float rock = Placed(Lighthouse(), SeaTrafficLayout.Lighthouse(Sea.LevelY)).Min(p => new Vector2(p.X, p.Z).Length());
+            Assert.True(rock >= Sea.WaveFadeEnd, $"the lighthouse's rock comes {rock:F1} near the arena, inside the swell's {Sea.WaveFadeEnd}");
+        }
+
+        [Fact]
+        public void TheLanesPassClearOfThePlatformsTheLighthouseAndEachOther()
+        {
+            //The lanes are straight and a vessel can be anywhere along one, so what stands across them from anything is the band
+            //its hull and sails sweep. Seen to fire with the ship's lane at 1050 (the farther platform's jacket).
+            var bands = Vessels().Select(v => (v.Name, Band: Band(v.Mesh, v.Lane))).ToList();
+            var others = new List<(string Name, IEnumerable<Vector3> Points)>
+            {
+                ("a platform", RigCorners()),
+                ("the lighthouse", Placed(Lighthouse(), SeaTrafficLayout.Lighthouse(Sea.LevelY)).ToList()),
+            };
+
+            foreach ((string name, (float near, float far)) in bands)
+            {
+                foreach ((string other, IEnumerable<Vector3> points) in others)
+                    foreach (Vector3 p in points)
+                    {
+                        float across = Across(p);
+                        float off = MathF.Max(near - across, across - far);
+                        Assert.True(off >= CLEARANCE, $"{name}'s lane passes {off:F1} from {other} at {p}");
+                    }
+                _output.WriteLine(string.Format(CultureInfo.InvariantCulture, "{0} sweeps {1:F1} to {2:F1} across the lanes", name, near, far));
+            }
+
+            float between = MathF.Max(bands[1].Band.Near - bands[0].Band.Far, bands[0].Band.Near - bands[1].Band.Far);
+            Assert.True(between >= CLEARANCE, $"the lanes pass {between:F1} from each other");
+        }
+
+        [Fact]
+        public void NoLensTheIntroFliesComesNearALaneOrTheLighthouse()
+        {
+            //The run at the nearer platform flies low over the water out to some 1070 from the arena (SeaIntroShots), which is why
+            //the lanes are not rings round the arena: a vessel could be anywhere along one when it plays. Seen to fire with the
+            //lanes' bearing at -1.6, the platform's side of the sea.
+            var bands = Vessels().Select(v => (v.Name, Band: Band(v.Mesh, v.Lane))).ToList();
+            List<Vector3> rock = Placed(Lighthouse(), SeaTrafficLayout.Lighthouse(Sea.LevelY)).ToList();
+            float farthest = 0f;
+            foreach ((string what, Vector3 lens) in IntroLenses())
+            {
+                farthest = MathF.Max(farthest, new Vector2(lens.X, lens.Z).Length());
+                float across = Across(lens);
+                foreach ((string name, (float near, float far)) in bands)
+                    Assert.True(MathF.Max(near - across, across - far) >= CLEARANCE, $"{what}: the lens at {lens} is on {name}'s lane");
+                Assert.True(rock.Min(p => Vector3.Distance(p, lens)) >= CLEARANCE, $"{what}: the lens at {lens} is at the lighthouse");
+            }
+
+            Assert.True(farthest <= LENS_REACH, $"an intro lens stands {farthest:F0} from the arena, past the reach the horizon's sink is laid for");
+            _output.WriteLine(string.Format(CultureInfo.InvariantCulture, "the intro's farthest lens stands {0:F0} from the arena", farthest));
+        }
+
+        [Fact]
+        public void AVesselIsUnderTheHorizonFromEveryLensBeforeItWrapsRound()
+        {
+            //At either end of its lane a vessel jumps to the other: from any lens within LENS_REACH of the arena every vertex of it
+            //has sunk under the waterline there (Rig.fx's drop, SeaTrafficLayout.Sink), so the jump is never seen. Seen to fire
+            //with LANE_HALF_LENGTH at 2000.
+            foreach ((string name, List<RigVertex> mesh, float lane, _, _) in Vessels())
+                foreach (float end in new[] { -1f, 1f })
+                {
+                    float along = end * (SeaTrafficLayout.LANE_HALF_LENGTH - 1f);
+                    foreach (float heading in new[] { -1f, 1f })
+                    {
+                        Matrix frame = SeaTrafficLayout.VesselAt(along, lane, heading, Sea.LevelY);
+                        foreach (Vector3 p in Placed(mesh, frame))
+                        {
+                            float nearestLens = new Vector2(p.X, p.Z).Length() - LENS_REACH;
+                            float above = p.Y - Sea.LevelY - SeaTrafficLayout.Sink(nearestLens);
+                            Assert.True(above < 0f, $"{name} at its lane's end stands {above:F1} over the water from a lens {nearestLens:F0} off");
+                        }
+                    }
+                }
+        }
+
+        [Fact]
+        public void ThePlatformsAndTheLighthouseNeverSinkFromAnyLens()
+        {
+            //The sink must not reach anything that stands still: from every lens the intro flies, and from anywhere within the
+            //play view's and the menu's reach of the arena, every corner of both platforms and the whole lighthouse are nearer
+            //than SINK_FROM. Seen to fire with SINK_FROM at 1200.
+            const float NEAR_THE_ARENA = 150f;
+            List<Vector3> still = RigCorners().Concat(Placed(Lighthouse(), SeaTrafficLayout.Lighthouse(Sea.LevelY))).ToList();
+            float farthest = still.Max(p => new Vector2(p.X, p.Z).Length()) + NEAR_THE_ARENA;
+            Assert.True(farthest < SeaTrafficLayout.SINK_FROM, $"a platform stands {farthest:F0} from a lens near the arena");
+
+            foreach ((string what, Vector3 lens) in IntroLenses())
+            {
+                float most = still.Max(p => new Vector2(p.X - lens.X, p.Z - lens.Z).Length());
+                Assert.True(most < SeaTrafficLayout.SINK_FROM, $"{what}: a platform or the lighthouse stands {most:F0} from the lens");
+            }
+        }
+
+        [Fact]
+        public void TheVesselsSailOnTheClockAloneAtAnEvenPace()
+        {
+            //Sixty frames a second over a whole lane: each frame moves a vessel its speed's sixtieth along its lane, headed along it,
+            //but for the one wrap a lane; and a lane later it is where it was. Seen to fire with the ship's speed doubled in ShipAt.
+            foreach ((string name, _, float lane, Func<float, Matrix> at, float speed) in Vessels())
+            {
+                float period = 2f * SeaTrafficLayout.LANE_HALF_LENGTH / speed;
+                int frames = (int)(period * 60f), wraps = 0;
+                Matrix last = at(0f);
+                for (int frame = 1; frame <= frames; frame++)
+                {
+                    float t = frame / 60f;
+                    Matrix now = at(t);
+                    float step = Vector3.Distance(now.Translation, last.Translation);
+                    if (step > SeaTrafficLayout.LANE_HALF_LENGTH) wraps++;
+                    else Assert.True(MathF.Abs(step - speed / 60f) < 0.01f, $"{name} moves {step:F3} in a frame at {t:F2} s");
+
+                    Vector3 way = now.Right;
+                    Assert.True(MathF.Abs(MathF.Abs(Vector2.Dot(new Vector2(way.X, way.Z), SeaTrafficLayout.LaneAlong)) - 1f) < 1e-4f, $"{name} heads off its lane at {t:F2} s");
+                    Assert.True(MathF.Abs(Across(now.Translation) - lane) < 0.01f, $"{name} is off its lane at {t:F2} s");
+                    last = now;
+                }
+
+                Assert.Equal(1, wraps);
+                foreach (float t in new[] { 0f, 37f, 400f })
+                    Assert.True(Vector3.Distance(at(t).Translation, at(t + period).Translation) < 0.05f, $"{name} is not where it was a lane later at {t} s");
+            }
+        }
+
+        [Theory]
+        [MemberData(nameof(Aspects))]
+        public void TheLighthouseStandsInThePlayViewOfEveryLevel(float aspect)
+        {
+            //The play view of every shipped level, played on the sea through the pause's Scene list, in every pose the overview
+            //holds: the lantern, the tower's middle and the rock under it in the frame, the gun at rest and every ball the level
+            //opens with off the line to them. Seen to fire with the lighthouse's bearing at -1.37 (a ball of Balloon over the
+            //lantern in the focused view) and at -1.0 (past the frame's right edge at 4:3).
+            Matrix frame = SeaTrafficLayout.Lighthouse(Sea.LevelY);
+            Vector3 lantern = Vector3.Transform(new Vector3(0f, 53f, 0f), frame), middle = Vector3.Transform(new Vector3(0f, 30f, 0f), frame);
+            Vector3 rock = Vector3.Transform(new Vector3(0f, 3f, 0f), frame);
+            float widest = 0f;
+            foreach (string file in Shipped.LevelFiles())
+            {
+                Opening open = Open(file, aspect);
+                foreach ((string pose, Vector3 lens, Vector3 target, float fov) in open.Poses)
+                {
+                    string where = $"{open.Level} at {aspect:F2}, {pose}";
+                    Matrix viewProjection = Matrix.CreateLookAt(lens, target, Vector3.Up) * Matrix.CreatePerspectiveFieldOfView(fov, aspect, 0.1f, 5000f);
+                    foreach ((string part, Vector3 point) in new[] { ("lantern", lantern), ("tower's middle", middle), ("rock", rock) })
+                    {
+                        Vector3 ndc = Project(point, viewProjection, out bool ahead);
+                        Assert.True(InFrame(ndc, ahead), $"{where}: the lighthouse's {part} is out of the frame at {ndc.X:F2}, {ndc.Y:F2}");
+                        Assert.False(BehindTheGun(lens, point, open.Gun, open.Aim), $"{where}: the gun stands before the lighthouse's {part}");
+                        Assert.False(BehindABall(lens, point, open.Balls), $"{where}: a ball hangs over the lighthouse's {part}");
+                        widest = MathF.Max(widest, MathF.Abs(ndc.X));
+                    }
+                }
+            }
+            _output.WriteLine(string.Format(CultureInfo.InvariantCulture, "{0:F2}: the lighthouse out to {1:F2} of the half-frame", aspect, widest));
+        }
+
+        [Theory]
+        [MemberData(nameof(Aspects))]
+        public void EachVesselCrossesTheOpeningPlayView(float aspect)
+        {
+            //The first level's opening pose (the lens on +Z looking at the cluster): over a whole lane, each vessel's middle stands in
+            //the frame, out of the gun's way and over the horizon's cut for at least SHIP_SECONDS (57 at 4:3, the narrowest frame)
+            //and YACHT_SECONDS, and both are in the frame for at least a third of the clock's first two minutes, the Game's seconds
+            //since launch. Seen to fire with the ship's lane bearing at 0.5, behind the lens.
+            Opening open = Open(Shipped.LevelFiles().First(), aspect);
+            (_, Vector3 lens, Vector3 target, float fov) = open.Poses[0];
+            Matrix viewProjection = Matrix.CreateLookAt(lens, target, Vector3.Up) * Matrix.CreatePerspectiveFieldOfView(fov, aspect, 0.1f, 5000f);
+
+            foreach ((string name, List<RigVertex> mesh, _, Func<float, Matrix> at, float speed) in Vessels())
+            {
+                float height = mesh.Max(v => v.Position.Y);
+                bool Seen(float t)
+                {
+                    Vector3 middle = Vector3.Transform(new Vector3(0f, height * 0.5f, 0f), at(t));
+                    bool over = SeaTrafficLayout.Sink(Vector2.Distance(new Vector2(middle.X, middle.Z), new Vector2(lens.X, lens.Z))) < height * 0.25f;
+                    return over && InFrame(Project(middle, viewProjection, out bool ahead), ahead) && !BehindTheGun(lens, middle, open.Gun, open.Aim);
+                }
+
+                float period = 2f * SeaTrafficLayout.LANE_HALF_LENGTH / speed;
+                int seconds = 0;
+                for (float t = 0f; t < period; t += 1f) if (Seen(t)) seconds++;
+                int early = 0;
+                for (float t = 0f; t < 120f; t += 1f) if (Seen(t)) early++;
+
+                float least = name == "the ship" ? SHIP_SECONDS : YACHT_SECONDS;
+                Assert.True(seconds >= least, $"{name} is in the opening view {seconds} s a lane at {aspect:F2}");
+                Assert.True(early >= 40, $"{name} is in the opening view {early} s of the first two minutes at {aspect:F2}");
+                _output.WriteLine(string.Format(CultureInfo.InvariantCulture, "{0:F2}: {1} in the opening view {2} s a lane ({3:F0} s), {4} s of the first two minutes",
+                    aspect, name, seconds, period, early));
+            }
+        }
+    }
+}
