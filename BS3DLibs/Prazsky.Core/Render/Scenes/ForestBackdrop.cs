@@ -161,6 +161,8 @@ namespace Prazsky.Core.Render
             _forestEffect.Parameters["TreelineStrength"].SetValue(_forestConfig.TreelineStrength);
             _forestEffect.Parameters["AmbientStrength"].SetValue(_forestConfig.AmbientStrength);
             _forestEffect.Parameters["HorizonHazeDistance"].SetValue(_forestConfig.HorizonHazeDistance);
+            //Where the sky shader's deck closes over the dome, so the haze's sky behind a far tree takes the lid in (#1121)
+            _forestEffect.Parameters["CloudHorizonFade"].SetValue(CloudField.HORIZON_FADE);
             _forestEffect.Parameters["WindDirection"].SetValue(_forestConfig.Wind.ToVector2());
             _forestEffect.Parameters["WindRippleSpeed"].SetValue(_forestConfig.WindRippleSpeed);
             _forestEffect.Parameters["WindRippleFrequency"].SetValue(_forestConfig.WindRippleFrequency);
@@ -206,14 +208,11 @@ namespace Prazsky.Core.Render
         /// (<see cref="SceneFrame.FarSky"/>'s direction.y 0), the light rig's horizon only where a frame hands none over.
         /// </summary>
         internal static Vector3 Murk(in SceneFrame frame, ForestSceneConfig config) =>
-            Murk(frame.FarSky != null ? frame.FarSky[FAR_SKY_HORIZON] : frame.HorizonLinear, config);
+            Murk(frame.FarSky != null ? frame.FarSky[SkyLightRig.FAR_SKY_HORIZON] : frame.HorizonLinear, config);
 
         /// <summary>The murk off a given sky colour (linear): <see cref="Murk(in SceneFrame, ForestSceneConfig)"/>'s arithmetic.</summary>
         internal static Vector3 Murk(Vector3 skyAtHorizon, ForestSceneConfig config) =>
             Vector3.Lerp(new Vector3(ColorSpace.Luminance(skyAtHorizon)), skyAtHorizon, config.MurkSaturation) * config.MurkShade.ToVector3();
-
-        //FarSky's slot at direction.y 0 (FarField.fxh's FAR_SKY_Y0 -0.10 and FAR_SKY_DY 0.05), as the volcano reads it
-        private const int FAR_SKY_HORIZON = 2;
 
         /// <inheritdoc/>
         public override bool HasShadowCasters => _berm != null || _dressing != null;

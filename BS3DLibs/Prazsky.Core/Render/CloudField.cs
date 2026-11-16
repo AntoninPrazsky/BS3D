@@ -176,7 +176,9 @@ namespace Prazsky.Core.Render
         //(The figures the five carried are Scattered's own in WeatherLooks, to the last digit, so a scene
         //that says nothing about its sky draws exactly what it drew before there was anything to say.)
 
-        private static readonly float HorizonFade = 0.16f;
+        /// <summary>The direction.y over which the deck closes in from nothing at the skyline (<c>CloudHorizonFade</c>), the
+        /// sky shader's and the forest haze's, which takes the overcast lid into the sky behind a far tree (#1121).</summary>
+        internal const float HORIZON_FADE = 0.16f;
 
         /// <summary>How far along the sun the shading looks to decide whether a piece of cloud is backlit.</summary>
         private static readonly float SunStep = 90f;
@@ -335,7 +337,7 @@ namespace Prazsky.Core.Render
         {
             EffectSlots slots = SlotsOf(skyEffect);
 
-            slots.HorizonFade?.SetValue(HorizonFade);
+            slots.HorizonFade?.SetValue(HORIZON_FADE);
             slots.SunStep?.SetValue(SunStep);
             slots.SelfAbsorption?.SetValue(SelfAbsorption);
             slots.SunAbsorption?.SetValue(SunAbsorption);

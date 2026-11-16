@@ -405,11 +405,10 @@ namespace Prazsky.Core.Render
         /// <see cref="LAND_HAZE_SKY"/>, or the light rig's horizon where a frame hands no drawn dome over.
         /// </summary>
         private static Vector3 CountryHaze(in SceneFrame frame) =>
-            (frame.FarSky != null ? frame.FarSky[FAR_SKY_HORIZON] : frame.HorizonLinear) * LAND_HAZE_SKY;
+            (frame.FarSky != null ? frame.FarSky[SkyLightRig.FAR_SKY_HORIZON] : frame.HorizonLinear) * LAND_HAZE_SKY;
 
-        //FarSky's slot at direction.y 0 (FarField.fxh's FAR_SKY_Y0 -0.10 and FAR_SKY_DY 0.05), and how much of the drawn
-        //horizon the land's air is: the far ranges stay darker than the sky behind them, so they read as ranges
-        private const int FAR_SKY_HORIZON = 2;
+        //How much of the drawn horizon the land's air is: the far ranges stay darker than the sky behind them, so they read
+        //as ranges
         private const float LAND_HAZE_SKY = 0.55f;
 
         //How far inside the field's edge a fumarole and a block keep (#748): off the front's levee and face, which are its margin

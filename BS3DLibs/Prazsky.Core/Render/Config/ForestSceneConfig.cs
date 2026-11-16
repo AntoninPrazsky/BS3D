@@ -115,10 +115,11 @@ namespace Prazsky.Core.Render
         public float AmbientStrength { get; set; } = 0.5f;
 
         /// <summary>
-        /// Distance over which the clearing melts into the skyline: the murk is complete by it and the sky most of the way
-        /// (<c>Forest.fx</c>'s <c>FOREST_SKY_REACH</c>), and the far fade (<c>FarFadeToSky</c>, which starts here) carries
-        /// the rest, so the terrain grid's edge never shows against the dome. The wooded hills keep their colour through the
-        /// ramp because the haze passes through a forest murk first (<see cref="MurkShade"/>).
+        /// Distance over which the clearing melts into the skyline: by it the haze has taken a point 0.6 of the way to the murk
+        /// and then <c>Forest.fx</c>'s <c>FOREST_SKY_REACH</c> (under half) of the way to the sky behind it, and the far fade
+        /// (<c>FarFadeToSky</c>, which starts here) carries the rest, so the terrain grid's edge never shows against the dome.
+        /// The wooded hills keep their colour through the ramp because the haze passes through a forest murk first
+        /// (<see cref="MurkShade"/>).
         /// </summary>
         public float HorizonHazeDistance { get; set; } = 520f;
 

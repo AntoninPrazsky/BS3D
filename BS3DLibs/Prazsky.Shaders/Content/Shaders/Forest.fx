@@ -139,14 +139,38 @@ static const float FOREST_SHADOW_STRENGTH_MAX = 0.80;
 //over (FarFade off).
 //
 //⚠ FarSky IS THE DOME WITHOUT THE CLOUD DECK, and the forest's overcast lid closes over the dome from the skyline up (Sky.fx's
-//CloudHorizonFade): a few degrees up the sky drawn behind a spire's tip is half lid, darker than FarSky says. Carried 0.6 of
-//the way to it, the farthest tips stood brighter than the sky round them, so the reach stops short of that.
+//coverage, smoothstep(0, CloudHorizonFade, direction.y)): over the ridges the play camera looks at, a few degrees up, the
+//sky drawn is mostly lid, under half as bright as FarSky. Hazed towards FarSky alone the farthest spires come out lighter
+//than the sky round them, lavender cut-outs on the ridges. So the sky stage takes the lid in (ForestSkyBehind, below).
+//
+//FOREST_SKY_REACH stops short of the sky on purpose: by the haze distance a tree has gone under half the way to it, and the
+//last ridges stand darker than the sky behind them, as every #1121 reference draws them.
 static const float FOREST_SKY_REACH = 0.45;
 
 //The murk (linear): a darker, greyer and cooler shade of the sky drawn at the horizon, worked out by ForestBackdrop
 //(ForestSceneConfig.MurkShade, MurkSaturation) and handed to the plant material as its haze too, so the broadleaves in leaf
 //recede into the very air the floor under them does
 float3 ForestMurk;
+
+//The deck as the sky shader draws it over the dome, for the lid in ForestSkyBehind. CloudOpacity and CloudShadowColor arrive
+//with the rest of the deck (CloudField.ApplyTo, through the frame's ApplyClouds); CloudHorizonFade is CloudField.HORIZON_FADE,
+//stated by ForestBackdrop at load. With no weather (the map editor) the deck's gain stays 0, and there is no lid.
+float CloudOpacity;
+float3 CloudShadowColor;
+float CloudHorizonFade;
+
+//The sky drawn behind a point along a direction of this height (#1121): the dome (FarSky; the rig's HorizonColor only for a
+//host that hands no drawn dome over, FarFade off) with the deck closed over it as Sky.fx closes it, from nothing at the
+//skyline to its full cover CloudHorizonFade up. The deck at its mean: the weather field averages zero, so a deck's typical
+//thickness is its bias times its gain, and a thick deck is drawn in its shadowed underside's colour once the sun is swallowed
+//(Sky.fx's lit side, a shade lighter, is left out, so a ridge under the lid stays a shade darker than the lid).
+float3 ForestSkyBehind(float directionY)
+{
+    float3 sky = FarFade.y > FarFade.x ? FarSkyAt(directionY) : HorizonColor;
+    float deck = saturate(saturate(CloudCoverageBias * CloudCoverageGain) * CloudOpacity);
+
+    return lerp(sky, CloudShadowColor, deck * smoothstep(0.0, CloudHorizonFade, directionY));
+}
 
 float3 ForestHaze(float3 color, float3 worldPosition)
 {
@@ -156,8 +180,7 @@ float3 ForestHaze(float3 color, float3 worldPosition)
     color = lerp(color, ForestMurk, saturate(haze * haze * 1.2) * 0.6);
     float skyward = haze * haze;
     skyward *= skyward;
-    float3 sky = FarFade.y > FarFade.x ? FarSkyAt(toPoint.y / max(dist, 1e-3)) : HorizonColor;
-    color = lerp(color, sky, skyward * FOREST_SKY_REACH);
+    color = lerp(color, ForestSkyBehind(toPoint.y / max(dist, 1e-3)), skyward * FOREST_SKY_REACH);
 
     return FarFadeToSky(color, worldPosition);
 }

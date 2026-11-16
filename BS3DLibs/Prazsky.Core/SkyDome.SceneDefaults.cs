@@ -39,8 +39,8 @@ namespace Prazsky.Core
         //The forest (#961): a dark wood wants a dusk that sits with it and not a bright sky over it, and the
         //fireflies want the dusk. It entered under whatever dome was up, and the one the Game starts on, 13, is
         //a flat saturated teal that covered half the sky above the black hills. Dome 15 is the late twilight
-        //(sun 11 degrees, so the canopy still throws its shadows): an indigo deck with a teal skirt at the
-        //horizon, the hills going blue-black under it and the broadleaf crowns keeping their green. Picked off
+        //(sun 11 degrees, so the canopy still throws its shadows): an indigo sky over a violet skyline (its teal
+        //skirt lies below the horizon), the hills going slate blue under it and the broadleaf crowns olive (#1121). Picked off
         //a sweep of all twenty under the Broken deck at the play camera, among the domes that keep the sun above
         //the shadow map's floor and are not red or pink. Dome 9, the volcano's blue hour, was the runner-up and
         //is the quieter one: no bright saturated sky at all, but its hills went the brown of bare earth.
