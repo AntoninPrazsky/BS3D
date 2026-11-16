@@ -45,7 +45,7 @@ namespace Prazsky.Core.Render
 
             ApplyDesertParameters();
 
-            _pyramids = new Pyramids(services.GraphicsDevice, content, _desertConfig);
+            _pyramids = new Pyramids(services.GraphicsDevice, content, _desertConfig, services.FarField, DESERT_EXTENT);
             _critters = new DesertCritters(services.GraphicsDevice, content, _desertConfig);
         }
 

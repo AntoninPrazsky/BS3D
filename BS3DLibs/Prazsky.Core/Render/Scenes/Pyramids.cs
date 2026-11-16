@@ -35,7 +35,8 @@ namespace Prazsky.Core.Render
         private const float BEARING = -1.75f;
         private const float DIAGONAL_TURN = 0.95f;
 
-        //How far the air takes to thicken to the horizon's colour over them: lighter than the dunes' (420), or they vanish
+        //How far the air takes to thicken to the desert's murk over their faces: lighter than the dunes' (420), or they
+        //vanish. Their foot takes the dunes' own air (Pyramid.fx, #1111).
         private const float HAZE = 1600f;
 
         //How far a pyramid is sunk under the lowest dune round it
@@ -62,9 +63,17 @@ namespace Prazsky.Core.Render
         private readonly VertexBuffer _vertices;
         private readonly int _triangles;
 
-        public Pyramids(GraphicsDevice graphicsDevice, ContentManager content, DesertSceneConfig config)
+        //The far fade the dunes end in, and the dunes' grid extent it is stated for: the foot of a pyramid fades as the
+        //sand round it does (#1111)
+        private readonly FarField _farField;
+        private readonly float _duneExtent;
+
+        public Pyramids(GraphicsDevice graphicsDevice, ContentManager content, DesertSceneConfig config, FarField farField,
+            float duneExtent)
         {
             _graphicsDevice = graphicsDevice;
+            _farField = farField;
+            _duneExtent = duneExtent;
             _effect = content.Load<Effect>("Shaders/Pyramid");
             _view = _effect.Parameters["View"];
             _projection = _effect.Parameters["Projection"];
@@ -74,6 +83,12 @@ namespace Prazsky.Core.Render
             _zenith = _effect.Parameters["ZenithColor"];
             _horizon = _effect.Parameters["HorizonColor"];
             _effect.Parameters["PyramidHaze"].SetValue(HAZE);
+
+            //The dunes' air, for the foot (DesertAir.fxh): the same dials Desert.fx is given
+            _effect.Parameters["SandColor"].SetValue(config.SandColor.ToVector3());
+            _effect.Parameters["HazeWarmth"].SetValue(config.HazeWarmth);
+            _effect.Parameters["HorizonHazeDistance"].SetValue(config.HorizonHazeDistance);
+            _effect.Parameters["SandTop"].SetValue(SandTop(config));
 
             PyramidVertex[] vertices = Build(config);
             _triangles = vertices.Length / 3;
@@ -116,6 +131,41 @@ namespace Prazsky.Core.Render
         /// and north turned with the plan. For the build and for the Potato path's copy (#1044).</summary>
         internal const float PlanTurn = BEARING + DIAGONAL_TURN + MathHelper.Pi * 1.25f;
 
+        //How finely SandTop reads the dunes across a footprint (world units between samples), and the margin over the highest
+        //it found, since a crest can pass between two samples (PyramidAirTests reads eight times as finely and finds the sand
+        //0.9 under it). It is read when every backdrop is built at start-up, so it is kept coarse: about 6 ms on the
+        //desktop's CPU at this spacing, 44 at 48 samples a side whatever the size
+        private const float SAND_TOP_SPACING = 10f;
+        private const float SAND_TOP_MARGIN = 1f;
+
+        /// <summary>
+        /// The highest sand any face of the group meets (#1111): the highest dune under any footprint, read off
+        /// <c>TerrainMirror.Desert</c> on a grid square to the plan, plus <see cref="SAND_TOP_MARGIN"/>. Wherever the sand
+        /// meets a face it does so below this height, so a face takes the dunes' own air up to it (<c>Pyramid.fx</c>) and
+        /// the stone and the sand round its foot are one colour.
+        /// </summary>
+        internal static float SandTop(DesertSceneConfig config)
+        {
+            //A footprint's sides run at the first corner's angle plus 45 and 135 degrees
+            var u = new Vector2(MathF.Cos(PlanTurn + MathHelper.PiOver4), MathF.Sin(PlanTurn + MathHelper.PiOver4));
+            var v = new Vector2(-u.Y, u.X);
+            float top = float.MinValue;
+            foreach (var (centre, side, _, _) in Placement(config))
+            {
+                var c = new Vector2(centre.X, centre.Z);
+                int n = (int)MathF.Ceiling(side / SAND_TOP_SPACING) + 1;
+                for (int i = 0; i < n; i++)
+                {
+                    for (int j = 0; j < n; j++)
+                    {
+                        Vector2 at = c + (u * (i / (n - 1f) - 0.5f) + v * (j / (n - 1f) - 0.5f)) * side;
+                        top = MathF.Max(top, TerrainMirror.Desert(at.X, at.Y, config));
+                    }
+                }
+            }
+            return top + SAND_TOP_MARGIN;
+        }
+
         private static PyramidVertex[] Build(DesertSceneConfig config)
         {
             var v = new List<PyramidVertex>();
@@ -151,6 +201,7 @@ namespace Prazsky.Core.Render
             _sunColor.SetValue(frame.SunColor);
             _zenith.SetValue(frame.ZenithLinear);
             _horizon.SetValue(frame.HorizonLinear);
+            _farField.Begin(_effect, frame, _duneExtent);
 
             BlendState blend = _graphicsDevice.BlendState;
             DepthStencilState depth = _graphicsDevice.DepthStencilState;

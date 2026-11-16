@@ -7,8 +7,11 @@
 //far face does not shimmer.
 //
 //THE LIGHT. The scene's sun on four flat faces - one lit warm, one in shade, which is most of what makes a pyramid read - and
-//the sky's ambient from above. THE HAZE is the desert's own horizon colour but LIGHTER than the dunes' (PyramidHaze against
-//DesertSceneConfig.HorizonHazeDistance): at the dunes' rate the group dissolved into the sky.
+//the sky's ambient from above.
+//
+//THE AIR (#1111) is the desert's own, the dunes' murk (DesertAir.fxh), at two densities the dust decides between by height.
+//At the foot it is the dunes' air to their rule, so the stone and the sand meet in one colour; aloft it is far LIGHTER than
+//the dunes' (PyramidHaze against DesertSceneConfig.HorizonHazeDistance): at the dunes' rate the group dissolved into the sky.
 //
 //Drawn in the Game and the Testbed through the shared SceneRenderer (DesertBackdrop), after the dunes. SM 5.0, no OPENGL.
 
@@ -18,17 +21,29 @@ float4x4 View;
 float4x4 Projection;
 float3 CameraPosition;
 
+#include "FarField.fxh"
+
 float3 SunDirection;     //towards the sun
 float3 SunColor;
 float3 ZenithColor;      //the sky, linear
 float3 HorizonColor;
-float PyramidHaze;       //the distance over which the air thickens to the horizon's colour
+float PyramidHaze;       //the distance over which the air aloft thickens to the desert's murk
+
+//The dunes' air (DesertAir.fxh), the dials Desert.fx is given, and the highest sand any face meets (Pyramids.SandTop): up
+//to it a face takes that air whole
+float3 SandColor;
+float HazeWarmth;
+float HorizonHazeDistance;
+float SandTop;
+
+#include "DesertAir.fxh"
 
 static const float3 STONE = float3(0.40, 0.26, 0.12);
 static const float3 CASING = float3(0.58, 0.46, 0.30);
 static const float3 SAND = float3(0.50, 0.27, 0.10);   //the dunes' own (DesertSceneConfig.SandColor, a shade paler)
 static const float COURSE = 1.5;          //a course's height, world units
 static const float SAND_RISE = 0.07;      //how far up a face the sand drifts, as a share of its height
+static const float DUST_THIN = 30.0;      //over SandTop, the height over which the dust thins by e (world units)
 
 struct PyramidVertexInput
 {
@@ -105,10 +120,18 @@ float4 PyramidPS(PyramidVertexOutput input) : COLOR
     float3 sky = lerp(HorizonColor, ZenithColor, saturate(n.y * 0.5 + 0.5)) * 0.32;
     float3 color = albedo * (SunColor * sun * 1.1 + sky);
 
-    //The air between, lighter than over the dunes
-    float distance = length(p - CameraPosition);
-    float haze = 1.0 - exp(-distance / max(PyramidHaze, 1.0));
-    color = lerp(color, HorizonColor, haze * 0.7);
+    //The air between (#1111). Up to SandTop the dunes' own: their haze into the murk at this distance, then the far fade
+    //to the dome (FarField.fxh), the rule Desert.fx lays on the sand, so wherever the sand meets the stone the two are one
+    //colour. Under the group's lighter air alone the foot stood dark and saturated behind dune crests the murk had already
+    //made pale: nearer ground hazier than the stone behind it, and from the play view the farthest crest, the most faded,
+    //a pale rim along the foot. Over SandTop the dust thins with height, as a desert's haze lies on its ground, to the
+    //group's own air aloft.
+    float dist = length(p - CameraPosition);
+    float3 murk = DesertMurk();
+    float3 dunes = FarFadeToSky(lerp(color, murk, DesertHaze(dist)), p);
+    float3 aloft = lerp(color, murk, (1.0 - exp(-dist / max(PyramidHaze, 1.0))) * 0.7);
+    float dust = exp(-max(p.y - SandTop, 0.0) / DUST_THIN);
+    color = lerp(aloft, dunes, dust);
 
     return float4(color, 1.0);
 }
