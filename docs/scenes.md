@@ -24,7 +24,7 @@ The twenty-one backdrops the Game, the Testbed and the MapEditor all share, plus
 ### The scenes
 
 - [The city](scenes/city.md) — layout and draw, the window rhythm, the towers, the rooftops and the street.
-- [The sea](scenes/sea.md) and [The sea under the surface](scenes/sea-underwater.md) — the surface, its shading and spray; what happens to a ball and the lens below the water.
+- [The sea](scenes/sea.md) and [The sea under the surface](scenes/sea-underwater.md) — the surface, its shading and spray, the oil platforms, the lighthouse and the two vessels on their lanes; what happens to a ball and the lens below the water.
 - [The savanna](scenes/savanna.md), [The savanna's trees and plain](scenes/savanna-trees.md), [The savanna's campfires](scenes/savanna-fires.md) and [Savanna trails and planting](scenes/savanna-trails.md) — the plain, the acacias, the fires and the paths that bend round trees.
 - [Space](scenes/space.md) and [The star lattice](scenes/space-stars.md) — the sky-replacing family, the marched volume, and the stars.
 - [The dream](scenes/dream.md) — what holds the surreal scene together, and its glare policy.
