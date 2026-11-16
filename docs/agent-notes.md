@@ -26,6 +26,12 @@ Pravidla:
 - ⚠ Zahřátí jednou jízdou nestačí: jednorázový náklad první cesty (prvního volání, líně postaveného pomocníka) se na runnerech s málo jádry objevil až v pozdější jízdě. Test alokací musí zahřát každou cestu, kterou počítá.
 - ⚠ Slučovací agent, kterého zabil limit, pushnul merge a CI už neviděl: po přerušení vždy zkontroluj `gh run list --branch main`.
 
+## 2026-11-15 — #1111 poušť: pata pyramid v oparu dun — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: kámen pyramid bere do výšky `Pyramids.SandTop` (nejvyšší písek pod půdorysy, z `TerrainMirror.Desert`, asi −0,5) přesně opar a murk dun a `FarField.Begin` s rozsahem dun; výš prach řídne e× na `Pyramids.DustThin` (30) k `HorizonColor` jako dřív, horní stěny beze změny. Matematika vzduchu sdílená v `DesertAir.fxh` (Desert.fx bajtově stejný). Testy `PyramidAirTests`.
+- ⚠ Příčina se našla vypínáním po jednom (lesk, far fade, opar): duny za 420 jsou celé murk, kámen jen 25 % k teplému horizontu, takže pata tmavá za světlými hřebeny. Opar ke murku i nahoře zašedí stěny pod kupolí 6.
+- Otevřené: verdikt oka (pás u paty: opar, nebo zeď mlhy?; Khafre z herního pohledu); Potato/Pi pata zůstává tmavá (PYRAMID_HAZE 1600 proti 420), chce vlastní issue.
+
 ## 2026-11-15 — #1136 Mřížka: cykly mimo krychle — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: světelné cykly ani jejich zdi už nevjedou do těles (sceneseed=18, modrý cyklus v 25,5 s stál napůl v krychli). Rozmístění těles je v `GridLayout` (bez grafiky, stejný proud náhod, desktop i Životy beze změny); `LightCycles.Lattice` povolí krok jen se `SOLID_CLEARANCE` 6,85 od půdorysu a jen tam, odkud vede další krok bez otočky. Bez těles v prstenci jedou cykly přesně jako dřív. Potato teď staví tělesa jako desktop (na Pi dá stejné sceneseed jiné rozmístění) a úvod #1116 bere běhy postavené mezi tělesy.

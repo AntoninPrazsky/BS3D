@@ -116,6 +116,9 @@ float SheenStrength;
 //World distance over which the dunes melt into the skyline haze
 float HorizonHazeDistance;
 
+//The murk and the haze's share, shared with the pyramids' foot (#1111)
+#include "DesertAir.fxh"
+
 //--- The dune field -----------------------------------------------------------------------------------
 
 //THE DUNES ARE CUT BY THE WIND (redrawn against references rendered locally for this pass). A real dune is
@@ -670,12 +673,9 @@ float4 DesertSurface(DesertVertexOutput input)
     float2 dustP = (worldPosition.xz + WindDirection * DesertTime * DustSpeed) * 0.03;
     float dust = saturate(CloudNoise(dustP) * 0.5 + 0.5);
     dust *= DustStrength * saturate(dist / DustStart);
-    //The warm murk the far erg fades into (see HazeWarmth): the horizon's brightness in the sand's hue, leaned
-    //towards by HazeWarmth. The dust veil takes it too - it used to add the horizon colour itself, which is
-    //where the cyan came from under the cool domes.
-    float horizonLuma = dot(HorizonColor, float3(0.2126, 0.7152, 0.0722));
-    float3 sandHue = SandColor / max(dot(SandColor, float3(0.2126, 0.7152, 0.0722)), 1e-3);
-    float3 murk = lerp(HorizonColor, sandHue * horizonLuma, HazeWarmth);
+    //The warm murk the far erg fades into (DesertAir.fxh). The dust veil takes it too - it used to add the
+    //horizon colour itself, which is where the cyan came from under the cool domes.
+    float3 murk = DesertMurk();
 
     float3 dustColor = lerp(SandColor * skyAmbient * 2.0, murk, 0.5);
     color = lerp(color, dustColor, saturate(dust));
@@ -684,9 +684,9 @@ float4 DesertSurface(DesertVertexOutput input)
     //the finite grid's edge against the dome, and that argument did not hold: under dome 13 the uniform is teal
     //while the dome draws its horizon lilac-grey, in the Game and the Testbed alike, so the far dunes stood against
     //the sky as a teal band that matched nothing. What stands there now is the erg's own dust-hazed skyline, which
-    //is what the edge of a desert looks like.
-    float haze = saturate(dist / HorizonHazeDistance);
-    color = lerp(color, murk, haze * haze);
+    //is what the edge of a desert looks like. The pyramids' foot takes the same air (Pyramid.fx), so where the
+    //stone meets the sand the two are hazed alike.
+    color = lerp(color, murk, DesertHaze(dist));
 
     return float4(FarFadeToSky(color, worldPosition), 1.0);
 }
