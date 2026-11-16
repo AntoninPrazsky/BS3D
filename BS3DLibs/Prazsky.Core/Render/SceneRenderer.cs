@@ -364,7 +364,7 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Whether the scenes draw their <b>finer meshes</b> (#758): High and Ultra's, where Low and Medium draw the coarser
-        /// mesh of the same thing off the same instances. Ten things today: the savanna acacias' wood — the fork grown as one
+        /// mesh of the same thing off the same instances. Eleven things today: the savanna acacias' wood — the fork grown as one
         /// surface out of a swollen, lobed crotch rather than tubes poking out of the trunk's cut end
         /// (<see cref="AcaciaMesh.FineWood"/>, <see cref="ScatterBucket.FineMeshes"/>, #758) — the meadow's old trees' wood
         /// grown the same way, the limbs coming out through the crotch's side (<see cref="MeadowTreeMesh.FineWood"/>, #889,
@@ -381,7 +381,9 @@ namespace Prazsky.Core.Render
         /// the stalactites under 8 units out and use 9 facets — and the Moon's and the volcano's rocks (#777): fractured blocks
         /// and worn boulders shaded as stone (<see cref="FracturedRockSet"/>) where Low and Medium keep twenty flat facets and the
         /// lathes — and the outback's formations near the arena (#967): a polar disc of 160 segments by 80 rings under each,
-        /// where Low and Medium lay the far ones' 96 by 40 (<see cref="OutbackRockDiscs"/>). The spruces belong to the hosts' own <see cref="ForestScatterRenderer"/>s, which take this flag at every draw.
+        /// where Low and Medium lay the far ones' 96 by 40 (<see cref="OutbackRockDiscs"/>) — and the desert's beetles and scorpions (#1110):
+        /// segmented shells, jointed legs, pincers and a keeled tail (<see cref="CritterMesh.FineBeetle"/>,
+        /// <see cref="CritterMesh.FineScorpion"/>) where Low and Medium keep the ellipsoids and tubes. The spruces belong to the hosts' own <see cref="ForestScatterRenderer"/>s, which take this flag at every draw.
         /// <para>
         /// A switch of its own rather than a step of <see cref="SceneDetail"/>, because that one is Low's alone (#298) and
         /// this one is Medium's too: Medium is the weak machine's rung. A plain flag for <see cref="SupersampleFactor"/>'s
@@ -389,7 +391,8 @@ namespace Prazsky.Core.Render
         /// the Testbed and the map editor want. Costed in "The fork, grown for High and Ultra (#758)" and "The bush (#883)" in
         /// docs/scenes/savanna-trees.md, in "Two woods (#889)" and "The shrubs (#890)" in docs/scenes/meadow.md, in "The spruces on High and Ultra"
         /// in docs/scenes/aurora.md, in "High and Ultra's range" in docs/scenes/mountains.md, in "High and Ultra's rocks" in docs/scenes/moon.md, in
-        /// "One height field, two kinds of mesh" in docs/scenes/outback.md and in "High and Ultra's wood" in docs/scenes/forest.md.
+        /// "One height field, two kinds of mesh" in docs/scenes/outback.md, in "High and Ultra's wood" in docs/scenes/forest.md and in
+        /// "The beetles and scorpions (#966)" in docs/scenes/desert.md.
         /// </para>
         /// </summary>
         public bool FineMeshes
@@ -1473,10 +1476,37 @@ namespace Prazsky.Core.Render
         public void CueVolcanoBurst(float now, float onset) => _volcano.Lava.CueBurst(now, onset);
 
         /// <summary>
-        /// Cues the desert's featured scorpion (#966) to come up out of the sand at <paramref name="at"/> (world XZ) at
-        /// <paramref name="onset"/> on the scene's clock, walking along <paramref name="yaw"/>: the chapter tour's close shot.
+        /// Cues the desert's featured scorpion (#966), or its featured beetle (#1110), to come up out of the sand at
+        /// <paramref name="at"/> (world XZ) at <paramref name="onset"/> on the scene's clock, walking along <paramref name="yaw"/>:
+        /// the chapter intro's close shots, which call this on every frame of the shot to keep the creature on the intro's own
+        /// clock. An onset in the past has it walking already.
         /// </summary>
-        public void CueDesertCritter(Vector2 at, float yaw, float onset) => _desert.Critters.Feature(at, yaw, onset);
+        public void CueDesertCritter(Vector2 at, float yaw, float onset, bool scorpion = true) => _desert.Critters.Feature(at, yaw, onset, scorpion);
+
+        /// <summary>
+        /// Where the desert's featured scorpion (or beetle) cued at <paramref name="at"/> along <paramref name="yaw"/>
+        /// (<see cref="CueDesertCritter"/>) stands <paramref name="sinceOnset"/> seconds after its onset (#1110): its foot on
+        /// the sand of <paramref name="config"/>, held at its burrow before it comes up and where it went back in after. A pure
+        /// function of the clock, as its life is, so a shot can keep it in frame through its walk.
+        /// </summary>
+        public static Vector3 DesertFeatureAt(Vector2 at, float yaw, float sinceOnset, DesertSceneConfig config, bool scorpion = true)
+        {
+            DesertCritters.TryFeaturePose(at, yaw, 0f, Math.Clamp(sinceOnset, 0f, DesertFeatureSeconds(scorpion)),
+                (x, z) => TerrainMirror.Desert(x, z, config), out DesertCritters.Pose pose, scorpion);
+            return pose.Position;
+        }
+
+        /// <summary>The featured scorpion's (or beetle's) whole life from its onset, seconds: up out of the sand, its walk, and back
+        /// in (#1110).</summary>
+        public static float DesertFeatureSeconds(bool scorpion = true) =>
+            DesertFeatureWalkEnds(scorpion) + DesertCritters.BURROW_SECONDS;
+
+        /// <summary>When the featured scorpion's (or beetle's) walk ends and it starts to dig back in, seconds from its onset.</summary>
+        public static float DesertFeatureWalkEnds(bool scorpion = true) =>
+            DesertCritters.EMERGE_SECONDS + DesertCritters.FeatureWalkSeconds(scorpion);
+
+        /// <summary>How long the featured scorpion (or beetle) takes to come up out of the sand, seconds from its onset.</summary>
+        public const float DESERT_FEATURE_EMERGE_SECONDS = DesertCritters.EMERGE_SECONDS;
 
         /// <summary>
         /// Cues the space scene's saucer (#1117) to pass with its middle at <paramref name="point"/> at <paramref name="closest"/>

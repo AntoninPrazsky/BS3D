@@ -46,28 +46,43 @@ namespace Prazsky.Core.Render
         private readonly Effect _effect;
         private readonly EffectTechnique _critterTechnique, _discTechnique;
         private readonly EffectParameter _view, _projection, _cameraPosition, _sunDirection, _sunColor, _zenith, _horizon, _time;
-        private readonly VertexBuffer[] _meshes = new VertexBuffer[2];
-        private readonly IndexBuffer[] _meshIndices = new IndexBuffer[2];
-        private readonly int[] _meshTriangles = new int[2];
+        //The meshes: the beetle's and the scorpion's, then High and Ultra's finer two (CritterMesh.FineBeetle, FineScorpion,
+        //#1110), drawn where SceneRenderer.FineMeshes is on, off the same instances
+        private readonly VertexBuffer[] _meshes = new VertexBuffer[4];
+        private readonly IndexBuffer[] _meshIndices = new IndexBuffer[4];
+        private readonly int[] _meshTriangles = new int[4];
         private readonly DynamicVertexBuffer[] _instances = new DynamicVertexBuffer[2];
-        private readonly ModelInstance[][] _instanceData = { new ModelInstance[BEETLES], new ModelInstance[SCORPIONS + 1] };
+        private readonly ModelInstance[][] _instanceData = { new ModelInstance[BEETLES + 1], new ModelInstance[SCORPIONS + 1] };
 
-        //THE FEATURED SCORPION (#966): the chapter tour's close shot cues one to come up out of the sand where its lens is
-        //framed (SceneRenderer.CueDesertCritter, DesertIntroShots), at the moment the shot comes on screen, so the shot need
-        //not wait for one of the others' cycles to bring one there. It comes up, walks a few lengths across the frame and digs
-        //back in (FEATURE_WALK_SECONDS), and is gone after. NaN onset: none cued.
-        private Vector2 _featureAt;
-        private float _featureYaw, _featureOnset = float.NaN;
-        internal const float FEATURE_WALK_SECONDS = 4.5f;
+        //THE FEATURED SCORPION AND BEETLE (#966, #1110): the chapter intro's close shots cue one of each to come up out of the
+        //sand where their lens is framed (SceneRenderer.CueDesertCritter, DesertIntroShots, DesertLanding), so a shot need not
+        //wait for one of the others' cycles to bring one there; re-cued on every frame of the shot, so the creature's life runs
+        //on the intro's clock though the scene draws it on the wall clock (a pause or a hitch parts the two). Each comes up, walks a
+        //few lengths straight on (FEATURE_SCORPION_WALK, FEATURE_BEETLE_WALK) and digs back in, and is gone after; an onset
+        //in the past (the beetle's) has it walking already on the shot's first frame. Slot 0 the beetle, 1 the scorpion, as
+        //the meshes; NaN onset: none cued.
+        private readonly Vector2[] _featureAt = new Vector2[2];
+        private readonly float[] _featureYaw = new float[2], _featureOnset = { float.NaN, float.NaN };
+        internal const float FEATURE_SCORPION_WALK = 3.0f, FEATURE_BEETLE_WALK = 3.2f, FEATURE_STOP_SECONDS = 0.6f;
         private readonly int[] _counts = new int[2];
 
-        //The soft discs: a shadow under each creature, the burrow's hole, the puffs; four vertices a disc
-        private const int MAX_DISCS = COUNT * 8 + BEETLES * TRAIL_PRINTS;
+        //The soft discs: a shadow under each creature, the burrow's hole, the puffs; four vertices a disc. ⚠ THE SAND'S
+        //RADIANCE IS LINEAR AND HDR: a disc that darkens it is premultiplied BLACK with an alpha, which takes that share of
+        //whatever the sand is. The prints were once a premultiplied brown (0.18, 0.12, 0.06 at half), a dark brown read as
+        //sRGB but nearly the sunlit sand's own radiance as linear: they changed the sand by 3 to 5 per cent, and no capture
+        //ever showed the trail (#1110). The shadow's 0.42 left only its faint rim outside the body showing.
+        private const int MAX_DISCS = (COUNT + 2) * 8 + (BEETLES + 1) * TRAIL_PRINTS;
+        //The shadow: an ellipse this long and this wide either side of its middle, in body lengths, cast off the body by the
+        //height of its middle (no further than a sun this high casts it), and this dark at its middle
+        private const float SHADOW_LENGTH = 0.5f, SHADOW_WIDTH = 0.3f, SHADOW_HEIGHT = 0.2f, SHADOW_LOWEST_SUN = 0.25f;
+        private const float SHADOW_ALPHA = 0.7f, PRINT_ALPHA = 0.55f;
+        //How far over the sand a disc lies: the clearing is flat and the mirror is the sand's own height there
+        private const float DISC_LIFT = 0.03f;
 
         //A beetle's trail (the references' double line of footprints): this many prints behind it, a print this many of its
-        //lengths apart and this far either side of its line
+        //lengths apart, this far either side of its line and this wide
         private const int TRAIL_PRINTS = 14;
-        private const float PRINT_SPACING = 0.22f, PRINT_SIDE = 0.16f;
+        private const float PRINT_SPACING = 0.22f, PRINT_SIDE = 0.16f, PRINT_RADIUS = 0.07f;
         private readonly VertexPositionColorTexture[] _discs = new VertexPositionColorTexture[MAX_DISCS * 4];
         private readonly DynamicVertexBuffer _discBuffer;
         private readonly IndexBuffer _discIndices;
@@ -97,7 +112,9 @@ namespace Prazsky.Core.Render
 
             Upload(0, CritterMesh.Beetle());
             Upload(1, CritterMesh.Scorpion());
-            _instances[0] = new DynamicVertexBuffer(device, ModelInstance.VertexDeclaration, BEETLES, BufferUsage.WriteOnly);
+            Upload(2, CritterMesh.FineBeetle());
+            Upload(3, CritterMesh.FineScorpion());
+            _instances[0] = new DynamicVertexBuffer(device, ModelInstance.VertexDeclaration, BEETLES + 1, BufferUsage.WriteOnly);
             _instances[1] = new DynamicVertexBuffer(device, ModelInstance.VertexDeclaration, SCORPIONS + 1, BufferUsage.WriteOnly);
 
             _discBuffer = new DynamicVertexBuffer(device, VertexPositionColorTexture.VertexDeclaration, _discs.Length, BufferUsage.WriteOnly);
@@ -143,31 +160,61 @@ namespace Prazsky.Core.Render
 
         internal static bool IsScorpion(int i) => i >= BEETLES;
 
-        /// <summary>Cues the featured scorpion to come up at <paramref name="at"/> at <paramref name="onset"/>, walking along <paramref name="yaw"/>.</summary>
-        internal void Feature(Vector2 at, float yaw, float onset)
+        /// <summary>Cues the featured scorpion (or beetle) to come up at <paramref name="at"/> at <paramref name="onset"/>, walking
+        /// along <paramref name="yaw"/>.</summary>
+        internal void Feature(Vector2 at, float yaw, float onset, bool scorpion = true)
         {
-            _featureAt = at;
-            _featureYaw = yaw;
-            _featureOnset = onset;
+            int slot = scorpion ? 1 : 0;
+            _featureAt[slot] = at;
+            _featureYaw[slot] = yaw;
+            _featureOnset[slot] = onset;
         }
 
-        /// <summary>The featured scorpion's pose, on its own short timeline from its cue; false before and after it.</summary>
-        internal static bool TryFeaturePose(Vector2 at, float yaw, float onset, float time, Func<float, float, float> ground, out Pose pose)
+        /// <summary>
+        /// How far a featured creature has walked <paramref name="walked"/> seconds into a walk of <paramref name="walk"/>: the
+        /// others' stops and starts at <paramref name="speed"/>, setting off from rest over the first
+        /// <see cref="FEATURE_STOP_SECONDS"/> and braking steadily to rest over the last (#1110). The close shots' looks follow
+        /// it: setting off at the others' pace in one frame, it jerked the scorpion's look at 145 degrees a second squared, and
+        /// stopping dead at 40.
+        /// </summary>
+        internal static float FeatureDistance(float walked, float walk, float speed)
+        {
+            float from = walk - FEATURE_STOP_SECONDS;
+            if (walked <= from) return speed * Along(SetOff(walked));
+
+            float g = SetOff(from);
+            float pace = speed * (1f - 0.35f * MathF.Cos(g * 1.9f)) * MathF.Min(from / FEATURE_STOP_SECONDS, 1f), braking = walked - from;
+            return speed * Along(g) + pace * (braking - braking * braking / (2f * FEATURE_STOP_SECONDS));
+
+            //Its walk's own clock, eased in: its rate comes up from nought to one over the first FEATURE_STOP_SECONDS
+            static float SetOff(float w) => w < FEATURE_STOP_SECONDS ? w * w / (2f * FEATURE_STOP_SECONDS) : w - 0.5f * FEATURE_STOP_SECONDS;
+            //The others' stops and starts, a walk of g seconds on that clock
+            static float Along(float g) => g - 0.35f * MathF.Sin(g * 1.9f) / 1.9f;
+        }
+
+        /// <summary>How long the featured scorpion's (or beetle's) walk lasts.</summary>
+        internal static float FeatureWalkSeconds(bool scorpion) => scorpion ? FEATURE_SCORPION_WALK : FEATURE_BEETLE_WALK;
+
+        /// <summary>A featured creature's pose, on its own short timeline from its cue; false before and after it. It walks at
+        /// its kind's pace with the others' stops and starts, straight on along <paramref name="yaw"/>.</summary>
+        internal static bool TryFeaturePose(Vector2 at, float yaw, float onset, float time, Func<float, float, float> ground, out Pose pose,
+            bool scorpion = true)
         {
             pose = default;
             float local = time - onset;
-            float total = EMERGE_SECONDS + FEATURE_WALK_SECONDS + BURROW_SECONDS;
+            float walk = FeatureWalkSeconds(scorpion);
+            float total = EMERGE_SECONDS + walk + BURROW_SECONDS;
             if (float.IsNaN(onset) || local < 0f || local > total) return false;
 
-            float speed = SCORPION_SPEED * SCORPION_SIZE * 0.8f;
-            float walked = Math.Clamp(local - EMERGE_SECONDS, 0f, FEATURE_WALK_SECONDS);
-            float distance = speed * (walked - 0.35f * MathF.Sin(walked * 1.9f) / 1.9f);
+            float size = scorpion ? SCORPION_SIZE : BEETLE_SIZE;
+            float speed = scorpion ? SCORPION_SPEED * SCORPION_SIZE * 0.8f : BEETLE_SPEED * BEETLE_SIZE;
+            float distance = FeatureDistance(Math.Clamp(local - EMERGE_SECONDS, 0f, walk), walk, speed);
             Vector2 p = Arc(at, yaw, 0f, distance, out float heading);
             float emerging = Math.Clamp(local / EMERGE_SECONDS, 0f, 1f);
-            float burrowing = Math.Clamp((local - EMERGE_SECONDS - FEATURE_WALK_SECONDS) / BURROW_SECONDS, 0f, 1f);
+            float burrowing = Math.Clamp((local - EMERGE_SECONDS - walk) / BURROW_SECONDS, 0f, 1f);
             float sunk = (1f - Smooth(emerging)) + Smooth(burrowing);
             float pitch = 0.6f * (1f - Smooth(emerging)) * (emerging < 1f ? 1f : 0f) - 0.55f * Smooth(burrowing);
-            pose = new Pose(new Vector3(p.X, ground(p.X, p.Y), p.Y), heading, pitch, sunk, distance / SCORPION_SIZE * STEPS_PER_LENGTH * MathHelper.TwoPi,
+            pose = new Pose(new Vector3(p.X, ground(p.X, p.Y), p.Y), heading, pitch, sunk, distance / size * STEPS_PER_LENGTH * MathHelper.TwoPi,
                 new Vector3(burrowing > 0f ? p.X : at.X, 0f, burrowing > 0f ? p.Y : at.Y), emerging < 1f ? emerging : 0f, burrowing,
                 at, yaw, 0f, distance);
             return true;
@@ -238,8 +285,9 @@ namespace Prazsky.Core.Render
             return (h & 0xFFFFFF) / (float)0xFFFFFF;
         }
 
-        /// <summary>Draws the creatures that are above the sand, their shadows, their burrows and the sand they throw.</summary>
-        public void Draw(in SceneFrame frame)
+        /// <summary>Draws the creatures that are above the sand, their shadows, their burrows and the sand they throw;
+        /// <paramref name="fine"/> in High and Ultra's finer bodies (<see cref="SceneRenderer.FineMeshes"/>).</summary>
+        public void Draw(in SceneFrame frame, bool fine)
         {
             int[] counts = _counts;
             counts[0] = counts[1] = 0;
@@ -248,13 +296,16 @@ namespace Prazsky.Core.Render
             Matrix view = frame.Camera.View;
             Vector3 right = new(view.M11, view.M21, view.M31);
 
-            for (int i = 0; i <= COUNT; i++)
+            for (int i = 0; i < COUNT + 2; i++)
             {
-                //The last is the featured scorpion, on its own timeline
+                //The last two are the featured beetle and scorpion, each on its own timeline
                 Pose pose;
-                if (i == COUNT ? !TryFeaturePose(_featureAt, _featureYaw, _featureOnset, frame.Time, _ground, out pose) : !TryPose(i, frame.Time, out pose))
+                int slot = i - COUNT;
+                if (slot >= 0
+                    ? !TryFeaturePose(_featureAt[slot], _featureYaw[slot], _featureOnset[slot], frame.Time, _ground, out pose, scorpion: slot == 1)
+                    : !TryPose(i, frame.Time, out pose))
                     continue;
-                bool scorpion = i == COUNT || IsScorpion(i);
+                bool scorpion = slot >= 0 ? slot == 1 : IsScorpion(i);
                 float size = scorpion ? SCORPION_SIZE : BEETLE_SIZE;
                 int kind = scorpion ? 1 : 0;
                 float height = size * 0.5f;
@@ -273,13 +324,23 @@ namespace Prazsky.Core.Render
                         float side = (k & 1) == 0 ? 1f : -1f;
                         var print = new Vector3(at.X + MathF.Cos(yawAt) * side * PRINT_SIDE * size, 0f, at.Y - MathF.Sin(yawAt) * side * PRINT_SIDE * size);
                         print.Y = _ground(print.X, print.Z);
-                        FlatDisc(ref discs, print, size * 0.06f, new Color(0.18f, 0.12f, 0.06f, 0.5f) * (1f - k / (float)(TRAIL_PRINTS + 1)));
+                        FlatDisc(ref discs, print, size * PRINT_RADIUS, new Color(0f, 0f, 0f, PRINT_ALPHA) * (1f - k / (float)(TRAIL_PRINTS + 1)));
                     }
 
-                //Its shadow while it stands on the sand, the hole while it comes up or goes down, the sand thrown from it
+                //Its shadow while it stands on the sand: a soft ellipse along its body, cast off it away from the sun by the
+                //height of its body's middle, so it lies beside the body rather than under it, where the body hid it
                 float above = 1f - Math.Clamp(pose.Sunk, 0f, 1f);
                 if (above > 0.05f && discs < MAX_DISCS)
-                    FlatDisc(ref discs, pose.Position, size * 0.55f, new Color(0f, 0f, 0f, 0.42f * above));
+                {
+                    Vector3 sun = frame.SunDirection;
+                    Vector3 shadow = pose.Position + new Vector3(-sun.X, 0f, -sun.Z) * (size * SHADOW_HEIGHT / MathF.Max(sun.Y, SHADOW_LOWEST_SUN));
+                    shadow.Y = _ground(shadow.X, shadow.Z) + DISC_LIFT;
+                    var along = new Vector3(MathF.Sin(pose.Yaw), 0f, MathF.Cos(pose.Yaw));
+                    Quad(ref discs, shadow, new Vector3(along.Z, 0f, -along.X) * (size * SHADOW_WIDTH), along * (size * SHADOW_LENGTH),
+                        new Color(0f, 0f, 0f, SHADOW_ALPHA * above));
+                }
+
+                //The hole while it comes up or goes down, and the sand thrown from it
                 float digging = MathF.Max(pose.Emerging > 0f ? 1f - pose.Emerging * 0.6f : 0f, pose.Burrowing);
                 if (digging > 0f && discs < MAX_DISCS)
                 {
@@ -318,10 +379,11 @@ namespace Prazsky.Core.Render
             {
                 if (counts[kind] == 0) continue;
                 _instances[kind].SetData(_instanceData[kind], 0, counts[kind], SetDataOptions.Discard);
-                InstanceBinding.Set(_device, _meshes[kind], 0, _instances[kind], 0);
-                _device.Indices = _meshIndices[kind];
+                int mesh = fine ? kind + 2 : kind;
+                InstanceBinding.Set(_device, _meshes[mesh], 0, _instances[kind], 0);
+                _device.Indices = _meshIndices[mesh];
                 _effect.CurrentTechnique.Passes[0].Apply();
-                _device.DrawInstanced(PrimitiveType.TriangleList, 0, 0, _meshTriangles[kind], counts[kind]);
+                _device.DrawInstanced(PrimitiveType.TriangleList, 0, 0, _meshTriangles[mesh], counts[kind]);
             }
 
             //The discs over the sand and in front of the bodies, premultiplied, reading the depth and writing none
@@ -346,7 +408,7 @@ namespace Prazsky.Core.Render
         //A disc lying on the sand a hair over it
         private void FlatDisc(ref int discs, Vector3 centre, float radius, Color color)
         {
-            centre.Y += 0.03f;
+            centre.Y += DISC_LIFT;
             Quad(ref discs, centre, Vector3.UnitX * radius, Vector3.UnitZ * radius, color);
         }
 
@@ -366,12 +428,12 @@ namespace Prazsky.Core.Render
 
         public void Dispose()
         {
-            for (int k = 0; k < 2; k++)
+            for (int k = 0; k < _meshes.Length; k++)
             {
                 _meshes[k]?.Dispose();
                 _meshIndices[k]?.Dispose();
-                _instances[k]?.Dispose();
             }
+            for (int k = 0; k < _instances.Length; k++) _instances[k]?.Dispose();
             _discBuffer?.Dispose();
             _discIndices?.Dispose();
         }
