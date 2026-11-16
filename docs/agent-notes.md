@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-16 — #1101 stíny slunce čtou mapu čtyřmi gathery — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: `SunShadow` (Shadows.fxh) čte na DirectX blok 4×4 texelů čtyřmi `GatherRed` místo šestnácti `tex2Dlod`; GL (GameAndroid) drží šestnáct čtení pod `#if OPENGL`. Šířka texelu ve světě je uniforma `ShadowTexelWorld` (`SunShadowMap.TexelWorld`), ne `length()` sloupce matice v každém pixelu; `ShadowReceiver.Push` bere celou mapu. Obraz beze změny na deseti pevných pohledech (proti třem během mainu), levnější o ~0,1 ms (les Ultra 3840×1500 10,58 → 10,47 ms). Testy `SunShadowTexelTests` hlídají uniformu i pořadí řádků gatherů.
+- ⚠ Úspora je malá: šestnáct čtení nebylo tím, co stojí přijímač stínu nejvíc.
+- Otevřené: GL cesta neběžela na telefonu; notebook a Pi neměřeny; hardwarové PCF nepostaveno (změnilo by polostín).
+
 ## 2026-11-16 — #1136 červený main: test alokací jízdy Gridu — desktop (RDT-PC), Claude Code
 
 - Hotovo: CI na `main` po sloučení #1136 (bf91188a) padalo na `GridRideTests.Choosing_again_and_posing_allocate_nothing`, 464 B na obou runnerech; lokálně test prošel sám i v celé sadě. Test teď všechny jízdy jednou projede nepočítaně a teprve druhý průchod počítá, po fázích, a při chybě je jmenuje. Na větvi zelené všechny tři joby.
