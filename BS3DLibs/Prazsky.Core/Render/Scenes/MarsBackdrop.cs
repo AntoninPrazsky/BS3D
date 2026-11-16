@@ -62,11 +62,13 @@ namespace Prazsky.Core.Render
         internal const float BAKE_MIN_RADIUS = 5f, BAKE_MAX_RADIUS = 1000f, BAKE_RADIUS_OFFSET = 20f;
 
         /// <summary>
-        /// How far from the arena the lens may stand and still be drawn the baked ground, world units on the plain. Every
-        /// camera of the front end's orbit and the drop stands well inside it; the chapter tour's runs out on the plain do
-        /// not, and a lens out there is drawn the exact ground, whose texels near it would otherwise be the bake's far ones.
+        /// How far from the arena the lens may stand and still be drawn the baked ground, world units on the plain. The
+        /// front end's orbit (its wide leg 33 to 47 units out at the shipped window shapes, docs/game-shell/menu-camera.md)
+        /// and the play camera stand inside it. Every shot of the chapter intro stands outside it the whole way
+        /// (<c>MarsBakeReachTests</c>), so no shot turns from one ground to the other in flight, and a lens a few units over
+        /// the ruts is never drawn the coarser texels the bake has out there.
         /// </summary>
-        internal const float BAKE_CAMERA_REACH = 150f;
+        internal const float BAKE_CAMERA_REACH = 70f;
 
         /// <summary><c>Mars.fx</c>'s <c>MarsBakePolar</c>: the mapping from a radius to the bake's rows and back.</summary>
         internal static Vector4 BakePolar
