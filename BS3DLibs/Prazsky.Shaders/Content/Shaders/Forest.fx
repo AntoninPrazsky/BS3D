@@ -126,10 +126,10 @@ static const float FOREST_SHADOW_STRENGTH_MAX = 0.80;
 //Horizon haze in two stages, the floor's and everything standing on the hills (the far stand, #962), so a tree on a ridge
 //recedes exactly as the ground under it does. Straight to the sky - the one stage every other terrain uses - the dark
 //wooded hills bleach long before the skyline and read as bare slopes; what distant forested ridges actually do is go
-//dark slate, each ridge paler than the one before and the last one only a little darker than the sky behind it. So the
-//hills first recede into a murk (ForestMurk, below), and then towards the sky itself, FOREST_SKY_REACH of the way by the
-//haze distance; FarFadeToSky takes them the rest of the way past it, so the farthest ridges stand a shade darker than the
-//sky until the far ring's fade has them.
+//dark slate, each ridge paler than the one before and the last one still darker than the sky behind it. So the hills
+//first recede into a murk (ForestMurk, below), and then towards the sky itself, FOREST_SKY_REACH of the way by the haze
+//distance; FarFadeToSky takes them the rest of the way past it, so the farthest ridges stand darker than the sky until the
+//far ring's fade has them.
 //
 //⚠ THE SKY IS THE ONE DRAWN BEHIND THE POINT (#1121), FarSkyAt along its own direction, the colour FarFadeToSky ends at too,
 //never the light rig's HorizonColor. That one is the average of the bottom fifth of the dome's capture, nearly all of it
@@ -137,7 +137,11 @@ static const float FOREST_SHADOW_STRENGTH_MAX = 0.80;
 //the sky drawn over the ridges is a violet (0.217, 0.092, 0.438): hazed to it, the far spires came out azure and brighter
 //than the purple sky behind them, cut-outs on every ridge. HorizonColor stands in only for a host that hands no drawn dome
 //over (FarFade off).
-static const float FOREST_SKY_REACH = 0.6;
+//
+//⚠ FarSky IS THE DOME WITHOUT THE CLOUD DECK, and the forest's overcast lid closes over the dome from the skyline up (Sky.fx's
+//CloudHorizonFade): a few degrees up the sky drawn behind a spire's tip is half lid, darker than FarSky says. Carried 0.6 of
+//the way to it, the farthest tips stood brighter than the sky round them, so the reach stops short of that.
+static const float FOREST_SKY_REACH = 0.45;
 
 //The murk (linear): a darker, greyer and cooler shade of the sky drawn at the horizon, worked out by ForestBackdrop
 //(ForestSceneConfig.MurkShade, MurkSaturation) and handed to the plant material as its haze too, so the broadleaves in leaf

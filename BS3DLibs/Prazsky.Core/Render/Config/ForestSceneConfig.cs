@@ -130,7 +130,7 @@ namespace Prazsky.Core.Render
         /// far ridges slate blue under a violet sky). It used to be made of the light rig's horizon colour, whose teal under the
         /// forest's dome is a colour no part of this sky is drawn in.
         /// </summary>
-        public Rgb MurkShade { get; set; } = new(0.16f, 0.33f, 0.40f);
+        public Rgb MurkShade { get; set; } = new(0.20f, 0.30f, 0.40f);
 
         /// <summary>How much of the sky's own colour the murk keeps against its grey, 0 to 1 (see <see cref="MurkShade"/>).</summary>
         public float MurkSaturation { get; set; } = 0.5f;
@@ -217,8 +217,8 @@ namespace Prazsky.Core.Render
         /// <summary>Where the finer meshes give way to the coarser ones.</summary>
         public float NearRadius { get; set; } = 420f;
 
-        /// <summary>Where it ends: past it the haze has carried everything into the sky (<see cref="ForestSceneConfig.HorizonHazeDistance"/>
-        /// from a camera on the island, and <c>FarFadeToSky</c> after it).</summary>
+        /// <summary>Where it ends: just past the haze distance from a camera on the island (<see cref="ForestSceneConfig.HorizonHazeDistance"/>),
+        /// where the haze has done all it does before <c>FarFadeToSky</c> carries the hills on into the sky.</summary>
         public float OuterRadius { get; set; } = 560f;
 
         /// <summary>The grid a tree is jittered in, world units, inside <see cref="NearRadius"/> and past it.</summary>
@@ -246,8 +246,9 @@ namespace Prazsky.Core.Render
         /// <summary>The spruces' needles (linear): the planted spruces' green, a shade darker for a stand's crowded crowns.</summary>
         public Rgb SpruceColor { get; set; } = new(0.011f, 0.030f, 0.014f);
 
-        /// <summary>The broadleaves' leaves (linear): lighter and warmer than the spruces, as the references' beech stands are.</summary>
-        public Rgb BroadleafColor { get; set; } = new(0.020f, 0.044f, 0.014f);
+        /// <summary>The broadleaves' leaves (linear): the planted broadleaves' olive, as much lighter than the stand's spruces as
+        /// the planted broadleaves are than the planted spruces (<see cref="ForestTreeConfig.BROADLEAF_LIGHTER"/>, #1121).</summary>
+        public Rgb BroadleafColor { get; set; } = new(0.022f, 0.039f, 0.008f);
 
         /// <summary>How much lighter the outer edge of a tier's or a crown's upper face is, its tips catching the sky.</summary>
         public float TipLight { get; set; } = 0.5f;
@@ -410,8 +411,20 @@ namespace Prazsky.Core.Render
         /// </summary>
         public Rgb TrunkColor { get; set; } = new(0.058f, 0.045f, 0.033f);
 
-        /// <summary>Broadleaf foliage colour (linear radiance) — a warmer, lighter green than the conifers'.</summary>
-        public Rgb FoliageColor { get; set; } = new(0.042f, 0.115f, 0.026f);
+        /// <summary>
+        /// Broadleaf foliage colour (linear radiance): an olive green about a third lighter than the conifers' (#1121,
+        /// <see cref="BROADLEAF_LIGHTER"/>). A beech's or a birch's crown is lighter and yellower than a spruce's in every
+        /// dusk reference, and its leaves reflect a third to a half more of the light; what read as unnatural was a pure
+        /// leaf-green half as light again, lit in full sun while the spruces stood under the overcast.
+        /// </summary>
+        public Rgb FoliageColor { get; set; } = new(0.053f, 0.098f, 0.019f);
+
+        /// <summary>
+        /// How much lighter a broadleaf crown is than a conifer's, by luminance, near (<see cref="FoliageColor"/> against
+        /// <see cref="ConiferColor"/>) and on the far hills (<see cref="ForestFarStandConfig.BroadleafColor"/> against
+        /// <see cref="ForestFarStandConfig.SpruceColor"/>) alike (#1121): the figure the two pairs are authored to.
+        /// </summary>
+        public const float BROADLEAF_LIGHTER = 1.35f;
 
         /// <summary>Conifer foliage colour (linear radiance) — the dark blue-green a spruce reads as.</summary>
         public Rgb ConiferColor { get; set; } = new(0.028f, 0.075f, 0.026f);

@@ -100,7 +100,8 @@ namespace Prazsky.Core.Render
         /// stands in (#748): hazed to <paramref name="hazeColor"/> rather than to the dome's horizon, and the sun shadowed by the
         /// frame's cloud deck (<see cref="SceneFrame.ApplyClouds"/>) as the terrain shaders shadow it. The volcano's land past
         /// its field stands in an ash pall under a storm deck; drawn in full sun and hazed to the bright horizon, its woods
-        /// stood on their dark hillsides as pale cones.
+        /// stood on their dark hillsides as pale cones. The forest's dressing stands under an overcast lid (#1121); in full sun
+        /// its broadleaves in leaf were the lightest thing in the wood.
         /// </summary>
         public void DrawInWeather(in SceneFrame frame, IReadOnlyList<ScatterBucket> buckets, float hazeDistance, bool detail, bool fineMeshes,
             Vector3 hazeColor) =>
