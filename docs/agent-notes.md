@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1120 #1122 #1099 les: hustší smrky a ořez podle pohledu — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: každý průchod (kamera i slunce) kreslí jen stromy ve svém frustu (`ForestPasses`, `InstanceCells` pro statickou výzdobu a vzdálený porost), průchody kamery řadí od nejbližšího. Na High/Ultra nosí blízkou korunu i stromy do 90 jednotek od ohniska, které skočí ke kameře jen při střihu (> 8 jednotek za snímek). Blízká koruna hustší (91–179 větví). Testbed má číselník `forest=`.
+- Ultra, Heart v lese: 10,15 → 10,06 ms; háj v úvodu +0,20 ms; aurora na Fish ~+0,1 ms.
+- ⚠ Jehličí, větvičky a kapradí stojí dohromady jen ~0,1 ms; cena je ve větvích a listových kartách (0,89 ms), ořez podle tmy by nic neušetřil.
+- Otevřené: verdikt oka (#1120, aurora); #1122 rozhodnutí majitele; #1099 hrubší koruna za vzdáleností; pohyb střihů neviděn.
+
 ## 2026-11-15 — #1136 Mřížka: cykly mimo krychle — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: světelné cykly ani jejich zdi už nevjedou do těles (sceneseed=18, modrý cyklus v 25,5 s stál napůl v krychli). Rozmístění těles je v `GridLayout` (bez grafiky, stejný proud náhod, desktop i Životy beze změny); `LightCycles.Lattice` povolí krok jen se `SOLID_CLEARANCE` 6,85 od půdorysu a jen tam, odkud vede další krok bez otočky. Bez těles v prstenci jedou cykly přesně jako dřív. Potato teď staví tělesa jako desktop (na Pi dá stejné sceneseed jiné rozmístění) a úvod #1116 bere běhy postavené mezi tělesy.
