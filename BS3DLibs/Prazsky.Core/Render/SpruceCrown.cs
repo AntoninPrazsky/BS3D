@@ -140,20 +140,21 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The spruces round the arena: a whorl every 0.95 units of six to eight arms and two or three smaller ones between,
-        /// four rings an arm (#1120). The references of a spruce at dusk (<c>C:\Users\panrd\AI\sd\out\1120-*</c>) draw a dense
+        /// three rings an arm (#1120). The references of a spruce at dusk (<c>C:\Users\panrd\AI\sd\out\1120-*</c>) draw a dense
         /// cone of many narrow layered sprays, dark between them, its outline hundreds of tips; five to seven wide arms a whorl
-        /// every 1.15 units read as a few paddles on a pole. Four rings an arm where there were five pays for most of the arms.
+        /// every 1.15 units read as a few paddles on a pole. Three rings an arm where there were five pay for the arms: the
+        /// crown has half again as many, in fewer triangles than before.
         /// </summary>
         public static readonly SpruceDetail Near = new()
         {
             WhorlSpacing = 0.95f,
             Arms = 6, ArmsSpread = 3, Between = 2, BetweenSpread = 2,
             Width = 0.115f,
-            RingT = new[] { 0f, 0.3f, 0.6f, 0.85f },
-            RingWidth = new[] { 0.25f, 0.85f, 0.95f, 0.5f },
-            RingHang = new[] { 0.35f, 1f, 0.6f, 0.9f },
-            RingRidge = new[] { 0.3f, 0.9f, 0.95f, 0.45f },
-            ShortRings = new[] { 0, 2, 3 },
+            RingT = new[] { 0f, 0.42f, 0.78f },
+            RingWidth = new[] { 0.28f, 1f, 0.6f },
+            RingHang = new[] { 0.38f, 1f, 0.8f },
+            RingRidge = new[] { 0.32f, 1f, 0.55f },
+            ShortRings = new[] { 0, 2 },
             Shade = 0.28f,
             Salt = 0,
         };
