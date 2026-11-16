@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1136 Mřížka: cykly mimo krychle — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: světelné cykly ani jejich zdi už nevjedou do těles (sceneseed=18, modrý cyklus v 25,5 s stál napůl v krychli). Rozmístění těles je v `GridLayout` (bez grafiky, stejný proud náhod, desktop i Životy beze změny); `LightCycles.Lattice` povolí krok jen se `SOLID_CLEARANCE` 6,85 od půdorysu a jen tam, odkud vede další krok bez otočky. Bez těles v prstenci jedou cykly přesně jako dřív. Potato teď staví tělesa jako desktop (na Pi dá stejné sceneseed jiné rozmístění) a úvod #1116 bere běhy postavené mezi tělesy.
+- ⚠ Kontrola podle obalové kružnice přeháněla dosah krychle (116 místo 98 z 205 rozmístění); počítej podle krabice.
+- Otevřené: pohyb nových zatáček nikdo neviděl; GameAndroid nesestaven; `GridRideTests` dál rolují tělesa vlastním zjednodušeným `Solids(seed)`.
+
 ## 2026-11-15 — #1123 outback: mlha nad plání — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: bledý závoj nad plání outbacku dělaly tři věci, poznané vypínáním po jedné v záběrech úvodu: tetelení vzduchu v `Outback.fx` (šum podle směru pohledu, skvrny ±11 úrovní zelené, při pohybu kamery se plazí po zemi), `HazeDistance` 3000 a poslední fade od 600. Tetelení odstraněno (s uniformami a hodinami), haze 6000 pro plán i skály, fade plání od 1000 (`TerrainPass.FarFadeStartLatest`, ostatní scény dál 600 kvůli tyrkysové čáře ledovce). Cena: −0,08–0,10 ms. Testy `OutbackAirTests` (5).
