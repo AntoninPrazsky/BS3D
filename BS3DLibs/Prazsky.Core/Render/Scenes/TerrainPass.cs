@@ -79,6 +79,14 @@ namespace Prazsky.Core.Render
         public Effect Effect { get; }
 
         /// <summary>
+        /// The latest the far field may begin this ground's last fade into the sky (<see cref="FarField.Begin"/>):
+        /// <see cref="FarField.FAR_FADE_START_LATEST"/> unless the scene states a later one. Only a ground still mostly its own
+        /// colour where the fade begins may, so the pixels at the skyline show its own edge (the outback's plain, 0.85 its own
+        /// colour at 1000, #1123); see the constant for the line a later start drew under a haze strong by then.
+        /// </summary>
+        public float FarFadeStartLatest { get; set; } = FarField.FAR_FADE_START_LATEST;
+
+        /// <summary>
         /// Takes a grid of <paramref name="gridN"/> vertices a side over <paramref name="extent"/> and resolves
         /// <paramref name="effect"/>'s per-frame parameters, <paramref name="timeParameter"/> being the name of
         /// the scene's own clock uniform (<c>PolarTime</c>, <c>DesertTime</c>, …), or null for a ground on which
@@ -193,7 +201,7 @@ namespace Prazsky.Core.Render
             _graphicsDevice.BlendState = blend ?? BlendState.Opaque;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
 
-            _farField.Begin(Effect, frame, _extent);
+            _farField.Begin(Effect, frame, _extent, FarFadeStartLatest);
             beforeGrid?.Invoke();
             _graphicsDevice.SetVertexBuffer(_vertexBuffer);
             _graphicsDevice.Indices = _indexBuffer;

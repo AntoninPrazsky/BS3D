@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1123 outback: mlha nad plání — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: bledý závoj nad plání outbacku dělaly tři věci, poznané vypínáním po jedné v záběrech úvodu: tetelení vzduchu v `Outback.fx` (šum podle směru pohledu, skvrny ±11 úrovní zelené, při pohybu kamery se plazí po zemi), `HazeDistance` 3000 a poslední fade od 600. Tetelení odstraněno (s uniformami a hodinami), haze 6000 pro plán i skály, fade plání od 1000 (`TerrainPass.FarFadeStartLatest`, ostatní scény dál 600 kvůli tyrkysové čáře ledovce). Cena: −0,08–0,10 ms. Testy `OutbackAirTests` (5).
+- ⚠ Jasný HDR vzduch zbledí tmavě červenou plán už při pár setinách podílu; saturace plání 0,34–0,41 s haze, 0,59–0,65 bez ní.
+- Otevřené: `verdict-eye` (pohyb neviděn, Low/Medium/Ultra a menu nezachyceny); skutečná refrakce na obzoru #1135; trsy spinifexu u nízké kamery jako šedé šmouhy (bez issue).
+
 ## 2026-11-15 — #1117 Vesmír: úvod otevírá stojící záběr s talířem — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: první záběr úvodu Vesmíru „the saucer“ (4,2 s) nahradil jízdu „the station“: čočka stojí 280 od osy, celá planeta v horní půlce, malá stanice dole na druhé straně. Talíř je načasovaný (`SaucerPass` v Prazsky.Core, `SceneRenderer.CueSpaceSaucer`): posune fázi smyčky a 2,6 s kolem okamžiku 2,4 s letí rovně 28 u/s kolem čočky (nejblíž 29), nakloněný kupolí k ní. Bez narážky je `SaucerFlight.WorldAt` přesně stará smyčka (menu, hra, Potato). Úvod 14,2 s.

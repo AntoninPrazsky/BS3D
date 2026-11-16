@@ -58,12 +58,17 @@ namespace Prazsky.Core.Render
         /// inner edge everywhere and short of its outer edge, so nothing about where the ring ends can show.</summary>
         public const float FAR_FADE_END = 1300f;
 
-        //Where the fade may begin at the latest. A scene's own haze distance is where it begins otherwise (see
-        //FarFieldSlots), but three scenes state 700-900 and their haze ends in the rig's HorizonColor, which is not
-        //the sky's: begun that late, the last few hundred units - all of them squeezed into the pixel or two at the
-        //skyline - stayed that colour and drew a thin line of it along the whole horizon (the icesheet's was teal
-        //under a lilac sky).
-        private const float FAR_FADE_START_LATEST = 600f;
+        /// <summary>
+        /// Where the fade may begin at the latest. A scene's own haze distance is where it begins otherwise (see
+        /// FarFieldSlots), but three scenes state 700-900 and their haze ends in the rig's HorizonColor, which is not
+        /// the sky's: begun that late, the last few hundred units - all of them squeezed into the pixel or two at the
+        /// skyline - stayed that colour and drew a thin line of it along the whole horizon (the icesheet's was teal
+        /// under a lilac sky, its haze having made the ground wholly teal by 900). A ground still mostly its OWN colour where
+        /// the fade begins has no foreign colour to squeeze into those pixels: they show its own edge going into the sky, and
+        /// its pass may state a later latest start (<see cref="TerrainPass.FarFadeStartLatest"/>; the outback's plain is
+        /// 0.85 its own colour at its 1000, #1123). A ground whose haze is strong by then, towards HorizonColor, may not.
+        /// </summary>
+        public const float FAR_FADE_START_LATEST = 600f;
 
         private VertexBuffer _farRingVertexBuffer;
         private IndexBuffer _farRingIndexBuffer;
@@ -129,9 +134,10 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// States the far fade for this frame's draws of <paramref name="effect"/>: the dome it fades into and the
         /// distances it runs over, and the ring clip OFF for the camera grid that draws first. A frame with no
-        /// <see cref="SceneFrame.FarSky"/> gets no fade at all.
+        /// <see cref="SceneFrame.FarSky"/> gets no fade at all. <paramref name="latestStart"/> is the pass's own
+        /// <see cref="TerrainPass.FarFadeStartLatest"/>.
         /// </summary>
-        public void Begin(Effect effect, in SceneFrame frame, float gridExtent)
+        public void Begin(Effect effect, in SceneFrame frame, float gridExtent, float latestStart = FAR_FADE_START_LATEST)
         {
             FarFieldSlots slots = FarSlots(effect);
             slots.Ring?.SetValue(Vector4.Zero);
@@ -142,7 +148,7 @@ namespace Prazsky.Core.Render
                 return;
             }
 
-            float start = MathF.Min(slots.Haze?.GetValueSingle() ?? FAR_FADE_START_LATEST, FAR_FADE_START_LATEST);
+            float start = FadeStart(slots.Haze?.GetValueSingle(), latestStart);
             float end = FAR_FADE_END;
 
             //The reduced tier draws no ring (FarRingDrawn), so its fade has to be complete inside the camera grid
@@ -157,6 +163,12 @@ namespace Prazsky.Core.Render
             slots.Sky.SetValue(frame.FarSky);
             slots.Fade.SetValue(new Vector2(start, end));
         }
+
+        /// <summary>
+        /// Where the ring's tier begins the last fade: the scene's own haze distance (null where its effect declares none,
+        /// as OpenGL ES drops a uniform the program never reads) or <paramref name="latestStart"/>, whichever is nearer.
+        /// </summary>
+        internal static float FadeStart(float? sceneHaze, float latestStart) => MathF.Min(sceneHaze ?? latestStart, latestStart);
 
         //Where the reduced tier's fade begins, as a share of where it must end: the grid's covered radius.
         private const float FAR_FADE_REDUCED_START = 0.85f;
