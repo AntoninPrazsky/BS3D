@@ -149,6 +149,16 @@ namespace Prazsky.Core.Render
         private const float FAR_SKY_DY = 0.05f;
 
         /// <summary>
+        /// The <see cref="FarSky"/> slot level with the horizon (direction.y 0): the sky as it is drawn at the skyline, which
+        /// the forest's murk (#1121) and the volcano's land haze (#748) are made of. Stated off the table's own spacing, so a
+        /// change to it moves this too.
+        /// </summary>
+        public const int FAR_SKY_HORIZON = (int)(-FAR_SKY_Y0 / FAR_SKY_DY + 0.5f);
+
+        /// <summary>The direction.y a <see cref="FarSky"/> slot is the dome at.</summary>
+        internal static float FarSkyDirectionY(int slot) => FAR_SKY_Y0 + slot * FAR_SKY_DY;
+
+        /// <summary>
         /// The colour the dome is actually DRAWN in along the lowest directions, in linear radiance, filled by
         /// <see cref="SetSky"/> and handed to the open-ground scenes through <see cref="SceneFrame.FarSky"/> — what
         /// their far ground fades into so it disappears into the sky rather than ending against it (#551). One array
@@ -225,7 +235,7 @@ namespace Prazsky.Core.Render
             _domeSunDirection = sky.SunDirection;
 
             for (int i = 0; i < FAR_SKY_STEPS; i++)
-                FarSky[i] = sky.DrawnLinearAt(FAR_SKY_Y0 + i * FAR_SKY_DY);
+                FarSky[i] = sky.DrawnLinearAt(FarSkyDirectionY(i));
 
             Derive();
         }

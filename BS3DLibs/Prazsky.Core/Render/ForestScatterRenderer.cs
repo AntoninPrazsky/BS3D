@@ -743,10 +743,11 @@ namespace Prazsky.Core.Render
         /// <para>
         /// <b>Why a colour needs shifting at all when the lighting already carries the dome.</b> It does carry
         /// it — the rig tints the key light and the hemisphere ambient, and the wood is enrolled for both in
-        /// all three executables. The trouble is the pigment: the authored foliage is
-        /// <c>(0.042, 0.115, 0.026)</c> linear, whose red and blue channels are near zero, so a coloured light
-        /// has almost nothing to multiply there and the crowns stay the same green under every sky while the
-        /// ground around them turns with the dome (#108). Proved by making the pigment neutral grey for one
+        /// all three executables. The trouble is the pigment: the authored foliage
+        /// (<see cref="ForestTreeConfig.FoliageColor"/>) is a green whose blue channel is near zero and whose red
+        /// is a fraction of its green, so a coloured light has little to multiply there and the crowns stay the
+        /// same green under every sky while the ground around them turns with the dome (#108). Proved, when the
+        /// foliage was a purer green still, by making the pigment neutral grey for one
         /// run: the very same trees then took a sunset dome fully, salmon-pink, with not a line of the
         /// lighting path changed. A saturated pigment not taking a coloured light is correct physics — it is
         /// simply not the picture this scene wants, so the pigment is what has to move.

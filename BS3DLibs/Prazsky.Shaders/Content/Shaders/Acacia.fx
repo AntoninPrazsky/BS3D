@@ -20,10 +20,11 @@
 //The sun's cast shadows (#469): every plant receives them, and the ShadowCaster technique below is how
 //every plant is drawn INTO the map.
 #include "Shadows.fxh"
-//The cloud deck's shadow on the sun (#748), for the one draw that asks for it. PlantPass zeroes the deck's gain before
+//The cloud deck's shadow on the sun (#748), for the draws that ask for it. PlantPass zeroes the deck's gain before
 //every draw (the savanna's own draw does too), so every planted scene's plants stand in full sun as they always have and
 //CloudSunlight answers a flat 1 without evaluating anything; the volcano's land hands it the frame's clouds, because under
-//its storm deck the ground gets a sixth of the sun, and a wood in full sun on that ground stood out as pale cones.
+//its storm deck the ground gets a sixth of the sun, and a wood in full sun on that ground stood out as pale cones, and so
+//does the forest's dressing (#1121), whose leaves in full sun under the overcast lid were the lightest thing in the wood.
 #include "Clouds.fxh"
 
 float4x4 View;
@@ -60,9 +61,10 @@ float LeafStrength;
 float HorizonHazeDistance;
 static const float PLANT_HAZE_REACH = 1.5;
 
-//What that haze is made of: the dome's horizon for every scene but one (PlantPass states it with the horizon, the savanna's
-//own draw states it too), and the volcano's ash pall for the land past its lava field (#748) - Volcano.fx hazes its ground
-//to the horizon tinted DOWN, and a wood hazed to the bright horizon over that ground stood on it as pale cones.
+//What that haze is made of: the dome's horizon for every scene but two (PlantPass states it with the horizon, the savanna's
+//own draw states it too); the volcano's ash pall for the land past its lava field (#748) - Volcano.fx hazes its ground
+//to the horizon tinted DOWN, and a wood hazed to the bright horizon over that ground stood on it as pale cones - and the
+//forest's murk (#1121), the air its floor recedes into first, off the sky as it is drawn.
 float3 HazeColor;
 
 //Light this draw carries that the scene's own sun and dome do not account for, added flat after them. It is
