@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-16 — #1136 červený main: test alokací jízdy Gridu — desktop (RDT-PC), Claude Code
+
+- Hotovo: CI na `main` po sloučení #1136 (bf91188a) padalo na `GridRideTests.Choosing_again_and_posing_allocate_nothing`, 464 B na obou runnerech; lokálně test prošel sám i v celé sadě. Test teď všechny jízdy jednou projede nepočítaně a teprve druhý průchod počítá, po fázích, a při chybě je jmenuje. Na větvi zelené všechny tři joby.
+- ⚠ Zahřátí jednou jízdou nestačí: jednorázový náklad první cesty (prvního volání, líně postaveného pomocníka) se na runnerech s málo jádry objevil až v pozdější jízdě. Test alokací musí zahřát každou cestu, kterou počítá.
+- ⚠ Slučovací agent, kterého zabil limit, pushnul merge a CI už neviděl: po přerušení vždy zkontroluj `gh run list --branch main`.
+
 ## 2026-11-15 — #1136 Mřížka: cykly mimo krychle — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: světelné cykly ani jejich zdi už nevjedou do těles (sceneseed=18, modrý cyklus v 25,5 s stál napůl v krychli). Rozmístění těles je v `GridLayout` (bez grafiky, stejný proud náhod, desktop i Životy beze změny); `LightCycles.Lattice` povolí krok jen se `SOLID_CLEARANCE` 6,85 od půdorysu a jen tam, odkud vede další krok bez otočky. Bez těles v prstenci jedou cykly přesně jako dřív. Potato teď staví tělesa jako desktop (na Pi dá stejné sceneseed jiné rozmístění) a úvod #1116 bere běhy postavené mezi tělesy.
