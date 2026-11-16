@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1102 vrstvové číselníky Marsu, lesa a outbacku — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: Testbed má `mars=` a `outback=` a `forest=` má vlastní `FarRing` a `Bank` (`Floor` je jen mřížka); jdou přes `alt=`, parsování je `LayerDial.Parse` v Core, 19 testů `LayerDialTests`. Výchozí číselníky kreslí totéž co main. Ceny vrstev (ssaa 2, Full.json) jsou v tabulkách `docs/scenes/mars.md`, `forest.md` a `outback.md`: Mars 0,72 z 4,14 ms (vypnutý bake +0,69), les 5,38 z 8,89 (smrky 1,86), outback 4,14 z 8,09, z toho **formace 3,26** → #1137. Měsíce Marsu stojí plochých 0,13 ms při každém rozlišení → #1138. Řádek `[skyorder]` teď hlásí pořadí, které cíl běhu opravdu dává.
+- ⚠ Sloupec „ušetřeno vypnutím“: cena se píše záporně, ne „+“.
+- Otevřené: #1137, #1138; obrácený opakovaný běh jen pro ssaa 2 Full; A/B snímku Game mezi mainem a větví neběželo.
+
 ## 2026-11-15 — #1100 Mars: pevná pole země předpečená do map — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: na High/Ultra (DirectX) se pevná pole země Marsu (albedo, sklon, velké krátery, masky skal, desek a zrna) pečou jednou do tří polárních map 4096×2048 (úhel × log vzdálenosti) v `BeforeShadowMaps`, znovu jen při pohybu slunce. Země je čte (`MarsTerrainBaked`), dokud kamera stojí do 70 od arény; jemné detaily (okraje malých kráterů, koleje roveru, praskliny desek, pruhy mes) zůstávají po pixelech. Jedna funkce `MarsGroundFields` krmí obě cesty. Odchod z Marsu nebo vypnutá Scenery vrací 171 MiB (`Backdrop.Leave`). Game menu Ultra 7,31 → 4,75 ms (strop 4,50).
