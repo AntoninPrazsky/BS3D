@@ -61,11 +61,13 @@ namespace BS3D.Tests
         //Each drawn rider's run over the first 25 minutes on the wall clock
         private const float CLOCK = 1500f;
 
-        //Whether a solid's footprint comes within `reach` of the axis
-        private static bool Within(GridSolid solid, float reach) =>
-            new Vector2(solid.BaseCentre.X, solid.BaseCentre.Z).Length() - 0.5f * new Vector2(solid.Size.X, solid.Size.Z).Length() < reach;
+        //Whether a solid's footprint, the box seen from above, comes within `reach` of the axis
+        private static bool Within(GridSolid solid, float reach) => Footprint(solid, Vector2.Zero) < reach;
 
-        /// <summary>The solids whose footprint comes near the ring: the only ones a cycle could reach.</summary>
+        /// <summary>The solids whose footprint comes near the ring: the only ones a cycle could reach. A run stays inside
+        /// `RING_MAX`, so a footprint further out than that and `SOLID_CLEARANCE` keeps the clearance from every point of a
+        /// wall, and from a body's corner all but the few hundredths its corner reaches past `BODY_REACH`, which the body's
+        /// assertion allows.</summary>
         private static List<GridSolid> Near(List<GridSolid> solids) =>
             solids.FindAll(solid => Within(solid, LightCycles.RING_MAX + LightCycles.SOLID_CLEARANCE));
 
@@ -156,7 +158,7 @@ namespace BS3D.Tests
                 }
             }
 
-            _output.WriteLine($"{layouts} layouts, {reaching} with a solid reaching into the ring, {CLOCK:F0} s of each cycle's run, "
+            _output.WriteLine($"{layouts} layouts, {reaching} with a solid's footprint inside the ring, {CLOCK:F0} s of each cycle's run, "
                 + $"{walls} walls: the nearest a body came to a footprint {nearestBody:F2} ({worstBody}), a wall {nearestWall:F2} ({worstWall})");
             Assert.True(reaching >= 40, $"only {reaching} of {layouts} layouts put a solid into the ring: the test is not exercising one");
             Assert.True(nearestBody >= LightCycles.SOLID_CLEARANCE - LightCycles.BODY_REACH - 0.05f,
