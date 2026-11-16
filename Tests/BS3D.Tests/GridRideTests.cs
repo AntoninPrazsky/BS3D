@@ -500,7 +500,15 @@ namespace BS3D.Tests
                     if (ride == null) continue;
                     rides++;
 
-                    long[] phases = PlayChosenAgain(ride, start, stretch);
+                    //The ride's last allocation, then this thread's allocation buffer emptied by a gen0 collection, so the phases
+                    //count from a buffer with nothing left in it. ⚠ A background GC, set off by the tests running beside this one,
+                    //suspends the runtime and retires a thread's partly used buffer, and GetAllocatedBytesForCurrentThread counts
+                    //its unused remainder as allocated: 128 to 8,104 bytes in phases that allocate nothing (#1136, the
+                    //linux-arm64 runner; never with DOTNET_gcConcurrent=0, never from an empty buffer). An allocation a phase
+                    //really makes still counts in full.
+                    var phases = new long[PHASES.Length * 2];
+                    GC.Collect(0, GCCollectionMode.Forced, blocking: true);
+                    PlayChosenAgain(ride, start, stretch, phases);
                     if (pass == 0) continue;
                     for (int p = 0; p < phases.Length; p++)
                     {
@@ -520,10 +528,10 @@ namespace BS3D.Tests
             { "posing a second", "choosing calm, staying", "choosing clear, staying", "choosing calm", "choosing clear", "choosing safe", "posing on" };
 
         //A second of frames from `start`, every choice GridIntroShots.Again can make at the second it ends on, a second more, a
-        //pause; twice. Returns the bytes each phase allocated on this thread, PHASES' order, twice.
-        private static long[] PlayChosenAgain(GridRide ride, float start, float stretch)
+        //pause; twice. Writes the bytes each phase allocated on this thread into `phases`, PHASES' order, twice: allocating
+        //nothing itself, so the buffer the caller emptied stays empty unless a phase allocates
+        private static void PlayChosenAgain(GridRide ride, float start, float stretch, long[] phases)
         {
-            var phases = new long[PHASES.Length * 2];
             float now = start;
             for (int pass = 0; pass < 2; pass++)
             {
@@ -548,7 +556,6 @@ namespace BS3D.Tests
                 phases[p] = Took(ref mark);
                 now += PAUSES[^1];
             }
-            return phases;
         }
 
         //The bytes allocated on this thread since `mark`, and the mark moved to now
