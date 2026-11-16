@@ -48,6 +48,10 @@
     <Compile Include="..\..\Game\Effects\RutsWalk.cs" />
     <!--The sea's prologue (#1124): plain geometry over the sea's config and the oil rigs' layout, held against the rigs' own boxes.-->
     <Compile Include="..\..\Game\Effects\SeaIntroShots.cs" />
+    <!--The Grid's (#1116): the ride beside a light cycle, posed by the wall clock off the cycles' own runs (LightCycleRuns),
+        and the three shots of the solids and the ring round it.-->
+    <Compile Include="..\..\Game\Effects\GridIntroShots.cs" />
+    <Compile Include="..\..\Game\Effects\GridRide.cs" />
   </ItemGroup>
 
   <!--The tutorial's rules (#666), compiled in the same way: Tutorial is a ladder of lessons and clocks with no device

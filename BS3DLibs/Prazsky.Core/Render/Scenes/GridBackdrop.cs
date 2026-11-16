@@ -288,7 +288,8 @@ namespace Prazsky.Core.Render
             _gridEffect.CurrentTechnique.Passes[0].Apply();
             _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
 
-            //The light cycles over the floor and the void, and their walls of light behind them (#956)
+            //The light cycles over the floor and the void (#956); their walls of light are drawn after the island
+            //(DrawGrounded, below)
             _cycles.Draw(frame);
 
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
@@ -688,6 +689,13 @@ namespace Prazsky.Core.Render
 
             board.Texture.SetData(board.UploadBuffer);
         }
+
+        /// <summary>
+        /// The light cycles' walls of light (<see cref="LightCycles.DrawWalls"/>), which are added over the frame and write no
+        /// depth: drawn here, after the island, so the island hides a wall only where it stands in front of it. Drawn with the
+        /// cycles in <see cref="Draw"/>, before it, a wall between the lens and the island was painted over by it (#1116).
+        /// </summary>
+        public override void DrawGrounded(in SceneFrame frame) => _cycles.DrawWalls(frame);
 
         /// <inheritdoc/>
         public override bool TryGetLightRig(float wallClock, out SceneLightRig rig)
