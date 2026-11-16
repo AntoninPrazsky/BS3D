@@ -159,16 +159,24 @@ namespace BS3D.Tests
         [Fact]
         public void NothingOnTheShipStandsOutPastItsHullButTheBridgeWings()
         {
-            //Seen from above, everything over the deck stands inside the hull's edge there (the outline round the hull's vertices
-            //at SHIP_DECK_Y), or it hangs in the air beside the hull. The bridge wings are the one thing out over the side, a
-            //unit (half a metre) as a real ship's are. Seen to fire with the forecastle a box again, 24 long and 26 wide, its
-            //forward corners out past the bow.
-            const float WINGS = 1f;
+            //Seen from above, everything over the deck stands inside the hull's edge there, or it hangs in the air beside the
+            //hull. The edge is the outline round the deck-level corners of the triangles that run down the hull's side: not every
+            //vertex at SHIP_DECK_Y, since whatever stands on the deck has its foot there too. The bridge wings are the one thing
+            //out over the side, a unit (half a metre) as a real ship's are. Seen to fire with the forecastle a box again, 24 long
+            //and 26 wide, its forward corners out past the bow.
+            const float WINGS = 1f, ON = 1e-3f;
             List<RigVertex> ship = Ship();
-            Vector2[] edge = ConvexHull(ship.Where(v => MathF.Abs(v.Position.Y - SeaTrafficMeshes.SHIP_DECK_Y) < 1e-3f)
-                .Select(v => new Vector2(v.Position.X, v.Position.Z)));
+            var side = new List<Vector2>();
+            for (int i = 0; i < ship.Count; i += 3)
+            {
+                RigVertex[] triangle = { ship[i], ship[i + 1], ship[i + 2] };
+                if (!triangle.Any(v => v.Position.Y < SeaTrafficMeshes.SHIP_DECK_Y - ON)) continue;
+                foreach (RigVertex v in triangle)
+                    if (MathF.Abs(v.Position.Y - SeaTrafficMeshes.SHIP_DECK_Y) < ON) side.Add(new Vector2(v.Position.X, v.Position.Z));
+            }
+            Vector2[] edge = ConvexHull(side);
             float farthest = float.MinValue;
-            foreach (RigVertex v in ship.Where(v => v.Position.Y > SeaTrafficMeshes.SHIP_DECK_Y + 1e-3f))
+            foreach (RigVertex v in ship.Where(v => v.Position.Y > SeaTrafficMeshes.SHIP_DECK_Y + ON))
             {
                 float beyond = Beyond(edge, new Vector2(v.Position.X, v.Position.Z));
                 farthest = MathF.Max(farthest, beyond);
@@ -393,7 +401,8 @@ namespace BS3D.Tests
             //The first level's opening pose (the lens on +Z looking at the cluster): over a whole lane, each vessel's middle stands in
             //the frame, out of the gun's way and over the horizon's cut for at least SHIP_SECONDS (57 at 4:3, the narrowest frame)
             //and YACHT_SECONDS, and both are in the frame for at least a third of the first two minutes from their zero, the
-            //moment the Game selected the sea (SeaTrafficClock). Seen to fire with the ship's lane bearing at 0.5, behind the lens.
+            //moment the Game selected the sea (SeaTrafficClock). Seen to fire with the ship's lane bearing at 0.5, behind the lens,
+            //and the early minutes with the ship starting 1500 along its lane.
             //It also says how much of the time past those minutes either is in the view, and both, over the two lanes' common period.
             Opening open = Open(Shipped.LevelFiles().First(), aspect);
             (_, Vector3 lens, Vector3 target, float fov) = open.Poses[0];
@@ -447,7 +456,7 @@ namespace BS3D.Tests
             //the lantern, and each vessel's middle over the horizon's cut, in the frame at some pose of some shot over the
             //water. docs/scenes/sea.md and SeaIntroShots say the lighthouse in about three rolls in four and a vessel in five in
             //six, so a change to the prologue or the layout that moves either says so here. Seen to fire with the lighthouse's
-            //bearing at 1.8 (every roll) and -2.6 (five in six), and with the ship starting 1500 along its lane (a vessel in 57 %).
+            //bearing at -2.6 (523 rolls of the 624) and with the ship starting 1500 along its lane (a vessel in 393).
             const float ASPECT = 16f / 9f;
             Vector3 lantern = Vector3.Transform(new Vector3(0f, 53f, 0f), SeaTrafficLayout.Lighthouse(Sea.LevelY));
             var heights = Vessels().Select(v => v.Mesh.Max(p => p.Position.Y)).ToArray();
