@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1125 moře: maják, kontejnerová loď a jachta — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: na otevřeném moři stojí vedle dvou plošin maják na nízké skále (850 ven, azimut -1,30) a dvěma rovnoběžnými pruhy (880 a 1010 ven) plují jachta (5 u/s) a kontejnerová loď (12 u/s). Kód: `SeaTrafficLayout`, `SeaTrafficMeshes`, `SeaTraffic`; Rig.fx dostal World, látku plachet a ponor za obzor (od 1400 od kamery). Plošiny a maják se neponořují (`NO_SINK`). Hodiny lodí startují znovu, kdykoli Game moře vybere; jedna z lodí je pak v úvodním záběru 22–30 % času, obě 1–3 %. Úvod rámuje maják asi ve 3 rolích ze 4, loď v 5 z 6. Cena asi +0,01 ms.
+- ⚠ Test příďové nástavby napoprvé neselhal se starou krabicí: obrys trupu se měřil i z ní samé.
+- Otevřené: verdikt oka; pohyb nikdo neviděl; ptáci, paleta kontejnerů a blikání majáku jsou otázky pro majitele.
+
 ## 2026-11-15 — #1136 Mřížka: cykly mimo krychle — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: světelné cykly ani jejich zdi už nevjedou do těles (sceneseed=18, modrý cyklus v 25,5 s stál napůl v krychli). Rozmístění těles je v `GridLayout` (bez grafiky, stejný proud náhod, desktop i Životy beze změny); `LightCycles.Lattice` povolí krok jen se `SOLID_CLEARANCE` 6,85 od půdorysu a jen tam, odkud vede další krok bez otočky. Bez těles v prstenci jedou cykly přesně jako dřív. Potato teď staví tělesa jako desktop (na Pi dá stejné sceneseed jiné rozmístění) a úvod #1116 bere běhy postavené mezi tělesy.
