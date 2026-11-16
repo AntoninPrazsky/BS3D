@@ -1669,7 +1669,10 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// States that the host has selected <paramref name="scene"/>: a backdrop that builds itself off the frame (the
         /// cavern's hall, #958) starts its build here, so it is under way while the host loads, and a launch that never
-        /// shows the scene builds nothing. Cheap to call again; every host calls it where it sets its scene.
+        /// shows the scene builds nothing; the sea's ship and yacht start their passage across the opening view again
+        /// (<see cref="SeaTrafficClock"/>, #1125). Cheap to call again. The Game calls it where it sets its scene; the
+        /// Testbed and the editor do not (the cavern's queries build its hall themselves, and the sea's vessels keep the wall
+        /// clock there, which the Testbed's <c>clock=</c> pins).
         /// </summary>
         public void Prepare(SceneKind scene) => BackdropFor(scene)?.Prepare();
 
