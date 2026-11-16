@@ -139,16 +139,17 @@ namespace Prazsky.Core.Render
         public int Salt { get; init; }
 
         /// <summary>
-        /// The spruces round the arena: a whorl every 0.95 units of six to eight arms and two or three smaller ones between,
-        /// three rings an arm (#1120). The references of a spruce at dusk (<c>C:\Users\panrd\AI\sd\out\1120-*</c>) draw a dense
-        /// cone of many narrow layered sprays, dark between them, its outline hundreds of tips; five to seven wide arms a whorl
-        /// every 1.15 units read as a few paddles on a pole. Three rings an arm where there were five pay for the arms: the
-        /// crown has half again as many, in fewer triangles than before.
+        /// The spruces round the arena: a whorl every unit of six or seven arms and one to three smaller ones between, three
+        /// rings an arm (#1120). The references of a spruce at dusk (<c>C:\Users\panrd\AI\sd\out\1120-*</c>) draw a dense cone
+        /// of many narrow layered sprays, dark between them, its outline hundreds of tips; five to seven wide arms a whorl every
+        /// 1.15 units read as a few paddles on a pole. Three rings an arm where there were five pay for the arms in triangles,
+        /// but a fuller crown covers more of the screen, and that is its price: half again as many arms as before cost 0.3 ms
+        /// of the Game's frame at Ultra in play, so it has a sixth to two fifths more.
         /// </summary>
         public static readonly SpruceDetail Near = new()
         {
-            WhorlSpacing = 0.95f,
-            Arms = 6, ArmsSpread = 3, Between = 2, BetweenSpread = 2,
+            WhorlSpacing = 1f,
+            Arms = 6, ArmsSpread = 2, Between = 1, BetweenSpread = 3,
             Width = 0.115f,
             RingT = new[] { 0f, 0.42f, 0.78f },
             RingWidth = new[] { 0.28f, 1f, 0.6f },

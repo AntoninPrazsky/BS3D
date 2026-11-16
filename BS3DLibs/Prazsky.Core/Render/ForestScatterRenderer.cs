@@ -454,6 +454,10 @@ namespace Prazsky.Core.Render
             Focus(camera.Position);
             _frustum.Matrix = camera.View * camera.Projection;
             Select(_frustum, fineMeshes);
+            _coniferSeen.SortFrom(camera.Position);
+            _coniferNearSeen.SortFrom(camera.Position);
+            _coniferFarSeen.SortFrom(camera.Position);
+            _broadleafSeen.SortFrom(camera.Position);
 
             if ((Layers & ForestLayer.Spruces) != 0)
             {
@@ -976,11 +980,36 @@ namespace Prazsky.Core.Render
             public readonly ModelInstance[][] Items;
             public readonly int[] Counts;
 
+            //Each instance's distance from the lens, squared, the sort's keys
+            private readonly float[] _keys;
+
             public Culled(ModelInstance[][] largest)
             {
                 Items = new ModelInstance[largest.Length][];
                 Counts = new int[largest.Length];
-                for (int v = 0; v < largest.Length; v++) Items[v] = new ModelInstance[largest[v].Length];
+                int longest = 0;
+                for (int v = 0; v < largest.Length; v++)
+                {
+                    Items[v] = new ModelInstance[largest[v].Length];
+                    longest = Math.Max(longest, largest[v].Length);
+                }
+                _keys = new float[longest];
+            }
+
+            /// <summary>
+            /// Each variant's instances nearest <paramref name="lens"/> first (#1099), so a near tree's depth is written before the
+            /// trees it hides are drawn and the GPU turns their pixels away before shading them. Allocation-free.
+            /// </summary>
+            public void SortFrom(Vector3 lens)
+            {
+                for (int v = 0; v < Items.Length; v++)
+                {
+                    int n = Counts[v];
+                    if (n < 2) continue;
+                    ModelInstance[] items = Items[v];
+                    for (int i = 0; i < n; i++) _keys[i] = Vector3.DistanceSquared(items[i].World.Translation, lens);
+                    Array.Sort(_keys, items, 0, n);
+                }
             }
         }
 
