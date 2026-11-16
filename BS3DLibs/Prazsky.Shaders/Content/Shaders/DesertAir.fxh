@@ -1,7 +1,7 @@
 //The desert's air (#1111): the murk the far erg fades into and how much of it a distance takes, in one copy for the dunes
 //(Desert.fx) and the foot of the pyramids that stand on them (Pyramid.fx). Where the sand meets the stone the two must be
-//hazed alike, or the join shows: the pyramids' own air was lighter, and their foot stood dark and saturated behind dune
-//crests the murk had already made pale. (The stone does not take the dunes' drifting dust veil, Desert.fx's CloudNoise: at
+//hazed alike, or the join shows: the pyramids' own air is lighter, and a foot in it stands dark and saturated behind dune
+//crests the murk has already made pale. (The stone does not take the dunes' drifting dust veil, Desert.fx's CloudNoise: at
 //most DustStrength of it, and from HorizonHazeDistance out the murk covers it whole.)
 //
 //Declare HorizonColor, SandColor, HazeWarmth and HorizonHazeDistance before including it.

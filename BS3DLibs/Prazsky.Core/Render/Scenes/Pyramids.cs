@@ -35,9 +35,15 @@ namespace Prazsky.Core.Render
         private const float BEARING = -1.75f;
         private const float DIAGONAL_TURN = 0.95f;
 
-        //How far the air takes to thicken to the desert's murk over their faces: lighter than the dunes' (420), or they
+        //How far the air takes to thicken to the horizon's colour over their faces: lighter than the dunes' (420), or they
         //vanish. Their foot takes the dunes' own air (Pyramid.fx, #1111).
         private const float HAZE = 1600f;
+
+        /// <summary>Over <see cref="SandTop"/>, the height in which the dust on the faces thins by e (world units): a face
+        /// <c>y</c> high takes <c>exp(-(y - SandTop) / DustThin)</c> of the dunes' air and the rest of the group's own
+        /// (<c>Pyramid.fx</c>, which is given this value, #1111). Short beside Khufu and Khafre, so the dust takes their foot
+        /// and not the pyramid (<c>PyramidAirTests</c>).</summary>
+        internal const float DustThin = 30f;
 
         //How far a pyramid is sunk under the lowest dune round it
         private const float SINK = 4f;
@@ -89,6 +95,7 @@ namespace Prazsky.Core.Render
             _effect.Parameters["HazeWarmth"].SetValue(config.HazeWarmth);
             _effect.Parameters["HorizonHazeDistance"].SetValue(config.HorizonHazeDistance);
             _effect.Parameters["SandTop"].SetValue(SandTop(config));
+            _effect.Parameters["DustThin"].SetValue(DustThin);
 
             PyramidVertex[] vertices = Build(config);
             _triangles = vertices.Length / 3;
