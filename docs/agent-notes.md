@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1121 les: soumrakové barvy podle referencí — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: `ForestHaze` už nemlží k tyrkysové `HorizonColor` rigu (průměr spodní pětiny dómu, skoro celý pod obzorem), ale k obloze kreslené za bodem (`FarSkyAt` jeho směrem) se zatažením mraků (`ForestSkyBehind`, stejný smoothstep jako Sky.fx). První stupeň je tmavá břidlicová mlha `ForestMurk` počítaná z oblohy na obzoru; stupeň k obloze jde jen do `FOREST_SKY_REACH` 0,45. Listnáče olivové (1,35× jas jehličnanů) a kreslené v počasí (`PlantPass.DrawInWeather`).
+- Vzdálené špičky proti obloze ve hře: medián 2,66 → 0,47, nad oblohou 95 % → 0,4 %.
+- ⚠ `HorizonColor` není barva oblohy na obzoru; poušť a Potato do téže pasti spadly dřív.
+- Otevřené: verdikt oka; `FarSky` bez mraků pro ostatní scény a mlha instancovaných smrků lesa chtějí vlastní issue.
+
 ## 2026-11-15 — #1116 Mřížka: úvod jede vedle světelného cyklu — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: druhý záběr úvodu Mřížky „the cycle“ (`Game/Effects/GridRide.cs`): čočka jede 3,4 nad podlahou vedle jednoho cyklu jeho rychlostí, kolem uzlu se točí nejvýš 37,5 °/s (U-obrat 71). Pózuje se podle nástěnných hodin (`IntroShot.OnTheWallClock`), cyklus bere z `LightCycleRuns` (stejné semínko jako kreslené). Po pauze nebo pod 20 fps volí znovu (`GridIntroShots.Again`). Úvod 16,5 s (dřív 13,9).
