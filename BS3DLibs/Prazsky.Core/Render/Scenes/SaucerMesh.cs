@@ -24,8 +24,9 @@ namespace Prazsky.Core.Render
         public const int SEGMENTS = 48;
 
         //The hull from the middle of its top plate (under the dome) out over its slope to the rim and back under to the middle
-        //of its belly: one closed solid
-        private static readonly LathePoint[] HULL =
+        //of its belly: one closed solid. Internal, as the dome's is, so a test can find where every vertex of the craft stands
+        //without a device (LatheMesh.RingPositions; SpaceIntroShotsTests, #1117)
+        internal static readonly LathePoint[] HULL =
         {
             new(0f, DOME_BASE),
             new(DOME_RADIUS + 0.15f, DOME_BASE, crease: true),
@@ -41,6 +42,10 @@ namespace Prazsky.Core.Render
             new(0f, -1.25f)
         };
 
+        //The dome: the antenna over its crown (a ball on a thin rod), then a squashed hemisphere from the crown down to its rim
+        //on the hull, closed underneath by a disc on the hull's top plate, so it is a shut solid
+        internal static readonly LathePoint[] DOME = DomeProfile();
+
         /// <summary>The hull.</summary>
         public LatheMesh Hull { get; }
 
@@ -50,9 +55,11 @@ namespace Prazsky.Core.Render
         public SaucerMesh(GraphicsDevice graphicsDevice)
         {
             Hull = new LatheMesh(graphicsDevice, HULL, SEGMENTS);
+            Dome = new LatheMesh(graphicsDevice, DOME, SEGMENTS);
+        }
 
-            //The dome: the antenna over its crown (a ball on a thin rod), then a squashed hemisphere from the crown down to its
-            //rim on the hull, closed underneath by a disc on the hull's top plate, so it is a shut solid
+        private static LathePoint[] DomeProfile()
+        {
             const int DOME_RINGS = 8;
             float crown = DOME_BASE + DOME_HEIGHT;
             var dome = new LathePoint[DOME_RINGS + 5];
@@ -64,9 +71,9 @@ namespace Prazsky.Core.Render
             {
                 float a = MathHelper.PiOver2 * i / DOME_RINGS;   //a little off the crown, a right angle at the rim
                 dome[3 + i] = new LathePoint(MathF.Sin(a) * DOME_RADIUS, DOME_BASE + MathF.Cos(a) * DOME_HEIGHT, crease: i == DOME_RINGS);
-        }
-        dome[DOME_RINGS + 4] = new LathePoint(0f, DOME_BASE);
-        Dome = new LatheMesh(graphicsDevice, dome, SEGMENTS);
+            }
+            dome[DOME_RINGS + 4] = new LathePoint(0f, DOME_BASE);
+            return dome;
         }
 
         public void Dispose()

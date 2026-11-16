@@ -9,26 +9,35 @@ namespace Prazsky.Core.Render
     /// The flying saucer in space (#955): one rigid craft on a slow loop far out round the station, a lathed hull with a ring
     /// of lights round its rim, a glass dome with its crew in it and a glow under its belly (<c>Saucer.fx</c>). Placed off
     /// the wall clock, so it flies on while the simulation is paused, and drawn after the sky's quad writing depth, so the
-    /// station, the gun and the cluster stand in front of it.
+    /// station, the gun and the cluster stand in front of it where they are nearer the lens, and it in front of them where it is.
     /// <para>
-    /// <b>Where it flies.</b> <see cref="ORBIT_RADIUS"/> out, over twice the chapter intro's widest lens (the establishing
-    /// shot stands ninety units off, <c>SpaceIntroShots</c>), so nothing that films the station can meet it, and well inside
-    /// the camera's far plane (<see cref="Camera.BasicCamera3D.DEFAULT_FAR_PLANE_DISTANCE"/>). At that distance it is some
-    /// fifty pixels across at 1080p: a thing noticed passing, not a prop that fights the cluster.
+    /// <b>Where it flies.</b> <see cref="ORBIT_RADIUS"/> out, well inside the camera's far plane
+    /// (<see cref="Camera.BasicCamera3D.DEFAULT_FAR_PLANE_DISTANCE"/>), where from the play camera and the menu's orbit it is
+    /// some fifty pixels across at 1080p: a thing noticed passing, not a prop that fights the cluster. No lens that films the
+    /// station from round it comes near the loop by chance; <b>the one that meets the craft cues it</b> (#1117): the space
+    /// chapter's intro opens on a still shot of the planet that the craft crosses close to the lens, and a
+    /// <see cref="SaucerPass"/> turns the loop on to bring it there at the moment the shot is laid round, takes it off the loop
+    /// for the crossing and eases it back after. Without a pass the loop is a pure function of the wall clock.
     /// </para>
     /// </summary>
     internal sealed class SaucerFlight : IDisposable
     {
         //The loop: its radius, its height over the world's origin and how far it rises and falls, how long one turn takes and
         //where on it the craft starts; the bank into the turn, a slow rock about it and the craft's spin about its own axis
-        private const float ORBIT_RADIUS = 240f;
-        private const float ORBIT_Y = 30f;
-        private const float ORBIT_BOB = 14f;
+        internal const float ORBIT_RADIUS = 240f;
+        internal const float ORBIT_Y = 30f;
+        internal const float ORBIT_BOB = 14f;
         private const float ORBIT_SECONDS = 70f;
         private const float ORBIT_PHASE = 2.2f;
-        private const float BANK = 0.22f;
+        internal const float BANK = 0.22f;
         private const float ROCK = 0.06f;
         private const float SPIN = 0.8f;
+
+        /// <summary>The loop's pace, units a second: its circumference over the seconds a turn takes.</summary>
+        internal const float LOOP_SPEED = MathHelper.TwoPi * ORBIT_RADIUS / ORBIT_SECONDS;
+
+        //The pass the intro cued (#1117), or none
+        private SaucerPass _pass;
 
         private readonly GraphicsDevice _graphicsDevice;
         private readonly Effect _effect;
@@ -62,21 +71,42 @@ namespace Prazsky.Core.Render
             _mesh = new SaucerMesh(graphicsDevice);
         }
 
+        /// <summary>The loop's angle about the station at <paramref name="time"/>, radians, turned on by <paramref name="shift"/>.</summary>
+        internal static float LoopAngle(float time, float shift) => ORBIT_PHASE + shift + time * MathHelper.TwoPi / ORBIT_SECONDS;
+
         /// <summary>Where the craft is and how it lies at <paramref name="time"/>: on its loop, banked into the turn, rocking,
-        /// spinning about its own axis.</summary>
-        internal static Matrix WorldAt(float time)
+        /// spinning about its own axis. The loop with no pass; the Potato path draws this.</summary>
+        internal static Matrix WorldAt(float time) => WorldAt(time, default);
+
+        /// <summary>
+        /// Where the craft is and how it lies at <paramref name="time"/> with <paramref name="pass"/> cued (#1117): on its loop
+        /// turned on by the pass's shift, and as far onto the pass's run as its <see cref="SaucerPass.Weight"/> says, there level
+        /// and leaning its outer side down. With no pass (<c>default</c>), the loop as it always flew.
+        /// </summary>
+        internal static Matrix WorldAt(float time, in SaucerPass pass)
         {
-            float angle = ORBIT_PHASE + time * MathHelper.TwoPi / ORBIT_SECONDS;
+            float angle = LoopAngle(time, pass.LoopShift);
             var centre = new Vector3(MathF.Cos(angle) * ORBIT_RADIUS, ORBIT_Y + ORBIT_BOB * MathF.Sin(time * 0.21f), MathF.Sin(angle) * ORBIT_RADIUS);
+            float bank = BANK;
+
+            float run = pass.Weight(time);
+            if (run > 0f)
+            {
+                centre = Vector3.Lerp(centre, pass.RunAt(time), run);
+                bank = MathHelper.Lerp(BANK, SaucerPass.LEAN, run);
+            }
 
             //After the turn about Y by -angle the craft's own X points out from the station, so a turn about Z tips its outer
             //side up: banked into the turn
             Matrix world = Matrix.CreateRotationY(-time * SPIN)
-                * Matrix.CreateRotationZ(BANK + ROCK * MathF.Sin(time * 0.7f))
+                * Matrix.CreateRotationZ(bank + ROCK * MathF.Sin(time * 0.7f))
                 * Matrix.CreateRotationY(-angle);
             world.Translation = centre;
             return world;
         }
+
+        /// <summary>Cues <paramref name="pass"/> (#1117), replacing any before it; see <see cref="SaucerPass"/>.</summary>
+        public void Cue(in SaucerPass pass) => _pass = pass;
 
         /// <summary>Draws the craft, opaque and writing depth, lit by the scene's own rig (<paramref name="lighting"/>, the
         /// config's, which a level may replace). Leaves the depth and blend states as it found them.</summary>
@@ -84,7 +114,7 @@ namespace Prazsky.Core.Render
         {
             _skyAmbient.SetValue(lighting.SkyAmbient.ToVector3());
             _groundAmbient.SetValue(lighting.GroundAmbient.ToVector3());
-            _world.SetValue(WorldAt(frame.Time));
+            _world.SetValue(WorldAt(frame.Time, _pass));
             _view.SetValue(frame.Camera.View);
             _projection.SetValue(frame.Camera.Projection);
             _cameraPosition.SetValue(frame.Camera.Position);

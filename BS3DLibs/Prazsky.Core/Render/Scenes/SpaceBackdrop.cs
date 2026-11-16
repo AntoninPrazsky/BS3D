@@ -60,6 +60,9 @@ namespace Prazsky.Core.Render
         /// <inheritdoc/>
         public override void Dispose() => _saucer?.Dispose();
 
+        /// <summary>Cues the saucer's pass close by a lens (#1117); see <see cref="SceneRenderer.CueSpaceSaucer"/>.</summary>
+        public void CueSaucer(in SaucerPass pass) => _saucer.Cue(pass);
+
         /// <inheritdoc/>
         public override SceneKind Kind => SceneKind.Space;
 

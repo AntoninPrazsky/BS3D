@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1117 Vesmír: úvod otevírá stojící záběr s talířem — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: první záběr úvodu Vesmíru „the saucer“ (4,2 s) nahradil jízdu „the station“: čočka stojí 280 od osy, celá planeta v horní půlce, malá stanice dole na druhé straně. Talíř je načasovaný (`SaucerPass` v Prazsky.Core, `SceneRenderer.CueSpaceSaucer`): posune fázi smyčky a 2,6 s kolem okamžiku 2,4 s letí rovně 28 u/s kolem čočky (nejblíž 29), nakloněný kupolí k ní. Bez narážky je `SaucerFlight.WorldAt` přesně stará smyčka (menu, hra, Potato). Úvod 14,2 s.
+- majitel: na issue schválil zrušit pravidlo „nic, co stanici filmuje, ji nepotká“.
+- ⚠ Narážka jen v prvním snímku nechala talíř po zaseknutí nebo pauze utéct (48 u mimo); narazí se každý snímek podle hodin úvodu. Test „je v záběru“ podle obalové koule pouštěl okraj do 0,02 s před střihem na 2,4:1; počítá se podle vrcholů sítě.
+- Otevřené: verdikt oka (pohyb nikdo neviděl, notebook ani Potato neběžely, cena kreslení talíře neměřena).
+
 ## 2026-11-15 — #1126 Sen: větší skleněná tělesa — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: tělesa Snu 1,4× větší (`Shapes.Size` 22,4) a 12 místo 8 na desktopu, Pi i telefonu (`SHAPE_COUNT`, `DREAM_SOLID_COUNT`, Potato `DREAM_SOLIDS`). Pochod hlídá vlastní poloměr × 1,45 místo `ShapeSize` × 1,9; oběžná dráha 0,82 + 0,18·sin, nejbližší mez 61 j od osy. Cena Ultra +0,2 ms (Solitaire, 3840x1500, ~6 ms).

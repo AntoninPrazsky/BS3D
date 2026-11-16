@@ -1504,6 +1504,14 @@ namespace Prazsky.Core.Render
         public const float DESERT_FEATURE_EMERGE_SECONDS = DesertCritters.EMERGE_SECONDS;
 
         /// <summary>
+        /// Cues the space scene's saucer (#1117) to pass with its middle at <paramref name="point"/> at <paramref name="closest"/>
+        /// on the scene's clock, on a straight run along its loop's way round, and to rejoin the loop after: the chapter intro's
+        /// still shot of the planet, which the craft crosses close to the lens, and which calls this on every frame of it. A cue
+        /// replaces the one before it, and the loop keeps the phase the last one turned it to; see <c>SaucerPass</c>.
+        /// </summary>
+        public void CueSpaceSaucer(Vector3 point, float closest) => _space.CueSaucer(SaucerPass.Through(point, closest));
+
+        /// <summary>
         /// The event this scene has staged on its own clock at <paramref name="time"/>, described as the
         /// <b>sound</b> needs it rather than as the light does (#219's thunder, #223's eruption boom): which
         /// event it is, when its LIGHT began, where it happened and how big it is. False for the fifteen

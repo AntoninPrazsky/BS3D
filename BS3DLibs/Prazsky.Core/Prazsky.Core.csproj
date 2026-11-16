@@ -31,7 +31,8 @@
 
   <ItemGroup>
     <!--The logic tests reach SceneCatalog.Check to feed it broken tables and see it refuse them (#580,
-        BestPractices.md section 10); nothing else is internal to them.-->
+        BestPractices.md section 10), and what they hold without a graphics device: a lathe's vertices
+        (LatheMesh.RingPositions, #960) and the saucer's profiles, flight and pass (#1117), among others.-->
     <InternalsVisibleTo Include="BS3D.Tests" />
   </ItemGroup>
 </Project>

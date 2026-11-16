@@ -50,6 +50,9 @@
     <Compile Include="..\..\Game\Effects\SeaIntroShots.cs" />
     <!--The dream's prologue (#1126): plain geometry over the host's copy of Dream.fx's solids, rolled against their bounds.-->
     <Compile Include="..\..\Game\Effects\DreamIntroShots.cs" />
+    <!--Space's (#1117): the still shot of the planet and the saucer's pass across it, held against the craft's own flight
+        (SaucerFlight.WorldAt, in Prazsky.Core); plain geometry over the space config and the island's figures.-->
+    <Compile Include="..\..\Game\Effects\SpaceIntroShots.cs" />
     <!--The Grid's (#1116): the ride beside a light cycle, posed by the wall clock off the cycles' own runs (LightCycleRuns),
         and the three shots of the solids and the ring round it.-->
     <Compile Include="..\..\Game\Effects\GridIntroShots.cs" />
