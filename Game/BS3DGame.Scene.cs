@@ -1354,9 +1354,10 @@ namespace BS3D
 
         /// <summary>
         /// The translucent things that stand behind the ceiling's glass from the play camera — the savanna's fires
-        /// (#641, <see cref="SceneRenderer.DrawGrounded"/>) and the victory fireworks (#689) — drawn by a screen straight
-        /// after <see cref="BeginSceneDraw"/>, with the setting and <b>before</b> <see cref="GrabCeilingBackground"/>, so
-        /// the copy the ceiling's glass bends holds them. Every screen that draws the setting calls it.
+        /// (#641, <see cref="SceneRenderer.DrawGrounded"/>, with the meadow's water and the Grid's walls of light) and the
+        /// victory fireworks (#689) — drawn by a screen straight after <see cref="BeginSceneDraw"/>, with the setting and
+        /// <b>before</b> <see cref="GrabCeilingBackground"/>, so the copy the ceiling's glass bends holds them. Every screen
+        /// that draws the setting calls it.
         /// <para>
         /// The fireworks were drawn in <see cref="FinishSceneDraw"/>, last of the scene, until #689: after the pane and
         /// after both places the pane's copy can be taken, so no burst was ever in what the glass bends, and one behind
@@ -1369,7 +1370,9 @@ namespace BS3D
         /// never the other way round, since neither writes depth. That is only right because nothing a screen draws
         /// stands behind them: the fires' ring stands 33 units out, beyond the play camera's 30-unit stand-off and outside
         /// the island the gun and the cluster are on, and the shells go up from a ring 34 to 110 units out and burst 44
-        /// to 122 units up — and by then the field is clear.
+        /// to 122 units up — and by then the field is clear. The Grid's walls of light stand on the floor 56 units out and
+        /// more, lower than the island's top, so a lens that sees one in front of the cluster or the gun would have to be
+        /// lower than the walls themselves.
         /// </para>
         /// <para>
         /// <b>The drain's gold bands are in the depth buffer by now</b> (#888: <see cref="BeginSceneDraw"/> draws them

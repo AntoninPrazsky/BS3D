@@ -18,7 +18,9 @@ namespace BS3D.Effects
     /// <param name="SunDirection">The dome's sun, when there is a rig.</param>
     /// <param name="WallClock">The game's wall clock now, which the moving subjects are laid out on.</param>
     /// <param name="Clock">The game's wall clock to read later (#975): a shot timed to a scene event re-reads it as it
-    /// comes on screen, because the intro's own clock stops for a pause and a hitch and the wall clock does not.</param>
+    /// comes on screen, and a shot posed by it (<see cref="IntroShot.OnTheWallClock"/>, the Grid's ride beside a light cycle,
+    /// #1116) every frame it is on screen, because the intro's own clock stops for a pause and a hitch and the wall clock
+    /// does not.</param>
     /// <param name="GamePosition">Where the lens stands when the intro hands the camera back: the gameplay pose, or the menu's
     /// orbit for a replayed tour. A shot that lands (<see cref="IntroShot.Lands"/>, #972) ends here.</param>
     /// <param name="GameTarget">What that pose looks at.</param>
@@ -47,7 +49,7 @@ namespace BS3D.Effects
     /// (<see cref="CavernIntroShots"/>, #958) — and the four scenes off the
     /// Earth, the Moon, Mars, space and the Grid, each shot about one thing the scene builds: a rover's ruts (the
     /// Moon's up to its flag, Mars's to the island), a real mesa, the planet with the saucer cued across it (#1117) and the
-    /// drain, one cube and the landmark ring.
+    /// drain, a light cycle ridden beside, one cube and the landmark ring.
     /// </para>
     /// <para>
     /// A declarative shot list was considered and is the wrong move (#596's own verdict): each builder
@@ -100,11 +102,12 @@ namespace BS3D.Effects
                 SceneKind.Storm => StormIntroShots.Build(renderer, context.WallClock, fieldOfView, random),
                 SceneKind.Polar => PolarIntroShots.Build(renderer, fieldOfView, random),
                 //#559: the four off the Earth, on absolute lenses (see GridIntroShots) — the Moon's and Mars's
-                //ground through OffworldGround's ceilings, the Grid's solids through the renderer's own record.
+                //ground through OffworldGround's ceilings, the Grid's solids through the renderer's own record, and its
+                //light cycles on the wall clock they ride on (#1116), which the ride beside one is posed by.
                 SceneKind.Moon => MoonIntroShots.Build(renderer, random),
                 SceneKind.Mars => MarsIntroShots.Build(renderer, random),
                 SceneKind.Space => SpaceIntroShots.Build(renderer, context.Clock, random),
-                SceneKind.Grid => GridIntroShots.Build(renderer, random),
+                SceneKind.Grid => GridIntroShots.Build(renderer, context.WallClock, context.Clock, random),
                 _ => null,
             };
         }
