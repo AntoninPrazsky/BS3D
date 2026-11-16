@@ -54,18 +54,81 @@ namespace Prazsky.Core.Render
     public enum MountainLayer { None = 0, Range = 1, FarRing = 2, Berm = 4, Snow = 8, All = Range | FarRing | Berm | Snow }
 
     /// <summary>
-    /// The forest's separately drawn layers, for <see cref="SceneRenderer.ForestLayers"/> (#1099, #1122): the floor (the camera
-    /// grid and the bank), the far stand, High and Ultra's dressing (the broadleaves' wood, their twigs, their leaf cards, the
-    /// ferns), the bank's stones; and the host's wood (<see cref="ForestScatterRenderer.Layers"/>, which the host sets from the
-    /// same value): the spruces, the needles on the near crowns (off draws those crowns' plain program), the rocks, stumps and
-    /// dead wood, and what the host's wood and the dressing cast into the sun's map.
+    /// The forest's separately drawn layers, for <see cref="SceneRenderer.ForestLayers"/> (#1099, #1122, #1102): the floor (the
+    /// camera grid), its far ring and the bank the island sits in (#1102 split them out of the floor), the far stand, High and
+    /// Ultra's dressing (the broadleaves' wood, their twigs, their leaf cards, the ferns), the bank's stones; and the host's wood
+    /// (<see cref="ForestScatterRenderer.Layers"/>, which the host sets from the same value): the spruces, the needles on the near
+    /// crowns (off draws those crowns' plain program), the rocks, stumps and dead wood, and what the host's wood and the dressing
+    /// cast into the sun's map.
     /// </summary>
     [System.Flags]
     public enum ForestLayer
     {
         None = 0, Floor = 1, FarStand = 2, Broadleaves = 4, Twigs = 8, Leaves = 16, Ferns = 32, Stones = 64,
-        Spruces = 128, Needles = 256, Deadwood = 512, WoodShadow = 1024, LeafShadow = 2048,
+        Spruces = 128, Needles = 256, Deadwood = 512, WoodShadow = 1024, LeafShadow = 2048, FarRing = 4096, Bank = 8192,
         All = Floor | FarStand | Broadleaves | Twigs | Leaves | Ferns | Stones | Spruces | Needles | Deadwood | WoodShadow | LeafShadow
+            | FarRing | Bank
+    }
+
+    /// <summary>
+    /// Mars's separately drawn layers, for <see cref="SceneRenderer.MarsLayers"/> (#1102): the ground (the camera grid), its far
+    /// ring, the bank the island sits in, the bank's stones, the clearing's stones, Phobos and Deimos, whether High and Ultra's
+    /// ground reads its bake (#1100; off draws the exact program where the baked one would be, the maps kept), and what the
+    /// scene casts into the sun's map (the bank's planting and the clearing's stones, whichever of them are drawn or not).
+    /// </summary>
+    [System.Flags]
+    public enum MarsLayer
+    {
+        None = 0, Ground = 1, FarRing = 2, Bank = 4, Stones = 8, Rocks = 16, Moons = 32, Bake = 64, Casters = 128,
+        All = Ground | FarRing | Bank | Stones | Rocks | Moons | Bake | Casters
+    }
+
+    /// <summary>
+    /// The outback's separately drawn layers, for <see cref="SceneRenderer.OutbackLayers"/> (#1102): the plain (the camera grid),
+    /// its far ring, the bank the island sits in, the formations' discs (#967), the bank's stones, what grows on the plain by
+    /// kind (#749: the spinifex hummocks, the saltbush, the dead timber, the mulga and dead trees, and High and Ultra's gibber,
+    /// #776), the flock, High and Ultra's crust in the plain's program (#776), the formations' baked shadows the land reads
+    /// (#967; off, the land reads none, the bake kept), and what the scene casts into the sun's map (the bank's planting and
+    /// the plain's, whichever of them are drawn or not).
+    /// </summary>
+    [System.Flags]
+    public enum OutbackLayer
+    {
+        None = 0, Plain = 1, FarRing = 2, Bank = 4, Formations = 8, Stones = 16, Spinifex = 32, Saltbush = 64, Timber = 128,
+        Trees = 256, Gibber = 512, Birds = 1024, Crust = 2048, SunBake = 4096, Casters = 8192,
+        All = Plain | FarRing | Bank | Formations | Stones | Spinifex | Saltbush | Timber | Trees | Gibber | Birds | Crust | SunBake | Casters
+    }
+
+    /// <summary>
+    /// The grammar of the scene layer dials (<see cref="SceneRenderer.VolcanoLayers"/> and its siblings, the Testbed's
+    /// <c>volcano=</c>, <c>mars=</c> and the rest), the arena members' own: names of the enum's flags, each added or, with a
+    /// leading '-', removed, left to right, separated by '/' as well as ',' so a list fits in one alternation pin, where ','
+    /// already separates pins: <c>alt=volcano=all;volcano=all/-plume;volcano=all/-ash</c>. Case is ignored and an unread name
+    /// is skipped, as the rest of the Testbed's parse leaves a default standing. Parsed when a variant is applied, never per frame.
+    /// </summary>
+    public static class LayerDial
+    {
+        /// <summary>The layers <paramref name="list"/> names, from <c>None</c>.</summary>
+        public static T Parse<T>(string list) where T : struct, Enum
+        {
+            long layers = 0;
+
+            foreach (string token in list.Split(',', '/'))
+            {
+                string name = token.Trim();
+                if (name.Length == 0) continue;
+
+                bool remove = name[0] == '-';
+                if (remove) name = name.Substring(1);
+
+                if (!Enum.TryParse(name, ignoreCase: true, out T one)) continue;
+
+                long bits = Convert.ToInt64(one);
+                layers = remove ? layers & ~bits : layers | bits;
+            }
+
+            return (T)Enum.ToObject(typeof(T), layers);
+        }
     }
 
     /// <summary>
@@ -526,6 +589,26 @@ namespace Prazsky.Core.Render
         {
             get => _forest.Layers;
             set => _forest.Layers = value;
+        }
+
+        /// <summary>
+        /// Mars's layers (#1102), the same kind of measurement dial: the Testbed's <c>mars=</c> sets it, every other caller leaves
+        /// it at <see cref="MarsLayer.All"/>.
+        /// </summary>
+        public MarsLayer MarsLayers
+        {
+            get => _mars.Layers;
+            set => _mars.Layers = value;
+        }
+
+        /// <summary>
+        /// The outback's layers (#1102), the same kind of measurement dial: the Testbed's <c>outback=</c> sets it, every other
+        /// caller leaves it at <see cref="OutbackLayer.All"/>.
+        /// </summary>
+        public OutbackLayer OutbackLayers
+        {
+            get => _outback.Layers;
+            set => _outback.Layers = value;
         }
 
         #region The sun's shadow map (#469, in every terrain scene since #471)

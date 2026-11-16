@@ -108,7 +108,7 @@ namespace Prazsky.Core.Render
         //fade are pushed, and the grid drawn after it is turned away wherever the bank stands over the ground
         private void DrawBank()
         {
-            if (_bank == null) return;
+            if (_bank == null || (_layers & ForestLayer.Bank) == 0) return;
 
             EffectTechnique grid = _forestEffect.CurrentTechnique;
             _forestEffect.CurrentTechnique = _sceneDetail > 0.5f ? _bankTechnique : _bankReducedTechnique;
@@ -186,7 +186,10 @@ namespace Prazsky.Core.Render
             Vector3 murk = Murk(frame, _forestConfig);
             _murk.SetValue(murk);
 
-            if ((_layers & ForestLayer.Floor) != 0) _forestPass.Draw(frame, Services.TerrainHoleRadius, _drawBank);
+            _forestPass.DrawsGrid = (_layers & ForestLayer.Floor) != 0;
+            _forestPass.DrawsFarRing = (_layers & ForestLayer.FarRing) != 0;
+            if ((_layers & (ForestLayer.Floor | ForestLayer.FarRing | ForestLayer.Bank)) != 0)
+                _forestPass.Draw(frame, Services.TerrainHoleRadius, _drawBank);
 
             //The wood on the hills (#962), after the floor so the depth test turns away every tree a nearer hill hides
             if (Services.FineMeshes && (_layers & ForestLayer.FarStand) != 0) _farStand?.Draw(frame.Camera);

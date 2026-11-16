@@ -44,6 +44,10 @@ namespace Prazsky.Core.Render
         private const float SUN_BAKE_STRENGTH = 0.9f;
         private RenderTarget2D _sunBake;
         private Vector3 _bakedSun;
+
+        //What the land is handed while the bake is read (TerrainShadowArea), zero while there is none: kept so the measurement
+        //dial can take the formations' shadows off the land and give them back without a bake (Layers)
+        private Vector4 _bakedArea;
         private readonly EffectTechnique _bakeTechnique;
         private readonly EffectParameter _bakeArea, _bakeSun, _terrainShadowMap, _terrainShadowArea;
 
@@ -90,7 +94,7 @@ namespace Prazsky.Core.Render
             _drawRock = () =>
             {
                 DrawBank();
-                _rockDiscs?.Draw(_outbackEffect, _rockTechnique);
+                if ((_layers & OutbackLayer.Formations) != 0) _rockDiscs?.Draw(_outbackEffect, _rockTechnique);
             };
 
             _plants = new PlantPass(services.GraphicsDevice, content);
@@ -110,6 +114,7 @@ namespace Prazsky.Core.Render
             //The plain's spinifex, saltbush, timber and trees (#749), kept off the very footprints the plain stops on
             _planting = new OutbackPlanting(services.GraphicsDevice, (x, z) => TerrainMirror.Outback(x, z, _outbackConfig),
                 TerrainMirror.OutbackFootprints(_outbackConfig, PLANTING_REACH), PLANTING_SEED + Services.SeedOffset);
+            _plantingDrawn = _planting.Buckets;
         }
 
         /// <inheritdoc/>
@@ -187,12 +192,47 @@ namespace Prazsky.Core.Render
         public override void Draw(in SceneFrame frame)
         {
             _rockDiscs?.Cull(frame.Camera.View * frame.Camera.Projection, Services.FineMeshes);
-            _groundDetail.SetValue(Services.FineMeshes ? 1f : 0f);
-            _outbackPass.Draw(frame, Services.TerrainHoleRadius, _drawRock);
-            if (_berm != null) _plants.Draw(frame, _bermStones, _outbackConfig.Air.HorizonHazeDistance, detail: true, Services.FineMeshes);
+            _groundDetail.SetValue(Services.FineMeshes && (_layers & OutbackLayer.Crust) != 0 ? 1f : 0f);
+            _outbackPass.DrawsGrid = (_layers & OutbackLayer.Plain) != 0;
+            _outbackPass.DrawsFarRing = (_layers & OutbackLayer.FarRing) != 0;
+            if ((_layers & (OutbackLayer.Plain | OutbackLayer.FarRing | OutbackLayer.Bank | OutbackLayer.Formations)) != 0)
+                _outbackPass.Draw(frame, Services.TerrainHoleRadius, _drawRock);
+            if (_berm != null && (_layers & OutbackLayer.Stones) != 0)
+                _plants.Draw(frame, _bermStones, _outbackConfig.Air.HorizonHazeDistance, detail: true, Services.FineMeshes);
             if (_planting != null)
-                _plants.Draw(frame, _planting.Buckets, _outbackConfig.Air.HorizonHazeDistance, _sceneDetail > 0.5f, Services.FineMeshes);
-            Services.Birds.Draw(frame, _outbackConfig.Birds);
+                _plants.Draw(frame, _plantingDrawn, _outbackConfig.Air.HorizonHazeDistance, _sceneDetail > 0.5f, Services.FineMeshes);
+            if ((_layers & OutbackLayer.Birds) != 0) Services.Birds.Draw(frame, _outbackConfig.Birds);
+        }
+
+        /// <summary>
+        /// The layers drawn (#1102): a measurement dial (<see cref="SceneRenderer.OutbackLayers"/>, the Testbed's <c>outback=</c>),
+        /// <see cref="OutbackLayer.All"/> for every other caller. Each layer is drawn or not on the next frame; nothing carries:
+        /// the planting's buckets of the kinds named are picked here, and <see cref="OutbackLayer.SunBake"/> off hands the land
+        /// no baked shadow while the bake itself is kept, so turning it back on bakes nothing.
+        /// </summary>
+        public OutbackLayer Layers
+        {
+            get => _layers;
+            set
+            {
+                _layers = value;
+                _plantingDrawn = _planting == null ? Array.Empty<ScatterBucket>() : Of(_planting, value);
+                _terrainShadowArea.SetValue((value & OutbackLayer.SunBake) != 0 ? _bakedArea : Vector4.Zero);
+            }
+        }
+
+        private OutbackLayer _layers = OutbackLayer.All;
+
+        //The planting's buckets the layers draw, all of them unless the dial says otherwise
+        private ScatterBucket[] _plantingDrawn;
+
+        //The buckets of the planting whose kind is among the layers
+        private static ScatterBucket[] Of(OutbackPlanting planting, OutbackLayer layers)
+        {
+            var kept = new List<ScatterBucket>();
+            for (int i = 0; i < planting.Buckets.Length; i++)
+                if ((planting.Kinds[i] & layers) != 0) kept.Add(planting.Buckets[i]);
+            return kept.ToArray();
         }
 
         /// <inheritdoc/>
@@ -201,6 +241,7 @@ namespace Prazsky.Core.Render
         /// <summary>The bank round the island (#646) and what grows on the plain (#749) cast into the sun's map.</summary>
         public override void DrawShadowCasters(Matrix shadowViewProjection)
         {
+            if ((_layers & OutbackLayer.Casters) == 0) return;
             if (_berm != null) _plants.DrawShadowCasters(shadowViewProjection, _berm.Buckets, Services.FineMeshes);
             if (_planting != null) _plants.DrawShadowCasters(shadowViewProjection, _planting.Buckets, Services.FineMeshes);
         }
@@ -218,7 +259,7 @@ namespace Prazsky.Core.Render
 
         private void DrawBank()
         {
-            if (_bank == null) return;
+            if (_bank == null || (_layers & OutbackLayer.Bank) == 0) return;
 
             EffectTechnique grid = _outbackEffect.CurrentTechnique;
             _outbackEffect.CurrentTechnique = _bankTechnique;
@@ -241,6 +282,7 @@ namespace Prazsky.Core.Render
         {
             if (sunDirection.Y <= SceneRenderer.SHADOW_MIN_SUN_HEIGHT)
             {
+                _bakedArea = Vector4.Zero;
                 _terrainShadowArea.SetValue(Vector4.Zero);
                 _bakedSun = Vector3.Zero;
                 return;
@@ -282,7 +324,8 @@ namespace Prazsky.Core.Render
             device.RasterizerState = rasterizer;
 
             _terrainShadowMap.SetValue(_sunBake);
-            _terrainShadowArea.SetValue(new Vector4(corner, corner, 1f / SUN_BAKE_EXTENT, SUN_BAKE_STRENGTH));
+            _bakedArea = new Vector4(corner, corner, 1f / SUN_BAKE_EXTENT, SUN_BAKE_STRENGTH);
+            _terrainShadowArea.SetValue((_layers & OutbackLayer.SunBake) != 0 ? _bakedArea : Vector4.Zero);
             _bakedSun = sunDirection;
         }
 

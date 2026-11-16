@@ -164,8 +164,9 @@ namespace Prazsky.Core.Render
         public float SidewaysReach { get; set; }
 
         /// <summary>
-        /// Whether the grid and the far ring are drawn: measurement dials (the meadow's <c>meadow=</c> layers, #1028, and the
-        /// mountain's <c>mountain=</c>, #1035), each read by <see cref="Draw"/> so either can be drawn alone; true for every other caller.
+        /// Whether the grid and the far ring are drawn: measurement dials (the meadow's <c>meadow=</c> layers, #1028, the
+        /// mountain's <c>mountain=</c>, #1035, and Mars's, the outback's and the forest's, #1102), each read by <see cref="Draw"/>
+        /// so either can be drawn alone; true for every other caller.
         /// </summary>
         public bool DrawsGrid { get; set; } = true;
 
