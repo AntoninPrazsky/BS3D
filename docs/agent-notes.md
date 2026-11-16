@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1111 poušť: pata pyramid v oparu dun — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: kámen pyramid bere do výšky `Pyramids.SandTop` (nejvyšší písek pod půdorysy, z `TerrainMirror.Desert`, asi −0,5) přesně opar a murk dun a `FarField.Begin` s rozsahem dun; výš prach řídne e× na `Pyramids.DustThin` (30) k `HorizonColor` jako dřív, horní stěny beze změny. Matematika vzduchu sdílená v `DesertAir.fxh` (Desert.fx bajtově stejný). Testy `PyramidAirTests`.
+- ⚠ Příčina se našla vypínáním po jednom (lesk, far fade, opar): duny za 420 jsou celé murk, kámen jen 25 % k teplému horizontu, takže pata tmavá za světlými hřebeny. Opar ke murku i nahoře zašedí stěny pod kupolí 6.
+- Otevřené: verdikt oka (pás u paty: opar, nebo zeď mlhy?; Khafre z herního pohledu); Potato/Pi pata zůstává tmavá (PYRAMID_HAZE 1600 proti 420), chce vlastní issue.
+
 ## 2026-11-15 — #1116 Mřížka: úvod jede vedle světelného cyklu — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: druhý záběr úvodu Mřížky „the cycle“ (`Game/Effects/GridRide.cs`): čočka jede 3,4 nad podlahou vedle jednoho cyklu jeho rychlostí, kolem uzlu se točí nejvýš 37,5 °/s (U-obrat 71). Pózuje se podle nástěnných hodin (`IntroShot.OnTheWallClock`), cyklus bere z `LightCycleRuns` (stejné semínko jako kreslené). Po pauze nebo pod 20 fps volí znovu (`GridIntroShots.Again`). Úvod 16,5 s (dřív 13,9).
