@@ -45,7 +45,7 @@ namespace Prazsky.Core.Render
         /// The bank the run eases to, radians about the craft's heading: negative tips its outer side down, where the loop's own
         /// <see cref="SaucerFlight.BANK"/> tips it up and shows a lens outside the loop only its belly.
         /// </summary>
-        internal const float LEAN = -0.3f;
+        internal const float LEAN = -0.32f;
 
         /// <summary>Whether there is a pass at all; <c>default</c> is none.</summary>
         public readonly bool Cued;

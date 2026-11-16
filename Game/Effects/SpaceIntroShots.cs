@@ -49,14 +49,17 @@ namespace BS3D.Effects
         private const float SAUCER_FOV_DEGREES = 47f;
         internal const float SAUCER_SECONDS = 4.2f;
 
-        //The craft, cued while the shot is on screen (SceneRenderer.CueSpaceSaucer) to cross the frame from the planet's side
-        //(the loop runs right to left as a lens outside it sees it): its middle this far from the lens, along a line this many
-        //degrees under the look and this many towards that side, this far into the shot, on SaucerPass's run. Turned to that
-        //side, the frame's two edges cut the run about as long before the moment as after it, so it comes in after a second
-        //of stillness and is gone before the cut.
+        //The craft, cued while the shot is on screen (SceneRenderer.CueSpaceSaucer) to cross the frame: its middle this far from
+        //the lens, along a line this many degrees under the look and this many towards the planet's side of the frame, this far
+        //into the shot, on SaucerPass's run. It always crosses right to left (the loop's way round, seen from outside it), so it
+        //comes in from the planet's side on one roll and leaves by it on the other; and the run is oblique to the look, nearing
+        //the lens as it crosses on one roll and drawing away on the other, the two rolls mirror images with the time reversed.
+        //Turned this far, the widest frame the game is played at (2.4:1) cuts the run about as long before the moment as after
+        //it on either roll, and a narrower one, which only crops the sides, cuts it shorter at both ends: the craft comes in
+        //after most of a second of stillness and is gone a fifth of a second before the cut (SpaceIntroShotsTests holds them).
         internal const float PASS_DISTANCE = 34f;
         private const float PASS_DROP_DEGREES = 9f;
-        private const float PASS_ASIDE_DEGREES = 12f;
+        private const float PASS_ASIDE_DEGREES = 18f;
         internal const float PASS_AT_SECONDS = 2.4f;
 
         //The drain from under the island: a crane up from this far under the funnel's hole to this far, this far

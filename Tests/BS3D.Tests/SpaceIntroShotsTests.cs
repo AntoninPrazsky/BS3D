@@ -14,11 +14,11 @@ namespace BS3D.Tests
     /// big planet in the background, the smaller island somewhere lower, and then an unexpected flying saucer flying through
     /// this static shot, relatively close to the camera". Held over the real builder, the shipped config and the craft's own
     /// flight (<see cref="SaucerFlight.WorldAt(float, in SaucerPass)"/>) at every roll and at moments all round the wall
-    /// clock: the lens stands still; the planet's whole disc stands in the frame's upper half, larger than the station, which
-    /// stands low to one side of it clear of the skip hint; the craft, cued on every frame of the shot, comes into the frame
-    /// after a moment of stillness, crosses it close to the lens and is gone before the cut, on its run in every frame of the
-    /// shot, where the shot was laid for it through hitches and a pause; it never comes near the lens or the island; and with
-    /// no pass cued the loop flies exactly as it always did.
+    /// clock: the lens stands still; the planet's whole disc stands in the frame's upper half, about twice the station's width,
+    /// which stands low to one side of it clear of the skip hint; the craft, cued on every frame of the shot, comes into the
+    /// frame after a moment of stillness, crosses it close to the lens with its dome turned to it and is gone before the cut,
+    /// any vertex of its mesh counting, on its run in every frame of the shot, where the shot was laid for it through hitches
+    /// and a pause; it never comes near the lens or the island; and with no pass cued the loop flies exactly as it always did.
     /// </summary>
     public class SpaceIntroShotsTests
     {
@@ -38,29 +38,42 @@ namespace BS3D.Tests
         //How far inside every edge a point must stay to count as in the frame, as a share of the half-frame; and the skip
         //hint's band along the bottom edge (up to 12.2 % of the frame's height, "Chapter intro prologues" in the docs)
         private const float FRAME_MARGIN = 0.05f;
+
+        //"The smaller island": the station's width in the frame under this share of the planet's
+        private const float STATION_SHARE = 0.6f;
         private const float SKIP_HINT_SHARE = 0.13f;
 
-        //The craft's reach from its middle: the rim's radius, and a little for the dome's antenna and the bank
-        private const float CRAFT_REACH = SaucerMesh.RIM_RADIUS + 0.5f;
+        //Every vertex of the craft as it is drawn, in its own frame (SaucerMesh's two lathes), and its reach from its middle
+        private static readonly Vector3[] CraftVertices = Vertices(SaucerMesh.HULL).Concat(Vertices(SaucerMesh.DOME)).ToArray();
+        private static readonly float CraftReach = CraftVertices.Max(v => v.Length());
+
+        private static IEnumerable<Vector3> Vertices(LathePoint[] profile)
+        {
+            Vector3[,] rings = LatheMesh.RingPositions(profile, SaucerMesh.SEGMENTS);
+            foreach (Vector3 vertex in rings) yield return vertex;
+        }
 
         //"Relatively close to the camera": the craft's middle never nearer the lens than this anywhere in the pass, eases
-        //included, and at its nearest in the shot within this much of the distance it is laid at
+        //included, and at its nearest in the shot within this much of the distance it is laid at (29.0, measured: the run is
+        //oblique to the look)
         private const float NEAREST_EVER = 20f;
-        private const float NEAREST_SLACK = 4f;
+        private const float NEAREST_SLACK = 5.5f;
 
         //"Unexpected": the frame holds still with no craft in it for at least this long at every shape, and this long at 16:9;
-        //and it is gone, wholly outside the frame, at least this long before the cut at every shape. Measured: 0.75 s still and
-        //gone 0.15 s before the cut at 2.4:1, where the frame is widest; 1.17 and 0.57 at 16:9
-        private const float STILL_SECONDS = 0.7f, STILL_SECONDS_16_9 = 1.1f;
-        private const float GONE_BEFORE_CUT = 0.12f;
+        //and it is gone, wholly outside the frame, at least this long before the cut at every shape. Measured, at whole frames:
+        //0.80 s still and gone 0.20 s before the cut at 2.4:1, where the frame is widest; 1.03 and 0.43 at 16:9
+        private const float STILL_SECONDS = 0.75f, STILL_SECONDS_16_9 = 1f;
+        private const float GONE_BEFORE_CUT = 0.17f;
 
-        //Neither a blur nor a crawl: the craft crosses the frame (from first in to last out) in this many seconds at 16:9 (2.37,
+        //Neither a blur nor a crawl: the craft crosses the frame (from first in to last out) in this many seconds at 16:9 (2.40,
         //measured)
         private const float CROSSING_MIN = 1.8f, CROSSING_MAX = 3.2f;
 
         //Its dome turned to the lens: at its moment the lens sees the craft's top at least this many degrees over its rim's plane
-        //(the loop's own bank would show it the belly)
+        //(the loop's own bank would show it the belly), at every phase of the craft's slow rock, which swings it some three
+        //degrees either way (its period: Loop below)
         private const float TOP_SEEN_DEGREES = 8f;
+        private const float ROCK_PERIOD = MathHelper.TwoPi / 0.7f;
 
         //The space reel's whole opening, the tour's last leg included: 13.9 s before the still shot, and the owner prefers
         //faster over slower
@@ -113,14 +126,23 @@ namespace BS3D.Tests
         private static bool Inside(Vector3 ndc, bool ahead, float margin = FRAME_MARGIN) =>
             ahead && MathF.Abs(ndc.X) <= 1f - margin && MathF.Abs(ndc.Y) <= 1f - margin;
 
-        //Whether any of a sphere is in the frame: its middle's place grown by its radius over its depth, against the edges. A
-        //sphere reaching the lens's own plane counts as in it
-        private static bool AnyInFrame(Vector3 middle, float radius, Matrix view, Matrix projection, float fov, float aspect)
+        //Whether any of the craft is in the frame: any vertex of its mesh as it is drawn, placed by its world matrix, inside
+        //the frame's edges. The craft crosses the frame's sides at its middle height, far from a corner, and a side cannot pass
+        //between two neighbouring vertices of a ring (under a unit apart, SaucerMesh.SEGMENTS round the rim) with neither of them
+        //inside it; a facet's edge cuts in with both its ends outside only across a corner. ⚠ A sphere's middle grown by its
+        //radius over its depth is not this: off the axis the rim reaches across the frame by about 1/cos of the angle more, and
+        //at the 2.4:1 frame's sides, some 46 degrees off, that put the craft out of the frame 0.12 s before it was
+        private static bool AnyInFrame(Matrix world, BoundingFrustum frustum)
         {
-            Vector3 ndc = Project(middle, view, projection, out _);
-            if (ndc.Z < radius) return true;
-            float grow = radius / ndc.Z / MathF.Tan(fov * 0.5f);
-            return MathF.Abs(ndc.X) - grow / aspect < 1f && MathF.Abs(ndc.Y) - grow < 1f;
+            if (frustum.Contains(new BoundingSphere(world.Translation, CraftReach)) == ContainmentType.Disjoint) return false;
+
+            Matrix toClip = world * frustum.Matrix;
+            foreach (Vector3 vertex in CraftVertices)
+            {
+                Vector4 clip = Vector4.Transform(new Vector4(vertex, 1f), toClip);
+                if (clip.W > 0f && MathF.Abs(clip.X) <= clip.W && MathF.Abs(clip.Y) <= clip.W) return true;
+            }
+            return false;
         }
 
         //The planet's disc: its middle and points round its limb
@@ -203,8 +225,9 @@ namespace BS3D.Tests
                 Assert.True(deck.Y < -0.4f, $"seed {seed}: the deck's middle at {deck.Y:F2} of the frame's height, not low");
                 Assert.True(stationTop < planetBottom, $"seed {seed}: the island reaches {stationTop:F2}, the planet's disc down to {planetBottom:F2}");
 
-                //Smaller than the planet, and to one side of it: the deck's middle and the planet's on either side of the frame's middle
-                Assert.True((stationRight - stationLeft) < 0.75f * (planetRight - planetLeft),
+                //About half the planet's width (0.52 to 0.56, measured: the island's 52 across seen from 280 out against the
+                //disc's 20 degrees), and to one side of it: the deck's middle and the planet's on either side of the frame's middle
+                Assert.True((stationRight - stationLeft) < STATION_SHARE * (planetRight - planetLeft),
                     $"seed {seed}: the island is {stationRight - stationLeft:F2} across, the planet {planetRight - planetLeft:F2}");
                 Assert.True(MathF.Sign(deck.X) == -MathF.Sign(middle.X) && MathF.Abs(deck.X) > 0.1f,
                     $"seed {seed}: the deck at {deck.X:F2} across, the planet at {middle.X:F2}");
@@ -220,7 +243,7 @@ namespace BS3D.Tests
         public void The_saucer_crosses_the_frame_close_to_the_lens_after_a_moment_of_stillness_and_is_gone_before_the_cut(float aspect)
         {
             float shortestStill = float.MaxValue, shortestGone = float.MaxValue, nearest = float.MaxValue, farthest = 0f;
-            float crossingMin = float.MaxValue, crossingMax = 0f, topLeast = float.MaxValue;
+            float crossingMin = float.MaxValue, crossingMax = 0f;
 
             for (int seed = 1; seed <= ROLLS; seed++)
             {
@@ -234,23 +257,19 @@ namespace BS3D.Tests
                     Matrix moment = SaucerFlight.WorldAt(pass.Closest, pass);
                     Vector3 at = moment.Translation;
                     Assert.True(Vector3.Distance(at, pass.Point) < 1e-2f, $"seed {seed} at {wall}: the craft is {Vector3.Distance(at, pass.Point):F3} off its point at its moment");
-
-                    //Its top to the lens, so the dome and the crew are seen
-                    float topSeen = MathHelper.ToDegrees(MathF.Asin(Vector3.Dot(Vector3.Normalize(moment.Up), Vector3.Normalize(lens - at))));
-                    Assert.True(topSeen >= TOP_SEEN_DEGREES, $"seed {seed} at {wall}: the lens sees the craft's top at {topSeen:F1} degrees");
-                    topLeast = MathF.Min(topLeast, topSeen);
                     Assert.Equal(SpaceIntroShots.PASS_DISTANCE, Vector3.Distance(at, lens), 2);
                     Vector3 middle = Project(at, view, projection, out bool ahead);
                     Assert.True(Inside(middle, ahead, 0.4f), $"seed {seed} at {wall}: the craft's middle at ({middle.X:F2}, {middle.Y:F2}) at its moment");
 
+                    var frustum = new BoundingFrustum(view * projection);
                     float first = float.NaN, last = float.NaN, closest = float.MaxValue;
                     for (float s = 0f; s <= shot.Seconds; s += FRAME)
                     {
                         float time = wall + s;
                         Assert.Equal(1f, pass.Weight(time));
-                        Vector3 craft = SaucerFlight.WorldAt(time, pass).Translation;
-                        closest = MathF.Min(closest, Vector3.Distance(craft, lens));
-                        if (AnyInFrame(craft, CRAFT_REACH, view, projection, shot.FieldOfView, aspect))
+                        Matrix world = SaucerFlight.WorldAt(time, pass);
+                        closest = MathF.Min(closest, Vector3.Distance(world.Translation, lens));
+                        if (AnyInFrame(world, frustum))
                         {
                             if (float.IsNaN(first)) first = s;
                             last = s;
@@ -275,7 +294,30 @@ namespace BS3D.Tests
             }
 
             _output.WriteLine(FormattableString.Invariant(
-                $"aspect {aspect:F2}: still for {shortestStill:F2} s at least, gone {shortestGone:F2} s before the cut, crossing {crossingMin:F2}-{crossingMax:F2} s, nearest {nearest:F1}-{farthest:F1}, top seen at {topLeast:F1} degrees at least"));
+                $"aspect {aspect:F2}: still for {shortestStill:F2} s at least, gone {shortestGone:F2} s before the cut, crossing {crossingMin:F2}-{crossingMax:F2} s, nearest {nearest:F1}-{farthest:F1}"));
+        }
+
+        [Fact]
+        public void The_lens_sees_the_craft_from_over_its_rim_at_its_moment_at_every_phase_of_its_rock()
+        {
+            float least = float.MaxValue, most = float.MinValue;
+            for (int seed = 1; seed <= ROLLS; seed++)
+            {
+                for (float wall = 0f; wall < ROCK_PERIOD; wall += 0.02f)
+                {
+                    (IntroShot shot, SaucerPass pass) = Saucer(seed, wall);
+                    shot.Pose(0f, out Vector3 lens, out _);
+                    Matrix moment = SaucerFlight.WorldAt(pass.Closest, pass);
+
+                    //Its top to the lens, so the dome and the crew are seen
+                    float topSeen = MathHelper.ToDegrees(MathF.Asin(Vector3.Dot(Vector3.Normalize(moment.Up), Vector3.Normalize(lens - moment.Translation))));
+                    Assert.True(topSeen >= TOP_SEEN_DEGREES, $"seed {seed} at {wall:F2}: the lens sees the craft's top at {topSeen:F1} degrees");
+                    least = MathF.Min(least, topSeen);
+                    most = MathF.Max(most, topSeen);
+                }
+            }
+
+            _output.WriteLine(FormattableString.Invariant($"the craft's top seen at {least:F1}-{most:F1} degrees at its moment"));
         }
 
         [Fact]
@@ -306,7 +348,7 @@ namespace BS3D.Tests
 
             _output.WriteLine(FormattableString.Invariant($"fastest {fastest:F1} u/s, nearest the lens {nearestLens:F1}, nearest the axis {nearestAxis:F1}"));
             Assert.True(nearestLens >= NEAREST_EVER, $"the craft comes {nearestLens:F1} from the lens");
-            Assert.True(nearestAxis >= ArenaIsland.RADIUS + CRAFT_REACH + 100f, $"the craft comes {nearestAxis:F1} from the island's axis");
+            Assert.True(nearestAxis >= ArenaIsland.RADIUS + CraftReach + 100f,$"the craft comes {nearestAxis:F1} from the island's axis");
             //A jump would be a frame's leap; the eases' quickest is a swoop out of every frame
             Assert.True(fastest < 120f, $"the craft moves {fastest:F1} units a second at its quickest");
         }
