@@ -252,6 +252,13 @@ namespace Prazsky.Core.Render
         public virtual void BeforeShadowMaps(Vector3 sunDirection) { }
 
         /// <summary>
+        /// <see cref="SceneRenderer.DrawShadowMaps"/> no longer serves this backdrop: the host has turned to another scene, or
+        /// draws none of this one's scenery. A backdrop that holds a large target only while it is drawn gives it back here,
+        /// and builds it again in <see cref="BeforeShadowMaps"/> when it is next wanted (Mars's bake, #1100). Nothing by default.
+        /// </summary>
+        public virtual void Leave() { }
+
+        /// <summary>
         /// Frees what this backdrop built. An effect loaded from the content manager is the manager's and is not
         /// disposed; a clone of one (<c>Effect.Clone</c>, the aurora's snow) is the backdrop's own and is.
         /// </summary>

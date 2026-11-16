@@ -95,6 +95,11 @@ namespace Prazsky.Core.Render
         //which are what the ring is for, are the same height function in both. On Mars it measured within noise of
         //the full program (the ring's cost is its new pixels' count, not their program - docs/scenes.md, "The far
         //field"); it stays because it cannot cost more. Cached because the by-name indexer is a linear scan.
+        //⚠ Mars's baked ground (MarsTerrainBaked, #1100) has no reduced twin, so while the lens stands within its reach the
+        //ring draws the baked program itself: cheaper than the reduced one (it reads the maps where that takes the height
+        //field's taps), and from any lens it is drawn for the haze has taken the plain whole before the bake's last row
+        //(MarsBackdrop.BAKE_MAX_RADIUS), past which the ring reads that row stretched out. Past the reach the ring is
+        //MarsTerrainReduced again.
         //
         //And beside it the pass of that technique's depth alone ("<its name>Depth", #1097), null where the effect compiled
         //none (OpenGL ES, the sea, the outback): see DrawRing.

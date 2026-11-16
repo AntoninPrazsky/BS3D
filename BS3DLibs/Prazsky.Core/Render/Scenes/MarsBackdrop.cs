@@ -64,9 +64,14 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// How far from the arena the lens may stand and still be drawn the baked ground, world units on the plain. The
         /// front end's orbit (its wide leg 33 to 47 units out at the shipped window shapes, docs/game-shell/menu-camera.md)
-        /// and the play camera stand inside it. Every shot of the chapter intro stands outside it the whole way
+        /// and the play camera stand inside it. Every shot of the chapter intro's prologue stands outside it the whole way
         /// (<c>MarsBakeReachTests</c>), so no shot turns from one ground to the other in flight, and a lens a few units over
         /// the ruts is never drawn the coarser texels the bake has out there.
+        /// ⚠ Only while the window is at least about 0.73 as wide as it is tall: the wide leg stands
+        /// <see cref="ArenaIsland.RADIUS"/> over the sine of the Game's <c>BackdropScreen.ISLAND_FRAME_SHARE</c> of the horizontal
+        /// half-angle (68.7 units at 3:4), so a narrower
+        /// window (the Game's is resizable) takes it past the reach, and the lens turns grounds as it crosses on every fly-in
+        /// and retreat; at 9:16 the tour's last leg starts past it too.
         /// </summary>
         internal const float BAKE_CAMERA_REACH = 70f;
 
@@ -348,7 +353,8 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Whether Mars draws its full ground at this scene detail (<see cref="SceneRenderer.SceneDetail"/>): the one
         /// threshold <see cref="SelectMarsTechnique"/> picks the program and its grid by. Only the full program draws the
-        /// rover's ruts (<c>Mars.fx</c>'s <c>MarsGroundAt</c>, its <c>detail</c> branch), so this is also the question whether
+        /// rover's ruts (<c>Mars.fx</c>'s <c>MarsGroundFields</c>, its <c>detail</c> branch, and the baked ground's
+        /// <c>MarsGroundBaked</c>, which is drawn only where the full program would be), so this is also the question whether
         /// the chapter intro may shoot them (#1115, <see cref="SceneRenderer.MarsDrawsTracks"/>).
         /// </summary>
         internal static bool FullGroundAt(float sceneDetail) => sceneDetail > 0.5f;
@@ -356,8 +362,8 @@ namespace Prazsky.Core.Render
         /// <inheritdoc/>
         public override void OnDetailChanged(float sceneDetail) => SelectMarsTechnique(sceneDetail);
 
-        /// <summary>Whether the ground draws the rover's ruts: the full program does, the reduced one keeps its budget (Mars.fx's
-        /// <c>MarsGroundAt</c>, its <c>detail</c> branch).</summary>
+        /// <summary>Whether the ground draws the rover's ruts: the full program does, and the baked ground that stands in for
+        /// it, the reduced one keeps its budget (Mars.fx's <c>MarsGroundFields</c>, its <c>detail</c> branch).</summary>
         internal bool DrawsTracks => _marsTerrainTechnique == _marsTerrainFull;
 
         /// <summary>The ground and what stands on it.</summary>
@@ -427,7 +433,7 @@ namespace Prazsky.Core.Render
         /// Bakes the ground's static fields (#1100) when they are wanted and the sun has moved since the last bake (the big
         /// craters' light follows it): one pass of <c>Mars.fx</c>'s <c>MarsBake</c> into the three maps at once, mipmapped,
         /// here where nothing of the frame is bound yet (the outback's sun bake's place, #967). Where the bake is not wanted
-        /// (a lower tier, the reduced ground) its maps are given back.
+        /// (a lower tier, the reduced ground) its maps are given back, as they are when the host leaves Mars (<see cref="Leave"/>).
         /// </summary>
         public override void BeforeShadowMaps(Vector3 sunDirection)
         {
@@ -477,6 +483,10 @@ namespace Prazsky.Core.Render
             _bakeMasksMap.SetValue(_bakeMasks);
             _bakedSun = sunDirection;
         }
+
+        /// <summary>The host has turned to another scene or stopped drawing Mars's scenery: the bake's 171 MiB are given back,
+        /// and baked again, in one frame, when Mars is next drawn where it is wanted.</summary>
+        public override void Leave() => DisposeBake();
 
         private void DisposeBake()
         {
