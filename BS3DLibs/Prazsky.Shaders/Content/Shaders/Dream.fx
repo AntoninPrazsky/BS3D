@@ -14,7 +14,7 @@
 //Everything here is ANALYTIC 3D - fields of sines on the view direction, ray-sphere tests, closest-approach
 //glows - and never a 2D chart of the sphere, so there are no pole seams and nothing to hide. The floating
 //solids are the one raymarched element, and the march is GATED: each shape carries an analytic bounding
-//sphere, the ray is tested against those first (six quadratics), and only a shape whose bound the ray
+//sphere, the ray is tested against those first (SHAPE_COUNT quadratics), and only a shape whose bound the ray
 //actually crosses is marched, inside its own [t0, t1] interval. Most pixels march nothing.
 //
 //Levels against the glare (GLARE_THRESHOLD 0.55 on luminance): the background marbling stays well under it
@@ -31,13 +31,37 @@
 #include "Noise.fxh"
 
 //How many of each element the sky carries. Fixed at compile time (the loops unroll); the config dials
-//scale their look, not their count.
-#define SHAPE_COUNT 8
+//scale their look, not their count. The solids went 8 -> 12 in #1126 (the owner: too few, the plasma filled
+//most of the game's frame); SceneRenderer.DREAM_SOLID_COUNT and the Potato path's PotatoBackdrop.DREAM_SOLIDS
+//are this number on the host, and DreamSolidsSourceTests holds the three together.
+#define SHAPE_COUNT 12
 #define ORB_COUNT 7
 #define SPARK_COUNT 14
 
 //What the reduced program carries instead - see DreamScene.
 #define SPARK_COUNT_REDUCED 4
+
+//A solid's three forms, in its own radius (ShapeRadius): a sphere of 1, a rounded box of SHAPE_BOX_HALF plus
+//SHAPE_BOX_ROUND, a torus of SHAPE_TORUS_MAJOR round SHAPE_TORUS_MINOR. The box's corner is the farthest any form
+//reaches, sqrt(3) x 0.72 + 0.14 = 1.39, and a melt between two forms never leaves their union (a lerp of two
+//distance fields is negative only where one of them is).
+#define SHAPE_BOX_HALF 0.72
+#define SHAPE_BOX_ROUND 0.14
+#define SHAPE_TORUS_MAJOR 0.78
+#define SHAPE_TORUS_MINOR 0.30
+
+//The bound a solid's march is gated on, in its own radius: just past the box's corner. Until #1126 it was ShapeSize
+//x 1.9 for every solid whatever its own size, up to 4.6 of a small solid's radii, and every pixel inside it marched
+//empty space; held to each solid's own radius, the twelve bigger solids put fewer pixels inside a bound than the
+//eight smaller ones did (see "Cost" in docs/scenes/dream.md). DreamBackdrop.SOLID_BOUND_IN_RADII is the host's copy.
+#define SHAPE_BOUND_IN_RADII 1.45
+
+//Where the solids orbit, as a share of ShapeOrbitRadius: SHAPE_ORBIT_BASE plus SHAPE_ORBIT_SWING x sin, so 0.64 to 1.
+//It was 0.78 plus 0.22 (0.56 to 1), and the solids grew 1.4 times in #1126: lifted, the nearest surface stays as far
+//out as before, past the game's lens, the front end's orbit and the chapter tour's leg into the pose
+//(DreamIntroShotsTests; DreamBackdrop.SOLID_ORBIT_BASE/SWING are the host's copy).
+#define SHAPE_ORBIT_BASE 0.82
+#define SHAPE_ORBIT_SWING 0.18
 
 float4x4 ViewRayBasis;  //the lens's axes over the projection's slopes - see SkyRay.Basis
 float3 CameraPosition;
@@ -168,13 +192,20 @@ float3 Background(float3 d, int warpOctaves)
 //--- The floating solids ---------------------------------------------------------------------------------
 //Where solid i stands now: a slow independent orbit, each at its own radius, height swing and rate, so the
 //constellation never repeats and two solids occasionally drift close enough to melt together.
+//DreamBackdrop.SolidCenter is the host's copy, which the chapter intro lays its lenses against.
 float3 ShapeCenter(float i, float t)
 {
     float a = t * (0.020 + 0.011 * frac(i * 0.371)) + i * 2.399;
-    float r = ShapeOrbitRadius * (0.78 + 0.22 * sin(i * 5.3));
+    float r = ShapeOrbitRadius * (SHAPE_ORBIT_BASE + SHAPE_ORBIT_SWING * sin(i * 5.3));
     float y = 26.0 + 46.0 * sin(t * 0.013 + i * 2.7);
 
     return float3(cos(a) * r, y, sin(a) * r);
+}
+
+//Solid i's own radius: ShapeSize scaled 0.4 to 1 by a hash of its index, so the sky has big solids and small.
+float ShapeRadius(float i)
+{
+    return ShapeSize * (0.7 + 0.3 * sin(i * 9.1));
 }
 
 //One solid's distance field, in its own tumbling frame: a sphere, a rounded box and a torus, melted into
@@ -194,7 +225,7 @@ float ShapeSdf(float3 p, float i, out float sizeOut)
     float cb = cos(xa), sb = sin(xa);
     q.yz = float2(q.y * cb - q.z * sb, q.y * sb + q.z * cb);
 
-    float size = ShapeSize * (0.7 + 0.3 * sin(i * 9.1));
+    float size = ShapeRadius(i);
     sizeOut = size;
 
     float m = 0.5 + 0.5 * sin(t * ShapeMorphSpeed + i * 11.3);
@@ -202,11 +233,11 @@ float ShapeSdf(float3 p, float i, out float sizeOut)
 
     float dSphere = length(q) - size;
 
-    float3 b = abs(q) - size * 0.72;
-    float dBox = length(max(b, 0.0)) + min(max(b.x, max(b.y, b.z)), 0.0) - size * 0.14;
+    float3 b = abs(q) - size * SHAPE_BOX_HALF;
+    float dBox = length(max(b, 0.0)) + min(max(b.x, max(b.y, b.z)), 0.0) - size * SHAPE_BOX_ROUND;
 
-    float2 tor = float2(length(q.xz) - size * 0.78, q.y);
-    float dTorus = length(tor) - size * 0.30;
+    float2 tor = float2(length(q.xz) - size * SHAPE_TORUS_MAJOR, q.y);
+    float dTorus = length(tor) - size * SHAPE_TORUS_MINOR;
 
     //Which pair this solid melts between is its own: half cycle sphere<->box, half box<->torus.
     return frac(i * 0.381) < 0.5 ? lerp(dSphere, dBox, blend) : lerp(dBox, dTorus, blend);
@@ -324,8 +355,8 @@ float4 DreamScene(DreamVertexOutput input, bool detail)
 
     //--- The solids: the sharp half of the scene. Each carries an analytic bounding sphere; the ray is
     //tested against those first, and only a crossed bound is marched, inside its own interval. The bounds
-    //are generous (the smooth morph never leaves them) and the branch is coherent across a shape's screen
-    //area, which is what makes it worth having.
+    //are just past the farthest form (SHAPE_BOUND_IN_RADII; the morph never leaves them) and the branch is
+    //coherent across a shape's screen area, which is what makes it worth having.
     float bestT = 1e9;
     float bestShape = -1.0;
 
@@ -334,7 +365,7 @@ float4 DreamScene(DreamVertexOutput input, bool detail)
     {
         float fi = (float)i;
         float3 center = ShapeCenter(fi, t);
-        float bound = ShapeSize * 1.9;
+        float bound = ShapeRadius(fi) * SHAPE_BOUND_IN_RADII;
 
         float3 oc = CameraPosition - center;
         float b = dot(oc, direction);

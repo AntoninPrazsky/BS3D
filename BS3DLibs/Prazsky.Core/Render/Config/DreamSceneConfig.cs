@@ -103,20 +103,25 @@ namespace Prazsky.Core.Render
     }
 
     /// <summary>
-    /// The floating solids: six raymarched forms that tumble on their own slow orbits, each melting between
-    /// a sphere, a rounded box and a torus.
+    /// The floating solids: <see cref="SceneRenderer.DREAM_SOLID_COUNT"/> raymarched forms that tumble on their own
+    /// slow orbits, each melting between a sphere, a rounded box and a torus.
     /// </summary>
     public sealed class DreamShapesConfig
     {
         /// <summary>
-        /// How far out the solids roam (world units). They write no depth — the whole sky is drawn behind
-        /// the scene — so they must stay well outside anything the camera can stand near (the island is 26,
-        /// the menu orbit 44): a solid that drifted between the lens and the island would draw BEHIND it.
+        /// How far out the solids roam (world units): each orbits at 0.64 to 1 of it
+        /// (<see cref="DreamBackdrop.SOLID_ORBIT_BASE"/>, <see cref="DreamBackdrop.SOLID_ORBIT_SWING"/>). They write no
+        /// depth — the whole sky is drawn behind the scene — so they must stay well outside anything the camera can
+        /// stand near (the island is 26, the game's lens 28 to 45 out, the menu orbit 44): a solid that drifted
+        /// between the lens and the island would draw BEHIND it. The soft orbs roam at 1.25 of it.
         /// </summary>
         public float OrbitRadius { get; set; } = 130f;
 
-        /// <summary>Base half-size of a solid (world units).</summary>
-        public float Size { get; set; } = 16f;
+        /// <summary>
+        /// Base half-size of a solid (world units); each solid is 0.4 to 1 of it. 16 until #1126, when the owner found
+        /// the solids too small and too few from the game's lens: 1.4 times that, with half as many solids again.
+        /// </summary>
+        public float Size { get; set; } = 22.4f;
 
         /// <summary>How fast a solid melts between its forms.</summary>
         public float MorphSpeed { get; set; } = 0.22f;

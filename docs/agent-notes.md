@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1126 Sen: větší skleněná tělesa — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: tělesa Snu 1,4× větší (`Shapes.Size` 22,4) a 12 místo 8 na desktopu, Pi i telefonu (`SHAPE_COUNT`, `DREAM_SOLID_COUNT`, Potato `DREAM_SOLIDS`). Pochod hlídá vlastní poloměr × 1,45 místo `ShapeSize` × 1,9; oběžná dráha 0,82 + 0,18·sin, nejbližší mez 61 j od osy. Cena Ultra +0,2 ms (Solitaire, 3840x1500, ~6 ms).
+- Testy: 3 920 úvodů staví všechny tři záběry, žádná čočka ani let tour do pózy nevjede do tělesa; zdroj `Dream.fx` držen proti hostiteli (počet, dráha, poloměr).
+- ⚠ Pokrytí měřené na 40 s okně (11,3 %) je menší než dlouhodobé (14,5 %); cenu měř na delším okně.
+- Otevřené: `verdict-eye` (velikost a počet, pohyb neviděn); cena na Pi, telefonu (i desktopová cesta přes GLES) a notebooku neměřena; Potato tour se může na nejširší póze otřít o vnitřní těleso.
+
 ## 2026-11-15 — #1128 polární tábor ve hře a v úvodu — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: tábor (`PolarPlanting`) je 2,5× větší (stožár 27,5, dosah 55,8, `CampClearRadius` 58) a stojí na azimutu −1,92 ve vzdálenosti 150, takže ho herní pohled vidí vlevo nad palubou ve 4:3 až 2.4. `CampTurn` 0,96 ho natáčí čelem ke slunci. Úvod má nový záběr „the camp“ (3,2 s, oblouk 26°), ostatní tři záběry ubraly 1,2 s, reel 16,1 s. Stínová krabice sahá nad stožár (`SceneRenderer.ShadowBoxTop`), texely o ~8 % hrubší. Mrtvé dotazy na zem (`PolarGroundHeight` aj.) odstraněny.

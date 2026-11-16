@@ -721,11 +721,17 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The dream's solids (#829, the owner's eye: "a few geometric flying shapes changing form, in the style of a
-        /// Windows 98 screensaver"): the desktop's eight raymarched solids tumbling and morphing round the sky as eight
-        /// low-poly bodies - boxes, octahedra and gems - on their own orbits past the config's orbit radius, far outside
-        /// anything the camera stands near, each turning about two axes and breathing its proportions, in a colour of
-        /// the palette that drifts as the desktop's does, its own light. Animated on the clock the host hands
-        /// <see cref="Draw"/>: eight matrices a frame.
+        /// Windows 98 screensaver"): the desktop's raymarched solids tumbling and morphing round the sky as as many
+        /// low-poly bodies (<see cref="DREAM_SOLIDS"/>, twelve since #1126) - boxes, octahedra and gems - on their own
+        /// orbits past the config's orbit radius, far outside the game's lens and the front end's orbit, each turning about
+        /// two axes and breathing its proportions, in a colour of the palette that drifts as the desktop's does, its own
+        /// light. Animated on the clock the host hands <see cref="Draw"/>: a matrix a solid a frame.
+        /// <para>
+        /// ⚠ Not outside every lens: this path has no prologue, so the chapter tour opens on its rim shot, 1.9 to 2.4 times
+        /// the stand-off out, and at the widest stand-off (45, so up to 108 out) that reaches the inner ring, where a box at
+        /// its fullest breath comes to about 80 of the axis (the solids grew 1.4 times in #1126). The tour can then pass
+        /// close by or through a body, which a back-face-culled mesh shows as a flat face filling the frame or as nothing.
+        /// </para>
         /// </summary>
         private static PotatoBackdrop Dream(GraphicsDevice graphicsDevice, Effect potatoEffect)
         {
@@ -763,7 +769,8 @@ namespace Prazsky.Core.Render
             return backdrop;
         }
 
-        private const int DREAM_SOLIDS = 8;
+        //As many as the desktop draws (Dream.fx's SHAPE_COUNT), so the Pi and the phones show the sky the desktop does
+        internal const int DREAM_SOLIDS = SceneRenderer.DREAM_SOLID_COUNT;
 
         /// <summary>Inigo Quilez's cosine palette on the dream's config, the shader's own.</summary>
         public static Vector3 DreamPalette(DreamPaletteConfig palette, float t)
