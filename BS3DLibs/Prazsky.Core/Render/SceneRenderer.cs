@@ -1416,15 +1416,6 @@ namespace Prazsky.Core.Render
         public Vector3 StormCell(int index, float time, out float radius, out float height) =>
             _storm.Cell(index, time, out radius, out height);
 
-        /// <summary>The icesheet's height at a world point, for a lens path over it: <see cref="TerrainMirror.Polar"/> on the live config.</summary>
-        public float PolarGroundHeight(float x, float z) => _polar.GroundHeight(x, z);
-
-        /// <summary>How deep into a crevasse slot a point stands, 0–1: <see cref="TerrainMirror.PolarCrevasse(float, float, PolarSceneConfig)"/> on the live config.</summary>
-        public float PolarCrevasse(float x, float z) => _polar.Crevasse(x, z);
-
-        /// <summary>How much of the pressure front stands at a point, 0–1: <see cref="TerrainMirror.PolarRidge(float, float, PolarSceneConfig)"/> on the live config.</summary>
-        public float PolarRidgeAt(float x, float z) => _polar.RidgeAt(x, z);
-
         #endregion
 
         /// <summary>
@@ -2080,13 +2071,20 @@ namespace Prazsky.Core.Render
                 ahead = Vector2.Zero;
             centre = new Vector3(at.X + ahead.X, groundY, at.Z + ahead.Y);
             yMin = groundY - below - SHADOW_FIT_MARGIN;
+            yMax = ShadowBoxTop(groundY, above);
+            return true;
+        }
 
+        /// <summary>
+        /// The top of the sun's box over a backdrop's ground (<see cref="Backdrop.TryShadowFit"/>'s <paramref name="groundY"/>
+        /// and <paramref name="above"/>), with the island's headroom and the fit's slack: a caster over it is clipped out of
+        /// the map.
+        /// </summary>
+        internal static float ShadowBoxTop(float groundY, float above) =>
             //Whatever the terrain does, the box has to clear the island's cap with the gun standing on it —
             //in every scene but the savanna and the forest those two ARE the casters, and a box fitted to a
             //flat plain would clip the very thing throwing the shadow.
-            yMax = MathF.Max(groundY + above, ArenaIsland.TOP_Y + SHADOW_ISLAND_HEADROOM) + SHADOW_FIT_MARGIN;
-            return true;
-        }
+            MathF.Max(groundY + above, ArenaIsland.TOP_Y + SHADOW_ISLAND_HEADROOM) + SHADOW_FIT_MARGIN;
 
         /// <summary>
         /// Shades a sky-replacing backdrop into a target the size of the <b>back buffer</b> and scales it up

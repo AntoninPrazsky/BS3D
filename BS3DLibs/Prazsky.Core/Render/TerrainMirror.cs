@@ -14,7 +14,7 @@ namespace Prazsky.Core.Render
     /// them, so a line here can be read against a line there, and built on <see cref="ShaderMath"/>'s one
     /// copy of the noise, the hash, <c>smoothstep</c> and <c>frac</c>. Static and config-taking: the renderer
     /// wraps the ones a host asks about on its live config (<see cref="SceneRenderer.SavannaGroundHeight"/>,
-    /// <see cref="SceneRenderer.VolcanoGroundHeight"/>, <see cref="SceneRenderer.PolarGroundHeight"/>).
+    /// <see cref="SceneRenderer.VolcanoGroundHeight"/>, <see cref="SceneRenderer.AuroraGroundHeight"/>).
     /// <para>
     /// <b>The GPU checks them now.</b> The five that stood in <see cref="SceneRenderer"/> until #590 said
     /// "a drift here plants trees underground or floating, and there is nothing to catch it but the eye".

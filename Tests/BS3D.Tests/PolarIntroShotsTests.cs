@@ -32,8 +32,8 @@ namespace BS3D.Tests
         private const float INTRO_FIELD_OF_VIEW = MathF.PI / 4.2f;
         private static readonly float[] ASPECTS = { 16f / 9f, 2.4f, 1.6f, 4f / 3f };
 
-        //The prologue and the tour's last leg together: 14.1 s before the camp's shot came in; the other three gave up 0.8 s to
-        //it, the owner preferring a faster reel to a longer one
+        //The prologue and the tour's last leg together, 16.1 s: the camp's shot is 3.2 s, and the other three give up 1.2 s
+        //between them to it (3.0, 2.6 and 2.8 s where each ran 3.2), the owner preferring a faster reel to a longer one
         private const float MAX_OPENING_SECONDS = 16.2f;
 
         //Across a cut the lens must move or the view turn (the cities' figures, CityIntroShotsTests)

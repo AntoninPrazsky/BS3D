@@ -67,6 +67,10 @@ namespace BS3D.Tests
         //what OverviewFocusTests' Zigzag muzzle stands off its gun. It only decides how far the focused look may tilt down
         private const float PIVOT_TO_FRONT_BALL = 3f;
 
+        //How many levels of a field the play view frames (GameplayScreen.FRAMED_LEVELS): the fit's top and the centre the
+        //focus falls back to are taken over at most this many
+        private const int FRAMED_LEVELS = 18;
+
         //Sight lines are marched this far apart in plan, a fraction of the desktop grid's 2.86-unit cell
         private const float SIGHT_STEP = 0.5f;
 
@@ -147,7 +151,8 @@ namespace BS3D.Tests
         /// <summary>
         /// A level's play view as the session fits it: the gun, the balls it opens with, and the two poses the overview holds,
         /// the fit's own frame it opens on and the focused one it eases into after <c>OverviewFocus.HOLD_OPENING_SECONDS</c> and
-        /// keeps while the player plays (#1006: the lens up and in, the look pulled towards the aim, the lens narrowed).
+        /// keeps while the player plays (#1006: the lens up and in, the look pulled towards the aim, the lens narrowed), the
+        /// latter with its look pulled towards either aim point the session can follow at rest.
         /// </summary>
         private sealed record Opening(string Level, Vector3 Gun, Vector3 Aim, List<Vector3> Balls, (string Name, Vector3 Lens, Vector3 Target, float Fov)[] Poses);
 
@@ -159,7 +164,7 @@ namespace BS3D.Tests
             float ceilingCentreY = CeilingPlate.CentreYAbove(fieldTopY);
             float halfX = CeilingPlate.FootprintFor(map.StageSizeX) * Constants.HALF;
             float halfZ = CeilingPlate.FootprintFor(map.StageSizeZ) * Constants.HALF;
-            float framedTop = MathF.Min(CeilingPlate.TopFaceY(ceilingCentreY), offset.Y + 17f / Constants.SQRT_TWO);
+            float framedTop = MathF.Min(CeilingPlate.TopFaceY(ceilingCentreY), offset.Y + (FRAMED_LEVELS - 1) / Constants.SQRT_TWO);
 
             //The gun as a session fits it, its barrel's reach the rig's measured 3.40 rounded up (GunPassTests)
             Cannon cannon = new(new Vector3(0f, 5f, 0f), 20f);
@@ -182,20 +187,50 @@ namespace BS3D.Tests
                         balls.Add(new Vector3(p.X, topLevelY - (size.Level - 1 - l) / Constants.SQRT_TWO, p.Z));
                     }
 
-            //The focused pose: its aim point the cluster's middle (where the beam meets nothing, as the session falls back to),
-            //the muzzle the gun's at rest, the top row the glass's underside over the plate's corners (GameplayScreen.TopRowCorner)
-            Vector3 middle = Vector3.Zero;
-            foreach (Vector3 ball in balls) middle += ball;
-            middle /= Math.Max(balls.Count, 1);
+            //The focused pose, its aim point where the session puts it (GameplayScreen.Camera, OverviewFocus.FollowAim, seeded so
+            //no chase lags it): on the aim from the muzzle at rest, at the depth of the beam's first contact, or of the cluster's
+            //centre (the framed window's middle, GameplayScreen.FitFieldToMap) when the beam meets nothing. Both are held: the
+            //beam here a straight line, its contact where the shot ball would touch the first ball it meets. The top row is the
+            //glass's underside over the plate's corners (GameplayScreen.TopRowCorner)
+            Vector3 muzzle = cannon.MuzzlePosition(PIVOT_TO_FRONT_BALL), aim = cannon.AimDirection;
+            float centreY = Math.Min(size.Level - 1, FRAMED_LEVELS - 1) * Constants.HALF / Constants.SQRT_TWO + offset.Y;
+            var depths = new List<(string Pose, float Depth)>
+            {
+                ("focused on the cluster's centre",
+                    PreciseAim.DepthToClusterCentre(muzzle, aim, new Vector3(cannon.OrbitCenter.X, centreY, cannon.OrbitCenter.Z))),
+            };
+            if (FirstContact(muzzle, aim, balls) is float contact) depths.Add(("focused on the first ball", contact));
+
             float rowY = MathF.Min(ceilingCentreY - CeilingPlate.THICKNESS * Constants.HALF, framedTop);
             Vector3[] topRow =
             {
                 new(-halfX, rowY, -halfZ), new(halfX, rowY, -halfZ), new(-halfX, rowY, halfZ), new(halfX, rowY, halfZ),
             };
-            AimPose focused = OverviewFocus.Focused(lens, target, GAME_FOV, middle, cannon.MuzzlePosition(PIVOT_TO_FRONT_BALL), topRow);
+            var poses = new List<(string Name, Vector3 Lens, Vector3 Target, float Fov)> { ("opening", lens, target, GAME_FOV) };
+            foreach ((string pose, float depth) in depths)
+            {
+                Vector3 aimPoint = new OverviewFocus().FollowAim(muzzle, aim, depth, 0f);
+                AimPose focused = OverviewFocus.Focused(lens, target, GAME_FOV, aimPoint, muzzle, topRow);
+                poses.Add((pose, focused.Position, focused.Target, focused.FieldOfView));
+            }
 
-            return new Opening(Path.GetFileName(file), cannon.Position, cannon.AimDirection, balls,
-                new[] { ("opening", lens, target, GAME_FOV), ("focused", focused.Position, focused.Target, focused.FieldOfView) });
+            return new Opening(Path.GetFileName(file), cannon.Position, aim, balls, poses.ToArray());
+        }
+
+        //How far along the aim from the muzzle a straight shot first touches a ball, or null when it touches none
+        private static float? FirstContact(Vector3 muzzle, Vector3 aim, List<Vector3> balls)
+        {
+            const float TOUCH = BallRenderSet.BALL_RADIUS * 2f;
+            float? nearest = null;
+            foreach (Vector3 ball in balls)
+            {
+                float along = Vector3.Dot(ball - muzzle, aim);
+                float offSquared = (ball - muzzle).LengthSquared() - along * along;
+                if (along <= 0f || offSquared > TOUCH * TOUCH) continue;
+                float depth = along - MathF.Sqrt(TOUCH * TOUCH - offSquared);
+                if (nearest is not float n || depth < n) nearest = depth;
+            }
+            return nearest;
         }
 
         /// <summary>
@@ -212,11 +247,14 @@ namespace BS3D.Tests
             PolarPlanting.Landmark[] camp = Camp;
             bool wide = aspect >= WIDE;
             float aimUp = 0f, leastOffProfile = float.MaxValue, widest = 0f, leastModule = float.MaxValue, leastMast = float.MaxValue, leastSight = float.MaxValue;
+            int levels = 0, contacts = 0;
 
             foreach (string file in Shipped.LevelFiles())
             {
                 Opening open = Open(file, aspect);
                 aimUp = MathHelper.ToDegrees(MathF.Asin(open.Aim.Y));
+                levels++;
+                if (open.Poses.Length > 2) contacts++;
                 foreach ((string pose, Vector3 lens, Vector3 target, float fov) in open.Poses)
                 {
                     string where = $"{open.Level} at {aspect:F2}, {pose}";
@@ -281,8 +319,8 @@ namespace BS3D.Tests
 
             if (!wide) leastOffProfile = 0f;
             _output.WriteLine(string.Format(CultureInfo.InvariantCulture,
-                "{0:F2}: out to {1:F2} of the half-frame, modules {2:F0} px and mast {3:F0} px at least, over the deck by {4:F2}, right of the profile by {5:F3} of the width; the gun aims {6:F1} degrees up",
-                aspect, widest, leastModule, leastMast, leastSight, leastOffProfile, aimUp));
+                "{0:F2}: out to {1:F2} of the half-frame, modules {2:F0} px and mast {3:F0} px at least, over the deck by {4:F2}, right of the profile by {5:F3} of the width; the gun aims {6:F1} degrees up, its beam meeting a ball on {7} of {8} levels",
+                aspect, widest, leastModule, leastMast, leastSight, leastOffProfile, aimUp, contacts, levels));
         }
 
         /// <summary>
@@ -305,6 +343,23 @@ namespace BS3D.Tests
                     Assert.True(TerrainMirror.PolarCrevasse(x, z, Polar) == 0f, $"a crevasse opens under the camp at ({x:F0}, {z:F0})");
                     Assert.True(TerrainMirror.PolarRidge(x, z, Polar) == 0f, $"the pressure front stands under the camp at ({x:F0}, {z:F0})");
                 }
+        }
+
+        /// <summary>
+        /// The sun's map reaches over the whole camp (#1128): every landmark's top, the mast's on the swell it stands on, under
+        /// the top of the box the renderer fits over the icesheet, where a caster over it would be clipped out of the map.
+        /// </summary>
+        [Fact]
+        public void TheSunsMapReachesOverTheWholeCamp()
+        {
+            float top = SceneRenderer.ShadowBoxTop(Polar.LevelY, PolarBackdrop.ShadowAbove(Polar));
+            float highest = float.MinValue;
+            foreach (PolarPlanting.Landmark mark in Camp)
+            {
+                Assert.True(mark.Top.Y <= top, $"the camp's {mark.Name} stands {mark.Top.Y:F2} high, over the sun's box at {top:F2}");
+                highest = MathF.Max(highest, mark.Top.Y);
+            }
+            _output.WriteLine(string.Format(CultureInfo.InvariantCulture, "the camp's highest point {0:F2}, the box's top {1:F2}", highest, top));
         }
 
         /// <summary>Every landmark of the camp within its reach of the camp's centre, so the clearing and the intro's keep-out hold it.</summary>
