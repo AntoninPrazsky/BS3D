@@ -235,11 +235,11 @@ float SunShadow(float3 worldPosition, float3 normal, float3 sunDirection)
     }
 #else
     //FOUR GATHERS, THE SAME SIXTEEN TEXELS (#1101). A gather returns the 2 x 2 texels a bilinear read at its coordinate
-    //would blend, so read at the corner the four share, texelBase * ShadowTexel (exact: a whole number times a power of
-    //two), it returns the block's top-left quarter, texels texelBase - 1 and texelBase on each axis; the integer offsets
-    //step it two texels for the other three quarters. The corner sits half a texel from every edge of the footprint
-    //decision (floor(u * size - 0.5)), where the point taps sat on texel centres, so neither can tip to a neighbour,
-    //and the sampler's Clamp folds a texel off the map's edge onto the same edge texel either way. ⚠ A gather's
+    //would blend, so read at the corner the four share, texelBase * ShadowTexel (exact at the power-of-two sizes the map
+    //is built at), it returns the block's top-left quarter, texels texelBase - 1 and texelBase on each axis; the integer
+    //offsets step it two texels for the other three quarters. The corner sits half a texel from every edge of the
+    //footprint decision (floor(u * size - 0.5)), as the point taps sat on texel centres, so neither can tip to a
+    //neighbour, and the sampler's Clamp folds a texel off the map's edge onto the same edge texel either way. ⚠ A gather's
     //components go anticlockwise from the bottom left: w is the quarter's top-left (smaller u and v), z its top-right,
     //x its bottom-left and y its bottom-right - so each row of the block below is (w, z) or (x, y) of two gathers.
     float4 topLeft = ShadowMap.GatherRed(ShadowSampler, texelBase * ShadowTexel);

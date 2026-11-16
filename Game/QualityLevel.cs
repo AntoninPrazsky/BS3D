@@ -192,11 +192,11 @@ namespace BS3D
         /// The most texels a side the sun shadow map may have on this rung, or 0 for a scene's own
         /// <c>ShadowConfig.MapSize</c> (#484). <c>High</c> takes the authored 4096 (0.063 units a texel over the
         /// 260-unit extent); <c>Medium</c> and <c>Low</c> hold it at the 2048 the map shipped with, which is a
-        /// quarter of the memory (16.8 MB against 67, four bytes a texel) and the same nine taps a pixel.
+        /// quarter of the memory (16.8 MB against 67, four bytes a texel) and the same sixteen texels a pixel.
         /// <para>
         /// <b>Measured</b> in the Testbed on the reference desktop, the savanna's play vantage at 1920×1080, ssaa
-        /// 2, alternating in one process: 2048 3.45–3.49 ms, 4096 3.50–3.53, 8192 3.66–3.70 — the receiver's nine
-        /// taps cost the same whatever the map, so a size costs its rasterisation and its cache and neither
+        /// 2, alternating in one process: 2048 3.45–3.49 ms, 4096 3.50–3.53, 8192 3.66–3.70 — the receiver's
+        /// reads cost the same whatever the map, so a size costs its rasterisation and its cache and neither
         /// shows until 8192. <c>Low</c> skips the map through <c>SceneDetail</c> anyway; its figure is stated for
         /// honesty. A cap rather than a size because a tier only takes away (#298): a scene authored small must not
         /// come out larger on a lower rung. See "Sun shadows" in docs/rendering.md.
@@ -214,7 +214,7 @@ namespace BS3D
         /// High's 67, which is why only the player can ask for it and the probe never does. The time is small on
         /// a fast card: +0.22 ms (desert) and +0.30 (savanna) over High at 3840×1600 in the Testbed on the
         /// reference desktop, paired in one process — see "The map's size, and the tier it follows" in
-        /// docs/rendering.md. The nine-tap box stays three texels wide, so the edge gets finer, not softer.
+        /// docs/rendering.md. The 3 x 3 box stays three texels wide, so the edge gets finer, not softer.
         /// </para>
         /// </summary>
         public readonly int ShadowMapScale;
