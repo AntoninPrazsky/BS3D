@@ -20,8 +20,8 @@ namespace Prazsky.Core.Render
     /// </para>
     /// <para>
     /// A 32-bit single-channel colour target carrying the map's clip depth rather than the hardware depth
-    /// buffer: MonoGame does not expose a depth buffer for sampling, and a Single target read with a plain
-    /// sampler is what <c>Shadows.fxh</c>'s nine-tap PCF reads. Cleared to 1 (the far plane) before each
+    /// buffer: MonoGame does not expose a depth buffer for sampling, and a Single target read without a comparison
+    /// sampler is what <c>Shadows.fxh</c>'s 4 x 4 PCF reads (four gathers on DirectX). Cleared to 1 (the far plane) before each
     /// caster pass, so an empty map shadows nothing.
     /// </para>
     /// <para>
@@ -45,6 +45,12 @@ namespace Prazsky.Core.Render
         /// <summary>The size of one texel in the map's UV.</summary>
         public float Texel => 1f / Size;
 
+        /// <summary>The width of one texel in world units, across the map's x axis: the fitted window's width over
+        /// <see cref="Size"/>, set by <see cref="Fit"/>. The receivers lift their lookup along the normal by a multiple
+        /// of it (<c>Shadows.fxh</c>'s <c>ShadowTexelWorld</c>, #642), and it is a constant of the frame, so it is worked
+        /// out here once rather than out of the matrix per pixel (#1101).</summary>
+        public float TexelWorld { get; private set; }
+
         /// <summary>How many world units the map's depth range spans, so a bias in world units can be
         /// turned into the map's own depth units (<c>units / DepthRange</c>).</summary>
         public float DepthRange { get; private set; } = 1f;
@@ -63,6 +69,19 @@ namespace Prazsky.Core.Render
         /// (the direction <b>towards</b> the sun), its light-space window snapped to whole texels.
         /// </summary>
         public void Fit(Vector3 centre, Vector3 sunDirection, float extent, float yMin, float yMax)
+        {
+            ViewProjection = FitWindow(Size, centre, sunDirection, extent, yMin, yMax, out float depthRange, out float texelWorld);
+            DepthRange = depthRange;
+            TexelWorld = texelWorld;
+        }
+
+        /// <summary>
+        /// <see cref="Fit"/>'s arithmetic for a map of <paramref name="size"/> texels a side, apart from the target so
+        /// it can be checked without a device: the view-projection, the depth range in world units and a texel's width
+        /// in world units.
+        /// </summary>
+        internal static Matrix FitWindow(int size, Vector3 centre, Vector3 sunDirection, float extent, float yMin, float yMax,
+            out float depthRange, out float texelWorld)
         {
             Vector3 dir = Vector3.Normalize(sunDirection);
             Vector3 up = MathF.Abs(dir.Y) > 0.99f ? Vector3.UnitZ : Vector3.Up;
@@ -92,15 +111,19 @@ namespace Prazsky.Core.Render
             //Snap the window's centre to whole texels in light space (see the class remarks). The size is
             //the same every frame for one sun and one box, since the view is a rotation, so a texel is too.
             float width = max.X - min.X, height = max.Y - min.Y;
-            float texelX = width / Size, texelY = height / Size;
+            float texelX = width / size, texelY = height / size;
             float cx = MathF.Round((min.X + max.X) * 0.5f / texelX) * texelX;
             float cy = MathF.Round((min.Y + max.Y) * 0.5f / texelY) * texelY;
 
+            //The map's x axis is the one the receivers measure a texel along (a low sun stretches the window's
+            //height, not its width, so the two differ)
+            texelWorld = texelX;
+
             //View space looks down -Z: the nearest point of the box is at the largest Z.
             float zNear = -max.Z, zFar = -min.Z;
-            DepthRange = zFar - zNear;
+            depthRange = zFar - zNear;
 
-            ViewProjection = view * Matrix.CreateOrthographicOffCenter(
+            return view * Matrix.CreateOrthographicOffCenter(
                 cx - width * 0.5f, cx + width * 0.5f, cy - height * 0.5f, cy + height * 0.5f, zNear, zFar);
         }
 

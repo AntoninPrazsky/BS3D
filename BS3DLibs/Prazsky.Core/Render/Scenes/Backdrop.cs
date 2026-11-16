@@ -205,7 +205,7 @@ namespace Prazsky.Core.Render
         /// Whether the scene has casters of its own to draw into the sun's shadow map (<see cref="DrawShadowCasters"/>) —
         /// the beach's palms and rocks, the savanna's planting. False by default: in every other scene the casters are all
         /// the host's (the island, the gun, the forest's wood), and a caller that hands none in — the map editor — then
-        /// gets no map rather than an empty one it pays nine taps a pixel to read.
+        /// gets no map rather than an empty one it pays to read every pixel.
         /// </summary>
         public virtual bool HasShadowCasters => false;
 

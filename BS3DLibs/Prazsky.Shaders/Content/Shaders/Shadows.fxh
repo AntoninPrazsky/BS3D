@@ -11,9 +11,16 @@
 //
 //Every caller gates on ShadowStrength with a [branch]: 0 means no map is bound this frame (the scene has
 //none, the tier dropped it, or the sun is below the horizon), and the samples must not run - they would
-//read an unbound texture, and on a scene without shadows they would cost sixteen taps for nothing.
+//read an unbound texture, and on a scene without shadows they would cost sixteen texels for nothing.
 
+//A typed Texture2D on DirectX, because SunShadow reads it there with GatherRed, a method of the typed object (#1101);
+//the effect framework's untyped texture under GL, where Shader Model 3.0 has no gather and the taps go through the
+//sampler. The sampler's Texture names the parameter "ShadowMap" in both builds.
+#if OPENGL
 texture ShadowMap;
+#else
+Texture2D ShadowMap;
+#endif
 sampler ShadowSampler = sampler_state
 {
     Texture = <ShadowMap>;
@@ -24,11 +31,13 @@ sampler ShadowSampler = sampler_state
     AddressV = Clamp;
 };
 
-//World -> the map's clip space (view * orthographic projection), the size of one texel in the map's UV, how
-//dark a full shadow is (1 = the sun term gone entirely; a little under it keeps a shadow from reading as a
+//World -> the map's clip space (view * orthographic projection), the size of one texel in the map's UV and in
+//world units (SunShadowMap.TexelWorld, a constant of the frame's fit: it was worked out of the matrix per pixel until
+//#1101), how dark a full shadow is (1 = the sun term gone entirely; a little under it keeps a shadow from reading as a
 //hole), and the depth bias in the map's own depth units, already scaled to the map's depth range.
 float4x4 ShadowViewProjection;
 float ShadowTexel;
+float ShadowTexelWorld;
 
 //How far a receiver is lifted along its normal before it reads the map, in map texels at a surface edge-on to the sun
 //(and none at one facing it square). See SunShadow.
@@ -159,11 +168,12 @@ float CeilingGlassShadow(float3 worldPosition, float3 sunDirection)
     return glass;
 }
 
-//The map is sampled by hand with a 3 x 3 box (PCF), bilinear-weighted over a 4 x 4 fetch since #674, rather than a comparison sampler. (This said MonoGame's
-//effect path gives no comparison state; 3.8.5 has SamplerState.ComparisonFunction and TextureFilterMode.Comparison,
-//so hardware PCF is possible and untried - #591.) Sixteen point taps on a 2048 map are cheap against a full-screen terrain
-//shader's other work. tex2Dlod rather than tex2D, because this runs under a [branch] and a gradient
-//instruction inside divergent flow is what the compiler refuses.
+//The map is filtered by hand with a 3 x 3 box (PCF), bilinear-weighted over a 4 x 4 block of texels since #674,
+//rather than a comparison sampler. (3.8.5 has SamplerState.ComparisonFunction and TextureFilterMode.Comparison, so
+//hardware PCF is possible, but four bilinear comparison taps weight the penumbra differently, and the gather below
+//keeps the picture exactly - #1101.) On DirectX the sixteen texels come in four GatherRed reads, a 2 x 2 block each;
+//under GL (Shader Model 3.0, no gather) in sixteen point taps, tex2Dlod rather than tex2D because this runs under a
+//[branch] and a gradient instruction inside divergent flow is what the compiler refuses. Neither takes a derivative.
 //
 //Returns the sunlight factor: 1 lit, down to (1 - ShadowStrength) in full shadow. Outside the map, or past
 //its far plane, everything is lit but for the ceiling's glass (which the map does not hold), and the last few
@@ -179,11 +189,9 @@ float SunShadow(float3 worldPosition, float3 normal, float3 sunDirection)
     //a half times how far the surface is turned from the sun - so a surface cannot find its OWN texels in the map
     //(acne) without the depth bias having to be large. A large depth bias is what the whole map had until #642, and
     //what it cost is a shadow's first half unit: a ball of radius 0.5 resting on the stone threw no shadow under
-    //itself at all, only a patch starting somewhere past its foot, and read as levitating. One texel in world units
-    //comes out of the matrix itself: the orthographic projection takes the map's width to two clip units, so the
-    //view-projection's x column is 2 / width long.
-    float texelWorld = ShadowTexel * 2.0 / length(float3(ShadowViewProjection._11, ShadowViewProjection._21, ShadowViewProjection._31));
-    float3 lookup = worldPosition + normal * (texelWorld * SHADOW_NORMAL_OFFSET_TEXELS * sqrt(1.0 - ndotl * ndotl));
+    //itself at all, only a patch starting somewhere past its foot, and read as levitating. One texel in world units is
+    //ShadowTexelWorld, the width of the frame's fit over the map's size.
+    float3 lookup = worldPosition + normal * (ShadowTexelWorld * SHADOW_NORMAL_OFFSET_TEXELS * sqrt(1.0 - ndotl * ndotl));
 
     float4 lp = mul(float4(lookup, 1.0), ShadowViewProjection);
     float2 uv = float2(lp.x * 0.5 + 0.5, 0.5 - lp.y * 0.5);
@@ -210,7 +218,10 @@ float SunShadow(float3 worldPosition, float3 normal, float3 sunDirection)
     float4 weightX = float4(1.0 - fraction.x, 1.0, 1.0, fraction.x);
     float4 weightY = float4(1.0 - fraction.y, 1.0, 1.0, fraction.y);
 
+    //The texel (x, y) of the block, x and y 0 to 3, is texelBase + (x - 1, y - 1), and every one is compared and weighted
+    //by the same expression in both builds, so the two read the same sixteen texels into the same sum.
     float lit = 0.0;
+#if OPENGL
     [unroll]
     for (int y = 0; y < 4; y++)
     {
@@ -222,6 +233,35 @@ float SunShadow(float3 worldPosition, float3 normal, float3 sunDirection)
             lit += (reference <= stored ? 1.0 : 0.0) * weightX[x] * weightY[y];
         }
     }
+#else
+    //FOUR GATHERS, THE SAME SIXTEEN TEXELS (#1101). A gather returns the 2 x 2 texels a bilinear read at its coordinate
+    //would blend, so read at the corner the four share, texelBase * ShadowTexel (exact: a whole number times a power of
+    //two), it returns the block's top-left quarter, texels texelBase - 1 and texelBase on each axis; the integer offsets
+    //step it two texels for the other three quarters. The corner sits half a texel from every edge of the footprint
+    //decision (floor(u * size - 0.5)), where the point taps sat on texel centres, so neither can tip to a neighbour,
+    //and the sampler's Clamp folds a texel off the map's edge onto the same edge texel either way. ⚠ A gather's
+    //components go anticlockwise from the bottom left: w is the quarter's top-left (smaller u and v), z its top-right,
+    //x its bottom-left and y its bottom-right - so each row of the block below is (w, z) or (x, y) of two gathers.
+    float4 topLeft = ShadowMap.GatherRed(ShadowSampler, texelBase * ShadowTexel);
+    float4 topRight = ShadowMap.GatherRed(ShadowSampler, texelBase * ShadowTexel, int2(2, 0));
+    float4 bottomLeft = ShadowMap.GatherRed(ShadowSampler, texelBase * ShadowTexel, int2(0, 2));
+    float4 bottomRight = ShadowMap.GatherRed(ShadowSampler, texelBase * ShadowTexel, int2(2, 2));
+    float4 block[4] =
+    {
+        float4(topLeft.w, topLeft.z, topRight.w, topRight.z),
+        float4(topLeft.x, topLeft.y, topRight.x, topRight.y),
+        float4(bottomLeft.w, bottomLeft.z, bottomRight.w, bottomRight.z),
+        float4(bottomLeft.x, bottomLeft.y, bottomRight.x, bottomRight.y)
+    };
+
+    [unroll]
+    for (int y = 0; y < 4; y++)
+    {
+        [unroll]
+        for (int x = 0; x < 4; x++)
+            lit += (reference <= block[y][x] ? 1.0 : 0.0) * weightX[x] * weightY[y];
+    }
+#endif
     lit /= 9.0;
 
     float2 edge = min(uv, 1.0 - uv);

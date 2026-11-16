@@ -4,7 +4,7 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Prazsky.Core.Render
 {
     /// <summary>
-    /// One effect that reads the sun's shadow map (#471): the five map parameters <c>Shadows.fxh</c> declares
+    /// One effect that reads the sun's shadow map (#471): the six map parameters <c>Shadows.fxh</c> declares
     /// (and the three of the ceiling glass's own shadow, #553), looked up once and pushed together. Everything that receives a shadow — every terrain shader, the
     /// plants, and the shared instanced effect that carries the island, the gun and the balls — is one of
     /// these, and <see cref="SceneRenderer.DrawShadowMaps"/> walks an array of them.
@@ -26,19 +26,20 @@ namespace Prazsky.Core.Render
     /// </summary>
     internal readonly struct ShadowReceiver
     {
-        private readonly EffectParameter _map, _viewProjection, _texel, _strength, _bias;
+        private readonly EffectParameter _map, _viewProjection, _texel, _texelWorld, _strength, _bias;
 
         //The ceiling's glass (#553), which casts through arithmetic in the receiver rather than through the map
         //(see Shadows.fxh's CeilingGlassShadow): where the slab stands, its size, and its cut
         private readonly EffectParameter _ceilingCentre, _ceilingSize, _ceilingCut;
 
-        /// <summary>Looks the eight up on <paramref name="effect"/>. A null effect, or one that includes no
+        /// <summary>Looks the nine up on <paramref name="effect"/>. A null effect, or one that includes no
         /// <c>Shadows.fxh</c>, yields an invalid receiver that does nothing.</summary>
         public ShadowReceiver(Effect effect)
         {
             _map = effect?.Parameters["ShadowMap"];
             _viewProjection = effect?.Parameters["ShadowViewProjection"];
             _texel = effect?.Parameters["ShadowTexel"];
+            _texelWorld = effect?.Parameters["ShadowTexelWorld"];
             _strength = effect?.Parameters["ShadowStrength"];
             _bias = effect?.Parameters["ShadowBias"];
             _ceilingCentre = effect?.Parameters["CeilingShadowCentre"];
@@ -51,16 +52,19 @@ namespace Prazsky.Core.Render
         public bool IsValid => _strength != null;
 
         /// <summary>
-        /// Hands this frame's map to the effect. <paramref name="bias"/> is already in the map's own depth
-        /// units (world units over its depth range), because every receiver of one map shares it.
+        /// Hands this frame's map to the effect. <paramref name="texel"/> is a texel in the map's UV and
+        /// <paramref name="texelWorld"/> the same texel in world units (<see cref="SunShadowMap.TexelWorld"/>);
+        /// <paramref name="bias"/> is already in the map's own depth units (world units over its depth range),
+        /// because every receiver of one map shares it.
         /// </summary>
-        public void Push(Texture map, Matrix viewProjection, float texel, float strength, float bias)
+        public void Push(Texture map, Matrix viewProjection, float texel, float texelWorld, float strength, float bias)
         {
             if (_strength == null) return;
 
             _map.SetValue(map);
             _viewProjection.SetValue(viewProjection);
             _texel.SetValue(texel);
+            _texelWorld.SetValue(texelWorld);
             _strength.SetValue(strength);
             _bias.SetValue(bias);
         }
