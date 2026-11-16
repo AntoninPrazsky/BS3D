@@ -510,10 +510,11 @@ namespace Prazsky.Core.Render
         private SunShadowMap _sunShadowMap;
         private bool _shadowsActive;
 
-        //Every receiver's five parameters, cached at load (BestPractices.md §1 — the by-name indexer is a
-        //linear scan) and pushed in one indexed loop. An array of the struct rather than five fields per
-        //effect: with ten terrain shaders reading the map, a named quintet each was the shape that made the
-        //savanna's version look like a savanna feature instead of the infrastructure it is.
+        //Every receiver's nine parameters (six of the map, three of the ceiling glass), cached at load
+        //(BestPractices.md §1 — the by-name indexer is a linear scan) and pushed in one indexed loop. An array
+        //of the struct rather than named fields per effect: with ten terrain shaders reading the map, a named
+        //quintet each (all the map had then) was the shape that made the savanna's version look like a savanna
+        //feature instead of the infrastructure it is.
         private ShadowReceiver[] _shadowReceivers;
 
         //And the scenes this renderer does NOT own (#471): the city and the neon city, whose config, towers
@@ -1984,22 +1985,18 @@ namespace Prazsky.Core.Render
 
             _graphicsDevice.SetRenderTarget(null);
 
-            //Hand the map to every receiver: the matrix, the texel (in UV and in world units), the strength, and the bias in the map's
-            //own depth units. ⚠ ShadowViewProjection is pushed here AND by the caster pass above (both
+            //Hand the map to every receiver: the target, the matrix and the texel (in UV and in world units) off the
+            //map itself, the strength, and the bias in the map's own depth units. ⚠ ShadowViewProjection is pushed here AND by the caster pass above (both
             //InstancedModelRenderer.DrawDepth and the scatter's own technique set it): the same matrix and
             //the same uniform, and a caster's write is what a caller drawing into a map of its own would
             //leave behind, so this one is the frame's last word on it.
             float bias = SHADOW_BIAS_UNITS / _sunShadowMap.DepthRange;
             for (int i = 0; i < _shadowReceivers.Length; i++)
-            {
-                _shadowReceivers[i].Push(_sunShadowMap.Target, _sunShadowMap.ViewProjection,
-                    _sunShadowMap.Texel, _sunShadowMap.TexelWorld, shadows.Strength * _shadowScale, bias);
-            }
+                _shadowReceivers[i].Push(_sunShadowMap, shadows.Strength * _shadowScale, bias);
 
             //The shared instanced effect, which is what makes the island, the gun, the city and the balls
             //receive — one push for all of them (#470).
-            _instancedShadowReceiver.Push(_sunShadowMap.Target, _sunShadowMap.ViewProjection,
-                _sunShadowMap.Texel, _sunShadowMap.TexelWorld, shadows.Strength * _shadowScale, bias);
+            _instancedShadowReceiver.Push(_sunShadowMap, shadows.Strength * _shadowScale, bias);
 
             //And the ceiling's glass, if a plate was stated this frame (#553): in w, how much of the sun its uncut
             //glass takes, 0 when there is none - which is what the receivers skip on. The scene's strength is the

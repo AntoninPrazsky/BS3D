@@ -52,19 +52,20 @@ namespace Prazsky.Core.Render
         public bool IsValid => _strength != null;
 
         /// <summary>
-        /// Hands this frame's map to the effect. <paramref name="texel"/> is a texel in the map's UV and
-        /// <paramref name="texelWorld"/> the same texel in world units (<see cref="SunShadowMap.TexelWorld"/>);
-        /// <paramref name="bias"/> is already in the map's own depth units (world units over its depth range),
-        /// because every receiver of one map shares it.
+        /// Hands this frame's map to the effect: its target, its matrix and its texel in the map's UV
+        /// (<see cref="SunShadowMap.Texel"/>) and in world units (<see cref="SunShadowMap.TexelWorld"/>), read off the
+        /// map itself so no two of its floats can trade places at a call site (#1101). <paramref name="bias"/> is
+        /// already in the map's own depth units (world units over its depth range), because every receiver of one
+        /// map shares it.
         /// </summary>
-        public void Push(Texture map, Matrix viewProjection, float texel, float texelWorld, float strength, float bias)
+        public void Push(SunShadowMap map, float strength, float bias)
         {
             if (_strength == null) return;
 
-            _map.SetValue(map);
-            _viewProjection.SetValue(viewProjection);
-            _texel.SetValue(texel);
-            _texelWorld.SetValue(texelWorld);
+            _map.SetValue(map.Target);
+            _viewProjection.SetValue(map.ViewProjection);
+            _texel.SetValue(map.Texel);
+            _texelWorld.SetValue(map.TexelWorld);
             _strength.SetValue(strength);
             _bias.SetValue(bias);
         }
@@ -73,7 +74,7 @@ namespace Prazsky.Core.Render
         /// Hands this frame's ceiling glass to the effect (#553): the slab's centre with, in <c>w</c>, how much of
         /// the sun its uncut glass takes (0 = no plate, and the receiver skips the whole term), its half extents
         /// with its corner radius, and its cut. Read only under the map's own gate, so a frame with no map needs
-        /// nothing from here. Null-checked apart from the map's five, on the same terms as they are: an effect that
+        /// nothing from here. Null-checked apart from the map's six, on the same terms as they are: an effect that
         /// declares none of them does nothing.
         /// </summary>
         public void PushCeiling(Vector4 centre, Vector4 size, Vector4 cut)
@@ -86,8 +87,8 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Says "no map this frame". Strength alone, because that is what the receivers branch on: the other
-        /// four are never read while it is 0, and clearing the texture reference would drop a target the next
+        /// Says "no map this frame". Strength alone, because that is what the receivers branch on: the map's
+        /// other five are never read while it is 0, and clearing the texture reference would drop a target the next
         /// frame may want back.
         /// </summary>
         public void Disable() => _strength?.SetValue(0f);

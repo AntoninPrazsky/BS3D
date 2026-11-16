@@ -39,8 +39,12 @@ namespace Prazsky.Core.Render
         public RenderTarget2D Target { get; private set; }
         public int Size { get; }
 
+        //This frame's fit, stored whole by Fit: the matrix, the depth range and the texel's width come out of
+        //FitWindow together and go in together, so no one of them can be left a frame behind the others (#1101)
+        private SunShadowWindow _window = new(default, 1f, 0f);
+
         /// <summary>World → the map's clip space, for the casters and the receivers alike.</summary>
-        public Matrix ViewProjection { get; private set; }
+        public Matrix ViewProjection => _window.ViewProjection;
 
         /// <summary>The size of one texel in the map's UV.</summary>
         public float Texel => 1f / Size;
@@ -49,11 +53,11 @@ namespace Prazsky.Core.Render
         /// <see cref="Size"/>, set by <see cref="Fit"/>. The receivers lift their lookup along the normal by a multiple
         /// of it (<c>Shadows.fxh</c>'s <c>ShadowTexelWorld</c>, #642), and it is a constant of the frame, so it is worked
         /// out here once rather than out of the matrix per pixel (#1101).</summary>
-        public float TexelWorld { get; private set; }
+        public float TexelWorld => _window.TexelWorld;
 
         /// <summary>How many world units the map's depth range spans, so a bias in world units can be
         /// turned into the map's own depth units (<c>units / DepthRange</c>).</summary>
-        public float DepthRange { get; private set; } = 1f;
+        public float DepthRange => _window.DepthRange;
 
         public SunShadowMap(GraphicsDevice device, int size)
         {
@@ -68,20 +72,15 @@ namespace Prazsky.Core.Render
         /// in XZ and <paramref name="yMin"/>..<paramref name="yMax"/> tall, seen from <paramref name="sunDirection"/>
         /// (the direction <b>towards</b> the sun), its light-space window snapped to whole texels.
         /// </summary>
-        public void Fit(Vector3 centre, Vector3 sunDirection, float extent, float yMin, float yMax)
-        {
-            ViewProjection = FitWindow(Size, centre, sunDirection, extent, yMin, yMax, out float depthRange, out float texelWorld);
-            DepthRange = depthRange;
-            TexelWorld = texelWorld;
-        }
+        public void Fit(Vector3 centre, Vector3 sunDirection, float extent, float yMin, float yMax) =>
+            _window = FitWindow(Size, centre, sunDirection, extent, yMin, yMax);
 
         /// <summary>
         /// <see cref="Fit"/>'s arithmetic for a map of <paramref name="size"/> texels a side, apart from the target so
         /// it can be checked without a device: the view-projection, the depth range in world units and a texel's width
         /// in world units.
         /// </summary>
-        internal static Matrix FitWindow(int size, Vector3 centre, Vector3 sunDirection, float extent, float yMin, float yMax,
-            out float depthRange, out float texelWorld)
+        internal static SunShadowWindow FitWindow(int size, Vector3 centre, Vector3 sunDirection, float extent, float yMin, float yMax)
         {
             Vector3 dir = Vector3.Normalize(sunDirection);
             Vector3 up = MathF.Abs(dir.Y) > 0.99f ? Vector3.UnitZ : Vector3.Up;
@@ -115,16 +114,16 @@ namespace Prazsky.Core.Render
             float cx = MathF.Round((min.X + max.X) * 0.5f / texelX) * texelX;
             float cy = MathF.Round((min.Y + max.Y) * 0.5f / texelY) * texelY;
 
-            //The map's x axis is the one the receivers measure a texel along (a low sun stretches the window's
-            //height, not its width, so the two differ)
-            texelWorld = texelX;
-
             //View space looks down -Z: the nearest point of the box is at the largest Z.
             float zNear = -max.Z, zFar = -min.Z;
-            depthRange = zFar - zNear;
 
-            return view * Matrix.CreateOrthographicOffCenter(
-                cx - width * 0.5f, cx + width * 0.5f, cy - height * 0.5f, cy + height * 0.5f, zNear, zFar);
+            //The map's x axis is the one the receivers measure a texel along (a low sun stretches the window's
+            //height, not its width, so the two differ)
+            return new SunShadowWindow(
+                view * Matrix.CreateOrthographicOffCenter(
+                    cx - width * 0.5f, cx + width * 0.5f, cy - height * 0.5f, cy + height * 0.5f, zNear, zFar),
+                zFar - zNear,
+                texelX);
         }
 
         public void Dispose()
@@ -133,4 +132,11 @@ namespace Prazsky.Core.Render
             Target = null;
         }
     }
+
+    /// <summary>
+    /// One frame's fit of a <see cref="SunShadowMap"/>, as <see cref="SunShadowMap.FitWindow"/> works it out and
+    /// <see cref="SunShadowMap.Fit"/> stores it: world → the map's clip space, the depth range in world units, and
+    /// one texel's width in world units across the map's x axis.
+    /// </summary>
+    internal readonly record struct SunShadowWindow(Matrix ViewProjection, float DepthRange, float TexelWorld);
 }

@@ -12,7 +12,11 @@ namespace BS3D.Tests
     /// units the CPU hands them (#1101). Neither can be run without a device, so this holds what can be held: the
     /// texel <see cref="SunShadowMap.FitWindow"/> hands over is the very one the shader used to work out of the
     /// matrix per pixel, at every sun the scenes stand under; and <c>Shadows.fxh</c>'s DirectX path reads its block in
-    /// four gathers with no point tap left, while the GL path (Shader Model 3.0, no gather) keeps its sixteen taps.
+    /// four gathers with no point tap left, each stepped to its own quarter of the block and its components laid
+    /// into the block's rows in the order a gather returns them, while the GL path (Shader Model 3.0, no gather)
+    /// keeps its sixteen taps. How the map's figures reach a receiver is held by the types rather than by a test:
+    /// <see cref="SunShadowMap.Fit"/> stores <see cref="SunShadowMap.FitWindow"/>'s answer whole, and
+    /// <c>ShadowReceiver.Push</c> reads the texels off the map, so no two of its floats can trade places.
     /// </summary>
     public class SunShadowTexelTests
     {
@@ -31,8 +35,9 @@ namespace BS3D.Tests
 
             foreach (int size in new[] { 2048, 4096, 8192 })
             {
-                Matrix viewProjection = SunShadowMap.FitWindow(size, new Vector3(37f, 0f, -112f), sun, 260f, -40f, 30f,
-                    out _, out float texelWorld);
+                SunShadowWindow window = SunShadowMap.FitWindow(size, new Vector3(37f, 0f, -112f), sun, 260f, -40f, 30f);
+                Matrix viewProjection = window.ViewProjection;
+                float texelWorld = window.TexelWorld;
 
                 //What Shadows.fxh computed per pixel until #1101: ShadowTexel * 2 / length of the view-projection's x
                 //column (the orthographic projection takes the window's width to two clip units)
@@ -96,6 +101,32 @@ namespace BS3D.Tests
             //Shader Model 3.0 has no gather, so the GL half keeps the point taps
             Assert.DoesNotMatch(@"Gather", gl);
             Assert.Contains("tex2Dlod(ShadowSampler", gl);
+        }
+
+        [Fact]
+        public void EachGatherFillsItsOwnQuarterOfTheBlockInTheOrderAGatherReturns()
+        {
+            //Without whitespace, so a reflowed line is the same code
+            string directX = Regex.Replace(SunShadowHalves().directX, @"\s+", string.Empty);
+
+            //Read at the corner the top-left quarter's four texels share, the other three stepped two texels along
+            //x, along y and along both - the block is texelBase - 1 .. texelBase + 2 on each axis
+            const string corner = "ShadowMap.GatherRed(ShadowSampler,texelBase*ShadowTexel";
+            Assert.Contains($"float4topLeft={corner});", directX);
+            Assert.Contains($"float4topRight={corner},int2(2,0));", directX);
+            Assert.Contains($"float4bottomLeft={corner},int2(0,2));", directX);
+            Assert.Contains($"float4bottomRight={corner},int2(2,2));", directX);
+
+            //A gather's components go anticlockwise from the bottom left: x (u0, v1), y (u1, v1), z (u1, v0), w (u0, v0).
+            //So a quarter's upper row (the smaller v) is (w, z) and its lower row (x, y), and the block's four rows are
+            //those of the two upper gathers and then of the two lower ones, left before right - the order the weights
+            //are indexed in (weightX[x] by column, weightY[y] by row)
+            Assert.Contains(
+                "float4(topLeft.w,topLeft.z,topRight.w,topRight.z)," +
+                "float4(topLeft.x,topLeft.y,topRight.x,topRight.y)," +
+                "float4(bottomLeft.w,bottomLeft.z,bottomRight.w,bottomRight.z)," +
+                "float4(bottomLeft.x,bottomLeft.y,bottomRight.x,bottomRight.y)", directX);
+            Assert.Contains("(reference<=block[y][x]?1.0:0.0)*weightX[x]*weightY[y]", directX);
         }
 
         [Fact]
