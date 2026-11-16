@@ -119,11 +119,18 @@ namespace Prazsky.Core.Render
         /// Its height over the ground is read off the instance's <see cref="ModelInstance.Custom"/> <c>z</c>, the ground over the pivot.</summary>
         public Vector3 FootDust { get; }
 
+        /// <summary>
+        /// The sectors the instances are laid out by round the arena's axis (#1099), so <see cref="PlantPass"/> draws only the runs
+        /// a frustum meets; null for a bucket drawn whole, which every planting but the forest's dressing is. <see cref="Placed"/> and
+        /// the buffer are in the cells' order.
+        /// </summary>
+        public InstanceCells Cells { get; }
+
         internal ScatterBucket(GraphicsDevice device, IProceduralMesh mesh, List<ModelInstance> instances,
             Vector3 diffuse, Vector3 diffuseDry, float dapple, float bark, bool detailOnly,
             bool lowOnly = false, float leaves = 0f, bool earthed = false, bool? castsShadow = null, bool? fineMeshes = null,
             float stone = 0f, Vector3 footDust = default, IProceduralMesh casterMesh = null, float straw = 0f, float barkRelief = 0f,
-            Vector3 emissive = default)
+            Vector3 emissive = default, bool cells = false)
         {
             Mesh = mesh;
             Emissive = emissive;
@@ -144,6 +151,26 @@ namespace Prazsky.Core.Render
             Bark = bark;
             DetailOnly = detailOnly;
             ModelInstance[] placed = instances.ToArray();
+
+            //Laid out by cell (#1099) where asked; otherwise as planted and drawn whole
+            if (cells)
+            {
+                var centres = new Vector3[placed.Length];
+                var radii = new float[placed.Length];
+                BoundingSphere local = mesh.BoundingSphere;
+                if (CasterMesh != mesh) local = BoundingSphere.CreateMerged(local, CasterMesh.BoundingSphere);
+                for (int i = 0; i < placed.Length; i++)
+                {
+                    Matrix world = placed[i].World;
+                    centres[i] = Vector3.Transform(local.Center, world);
+                    radii[i] = local.Radius * MathF.Sqrt(world.M11 * world.M11 + world.M12 * world.M12 + world.M13 * world.M13);
+                }
+                Cells = InstanceCells.Build(centres, radii, out int[] order);
+                var sorted = new ModelInstance[placed.Length];
+                for (int k = 0; k < order.Length; k++) sorted[k] = placed[order[k]];
+                placed = sorted;
+            }
+
             Placed = placed;
             if (device == null) return;     //a planting with no device (SavannaScatter's own note): its instances alone
 

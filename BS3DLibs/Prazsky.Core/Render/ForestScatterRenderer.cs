@@ -232,8 +232,10 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// How far from the arena's axis a spruce wears the finer of High and Ultra's two crowns (<see cref="TreeMesh.FineCrown"/>,
-        /// #733); past it the lighter one (<see cref="TreeMesh.FineCrownFar"/>). Every host keeps its camera on or near the
-        /// island, so a tree out here is never large on the screen, and most of a wood of eight hundred stands out here.
+        /// #733); past it the lighter one (<see cref="TreeMesh.FineCrownFar"/>), unless it stands within <see cref="FOCUS_RADIUS"/>
+        /// of the focus (#1120, <see cref="WearsNearCrown"/>). Every host keeps its play and menu cameras on or near the island,
+        /// so there a tree out here is never large on the screen, and most of a wood of eight hundred stands out here. The broadleaves
+        /// in leaf split by it alone (<see cref="ForestDressing"/>, a static planting).
         /// </summary>
         public const float FINE_NEAR_RADIUS = 110f;
 
@@ -263,10 +265,6 @@ namespace Prazsky.Core.Render
         private InstancedModelRenderer[] _coniferFineCrownRenderers, _coniferFineShadeRenderers, _coniferFineSnowRenderers;
         private InstancedModelRenderer[] _coniferFineCrownFarRenderers, _coniferFineSnowFarRenderers, _coniferFineShadeFarRenderers;
         private InstancedModelRenderer[] _coniferFineStemRenderers;
-
-        //The spruces split by how far they stand from the arena (FINE_NEAR_RADIUS), per variant: the near ones wear the
-        //finer of High and Ultra's two crowns, the rest the lighter one (#733)
-        private ModelInstance[][] _coniferNear, _coniferFar;
         private InstancedModelRenderer[] _broadleafTrunkRenderers, _broadleafCrownRenderers;
         private InstancedModelRenderer[] _rockRenderers, _stumpRenderers;
         private InstancedModelRenderer[] _snagRenderers, _logRenderers;
@@ -436,42 +434,103 @@ namespace Prazsky.Core.Render
         /// the wood whenever it is called, so the caller keeps its <c>if (scene == SceneKind.Forest)</c>.
         /// </para>
         /// <para>
-        /// Allocation-free: plain indexed loops, and the tints were encoded at build time. An iterator or a zip
-        /// over the renderer and instance arrays would allocate one enumerator per kind per frame.
+        /// <b>Only what the lens can see is drawn</b> (#1099): every instance is tested against the camera's frustum by its
+        /// variant's bounds and the rest are not sent, which no pixel can tell (the wood is planted all round the clearing and
+        /// a host's lens looks across a part of it), and the spruces and broadleaves are drawn nearest the lens first
+        /// (<see cref="ForestPasses.Pass"/>).
+        /// </para>
+        /// <para>
+        /// Allocation-free: plain indexed loops into arrays made at build, and the tints were encoded at build time. An
+        /// iterator or a zip over the renderer and instance arrays would allocate one enumerator per kind per frame.
         /// </para>
         /// </summary>
-        /// <param name="camera">This frame's camera, for the view and projection each draw needs.</param>
+        /// <param name="camera">This frame's camera, for the view and projection each draw needs, the frustum the wood is
+        /// culled by and the lens the focus follows across cuts (<see cref="ForestPasses.Pass"/>).</param>
         /// <param name="fineMeshes">Whether the spruces wear High and Ultra's crown (#733, <see cref="TreeMesh.FineCrown"/>
         /// over <see cref="TreeMesh.FineShade"/> round <see cref="TreeMesh.FineStem"/>, and <see cref="TreeMesh.FineSnow"/>
         /// where the config lays snow on the crowns) or Low and Medium's lathe: the caller's <c>SceneRenderer.FineMeshes</c>,
         /// read per draw, so a tier change rebuilds nothing.</param>
         public void Draw(ICamera camera, bool fineMeshes)
         {
-            DrawScatter(camera, _coniferTrunkRenderers, _scatter.ConifersAt(fineMeshes), _barkEffectParams, _coniferTrunkTints);
-            if (fineMeshes)
+            _passes.Pass(camera.View * camera.Projection, camera.Position, fineMeshes, nearestFirst: true);
+
+            if ((Layers & ForestLayer.Spruces) != 0)
             {
-                //The boughs before the interior they hide, so the depth test turns most of its pixels away unshaded
-                DrawNeedleCrowns(camera);
-                DrawScatter(camera, _coniferFineCrownFarRenderers, _coniferFar, _foliageEffectParams, _coniferCrownTints);
-                if (_crownSnow > 0f)
+                DrawCulled(camera, _coniferTrunkRenderers, _passes.Conifers, _barkEffectParams, _coniferTrunkTints);
+                if (fineMeshes)
                 {
-                    DrawScatter(camera, _coniferFineSnowRenderers, _coniferNear, _foliageEffectParams, _coniferSnowTints);
-                    DrawScatter(camera, _coniferFineSnowFarRenderers, _coniferFar, _foliageEffectParams, _coniferSnowTints);
+                    //The boughs before the interior they hide, so the depth test turns most of its pixels away unshaded
+                    DrawNeedleCrowns(camera);
+                    DrawCulled(camera, _coniferFineCrownFarRenderers, _passes.FarConifers, _foliageEffectParams, _coniferCrownTints);
+                    if (_crownSnow > 0f)
+                    {
+                        DrawCulled(camera, _coniferFineSnowRenderers, _passes.NearConifers, _foliageEffectParams, _coniferSnowTints);
+                        DrawCulled(camera, _coniferFineSnowFarRenderers, _passes.FarConifers, _foliageEffectParams, _coniferSnowTints);
+                    }
+                    DrawCulled(camera, _coniferFineShadeRenderers, _passes.NearConifers, _foliageEffectParams, _coniferShadeTints);
+                    DrawCulled(camera, _coniferFineShadeFarRenderers, _passes.FarConifers, _foliageEffectParams, _coniferShadeTints);
+                    DrawCulled(camera, _coniferFineStemRenderers, _passes.Conifers, _barkEffectParams, _coniferStemTints);
                 }
-                DrawScatter(camera, _coniferFineShadeRenderers, _coniferNear, _foliageEffectParams, _coniferShadeTints);
-                DrawScatter(camera, _coniferFineShadeFarRenderers, _coniferFar, _foliageEffectParams, _coniferShadeTints);
-                DrawScatter(camera, _coniferFineStemRenderers, _scatter.FineConifers, _barkEffectParams, _coniferStemTints);
+                else DrawCulled(camera, _coniferCrownRenderers, _passes.Conifers, _foliageEffectParams, _coniferCrownTints);
             }
-            else DrawScatter(camera, _coniferCrownRenderers, _scatter.Conifers, _foliageEffectParams, _coniferCrownTints);
             if (!fineMeshes || !_broadleavesInLeaf)
             {
-                DrawScatter(camera, _broadleafTrunkRenderers, _scatter.BroadleavesAt(fineMeshes), _barkEffectParams, _broadleafTrunkTints);
-                DrawScatter(camera, _broadleafCrownRenderers, _scatter.BroadleavesAt(fineMeshes), _foliageEffectParams, _broadleafCrownTints);
+                DrawCulled(camera, _broadleafTrunkRenderers, _passes.Broadleaves, _barkEffectParams, _broadleafTrunkTints);
+                DrawCulled(camera, _broadleafCrownRenderers, _passes.Broadleaves, _foliageEffectParams, _broadleafCrownTints);
             }
-            DrawScatter(camera, _rockRenderers, _scatter.RocksAt(fineMeshes), _rockEffectParams, _rockTints);
-            DrawScatter(camera, _stumpRenderers, _scatter.StumpsAt(fineMeshes), _barkEffectParams, _stumpTints);
-            DrawScatter(camera, _snagRenderers, _scatter.SnagsAt(fineMeshes), _barkEffectParams, _snagTints);
-            DrawScatter(camera, _logRenderers, _scatter.LogsAt(fineMeshes), _barkEffectParams, _logTints);
+            if ((Layers & ForestLayer.Deadwood) != 0)
+            {
+                DrawCulled(camera, _rockRenderers, _passes.Rocks, _rockEffectParams, _rockTints);
+                DrawCulled(camera, _stumpRenderers, _passes.Stumps, _barkEffectParams, _stumpTints);
+                DrawCulled(camera, _snagRenderers, _passes.Snags, _barkEffectParams, _snagTints);
+                DrawCulled(camera, _logRenderers, _passes.Logs, _barkEffectParams, _logTints);
+            }
+        }
+
+        /// <summary>
+        /// The layers drawn and cast (#1099, #1122): a measurement dial (<see cref="SceneRenderer.ForestLayers"/>, the Testbed's
+        /// <c>forest=</c>, which hands this renderer the same value), <see cref="ForestLayer.All"/> for every other caller.
+        /// <see cref="ForestLayer.Spruces"/> is the spruces whole, <see cref="ForestLayer.Needles"/> the needles on the near
+        /// crowns (off draws those crowns through the far crowns' plain program), <see cref="ForestLayer.Deadwood"/> the
+        /// boulders, stumps, snags and logs, and <see cref="ForestLayer.WoodShadow"/> everything this casts into the sun's map.
+        /// Read per draw, so nothing carries across a switch.
+        /// </summary>
+        public ForestLayer Layers { get; set; } = ForestLayer.All;
+
+        /// <summary>
+        /// How far round the focus (<see cref="NextFocus"/>) a spruce wears the near crown as well as within
+        /// <see cref="FINE_NEAR_RADIUS"/> of the arena (#1120): a chapter intro's lens flies 100 to 200 units out, where every
+        /// tree wore the far crown, and its shots stood the far crown's few wide plates on a pole a dozen units from the lens.
+        /// The forest's shots fly 8 to 40 units from where they began, so the trees beside the lens wear the near crown at the
+        /// end of each. The aurora's <i>wood</i> is a straight run of 70 (<c>AuroraIntroShots.WOOD_RUN</c>): at its end the
+        /// trees beside the lens are still inside, but those the lens looks at 20 to 40 units ahead can stand past the reach
+        /// and wear the far crown, as every tree out there did before the focus.
+        /// </summary>
+        public const float FOCUS_RADIUS = 90f;
+
+        /// <summary>
+        /// How far the lens must move between two passes for the move to be a cut (#1120): the focus jumps to the lens there
+        /// and nowhere else, so no tree changes its crown during a flight or an orbit, only across a cut, where nothing on the
+        /// screen is the frame before. A flight moves a unit a frame at the most, even at 15 frames a second.
+        /// </summary>
+        public const float CUT_JUMP = 8f;
+
+        /// <summary>
+        /// The focus after a pass from <paramref name="lens"/>, given whether there was one, where it was and the lens of the
+        /// pass before: the lens itself on the first pass and on a cut (a jump of more than <see cref="CUT_JUMP"/>), where it
+        /// was otherwise. <see cref="ForestPasses.Pass"/> moves it before every pass, the camera's and the sun's alike.
+        /// </summary>
+        internal static Vector3 NextFocus(bool focused, Vector3 focus, Vector3 lastLens, Vector3 lens) =>
+            !focused || Vector3.DistanceSquared(lens, lastLens) > CUT_JUMP * CUT_JUMP ? lens : focus;
+
+        /// <summary>Whether a spruce standing at <paramref name="at"/> wears High and Ultra's near crown: within
+        /// <see cref="FINE_NEAR_RADIUS"/> of the arena's axis, where every host keeps its camera, or within
+        /// <see cref="FOCUS_RADIUS"/> of the focus (#1120).</summary>
+        internal static bool WearsNearCrown(Vector3 at, Vector3 focus)
+        {
+            if (at.X * at.X + at.Z * at.Z < FINE_NEAR_RADIUS * FINE_NEAR_RADIUS) return true;
+            float dx = at.X - focus.X, dz = at.Z - focus.Z;
+            return dx * dx + dz * dz < FOCUS_RADIUS * FOCUS_RADIUS;
         }
 
         /// <summary>
@@ -498,32 +557,47 @@ namespace Prazsky.Core.Render
         /// <c>SunShadowMap.ViewProjection</c>.</param>
         /// <param name="fineMeshes">Which spruce crown casts: the one <see cref="Draw"/> draws, or the lathe's skirts would
         /// shade the boughs inside them (#733).</param>
-        public void DrawShadow(Matrix shadowViewProjection, bool fineMeshes)
+        /// <param name="lens">This frame's camera position, which <see cref="Draw"/> is about to be called from: the near
+        /// crowns stand round its focus too (<see cref="ForestPasses.Pass"/>), and a tree must cast the crown it is drawn in.</param>
+        public void DrawShadow(Matrix shadowViewProjection, bool fineMeshes, Vector3 lens)
         {
-            CastScatter(shadowViewProjection, _coniferTrunkRenderers, _scatter.ConifersAt(fineMeshes));
-            if (fineMeshes)
+            if ((Layers & ForestLayer.WoodShadow) == 0) return;
+
+            //The map's own box is the frustum (#1099): a tree whose bounds miss it writes no texel, however near the lens. The
+            //sun at the forest's 11 degrees throws a crown's shadow a hundred units, so the box is the test, never the lens's.
+            //Unsorted, in the planting's order: the map is depth alone, with no shading for the nearest-first order to save
+            _passes.Pass(shadowViewProjection, lens, fineMeshes, nearestFirst: false);
+
+            if ((Layers & ForestLayer.Spruces) != 0)
             {
-                CastScatter(shadowViewProjection, _coniferFineShadeRenderers, _coniferNear);
-                CastScatter(shadowViewProjection, _coniferFineShadeFarRenderers, _coniferFar);
-                CastScatter(shadowViewProjection, _coniferFineCrownRenderers, _coniferNear);
-                CastScatter(shadowViewProjection, _coniferFineCrownFarRenderers, _coniferFar);
-                CastScatter(shadowViewProjection, _coniferFineStemRenderers, _scatter.FineConifers);
-                if (_crownSnow > 0f)
+                CastCulled(shadowViewProjection, _coniferTrunkRenderers, _passes.Conifers);
+                if (fineMeshes)
                 {
-                    CastScatter(shadowViewProjection, _coniferFineSnowRenderers, _coniferNear);
-                    CastScatter(shadowViewProjection, _coniferFineSnowFarRenderers, _coniferFar);
+                    CastCulled(shadowViewProjection, _coniferFineShadeRenderers, _passes.NearConifers);
+                    CastCulled(shadowViewProjection, _coniferFineShadeFarRenderers, _passes.FarConifers);
+                    CastCulled(shadowViewProjection, _coniferFineCrownRenderers, _passes.NearConifers);
+                    CastCulled(shadowViewProjection, _coniferFineCrownFarRenderers, _passes.FarConifers);
+                    CastCulled(shadowViewProjection, _coniferFineStemRenderers, _passes.Conifers);
+                    if (_crownSnow > 0f)
+                    {
+                        CastCulled(shadowViewProjection, _coniferFineSnowRenderers, _passes.NearConifers);
+                        CastCulled(shadowViewProjection, _coniferFineSnowFarRenderers, _passes.FarConifers);
+                    }
                 }
+                else CastCulled(shadowViewProjection, _coniferCrownRenderers, _passes.Conifers);
             }
-            else CastScatter(shadowViewProjection, _coniferCrownRenderers, _scatter.Conifers);
             if (!fineMeshes || !_broadleavesInLeaf)
             {
-                CastScatter(shadowViewProjection, _broadleafTrunkRenderers, _scatter.BroadleavesAt(fineMeshes));
-                CastScatter(shadowViewProjection, _broadleafCrownRenderers, _scatter.BroadleavesAt(fineMeshes));
+                CastCulled(shadowViewProjection, _broadleafTrunkRenderers, _passes.Broadleaves);
+                CastCulled(shadowViewProjection, _broadleafCrownRenderers, _passes.Broadleaves);
             }
-            CastScatter(shadowViewProjection, _rockRenderers, _scatter.RocksAt(fineMeshes));
-            CastScatter(shadowViewProjection, _stumpRenderers, _scatter.StumpsAt(fineMeshes));
-            CastScatter(shadowViewProjection, _snagRenderers, _scatter.SnagsAt(fineMeshes));
-            CastScatter(shadowViewProjection, _logRenderers, _scatter.LogsAt(fineMeshes));
+            if ((Layers & ForestLayer.Deadwood) != 0)
+            {
+                CastCulled(shadowViewProjection, _rockRenderers, _passes.Rocks);
+                CastCulled(shadowViewProjection, _stumpRenderers, _passes.Stumps);
+                CastCulled(shadowViewProjection, _snagRenderers, _passes.Snags);
+                CastCulled(shadowViewProjection, _logRenderers, _passes.Logs);
+            }
         }
 
         /// <summary>
@@ -678,13 +752,21 @@ namespace Prazsky.Core.Render
             //than at the draw.
             _scatter ??= Plant(_seed, config, (x, z) => TerrainMirror.Forest(x, z, config));
 
-            //High and Ultra's two spruce crowns stand by distance from the arena, decided here once: a tree never changes
-            //crown as the camera moves, and the near crown is spent where a tree can be large on the screen (#733)
-            SplitByDistance(_scatter.FineConifers, FINE_NEAR_RADIUS, out _coniferNear, out _coniferFar);
+            //Each pass draws only what meets its frustum (#1099), each kind culled by one sphere round every mesh a variant can
+            //be drawn or cast with
+            _passes = new ForestPasses(_scatter,
+                BoundsOf(_coniferMeshes, m => new[]
+                    { m.Trunk, m.Crown, m.FineCrown, m.FineCrownFar, m.FineShade, m.FineShadeFar, m.FineSnow, m.FineSnowFar, m.FineStem }),
+                BoundsOf(_broadleafMeshes, m => new[] { m.Trunk, m.Crown }),
+                BoundsOf(_rockMeshes, m => new IProceduralMesh[] { m }),
+                BoundsOf(_stumpMeshes, m => new IProceduralMesh[] { m }),
+                BoundsOf(_snagMeshes, m => new IProceduralMesh[] { m }),
+                BoundsOf(_logMeshes, m => new IProceduralMesh[] { m }));
         }
 
         /// <summary>Each variant's instances into those standing within <paramref name="radius"/> of the arena's axis and the
-        /// rest, in their order: the split High and Ultra's two spruce crowns are drawn by, which the broadleaves in leaf follow (<see cref="ForestDressing"/>).</summary>
+        /// rest, in their order: the static split the broadleaves in leaf are drawn by (<see cref="ForestDressing"/>, near the
+        /// arena the grown wood and the twigs). The spruces' crowns split per pass instead (<see cref="WearsNearCrown"/>).</summary>
         internal static void SplitByDistance(ModelInstance[][] variants, float radius, out ModelInstance[][] near,
             out ModelInstance[][] far)
         {
@@ -864,38 +946,73 @@ namespace Prazsky.Core.Render
             if (_coniferMeshes != null) EncodeAllTints();
         }
 
-        //One instanced draw per mesh variant of a scattered kind, each with that variant's own instances and
-        //its own already-encoded tint. A plain indexed loop rather than a zip over the arrays: it runs every
-        //frame the forest is on screen, and an iterator would allocate one enumerator per kind per frame.
-        private void DrawScatter(ICamera camera, InstancedModelRenderer[] renderers, ModelInstance[][] instances,
-            BasicEffectParams effectParams, Vector3[] srgbTints)
+        //What each pass draws (#1099): the focus the near crowns stand round (#1120), and of every kind the instances its
+        //frustum meets, in arrays made at build
+        private ForestPasses _passes;
+
+        /// <summary>Whether a mesh whose bounds at scale 1 are <paramref name="local"/>, placed by <paramref name="world"/> (a
+        /// uniform scale, a rotation and a translation, as every planting is), can put anything inside <paramref name="frustum"/>.</summary>
+        internal static bool Meets(BoundingFrustum frustum, BoundingSphere local, in Matrix world)
+        {
+            float scale = MathF.Sqrt(world.M11 * world.M11 + world.M12 * world.M12 + world.M13 * world.M13);
+            var sphere = new BoundingSphere(Vector3.Transform(local.Center, world), local.Radius * scale);
+            return frustum.Contains(sphere) != ContainmentType.Disjoint;
+        }
+
+        //One sphere round every mesh a variant can be drawn or cast with
+        private static BoundingSphere[] BoundsOf<T>(T[] variants, Func<T, IProceduralMesh[]> meshes)
+        {
+            var bounds = new BoundingSphere[variants.Length];
+            for (int v = 0; v < variants.Length; v++)
+            {
+                BoundingSphere? all = null;
+                foreach (IProceduralMesh mesh in meshes(variants[v]))
+                    if (mesh != null) all = all is BoundingSphere so ? BoundingSphere.CreateMerged(so, mesh.BoundingSphere) : mesh.BoundingSphere;
+                bounds[v] = all ?? new BoundingSphere(Vector3.Zero, 0f);
+            }
+            return bounds;
+        }
+
+        //One instanced draw per mesh variant of this pass's instances of a kind, each with that variant's own already-encoded
+        //tint. A plain indexed loop rather than a zip over the arrays: it runs every frame the forest is on screen, and an
+        //iterator would allocate one enumerator per kind per frame.
+        private static void DrawCulled(ICamera camera, InstancedModelRenderer[] renderers, ForestPasses.Culled set, BasicEffectParams effectParams,
+            Vector3[] srgbTints)
         {
             for (int variant = 0; variant < renderers.Length; variant++)
             {
-                ModelInstance[] bucket = instances[variant];
-                if (bucket.Length == 0) continue;   //a variant no instance fell to; Draw would no-op anyway
-
-                renderers[variant].Draw(camera, bucket, bucket.Length, effectParams, srgbTints[variant]);
+                int count = set.Counts[variant];
+                if (count == 0) continue;
+                renderers[variant].Draw(camera, set.Items[variant], count, effectParams, srgbTints[variant]);
             }
         }
 
         //The near crowns in needle (#751): their depth first, the comb cut and no colour written, then shaded on exactly that depth
         //with an equal test, so the shading needs no clip and every visible pixel of plate over plate is shaded once (see
         //InstancedModel/Needles.fxh: the clip alone was 1.0 ms of the near crowns' 1.09 at the close camera). The states are put
-        //back as they were found.
+        //back as they were found. With the needles dialled off (Layers) the near crowns are drawn through the plain program the
+        //far crowns are, in one pass.
         private void DrawNeedleCrowns(ICamera camera)
         {
+            if ((Layers & ForestLayer.Needles) == 0)
+            {
+                foreach (InstancedModelRenderer renderer in _coniferFineCrownRenderers) renderer.NeedleSurface = false;
+                DrawCulled(camera, _coniferFineCrownRenderers, _passes.NearConifers, _foliageEffectParams, _coniferCrownTints);
+                foreach (InstancedModelRenderer renderer in _coniferFineCrownRenderers) renderer.NeedleSurface = true;
+                return;
+            }
+
             BlendState blend = _device.BlendState;
             DepthStencilState depth = _device.DepthStencilState;
 
             _device.BlendState = NO_COLOR;
             foreach (InstancedModelRenderer renderer in _coniferFineCrownRenderers) renderer.NeedleDepthOnly = true;
-            DrawScatter(camera, _coniferFineCrownRenderers, _coniferNear, _foliageEffectParams, _coniferCrownTints);
+            DrawCulled(camera, _coniferFineCrownRenderers, _passes.NearConifers, _foliageEffectParams, _coniferCrownTints);
             foreach (InstancedModelRenderer renderer in _coniferFineCrownRenderers) renderer.NeedleDepthOnly = false;
 
             _device.BlendState = blend;
             _device.DepthStencilState = DEPTH_EQUAL;
-            DrawScatter(camera, _coniferFineCrownRenderers, _coniferNear, _foliageEffectParams, _coniferCrownTints);
+            DrawCulled(camera, _coniferFineCrownRenderers, _passes.NearConifers, _foliageEffectParams, _coniferCrownTints);
             _device.DepthStencilState = depth;
         }
 
@@ -907,18 +1024,16 @@ namespace Prazsky.Core.Render
             DepthBufferFunction = CompareFunction.Equal,
         };
 
-        //DrawScatter's depth twin (#471): the same per-variant loop with no material to push. A second small
-        //method rather than a flag on DrawScatter, because the two share only the loop - the drawn one needs a
+        //DrawCulled's depth twin (#471): the same per-variant loop with no material to push. A second small
+        //method rather than a flag on DrawCulled, because the two share only the loop - the drawn one needs a
         //camera and a tint, this one needs neither and cannot be given them.
-        private void CastScatter(Matrix shadowViewProjection, InstancedModelRenderer[] renderers,
-            ModelInstance[][] instances)
+        private static void CastCulled(Matrix shadowViewProjection, InstancedModelRenderer[] renderers, ForestPasses.Culled set)
         {
             for (int variant = 0; variant < renderers.Length; variant++)
             {
-                ModelInstance[] bucket = instances[variant];
-                if (bucket.Length == 0) continue;
-
-                renderers[variant].DrawDepth(shadowViewProjection, bucket, bucket.Length);
+                int count = set.Counts[variant];
+                if (count == 0) continue;
+                renderers[variant].DrawDepth(shadowViewProjection, set.Items[variant], count);
             }
         }
 
