@@ -98,7 +98,7 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Whether a supersampled frame shades this backdrop at the back buffer's size and scales it up
-        /// (<see cref="SceneRenderer"/>'s <c>DrawBackdropAtDisplayResolution</c>): the dream, the cavern and the big top.
+        /// (<see cref="SceneRenderer"/>'s <c>DrawBackdropAtDisplayResolution</c>): space (all but its stars, #1132), the dream, the cavern and the big top.
         /// False by default: a backdrop that answers true gives up its supersampling (one shade a display pixel, or the
         /// target's own samples) and must look right at that, sizing whatever it draws in pixels off the target it is
         /// shaded in (the bound viewport), and must draw what has to occlude the arena in <see cref="DrawDepth"/>. Each
@@ -116,6 +116,15 @@ namespace Prazsky.Core.Render
         /// <summary>Whether the display-resolution target needs a depth buffer (a backdrop of meshes); the renderer clears
         /// it when it binds the target.</summary>
         public virtual bool DisplayResolutionDepth => false;
+
+        /// <summary>
+        /// Brings the display-resolution picture (<see cref="DrawsAtDisplayResolution"/>) into the bound supersampled scene
+        /// target itself, instead of the renderer's plain bilinear scale-up; returns false to take that scale-up. Space
+        /// does (#1132): it shades all but its stars at the display's size and draws the stars over the scale-up at the
+        /// supersampled one, because a star shaded once a display pixel loses its peak. Called with the scene target
+        /// bound; the renderer restores the opaque scene's states after it.
+        /// </summary>
+        public virtual bool ComposeDisplayResolution(Texture2D shaded, in SceneFrame frame) => false;
 
         /// <summary>The scene's own light rig (<see cref="SceneRenderer.TryGetLightRig"/>); false takes the dome's.</summary>
         public virtual bool TryGetLightRig(float wallClock, out SceneLightRig rig)

@@ -886,8 +886,8 @@ namespace Testbed
                 && _options.Alternation.Any(variant => variant.Pins.Any(pin => pin.Dial is "volcano" or "meadow" or "mountain")))
                 Console.WriteLine("[skyorder] this run takes a scene's layers apart under the sky drawn behind the opaque scene: a layer's price is net of the sky it hides (what a tier cutting it saves); skyorder=first prices the layer alone (#1104)");
 
-            //#1096: "bdres=0" draws the dream, the cavern and the big top into the scene target with its samples rather
-            //than at display resolution: the big top's frame before #1096; the other two have taken the path since #155
+            //#1096: "bdres=0" draws space, the dream, the cavern and the big top into the scene target with its samples rather
+            //than at display resolution: the big top's frame before #1096; the dream and the cavern have taken the path since #155, space since #1132
             _sceneRenderer.BackdropsAtDisplayResolution = _options.BackdropsAtDisplayResolution;
 
             //#471 PROBE: "shadow=" pins SceneRenderer.ShadowScale so a sun shadow map can be measured and

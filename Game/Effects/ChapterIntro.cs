@@ -370,7 +370,7 @@ namespace BS3D.Effects
         }
 
         /// <summary>The most one frame may advance the intro's clock (#645): a 20 fps frame; see <see cref="Update"/>.</summary>
-        private const float MAX_INTRO_STEP = 0.05f;
+        internal const float MAX_INTRO_STEP = 0.05f;
 
         /// <summary>One frame. Call every frame regardless of <see cref="Engaged"/>; a no-op once it is not.</summary>
         public void Update(float elapsed)
@@ -516,6 +516,10 @@ namespace BS3D.Effects
                     {
                         //On screen from this frame: told so once, on the intro's own clock (a pause or a hitch holds it)
                         while (_shotsStarted <= i) _prologue[_shotsStarted++].Start();
+
+                        //And where in it, every frame while the flight runs (#1110): a subject its look follows is kept on
+                        //this clock. Not once the intro has ended, while a landing's last frame is held through the blend out
+                        if (_running) shot.Track(_elapsed - start);
 
                         float local = (_elapsed - start) / shot.Seconds;
                         shot.Pose(local, out Vector3 position, out Vector3 target);

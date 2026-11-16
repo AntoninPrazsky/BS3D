@@ -25,16 +25,6 @@ namespace Prazsky.Core.Render
 
         private readonly Effect _marsEffect;
 
-        //THE ROVER'S TRAVERSE (#745). The owner: "Mars could also get the tracks of a rover ... a small easter egg". The
-        //references (745-klein, 745-zimage) run a twin chevron track off across the plain to the dusty horizon. It comes in
-        //from the mesas, swings past the arena outside the clearing and runs off towards the far side's mesas, where the
-        //menu's orbit, the chapter tour and the drop all look across it; both ends fade under dust (RoverTracks.fxh)
-        private static readonly Vector2[] TRAVERSE =
-        {
-            new(-260f, 120f), new(-200f, 104f), new(-150f, 96f), new(-104f, 80f), new(-80f, 44f), new(-78f, 0f),
-            new(-90f, -46f), new(-122f, -96f), new(-170f, -140f), new(-232f, -186f),
-        };
-
         //Its camera grid and the pass that draws it (#580); a tier's crossing retakes the grid (SelectMarsTechnique, #540)
         private readonly TerrainPass _marsPass;
 
@@ -82,8 +72,8 @@ namespace Prazsky.Core.Render
 
             ApplyMarsParameters();
 
-            //The rover's tracks (#745): pressed into the plain the shader draws, along the traverse below
-            RoverTracks.Push(_marsEffect, RoverTracks.Resample(TRAVERSE));
+            //The rover's tracks (#745): pressed into the plain the shader draws, along MarsTracks' traverse
+            RoverTracks.Push(_marsEffect, MarsTracks.TRAVERSE_PATH);
 
             //The clearing round the island is the plain at LevelY: the craters and the mesas stand far out past it
             _plants = new PlantPass(_graphicsDevice, content);
@@ -139,11 +129,14 @@ namespace Prazsky.Core.Render
                     float d = MathF.Sqrt(MathHelper.Lerp(ROCKS_FROM * ROCKS_FROM, to * to, (float)rng.NextDouble()));
                     float x = MathF.Cos(a) * d, z = MathF.Sin(a) * d;
                     float size = MathHelper.Lerp(sizeMin, sizeMax, MathF.Pow((float)rng.NextDouble(), 2f));
-                    if (RoverTracks.Distance(TRAVERSE, x, z) < TRACK_CLEAR + size) continue;
-
                     float yaw = (float)rng.NextDouble() * MathHelper.TwoPi, lean = ((float)rng.NextDouble() - 0.5f) * 0.5f;
                     var tint = new Vector4((float)rng.NextDouble(), ((float)rng.NextDouble() - 0.5f) * 0.2f, 0f, 0f);
                     int variant = rng.Next(meshes.Length);
+
+                    //Off the ruts as the shader draws them, tested after every roll a stone takes (the Moon's rule, #1114), so a
+                    //change to the traverse takes away or gives back the stones near it and leaves the rest of the field where it lay
+                    if (RoverTracks.Distance(MarsTracks.TRAVERSE_PATH, x, z) < TRACK_CLEAR + size) continue;
+
                     Matrix world = Matrix.CreateScale(size) * Matrix.CreateRotationX(lean) * Matrix.CreateRotationY(yaw)
                         * Matrix.CreateTranslation(x, ground - size * ROCK_SINK, z);
                     at[variant].Add(new ModelInstance(world, tint));
@@ -288,7 +281,8 @@ namespace Prazsky.Core.Render
         /// </summary>
         private void SelectMarsTechnique(float sceneDetail)
         {
-            _marsTerrainTechnique = sceneDetail > 0.5f ? _marsTerrainFull : _marsTerrainReduced;
+            bool full = FullGroundAt(sceneDetail);
+            _marsTerrainTechnique = full ? _marsTerrainFull : _marsTerrainReduced;
 
             //And a coarser grid under the reduced program since #540, the volcano's own step: on the APU at Low,
             //360 -> 256 was 1.69 ms of Mars's frame (47 cycles, 100 %) and photographed identical, where the two
@@ -297,11 +291,23 @@ namespace Prazsky.Core.Render
             //the small craters that make the field read. The pass takes its grid at MARS_GRID_N before this first runs
             //(from the constructor), so at the full tier that call retakes nothing; TerrainPass.SetGrid gives the old
             //grid back to the cache rather than disposing it.
-            _marsPass.SetGrid(sceneDetail > 0.5f ? MARS_GRID_N : MARS_GRID_N_REDUCED);
+            _marsPass.SetGrid(full ? MARS_GRID_N : MARS_GRID_N_REDUCED);
         }
+
+        /// <summary>
+        /// Whether Mars draws its full ground at this scene detail (<see cref="SceneRenderer.SceneDetail"/>): the one
+        /// threshold <see cref="SelectMarsTechnique"/> picks the program and its grid by. Only the full program draws the
+        /// rover's ruts (<c>Mars.fx</c>'s <c>MarsGroundAt</c>, its <c>detail</c> branch), so this is also the question whether
+        /// the chapter intro may shoot them (#1115, <see cref="SceneRenderer.MarsDrawsTracks"/>).
+        /// </summary>
+        internal static bool FullGroundAt(float sceneDetail) => sceneDetail > 0.5f;
 
         /// <inheritdoc/>
         public override void OnDetailChanged(float sceneDetail) => SelectMarsTechnique(sceneDetail);
+
+        /// <summary>Whether the ground draws the rover's ruts: the full program does, the reduced one keeps its budget (Mars.fx's
+        /// <c>MarsGroundAt</c>, its <c>detail</c> branch).</summary>
+        internal bool DrawsTracks => _marsTerrainTechnique == _marsTerrainFull;
 
         /// <summary>The ground and what stands on it.</summary>
         public override void Draw(in SceneFrame frame)

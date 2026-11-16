@@ -45,8 +45,8 @@ namespace BS3D.Effects
     /// copies of the shaders' own placement (the dream's and the storm's subjects move, so theirs are laid out on the
     /// wall clock they will play in); the cavern, whose hall is geometry the shots are placed against
     /// (<see cref="CavernIntroShots"/>, #958) — and the four scenes off the
-    /// Earth, the Moon, Mars, space and the Grid, each shot about one thing the scene builds: a real crater, a real
-    /// mesa, the planet and the drain, one cube and the landmark ring.
+    /// Earth, the Moon, Mars, space and the Grid, each shot about one thing the scene builds: a rover's ruts (the
+    /// Moon's up to its flag, Mars's to the island), a real mesa, the planet and the drain, one cube and the landmark ring.
     /// </para>
     /// <para>
     /// A declarative shot list was considered and is the wrong move (#596's own verdict): each builder
@@ -75,11 +75,12 @@ namespace BS3D.Effects
                 //#559: the sea, the desert, the outback and the mountains, off their own terrain (TerrainMirror)
                 //and, for the sea, the dome's sun, which its swell shot heads into.
                 SceneKind.Sea => SeaIntroShots.Build(renderer, context.SunDirection, fieldOfView, random),
-                SceneKind.Desert => DesertIntroShots.Build(renderer, context.Clock, fieldOfView, random),
+                //#1110: the desert's last shot takes off from its scorpion and lands on the pose (DesertLanding)
+                SceneKind.Desert => DesertIntroShots.Build(renderer, context.Clock, context.GamePosition, context.GameTarget, fieldOfView, random),
                 SceneKind.Outback => OutbackIntroShots.Build(renderer, fieldOfView, random),
                 SceneKind.Mountain => MountainIntroShots.Build(renderer, fieldOfView, random),
-                //#1107: the meadow lands on the pose as the cities do, its brook home (MeadowLanding). ⚠ Here and for the
-                //big top no test reaches this hand-over: a wrong pose (one inside the island, or no facing) builds no landing,
+                //#1107: the meadow lands on the pose as the cities do, its brook home (MeadowLanding). ⚠ Here, for the desert
+                //and for the big top no test reaches this hand-over: a wrong pose (one inside the island, or no facing) builds no landing,
                 //and the reel quietly falls back to what it had before, with the tour's leg to the pose. The [intro] line
                 //tells them apart: a reel that lands ends on its home shot's name, one that fell back goes on to the tour's
                 //"map .. out" leg.

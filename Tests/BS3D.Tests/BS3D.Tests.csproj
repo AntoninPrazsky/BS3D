@@ -42,6 +42,10 @@
     <Compile Include="..\..\Game\Effects\CircusLanding.cs" />
     <!--The Moon's (#1114): the run up the rover's ruts to the flag, over TerrainMirror.Moon, and the two shots round it.-->
     <Compile Include="..\..\Game\Effects\MoonIntroShots.cs" />
+    <!--Mars's (#1115): the run along the rover's ruts towards the arena, over OffworldGround's ceiling, the mesa and Phobos;
+        and the ruts walked, which both tracks shots lay their lens on.-->
+    <Compile Include="..\..\Game\Effects\MarsIntroShots.cs" />
+    <Compile Include="..\..\Game\Effects\RutsWalk.cs" />
     <!--The sea's prologue (#1124): plain geometry over the sea's config and the oil rigs' layout, held against the rigs' own boxes.-->
     <Compile Include="..\..\Game\Effects\SeaIntroShots.cs" />
     <!--The icesheet's (#1128): the camp's arc and the keep-out round the camp, over TerrainMirror.Polar and PolarPlanting's layout.-->
@@ -129,6 +133,8 @@
     <Compile Include="..\..\Game\Effects\CityIntroShots.cs" />
     <Compile Include="..\..\Game\Effects\CitySwing.cs" />
     <Compile Include="..\..\Game\Effects\IntroLanding.cs" />
+    <!--The desert's scorpion home (#1110): the take-off from its scorpion onto the pose, over the desert's height mirror.-->
+    <Compile Include="..\..\Game\Effects\DesertLanding.cs" />
     <!--The meadow's prologue (#893): the ground and solids a lens is held against, and the bench and bale orbits over the
         planting's figures. The planting itself needs a device, so MeadowIntroShotsTests builds figures of its own from the
         constants and the geometry MeadowScatter keeps without one.-->

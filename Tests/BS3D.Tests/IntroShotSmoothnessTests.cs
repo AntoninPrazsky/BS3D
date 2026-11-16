@@ -11,10 +11,11 @@ namespace BS3D.Tests
 {
     /// <summary>
     /// The chapter-intro shots that fly over rough ground ride like drone footage (#645, #530, #1109, #1112). Every
-    /// shot whose height <see cref="AridIntroPaths.Hug"/> lays — the desert's erg, pyramids, crest and flock, the
+    /// shot whose height <see cref="AridIntroPaths.Hug"/> lays — the desert's erg, pyramids and crest, the
     /// mountains' range, pass and summit, the outback's plain, approach and crown, the volcano's crater run and its orbit
-    /// round the village (#1127), the Moon's tracks (#1114) and the polar camp's arc (#1128) — is built through its real builder on the shipped scene
-    /// config over a dozen rolls and sampled at sixty frames a second on its own eased clock.
+    /// round the village (#1127), the Moon's and Mars's tracks (#1114, #1115) and the polar camp's arc (#1128) — and the
+    /// desert's shots low over its sand (#1110: the beetle, the scorpion and the scorpion home's take-off) is built through its
+    /// real builder on the shipped scene config over a dozen rolls and sampled at sixty frames a second on its own eased clock.
     /// <para>
     /// <b>What the limits are, and why.</b> Drone footage changes height and tilt slowly: a gimbal tilts at most about
     /// twenty degrees a second and takes half a second or more to get there, and the craft's climb rate changes over a
@@ -85,6 +86,9 @@ namespace BS3D.Tests
             Vector3 vent = new(centre.X, cone(centre.X, centre.Y) + 2f, centre.Y);
             var moon = new MoonSceneConfig();
             Func<float, float, float> regolith = (x, z) => TerrainMirror.Moon(x, z, moon.Terrain);
+            Vector3 rope = DesertLandingTests.GamePosition, ropeTarget = DesertLandingTests.GameTarget;
+            var mars = new MarsSceneConfig();
+            Func<float, float, float> marsCeiling = (x, z) => OffworldGround.MarsCeiling(x, z, mars.Terrain);
             var polar = new PolarSceneConfig();
             Func<float, float, float> ice = (x, z) => TerrainMirror.Polar(x, z, polar);
 
@@ -93,7 +97,13 @@ namespace BS3D.Tests
                 ["desert: the erg"] = new(r => DesertIntroShots.Erg(sand, FieldOfView, r), sand, DesertIntroShots.WIDE_CLEARANCE, false, false),
                 ["desert: the pyramids"] = new(r => DesertIntroShots.PyramidsShot(desert, sand, FieldOfView, r), sand, DesertIntroShots.PYRAMIDS_CLEARANCE, false, true),
                 ["desert: the crest"] = new(r => DesertIntroShots.Crest(desert, sand, FieldOfView, r), sand, DesertIntroShots.CREST_CLEARANCE, true, true),
-                ["desert: the flock"] = new(r => DesertIntroShots.Flock(desert, sand, FieldOfView, r), sand, DesertIntroShots.FLOCK_CLEARANCE, false, true),
+                //The two close shots (#1110): the beetle dollying beside its beetle, and the scorpion where no flight home is clear
+                ["desert: the beetle"] = new(r => DesertIntroShots.Beetle(null, desert, sand, FieldOfView, r), sand, DesertIntroShots.BEETLE_LENS_ABOVE, true, true),
+                ["desert: the scorpion"] = new(r => DesertIntroShots.Scorpion(null, desert, sand, FieldOfView, r), sand,
+                    DesertIntroShots.SCORPION_CLEARANCE * 0.9f, true, true),
+                //The take-off from the scorpion onto Rope's pose (#1110): its height is the pose's by design, so it has a floor
+                ["desert: the scorpion home"] = new(r => DesertLanding.Build(desert, null, rope, ropeTarget, FieldOfView, r, out _), sand,
+                    DesertLanding.LOWEST, true, false),
                 ["mountains: the range"] = new(r => MountainIntroShots.Range(mountain, rock, FieldOfView, r), rock, MountainIntroShots.WIDE_CLEARANCE, false, false),
                 ["mountains: the pass"] = new(r => MountainIntroShots.Pass(rock, FieldOfView, r), rock, MountainIntroShots.PASS_CLEARANCE, true, true),
                 ["mountains: the summit"] = new(r => MountainIntroShots.Summit(rock, FieldOfView, r), rock, MountainIntroShots.SUMMIT_CLEARANCE, false, false),
@@ -106,6 +116,8 @@ namespace BS3D.Tests
                     VolcanoCountryPlanting.Tallest + VolcanoIntroShots.TREE_AIR, false, true),
                 //The ruts and the flag are fixed (#1114): every roll is the same run.
                 ["moon: the tracks"] = new(_ => MoonIntroShots.Tracks(moon.Terrain), regolith, MoonIntroShots.TRACKS_CLEARANCE, true, true),
+                //So are Mars's (#1115), and Mars has no mirror of its ground: the lens flies its ceiling, the clearance over that.
+                ["mars: the tracks"] = new(_ => MarsIntroShots.Tracks(mars.Terrain), marsCeiling, MarsIntroShots.CLEARANCE, true, true),
                 //An arc at one height over the highest ice under it (#1128), the lens on the camp: held to the ride all the same
                 ["polar: the camp"] = new(r => PolarIntroShots.Camp(polar, FieldOfView, r), ice, PolarIntroShots.CAMP_HEIGHT, true, false),
             };

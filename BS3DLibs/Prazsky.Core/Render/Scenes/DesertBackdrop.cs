@@ -107,7 +107,7 @@ namespace Prazsky.Core.Render
         /// </summary>
         public override void DrawBlended(in SceneFrame frame)
         {
-            _critters.Draw(frame);
+            _critters.Draw(frame, Services.FineMeshes);
             Services.Birds.Draw(frame, _desertConfig.Birds);
         }
 

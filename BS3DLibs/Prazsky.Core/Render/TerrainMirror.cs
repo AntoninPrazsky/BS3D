@@ -32,9 +32,11 @@ namespace Prazsky.Core.Render
     /// <b>The four built on <see cref="ShaderMath.Noise"/> — desert, mountain, outback, polar — did not match their
     /// shaders until #598</b>, measured by <c>mirrorcheck</c> (#590): up to 16.2 units off in the mountains. The
     /// noise's hash takes the fraction of a product near 20 000, where a float carries a fraction to about 1/500,
-    /// and the shader compiler fuses the hash's dot into multiply-adds and folds the outback's <c>seed + 23.7</c>
-    /// constants. <see cref="ShaderMath.Hash22"/> now fuses the same way and the outback's rolls add their
-    /// constants first, and all four pass under a thousandth (<c>docs/scenes.md</c>, "The terrain mirrors").
+    /// the shader compiler folds the outback's <c>seed + 23.7</c> constants, and whether the hash's multiply-adds round
+    /// once or twice is the driver's choice. The outback's rolls add their constants first, and
+    /// <see cref="ShaderMath.Hash22(float, float)"/> rounds as this machine's GPU does, which <see cref="HashRoundingProbe"/>
+    /// asks it at load (#1134); all four pass under a hundredth ("The terrain mirrors" in
+    /// <c>docs/scenes/terrain-grids-and-mirrors.md</c>).
     /// </para>
     /// <para>
     /// None of these fields is seeded by <c>sceneseed=</c>: the dunes, the range and the monoliths are the

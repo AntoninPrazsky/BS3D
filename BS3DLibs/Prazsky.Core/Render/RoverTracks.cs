@@ -47,6 +47,28 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
+        /// The curve <see cref="Resample"/> takes its points off, walked finely: <paramref name="perSpan"/> points a span between
+        /// two of <paramref name="controls"/>, in the same parameter. The shader draws the ruts as straight segments between
+        /// points of this curve a span or so apart, so a lens laid along it (the Moon's and Mars's intro tracks shots, #1114,
+        /// #1115) is never more than a fraction of a unit off the ruts' drawn middle line, and turns through no corner where
+        /// they meet. Keep it in step with <see cref="Resample"/>.
+        /// </summary>
+        public static Vector2[] Curve(IReadOnlyList<Vector2> controls, int perSpan)
+        {
+            int spans = controls.Count - 1;
+            var points = new Vector2[spans * perSpan + 1];
+            for (int i = 0; i < points.Length; i++)
+            {
+                int k = Math.Min(i / perSpan, spans - 1);
+                float t = (i - k * perSpan) / (float)perSpan;
+                points[i] = Vector2.CatmullRom(controls[Math.Max(k - 1, 0)], controls[k], controls[k + 1],
+                    controls[Math.Min(k + 2, spans)], t);
+            }
+
+            return points;
+        }
+
+        /// <summary>
         /// Hands <paramref name="path"/> (at most <see cref="POINTS"/> points) to <paramref name="effect"/>'s <c>TrackPath</c>,
         /// <c>TrackCount</c>, <c>TrackBounds</c> and <c>TrackChunks</c>: each point's world XZ and the distance along the track
         /// to it, the box round it all and the box round each run of <c>CHUNK</c> segments, padded by <see cref="HALF_WIDTH"/>.
