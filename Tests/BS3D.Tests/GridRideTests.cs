@@ -482,52 +482,82 @@ namespace BS3D.Tests
             Assert.True(stretch + 2f * GridRide.REACH_SECONDS < LightCycleRuns.KEPT_SECONDS,
                 $"a choice over {stretch} s reads {stretch + 2f * GridRide.REACH_SECONDS} s of a run, more than the {LightCycleRuns.KEPT_SECONDS} kept");
 
+            //Two passes over the same rides, each on runs built afresh: the first untimed, so every path any ride takes has run
+            //once before anything is counted (the runtime's first call of a method or of a lazily built helper allocates once,
+            //which is not what a ride costs a frame); the second counted, phase by phase, so a failure names where it allocated
             int rides = 0;
             long allocated = 0;
-            for (int b = 0; b < BUILDS; b += 4)
+            var where = new List<string>();
+            for (int pass = 0; pass < 2; pass++)
             {
-                float start = BuildTime(b) + 3.2f;
-                List<GridSolid> solids = Solids(b);
-                GridRide ride = GridRide.Plan(new LightCycleRuns(Grid, solids), FloorY, solids, RingOf(Grid), start, start + stretch,
-                    GridIntroShots.RIDE_SECONDS);
-                if (ride == null) continue;
-
-                //The first ride runs every path once untimed: the runtime compiles a method the first time it is called
-                if (rides++ == 0)
+                rides = 0;
+                for (int b = 0; b < BUILDS; b += 4)
                 {
-                    PlayChosenAgain(ride, start, stretch);
-                    continue;
-                }
+                    float start = BuildTime(b) + 3.2f;
+                    List<GridSolid> solids = Solids(b);
+                    GridRide ride = GridRide.Plan(new LightCycleRuns(Grid, solids), FloorY, solids, RingOf(Grid), start, start + stretch,
+                        GridIntroShots.RIDE_SECONDS);
+                    if (ride == null) continue;
+                    rides++;
 
-                long before = GC.GetAllocatedBytesForCurrentThread();
-                PlayChosenAgain(ride, start, stretch);
-                allocated += GC.GetAllocatedBytesForCurrentThread() - before;
+                    long[] phases = PlayChosenAgain(ride, start, stretch);
+                    if (pass == 0) continue;
+                    for (int p = 0; p < phases.Length; p++)
+                    {
+                        allocated += phases[p];
+                        if (phases[p] != 0) where.Add($"build {b}, {PHASES[p % PHASES.Length]} (pass {p / PHASES.Length + 1}): {phases[p]} bytes");
+                    }
+                }
             }
 
             _output.WriteLine($"{rides} rides chosen again twice each: {allocated} bytes allocated");
+            foreach (string line in where) _output.WriteLine(line);
             Assert.True(rides >= 10, $"only {rides} reels had a ride");
-            Assert.Equal(0L, allocated);
+            Assert.True(allocated == 0L, $"{allocated} bytes allocated: {string.Join("; ", where)}");
         }
 
+        private static readonly string[] PHASES =
+            { "posing a second", "choosing calm, staying", "choosing clear, staying", "choosing calm", "choosing clear", "choosing safe", "posing on" };
+
         //A second of frames from `start`, every choice GridIntroShots.Again can make at the second it ends on, a second more, a
-        //pause; twice
-        private static void PlayChosenAgain(GridRide ride, float start, float stretch)
+        //pause; twice. Returns the bytes each phase allocated on this thread, PHASES' order, twice.
+        private static long[] PlayChosenAgain(GridRide ride, float start, float stretch)
         {
+            var phases = new long[PHASES.Length * 2];
             float now = start;
             for (int pass = 0; pass < 2; pass++)
             {
+                int p = pass * PHASES.Length;
+                long mark = GC.GetAllocatedBytesForCurrentThread();
                 for (int f = 0; f < 60; f++, now += FRAME) ride.Pose(now, out _, out _);
+                phases[p++] = Took(ref mark);
 
                 float until = now + stretch;
                 ride.Choose(now, until, GridIntroShots.RIDE_SECONDS, GridRide.Keep.Calm, stay: true);
+                phases[p++] = Took(ref mark);
                 ride.Choose(now, until, GridIntroShots.RIDE_SECONDS, GridRide.Keep.Clear, stay: true);
+                phases[p++] = Took(ref mark);
                 ride.Choose(now, until, GridIntroShots.RIDE_SECONDS, GridRide.Keep.Calm);
+                phases[p++] = Took(ref mark);
                 ride.Choose(now, until, GridIntroShots.RIDE_SECONDS, GridRide.Keep.Clear);
+                phases[p++] = Took(ref mark);
                 ride.Choose(now, until, GridIntroShots.RIDE_SECONDS, GridRide.Keep.Safe);
+                phases[p++] = Took(ref mark);
 
                 for (int f = 0; f < 60; f++, now += FRAME) ride.Pose(now, out _, out _);
+                phases[p] = Took(ref mark);
                 now += PAUSES[^1];
             }
+            return phases;
+        }
+
+        //The bytes allocated on this thread since `mark`, and the mark moved to now
+        private static long Took(ref long mark)
+        {
+            long now = GC.GetAllocatedBytesForCurrentThread();
+            long took = now - mark;
+            mark = now;
+            return took;
         }
 
         [Fact]
