@@ -13,9 +13,9 @@ namespace BS3D.Tests
     /// The chapter-intro shots that fly over rough ground ride like drone footage (#645, #530, #1109, #1112). Every
     /// shot whose height <see cref="AridIntroPaths.Hug"/> lays — the desert's erg, pyramids and crest, the
     /// mountains' range, pass and summit, the outback's plain, approach and crown, the volcano's crater run and its orbit
-    /// round the village (#1127), and the Moon's and Mars's tracks (#1114, #1115) — and the desert's shots low over its
-    /// sand (#1110: the beetle, the scorpion and the scorpion home's take-off) is built through its real builder on the
-    /// shipped scene config over a dozen rolls and sampled at sixty frames a second on its own eased clock.
+    /// round the village (#1127), the Moon's and Mars's tracks (#1114, #1115) and the polar camp's arc (#1128) — and the
+    /// desert's shots low over its sand (#1110: the beetle, the scorpion and the scorpion home's take-off) is built through its
+    /// real builder on the shipped scene config over a dozen rolls and sampled at sixty frames a second on its own eased clock.
     /// <para>
     /// <b>What the limits are, and why.</b> Drone footage changes height and tilt slowly: a gimbal tilts at most about
     /// twenty degrees a second and takes half a second or more to get there, and the craft's climb rate changes over a
@@ -89,6 +89,8 @@ namespace BS3D.Tests
             Vector3 rope = DesertLandingTests.GamePosition, ropeTarget = DesertLandingTests.GameTarget;
             var mars = new MarsSceneConfig();
             Func<float, float, float> marsCeiling = (x, z) => OffworldGround.MarsCeiling(x, z, mars.Terrain);
+            var polar = new PolarSceneConfig();
+            Func<float, float, float> ice = (x, z) => TerrainMirror.Polar(x, z, polar);
 
             return new Dictionary<string, Case>
             {
@@ -116,6 +118,8 @@ namespace BS3D.Tests
                 ["moon: the tracks"] = new(_ => MoonIntroShots.Tracks(moon.Terrain), regolith, MoonIntroShots.TRACKS_CLEARANCE, true, true),
                 //So are Mars's (#1115), and Mars has no mirror of its ground: the lens flies its ceiling, the clearance over that.
                 ["mars: the tracks"] = new(_ => MarsIntroShots.Tracks(mars.Terrain), marsCeiling, MarsIntroShots.CLEARANCE, true, true),
+                //An arc at one height over the highest ice under it (#1128), the lens on the camp: held to the ride all the same
+                ["polar: the camp"] = new(r => PolarIntroShots.Camp(polar, FieldOfView, r), ice, PolarIntroShots.CAMP_HEIGHT, true, false),
             };
         }
 

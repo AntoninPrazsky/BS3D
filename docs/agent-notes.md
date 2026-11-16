@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1128 polární tábor ve hře a v úvodu — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: tábor (`PolarPlanting`) je 2,5× větší (stožár 27,5, dosah 55,8, `CampClearRadius` 58) a stojí na azimutu −1,92 ve vzdálenosti 150, takže ho herní pohled vidí vlevo nad palubou ve 4:3 až 2.4. `CampTurn` 0,96 ho natáčí čelem ke slunci. Úvod má nový záběr „the camp“ (3,2 s, oblouk 26°), ostatní tři záběry ubraly 1,2 s, reel 16,1 s. Stínová krabice sahá nad stožár (`SceneRenderer.ShadowBoxTop`), texely o ~8 % hrubší. Mrtvé dotazy na zem (`PolarGroundHeight` aj.) odstraněny.
+- ⚠ Test herního pohledu mířil na těžiště clusteru, kam session nikdy nemíří; teď míří přes `OverviewFocus.FollowAim` jako session.
+- Otevřené: `verdict-eye` (velikost tábora a záběr v pohybu neviděny, úvod 16,1 s); na Potato tábor chybí; cena neměřena; žádná kampaňová úroveň na ledu.
+
 ## 2026-11-15 — #1116 Mřížka: úvod jede vedle světelného cyklu — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: druhý záběr úvodu Mřížky „the cycle“ (`Game/Effects/GridRide.cs`): čočka jede 3,4 nad podlahou vedle jednoho cyklu jeho rychlostí, kolem uzlu se točí nejvýš 37,5 °/s (U-obrat 71). Pózuje se podle nástěnných hodin (`IntroShot.OnTheWallClock`), cyklus bere z `LightCycleRuns` (stejné semínko jako kreslené). Po pauze nebo pod 20 fps volí znovu (`GridIntroShots.Again`). Úvod 16,5 s (dřív 13,9).

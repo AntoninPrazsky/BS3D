@@ -9,8 +9,9 @@ namespace Prazsky.Core.Render
     /// <summary>
     /// The polar icesheet (#222): sastrugi and a crevassed pressure belt on a camera-centred grid under the dome.
     /// Moved out of <see cref="SceneRenderer"/> whole in #580 — the config, the effect and its <see cref="TerrainPass"/>,
-    /// the push, the draw, the viewpoint, the shadow map's fit and receiver, the terrain probe <c>mirrorcheck</c> reads
-    /// and the ground queries the chapter intro flies over the ice with. See "The polar icesheet" in docs/scenes.md.
+    /// the push, the draw, the viewpoint, the shadow map's fit and receiver, and the terrain probe <c>mirrorcheck</c> reads.
+    /// The chapter intro reads the ice off <see cref="TerrainMirror"/> on the config itself. See "The polar icesheet" in
+    /// docs/scenes.md.
     /// </summary>
     internal sealed class PolarBackdrop : Backdrop
     {
@@ -32,8 +33,8 @@ namespace Prazsky.Core.Render
         //sastrugi ridge is metres across where a dune is tens, so the cell has to be small enough to hold one;
         //and the subject is a flat expanse, which means the horizon is further away here than in any other
         //ground scene and the grid has to reach it or the haze has to start early enough to hide the edge.
-        private const int POLAR_GRID_N = 420;
-        private const float POLAR_EXTENT = 1200f;
+        internal const int POLAR_GRID_N = 420;
+        internal const float POLAR_EXTENT = 1200f;
 
         //Look/tuning parameters (the sastrugi, the pressure ridge, the crevasses, the two colours, the
         //sparkle and the transmission) live in PolarSceneConfig; the backdrop reads them from _polarConfig.
@@ -50,7 +51,8 @@ namespace Prazsky.Core.Render
             ApplyPolarParameters();
 
             _plants = new PlantPass(services.GraphicsDevice, content);
-            _camp = new PolarPlanting(services.GraphicsDevice, (x, z) => TerrainMirror.Polar(x, z, _polarConfig), _polarConfig.CampCentre);
+            _camp = new PolarPlanting(services.GraphicsDevice, (x, z) => TerrainMirror.Polar(x, z, _polarConfig), _polarConfig.CampCentre,
+                _polarConfig.CampTurn);
         }
 
         /// <inheritdoc/>
@@ -149,9 +151,18 @@ namespace Prazsky.Core.Render
         {
             groundY = _polarConfig.LevelY;
             below = _polarConfig.SwellAmplitude * 2f;
-            above = _polarConfig.RidgeHeight;
+            above = ShadowAbove(_polarConfig);
             return true;
         }
+
+        /// <summary>
+        /// How far over <see cref="PolarSceneConfig.LevelY"/> the sun's box reaches (#1128): the front's plates or the camp's mast
+        /// (<see cref="PolarPlanting.Tallest"/>), whichever is higher, since a caster over the box's top is clipped out of the
+        /// map. The swell the mast stands on is left to the fit's slack (<see cref="SceneRenderer.ShadowBoxTop"/>), which is
+        /// there for a figure taken over the ground's mean: adding the swell here as well would only spread the map's texels
+        /// over more of the world.
+        /// </summary>
+        internal static float ShadowAbove(PolarSceneConfig config) => MathF.Max(config.RidgeHeight, PolarPlanting.Tallest);
 
         /// <inheritdoc/>
         public override bool TryGetTerrainProbe(out Effect effect, out Func<float, float, float> mirror)
@@ -160,14 +171,5 @@ namespace Prazsky.Core.Render
             mirror = (x, z) => TerrainMirror.Polar(x, z, _polarConfig);
             return true;
         }
-
-        /// <summary><see cref="SceneRenderer.PolarGroundHeight"/>.</summary>
-        public float GroundHeight(float x, float z) => TerrainMirror.Polar(x, z, _polarConfig);
-
-        /// <summary><see cref="SceneRenderer.PolarCrevasse"/>.</summary>
-        public float Crevasse(float x, float z) => TerrainMirror.PolarCrevasse(x, z, _polarConfig);
-
-        /// <summary><see cref="SceneRenderer.PolarRidgeAt"/>.</summary>
-        public float RidgeAt(float x, float z) => TerrainMirror.PolarRidge(x, z, _polarConfig);
     }
 }
