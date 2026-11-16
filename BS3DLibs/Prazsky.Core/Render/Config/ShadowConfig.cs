@@ -11,7 +11,7 @@ namespace Prazsky.Core.Render
     /// <para>
     /// <b><see cref="Strength"/> 0 is the default and it means "no map at all"</b>, not "a map nobody can
     /// see": the renderer allocates no target, draws no casters and hands every receiver a strength of 0,
-    /// which is the uniform their <c>[branch]</c> skips their nine taps on. So a scene opts in by saying so
+    /// which is the uniform their <c>[branch]</c> skips their map reads on. So a scene opts in by saying so
     /// in its own initializer, and a scene that never mentions shadows renders exactly what it rendered
     /// before there was anything to mention — the same argument <see cref="SceneConfig.Weather"/> makes for
     /// <see cref="WeatherPreset.Scattered"/>.
@@ -40,7 +40,7 @@ namespace Prazsky.Core.Render
         public float Extent { get; set; } = 260f;
 
         /// <summary>The map's size in texels a side, at High: 4096 over 260 units is 0.063 units a texel, and the
-        /// nine-tap box's penumbra about a fifth of a unit — a sunlit edge. It was 2048 (0.13 a texel, a third of a
+        /// 3 x 3 box's penumbra about a fifth of a unit — a sunlit edge. It was 2048 (0.13 a texel, a third of a
         /// unit) until #484, whose play-camera captures read that as blocky, and 2048 is still what the Game builds
         /// below High through <c>SceneRenderer.ShadowMapSizeCap</c>. Four bytes a texel: 67 MB here, 16.8 at
         /// 2048, and 268 at the 8192 the Testbed's <c>shadowmap=</c> can ask for — which is why 8192 is a dial and

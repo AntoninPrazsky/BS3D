@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-16 — #1101 stíny slunce čtou mapu čtyřmi gathery — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: `SunShadow` (Shadows.fxh) čte na DirectX blok 4×4 texelů čtyřmi `GatherRed` místo šestnácti `tex2Dlod`; GL (GameAndroid) drží šestnáct čtení pod `#if OPENGL`. Šířka texelu ve světě je uniforma `ShadowTexelWorld` (`SunShadowMap.TexelWorld`), ne `length()` sloupce matice v každém pixelu; `ShadowReceiver.Push` bere celou mapu. Obraz beze změny na deseti pevných pohledech (proti třem během mainu), levnější o ~0,1 ms (les Ultra 3840×1500 10,58 → 10,47 ms). Testy `SunShadowTexelTests` hlídají uniformu i pořadí řádků gatherů.
+- ⚠ Úspora je malá: šestnáct čtení nebylo tím, co stojí přijímač stínu nejvíc.
+- Otevřené: GL cesta neběžela na telefonu; notebook a Pi neměřeny; hardwarové PCF nepostaveno (změnilo by polostín).
+
 ## 2026-11-15 — #1120 #1122 #1099 les: hustší smrky a ořez podle pohledu — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: každý průchod (kamera i slunce) kreslí jen stromy ve svém frustu (`ForestPasses`, `InstanceCells` pro statickou výzdobu a vzdálený porost), průchody kamery řadí od nejbližšího. Na High/Ultra nosí blízkou korunu i stromy do 90 jednotek od ohniska, které skočí ke kameře jen při střihu (> 8 jednotek za snímek). Blízká koruna hustší (91–179 větví). Testbed má číselník `forest=`.

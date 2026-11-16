@@ -536,10 +536,11 @@ namespace Prazsky.Core.Render
         private SunShadowMap _sunShadowMap;
         private bool _shadowsActive;
 
-        //Every receiver's five parameters, cached at load (BestPractices.md §1 — the by-name indexer is a
-        //linear scan) and pushed in one indexed loop. An array of the struct rather than five fields per
-        //effect: with ten terrain shaders reading the map, a named quintet each was the shape that made the
-        //savanna's version look like a savanna feature instead of the infrastructure it is.
+        //Every receiver's nine parameters (six of the map, three of the ceiling glass), cached at load
+        //(BestPractices.md §1 — the by-name indexer is a linear scan) and pushed in one indexed loop. An array
+        //of the struct rather than named fields per effect: with ten terrain shaders reading the map, a named
+        //quintet each (all the map had then) was the shape that made the savanna's version look like a savanna
+        //feature instead of the infrastructure it is.
         private ShadowReceiver[] _shadowReceivers;
 
         //And the scenes this renderer does NOT own (#471): the city and the neon city, whose config, towers
@@ -680,7 +681,7 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// A global multiplier over every scene's <see cref="ShadowConfig.Strength"/>, clamped to 0..1.
         /// <b>0 means exactly what a <c>Strength</c> of 0 means</b> — no target, no caster pass, every
-        /// receiver handed 0 and skipping its nine taps — so the two spellings of "no shadows" are one code
+        /// receiver handed 0 and skipping its map reads — so the two spellings of "no shadows" are one code
         /// path and cannot drift apart.
         /// <para>
         /// <b>It exists to be swept, and the sweep is the point.</b> Until it there was no way to measure or
@@ -1024,7 +1025,7 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Collects every effect of this renderer's that includes <c>Shadows.fxh</c> into the one array
         /// <see cref="DrawShadowMaps"/> pushes to, and starts them all at strength 0 — no map until a frame
-        /// says otherwise, which is what their <c>[branch]</c> skips their nine taps on.
+        /// says otherwise, which is what their <c>[branch]</c> skips their map reads on.
         /// <para>
         /// <b>The list is the feature's inventory</b>: a scene whose terrain shader is missing here draws no
         /// shadow however loudly its config asks for one, and a shader that includes the header but is not
@@ -1067,7 +1068,7 @@ namespace Prazsky.Core.Render
         /// renderer does not own — <see cref="GetSceneConfig"/> answers <c>null</c> for it, its towers are the
         /// host's <see cref="InstancedModelRenderer"/>s and <c>CityStreets.fx</c> is loaded by the host — so
         /// all three parts of a shadow live outside this file. Everything after the registration is the same
-        /// path the other ten take: the same map, the same fit, the same nine taps.
+        /// path the other ten take: the same map, the same fit, the same filter.
         /// </para>
         /// <para>
         /// The casters are still the host's own business, through <c>DrawShadowMaps</c>'s <c>extraCasters</c>,
@@ -1935,7 +1936,7 @@ namespace Prazsky.Core.Render
             //the savanna, the beach, the meadow, the volcano, the Moon's rocks and the rest); in the others the casters are
             //all the host's, so a caller that registers
             //none of them — the MAP EDITOR, which draws no island, no gun and no wood — would render an empty
-            //map and then pay nine taps a pixel to read that everything is lit. The editor is the caller this
+            //map and then pay its reads every pixel to learn that everything is lit. The editor is the caller this
             //spares, and it is the only one: both other executables always hand a callback in.
             bool sceneCasts = sceneryCasts && BackdropFor(scene)?.HasShadowCasters == true;
 
@@ -2013,22 +2014,18 @@ namespace Prazsky.Core.Render
 
             _graphicsDevice.SetRenderTarget(null);
 
-            //Hand the map to every receiver: the matrix, the texel, the strength, and the bias in the map's
-            //own depth units. ⚠ ShadowViewProjection is pushed here AND by the caster pass above (both
+            //Hand the map to every receiver: the target, the matrix and the texel (in UV and in world units) off the
+            //map itself, the strength, and the bias in the map's own depth units. ⚠ ShadowViewProjection is pushed here AND by the caster pass above (both
             //InstancedModelRenderer.DrawDepth and the scatter's own technique set it): the same matrix and
             //the same uniform, and a caster's write is what a caller drawing into a map of its own would
             //leave behind, so this one is the frame's last word on it.
             float bias = SHADOW_BIAS_UNITS / _sunShadowMap.DepthRange;
             for (int i = 0; i < _shadowReceivers.Length; i++)
-            {
-                _shadowReceivers[i].Push(_sunShadowMap.Target, _sunShadowMap.ViewProjection,
-                    _sunShadowMap.Texel, shadows.Strength * _shadowScale, bias);
-            }
+                _shadowReceivers[i].Push(_sunShadowMap, shadows.Strength * _shadowScale, bias);
 
             //The shared instanced effect, which is what makes the island, the gun, the city and the balls
             //receive — one push for all of them (#470).
-            _instancedShadowReceiver.Push(_sunShadowMap.Target, _sunShadowMap.ViewProjection,
-                _sunShadowMap.Texel, shadows.Strength * _shadowScale, bias);
+            _instancedShadowReceiver.Push(_sunShadowMap, shadows.Strength * _shadowScale, bias);
 
             //And the ceiling's glass, if a plate was stated this frame (#553): in w, how much of the sun its uncut
             //glass takes, 0 when there is none - which is what the receivers skip on. The scene's strength is the
