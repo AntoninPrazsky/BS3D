@@ -445,7 +445,8 @@ namespace Prazsky.Core.Render
         /// </summary>
         private void DrawMarsTerrain(in SceneFrame frame)
         {
-            //The ground technique first: the moons pass leaves its own as the current one, and the pass applies the current
+            //The ground technique first: the moons pass, when a moon is in the frame, leaves its own as the current one, and the
+            //pass applies the current
             _marsEffect.CurrentTechnique = DrawsBaked(frame.Camera.Position) ? _marsTerrainBaked : _marsTerrainTechnique;
             _marsPass.DrawsGrid = (Layers & MarsLayer.Ground) != 0;
             _marsPass.DrawsFarRing = (Layers & MarsLayer.FarRing) != 0;
