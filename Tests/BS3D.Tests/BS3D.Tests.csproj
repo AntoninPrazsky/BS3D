@@ -160,6 +160,10 @@
         the three-state setting through its file. Plain values and a JSON file, no device.-->
     <Compile Include="..\..\Game\Online\NicknamePrompt.cs" />
     <Compile Include="..\..\Game\Screens\NicknameEntry.cs" />
+    <!--What a note's draft may hold and how a key or a phone's text dialog edits it (#1141), over a StringBuilder and the
+        note service's length limit (OnlineNotes, plain .NET and HttpClient like the score client below), no device.-->
+    <Compile Include="..\..\Game\Screens\NoteText.cs" />
+    <Compile Include="..\..\Game\Online\OnlineNotes.cs" />
     <Compile Include="..\..\Game\GameSettings.cs" />
     <!--The online client (#709's play counts): the real OnlineScores against a loopback stand-in, its identity, its wire
         types and the build's name it reads. Plain .NET and HttpClient, no device.-->

@@ -108,6 +108,22 @@ namespace BS3D.Screens
         }
 
         /// <summary>
+        /// A phone's text dialog's answer in place of the draft (#1141): the whole text, each character by
+        /// <see cref="Type"/>'s rule, so what a name may hold and how long it may be are as typed, and the page refreshes
+        /// once rather than once a key. Enter, Escape and Backspace inside it are not keys and do nothing; the complaint is
+        /// gone and the caret on, as after any edit.
+        /// </summary>
+        internal void Replace(string text)
+        {
+            Draft = string.Empty;
+            foreach (char character in text ?? string.Empty)
+                if (character is not ('\r' or '\x1b' or '\b')) Type(character);
+
+            Problem = null;
+            ShowCaret();
+        }
+
+        /// <summary>
         /// Whether the draft is a name (<see cref="Nickname.TryNormalize"/>), and the name in its normal form when it
         /// is. When it is not, <see cref="Problem"/> says what is wrong, for the page to show under the field.
         /// </summary>

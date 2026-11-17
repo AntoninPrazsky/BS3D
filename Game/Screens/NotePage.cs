@@ -64,10 +64,6 @@ namespace BS3D.Screens
         private const string CARET = "_";
         private const float CARET_PERIOD = 1.0f;
 
-        /// <summary>The highest code point typed: the end of Latin Extended-A, which both menu faces carry (see <see cref="Nickname"/>).</summary>
-        private const char LAST_DRAWABLE = 'ſ';
-        private const char MISSING_FROM_INTER = 'ŉ';
-
         private State _state;
         private string _where;
         private JsonObject _context;
@@ -301,7 +297,8 @@ namespace BS3D.Screens
             if (_field == null) return;
             ShowField();
 
-            //Chosen into lines on every keystroke, which is when Refresh runs: a few hundred measurements, never per frame.
+            //Chosen into lines on every keystroke and once for a phone's dialog answer (TakeTypedText), which is when Refresh
+            //runs: a few hundred measurements, never per frame.
             //The count is tied to its limit, so a line never ends on "5" and starts on "/ 1000" (seen at 1080p)
             SetProse(_hint, _problem
                 ?? $"Enter sends. Shift+Enter starts a new line. {_draft.Length}{SpaceWrap.TIE}/{SpaceWrap.TIE}{OnlineNotes.MaxTextLength}. A pad cannot type.");
@@ -337,9 +334,12 @@ namespace BS3D.Screens
 
         internal override Widget TypingField => _field;
 
+        //Whether a key or the phone's dialog may edit the draft: past the picture and its grace
+        private bool TakesTyping => _state == State.Writing && Game.WallClock - _shotAt >= INPUT_GRACE_SECONDS;
+
         internal override void OnTextInput(char character)
         {
-            if (_state != State.Writing || Game.WallClock - _shotAt < INPUT_GRACE_SECONDS) return;
+            if (!TakesTyping) return;
 
             switch (character)
             {
@@ -347,25 +347,27 @@ namespace BS3D.Screens
                     Send();
                     return;
 
-                case '\r':
-                case '\n':
-                    if (_draft.Length < OnlineNotes.MaxTextLength) _draft.Append('\n');
-                    break;
-
                 case '\x1b':
                     GoBack();
                     return;
-
-                case '\b':
-                    if (_draft.Length > 0) _draft.Length--;
-                    break;
-
-                default:
-                    if (!IsTypable(character) || _draft.Length >= OnlineNotes.MaxTextLength) return;
-                    _draft.Append(character);
-                    break;
             }
 
+            //A new line, Backspace or a character the faces draw (NoteText); a refused one changes nothing
+            if (!NoteText.Edit(_draft, character, OnlineNotes.MaxTextLength)) return;
+            Edited();
+        }
+
+        internal override void TakeTypedText(string text)
+        {
+            if (!TakesTyping) return;
+
+            NoteText.Replace(_draft, text, OnlineNotes.MaxTextLength);
+            Edited();
+        }
+
+        //The draft changed: the complaint goes, the caret is on again, and the field is laid out afresh
+        private void Edited()
+        {
             _problem = null;
             _laid = null;
             _caretClock = 0f;
@@ -379,9 +381,6 @@ namespace BS3D.Screens
             KeyboardState keyboard = Keyboard.GetState();
             return keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift);
         }
-
-        /// <summary>A letter, digit, space or mark the menu's faces draw: Basic Latin, Latin-1 and Latin Extended-A.</summary>
-        internal static bool IsTypable(char c) => c >= ' ' && c <= LAST_DRAWABLE && c != MISSING_FROM_INTER && !char.IsControl(c);
 
         internal override void TypingButtons(bool keep, bool drop)
         {
