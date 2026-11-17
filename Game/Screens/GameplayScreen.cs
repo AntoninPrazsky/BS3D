@@ -123,9 +123,10 @@ namespace BS3D.Screens
 
         #region Precise aim (ADS)
 
-        //Precise aim, held on the right mouse button (or the gamepad's left trigger): the lens leans in over
-        //the barrel and looks straight down the bore, so the shot goes where a screen-centre crosshair points
-        //and a cell on the far side of the cluster can actually be picked out. Releasing eases back.
+        //Precise aim, on the right mouse button, the gamepad's left trigger or the touch screen's button: the lens
+        //leans in over the barrel and looks straight down the bore, so the shot goes where a screen-centre crosshair
+        //points and a cell on the far side of the cluster can actually be picked out. The next press eases it back
+        //(#1054), or letting go under Settings' Hold.
         //
         //It is the deliberate inverse of the overview's rule that the view does not ride the aim, and that is
         //what makes it worth having: how much of an angle onto the map the overview can give is fixed by
@@ -139,21 +140,25 @@ namespace BS3D.Screens
         //back as a VALUE and touches no camera, which is what lets the drop cinematic go on lerping over the
         //top of it — see UpdateCamera.
         //
-        //What stays here is the held flag and its gates: the window's focus, a running cinematic and a screen
-        //pushed over this one all clear it, and PreciseAim.Step is called on unheld frames too, which is how
-        //the lean eases out rather than dropping.
+        //What stays here is the frame's hold and pull and their gates: the window's focus, a running cinematic
+        //and a screen pushed over this one all clear them, and PreciseAim.Step is called on unheld frames too,
+        //which is how the lean eases out rather than dropping. The toggle and the press that flips it are
+        //LeanInput's, and those gates clear only the hold and its pull: a lean toggled in is kept through them.
         private readonly PreciseAim _preciseAim = new();
         private bool _adsHeld;
 
         /// <summary>
-        /// Lets precise aim go: the hold, its pull and the toggle (#1076). At a level's decision and every frame after it, and
-        /// where the screen is covered or the window loses focus, which clear the same three.
+        /// Lets precise aim go: the hold, its pull and the toggle (#1076), at a level's decision and every frame after it. A
+        /// covered screen, a lost focus and a camera takeover let go of the hold and its pull alone: a lean toggled in is kept
+        /// through them and comes back as it was. The toggle is also let go at a level's start (<see cref="BuildLevel"/>) and once
+        /// a switch of the mode in Settings is seen, at the resume (<see cref="CoveredChanged"/>) or by the frame's read
+        /// (<see cref="LeanInput"/>, #1140).
         /// </summary>
         private void ReleaseLean()
         {
             _adsHeld = false;
             _adsPull = 0f;
-            _preciseAimToggled = false;
+            _lean.Release();
         }
 
         //How far the lean is asked for, 0 to 1 (#520): the left trigger's pull, or 1 for the right button. What the
@@ -1406,8 +1411,10 @@ namespace BS3D.Screens
             //The finger that pressed Resume or Retry is still on the glass, or lifting: adopted, not read (#1051)
             _touchLive = false;
 
-            //And a button or trigger still held from the menu is not a fresh press of the lean's toggle (#1054)
-            _leanButtonWasDown = true;
+            //And a button or trigger still held from the menu is not a fresh press of the lean's toggle (#1054). The toggle itself
+            //is kept: a lean toggled in comes back as it was, unless Settings switched the mode meanwhile, which is seen here and
+            //not left to the next frame's read, since a takeover resumed into reads none (LeanInput, #1140)
+            _lean.SpendPress(Game.PreciseAimToggles);
 
             //A gamepad reports to an unfocused window and to a paused one; both triggers must be released
             //before they mean anything again. One poll on a state change, which is not a per-frame path.
@@ -1527,7 +1534,8 @@ namespace BS3D.Screens
                 _padTriggerReleased = false;
 
                 //And a held precise-aim button must not keep an alt-tabbed window leaned in — the gamepad's
-                //triggers report through XInput whether the window has focus or not.
+                //triggers report through XInput whether the window has focus or not. A lean toggled in is kept, as
+                //through a pause, and comes back with the focus (LeanInput)
                 _adsHeld = false;
                 _adsPull = 0f;
 

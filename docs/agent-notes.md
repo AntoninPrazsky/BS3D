@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1140 přesné míření: přepnutí režimu pustí zamknutý náklon — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: náklon přesného míření čte nová třída `Game/Screens/LeanInput.cs` (bez zařízení, testovatelná). První snímek čtený pod jiným režimem (Toggle ↔ Hold) zruší zamknutý náklon, ať ho zapnulo pravé tlačítko, spoušť nebo dotykové tlačítko; totéž hlídá `SpendPress` při návratu do hry a během převzetí kamery. Dřív zůstal náklon zapnutý po přepnutí na Hold až do konce levelu. Zamknutý náklon dál přežije pauzu, ztrátu fokusu a převzetí kamery (#1054). 13 testů `LeanInputTests` včetně zdrojového testu obrazovky.
+- ⚠ Shrnutí `ReleaseLean` tvrdilo, že pauza a ztráta fokusu toggle ruší; nerušily. Komentář, který lže o tom, co kód pouští, schová past.
+- Otevřené: živý běh Game ani telefon neověřeny; zda má pauza toggle rušit, je otázka pro majitele (změna by chtěla verdict-hands).
+
 ## 2026-11-15 — #1137 outback: hloubka monolitů napřed — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: na High/Ultra (DirectX) se hloubka monolitů kreslí napřed hloubkovým dvojčetem `OutbackRockDepth` (bez ořezu), pak se stínují s `DepthRead`, takže každý viditelný pixel monolitu se stínuje jednou. Balvany zůstávají v jednom průchodu, GL a nižší úrovně beze změny. Obraz stejný (20/20 párů bez rozdílu, programy bajtově shodné). Pin Testbedu 8,13 → 6,02 ms (formace 3,26 → 1,17), Game Ultra menu ~1 ms levnější. Číselník `outback=all/-rockdepth`.

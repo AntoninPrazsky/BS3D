@@ -165,7 +165,7 @@ namespace BS3D.Screens
 
             //A lean toggled on (#1051, #1054) is the last level's: every level opens in the overview. And the cards say the
             //mode Settings has from the level's first frame
-            _preciseAimToggled = false;
+            _lean.Release();
             _tutorial.LeanToggles = Game.PreciseAimToggles;
 
             //And a gun that dozed off over the last level wakes for this one (#230)

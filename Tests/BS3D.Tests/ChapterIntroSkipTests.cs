@@ -212,7 +212,8 @@ namespace BS3D.Tests
         /// <summary>The lines of one file of the gameplay screen, by its name.</summary>
         internal static string[] Source(string fileName) => File.ReadAllLines(ScreenSources().Single(path => Path.GetFileName(path) == fileName));
 
-        private static string[] ScreenSources()
+        /// <summary>The paths of every file of the gameplay screen.</summary>
+        internal static string[] ScreenSources()
         {
             string screens = FindUnderRepository("Game/Screens");
             string[] sources = Directory.GetFiles(screens, "GameplayScreen*.cs", SearchOption.TopDirectoryOnly);
