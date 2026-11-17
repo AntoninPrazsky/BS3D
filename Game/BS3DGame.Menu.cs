@@ -2178,9 +2178,16 @@ namespace BS3D
         /// Puts a page's rebuilt tree up <b>without a screen change</b> (#606 — the Help page turning), keeping the
         /// focus cursor on the entry <paramref name="keepFocusOn"/> names in the NEW tree: a rebuild replaces every
         /// widget, so the entry to keep is only known once the tree has been built again.
+        /// <para>
+        /// Fitted first, as <see cref="ShowPage"/> fits (#1139): what <see cref="FitPage"/> did to the tree it replaces is
+        /// gone with it (About's text out of the scroller it was put in, a must-fit scroller bound again), while the page's
+        /// <see cref="MenuPage.LayoutFit"/> stays. Unfitted, About's next page stood on a phone at the menus' size, taller
+        /// than the screen, with Back under its bottom edge.
+        /// </para>
         /// </summary>
         internal void RebuildPage(MenuPage page, Func<Widget> keepFocusOn)
         {
+            FitPage(page);
             page.Refresh();
             _desktop.Root = page.Root;
             RefreshNavEntries(keepFocusOn());
