@@ -269,9 +269,10 @@ struct MountainVertexOutput
 };
 
 //HIGH AND ULTRA'S ISLAND HOLE (#781), cut in geometry. The other programs clip() the hole per pixel, and a program
-//that may clip loses the depth test before it: measured at the play camera at 3840x1600, ssaa 2, against the
-//authored program in the same process, the fine program cost +3.05 ms with clip() and -4.12 without, about 7 ms
-//for the range shaded under every ridge in front of it.
+//that may clip loses the depth test before it: measured on Belfry at the game-mode camera at 3840x1600, ssaa 2,
+//under a clear sky, against the authored program in the same process, the fine program costs +3.2 ms with clip()
+//and -4.6 without, about 7.8 ms for the range shaded under every ridge in front of it ("High and Ultra's range"
+//in docs/scenes/mountains.md).
 //
 //So every vertex inside IslandHoleRadius goes to ONE point far under the arena. A triangle with all three corners
 //inside collapses to that point and draws nothing; one across the edge becomes a sliver from the ground at the edge
@@ -466,8 +467,7 @@ float Laminae(float bed, float along, float footprint)
 //
 //The bed coordinate (BedHeight's warp, 41 and 15 units), the run (7) and the rock's patches (12) are coarse enough
 //for the fine grid's 1.67-unit cells, so the vertex shader evaluates them (BedField) and the pixel shader reads them
-//interpolated: per pixel, those five three-dimensional noises measured 4.6 ms at 4K while the program still clipped
-//(see InHole).
+//interpolated instead of computing five three-dimensional noises a pixel.
 float BedHeight(float3 p)
 {
     return dot(p, STRATA_UP) + STRATA_WARP * (GradientNoise3(p / STRATA_WARP_SPACING)

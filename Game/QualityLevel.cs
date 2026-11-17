@@ -170,12 +170,13 @@ namespace BS3D
         /// </para>
         /// <para>
         /// <b>⚠ 8× → 4× is NOT free on the machine the rungs exist for (#540)</b>, which is why <c>Medium</c>
-        /// carries 4. Measured on the reference APU (Ryzen 7 5700U + integrated Radeon) in the Testbed, the
-        /// Game's play vantage over 1000 balls, 1600×900, <c>ssaa</c> 1, full scene detail, the three counts
-        /// alternated inside one process and differenced within each cycle: the mountain (ice balls) 8× 22.70 ms
-        /// → 4× −1.38 (cheaper in 97 % of 30 cycles) → 2× −5.03; the neon city (gem balls) 31.88 → −0.65 (93 %)
-        /// → −2.85. The desktop's "free" was a wide part with bandwidth to spare, the benchmark skill's
-        /// "attribution does not travel" once more. What 4 gives up against 8 is edge gradation a pixel wide.
+        /// carries 4. Measured on the reference APU (Ryzen 7 5700U + integrated Radeon) in the Testbed at
+        /// <c>Medium</c>'s other settings, the play camera over <c>Maps/Full.json</c>'s 1000 balls, 1600×900, the
+        /// three counts alternated inside one process in settled windows (#1129) and differenced within each
+        /// cycle, 83 and 84 cycles: the mountain 8× → 4× −0.31 ms (cheaper in 99 % of them) → 2× −4.73; the neon
+        /// city −0.61 → −2.88 ("What the scene and each lever cost" in docs/game-shell/quality-measurements.md).
+        /// The desktop's "free" was a wide part with bandwidth to spare, the benchmark skill's "attribution does
+        /// not travel" once more. What 4 gives up against 8 is edge gradation a pixel wide.
         /// </para>
         /// <para>
         /// <b><c>Low</c> takes 2 rather than 0, and that is a judgement call worth knowing about.</b> This
@@ -195,9 +196,8 @@ namespace BS3D
         /// quarter of the memory (16.8 MB against 67, four bytes a texel) and the same sixteen texels a pixel.
         /// <para>
         /// <b>Measured</b> in the Testbed on the reference desktop, the savanna's play vantage at 1920×1080, ssaa
-        /// 2, alternating in one process: 2048 3.45–3.49 ms, 4096 3.50–3.53, 8192 3.66–3.70 — the receiver's
-        /// reads cost the same whatever the map, so a size costs its rasterisation and its cache and neither
-        /// shows until 8192. <c>Low</c> skips the map through <c>SceneDetail</c> anyway; its figure is stated for
+        /// 2, alternating in one process: 2048 2.91 ms, 4096 +0.04, 8192 +0.18 — the receiver's reads cost the
+        /// same whatever the map, so a size costs its rasterisation and its cache and neither shows much until 8192. <c>Low</c> skips the map through <c>SceneDetail</c> anyway; its figure is stated for
         /// honesty. A cap rather than a size because a tier only takes away (#298): a scene authored small must not
         /// come out larger on a lower rung. See "Sun shadows" in docs/rendering.md.
         /// </para>
@@ -212,9 +212,8 @@ namespace BS3D
         /// <para>
         /// <b>What it costs is memory first</b>: four bytes a texel is <b>268 MB</b> of card memory against
         /// High's 67, which is why only the player can ask for it and the probe never does. The time is small on
-        /// a fast card: +0.22 ms (desert) and +0.30 (savanna) over High at 3840×1600 in the Testbed on the
-        /// reference desktop, paired in one process — see "The map's size, and the tier it follows" in
-        /// docs/rendering.md. The 3 x 3 box stays three texels wide, so the edge gets finer, not softer.
+        /// a fast card: +0.03 ms (desert) and +0.17 (savanna) over High at 3840×1600 in the Testbed on the
+        /// reference desktop, paired in one process — see "The map" in docs/rendering/sun-shadows.md. The 3 x 3 box stays three texels wide, so the edge gets finer, not softer.
         /// </para>
         /// </summary>
         public readonly int ShadowMapScale;
@@ -296,13 +295,19 @@ namespace BS3D
         /// along a cube face's edge with every stalactite where Low and Medium use 104 and leave the short ones out (#958), the Moon's
         /// and the volcano's rocks as fractured blocks and worn boulders with a stone surface where Low and Medium keep twenty flat
         /// facets and the lathes (#777), the outback's near formations on a polar disc of 160 by 80 where Low and Medium lay
-        /// the far ones' 96 by 40 (#967), and the title wordmark's halo round the PNG logo, which Low and Medium leave out (#929, #981). <b>High and Ultra only</b>: the owner asked for the detail there ("on High / Ultra this
+        /// the far ones' 96 by 40 (#967), and the title wordmark's halo round the PNG logo, which Low and Medium leave out (#929, #981).
+        /// The same lever draws more than meshes: the cloud heaps over the deck wherever the sky stands as heaps (#989,
+        /// <c>BS3DGame.CloudVolumesShown</c>), the savanna's fires as volumes (#886), the volcano's authored flank program on its
+        /// full grid where Medium draws <c>VolcanoMedium</c> (#1037), Mars's ground read from its baked maps (#1100) and the
+        /// outback's crust and gibber (#776). <b>High and Ultra only</b>: the owner asked for the detail there ("on High / Ultra this
         /// transition should have more detail"; of the spruces, "they could pass for Low, maybe Medium, but not High or
         /// Ultra"; of the range, "how they look now could be the look of low/medium, but on high/ultra they must have more
         /// detail"), and Medium is the weak machine's rung. What it costs is in "The fork, grown for High and Ultra (#758)" and
         /// "The bush (#883)" in docs/scenes/savanna-trees.md, "Two woods (#889)" and "The shrubs (#890)" in docs/scenes/meadow.md, "The spruces on
         /// High and Ultra" in docs/scenes/aurora.md, "High and Ultra's range" in docs/scenes/mountains.md, "Built off the frame" in docs/scenes/cavern.md,
-        /// "High and Ultra's rocks" in docs/scenes/moon.md and "High and Ultra's wood" in docs/scenes/forest.md.
+        /// "High and Ultra's rocks" in docs/scenes/moon.md and "High and Ultra's wood" in docs/scenes/forest.md; the heaps' in "The clouds
+        /// as volumes on High and Ultra (#989)" in docs/rendering/weather.md, and the lever's as a whole in "What the scene and each lever
+        /// cost" in docs/game-shell/quality-measurements.md.
         /// </summary>
         public readonly bool FineMeshes;
 
@@ -378,13 +383,14 @@ namespace BS3D
             //below High, which is what left nothing between Medium and Low; both are now spent at LOW ALONE,
             //so Medium runs every scene's authored detail and the full stone cap.
             //
-            //What that costs Medium is bounded and was checked before it was done, not after: SurfaceDetail
-            //measures 0.00-0.05 ms on the weak machine at this rung's own resolution and supersampling
-            //(#298's own figure), and SceneDetail reached only the forest and the dream, neither of which is
-            //among the levels that fail to hold Medium there. So the rung that was already over budget on
-            //that hardware did not get dearer where it was hurting.
+            //What that costs Medium is bounded and was checked before it was done, not after (#298):
+            //SurfaceDetail measures 0.16 ms of a 23.4 ms frame on the weak machine at this rung's own resolution
+            //and supersampling ("What the arena costs (#151)" in docs/scenes/island-surface-and-cost.md), and
+            //SceneDetail reached only the forest and the dream, neither of which is among the levels that fail
+            //to hold Medium there. So the rung that was already over budget on that hardware did not get
+            //dearer where it was hurting.
             //
-            //4 samples rather than the pipeline's 8 since #540: on the weak machine the step is 0.65-1.38 ms
+            //4 samples rather than the pipeline's 8 since #540: on the weak machine the step is 0.31-0.61 ms
             //(see MsaaSamples), where the desktop had priced it at nothing and it had been left at 8 for that.
             new(supersampleFactor: 1, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: 4, shadowMapCap: 2048, ceilingRefraction: true, motionBlur: true, clusterWind: false),
 

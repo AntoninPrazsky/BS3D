@@ -740,12 +740,14 @@ namespace BS3D
 
             //And the arena's stone cap, which is the first thing the tier reaches that is NOT a scene — it is
             //in all fifteen of them and under the gun in every frame of every level, and #151 measured it at
-            //88 % of the arena's cost. Reduced, its height field is two relief octaves instead of four (three sines
-            //of seven until #674, which measured 0.336 ms of a 10.971 ms frame on the reference desktop). See
-            //ArenaIsland.SurfaceDetail. Null until BuildScene has run, exactly like the two above.
+            //88 % of the arena's cost on the desktop (44-69 % on the weak machine). Reduced, its height field is
+            //two relief octaves instead of four (three sines of seven until #674, which measured 0.336 ms of a
+            //10.971 ms frame on the reference desktop). See ArenaIsland.SurfaceDetail. Null until BuildScene
+            //has run, exactly like the two above.
             //Low alone since #298, for the reason above. Safe to hand back to Medium, and that was checked
-            //rather than assumed: at Medium's own resolution and supersampling this measures 0.00-0.05 ms on
-            //the weak machine, so returning it costs that rung nothing it can feel.
+            //rather than assumed: at Medium's own resolution and supersampling this measures 0.16 ms of a
+            //23.4 ms frame on the weak machine ("What the arena costs (#151)" in docs/scenes/island-surface-and-cost.md),
+            //so returning it costs that rung nothing it can feel.
             if (_island != null) _island.SurfaceDetail = quality.DropsSceneDetail() ? 0f : 1f;
 
             //The samples the scene target carries below High (#298) — the first entry that reaches every scene
