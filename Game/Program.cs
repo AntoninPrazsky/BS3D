@@ -76,7 +76,8 @@ namespace BS3D
 
             //A player who chose Potato on the Quality row (#808): the same renderer as the argument's, read from the file
             //here because the renderer is chosen before the game object exists, and only here because userdata= has to
-            //have said where the file lives. The line outranks the file, as quality= outranks a stored tier.
+            //have said where the file lives. The line outranks the file, as quality= outranks a stored tier, and a device held
+            //at Potato above outranks both: ChooseAtPotato leaves that hold and its locked rows as they are (#1141)
             if (!options.Potato && !options.Desktop && options.Quality == null
                 && GameSettings.ChoosesPotato(UserData.PathTo(GameSettings.DefaultFileName)) && QualityLock.ChooseAtPotato())
                 BuildStamp.ReportShaderOverlay(PotatoContent.OVERLAY);

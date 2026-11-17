@@ -172,6 +172,9 @@
     <Compile Include="..\..\Game\PlayStatsSession.cs" />
     <Compile Include="..\..\Game\BuildVersion.cs" />
     <Compile Include="..\..\Game\QualityLevel.cs" />
+    <!--#1141: the Windows and Android build's quality lock, static flags over a tier, no device: a stored Potato must not
+        undo a hold a weak phone's GPU made-->
+    <Compile Include="..\..\Game\Platform\QualityLock.cs" />
     <Compile Include="..\..\Game\PhoneTiers.cs" />
     <!--#495: the drums layer's mix, pure arithmetic over 16-bit buffers-->
     <Compile Include="..\..\Game\Audio\DrumLayer.cs" />
