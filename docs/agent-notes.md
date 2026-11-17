@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-17 — #1086 zahřátí solveru změřené na Pi — Pi (BS3DServer), Claude Code
+
+- Hotovo, zavřeno bez změny kódu: ReadyToRun 8e3d0f2f proti main a15d6ab5, skutečný displej, dočasná sonda (Stopwatch mezi `Update`, kroky po uvolnění). Nejdelší snímek uvolnění: Mountain 622–681 → 56–68 ms, Cavern 644 → 81 ms. První krok 292–318 → 17–24 ms. Menu během zahřátí bez záseku.
+- majitel: vizuální běhy na Pi pouštět na jeho monitor, pokud to neovlivní měření.
+- ⚠ `[pace]` ořezává maximum na 500 ms; zásek před změnou byl ~0,65 s, ne 0,3–0,5 s. Delší držení měř Stopwatchem.
+- Otevřené: první snímek spuštění s `play` je na main 1,2–1,6 s (předtím 0,55–0,67 s), nepřiřazeno (zahřátí, nebo #1095); hráč začíná v menu.
+
 ## 2026-11-15 — #1045 čas ve skóre (pravidla v2) — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: pravidla v2 podle volby B. Časový bonus 10 × floor × (1 − t / (2 × par)) za započaté sekundy herních hodin, nevyužité koule za 1 výstřel, hvězdy 2,5/6,5/11, `RulesVersion` 2. Par (`ParRule`, 20–115 s) zapisuje LevelGen do `Levels.json` a je v identitě úrovně. ScoreSim hraje čas (TIME INVERTED, SLOW FOUR STARS, GATE TOO STEEP). Nejlepší skóre nese verzi pravidel, hvězdy zůstávají; brány o 1,5 hvězdy na úroveň. HUD, hod TIME BONUS, řádek výsledku, Help, karta druhé kapitoly. Outbox drží zásahy neznámé tabulky (`MaxHolds` 5).
