@@ -45,21 +45,28 @@ namespace BS3D.Tests
             throw new DirectoryNotFoundException($"No {relative} was found above the test assembly.");
         }
 
-        //The effects whose ground or far ring lays its depth first. Held whole, so a reading that finds no twin in one of
-        //them fails here instead of passing on nothing, and a twin added to another effect is seen to be checked
+        //The effects whose ground or far ring lays its depth first, and the outback, whose monoliths do (#1137). Held whole,
+        //so a reading that finds no twin in one of them fails here instead of passing on nothing, and a twin added to another
+        //effect is seen to be checked
         private static readonly string[] Grounds =
-            { "Desert", "Forest", "Mars", "Meadow", "Moon", "Mountain", "Polar", "Savanna", "Tropical", "Volcano" };
+            { "Desert", "Forest", "Mars", "Meadow", "Moon", "Mountain", "Outback", "Polar", "Savanna", "Tropical", "Volcano" };
 
         //Not a ground's twin: the meadow's patch lays its own depth (#924) with MeadowCarvedDepth, and its program reaches
         //MeadowCuts only under MeadowField's grid flag, which MeadowCarvedPS passes as a literal false. Neither of the two
         //discards (their compiled listings carry none); a reading of calls cannot see a literal
         private static readonly string[] NotGroundTwins = { "MeadowCarvedDepth" };
 
+        //Twins of a mesh whose program cuts nothing, so the laid depth is the one judge of what is drawn: the outback's
+        //monoliths (#1137; the boulders, whose program cuts, are one pass). Every other twin reaching no cut is a reading that
+        //found none, and fails. These must reach none, and so must their ground: a clip() added to OutbackRockPS fails here
+        private static readonly string[] CutFreeTwins = { "OutbackRockDepth" };
+
         [Fact]
         public void EveryDepthTwinCutsWhereItsGroundCutsAndRunsItsVertexProgram()
         {
             var failures = new List<string>();
             var effectsWithTwins = new SortedSet<string>(StringComparer.Ordinal);
+            var cutFreeSeen = new HashSet<string>(StringComparer.Ordinal);
             int twins = 0;
 
             foreach (string path in Directory.GetFiles(Shaders, "*.fx").OrderBy(p => p, StringComparer.Ordinal))
@@ -74,14 +81,18 @@ namespace BS3D.Tests
 
                     twins++;
                     effectsWithTwins.Add(effect);
+                    if (CutFreeTwins.Contains(name)) cutFreeSeen.Add(name);
 
                     if (twin.Vertex != ground.Vertex)
                         failures.Add($"{effect}: {name} runs {twin.Vertex}, its ground {ground.Vertex}: the depths would not be the same bits");
 
                     SortedSet<string> cut = source.CutsReachedFrom(ground.Pixel), laid = source.CutsReachedFrom(twin.Pixel);
                     _output.WriteLine($"{effect}: {name} ({twin.Vertex}, {twin.Pixel}) beside {ground.Pixel}: {string.Join(", ", laid)}");
-                    if (laid.Count == 0)
+                    if (laid.Count == 0 && !CutFreeTwins.Contains(name))
                         failures.Add($"{effect}: {name} ({twin.Pixel}) reaches no cut at all");
+                    if (CutFreeTwins.Contains(name) && (laid.Count > 0 || cut.Count > 0))
+                        failures.Add($"{effect}: {name} is listed as cutting nothing, and it or its ground ({ground.Pixel}) "
+                            + $"cuts: {string.Join(", ", laid.Union(cut))}");
                     if (!cut.SetEquals(laid))
                         failures.Add($"{effect}: {name} and its ground cut in different places. Only the ground ({ground.Pixel}): "
                             + $"{string.Join(", ", cut.Except(laid))}; only the twin ({twin.Pixel}): {string.Join(", ", laid.Except(cut))}");
@@ -90,6 +101,8 @@ namespace BS3D.Tests
 
             Assert.Empty(failures);
             Assert.Equal(Grounds.OrderBy(g => g, StringComparer.Ordinal), effectsWithTwins);
+            foreach (string twin in CutFreeTwins)
+                Assert.True(cutFreeSeen.Contains(twin), $"{twin} is listed as cutting nothing and was not read");
             _output.WriteLine($"{twins} depth twins in {effectsWithTwins.Count} effects");
         }
 
