@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1141 pět drobných vad (pass 18) — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: (1) #1064 uložené Potato už neruší držení slabého zařízení (`QualityLock.ChooseAtPotato` při `_deviceWhy` nic nemění); (2) #1074 obnovovací frekvence se žádá i na Androidu 7–10 přes `DisplayRefresh.PreferMode` (preferovaný režim je API 23, jen `Activity.Display` je 11); (3) #1052 odpověď telefonního dialogu jde do stránky jednou editací (`MenuPage.TakeTypedText`, nový `NoteText`), dřív 0,7–1,4 s v jednom snímku; (4) #1068 doc komentáře zpět na svých členech, `DocCommentPlacementTests` našel šest bloků se dvěma summary; (5) #1077 `VoiceLedgerTests` tvrdí třídu Music. Každý nový test viděn selhat.
+- ⚠ Kompilátor nevaruje na dvě `<summary>` v jednom bloku; hlídá to až test. Zdrojový test volání (#1074) musí číst i volání, nejen členy, které zapisují — jinak šlo vrátit bránu Androidu 11 nepozorovaně.
+- Otevřené: nic neběželo na telefonu (žádný Android 7–10, cena dialogu na telefonu neměřena).
+
 ## 2026-11-15 — #1137 outback: hloubka monolitů napřed — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: na High/Ultra (DirectX) se hloubka monolitů kreslí napřed hloubkovým dvojčetem `OutbackRockDepth` (bez ořezu), pak se stínují s `DepthRead`, takže každý viditelný pixel monolitu se stínuje jednou. Balvany zůstávají v jednom průchodu, GL a nižší úrovně beze změny. Obraz stejný (20/20 párů bez rozdílu, programy bajtově shodné). Pin Testbedu 8,13 → 6,02 ms (formace 3,26 → 1,17), Game Ultra menu ~1 ms levnější. Číselník `outback=all/-rockdepth`.
