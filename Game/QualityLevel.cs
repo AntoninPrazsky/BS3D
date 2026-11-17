@@ -170,12 +170,13 @@ namespace BS3D
         /// </para>
         /// <para>
         /// <b>⚠ 8× → 4× is NOT free on the machine the rungs exist for (#540)</b>, which is why <c>Medium</c>
-        /// carries 4. Measured on the reference APU (Ryzen 7 5700U + integrated Radeon) in the Testbed, the
-        /// Game's play vantage over 1000 balls, 1600×900, <c>ssaa</c> 1, full scene detail, the three counts
-        /// alternated inside one process and differenced within each cycle: the mountain (ice balls) 8× 22.70 ms
-        /// → 4× −1.38 (cheaper in 97 % of 30 cycles) → 2× −5.03; the neon city (gem balls) 31.88 → −0.65 (93 %)
-        /// → −2.85. The desktop's "free" was a wide part with bandwidth to spare, the benchmark skill's
-        /// "attribution does not travel" once more. What 4 gives up against 8 is edge gradation a pixel wide.
+        /// carries 4. Measured on the reference APU (Ryzen 7 5700U + integrated Radeon) in the Testbed at
+        /// <c>Medium</c>'s other settings, the play camera over <c>Maps/Full.json</c>'s 1000 balls, 1600×900, the
+        /// three counts alternated inside one process in settled windows (#1129) and differenced within each
+        /// cycle, 83 and 84 cycles: the mountain 8× → 4× −0.31 ms (cheaper in 99 % of them) → 2× −4.73; the neon
+        /// city −0.61 → −2.88 ("What the scene and each lever cost" in docs/game-shell/quality-measurements.md).
+        /// The desktop's "free" was a wide part with bandwidth to spare, the benchmark skill's "attribution does
+        /// not travel" once more. What 4 gives up against 8 is edge gradation a pixel wide.
         /// </para>
         /// <para>
         /// <b><c>Low</c> takes 2 rather than 0, and that is a judgement call worth knowing about.</b> This
@@ -382,13 +383,14 @@ namespace BS3D
             //below High, which is what left nothing between Medium and Low; both are now spent at LOW ALONE,
             //so Medium runs every scene's authored detail and the full stone cap.
             //
-            //What that costs Medium is bounded and was checked before it was done, not after: SurfaceDetail
-            //measures 0.00-0.05 ms on the weak machine at this rung's own resolution and supersampling
-            //(#298's own figure), and SceneDetail reached only the forest and the dream, neither of which is
-            //among the levels that fail to hold Medium there. So the rung that was already over budget on
-            //that hardware did not get dearer where it was hurting.
+            //What that costs Medium is bounded and was checked before it was done, not after (#298):
+            //SurfaceDetail measures 0.16 ms of a 23.4 ms frame on the weak machine at this rung's own resolution
+            //and supersampling ("What the arena costs (#151)" in docs/scenes/island-surface-and-cost.md), and
+            //SceneDetail reached only the forest and the dream, neither of which is among the levels that fail
+            //to hold Medium there. So the rung that was already over budget on that hardware did not get
+            //dearer where it was hurting.
             //
-            //4 samples rather than the pipeline's 8 since #540: on the weak machine the step is 0.65-1.38 ms
+            //4 samples rather than the pipeline's 8 since #540: on the weak machine the step is 0.31-0.61 ms
             //(see MsaaSamples), where the desktop had priced it at nothing and it had been left at 8 for that.
             new(supersampleFactor: 1, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: 4, shadowMapCap: 2048, ceilingRefraction: true, motionBlur: true, clusterWind: false),
 
