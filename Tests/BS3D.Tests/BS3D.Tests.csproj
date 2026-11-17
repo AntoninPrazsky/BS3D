@@ -211,6 +211,8 @@
     <Compile Include="..\..\Game\Audio\CeilingFeedPour.cs" />
     <!--#846: the award popup's zoom, read and throw as pure functions of its age and points, and the HUD's eases under it-->
     <Compile Include="..\..\Game\Screens\AwardZoom.cs" />
+    <!--The time bonus readout's figure and bar (#1045): what the HUD under the score shows, held to the rule it reads.-->
+    <Compile Include="..\..\Game\Screens\TimeBonusReadout.cs" />
     <Compile Include="..\..\Game\Screens\HudEase.cs" />
     <!--#810: the landing's rumble by the count released, and the pad mixer's own channel (its accumulation under a
         ceiling and its decay), pure arithmetic over floats-->

@@ -71,13 +71,13 @@ namespace BS3D.Tools.ScoreSim
 
         /// <summary>
         /// The seconds the patient and the sloppy runs take (#1045): <see cref="RunBaseSeconds"/> and
-        /// <see cref="RunSecondsAShot"/> for every shot, the par formula's own pace (LevelGen's <c>ParTime</c>), so the
-        /// runs that spend the whole budget are timed like any player who fires that many shots.
+        /// <see cref="RunSecondsAShot"/> for every shot, the par rule's own pace (<see cref="ParRule"/>), so the runs that
+        /// spend the whole budget are timed like any player who fires that many shots.
         /// </summary>
-        private const float RunBaseSeconds = 10f;
+        private const float RunBaseSeconds = ParRule.BASE_SECONDS;
 
         /// <inheritdoc cref="RunBaseSeconds"/>
-        private const float RunSecondsAShot = 2.5f;
+        private const float RunSecondsAShot = ParRule.SECONDS_A_SHOT;
 
         /// <summary>
         /// The least time a clear may claim, as a share of its par (#1045), written into the ceiling table as

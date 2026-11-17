@@ -1507,26 +1507,9 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// What the time bonus readout under the score shows (#1045): the bonus a clear at <paramref name="playSeconds"/> on the
-        /// play clock is paid, which is <see cref="ScoreKeeper.TimeBonusAt"/> itself, so the figure the player watches drain is
-        /// the one the clear throws into the score. −1 when there is nothing to show: a level with no par, or a decided level
-        /// (<paramref name="playSeconds"/> negative), whose bonus has been thrown or was never earned.
-        /// </summary>
-        internal static int TimeBonusShown(ScoreKeeper score, float playSeconds) =>
-            playSeconds < 0f || score.TimeBonusMax <= 0 ? -1 : score.TimeBonusAt(playSeconds);
-
-        /// <summary>
-        /// How full the readout's bar is (#1045), 1 at the start to 0 at <see cref="ScoreKeeper.TimeBonusZeroAtPars"/> pars:
-        /// continuous, so the bar drains smoothly between the figure's once-a-second steps.
-        /// </summary>
-        internal static float TimeBonusShare(ScoreKeeper score, float playSeconds) =>
-            score.ParSeconds is int par && playSeconds >= 0f
-                ? MathHelper.Clamp(1f - playSeconds / (ScoreKeeper.TimeBonusZeroAtPars * par), 0f, 1f)
-                : 0f;
-
-        /// <summary>
-        /// <b>The time bonus, draining under the score</b> (#1045): the figure a clear right now is paid for its time, its words
-        /// under it and a bar under those emptying as the play clock runs, right-aligned to the score's edge like the streak.
+        /// <b>The time bonus, draining under the score</b> (#1045): the figure a clear right now is paid for its time
+        /// (<see cref="TimeBonusReadout"/>), its words under it and a bar under those emptying as the play clock runs,
+        /// right-aligned to the score's edge like the streak.
         /// The figure is the HUD's white while there is a bonus and the caption's grey once it has drained away (past twice
         /// par); it steps down once a second (<see cref="ScoreKeeper.TimeBonusAt"/> counts whole seconds), so its string is
         /// built once a second and never a frame, and the bar between the steps is a scaled texel. It stands still with the play
@@ -1540,7 +1523,7 @@ namespace BS3D.Screens
         /// <returns>Where the next readout down stands: under the bar, or <paramref name="top"/> when nothing was drawn.</returns>
         private float DrawTimeBonus(ScoreKeeper score, Viewport viewport, int margin, float top, ref float left)
         {
-            int bonus = TimeBonusShown(score, _playSeconds);
+            int bonus = TimeBonusReadout.Shown(score, _playSeconds);
             if (bonus < 0) return top;
 
             if (bonus != _timeBonusTextFor)
@@ -1551,19 +1534,19 @@ namespace BS3D.Screens
 
             SpriteFontBase font = _game.HudFontLabel;
             Vector2 figureSize = font.MeasureString(_timeBonusText);
-            Vector2 captionSize = font.MeasureString(TIME_BONUS_LABEL);
+            Vector2 captionSize = font.MeasureString(TimeBonusReadout.LABEL);
             float right = viewport.Width - margin;
             float width = MathF.Max(figureSize.X, captionSize.X);
 
             DrawString(font, _timeBonusText, new Vector2(right - figureSize.X, top), bonus > 0 ? BS3DGame.MENU_TEXT : HUD_CAPTION);
 
             float captionTop = top + figureSize.Y + Scaled(HUD_TIME_CAPTION_GAP);
-            DrawString(font, TIME_BONUS_LABEL, new Vector2(right - captionSize.X, captionTop), HUD_CAPTION);
+            DrawString(font, TimeBonusReadout.LABEL, new Vector2(right - captionSize.X, captionTop), HUD_CAPTION);
 
             //The bar: a dark track the readout's width, and the white fill shrinking towards the right edge as the bonus drains
             int thickness = Math.Max(2, Scaled(HUD_TIME_BAR_THICKNESS));
             float barTop = captionTop + captionSize.Y + Scaled(HUD_TIME_BAR_GAP);
-            float fill = width * TimeBonusShare(score, _playSeconds);
+            float fill = width * TimeBonusReadout.Share(score, _playSeconds);
             int lift = Math.Max(1, Scaled(HUD_SHADOW_OFFSET) / 2);
 
             SpriteBatch batch = _game.OverlayBatch;
@@ -1578,10 +1561,6 @@ namespace BS3D.Screens
             left = MathF.Min(left, right - width);
             return barTop + thickness + Scaled(HUD_LINE_GAP);
         }
-
-        /// <summary>The time bonus readout's words (#1045), lower case as the balls left's are; the award at the clear says them in
-        /// capitals (<see cref="AwardZoom.TIME_BONUS_CAPTION"/>).</summary>
-        internal const string TIME_BONUS_LABEL = "time bonus";
 
         //The time bonus readout's layout (#1045), in design units: the caption's gap under the figure, the bar's under the caption
         //and its thickness

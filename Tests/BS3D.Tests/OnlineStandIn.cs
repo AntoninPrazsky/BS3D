@@ -35,6 +35,10 @@ namespace BS3D.Tests
 
         internal ConcurrentQueue<(int Status, string Body)> StatsAnswers { get; } = new();
         internal ConcurrentQueue<(int Status, string Body)> ScoreAnswers { get; } = new();
+
+        //A clear's answer by what it says, asked before ScoreAnswers: null to answer from the queue. A service that refuses one
+        //board and takes another (#1045, OnlineHoldTests)
+        internal Func<string, (int Status, string Body)?> ScoreAnswerFor { get; set; }
         internal ConcurrentQueue<(int Status, string Body)> BenchmarkAnswers { get; } = new();
 
         //How long a clear's answer is held back: a far or a busy service, which a slow CI runner is too
@@ -98,6 +102,7 @@ namespace BS3D.Tests
                         (int status, string answer) = request.Path switch
                         {
                             "/v1/stats" => StatsAnswers.TryDequeue(out var s) ? s : (201, "{\"accepted\":true,\"counted\":1,\"ignored\":0,\"duplicate\":false}"),
+                            "/v1/scores" when ScoreAnswerFor?.Invoke(request.Body) is { } chosen => chosen,
                             "/v1/scores" => ScoreAnswers.TryDequeue(out var c) ? c
                                 : (201, "{\"accepted\":true,\"personalBest\":true,\"month\":{\"rank\":1,\"total\":1},\"allTime\":{\"rank\":1,\"total\":1}}"),
                             "/v1/benchmarks" => BenchmarkAnswers.TryDequeue(out var b) ? b

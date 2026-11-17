@@ -225,7 +225,7 @@ namespace BS3D.Screens
 
         /// <summary>
         /// What the time bonus says over its figure at the clear (#1045), in the capitals the unused balls' caption is set in.
-        /// The readout under the score that drained to it during the level says the same words (<c>PlayHud.TIME_BONUS_LABEL</c>),
+        /// The readout under the score that drained to it during the level says the same words (<c>TimeBonusReadout.LABEL</c>),
         /// so the figure flying in is the one that was watched.
         /// </summary>
         public const string TIME_BONUS_CAPTION = "TIME BONUS";

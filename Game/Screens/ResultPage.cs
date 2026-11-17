@@ -685,9 +685,9 @@ namespace BS3D.Screens
         /// <summary>
         /// The breakdown's captions in row order (#1045 added the time bonus's): what each row of <see cref="BuildBreakdown"/> is
         /// called, and what the caption column is measured over. "time bonus" is the readout's own words under the score in play
-        /// (<c>PlayHud.TIME_BONUS_LABEL</c>), so the figure the player watched drain is found here beside the same noun.
+        /// (<c>TimeBonusReadout.LABEL</c>), so the figure the player watched drain is found here beside the same noun.
         /// </summary>
-        private static readonly string[] BREAKDOWN_CAPTIONS = { "matched", "detached", "streak bonus", "balls unused", PlayHud.TIME_BONUS_LABEL };
+        private static readonly string[] BREAKDOWN_CAPTIONS = { "matched", "detached", "streak bonus", "balls unused", TimeBonusReadout.LABEL };
 
         /// <summary>When row <paramref name="row"/> (0-based, in <see cref="BuildBreakdown"/>'s own order) lands.</summary>
         private float BreakdownRowRevealTime(int row) =>

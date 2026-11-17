@@ -1,0 +1,34 @@
+using Prazsky.BS3D.Scoring;
+using System;
+
+namespace BS3D.Screens
+{
+    /// <summary>
+    /// <b>What the time bonus readout under the score shows</b> (#1045), apart from how it is drawn (<c>PlayHud.DrawTimeBonus</c>)
+    /// so a test can hold it: the figure is <see cref="ScoreKeeper.TimeBonusAt"/> itself, so what the player watches drain is
+    /// what the clear throws into the score, and the bar between the figure's once-a-second steps drains smoothly.
+    /// </summary>
+    internal static class TimeBonusReadout
+    {
+        /// <summary>The readout's words, lower case as the balls left's are; the award at the clear says them in capitals
+        /// (<see cref="AwardZoom.TIME_BONUS_CAPTION"/>), and the result page's row is called by them.</summary>
+        internal const string LABEL = "time bonus";
+
+        /// <summary>
+        /// The figure shown at <paramref name="playSeconds"/> on the play clock: the bonus a clear now is paid. −1 when there is
+        /// nothing to show: a level with no par, or a decided level (<paramref name="playSeconds"/> negative), whose bonus has
+        /// been thrown or was never earned.
+        /// </summary>
+        internal static int Shown(ScoreKeeper score, float playSeconds) =>
+            playSeconds < 0f || score.TimeBonusMax <= 0 ? -1 : score.TimeBonusAt(playSeconds);
+
+        /// <summary>
+        /// How full the bar is, 1 at the start to 0 at <see cref="ScoreKeeper.TimeBonusZeroAtPars"/> pars: continuous, so it
+        /// drains smoothly between the figure's steps. 0 on a level with no par.
+        /// </summary>
+        internal static float Share(ScoreKeeper score, float playSeconds) =>
+            score.ParSeconds is int par && playSeconds >= 0f
+                ? Math.Clamp(1f - playSeconds / (ScoreKeeper.TimeBonusZeroAtPars * par), 0f, 1f)
+                : 0f;
+    }
+}

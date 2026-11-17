@@ -1,4 +1,5 @@
 using Prazsky.BS3D.Levels;
+using Prazsky.BS3D.Scoring;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -10,8 +11,8 @@ namespace BS3D.Tools.LevelGen
     /// entry's <c>par</c>: the seconds of play the time bonus is measured against (<c>ScoreKeeper.TimeBonusAt</c>: whole at
     /// the start, half at par, gone at twice par).
     /// <para>
-    /// <b>Par = <see cref="BASE_SECONDS"/> + <see cref="SECONDS_A_SHOT"/> × the shots LevelGen's casual player takes to
-    /// clear the level, rounded up to <see cref="ROUND_TO_SECONDS"/>.</b> The casual player (<see cref="ClearProbe.DropPlayer.Casual"/>,
+    /// <b>Par = <see cref="ParRule.FromShots"/> of the shots LevelGen's casual player takes to clear the level</b>: 10 s and
+    /// 2.5 s a shot, rounded up to 5 s, the rule in the library so a test can hold it. The casual player (<see cref="ClearProbe.DropPlayer.Casual"/>,
     /// any landing that completes a group, chosen at random) is the one the owner's own clears followed: over his 23 levels
     /// where every attempt was a clear, his shots a clear against this player's had R² 0.81 at a ratio of 1.1, and his time
     /// came to about 10 s and 2 s a shot. The extra half second a shot is a margin for players slower than the author. So
@@ -33,15 +34,6 @@ namespace BS3D.Tools.LevelGen
     /// </summary>
     internal static class ParTime
     {
-        /// <summary>The seconds a level takes before its first shot is counted: reading the cluster, turning the gun.</summary>
-        internal const float BASE_SECONDS = 10f;
-
-        /// <summary>The seconds a shot of the casual player's costs: aim, fire, watch it land.</summary>
-        internal const float SECONDS_A_SHOT = 2.5f;
-
-        /// <summary>A par is a round figure, rounded up so the formula never asks for less than it states.</summary>
-        internal const int ROUND_TO_SECONDS = 5;
-
         /// <summary>
         /// Plays of the casual player a level, whose mean shots the par is made of. Four times <see cref="DropProbe"/>'s six:
         /// the mean of six is noisy, and seeding the six by file name instead of by place moved 65 of the 140 pars by 5 s or
@@ -56,7 +48,7 @@ namespace BS3D.Tools.LevelGen
         /// <summary>
         /// Measured par times by level file (#1045): the median clear, in seconds of the play clock, of a level with five or
         /// more clears from v0.6.0 or newer. Empty: no such export exists yet (see the class doc), and nothing is invented.
-        /// A value here replaces the formula for its level, rounded up to <see cref="ROUND_TO_SECONDS"/>.
+        /// A value here replaces the formula for its level, rounded up as the rule's are (<see cref="ParRule.RoundUp"/>).
         /// </summary>
         private static readonly Dictionary<string, float> FromPlay = new(StringComparer.OrdinalIgnoreCase);
 
@@ -71,7 +63,7 @@ namespace BS3D.Tools.LevelGen
             if (FromPlay.TryGetValue(file, out float measured))
             {
                 source = $"measured {measured:0.#} s";
-                return RoundUp(measured);
+                return ParRule.RoundUp(measured);
             }
 
             Level level = Level.Load(levelPath);
@@ -85,12 +77,8 @@ namespace BS3D.Tools.LevelGen
 
             int whole = (int)Math.Round(shots, MidpointRounding.AwayFromZero);
             source = $"casual {whole} shots";
-            return RoundUp(BASE_SECONDS + SECONDS_A_SHOT * whole);
+            return ParRule.FromShots(whole);
         }
-
-        /// <summary>The par of <paramref name="seconds"/>: rounded up to <see cref="ROUND_TO_SECONDS"/>.</summary>
-        internal static int RoundUp(float seconds) =>
-            ROUND_TO_SECONDS * (int)Math.Ceiling(seconds / ROUND_TO_SECONDS - 1e-6f);
 
         /// <summary>The casual player's mean shots to clear over <see cref="DEALS"/> plays, and how many of them cleared.</summary>
         private static double CasualShots(Level level, string file, out int cleared)
