@@ -558,6 +558,8 @@ namespace BS3D.Screens
         /// finger drags, as tall as the rest of the page leaves it, so the heading, the switches and Back stay the size the
         /// main menu's entries are rather than the whole page being drawn smaller (the owner: "as consistent as possible").
         /// Done by <c>BS3DGame.FitPage</c> (<see cref="ScrollTallPart"/>), which measures the page with this visit's content.
+        /// A rebuilt tree names its part again unscrolled, so a page rebuilt where it stands (About's turn) is fitted again
+        /// by <c>BS3DGame.RebuildPage</c> (#1139).
         /// </summary>
         protected void ScrollsWhenTall(Container parent, Widget part)
         {

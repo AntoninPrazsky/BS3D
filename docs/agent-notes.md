@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1139 About: otočená stránka na telefonu se znovu vejde — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: `RebuildPage` volá `FitPage` jako `ShowPage`, takže stránka přestavěná na místě (otočení About, výběr úrovní při jiné šířce, Top Players, poznámka, benchmark) dostane svůj fit znovu; text zůstane ve scrolleru a Zpět na obrazovce. `FitPage` nově volá `page.Refresh()` před čtením stromu (výběr úrovní měřil starý strom). Na monitoru beze změny. Test `PageFitSourceTests` čte zdroj: každé `_desktop.Root =` má před sebou `FitPage` ve svém těle; viděn selhat na starém kódu.
+- ⚠ Přestavěný `MenuPage.Root` zahodí scroller, který přidal fit; bez nového fitu se stránka kreslí ve velikosti menu a Zpět zmizí pod okrajem.
+- Otevřené: neověřeno na telefonu (vivo nepřipojeno), jen rozvržení inches=2.8 na desktopu; dotyk šipky a tah scrolleru po otočení neviděny.
+
 ## 2026-11-15 — #1140 přesné míření: přepnutí režimu pustí zamknutý náklon — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: náklon přesného míření čte nová třída `Game/Screens/LeanInput.cs` (bez zařízení, testovatelná). První snímek čtený pod jiným režimem (Toggle ↔ Hold) zruší zamknutý náklon, ať ho zapnulo pravé tlačítko, spoušť nebo dotykové tlačítko; totéž hlídá `SpendPress` při návratu do hry a během převzetí kamery. Dřív zůstal náklon zapnutý po přepnutí na Hold až do konce levelu. Zamknutý náklon dál přežije pauzu, ztrátu fokusu a převzetí kamery (#1054). 13 testů `LeanInputTests` včetně zdrojového testu obrazovky.
