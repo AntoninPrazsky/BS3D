@@ -1164,7 +1164,8 @@ namespace BS3D.Screens
         /// as the session reads it): a streak is running, the round in the bore has nowhere to score and the Swap would load
         /// one that has.</param>
         /// <param name="playSeconds">The level's play clock (#1045, <c>LevelRun.Seconds</c>), which the time bonus under the score
-        /// is read off; negative once the level is decided, which takes the readout away (the bonus has been thrown, or lost).</param>
+        /// is read off (<see cref="TimeBonusReadout.Clock"/>: frozen at the clear through the cleared beat); negative once a level
+        /// is lost, which takes the readout away.</param>
         internal void Update(float elapsed, ScoreKeeper score, bool swapHint = false, float playSeconds = -1f)
         {
             _clock += elapsed;
@@ -1513,9 +1514,10 @@ namespace BS3D.Screens
         /// The figure is the HUD's white while there is a bonus and the caption's grey once it has drained away (past twice
         /// par); it steps down once a second (<see cref="ScoreKeeper.TimeBonusAt"/> counts whole seconds), so its string is
         /// built once a second and never a frame, and the bar between the steps is a scaled texel. It stands still with the play
-        /// clock under every camera takeover and in the pause, which is the rule shown. Nothing on a level with no par, and it
-        /// goes the moment a level is decided: on a clear its figure is thrown over the aim point as <c>TIME BONUS</c>
-        /// (<see cref="AddTimeBonus"/>).
+        /// clock under every camera takeover and in the pause, which is the rule shown. Nothing on a level with no par. On a
+        /// clear it stands at the figure the clear was paid, thrown over the aim point as <c>TIME BONUS</c> (<see cref="AddTimeBonus"/>),
+        /// and fades with the other playing readouts through the cleared beat; on a loss it goes at once
+        /// (<see cref="TimeBonusReadout.Clock"/>).
         /// </summary>
         /// <param name="top">Where the readout's top stands.</param>
         /// <param name="left">The corner's left edge so far, moved left when the readout is wider: what the tutorial card may

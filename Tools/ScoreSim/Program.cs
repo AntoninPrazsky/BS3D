@@ -289,8 +289,8 @@ namespace BS3D.Tools.ScoreSim
             foreach (double multiple in fast)
                 if (multiple <= patient)
                 {
-                    Console.WriteLine($"    INVERTED: an efficient clear rates {multiple:F2}, " +
-                        $"no better than spending the whole budget at {patient:F2}");
+                    Console.WriteLine(FormattableString.Invariant($"    INVERTED: an efficient clear rates {multiple:F2}, ")
+                        + FormattableString.Invariant($"no better than spending the whole budget at {patient:F2}"));
                     ok = false;
                 }
 
@@ -312,7 +312,7 @@ namespace BS3D.Tools.ScoreSim
 
             if (best < StarRating.MAX)
             {
-                Console.WriteLine($"    UNREACHABLE: the best clean clear at {FastPars} par earns {best} of {StarRating.MAX} stars");
+                Console.WriteLine(FormattableString.Invariant($"    UNREACHABLE: the best clean clear at {FastPars} par earns {best} of {StarRating.MAX} stars"));
                 ok = false;
             }
 
@@ -327,7 +327,7 @@ namespace BS3D.Tools.ScoreSim
             //...nor a slow one (#1045): four stars need a fast clear, so a clean clear at twice par earns three at most
             if (slowStars >= StarRating.MAX)
             {
-                Console.WriteLine($"    SLOW FOUR STARS: a clean clear at {SlowPars} par still earns {slowStars} stars");
+                Console.WriteLine(FormattableString.Invariant($"    SLOW FOUR STARS: a clean clear at {SlowPars} par still earns {slowStars} stars"));
                 ok = false;
             }
 

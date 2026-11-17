@@ -76,10 +76,11 @@ namespace BS3D.Online
     }
 
     /// <summary>
-    /// <c>Outbox.json</c>: the submissions not yet delivered, oldest first, and since #709 the play counts' two batches.
-    /// The two are additive and absent while empty, so an outbox with no counts reads as it always did; an older build
-    /// reads past them and drops them at its next write, which costs counts and never a clear (still version 1 for that
-    /// reason: a version 2 would make an older build keep the whole file aside, clears and all).
+    /// <c>Outbox.json</c>: the submissions not yet delivered, oldest first, since #709 the play counts' two batches and since
+    /// #1045 how often each held clear has been held. These are additive and absent while empty, so an outbox with none of them
+    /// reads as it always did; an older build reads past them and drops them at its next write, which costs counts and holds
+    /// and never a clear (still version 1 for that reason: a version 2 would make an older build keep the whole file aside,
+    /// clears and all).
     /// </summary>
     internal sealed class OutboxFile
     {
@@ -102,6 +103,15 @@ namespace BS3D.Online
         /// <summary>The batch the counts are merged into until it is frozen; it has no id yet.</summary>
         [JsonPropertyName("statsOpen")]
         public StatsBatchBody StatsOpen { get; set; }
+
+        /// <summary>
+        /// The clears the service has held for a board it did not know yet (#1045, <c>OnlineScores.IsHeldForBoard</c>), by
+        /// <see cref="ScoreSubmission.SubmissionId"/>: how many starts of the game it has been held, which is what puts it behind
+        /// every clear not held and drops it at <c>OnlineScores.MaxHolds</c>. Apart from <see cref="Submissions"/>, which are the
+        /// very requests sent. Absent while none is held.
+        /// </summary>
+        [JsonPropertyName("held")]
+        public Dictionary<Guid, int> Held { get; set; }
     }
 
     /// <summary>
@@ -227,7 +237,8 @@ namespace BS3D.Online
 
         /// <summary>
         /// The service does not know this board yet (#1045, <c>OnlineScores.IsHeldForBoard</c>): a release with new scoring rules
-        /// arrived before the service loaded their ceilings. It waits in the outbox and goes once the service knows the board.
+        /// arrived before the service loaded their ceilings. It waits in the outbox and is tried again at the next start of the
+        /// game, at most <c>OnlineScores.MaxHolds</c> starts.
         /// </summary>
         Held,
     }

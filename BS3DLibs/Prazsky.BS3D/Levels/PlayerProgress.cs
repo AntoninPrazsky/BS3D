@@ -64,7 +64,8 @@ namespace Prazsky.BS3D.Levels
         /// Each played level's bests, keyed by the set entry's <see cref="LevelSetEntry.File"/> — the one
         /// identifier that survives a display name being retuned. An entry a set no longer lists goes unread by
         /// the picker and the chapters, so regenerating the set never invalidates the save — but
-        /// <see cref="TotalStars"/> and <see cref="TotalScore"/> still sum it, deliberately: #649 retired three
+        /// <see cref="TotalStars"/> and <see cref="TotalScore"/> (when its best is of this build's rules) still sum it,
+        /// deliberately: #649 retired three
         /// levels players had cleared, and the stars earned on them stay the player's rather than closing a road
         /// they had already opened.
         /// </summary>
@@ -266,8 +267,9 @@ namespace Prazsky.BS3D.Levels
         }
 
         /// <summary>
-        /// The career score: the best scores summed over every level cleared. Best-per-level rather than
-        /// every play summed — see the class doc for why.
+        /// The career score: the best scores summed over every level cleared under this build's scoring rules
+        /// (<see cref="ScoreKeeper.RulesVersion"/>, #1045). Best-per-level rather than every play summed — see the class doc
+        /// for why — and never a best of older rules, which is not a figure a score of these rules can be added to.
         /// </summary>
         [JsonIgnore]
         public int TotalScore
@@ -275,7 +277,8 @@ namespace Prazsky.BS3D.Levels
             get
             {
                 int total = 0;
-                foreach (LevelBest best in Levels.Values) total += best.Score;
+                foreach (LevelBest best in Levels.Values)
+                    if (best.RulesOrFirst == ScoreKeeper.RulesVersion) total += best.Score;
 
                 return total;
             }

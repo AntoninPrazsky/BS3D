@@ -270,6 +270,53 @@ namespace BS3D.Tests
             Assert.Contains("\"rules\": " + ScoreKeeper.RulesVersion, File.ReadAllText(path));
         }
 
+        /// <summary>
+        /// The readout's clock through a level's phases: the play clock while it is played, frozen at the clear through the
+        /// cleared beat (so the readout stands at the figure the clear was paid and fades with the play readouts, and the streak
+        /// under it does not jump up), and none on a loss or under the page.
+        /// </summary>
+        [Fact]
+        public void The_readout_stands_at_the_clears_figure_through_the_beat_and_goes_on_a_loss()
+        {
+            Assert.Equal(12.5f, TimeBonusReadout.Clock(LevelPhase.Playing, 12.5f, 0f));
+            Assert.Equal(9.2f, TimeBonusReadout.Clock(LevelPhase.ClearedBeat, 12.5f, 9.2f));
+            Assert.Equal(-1f, TimeBonusReadout.Clock(LevelPhase.LossHold, 12.5f, 9.2f));
+            Assert.Equal(-1f, TimeBonusReadout.Clock(LevelPhase.Over, 12.5f, 9.2f));
+
+            ScoreKeeper level = Level();
+            Assert.Equal(level.TimeBonusAt(9.2f), TimeBonusReadout.Shown(level, TimeBonusReadout.Clock(LevelPhase.ClearedBeat, 12.5f, 9.2f)));
+        }
+
+        /// <summary>
+        /// A level cleared only under rules v1 (#1045): its tile on the picker keeps its stars and shows no score, not a "0", and
+        /// the career total leaves its v1 best out. The first v2 clear puts its score on the tile and into the total.
+        /// </summary>
+        [Fact]
+        public void A_level_cleared_only_under_older_rules_shows_its_stars_and_no_score()
+        {
+            using TempDirectory temp = new();
+            string path = temp.File(PlayerProgress.DefaultFileName);
+            File.WriteAllText(path, "{\"format\":\"bs3d-progress\",\"version\":1,\"levels\":{"
+                + "\"Pennant.json\":{\"score\":4820,\"stars\":4},\"Rainbow.json\":{\"score\":3100,\"stars\":3}}}");
+            PlayerProgress progress = PlayerProgress.Load(path);
+
+            foreach (string file in new[] { "Pennant.json", "Rainbow.json" })
+            {
+                bool rated = progress.StarsFor(file) > 0;
+                Assert.True(rated, "the stars are kept");
+                Assert.Equal(string.Empty, PickerCopy.TileScore(rated, progress.ScoreFor(file)));
+            }
+            Assert.Equal(0, progress.TotalScore);
+
+            progress.Record("Pennant.json", 2554, 3);
+            Assert.Equal(ScoreText.Of(2554), PickerCopy.TileScore(progress.StarsFor("Pennant.json") > 0, progress.ScoreFor("Pennant.json")));
+            Assert.Equal(4, progress.StarsFor("Pennant.json"));
+            Assert.Equal(2554, progress.TotalScore);
+
+            //And no rating, no score, whatever the figure
+            Assert.Equal(string.Empty, PickerCopy.TileScore(false, 2554));
+        }
+
         [Fact]
         public void The_readout_and_the_award_and_the_result_row_say_the_same_words()
         {

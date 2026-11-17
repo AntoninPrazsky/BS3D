@@ -29,7 +29,8 @@ namespace BS3D.Tools.LevelGen
     /// more clears since v0.6.0 (the first release whose play clock stops under the drop camera) takes the median of those
     /// clears instead. The repository holds none of that data (the score service's funnel does, per level, with no version
     /// filter yet), so the table is empty and every par is the formula's. Fill it from an export of clears whose
-    /// <c>gameVersion</c> is v0.6.0 or newer, five or more a level, and regenerate: those levels' boards start again.
+    /// <c>gameVersion</c> is v0.6.0 or newer, five or more a level, and regenerate: those levels' boards start again. That
+    /// export and the filling are #1143.
     /// </para>
     /// </summary>
     internal static class ParTime
@@ -47,7 +48,7 @@ namespace BS3D.Tools.LevelGen
 
         /// <summary>
         /// Measured par times by level file (#1045): the median clear, in seconds of the play clock, of a level with five or
-        /// more clears from v0.6.0 or newer. Empty: no such export exists yet (see the class doc), and nothing is invented.
+        /// more clears from v0.6.0 or newer. Empty: no such export exists yet (see the class doc, #1143), and nothing is invented.
         /// A value here replaces the formula for its level, rounded up as the rule's are (<see cref="ParRule.RoundUp"/>).
         /// </summary>
         private static readonly Dictionary<string, float> FromPlay = new(StringComparer.OrdinalIgnoreCase);

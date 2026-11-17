@@ -1200,8 +1200,9 @@ namespace BS3D.Screens
                 //writes it. Only where there is a rating - a lock has none to show and must not hint at one
                 //(#266), a skip earned none, and an open level not yet cleared has nothing to report. The online
                 //board's top score is not here: the High Scores page (#685) shows every board's #1, from one summary
-                //request (GET /v1/boards); a tile here is the player's own record, offline and always there.
-                _tileScores[slot].Text = rated ? ScoreText.Of(Game.LevelBestScore(level)) : string.Empty;
+                //request (GET /v1/boards); a tile here is the player's own record, offline and always there. A level
+                //cleared only under older scoring rules (#1045) keeps its stars and shows no score (PickerCopy.TileScore).
+                _tileScores[slot].Text = PickerCopy.TileScore(rated, rated ? Game.LevelBestScore(level) : 0);
             }
         }
 

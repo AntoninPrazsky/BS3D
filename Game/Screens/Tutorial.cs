@@ -23,7 +23,7 @@ namespace BS3D.Screens
     /// lost, the card timed out, the event never happened — follows them into the next level, and past its
     /// chapter into the next one (#666), until that chapter's send-off has been read; only then is what it still
     /// owed let go. <b>The score is the second chapter's
-    /// (#666)</b>: the streak and the spare shots' bonus wait for it, so the first chapter is played before it
+    /// (#666)</b>: the streak and the time bonus (#1045) wait for it, so the first chapter is played before it
     /// is explained (<see cref="Definition.Chapter"/>), and past the second chapter the ladder offers nothing —
     /// the first two chapters <i>are</i> the tutorial, which is what the owner asked for. What reaches past them are the
     /// chapterless cards, of a kind (#735) or a tool (#705) met for the first time, the first ball left stuck as dead

@@ -16,17 +16,22 @@ namespace BS3D.Tests
     /// A clear the score service refuses because it does not know the board yet (#1045): a release with new scoring rules
     /// arrives before the service has loaded their ceilings, and every clear it sends until then is refused as
     /// <c>unknown-board</c>. The real <see cref="OnlineScores"/> against the loopback stand-in: such a clear of this build's
-    /// rules is held in the outbox and goes once the service knows the board, a clear on a known board is not stuck behind it,
-    /// and a clear of older rules on an unknown board is dropped as it always was. Alone, with the other online tests
-    /// (<see cref="OnlineStatsCollection"/>).
+    /// rules is held in the outbox and tried once a start of the game, after every clear never held, so it neither blocks nor
+    /// spends the per-minute allowance a fresh clear needs; it goes once the service knows the board, is dropped after
+    /// <see cref="OnlineScores.MaxHolds"/> starts, and is the first to go from a full outbox. A clear of older rules on an
+    /// unknown board is dropped as it always was. Alone, with the other online tests (<see cref="OnlineStatsCollection"/>).
     /// </summary>
     [Collection(OnlineStatsCollection.Name)]
     public sealed class OnlineHoldTests : IDisposable
     {
         private const string UNKNOWN_BOARD = "{\"reason\":\"unknown-board\"}";
+        private const string HASH = "0123456789abcdef";
 
         private readonly TempDirectory _temp = new();
         private readonly StandIn _server = new();
+
+        //One player across every start of a test, as the game keeps one across its starts
+        private readonly OnlineIdentity _identity = OnlineIdentity.Create("Tester");
         private string Outbox => _temp.File(OnlineScores.OutboxFileName);
 
         public void Dispose()
@@ -36,16 +41,18 @@ namespace BS3D.Tests
         }
 
         private OnlineScores Client() =>
-            OnlineScores.Start(new GameSettings { Online = true, Server = _server.Url }, OnlineIdentity.Create("Tester"), Outbox);
+            OnlineScores.Start(new GameSettings { Online = true, Server = _server.Url }, _identity, Outbox);
 
         private static ScoreSubmission Clear(OnlineScores client, string file, int rules = ScoreKeeper.RulesVersion)
         {
-            ScoreSubmission submission = client.NewSubmission(new LevelIdentity(file, "0123456789abcdef"), 900, 3, 4, 12.5f);
+            ScoreSubmission submission = client.NewSubmission(new LevelIdentity(file, HASH), 900, 3, 4, 12.5f);
             submission.RulesVersion = rules;
             return submission;
         }
 
         private List<StandIn.Request> Scores => _server.Requests.Where(r => r.Path == "/v1/scores").ToList();
+
+        private int Sent(string file) => Scores.Count(r => FileOf(r) == file);
 
         private static string FileOf(StandIn.Request request)
         {
@@ -53,19 +60,31 @@ namespace BS3D.Tests
             return body.RootElement.GetProperty("level").GetProperty("file").GetString();
         }
 
-        private List<string> Queued()
+        private OutboxFile ReadOutbox()
         {
             try
             {
                 if (!File.Exists(Outbox)) return null;
 
                 using FileStream stream = new(Outbox, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-                return JsonSerializer.Deserialize<OutboxFile>(stream)?.Submissions.Select(s => s.Level.File).ToList();
+                return JsonSerializer.Deserialize<OutboxFile>(stream);
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException)
             {
                 return null;
             }
+        }
+
+        private List<string> Queued() => ReadOutbox()?.Submissions.Select(s => s.Level.File).ToList();
+
+        //How many starts the clear queued for a file has been held, as the outbox says on disk; -1 when none is queued
+        private int Holds(string file)
+        {
+            OutboxFile outbox = ReadOutbox();
+            ScoreSubmission queued = outbox?.Submissions.FirstOrDefault(s => s.Level.File == file);
+            if (queued == null) return -1;
+
+            return outbox.Held != null && outbox.Held.TryGetValue(queued.SubmissionId, out int holds) ? holds : 0;
         }
 
         //The worker ended, within the wait: its own failure is its own to log
@@ -86,7 +105,7 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void A_clear_on_a_board_the_service_does_not_know_yet_is_held_and_goes_once_it_does()
+        public void A_clear_on_a_board_the_service_does_not_know_yet_is_held_and_goes_at_a_start_once_it_does()
         {
             //The service without the new table for one board: it refuses that board's clears and takes every other
             bool known = false;
@@ -94,21 +113,125 @@ namespace BS3D.Tests
             OnlineScores client = Client();
 
             client.Submit(Clear(client, "Held.json"));
-            Assert.True(Within(() => Scores.Count >= 1 && Queued() is ["Held.json"]), "the refused clear is held, not dropped");
+            Assert.True(Within(() => Sent("Held.json") == 1 && Holds("Held.json") == 1), "the refused clear is held, not dropped");
 
-            //A clear on a board the service knows goes past it, and the held one stays
+            //A clear on a board the service knows goes past it, and the held one stays, not tried again this start
             client.Submit(Clear(client, "Known.json"));
-            Assert.True(Within(() => Scores.Any(r => FileOf(r) == "Known.json") && Queued() is ["Held.json"]),
-                "the known board's clear went past the held one, which stayed");
+            Assert.True(Within(() => Sent("Known.json") == 1 && Queued() is ["Held.json"]), "the known board's clear went past the held one");
+            Stop(client);
+            Assert.Equal(1, Sent("Held.json"));
 
-            //And at the next drain the service knows the board: the held clear goes and leaves the outbox
+            //The service learns the board, and the next start sends the held clear, which leaves the outbox
             Volatile.Write(ref known, true);
-            client.Submit(Clear(client, "Later.json"));
-            Assert.True(Within(() => Queued() is { Count: 0 }), "the held clear went once the board was known");
+            client = Client();
+            Assert.True(Within(() => Queued() is { Count: 0 }), "the held clear went at the next start once the board was known");
             Stop(client);
 
-            Assert.Contains(Scores, r => FileOf(r) == "Later.json");
-            Assert.True(Scores.Count(r => FileOf(r) == "Held.json") >= 2, "the held clear was sent again");
+            Assert.Equal(2, Sent("Held.json"));
+            Assert.Null(ReadOutbox().Held);
+        }
+
+        /// <summary>
+        /// The service counts every submission against the player's allowance a minute, before it looks at the board
+        /// (BS3D-API), so held clears tried again at every drain used the allowance up and a fresh clear behind them was
+        /// answered 429 and kept as if the service were away. A fresh clear goes first, and the held ones are not tried again
+        /// before the next start.
+        /// </summary>
+        [Fact]
+        public void A_fresh_clear_goes_before_the_held_ones_and_they_do_not_spend_its_allowance()
+        {
+            //The allowance: three submissions, then 429 until it is handed back (a minute passing)
+            const int ALLOWANCE = 3;
+            int used = 0;
+            _server.ScoreAnswerFor = body =>
+                Interlocked.Increment(ref used) > ALLOWANCE ? (429, null)
+                : body.Contains("Unknown") ? (422, UNKNOWN_BOARD)
+                : null;
+
+            OnlineScores client = Client();
+            foreach (string file in new[] { "Unknown1.json", "Unknown2.json", "Unknown3.json" })
+                client.Submit(Clear(client, file));
+            Assert.True(Within(() => Holds("Unknown1.json") == 1 && Holds("Unknown2.json") == 1 && Holds("Unknown3.json") == 1),
+                "the three clears on unknown boards are held");
+
+            //A minute later, a fresh clear: it goes, and none of the held ones is sent again this start
+            Interlocked.Exchange(ref used, 0);
+            client.Submit(Clear(client, "Fresh.json"));
+            Assert.True(Within(() => Sent("Fresh.json") == 1 && Queued() is { Count: 3 } queued && !queued.Contains("Fresh.json")),
+                "the fresh clear was delivered");
+            Thread.Sleep(300);
+            Stop(client);
+
+            Assert.Equal(4, Scores.Count);
+            Assert.Equal(1, Volatile.Read(ref used));
+
+            //The next start, the allowance handed back and a fresh clear made at once: it goes before the allowance is spent on
+            //the held ones, which go around it until it is
+            Interlocked.Exchange(ref used, 0);
+            client = Client();
+            client.Submit(Clear(client, "Fresh2.json"));
+            Assert.True(Within(() => Sent("Fresh2.json") == 1 && Queued() is { } left && !left.Contains("Fresh2.json")),
+                "the second fresh clear was delivered");
+            Stop(client);
+        }
+
+        [Fact]
+        public void A_clear_held_for_MaxHolds_starts_is_dropped()
+        {
+            _server.ScoreAnswerFor = _ => (422, UNKNOWN_BOARD);
+
+            for (int start = 1; start <= OnlineScores.MaxHolds; start++)
+            {
+                OnlineScores client = Client();
+                if (start == 1) client.Submit(Clear(client, "Never.json"));
+
+                int tried = start, expected = start < OnlineScores.MaxHolds ? start : -1;
+                Assert.True(Within(() => Sent("Never.json") == tried && Holds("Never.json") == expected),
+                    $"start {start}: tried once, and " + (expected < 0 ? "dropped" : $"held {expected} time(s)"));
+                Stop(client);
+            }
+
+            Assert.Equal(OnlineScores.MaxHolds, Sent("Never.json"));
+            Assert.Empty(Queued());
+        }
+
+        [Fact]
+        public void A_full_outbox_drops_a_held_clear_before_one_that_would_go()
+        {
+            //The service away: nothing leaves
+            _server.ScoreAnswerFor = _ => (503, null);
+
+            //The outbox as an earlier run left it: full, its oldest clear never held and the one after it held once
+            List<ScoreSubmission> waiting = Enumerable.Range(0, OnlineScores.OutboxCapacity).Select(i => new ScoreSubmission
+            {
+                SubmissionId = Guid.NewGuid(),
+                PlayerId = _identity.PlayerId,
+                Level = new SubmittedLevel { File = $"L{i}.json", Hash = HASH },
+                RulesVersion = ScoreKeeper.RulesVersion,
+                Score = 900,
+                Stars = 3,
+                ShotsUsed = 4,
+                DurationSeconds = 12.5f,
+                GameVersion = "dev",
+            }).ToList();
+            File.WriteAllText(Outbox, JsonSerializer.Serialize(new OutboxFile
+            {
+                Submissions = waiting,
+                Held = new Dictionary<Guid, int> { [waiting[1].SubmissionId] = 1 },
+            }));
+
+            OnlineScores client = Client();
+            Assert.True(Within(() => Scores.Count >= 1), "the start's drain tried the oldest clear");
+
+            client.Submit(Clear(client, "New.json"));
+            Assert.True(Within(() => Queued() is { Count: OnlineScores.OutboxCapacity } queued && queued[^1] == "New.json"),
+                "the new clear is queued at the back of a full outbox");
+            Stop(client);
+
+            List<string> left = Queued();
+            Assert.Contains("L0.json", left);
+            Assert.DoesNotContain("L1.json", left);
+            Assert.Null(ReadOutbox().Held);
         }
 
         [Fact]
