@@ -1313,10 +1313,14 @@ namespace BS3D
                 ? _progress.StarsFor(_levelSet.Levels[index].File)
                 : 0;
 
-        /// <summary>The best score one clear of the entry earned, or 0 for a level never cleared - the picker's tile (#684).</summary>
+        /// <summary>
+        /// The best score one clear of the entry earned under this build's scoring rules, or 0 for a level never cleared under
+        /// them - the picker's tile (#684). A best made under older rules (#1045) is not shown: it is not a score this build's
+        /// clears can be held against, and the level's stars, which are kept, still say it was cleared.
+        /// </summary>
         internal int LevelBestScore(int index) =>
             _progress != null && _levelSet != null && index >= 0 && index < _levelSet.Count
-                ? _progress.ScoreFor(_levelSet.Levels[index].File)
+                ? _progress.ScoreFor(_levelSet.Levels[index].File, ScoreKeeper.RulesVersion)
                 : 0;
 
         /// <summary>

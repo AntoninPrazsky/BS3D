@@ -733,12 +733,21 @@ namespace BS3D.Screens
 
             int bonus = _run.Score.AwardCompletionBonus();
 
+            //And the time (#1045): what the play clock's seconds are worth now, the figure the HUD has been draining under the
+            //score. The clock stood still under every drop camera (PlayClock), so the clearing shot's own drop costs nothing
+            int timeBonus = _run.Score.AwardTimeBonus(_run.Seconds);
+
             //The beat, the frozen figures, the milestone and the whole celebration - see BeginClearedBeat
             EnterPhase(LevelPhase.ClearedBeat);
 
             //A cut's award still waiting out its severing is born now unless a drop cinematic has the lens (#767): its wait,
             //read and flight would not fit in the cleared beat
             _hud.BirthWaitingAwards(_cinematic.Engaged);
+
+            //The time bonus thrown over the aim point first (#1045), as the unused balls' bonus is thrown, so the two big numbers
+            //of a clear come one after the other: TIME BONUS at the clear, then the unused balls counted up once the lens is free.
+            //Nothing past twice par, where the time was worth nothing
+            if (timeBonus > 0) _hud.AddTimeBonus(timeBonus);
 
             //What the unused balls were worth (#846), said in words and now shown being earned (#881): once the drop cinematic has
             //let the lens go, the gun fires them off from a camera beside it and "12 UNUSED BALLS" counts up over the figure a ball
@@ -756,7 +765,10 @@ namespace BS3D.Screens
             else if (bonus > 0) _hud.AddBonus(bonus, unused);
 
             Console.WriteLine($"[level] Cleared '{LevelName(_run.Index)}' with {_run.Score.Score}"
-                + $" (+{bonus} for {_run.Score.ShotsRemaining?.ToString() ?? "unlimited"} unused)"
+                + $" (+{bonus} for {_run.Score.ShotsRemaining?.ToString() ?? "unlimited"} unused"
+                + (_run.Score.ParSeconds is int par
+                    ? FormattableString.Invariant($", +{timeBonus} time bonus for {_run.Seconds:0.0} s against a par of {par} s)")
+                    : ", no par)")
                 + $", {StarRating.Rate(_run.Score.Score, _run.InitialBallCount)} star(s)"
                 //The milestone, on the line that already reports the clear. It is the only way a play-through
                 //says whether the block fired, since the decision is invisible until the page arrives — and it
@@ -1555,7 +1567,12 @@ namespace BS3D.Screens
                 unusedShotsAwarded: _run.Score.UnusedShotsAwarded,
                 completionBonusAwarded: _run.Score.CompletionBonusAwarded,
                 unusedShotValue: _run.Score.UnusedShotValue,
-                submitted: submitted));
+                submitted: submitted,
+
+                //The time bonus's row (#1045): the seconds it was paid for, against the par
+                parSeconds: _run.Score.ParSeconds,
+                seconds: _run.Score.TimeBonusSeconds,
+                timeBonusAwarded: _run.Score.TimeBonusAwarded));
 
             Console.WriteLine($"[level] Result for '{LevelName(_run.Index)}': " + (cleared ? "Cleared" : $"Failed ({_pendingFailure})")
                 + $", score {_run.Score.Score}"
@@ -1583,6 +1600,13 @@ namespace BS3D.Screens
         /// </summary>
         private int? LevelCeilingStep(int index) =>
             Game.LevelSet != null && index >= 0 && index < Game.LevelSet.Count ? Game.LevelSet.Levels[index].CeilingStep : null;
+
+        /// <summary>
+        /// The level's par time in seconds (#1045), or null for no par and so no time bonus — which an absent <c>par</c>, an
+        /// index outside the set and a missing set all mean. Read at one site on <see cref="LevelShotBudget"/>'s pattern.
+        /// </summary>
+        private int? LevelPar(int index) =>
+            Game.LevelSet != null && index >= 0 && index < Game.LevelSet.Count ? Game.LevelSet.Levels[index].Par : null;
 
         /// <summary>
         /// One in how many loaded balls this level makes a wildcard (#330), or 0 for a level that hands out

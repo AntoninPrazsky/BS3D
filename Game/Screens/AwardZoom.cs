@@ -223,6 +223,13 @@ namespace BS3D.Screens
         public static string BonusCaption(int unusedBalls) =>
             unusedBalls.ToString(CultureInfo.InvariantCulture) + (unusedBalls == 1 ? " UNUSED BALL" : " UNUSED BALLS");
 
+        /// <summary>
+        /// What the time bonus says over its figure at the clear (#1045), in the capitals the unused balls' caption is set in.
+        /// The readout under the score that drained to it during the level says the same words (<c>PlayHud.TIME_BONUS_LABEL</c>),
+        /// so the figure flying in is the one that was watched.
+        /// </summary>
+        public const string TIME_BONUS_CAPTION = "TIME BONUS";
+
         /// <summary>How opaque an award is through its zoom (#935): nearly solid, so it still reads at a glance as it bursts in.</summary>
         public const float READ_ALPHA_PEAK = 0.9f;
 

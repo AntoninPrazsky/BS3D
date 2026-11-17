@@ -661,11 +661,16 @@ namespace BS3D
                 blockComplete: _blockDone,
                 blockName: _blockDone ? (game.LevelBlockName(12) ?? "The Tower") : null,
                 blockNumber: game.BlockCount > 0 ? game.LevelBlockNumber(12) : 3, blockCount: Math.Max(3, game.BlockCount),
-                score: 4820, matchedBalls: 96, orphanedBalls: 24, streakBonus: 640,
+                //The rows add up to the score, as a real clear's do: 960 + 480 + 640 + 280 + 6 900 (#1045)
+                score: 9260, matchedBalls: 96, orphanedBalls: 24, streakBonus: 640,
 
-                //The unused row's worth is the level's own price of a ball, three figures on every shipped level, so
-                //the page is photographed with one: this is ScoreKeeper.UnusedShotValue of 120 balls on a budget of 30
-                hadBudget: true, unusedShotsAwarded: 7, completionBonusAwarded: 7 * 160, unusedShotValue: 160));
+                //The unused row's worth is the level's own price of a ball: ScoreKeeper.UnusedShotValue of 120 balls on a
+                //budget of 30, one average shot (40) since rules v2
+                hadBudget: true, unusedShotsAwarded: 7, completionBonusAwarded: 7 * 40, unusedShotValue: 40,
+
+                //And the time bonus's row (#1045): 34 s against a par of 40, which ScoreKeeper.TimeBonusAt pays 6 900 on 120 balls,
+                //and three stars leave the next one 27 s faster away, so the note's time clause is photographed too
+                parSeconds: 40, seconds: 34f, timeBonusAwarded: 6900));
         }
     }
 }

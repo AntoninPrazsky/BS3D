@@ -592,10 +592,15 @@ namespace BS3D.Screens
             /// (<see cref="AwardZoom.HandOff"/>).</summary>
             public float Peak, Birth, Hold;
 
-            /// <summary>The completion bonus (#846, #881), which is what the unused balls were worth: born over the aim
-            /// point in screen space rather than projected from a cell, with its caption stacked over the figure instead
-            /// of beside it, and waiting its turn (<see cref="AddBonus"/>).</summary>
+            /// <summary>The completion bonus (#846, #881), which is what the unused balls were worth, or the time bonus (#1045):
+            /// born over the aim point in screen space rather than projected from a cell, with its caption stacked over the
+            /// figure instead of beside it, and waiting its turn (<see cref="AddBonus"/>, <see cref="AddTimeBonus"/>).</summary>
             public bool IsBonus;
+
+            /// <summary>The completion bonus counted up ball by ball as the gun fires them off (#881, <see cref="HoldBonusCount"/>):
+            /// the one bonus <see cref="BeginBonusCount"/>, <see cref="CountBonus"/> and <see cref="CutBonusCount"/> speak to, and
+            /// the one a count's hand-off spares. The time bonus is a bonus but not counted.</summary>
+            public bool Counted;
 
             /// <summary>The hold the counted bonus (#881) was placed for at its birth: a skip shortens its hold, and its block
             /// would otherwise hop on the frame it is skipped. Zero places by the hold itself.</summary>
@@ -855,6 +860,7 @@ namespace BS3D.Screens
             _streakCapped = score.Multiplier >= ScoreKeeper.MaxMultiplier;
             _streakCapFlare = 0f;
             _clock = 0f;
+            _playSeconds = -1f;
         }
 
         /// <summary>
@@ -977,6 +983,36 @@ namespace BS3D.Screens
         }
 
         /// <summary>
+        /// The time bonus (#1045), thrown at the clear exactly as <see cref="AddBonus"/> throws the unused balls' (#846): over
+        /// the aim point, <c>TIME BONUS</c> over <c>+12 400</c>, waiting a tenth of a second for the clearing shot's award, read
+        /// for <see cref="AwardZoom.BONUS_HOLD"/> and flown into the score, so it fits the cleared beat the same way. Called
+        /// before the unused balls are held for their count (<see cref="HoldBonusCount"/>), whose start hands this one on if it
+        /// is still being read (<see cref="BeginBonusCount"/>): one big number at a time.
+        /// </summary>
+        /// <param name="points">What the time was worth, never zero (a clear past twice par is paid nothing and adds no popup).</param>
+        internal void AddTimeBonus(int points)
+        {
+            float readLeft = 0f;
+            for (int i = 0; i < _popups.Count; i++)
+                readLeft = MathF.Max(readLeft, _popups[i].Hold - _popups[i].Age);
+
+            FadeLostCaption();
+
+            _popups.Add(new Popup
+            {
+                Text = "+" + ScoreText.Of(points),
+                Suffix = AwardZoom.TIME_BONUS_CAPTION,
+                Points = points,
+                Tint = BS3DGame.MENU_TEXT,
+                Age = -AwardZoom.BonusWait(readLeft),
+                Peak = AwardZoom.Peak(points),
+                Birth = AwardZoom.Birth(points),
+                Hold = AwardZoom.BONUS_HOLD,
+                IsBonus = true,
+            });
+        }
+
+        /// <summary>
         /// The completion bonus to be counted up (#881), waiting unborn from the moment the field empties: its points, the whole
         /// bonus, are withheld from the readout from then until it lands, as <see cref="AddBonus"/>'s are, so the score neither
         /// shows the figure early nor drops when the count begins. <see cref="BeginBonusCount"/> brings it to life.
@@ -994,6 +1030,7 @@ namespace BS3D.Screens
                 Birth = AwardZoom.Birth(points),
                 Hold = AwardZoom.BONUS_HOLD,
                 IsBonus = true,
+                Counted = true,
             });
         }
 
@@ -1010,7 +1047,7 @@ namespace BS3D.Screens
             for (int i = 0; i < _popups.Count; i++)
             {
                 Popup popup = _popups[i];
-                if (!popup.IsBonus || popup.Age >= 0f) continue;
+                if (!popup.Counted || popup.Age >= 0f) continue;
                 popup.Age = 0f;
                 popup.Hold = popup.PlaceHold = countSeconds + BONUS_AFTER_COUNT;
                 _popups[i] = popup;
@@ -1026,7 +1063,7 @@ namespace BS3D.Screens
             for (int i = 0; i < _popups.Count; i++)
             {
                 Popup popup = _popups[i];
-                if (!popup.IsBonus || popup.Age >= popup.Hold) continue;
+                if (!popup.Counted || popup.Age >= popup.Hold) continue;
                 popup.Text = "+" + ScoreText.Of(counted);
                 _popups[i] = popup;
             }
@@ -1038,7 +1075,7 @@ namespace BS3D.Screens
             for (int i = 0; i < _popups.Count; i++)
             {
                 Popup popup = _popups[i];
-                if (!popup.IsBonus || popup.Age >= popup.Hold) continue;
+                if (!popup.Counted || popup.Age >= popup.Hold) continue;
                 popup.Text = "+" + ScoreText.Of(points);
                 popup.Hold = MathF.Min(popup.Hold, MathF.Max(popup.Age, AwardZoom.MIN_READ) + BONUS_AFTER_COUNT);
                 _popups[i] = popup;
@@ -1050,13 +1087,13 @@ namespace BS3D.Screens
 
         /// <summary>Every award still being read leaves for the corner, once it has been read for
         /// <see cref="AwardZoom.MIN_READ"/>: a newer one is taking the read (see <see cref="AddAward"/>) — or the
-        /// completion bonus is, and is spared (<paramref name="sparingTheBonus"/>).</summary>
+        /// counted completion bonus is, and is spared (<paramref name="sparingTheBonus"/>; a time bonus still being read is not).</summary>
         private void HandOffReads(bool sparingTheBonus = false)
         {
             for (int i = 0; i < _popups.Count; i++)
             {
                 Popup popup = _popups[i];
-                if (popup.Age >= popup.Hold || (sparingTheBonus && popup.IsBonus)) continue;
+                if (popup.Age >= popup.Hold || (sparingTheBonus && popup.Counted)) continue;
 
                 popup.Hold = AwardZoom.HandOff(popup.Age, popup.Hold);
                 _popups[i] = popup;
@@ -1126,9 +1163,12 @@ namespace BS3D.Screens
         /// <param name="swapHint">Whether the Swap chip points at the cure this frame (#845, <see cref="StreakCues.SwapIsTheCure"/>
         /// as the session reads it): a streak is running, the round in the bore has nowhere to score and the Swap would load
         /// one that has.</param>
-        internal void Update(float elapsed, ScoreKeeper score, bool swapHint = false)
+        /// <param name="playSeconds">The level's play clock (#1045, <c>LevelRun.Seconds</c>), which the time bonus under the score
+        /// is read off; negative once the level is decided, which takes the readout away (the bonus has been thrown, or lost).</param>
+        internal void Update(float elapsed, ScoreKeeper score, bool swapHint = false, float playSeconds = -1f)
         {
             _clock += elapsed;
+            _playSeconds = playSeconds;
 
             AgePopups(elapsed);
             AgeLostCaption(elapsed);
@@ -1363,9 +1403,16 @@ namespace BS3D.Screens
                 DrawPulsed(_game.HudFontScore, _scoreText, scoreAnchor, new Vector2(1f, 0.5f), _scorePulse.Scale,
                     Color.Lerp(BS3DGame.MENU_TEXT, HUD_ACCENT, heat), heat);
 
+            //The left edge of the readouts under the score's right edge: the score's own, or the time bonus's when it is wider
+            float cornerLeft = scoreAnchor.X - scoreSize.X;
+
             if ((parts & HudParts.Play) != 0)
             {
-                DrawStreak(score, viewport, margin, scoreAnchor.Y + scoreSize.Y * 0.5f + Scaled(HUD_LINE_GAP));
+                //The time bonus under the score (#1045), and the streak under that
+                float below = scoreAnchor.Y + scoreSize.Y * 0.5f + Scaled(HUD_LINE_GAP);
+                below = DrawTimeBonus(score, viewport, margin, below, ref cornerLeft);
+
+                DrawStreak(score, viewport, margin, below);
                 DrawBallsLeft(score, viewport, margin);
             }
             if ((parts & HudParts.Field) != 0) DrawMagazine(queue, kinds, queueFrom, queueFade, score, viewport, margin);
@@ -1373,9 +1420,9 @@ namespace BS3D.Screens
             {
                 DrawSwap(swapCharges, brakeCharges, cutCharges, brakeBlock, cutBlocked, tutorial.OnGamepad, tutorial.OnTouch, MultiplierOf(score), viewport, margin);
 
-                //The card is given the score's left edge rather than measuring it again: it is what bounds the
+                //The card is given the corner's left edge rather than measuring it again: it is what bounds the
                 //strip the card may stand in (#461), and one measurement cannot disagree with the other.
-                DrawTutorial(tutorial, viewport, margin, scoreAnchor.X - scoreSize.X);
+                DrawTutorial(tutorial, viewport, margin, cornerLeft);
             }
 
             if ((parts & HudParts.Account) != 0)
@@ -1458,6 +1505,94 @@ namespace BS3D.Screens
             DrawGlow(font, _streakText, at, size, scale, glow, SampleCapRamp(phase), passes);
             DrawGradientString(font, _streakGlyphs, at, scale, phase, 1f);
         }
+
+        /// <summary>
+        /// What the time bonus readout under the score shows (#1045): the bonus a clear at <paramref name="playSeconds"/> on the
+        /// play clock is paid, which is <see cref="ScoreKeeper.TimeBonusAt"/> itself, so the figure the player watches drain is
+        /// the one the clear throws into the score. −1 when there is nothing to show: a level with no par, or a decided level
+        /// (<paramref name="playSeconds"/> negative), whose bonus has been thrown or was never earned.
+        /// </summary>
+        internal static int TimeBonusShown(ScoreKeeper score, float playSeconds) =>
+            playSeconds < 0f || score.TimeBonusMax <= 0 ? -1 : score.TimeBonusAt(playSeconds);
+
+        /// <summary>
+        /// How full the readout's bar is (#1045), 1 at the start to 0 at <see cref="ScoreKeeper.TimeBonusZeroAtPars"/> pars:
+        /// continuous, so the bar drains smoothly between the figure's once-a-second steps.
+        /// </summary>
+        internal static float TimeBonusShare(ScoreKeeper score, float playSeconds) =>
+            score.ParSeconds is int par && playSeconds >= 0f
+                ? MathHelper.Clamp(1f - playSeconds / (ScoreKeeper.TimeBonusZeroAtPars * par), 0f, 1f)
+                : 0f;
+
+        /// <summary>
+        /// <b>The time bonus, draining under the score</b> (#1045): the figure a clear right now is paid for its time, its words
+        /// under it and a bar under those emptying as the play clock runs, right-aligned to the score's edge like the streak.
+        /// The figure is the HUD's white while there is a bonus and the caption's grey once it has drained away (past twice
+        /// par); it steps down once a second (<see cref="ScoreKeeper.TimeBonusAt"/> counts whole seconds), so its string is
+        /// built once a second and never a frame, and the bar between the steps is a scaled texel. It stands still with the play
+        /// clock under every camera takeover and in the pause, which is the rule shown. Nothing on a level with no par, and it
+        /// goes the moment a level is decided: on a clear its figure is thrown over the aim point as <c>TIME BONUS</c>
+        /// (<see cref="AddTimeBonus"/>).
+        /// </summary>
+        /// <param name="top">Where the readout's top stands.</param>
+        /// <param name="left">The corner's left edge so far, moved left when the readout is wider: what the tutorial card may
+        /// not reach.</param>
+        /// <returns>Where the next readout down stands: under the bar, or <paramref name="top"/> when nothing was drawn.</returns>
+        private float DrawTimeBonus(ScoreKeeper score, Viewport viewport, int margin, float top, ref float left)
+        {
+            int bonus = TimeBonusShown(score, _playSeconds);
+            if (bonus < 0) return top;
+
+            if (bonus != _timeBonusTextFor)
+            {
+                _timeBonusTextFor = bonus;
+                _timeBonusText = "+" + ScoreText.Of(bonus);
+            }
+
+            SpriteFontBase font = _game.HudFontLabel;
+            Vector2 figureSize = font.MeasureString(_timeBonusText);
+            Vector2 captionSize = font.MeasureString(TIME_BONUS_LABEL);
+            float right = viewport.Width - margin;
+            float width = MathF.Max(figureSize.X, captionSize.X);
+
+            DrawString(font, _timeBonusText, new Vector2(right - figureSize.X, top), bonus > 0 ? BS3DGame.MENU_TEXT : HUD_CAPTION);
+
+            float captionTop = top + figureSize.Y + Scaled(HUD_TIME_CAPTION_GAP);
+            DrawString(font, TIME_BONUS_LABEL, new Vector2(right - captionSize.X, captionTop), HUD_CAPTION);
+
+            //The bar: a dark track the readout's width, and the white fill shrinking towards the right edge as the bonus drains
+            int thickness = Math.Max(2, Scaled(HUD_TIME_BAR_THICKNESS));
+            float barTop = captionTop + captionSize.Y + Scaled(HUD_TIME_BAR_GAP);
+            float fill = width * TimeBonusShare(score, _playSeconds);
+            int lift = Math.Max(1, Scaled(HUD_SHADOW_OFFSET) / 2);
+
+            SpriteBatch batch = _game.OverlayBatch;
+            batch.Draw(Pixel, new Rectangle((int)(right - width), (int)barTop, (int)width, thickness), HUD_BACKING);
+            if (fill >= 1f)
+            {
+                Rectangle bar = new((int)(right - fill), (int)barTop, (int)fill, thickness);
+                batch.Draw(Pixel, new Rectangle(bar.X + lift, bar.Y + lift, bar.Width, bar.Height), HUD_SHADOW);
+                batch.Draw(Pixel, bar, BS3DGame.MENU_TEXT);
+            }
+
+            left = MathF.Min(left, right - width);
+            return barTop + thickness + Scaled(HUD_LINE_GAP);
+        }
+
+        /// <summary>The time bonus readout's words (#1045), lower case as the balls left's are; the award at the clear says them in
+        /// capitals (<see cref="AwardZoom.TIME_BONUS_CAPTION"/>).</summary>
+        internal const string TIME_BONUS_LABEL = "time bonus";
+
+        //The time bonus readout's layout (#1045), in design units: the caption's gap under the figure, the bar's under the caption
+        //and its thickness
+        private const int HUD_TIME_CAPTION_GAP = 0;
+        private const int HUD_TIME_BAR_GAP = 14;
+        private const int HUD_TIME_BAR_THICKNESS = 12;
+
+        //The play clock the readout reads (Update), and its figure, rebuilt only when it changes - once a second
+        private float _playSeconds = -1f;
+        private int _timeBonusTextFor = -1;
+        private string _timeBonusText = string.Empty;
 
         /// <summary>
         /// How hot a streak of <paramref name="multiplier"/> is running below the cap: from the readout's white towards the

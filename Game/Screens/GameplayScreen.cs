@@ -1760,7 +1760,9 @@ namespace BS3D.Screens
 
             //The Swap's hint (#845) is asked here, once a frame, and costs a field walk only when the field or a round's
             //colour has changed since it was last asked (RoundCanScore)
-            _hud.Update(elapsed, _run.Score, SwapIsTheCure());
+            //and the play clock, which the time bonus under the score is read off (#1045) - none once the level is decided, when
+            //the bonus has been thrown or was never earned
+            _hud.Update(elapsed, _run.Score, SwapIsTheCure(), LevelDecided ? -1f : _run.Seconds);
             //The skip hint over whichever takeover a click can skip (#699): the drop or the chapter's tour. Not over the drop
             //of the shot that cleared the level (the owner, 2026-10-04): the player has finished and there is nothing left
             //to skip to, so it says nothing, though a click still skips it. A drop running over a decided level is over a

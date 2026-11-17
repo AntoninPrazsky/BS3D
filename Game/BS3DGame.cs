@@ -14,6 +14,7 @@ using Myra.Graphics2D.UI;
 using Prazsky.BS3D;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.Levels;
+using Prazsky.BS3D.Scoring;
 using Prazsky.Core;
 using Prazsky.Core.Camera;
 using Prazsky.Core.Render;
@@ -1980,14 +1981,15 @@ namespace BS3D
         /// <summary>
         /// Records a cleared level's score and stars into the player's progress and writes it to disk, there
         /// and then — the game has no other save point, and progress lost to a crash later would be progress
-        /// the player watched themselves earn. Each best only ever rises (<see cref="PlayerProgress.Record"/>).
+        /// the player watched themselves earn. Each best only ever rises (<see cref="PlayerProgress.Record"/>), and a score is
+        /// compared only with a best made under this build's scoring rules (#1045): the first clear under new rules is a best.
         /// </summary>
         /// <returns>Whether anything improved — what the result screen's "new best" line reads.</returns>
         internal bool RecordLevelResult(int index, int score, int stars)
         {
             if (_progress == null || _levelSet == null || index < 0 || index >= _levelSet.Count) return false;
 
-            bool improved = _progress.Record(_levelSet.Levels[index].File, score, stars);
+            bool improved = _progress.Record(_levelSet.Levels[index].File, score, stars, ScoreKeeper.RulesVersion);
 
             if (improved) SaveProgress();
 

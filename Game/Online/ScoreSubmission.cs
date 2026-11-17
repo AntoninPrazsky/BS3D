@@ -224,6 +224,12 @@ namespace BS3D.Online
 
         /// <summary>No answer — no network, the service down, a timeout, a 5xx. It waits in the outbox.</summary>
         Offline,
+
+        /// <summary>
+        /// The service does not know this board yet (#1045, <c>OnlineScores.IsHeldForBoard</c>): a release with new scoring rules
+        /// arrived before the service loaded their ceilings. It waits in the outbox and goes once the service knows the board.
+        /// </summary>
+        Held,
     }
 
     /// <summary>

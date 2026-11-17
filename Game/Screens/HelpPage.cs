@@ -521,7 +521,7 @@ namespace BS3D.Screens
 
         private void BuildScoring(VerticalStackPanel column)
         {
-            //Four values and a tip (#998): what scores, with the figure in the heading so the headings down the tab are the price
+            //Five values and a tip (#998, #1045): what scores, with the figure in the heading so the headings down the tab are the price
             //list, and nothing of the arithmetic behind it. Every figure is ScoreKeeper's own, written through string
             //interpolation rather than typed out, so a tuned constant cannot leave a stale number standing on this page.
             //What the game shows in play as it scores (the caption over the middle of the screen, the shattering multiplier,
@@ -535,10 +535,17 @@ namespace BS3D.Screens
             column.Widgets.Add(Headed($"Streak · multiplier up to {ScoreKeeper.MaxMultiplier}",
                 $"Every shot that scores raises the multiplier by\u00A0{ScoreKeeper.MultiplierStep} for the shots "
                 + "after it. A shot that matches nothing puts it back to ×1."));
-            column.Widgets.Add(Headed("Unused balls · a big bonus",
-                "Every ball still in the cannon when the field is clear pays, and pays more on a big level: the cannon fires them off and counts them."));
+            //The time bonus (#1045) is the price list's biggest line and the one four stars turn on, so it is said with its figure
+            //like the others: ScoreKeeper's own worth a ball of the level, and its drain in words. The clock's pause under the
+            //camera is said because a player watching the readout stand still during a drop would otherwise take it for a fault
+            column.Widgets.Add(Headed($"Time bonus · up to {ScoreKeeper.TimeBonusWorthInFloors * ScoreKeeper.MatchedBallPoints} points a ball",
+                "The faster you clear the level, the more it pays. It is shown under the score and drains every second: half of it "
+                + "is gone at the level’s par time, all of it at twice par. The clock stops while the camera follows falling balls."));
+            column.Widgets.Add(Headed("Unused balls · a small bonus",
+                "Every ball still in the cannon when the field is clear pays what an average shot of the level brings down: the "
+                + "cannon fires them off and counts them."));
             column.Widgets.Add(Headed("Tip",
-                "Finishing with balls to spare pays more than a streak you could farm by taking longer."));
+                "Four stars need a fast, clean clear: beat the par time and keep the streak going."));
         }
 
         //The squares the kinds' live balls are drawn in (#856), one per entry of OddBallCopy.Entries and at the entry's index,

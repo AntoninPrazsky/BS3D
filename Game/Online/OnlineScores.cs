@@ -678,6 +678,21 @@ namespace BS3D.Online
             SaveOutbox(outbox);
         }
 
+        /// <summary>The service's reason for a board no ceiling table of its own names (BS3D-API's <c>Reasons.UnknownBoard</c>).</summary>
+        internal const string UnknownBoardReason = "unknown-board";
+
+        /// <summary>
+        /// Whether a refusal is the service not knowing the board <b>yet</b> (#1045): an <see cref="UnknownBoardReason"/> for a clear
+        /// made under this build's own scoring rules (<see cref="ScoreKeeper.RulesVersion"/>). A release that bumps the rules sends
+        /// every clear on boards the service learns only when its new ceiling table is loaded, and until then every one of them
+        /// was refused as unknown, dropped and lost. Held, they go once it is loaded. A clear of older rules on a board the
+        /// service does not know is refused for good, as before: the tables of every release stay loaded, so that board will
+        /// never be known.
+        /// </summary>
+        internal static bool IsHeldForBoard(ScoreSubmission submission, ScoreAnswerBody refusal) =>
+            submission != null && submission.RulesVersion == ScoreKeeper.RulesVersion
+            && string.Equals(refusal?.Reason, UnknownBoardReason, StringComparison.Ordinal);
+
         /// <summary>Two submissions by one player to one board (#716).</summary>
         private static bool SameBoard(ScoreSubmission a, ScoreSubmission b) =>
             a.PlayerId == b.PlayerId && a.RulesVersion == b.RulesVersion
@@ -694,15 +709,40 @@ namespace BS3D.Online
         /// the nickname is the player's, not the clear's, and a clear queued offline under an old name must neither
         /// put that name back on the service nor, through the answer's normalized form, into <c>Online.json</c>.
         /// </para>
+        /// <para>
+        /// <b>A clear of this build's rules on a board the service does not know yet is held, not dropped</b> (#1045,
+        /// <see cref="IsHeldForBoard"/>): it goes to the back of the outbox and the drain goes on with the rest, each held one
+        /// tried once a drain, so the clears on boards the service knows are not stuck behind it. The drain ends when the
+        /// head is one it has already held. That is what a release with new scoring rules meets until the service loads its
+        /// ceiling table.
+        /// </para>
         /// </summary>
         private async Task DrainAsync(List<ScoreSubmission> outbox, CancellationToken stop)
         {
+            HashSet<Guid> held = null;
+
             while (true)
             {
                 TakeIncoming(outbox);
                 if (outbox.Count == 0) return;
 
                 ScoreSubmission submission = outbox[0];
+
+                //One held this drain already: behind the ones not tried yet (a clear handed over meanwhile), and once every one
+                //still queued has been held, what is left waits for the service to learn its board
+                if (held != null && held.Contains(submission.SubmissionId))
+                {
+                    if (outbox.TrueForAll(waiting => held.Contains(waiting.SubmissionId)))
+                    {
+                        Console.WriteLine($"[online] {outbox.Count} clear(s) held for boards the service does not know yet,"
+                            + " waiting for the next start or the next clear");
+                        return;
+                    }
+
+                    outbox.RemoveAt(0);
+                    outbox.Add(submission);
+                    continue;
+                }
 
                 //Queued under an identity this install no longer holds: its token is gone with it, so the service
                 //would refuse it anyway. "Remove scores" wipes the outbox with the identity (#548); this is the
@@ -729,6 +769,17 @@ namespace BS3D.Online
                         _answers.Enqueue(new OnlineAnswer(submission.SubmissionId, OnlineOutcome.Accepted, delivery.Body));
                         NoticeNormalizedName(delivery.Body, sent);
                         Console.WriteLine($"[online] {Describe(submission)}: {delivery.Status} {RankText(delivery.Body)}");
+                        break;
+
+                    case DeliveryKind.Refused when IsHeldForBoard(submission, delivery.Body):
+                        //A board the service has not loaded yet (#1045): kept, behind the rest, for the service that learns it
+                        outbox.RemoveAt(0);
+                        outbox.Add(submission);
+                        (held ??= new HashSet<Guid>()).Add(submission.SubmissionId);
+                        SaveOutbox(outbox);
+                        _answers.Enqueue(new OnlineAnswer(submission.SubmissionId, OnlineOutcome.Held, delivery.Body));
+                        Console.WriteLine($"[online] {Describe(submission)}: {delivery.Status} ({delivery.Body.Reason}) — held;"
+                            + $" the service does not know rules v{submission.RulesVersion} of this board yet");
                         break;
 
                     case DeliveryKind.Refused:
