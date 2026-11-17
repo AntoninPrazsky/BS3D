@@ -29,12 +29,9 @@ namespace BS3D.Screens
         private readonly TouchControls _touch = new();
         private Func<Vector2, TouchControls.Button> _touchButtonAt;
 
-        //Precise aim toggled on (#1050: "a tap to turn it on and off, nothing held"): by the touch screen's button, and since
-        //#1054 by the right button and the left trigger when Settings says Toggle
-        private bool _preciseAimToggled;
-
-        //Whether the right button or the left trigger was down last frame, so a press is told from a hold (#1054)
-        private bool _leanButtonWasDown = true;
+        //The precise-aim lean as the hands ask for it: toggled (#1050: "a tap to turn it on and off, nothing held") by the touch
+        //screen's button, and since #1054 by the right button and the left trigger when Settings says Toggle; held under Hold
+        private readonly LeanInput _lean = new();
 
         //Whether the last frame read the touches as play. False after anything else had the screen - a menu, the pause,
         //another app - and the next frame then adopts what is down rather than reading it (TouchControls.Adopt)
@@ -136,7 +133,7 @@ namespace BS3D.Screens
             Viewport viewport = GraphicsDevice.Viewport;
             _hud.DrawTouchControls(_touch,
                 TouchPreciseCentre(viewport.Width, viewport.Height, Game.TouchAimOnRight), TOUCH_PRECISE_RADIUS * viewport.Height,
-                _preciseAimToggled,
+                _lean.Toggled,
                 TouchPauseCentre(viewport.Width, viewport.Height), TOUCH_PAUSE_RADIUS * viewport.Height);
         }
     }

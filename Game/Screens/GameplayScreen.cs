@@ -146,14 +146,16 @@ namespace BS3D.Screens
         private bool _adsHeld;
 
         /// <summary>
-        /// Lets precise aim go: the hold, its pull and the toggle (#1076). At a level's decision and every frame after it, and
-        /// where the screen is covered or the window loses focus, which clear the same three.
+        /// Lets precise aim go: the hold, its pull and the toggle (#1076), at a level's decision and every frame after it. A
+        /// covered screen, a lost focus and a camera takeover let go of the hold and its pull alone: a lean toggled in is kept
+        /// through them and comes back as it was (<see cref="LeanInput"/>, which also lets go of the toggle at a level's start
+        /// and when Settings switches the mode, #1140).
         /// </summary>
         private void ReleaseLean()
         {
             _adsHeld = false;
             _adsPull = 0f;
-            _preciseAimToggled = false;
+            _lean.Release();
         }
 
         //How far the lean is asked for, 0 to 1 (#520): the left trigger's pull, or 1 for the right button. What the
@@ -1406,8 +1408,9 @@ namespace BS3D.Screens
             //The finger that pressed Resume or Retry is still on the glass, or lifting: adopted, not read (#1051)
             _touchLive = false;
 
-            //And a button or trigger still held from the menu is not a fresh press of the lean's toggle (#1054)
-            _leanButtonWasDown = true;
+            //And a button or trigger still held from the menu is not a fresh press of the lean's toggle (#1054). The toggle itself
+            //is kept: a lean toggled in comes back as it was, unless Settings switched the mode meanwhile (LeanInput, #1140)
+            _lean.SpendPress();
 
             //A gamepad reports to an unfocused window and to a paused one; both triggers must be released
             //before they mean anything again. One poll on a state change, which is not a per-frame path.
@@ -1527,7 +1530,8 @@ namespace BS3D.Screens
                 _padTriggerReleased = false;
 
                 //And a held precise-aim button must not keep an alt-tabbed window leaned in — the gamepad's
-                //triggers report through XInput whether the window has focus or not.
+                //triggers report through XInput whether the window has focus or not. A lean toggled in is kept, as
+                //through a pause, and comes back with the focus (LeanInput)
                 _adsHeld = false;
                 _adsPull = 0f;
 

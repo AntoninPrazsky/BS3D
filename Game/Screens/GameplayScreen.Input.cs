@@ -316,7 +316,7 @@ namespace BS3D.Screens
                 //comes back as it was, and a press made under the takeover is not one: it has to be let go first
                 _adsHeld = false;
                 _adsPull = 0f;
-                _leanButtonWasDown = true;
+                _lean.SpendPress();
 
                 if (_cursorCaptured) _mouseAim.Recentre(centreX, centreY);
                 _previousMouse = mouse;
@@ -351,38 +351,12 @@ namespace BS3D.Screens
             ApplyTouchAim(gameTime);
             if (edgeInputAllowed && _touch.Fire) Shoot();
 
-            //The precise-aim button turns the lean on and off (#1050), and a lean toggled on is a lean held
-            if (edgeInputAllowed && _touch.Pressed == TouchControls.Button.PreciseAim) _preciseAimToggled = !_preciseAimToggled;
-
-            //And so do the right button and the left trigger when precise aim toggles (#1054, the owner: "one press starts it
-            //and it stays, the next turns it off"). A press, not a hold: the trigger counts as down past TRIGGER_THRESHOLD and
-            //as up only under half of it, so a slow pull that wavers on the threshold flips the lean once. With the cursor
-            //free the right button is the desktop's, as below
-            bool leanDown = (_cursorCaptured && mouse.RightButton == ButtonState.Pressed)
-                || (pad.IsConnected && pad.Triggers.Left > (_leanButtonWasDown ? PreciseAim.TRIGGER_THRESHOLD * 0.5f : PreciseAim.TRIGGER_THRESHOLD));
-            if (edgeInputAllowed && Game.PreciseAimToggles && leanDown && !_leanButtonWasDown) _preciseAimToggled = !_preciseAimToggled;
-            _leanButtonWasDown = leanDown;
-
-            //Precise aim is a hold, not an edge, so it is read straight off this frame's state — no
-            //edge-input gate: leaning the camera in is not an action that can go off by accident. With the
-            //cursor still free the right button is the desktop's, so only the pad's trigger can lean in: a
-            //default MouseState reads every button released, which is exactly "ask the pad alone".
-            //Toggled, the lean is the toggle's alone: a held button or a part-pulled trigger is only the press that flipped it
-            if (_preciseAimToggled)
-            {
-                _adsHeld = true;
-                _adsPull = 1f;
-            }
-            else if (Game.PreciseAimToggles)
-            {
-                _adsHeld = false;
-                _adsPull = 0f;
-            }
-            else
-            {
-                _adsHeld = _cursorCaptured ? PreciseAim.ButtonHeld(mouse, pad) : PreciseAim.ButtonHeld(default, pad);
-                _adsPull = _cursorCaptured ? PreciseAim.LeanAmount(mouse, pad) : PreciseAim.LeanAmount(default, pad);
-            }
+            //The lean, as LeanInput reads the hands: the touch screen's button toggles it (#1050), and so do the right button and
+            //the left trigger when precise aim toggles (#1054, the owner: "one press starts it and it stays, the next turns it
+            //off"); under Hold they are a hold, the trigger's lean following its pull (#520). A switch of the mode in Settings
+            //lets go of a lean toggled in (#1140): under Hold nothing here could take it out again
+            _lean.Read(Game.PreciseAimToggles, edgeInputAllowed, _touch.Pressed == TouchControls.Button.PreciseAim, _cursorCaptured,
+                mouse, pad, out _adsHeld, out _adsPull);
 
             //And none of it once the level is decided (#1076): the lean was let go at the decision (EnterPhase), and a button
             //still held or a toggle still on must not take it back between one takeover and the next
@@ -459,7 +433,7 @@ namespace BS3D.Screens
 
             //Toggled (#1054) no trigger is held through the lean, so the lean is the pad's when the hand is on the pad - the
             //mixer gates the kick on that already; held, it is the trigger's own pull, as it always was
-            bool padLean = Game.PreciseAimToggles ? _preciseAimToggled && _tutorial.OnGamepad
+            bool padLean = Game.PreciseAimToggles ? _lean.Toggled && _tutorial.OnGamepad
                 : PreciseAim.LeanAmount(default, pad) >= AIM_TICK_MIN_BLEND;
             if (_preciseAim.Blend >= AIM_TICK_MIN_BLEND && padLean)
             {

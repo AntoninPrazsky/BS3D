@@ -73,6 +73,9 @@
     <Compile Include="..\..\Game\Screens\FireHint.cs" />
     <!--Which click skips a camera takeover (#1106): a rule over a mouse state and the viewport's size, no device.-->
     <Compile Include="..\..\Game\Screens\TakeoverSkip.cs" />
+    <!--What the hands ask of the precise-aim lean (#1054, #1140): the toggle, its press and the hold, over a mouse and a pad
+        state handed in, no device.-->
+    <Compile Include="..\..\Game\Screens\LeanInput.cs" />
     <Compile Include="..\..\Game\Screens\PlayClock.cs" />
     <Compile Include="..\..\Game\Screens\TouchControls.cs" />
     <Compile Include="..\..\Game\Screens\TutorialCardLayout.cs" />
