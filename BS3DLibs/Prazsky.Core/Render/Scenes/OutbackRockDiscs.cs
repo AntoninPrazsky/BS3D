@@ -31,10 +31,11 @@ namespace Prazsky.Core.Render
     /// pass). The discs are drawn two-sided, so a loaf's far wall and whatever one formation hides of another were shaded
     /// before what hides them, and the rock's program is the dearest of the scene (the whole height field three times a
     /// pixel for its normal), and it may discard, so nothing in its own draw was rejected early. On High and Ultra the
-    /// monoliths' depth is laid first (<c>OutbackRockDepth</c>: their own vertex program, the program's cut and no colour),
-    /// and they are then shaded on it with <see cref="DepthStencilState.DepthRead"/>: a hidden pixel fails the test before
-    /// the program runs. The cut is a boulder's (it gives way where a monolith's footprint overlaps its own) and never fires
-    /// on a monolith, so the laid depth is the only judge of what is drawn there. The boulders are one pass on every tier,
+    /// monoliths' depth is laid first (<c>OutbackRockDepth</c>: their own vertex program, no colour), and they are then
+    /// shaded on it with <see cref="DepthStencilState.DepthRead"/>: a hidden pixel fails the test before the program runs.
+    /// The program's one cut is a boulder's (it gives way where a monolith's footprint overlaps its own) and never fires on
+    /// a monolith, so the depth pass makes none and the laid depth is the only judge of what is drawn there: it is laid for
+    /// the monoliths alone, and must stay so. The boulders are one pass on every tier,
     /// so their cut keeps one judge, their own program, not two compiled apart (#1130). <b>The picture is the one pass's,
     /// bit for bit</b>: the groups are shaded in their order either way, and a pixel keeps the last fragment drawn at the
     /// nearest depth (the test is <c>LessEqual</c>), which laying some of the depth first does not change. Below the
@@ -105,7 +106,7 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Draws what <see cref="Cull"/> picked with <paramref name="rock"/>, the effect's per-frame parameters already
         /// pushed by the terrain pass (whose states, opaque and two-sided, are current). With <paramref name="monolithDepth"/>,
-        /// the pass of the same program's depth alone (#1137), the monoliths' depth is laid first and they are shaded on it
+        /// the same vertex program's depth alone (#1137), the monoliths' depth is laid first and they are shaded on it
         /// without writing it: see the class. The depth state is put back as it was found, and it has to have been
         /// <see cref="DepthStencilState.Default"/> for the depth to be laid.
         /// </summary>
@@ -115,6 +116,8 @@ namespace Prazsky.Core.Render
             {
                 BlendState blend = _device.BlendState;
                 _device.BlendState = TerrainGridCache.DEPTH_ONLY;
+
+                //⚠ The monoliths alone: the depth pass makes no cut, which is right only where the rock's cut never fires
                 foreach (Group group in _groups)
                     if (!group.Outcrop) DrawGroup(group, monolithDepth);
                 _device.BlendState = blend;

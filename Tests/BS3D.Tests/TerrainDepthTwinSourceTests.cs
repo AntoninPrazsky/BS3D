@@ -56,11 +56,18 @@ namespace BS3D.Tests
         //discards (their compiled listings carry none); a reading of calls cannot see a literal
         private static readonly string[] NotGroundTwins = { "MeadowCarvedDepth" };
 
+        //Twins laid only for the draws their ground's one cut never reaches, so they make no cut at all, and the one cut that
+        //ground may make. The outback's monoliths (#1137): OutbackRockCuts fires only on a boulder, and the boulders are one
+        //pass. The twin must reach no cut, and its ground exactly that one clip(): a second clip, in the cut's function or
+        //anywhere else in the program, fails here, because the twin would not make it (OutbackRockCuts says what to check)
+        private static readonly Dictionary<string, string> TwinsOfUncutDraws = new() { ["OutbackRockDepth"] = "OutbackRockCuts#0.0" };
+
         [Fact]
         public void EveryDepthTwinCutsWhereItsGroundCutsAndRunsItsVertexProgram()
         {
             var failures = new List<string>();
             var effectsWithTwins = new SortedSet<string>(StringComparer.Ordinal);
+            var uncutSeen = new HashSet<string>(StringComparer.Ordinal);
             int twins = 0;
 
             foreach (string path in Directory.GetFiles(Shaders, "*.fx").OrderBy(p => p, StringComparer.Ordinal))
@@ -81,6 +88,17 @@ namespace BS3D.Tests
 
                     SortedSet<string> cut = source.CutsReachedFrom(ground.Pixel), laid = source.CutsReachedFrom(twin.Pixel);
                     _output.WriteLine($"{effect}: {name} ({twin.Vertex}, {twin.Pixel}) beside {ground.Pixel}: {string.Join(", ", laid)}");
+                    if (TwinsOfUncutDraws.TryGetValue(name, out string onlyCut))
+                    {
+                        uncutSeen.Add(name);
+                        if (laid.Count > 0)
+                            failures.Add($"{effect}: {name} is laid for draws no cut reaches, and it cuts: {string.Join(", ", laid)}");
+                        if (cut.Count != 1 || cut.Min != onlyCut)
+                            failures.Add($"{effect}: {name}'s ground ({ground.Pixel}) may cut only at {onlyCut}, which its twin "
+                                + $"never meets; it cuts at {string.Join(", ", cut)}");
+                        continue;
+                    }
+
                     if (laid.Count == 0)
                         failures.Add($"{effect}: {name} ({twin.Pixel}) reaches no cut at all");
                     if (!cut.SetEquals(laid))
@@ -91,6 +109,7 @@ namespace BS3D.Tests
 
             Assert.Empty(failures);
             Assert.Equal(Grounds.OrderBy(g => g, StringComparer.Ordinal), effectsWithTwins);
+            Assert.Equal(TwinsOfUncutDraws.Keys.OrderBy(t => t, StringComparer.Ordinal), uncutSeen.OrderBy(t => t, StringComparer.Ordinal));
             _output.WriteLine($"{twins} depth twins in {effectsWithTwins.Count} effects");
         }
 
