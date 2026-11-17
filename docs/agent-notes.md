@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1141 pět drobných vad (pass 18) — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: (1) #1064 uložené Potato už neruší držení slabého zařízení (`QualityLock.ChooseAtPotato` při `_deviceWhy` nic nemění); (2) #1074 obnovovací frekvence se žádá i na Androidu 7–10 přes `DisplayRefresh.PreferMode` (preferovaný režim je API 23, jen `Activity.Display` je 11); (3) #1052 odpověď telefonního dialogu jde do stránky jednou editací (`MenuPage.TakeTypedText`, nový `NoteText`), dřív 0,7–1,4 s v jednom snímku; (4) #1068 doc komentáře zpět na svých členech, `DocCommentPlacementTests` našel šest bloků se dvěma summary; (5) #1077 `VoiceLedgerTests` tvrdí třídu Music. Každý nový test viděn selhat.
+- ⚠ Kompilátor nevaruje na dvě `<summary>` v jednom bloku; hlídá to až test. Zdrojový test volání (#1074) musí číst i volání, nejen členy, které zapisují — jinak šlo vrátit bránu Androidu 11 nepozorovaně.
+- Otevřené: nic neběželo na telefonu (žádný Android 7–10, cena dialogu na telefonu neměřena).
+
 ## 2026-11-15 — #1139 About: otočená stránka na telefonu se znovu vejde — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: `RebuildPage` volá `FitPage` jako `ShowPage`, takže stránka přestavěná na místě (otočení About, výběr úrovní při jiné šířce, Top Players, poznámka, benchmark) dostane svůj fit znovu; text zůstane ve scrolleru a Zpět na obrazovce. `FitPage` nově volá `page.Refresh()` před čtením stromu (výběr úrovní měřil starý strom). Na monitoru beze změny. Test `PageFitSourceTests` čte zdroj: každé `_desktop.Root =` má před sebou `FitPage` ve svém těle; viděn selhat na starém kódu.

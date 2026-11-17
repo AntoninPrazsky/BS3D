@@ -159,6 +159,14 @@ namespace BS3D.Screens
 
         internal override Widget TypingField => _field;
 
+        internal override void TakeTypedText(string text)
+        {
+            if (InGrace || _answered) return;
+
+            _entry.Replace(text);
+            Refresh();
+        }
+
         internal override void OnTextInput(char character)
         {
             if (InGrace || _answered) return;

@@ -844,10 +844,10 @@ namespace BS3D
         /// <summary>
         /// A phone's typing (#1052): the window sends no characters on Android, and Myra's text box opens no soft keyboard,
         /// so a page that takes the keyboard (the nickname plate, the Settings nickname row, the note) gets the system's own
-        /// text dialog (<c>KeyboardInput.Show</c>), opening on what is typed so far. Its answer is typed into the page through
-        /// <c>OnTextInput</c>, the window's own path: the field cleared with backspaces, the text, and the page's Enter where
-        /// OK means it (<c>TypingDialogEnters</c>); a cancel is the page's Esc. Asked once per page until the page stops
-        /// taking the keyboard or a finger touches the screen again, so a name the page refuses is not asked for in a loop.
+        /// text dialog (<c>KeyboardInput.Show</c>), opening on what is typed so far. Its answer takes the field's place in one
+        /// edit (<c>MenuPage.TakeTypedText</c>, #1141), then comes the page's Enter where OK means it (<c>TypingDialogEnters</c>);
+        /// a cancel is the page's Esc. Asked once per page until the page stops taking the keyboard or a finger lands on its
+        /// field again, so a name the page refuses is not asked for in a loop.
         /// </summary>
         private void StepPhoneTyping()
         {
@@ -870,8 +870,7 @@ namespace BS3D
                     return;
                 }
 
-                for (int i = 0; i < TYPING_DIALOG_CLEAR; i++) page.OnTextInput('\b');
-                foreach (char c in text) page.OnTextInput(c);
+                page.TakeTypedText(text);
                 if (page.TypingDialogEnters) page.OnTextInput('\r');
                 return;
             }
@@ -903,9 +902,6 @@ namespace BS3D
                 if (global.Contains((int)touch.Position.X, (int)touch.Position.Y)) return true;
             return false;
         }
-
-        //More backspaces than any field holds (a note is the longest), so the dialog's answer replaces what was there
-        private const int TYPING_DIALOG_CLEAR = 2000;
 
         /// <summary>The least a page's fit may take the interface down to: the design's own size, which every page fits.</summary>
         private float FitFloor => 1f / UiScale;

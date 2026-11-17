@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using Android.App;
 using Android.Content.PM;
 using Android.OS;
@@ -40,19 +39,12 @@ namespace BS3D
             //Draw beside the camera's cutout too, as on a monitor the whole panel is the game's
             if (OperatingSystem.IsAndroidVersionAtLeast(28))
                 attributes.LayoutInDisplayCutoutMode = LayoutInDisplayCutoutMode.ShortEdges;
+            Window.Attributes = attributes;
+
             //The display's fastest mode at its own resolution, as the desktop follows the monitor: Android would hold
             //the game at 60 Hz otherwise. A phone may hold it there all the same until its player allows the app a high
             //refresh rate (#1070, DisplayRefresh): this asks, and the phone's own setting decides
-            if (OperatingSystem.IsAndroidVersionAtLeast(30) && Display != null)
-            {
-                Display.Mode current = Display.GetMode();
-                Display.Mode fastest = Display.GetSupportedModes()
-                    .Where(mode => mode.PhysicalWidth == current.PhysicalWidth && mode.PhysicalHeight == current.PhysicalHeight)
-                    .OrderByDescending(mode => mode.RefreshRate)
-                    .First();
-                attributes.PreferredDisplayModeId = fastest.ModeId;
-            }
-            Window.Attributes = attributes;
+            Platform.DisplayRefresh.PreferMode(this, 0);
 
             //Before Program.Start: its [build] lines and the Game's readers ask for the shipped files, which are the APK's
             AssetFiles.Install(this);

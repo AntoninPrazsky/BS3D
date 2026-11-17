@@ -70,9 +70,17 @@ namespace BS3D.Platform
         /// <summary>
         /// The same renderer for a player who chose Potato on the Quality row (#808): called by <c>Program.Main</c> when
         /// <c>Settings.json</c> names it and nothing on the command line says otherwise. The row stays the player's.
+        /// <para>
+        /// <b>Not over the device's hold</b> (#1141): a GPU that cannot carry the desktop's renderer has already held the run
+        /// (<see cref="HoldForDevice"/>), and a stored Potato taken up after it unlocked the row on a phone that cannot leave
+        /// Potato, named "chosen in Settings" as the reason and let a tier be picked that the next start undid. So it is
+        /// false there, nothing switched, and the run stays held for the device's reason.
+        /// </para>
         /// </summary>
         internal static bool ChooseAtPotato()
         {
+            if (_deviceWhy != null) return false;
+
             ChosenInSettings = true;
 
             return HoldAtPotato();

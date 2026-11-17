@@ -118,7 +118,7 @@ namespace BS3D.Platform
         private static bool TryRead(out int hz)
         {
             hz = 0;
-            Display display = CurrentDisplay();
+            Display display = CurrentDisplay(Game.Activity);
             if (display == null || display.RefreshRate < 10f) return false;
             hz = (int)MathF.Round(display.RefreshRate);
 
@@ -146,10 +146,10 @@ namespace BS3D.Platform
 
         /// <summary>
         /// Asks the display for the mode at its size whose refresh is nearest <paramref name="hz"/>, 0 for its fastest
-        /// (#1074: the FPS limit row's own 60 Hz on a phone), through the window's preferred display mode, as
-        /// <c>MainActivity</c> asks for the fastest before the game exists. The phone may still hold the app under it
-        /// (#1070). Written on the activity's thread, where the window's attributes belong; what the display then
-        /// presents is read by <see cref="Watch"/> within a second and the Game re-derives its floors and limiter from it.
+        /// (#1074: the FPS limit row's own 60 Hz on a phone), through <see cref="PreferMode"/> on the activity's thread,
+        /// as <c>MainActivity</c> asks for the fastest before the game exists. The phone may still hold the app under it
+        /// (#1070). What the display then presents is read by <see cref="Watch"/> within a second and the Game re-derives
+        /// its floors and limiter from it.
         /// </summary>
         internal static void AskRefresh(int hz)
         {
@@ -164,42 +164,55 @@ namespace BS3D.Platform
 
         private static void ApplyAsk()
         {
+            //Kept until the activity is up, then asked once, on every Android the app installs on (PreferMode)
             Android.App.Activity activity = Game.Activity;
-            if (activity == null || !OperatingSystem.IsAndroidVersionAtLeast(30)) return;
+            if (activity == null) return;
             _askPending = false;
             int hz = _askedHz;
 
-            activity.RunOnUiThread(() =>
-            {
-                //Asked again inside: the analyzer (CA1416, an error here) does not carry the guard above into the lambda
-                if (!OperatingSystem.IsAndroidVersionAtLeast(30)) return;
-
-                Display display = activity.Display;
-                Display.Mode current = display?.GetMode();
-                Display.Mode[] modes = display?.GetSupportedModes();
-                if (current == null || modes == null) return;
-
-                Display.Mode chosen = null;
-                foreach (Display.Mode mode in modes)
-                {
-                    if (mode.PhysicalWidth != current.PhysicalWidth || mode.PhysicalHeight != current.PhysicalHeight) continue;
-                    bool nearer = chosen == null
-                        || (hz <= 0 ? mode.RefreshRate > chosen.RefreshRate
-                                    : Math.Abs(mode.RefreshRate - hz) < Math.Abs(chosen.RefreshRate - hz));
-                    if (nearer) chosen = mode;
-                }
-                if (chosen == null) return;
-
-                WindowManagerLayoutParams attributes = activity.Window.Attributes;
-                attributes.PreferredDisplayModeId = chosen.ModeId;
-                activity.Window.Attributes = attributes;
-                Console.WriteLine($"[display] asked for the display's {MathF.Round(chosen.RefreshRate)} Hz mode{(hz <= 0 ? " (its fastest)" : "")}");
-            });
+            activity.RunOnUiThread(() => PreferMode(activity, hz));
         }
 
-        private static Display CurrentDisplay()
+        /// <summary>
+        /// Writes <paramref name="activity"/>'s window's preferred display mode: the mode of its display, at the display's
+        /// size, whose refresh is nearest <paramref name="hz"/>, or its fastest for 0. On the activity's thread, where the
+        /// window's attributes belong: <c>MainActivity</c>'s start (the fastest) and <see cref="AskRefresh"/>'s (the FPS
+        /// limit row).
+        /// <para>
+        /// <b>On every Android the app installs on</b> (#1141): the preferred mode and the display's modes are Android 6's
+        /// (API 23, under the project's <c>SupportedOSPlatformVersion</c> 24); only the activity's own display is Android
+        /// 11's, so below it the window manager's is asked (<see cref="CurrentDisplay"/>). ⚠ Not gated on Android 11 for
+        /// that display's sake: so gated, a phone on 7 to 10 was asked nothing while the FPS limit row read "60 Hz".
+        /// </para>
+        /// </summary>
+        internal static void PreferMode(Android.App.Activity activity, int hz)
         {
-            Android.App.Activity activity = Game.Activity;
+            Display display = CurrentDisplay(activity);
+            Display.Mode current = display?.GetMode();
+            Display.Mode[] modes = display?.GetSupportedModes();
+            Window window = activity?.Window;
+            if (current == null || modes == null || window == null) return;
+
+            Display.Mode chosen = null;
+            foreach (Display.Mode mode in modes)
+            {
+                if (mode.PhysicalWidth != current.PhysicalWidth || mode.PhysicalHeight != current.PhysicalHeight) continue;
+                bool nearer = chosen == null
+                    || (hz <= 0 ? mode.RefreshRate > chosen.RefreshRate
+                                : Math.Abs(mode.RefreshRate - hz) < Math.Abs(chosen.RefreshRate - hz));
+                if (nearer) chosen = mode;
+            }
+            if (chosen == null) return;
+
+            WindowManagerLayoutParams attributes = window.Attributes;
+            attributes.PreferredDisplayModeId = chosen.ModeId;
+            window.Attributes = attributes;
+            Console.WriteLine($"[display] asked for the display's {MathF.Round(chosen.RefreshRate)} Hz mode{(hz <= 0 ? " (its fastest)" : "")}");
+        }
+
+        /// <summary>The display <paramref name="activity"/> is on: its own from Android 11, the window manager's before.</summary>
+        private static Display CurrentDisplay(Android.App.Activity activity)
+        {
             if (activity == null) return null;
             if (OperatingSystem.IsAndroidVersionAtLeast(30)) return activity.Display;
 #pragma warning disable CA1422, CS0618 //The window manager's display is how an activity asked before API 30

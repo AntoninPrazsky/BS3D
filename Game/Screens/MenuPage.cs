@@ -294,10 +294,19 @@ namespace BS3D.Screens
 
         /// <summary>
         /// What a phone's text dialog asks while this page has the keyboard (#1052): its title, a line under it, and the text
-        /// it opens on (what is typed so far). <c>BS3DGame.StepPhoneTyping</c> types the answer into the page through
-        /// <see cref="OnTextInput"/>, the window's own path.
+        /// it opens on (what is typed so far). <c>BS3DGame.StepPhoneTyping</c> hands the answer to <see cref="TakeTypedText"/>.
         /// </summary>
         internal virtual (string Title, string Description, string Text) TypingDialog => ("", "", "");
+
+        /// <summary>
+        /// A phone's text dialog's answer (#1052): the field's whole text in place of what was typed, by the same rule of what
+        /// a key may put in, as one edit and one <see cref="Refresh"/> (#1141). Then the page's Enter through
+        /// <see cref="OnTextInput"/> where OK means it (<see cref="TypingDialogEnters"/>). ⚠ Not typed key by key: that took
+        /// 2000 backspaces to clear the field and then each character, a refresh every key, and on the note each re-laid the
+        /// field and re-wrapped its hint - measured on the desktop's CPU, 0.7 s in the frame the dialog answered for a note of
+        /// 100 characters and 1.3 s for 1000, where one edit takes under a millisecond.
+        /// </summary>
+        internal virtual void TakeTypedText(string text) { }
 
         /// <summary>
         /// Whether the dialog's OK is the page's Enter (#1052): a nickname is kept by it; a note is not sent by it, since its

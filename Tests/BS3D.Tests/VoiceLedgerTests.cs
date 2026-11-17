@@ -12,7 +12,8 @@ namespace BS3D.Tests
     /// The choice of which voice gives way is the <see cref="VoiceLedger{TVoice}"/>'s, pure bookkeeping held here with stand-in
     /// voices; the <c>[audio]</c> line is the <see cref="VoiceReport"/>'s. That every sound of the game plays through
     /// <c>VoiceBudget</c>, so a class is named for each, is held on the source, with the rule seen to fire on the call
-    /// this change replaced (BestPractices section 10).
+    /// this change replaced (BestPractices section 10), and so is the one class a test of the ledger cannot see, the
+    /// scene's bed's (#1141): Music's, which no fanfare takes.
     /// </summary>
     public class VoiceLedgerTests
     {
@@ -71,17 +72,43 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void The_music_takes_the_scenes_bed_only_when_nothing_lower_plays()
+        public void The_music_never_takes_the_scenes_bed()
         {
+            //The bed plays in Music's own class (#1077's follow-up): it is played once a scene, so a bed that gave way would
+            //stay silent until the next. A fanfare takes a lower voice, and with none below it is dropped, the bed playing on
             VoiceLedger<Voice> ledger = Ledger();
-            Voice bed = new(), theme = new();
-            ledger.Began(bed, VoiceClass.Event, "ambience", 1);
+            Voice bed = new(), theme = new(), chime = new();
+            ledger.Began(bed, VoiceClass.Music, "ambience", 1);
             ledger.Began(theme, VoiceClass.Music, "theme", 2);
+            ledger.Began(chime, VoiceClass.Event, "star", 3);
 
-            Assert.Same(bed, ledger.VoiceAt(ledger.Victim(VoiceClass.Music)));
+            Assert.Same(chime, ledger.VoiceAt(ledger.Victim(VoiceClass.Music)));
 
-            bed.Playing = false;
+            chime.Playing = false;
             Assert.Equal(-1, ledger.Victim(VoiceClass.Music));
+        }
+
+        //The class a scene's bed is played in: ProceduralAmbience's own call, which the ledger's tests above cannot see, since
+        //they build their ledgers by hand
+        private static readonly Regex BedPlayedIn = new(@"VoiceBudget\.Try(?:Play|Resume)\([^;]*?VoiceClass\.(\w+)\s*,\s*""ambience""\s*\)",
+            RegexOptions.Compiled);
+
+        [Fact]
+        public void The_scenes_bed_is_played_in_musics_class()
+        {
+            string source = File.ReadAllText(Path.Combine(FindUnderRepository("Game"), "Audio", "ProceduralAmbience.cs"));
+            MatchCollection calls = BedPlayedIn.Matches(source);
+
+            Assert.Single(calls);
+            Assert.Equal(nameof(VoiceClass.Music), calls[0].Groups[1].Value);
+        }
+
+        [Fact]
+        public void The_bed_rule_reads_the_class_the_follow_up_replaced()
+        {
+            Assert.Equal("Event", BedPlayedIn.Match("                VoiceBudget.TryPlay(_to, VoiceClass.Event, \"ambience\");").Groups[1].Value);
+            Assert.Equal("Music", BedPlayedIn.Match("                VoiceBudget.TryPlay(_to, VoiceClass.Music, \"ambience\");").Groups[1].Value);
+            Assert.DoesNotMatch(BedPlayedIn, "                VoiceBudget.TryPlay(_menu, VoiceClass.Music, \"menu-music\");");
         }
 
         [Fact]

@@ -1134,17 +1134,25 @@ namespace BS3D.Screens
             Refresh();
         }
 
+        internal override (string Title, string Description, string Text) TypingDialog =>
+            ("Nickname", "The name the online boards show for your scores", _entry.Draft);
+
+        internal override Widget TypingField => _nicknameValue;
+
+        internal override void TakeTypedText(string text)
+        {
+            if (!_typing) return;
+
+            _entry.Replace(text);
+            Refresh();
+        }
+
         /// <summary>
         /// A character the window typed (#548), while this page has the keyboard. Enter and Escape come through
         /// here as the characters Windows sends for them, not as key edges, so one press cannot act twice; a
         /// character no nickname may hold does nothing, and nothing past the longest name is taken
         /// (<see cref="NicknameEntry.Type"/>).
         /// </summary>
-        internal override (string Title, string Description, string Text) TypingDialog =>
-            ("Nickname", "The name the online boards show for your scores", _entry.Draft);
-
-        internal override Widget TypingField => _nicknameValue;
-
         internal override void OnTextInput(char character)
         {
             if (!_typing) return;

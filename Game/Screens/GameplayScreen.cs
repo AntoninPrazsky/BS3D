@@ -1828,20 +1828,6 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// The gun's own frame: the carriage's orbit and walk (<see cref="Cannon.Update"/>), the loaded queue
-        /// gliding into the slot the fired ball left, every wildcard turning over together (#330) and the recoil
-        /// stroke sliding home. <b>Wall clock</b>, all four, never the simulation's step: this is the gun
-        /// answering the shot, not the world.
-        /// <para>
-        /// One copy for both frames that run it — <see cref="Update"/> and <see cref="UpdateUnderResult"/> — which
-        /// each carried their own until #582, in two different orders. That never mattered and still does not:
-        /// the four touch disjoint state (the carriage's pose and aim, the magazine's slots, the wildcard clock
-        /// with the shots' colours, the recoil phase) and none reads another's, so the result page's frame kept
-        /// its behaviour when it took this order. A piece of the gun added to one frame and not the other is
-        /// what this method exists to make impossible.
-        /// </para>
-        /// </summary>
-        /// <summary>
         /// The sleeping gun's frame (#230): whether anything was touched since the last one, and the gun's sag,
         /// breath and snore off the answer. Played frames only — a pause does not reach here, so time on the pause
         /// page does not count towards a nap, and nothing here runs under the result page.
@@ -1905,6 +1891,20 @@ namespace BS3D.Screens
         /// <summary>How far a trigger has to be pulled to count as a touch: XInput's own threshold, 30 of 255.</summary>
         private const float PAD_TOUCH_TRIGGER = 30f / 255f;
 
+        /// <summary>
+        /// The gun's own frame: the carriage's orbit and walk (<see cref="Cannon.Update"/>), the loaded queue
+        /// gliding into the slot the fired ball left, the Swap's two rounds sliding through each other (#871), every
+        /// wildcard turning over together (#330) and the recoil stroke sliding home. <b>Wall clock</b>, all five,
+        /// never the simulation's step: this is the gun answering the shot, not the world.
+        /// <para>
+        /// One copy for both frames that run it — <see cref="Update"/> and <see cref="UpdateUnderResult"/> — which
+        /// each carried their own until #582, in two different orders. That never mattered and still does not:
+        /// the five touch disjoint state (the carriage's pose and aim, the magazine's slots, the Swap's motion, the
+        /// wildcard clock with the shots' colours, the recoil phase) and none reads another's, so the result page's
+        /// frame kept its behaviour when it took this order. A piece of the gun added to one frame and not the other
+        /// is what this method exists to make impossible.
+        /// </para>
+        /// </summary>
         private void StepGunHardware(GameTime gameTime, float elapsed)
         {
             _cannon.Update(gameTime);

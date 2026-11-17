@@ -162,12 +162,6 @@ namespace Prazsky.BS3D.Physics
             Apply(simulation, frequency, damping);
         }
 
-        /// <summary>
-        /// Re-describes each socket in place with new spring settings, its anchors untouched. A socket a shot has
-        /// already cut in the first two seconds is skipped — its handle may even have been reused by a new one,
-        /// which is why the type is checked and not only the existence; a ball socket reused that way is simply
-        /// softened for the rest of the ease with everything else, and handed back the same settings.
-        /// </summary>
         /// <summary>Whether <paramref name="owner"/> still exists and still takes part in <paramref name="socket"/>.</summary>
         private static bool Owns(Simulation simulation, BodyHandle owner, ConstraintHandle socket)
         {
@@ -180,6 +174,12 @@ namespace Prazsky.BS3D.Physics
             return false;
         }
 
+        /// <summary>
+        /// Re-describes each socket in place with new spring settings, its anchors untouched. A socket a shot has
+        /// already cut in the first two seconds is skipped — its handle may even have been reused by a new one,
+        /// which is why the type is checked and not only the existence, and then whether the socket is still its
+        /// ball's (<see cref="Owns"/>): a handle another pair's socket has taken is left alone.
+        /// </summary>
         private void Apply(Simulation simulation, float frequency, float damping)
         {
             SpringSettings settings = new(frequency, damping);
