@@ -706,9 +706,15 @@ namespace BS3D
         internal SpriteFontBase HudFontChipDetail => _hudFontChipDetail;
         internal SpriteFontBase HudFontChipPrompt => _hudFontChipPrompt;
 
+        /// <summary>The chips' pictograms, baked once a size and kept (#1146): read ahead whenever the HUD's fonts are resolved.</summary>
+        internal PictogramCache ChipPictograms => _chipPictograms;
+
+        private readonly PictogramCache _chipPictograms;
+
         /// <summary>
         /// Resolves the HUD's fonts for the viewport they are about to be drawn into. Called by the gameplay
-        /// screen at the top of its HUD pass.
+        /// screen at the top of its HUD pass, and ahead of play by the load and the menu (#1146), so that each new size
+        /// starts the chips' pictograms for it on a worker (<see cref="PictogramCache.Prefetch"/>) before a level needs them.
         /// </summary>
         internal void EnsureHudFonts()
         {
@@ -731,6 +737,8 @@ namespace BS3D
             _hudFontPrompt = _menuFontSystemPrompt.GetFont(HudScaled(HUD_FONT_PROMPT));
             _hudFontChipDetail = _menuFontSystemDisplay.GetFont(HudScaled(HUD_FONT_CHIP_DETAIL));
             _hudFontChipPrompt = _menuFontSystemPrompt.GetFont(HudScaled(HUD_FONT_CHIP_PROMPT));
+
+            _chipPictograms.Prefetch(Screens.PlayHud.ChipPictogramKey(this));
         }
 
         #endregion
@@ -847,6 +855,9 @@ namespace BS3D
 
             //The benchmark's results (#988), the same way: starting one is the consent, and what an earlier run left goes now
             _benchmarkResults = OnlineBenchmarks.Start(_settings, UserData.PathTo(OnlineBenchmarks.FolderName));
+
+            //The chips' pictograms, baked once a size and kept beside the player's files (#1146); asked for in LoadContent
+            _chipPictograms = new PictogramCache(UserData.PathTo(PictogramCache.FOLDER_NAME));
 
             //The eleven rows that are only the player's answer are read through the file from here on (#583), with
             //"mute" held over the master as a flag and never stored — see EffectiveSettings
@@ -1486,6 +1497,13 @@ namespace BS3D
             _menuFontSystem = LoadEmbeddedFont("BS3D.Content.Fonts.Inter-Regular.ttf");
             _loading = new LoadingIndicator(GraphicsDevice, _menuFontSystem);
             ShowLoading();
+
+            //The HUD's two faces here too, and its fonts for this window, so the chips' pictograms for this size are read
+            //from the cache or baked on a worker while the rest of the load runs (#1146): a launch straight into play
+            //builds its level on its first frame, and the build takes them from there. BuildMenu keeps these as well.
+            _menuFontSystemDisplay = LoadEmbeddedFont("BS3D.Content.Fonts.Anton-Regular.ttf");
+            _menuFontSystemPrompt = LoadEmbeddedFont("BS3D.Content.Fonts.PromptFont.ttf");
+            EnsureHudFonts();
 
             //The first moment there is a device to read a back buffer out of, which is all the writer needs
             //from this class; the schedule it runs was parsed by the command line (see BS3DGame.Screenshot.cs)

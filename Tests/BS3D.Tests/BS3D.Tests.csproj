@@ -83,6 +83,7 @@
     <Compile Include="..\..\Game\Screens\ChipColumnLayout.cs" />
     <Compile Include="..\..\Game\Screens\PowerupKind.cs" />
     <Compile Include="..\..\Game\Screens\PowerupPictograms.cs" />
+    <Compile Include="..\..\Game\Screens\PictogramCache.cs" />
     <Compile Include="..\..\Game\Screens\FrameStats.cs" />
     <Compile Include="..\..\Game\Screens\FrameTrace.cs" />
     <Compile Include="..\..\Game\Screens\BenchmarkVerdict.cs" />

@@ -174,7 +174,8 @@ namespace BS3D.Screens
             _shotCode.Reset();
             ResetWormhole();
 
-            //The HUD's chips measured and their pictograms baked inside the build's own frame, not on the first frame of play (#1095)
+            //The HUD's chips measured and their pictograms' textures made inside the build's own frame, not on the first frame of
+            //play (#1095), from pictures read or baked ahead while the game loaded (#1146)
             _hud.PrepareChips();
 
             //Last, now that the field, the cannon and the game camera are all fit to this level: the one

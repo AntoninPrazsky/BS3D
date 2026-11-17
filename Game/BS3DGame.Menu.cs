@@ -706,10 +706,10 @@ namespace BS3D
             //nothing to install. Myra's own stylesheet carries a small bitmap font, which is fine for a tool
             //panel and far too coarse for a title. Each size is rasterized into its own atlas by GetFont, so
             //they are resolved once here rather than per label.
-            _menuFontSystemDisplay = LoadEmbeddedFont("BS3D.Content.Fonts.Anton-Regular.ttf");
+            _menuFontSystemDisplay ??= LoadEmbeddedFont("BS3D.Content.Fonts.Anton-Regular.ttf");  //loaded already for the HUD (#1146)
             _menuFontSystem ??= LoadEmbeddedFont("BS3D.Content.Fonts.Inter-Regular.ttf");  //loaded already for "Loading..." (#637)
             _menuFontSystemBold = LoadEmbeddedFont("BS3D.Content.Fonts.Inter-Bold.ttf");
-            _menuFontSystemPrompt = LoadEmbeddedFont("BS3D.Content.Fonts.PromptFont.ttf");
+            _menuFontSystemPrompt ??= LoadEmbeddedFont("BS3D.Content.Fonts.PromptFont.ttf");  //loaded already for the HUD (#1146)
 
             //What a /f[name] command in a label's text switches to (#996). FontStashSharp's rich text asks this for every
             //such command; Myra sets nothing here, so without it the command throws inside the layout
@@ -767,6 +767,10 @@ namespace BS3D
         {
             MenuPage page = _screens.Active as MenuPage;
             if (ApplyMenuLayout(page?.LayoutFit ?? 1f) && page != null) ShowPage(page);
+
+            //And the HUD's fonts for the same height, so a window resized in the menu has the chips' pictograms for its new
+            //size read or baked on a worker before a level is built (#1146); nothing when the height has not moved
+            EnsureHudFonts();
         }
 
         /// <summary>
