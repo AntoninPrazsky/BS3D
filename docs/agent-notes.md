@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1138 Mars: měsíce jen ve svém obdélníku — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: průchod Phobosu a Deimosu se ořezává (scissor) na obdélník každého měsíce na obrazovce (`SkyRay.PixelsWithin`, kužel ořezaný stranami frusta), sjednocení překrývajících se, nic když měsíc není v záběru. Pin Testbedu: měsíce 0,13 → 0,00 ms, snímek 4,13 → 4,00 ms. Mars.xnb bajtově shodný, obraz stejný bez multisamplingu; s MSAA se liší ~4 pixely na okraji stropu. Číselník `mars=all/-moonbounds` (starý celoobrazovkový průchod).
+- ⚠ Cenu nesl dotyk celého snímku (rasterizace, hloubka, start programu), ne program: konstantní 0 ušetřila 0,02 ms, scissor na 1 px celých 0,13. `mars=none/...` vypne i `moonbounds`, `bake`, `rockdepth` – vyjmenovat je.
+- Otevřené: GL (telefon), MapEditor a intro Phobosu nefotografovány; notebook neměřen.
+
 ## 2026-11-15 — #1137 outback: hloubka monolitů napřed — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: na High/Ultra (DirectX) se hloubka monolitů kreslí napřed hloubkovým dvojčetem `OutbackRockDepth` (bez ořezu), pak se stínují s `DepthRead`, takže každý viditelný pixel monolitu se stínuje jednou. Balvany zůstávají v jednom průchodu, GL a nižší úrovně beze změny. Obraz stejný (20/20 párů bez rozdílu, programy bajtově shodné). Pin Testbedu 8,13 → 6,02 ms (formace 3,26 → 1,17), Game Ultra menu ~1 ms levnější. Číselník `outback=all/-rockdepth`.
