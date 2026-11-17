@@ -2282,11 +2282,7 @@ namespace BS3D.Audio
             Loudness(signal, targetRms: 0.17f, ceiling: 0.92f);
             return ToSoundEffect(signal);
         }
-        /// <summary>
-        /// The party popper that opens the celebration: a dry paper crack and the rustle of confetti after it.
-        /// Deliberately close and dry where the shells are big and wet — it is the one sound in the celebration
-        /// that happens in the room rather than in the sky, which is what makes the shells read as distant.
-        /// </summary>
+
         /// <summary>
         /// The snore (#230): 2.6 s of breath. In — low band-passed noise fluttered at ~28 Hz, which is what a soft
         /// palate does and what makes a snore a snore rather than wind, swelling over most of a second and cut off
@@ -2389,6 +2385,11 @@ namespace BS3D.Audio
             return ToSoundEffect(signal);
         }
 
+        /// <summary>
+        /// The party popper that opens the celebration: a dry paper crack and the rustle of confetti after it.
+        /// Deliberately close and dry where the shells are big and wet — it is the one sound in the celebration
+        /// that happens in the room rather than in the sky, which is what makes the shells read as distant.
+        /// </summary>
         private SoundEffect BakePartyPopper()
         {
             const float duration = 0.55f;

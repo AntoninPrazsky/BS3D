@@ -1004,17 +1004,6 @@ namespace BS3D.Tools.LevelGen
         }
 
         /// <summary>
-        /// Whether the cell has a ball on the course <b>below</b> it, i.e. whether anything hangs off it at all
-        /// (#333). The heavy ball's own question, and the cheapest honest form of it: level is the vertical
-        /// axis and the cluster hangs from the top, so one course down is where a mass's load goes.
-        /// <para>
-        /// It asks the neighbour walk rather than the cell straight underneath, because the lattice is packed
-        /// hexagonally — odd levels are shifted by half a cell in X and Z, so <c>[x, z, l - 1]</c> is not
-        /// reliably a neighbour at all and which diagonal offsets are depends on the level's parity.
-        /// <c>BallsMap.GetNeighboringCells</c> is the one place that knows it.
-        /// </para>
-        /// </summary>
-        /// <summary>
         /// The cells a bomb's blast or an acid's shaft in the layout can take (#257): every cell within
         /// <see cref="BallsConstraintsBuilder.BLAST_RADIUS"/> of a bomb, measured as the blast measures it, and every cell
         /// <see cref="BallsMap.CollectAcidShaft"/> walks from an acid. Generous on purpose: a bomb is counted whether or
@@ -1055,6 +1044,17 @@ namespace BS3D.Tools.LevelGen
             return breakable;
         }
 
+        /// <summary>
+        /// Whether the cell has a ball on the course <b>below</b> it, i.e. whether anything hangs off it at all
+        /// (#333). The heavy ball's own question, and the cheapest honest form of it: level is the vertical
+        /// axis and the cluster hangs from the top, so one course down is where a mass's load goes.
+        /// <para>
+        /// It asks the neighbour walk rather than the cell straight underneath, because the lattice is packed
+        /// hexagonally — odd levels are shifted by half a cell in X and Z, so <c>[x, z, l - 1]</c> is not
+        /// reliably a neighbour at all and which diagonal offsets are depends on the level's parity.
+        /// <c>BallsMap.GetNeighboringCells</c> is the one place that knows it.
+        /// </para>
+        /// </summary>
         private static bool HasBallBelow(StaticBall[,,] array, XZLevel size, XZLevel from)
         {
             foreach (XZLevel neighbour in BallsMap.GetNeighboringCells(from, size))
