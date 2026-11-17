@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1138 Mars: měsíce jen ve svém obdélníku — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: průchod Phobosu a Deimosu se ořezává (scissor) na obdélník každého měsíce na obrazovce (`SkyRay.PixelsWithin`, kužel ořezaný stranami frusta), sjednocení překrývajících se, nic když měsíc není v záběru. Pin Testbedu: měsíce 0,13 → 0,00 ms, snímek 4,13 → 4,00 ms. Mars.xnb bajtově shodný, obraz stejný bez multisamplingu; s MSAA se liší ~4 pixely na okraji stropu. Číselník `mars=all/-moonbounds` (starý celoobrazovkový průchod).
+- ⚠ Cenu nesl dotyk celého snímku (rasterizace, hloubka, start programu), ne program: konstantní 0 ušetřila 0,02 ms, scissor na 1 px celých 0,13. `mars=none/...` vypne i `moonbounds`, `bake`, `rockdepth` – vyjmenovat je.
+- Otevřené: GL (telefon), MapEditor a intro Phobosu nefotografovány; notebook neměřen.
+
 ## 2026-11-15 — #1141 pět drobných vad (pass 18) — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: (1) #1064 uložené Potato už neruší držení slabého zařízení (`QualityLock.ChooseAtPotato` při `_deviceWhy` nic nemění); (2) #1074 obnovovací frekvence se žádá i na Androidu 7–10 přes `DisplayRefresh.PreferMode` (preferovaný režim je API 23, jen `Activity.Display` je 11); (3) #1052 odpověď telefonního dialogu jde do stránky jednou editací (`MenuPage.TakeTypedText`, nový `NoteText`), dřív 0,7–1,4 s v jednom snímku; (4) #1068 doc komentáře zpět na svých členech, `DocCommentPlacementTests` našel šest bloků se dvěma summary; (5) #1077 `VoiceLedgerTests` tvrdí třídu Music. Každý nový test viděn selhat.
