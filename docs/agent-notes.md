@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1137 outback: hloubka monolitů napřed — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: na High/Ultra (DirectX) se hloubka monolitů kreslí napřed hloubkovým dvojčetem `OutbackRockDepth` (bez ořezu), pak se stínují s `DepthRead`, takže každý viditelný pixel monolitu se stínuje jednou. Balvany zůstávají v jednom průchodu, GL a nižší úrovně beze změny. Obraz stejný (20/20 párů bez rozdílu, programy bajtově shodné). Pin Testbedu 8,13 → 6,02 ms (formace 3,26 → 1,17), Game Ultra menu ~1 ms levnější. Číselník `outback=all/-rockdepth`.
+- ⚠ Ořez jen v programu balvanů a odřezání zadních stěn disků měnily pixely (jiné instrukce, sdílená hloubka na korunách); zamítnuto.
+- Otevřené: jiné GPU, notebook a telefon neměřeny; cena samotných balvanů neznámá; řádek `High` v tabulce nákladů je starší než změna.
+
 ## 2026-11-15 — #1131 zbylá desktopová čísla znovu změřena — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: zbylé desktopové pasáže (#1131) přeměřeny v ustálených `alt=` oknech na Release Testbedu 43959f47, jen dokumenty a komentáře. Mapa slunce stojí 0,49–0,84 ms (dřív „asi 0,2 všude“); největší díl je čtení mapy, pak vrhání a stín stropního skla, jen ve městě vrhání převáží. Odrazy města bez brány +0,75/+0,85 ms (ne +4,9/+1,9), hrubé pohoří s clip() +3,2, šest oktáv reliéfu 1,04 dohromady, kmen aurory +0,08, kupy mraků +0,37 louka / +0,53 herní kamera / +0,93 hora.

@@ -26,6 +26,22 @@ namespace Prazsky.Core.Render
     /// a hair larger than the footprint (the rim's chords circumscribe it, plus <see cref="RIM_PAD"/>), so the plain that
     /// stops on the exact ellipse never shows a crack.
     /// </para>
+    /// <para>
+    /// <b>Each pixel of a monolith is shaded once where the scene supersamples</b> (#1137, <see cref="Draw"/> with a depth
+    /// pass). The discs are drawn two-sided, so a loaf's far wall and whatever one formation hides of another were shaded
+    /// before what hides them, and the rock's program is the dearest of the scene (the whole height field three times a
+    /// pixel for its normal), and it may discard, so nothing in its own draw was rejected early. On High and Ultra the
+    /// monoliths' depth is laid first (<c>OutbackRockDepth</c>: their own vertex program, no colour), and they are then
+    /// shaded on it with <see cref="DepthStencilState.DepthRead"/>: a hidden pixel fails the test before the program runs.
+    /// The program's one cut is a boulder's (it gives way where a monolith's footprint overlaps its own) and never fires on
+    /// a monolith, so the depth pass makes none and the laid depth is the only judge of what is drawn there: it is laid for
+    /// the monoliths alone, and must stay so. The boulders are one pass on every tier,
+    /// so their cut keeps one judge, their own program, not two compiled apart (#1130). <b>The picture is the one pass's,
+    /// bit for bit</b>: the groups are shaded in their order either way, and a pixel keeps the last fragment drawn at the
+    /// nearest depth (the test is <c>LessEqual</c>), which laying some of the depth first does not change. Below the
+    /// supersampling tiers, and on OpenGL ES (no depth twin is compiled there), every formation is the one pass it always
+    /// was, as every terrain grid is (<see cref="TerrainGridCache"/> says why).
+    /// </para>
     /// </summary>
     internal sealed class OutbackRockDiscs : IDisposable
     {
@@ -66,13 +82,14 @@ namespace Prazsky.Core.Render
             _outcropNear = new Mesh(device, OUTCROP_NEAR_SEGMENTS, OUTCROP_NEAR_RINGS);
             _outcropFar = new Mesh(device, OUTCROP_FAR_SEGMENTS, OUTCROP_FAR_RINGS);
 
-            //Near first: the depth test then rejects what the near formations hide
+            //Near first: the depth test then rejects what the near formations hide. The order is also the picture's (see the
+            //class), so it is not changed lightly
             _groups = new[]
             {
-                new Group(device, footprints, plainY, f => !f.Outcrop && f.Centre.Length() <= MONOLITH_NEAR_RADIUS, _monolithFine, _monolithCoarse),
-                new Group(device, footprints, plainY, f => f.Outcrop && f.Centre.Length() <= OUTCROP_NEAR_RADIUS, _outcropNear, _outcropNear),
-                new Group(device, footprints, plainY, f => !f.Outcrop && f.Centre.Length() > MONOLITH_NEAR_RADIUS, _monolithCoarse, _monolithCoarse),
-                new Group(device, footprints, plainY, f => f.Outcrop && f.Centre.Length() > OUTCROP_NEAR_RADIUS, _outcropFar, _outcropFar),
+                new Group(device, footprints, plainY, outcrop: false, f => f.Centre.Length() <= MONOLITH_NEAR_RADIUS, _monolithFine, _monolithCoarse),
+                new Group(device, footprints, plainY, outcrop: true, f => f.Centre.Length() <= OUTCROP_NEAR_RADIUS, _outcropNear, _outcropNear),
+                new Group(device, footprints, plainY, outcrop: false, f => f.Centre.Length() > MONOLITH_NEAR_RADIUS, _monolithCoarse, _monolithCoarse),
+                new Group(device, footprints, plainY, outcrop: true, f => f.Centre.Length() > OUTCROP_NEAR_RADIUS, _outcropFar, _outcropFar),
             };
         }
 
@@ -87,26 +104,45 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Draws what <see cref="Cull"/> picked through <paramref name="technique"/>, the effect's per-frame parameters
-        /// already pushed by the terrain pass (whose states, opaque and two-sided, are current). Puts the effect's
-        /// technique back.
+        /// Draws what <see cref="Cull"/> picked with <paramref name="rock"/>, the effect's per-frame parameters already
+        /// pushed by the terrain pass (whose states, opaque and two-sided, are current). With <paramref name="monolithDepth"/>,
+        /// the same vertex program's depth alone (#1137), the monoliths' depth is laid first and they are shaded on it
+        /// without writing it: see the class. The depth state is put back as it was found, and it has to have been
+        /// <see cref="DepthStencilState.Default"/> for the depth to be laid.
         /// </summary>
-        public void Draw(Effect effect, EffectTechnique technique)
+        public void Draw(EffectPass rock, EffectPass monolithDepth)
         {
-            EffectTechnique previous = effect.CurrentTechnique;
-            effect.CurrentTechnique = technique;
-
-            foreach (Group group in _groups)
+            if (monolithDepth != null)
             {
-                if (group.Visible == 0) continue;
+                BlendState blend = _device.BlendState;
+                _device.BlendState = TerrainGridCache.DEPTH_ONLY;
 
-                InstanceBinding.Set(_device, group.Drawn.Vertices, 0, group.Instances, 0);
-                _device.Indices = group.Drawn.Indices;
-                technique.Passes[0].Apply();
-                _device.DrawInstanced(PrimitiveType.TriangleList, 0, 0, group.Drawn.Primitives, group.Visible);
+                //⚠ The monoliths alone: the depth pass makes no cut, which is right only where the rock's cut never fires
+                //(TerrainDepthTwinSourceTests holds this loop, the DepthRead below and the flag Group.Cull writes)
+                foreach (Group group in _groups)
+                    if (!group.Outcrop) DrawGroup(group, monolithDepth);
+                _device.BlendState = blend;
             }
 
-            effect.CurrentTechnique = previous;
+            //Shaded in the groups' own order whether or not the depth was laid: see the class
+            DepthStencilState depth = _device.DepthStencilState;
+            foreach (Group group in _groups)
+            {
+                _device.DepthStencilState = monolithDepth != null && !group.Outcrop ? DepthStencilState.DepthRead : depth;
+                DrawGroup(group, rock);
+            }
+
+            _device.DepthStencilState = depth;
+        }
+
+        private void DrawGroup(Group group, EffectPass pass)
+        {
+            if (group.Visible == 0) return;
+
+            InstanceBinding.Set(_device, group.Drawn.Vertices, 0, group.Instances, 0);
+            _device.Indices = group.Drawn.Indices;
+            pass.Apply();
+            _device.DrawInstanced(PrimitiveType.TriangleList, 0, 0, group.Drawn.Primitives, group.Visible);
         }
 
         public void Dispose()
@@ -179,7 +215,7 @@ namespace Prazsky.Core.Render
             }
         }
 
-        /// <summary>The footprints that take one pair of meshes (High's and below), and the frame's visible share of them.</summary>
+        /// <summary>The footprints of one kind that take one pair of meshes (High's and below), and the frame's visible share of them.</summary>
         private sealed class Group : IDisposable
         {
             private readonly TerrainMirror.Footprint[] _footprints;
@@ -191,10 +227,15 @@ namespace Prazsky.Core.Render
             public Mesh Drawn;
             public int Visible;
 
-            public Group(GraphicsDevice device, List<TerrainMirror.Footprint> footprints, float plainY,
+            /// <summary>Boulders, which the program cuts where a monolith's footprint overlaps theirs; else monoliths, which it
+            /// never cuts.</summary>
+            public readonly bool Outcrop;
+
+            public Group(GraphicsDevice device, List<TerrainMirror.Footprint> footprints, float plainY, bool outcrop,
                 Func<TerrainMirror.Footprint, bool> takes, Mesh fine, Mesh coarse)
             {
-                _footprints = footprints.FindAll(f => takes(f)).ToArray();
+                Outcrop = outcrop;
+                _footprints = footprints.FindAll(f => f.Outcrop == outcrop && takes(f)).ToArray();
                 _bounds = new BoundingSphere[_footprints.Length];
                 for (int i = 0; i < _footprints.Length; i++)
                 {
@@ -224,7 +265,7 @@ namespace Prazsky.Core.Render
                     TerrainMirror.Footprint f = _footprints[i];
                     _visible[Visible++] = new RockInstance(
                         new Vector4(f.Centre.X, f.Centre.Y, f.Axis.X, f.Axis.Y),
-                        new Vector4(f.SemiLong * scale + RIM_PAD, f.SemiShort * scale + RIM_PAD, f.Outcrop ? 1f : 0f, 0f));
+                        new Vector4(f.SemiLong * scale + RIM_PAD, f.SemiShort * scale + RIM_PAD, Outcrop ? 1f : 0f, 0f));
                 }
 
                 if (Visible > 0) Instances.SetData(_visible, 0, Visible, SetDataOptions.Discard);

@@ -88,15 +88,17 @@ namespace Prazsky.Core.Render
     /// its far ring, the bank the island sits in, the formations' discs (#967), the bank's stones, what grows on the plain by
     /// kind (#749: the spinifex hummocks, the saltbush, the dead timber, the mulga and dead trees, and High and Ultra's gibber,
     /// #776), the flock, High and Ultra's crust in the plain's program (#776), the formations' baked shadows the land reads
-    /// (#967; off, the land reads none, the bake kept), and what the scene casts into the sun's map (the bank's planting and
-    /// the plain's, whichever of them are drawn or not).
+    /// (#967; off, the land reads none, the bake kept), what the scene casts into the sun's map (the bank's planting and
+    /// the plain's, whichever of them are drawn or not), and whether High and Ultra lay the monoliths' depth before shading
+    /// them (#1137; off, they are the one pass the lower tiers draw: the same picture).
     /// </summary>
     [System.Flags]
     public enum OutbackLayer
     {
         None = 0, Plain = 1, FarRing = 2, Bank = 4, Formations = 8, Stones = 16, Spinifex = 32, Saltbush = 64, Timber = 128,
-        Trees = 256, Gibber = 512, Birds = 1024, Crust = 2048, SunBake = 4096, Casters = 8192,
+        Trees = 256, Gibber = 512, Birds = 1024, Crust = 2048, SunBake = 4096, Casters = 8192, RockDepth = 16384,
         All = Plain | FarRing | Bank | Formations | Stones | Spinifex | Saltbush | Timber | Trees | Gibber | Birds | Crust | SunBake | Casters
+            | RockDepth
     }
 
     /// <summary>

@@ -915,10 +915,19 @@ RockVertexOutput OutbackRockVS(float2 disc : POSITION0, float4 placement : TEXCO
     return output;
 }
 
+//THE CUT: a boulder's mesh gives way to a monolith's where the two footprints overlap, so no point is drawn twice. It never
+//fires on a monolith (Outcrop 0), which is why the monoliths' depth alone (OutbackRockDepth, below) makes no cut at all.
+//⚠ So every clip() of the rock belongs in here, and each must spare the monoliths: one that cut a monolith, or one the
+//program made elsewhere, would leave the depth laid on High and Ultra where no colour is written, a hole showing whatever
+//was drawn before the rock (TerrainDepthTwinSourceTests holds the rock's program to this one clip(), and the clip to `outcrop`).
+void OutbackRockCuts(float outcrop, float2 xz)
+{
+    clip(outcrop > 0.5 && InsideMonolith(xz) ? -1.0 : 1.0);
+}
+
 float4 OutbackRockPS(RockVertexOutput input) : COLOR
 {
-    //A boulder's mesh gives way to a monolith's where the two footprints overlap, so no point is drawn twice
-    clip(input.Outcrop > 0.5 && InsideMonolith(input.WorldPosition.xz) ? -1.0 : 1.0);
+    OutbackRockCuts(input.Outcrop, input.WorldPosition.xz);
 
     return float4(ShadeOutback(input.WorldPosition, true, float3(0.0, 1.0, 0.0), false), 1.0);
 }
@@ -931,6 +940,32 @@ technique OutbackRock
         PixelShader = compile PS_SHADERMODEL OutbackRockPS();
     }
 };
+
+//THE MONOLITHS' DEPTH ALONE (#1137). Where the scene supersamples (High and Ultra) the monoliths' discs are drawn first with
+//this (their own vertex program, so the two depths are the same bits; no colour written), then shaded on that depth
+//without writing it (OutbackRockDiscs.Draw): a loaf's far wall and whatever one formation hides of another are thrown away
+//before the dear program runs, and each pixel of rock is shaded once. It is drawn for the monoliths alone, which the cut
+//never reaches, so it makes none: the laid depth is the only judge of what is drawn, and a program that cannot discard
+//keeps the early depth test inside its own draw. The boulders, whose cut does fire, keep their one pass and so one judge,
+//their own program (#1130). One program shades every formation, as before: the monoliths shaded by a program of their own
+//without the cut compiled the shading to other instructions and moved pixels. DirectX only, as every terrain's depth twin
+//is (docs/rendering/opengl-es.md): OpenGL ES does not promise one depth from two programs. See "How the formations are
+//drawn" in docs/scenes/outback.md.
+#if !OPENGL
+float4 OutbackRockDepthPS(RockVertexOutput input) : COLOR
+{
+    return 0.0;
+}
+
+technique OutbackRockDepth
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL OutbackRockVS();
+        PixelShader = compile PS_SHADERMODEL OutbackRockDepthPS();
+    }
+};
+#endif
 
 //--- The bake (#967) ------------------------------------------------------------------------------------
 //One pass over a square of the world round the arena, once per sun: from the land at each texel a ray is walked

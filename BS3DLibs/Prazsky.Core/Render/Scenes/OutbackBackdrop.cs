@@ -31,9 +31,10 @@ namespace Prazsky.Core.Render
         private readonly TerrainPass _outbackPass;
 
         //The formations as geometry of their own (#967), drawn through the pass before its grid, which stops on them;
-        //the delegate is made once, never per frame
+        //the delegate is made once, never per frame. Their program and its depth alone, which High and Ultra lay for the
+        //monoliths first (#1137, OutbackRockDiscs), null where the effect compiled none (OpenGL ES)
         private OutbackRockDiscs _rockDiscs;
-        private readonly EffectTechnique _rockTechnique;
+        private readonly EffectPass _rockPass, _rockDepthPass;
         private readonly Action _drawRock;
 
         //The formations' cast shadows over the land (#967), baked through the effect's OutbackSunBake when the sun moves.
@@ -81,7 +82,9 @@ namespace Prazsky.Core.Render
 
             ApplyOutbackParameters();
 
-            _rockTechnique = _outbackEffect.Techniques["OutbackRock"];
+            EffectTechnique rock = _outbackEffect.Techniques["OutbackRock"];
+            _rockPass = rock.Passes[0];
+            _rockDepthPass = TerrainGridCache.DepthTwin(_outbackEffect, rock);
             _bakeTechnique = _outbackEffect.Techniques["OutbackSunBake"];
             _bakeArea = _outbackEffect.Parameters["BakeArea"];
             _bakeSun = _outbackEffect.Parameters["BakeSun"];
@@ -94,7 +97,7 @@ namespace Prazsky.Core.Render
             _drawRock = () =>
             {
                 DrawBank();
-                if ((_layers & OutbackLayer.Formations) != 0) _rockDiscs?.Draw(_outbackEffect, _rockTechnique);
+                if ((_layers & OutbackLayer.Formations) != 0) _rockDiscs?.Draw(_rockPass, RockDepthFirst ? _rockDepthPass : null);
             };
 
             _plants = new PlantPass(services.GraphicsDevice, content);
@@ -256,6 +259,11 @@ namespace Prazsky.Core.Render
         private ScatterBucket[] _bermStones;
         private IslandBerm.BermMesh _bank;
         private readonly EffectTechnique _bankTechnique;
+
+        //Whether the monoliths' depth is laid before they are shaded (#1137): where the scene supersamples, as for every
+        //terrain grid (TerrainPass), on the scene block's own depth state, unless the measurement dial takes it out
+        private bool RockDepthFirst => Services.SupersampleFactor > 1 && (_layers & OutbackLayer.RockDepth) != 0
+            && Services.GraphicsDevice.DepthStencilState == DepthStencilState.Default;
 
         private void DrawBank()
         {
