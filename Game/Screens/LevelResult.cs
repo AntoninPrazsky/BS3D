@@ -161,6 +161,19 @@ namespace BS3D.Screens
         /// </summary>
         public readonly bool Submitted;
 
+        /// <summary>The level's par in seconds (#1045), or null on a level with none, which has no time bonus.</summary>
+        public readonly int? ParSeconds;
+
+        /// <summary>
+        /// The play clock's seconds the time bonus was paid for (#1045), in whole seconds begun as
+        /// <see cref="ScoreKeeper.TimeBonusAt"/> counts them, so the row's "34 s" is the figure the bonus beside it was worked out
+        /// from.
+        /// </summary>
+        public readonly int SecondsCounted;
+
+        /// <summary>What the time bonus <b>awarded</b> at the clear (#1045, <c>ScoreKeeper.TimeBonusAwarded</c>).</summary>
+        public readonly int TimeBonusAwarded;
+
         public LevelResult(bool cleared, string failureText, int stars, bool newBest, int levelBalls,
             string levelName, int levelNumber,
             bool hasNextLevel, bool nextLevelUnlocked, int nextLevelMinStars, int totalStars,
@@ -171,8 +184,12 @@ namespace BS3D.Screens
             bool blockComplete, string blockName, int blockNumber, int blockCount,
             int score, int matchedBalls, int orphanedBalls, int streakBonus,
             bool hadBudget, int unusedShotsAwarded, int completionBonusAwarded, int unusedShotValue,
-            bool submitted = false)
+            bool submitted = false, int? parSeconds = null, float seconds = 0f, int timeBonusAwarded = 0)
         {
+            ParSeconds = parSeconds is > 0 ? parSeconds : null;
+            SecondsCounted = (int)MathF.Ceiling(MathF.Max(0f, seconds));
+            TimeBonusAwarded = timeBonusAwarded;
+
             Cleared = cleared;
             FailureText = failureText ?? string.Empty;
             LevelName = levelName ?? string.Empty;
@@ -258,9 +275,39 @@ namespace BS3D.Screens
         /// <summary>What the skip on a failure costs (#347), said before it is pressed.</summary>
         public const string SKIP_NOTE = "Skipping spends this chapter’s one skip";
 
-        /// <summary>What the next star of this level would cost (#385), or empty when there is none above this one.</summary>
+        /// <summary>
+        /// What the next star of this level would cost (#385), or empty when there is none above this one — and since #1045, when
+        /// the time bonus alone could pay it, how much faster the same clear would have had to be (<see cref="NextStarSecondsFaster"/>):
+        /// "Next star at 12 300 (+800), or 3 s faster". Time is the lever four stars turn on, and this is where a player who has
+        /// just missed one is told so in a number.
+        /// </summary>
         public string NextStarNote =>
-            NextStarScore >= 0 ? $"Next star at {ScoreText.Of(NextStarScore)} (+{ScoreText.Of(NextStarGap)})" : string.Empty;
+            NextStarScore < 0 ? string.Empty
+            : $"Next star at {ScoreText.Of(NextStarScore)} (+{ScoreText.Of(NextStarGap)})"
+              + (NextStarSecondsFaster > 0 ? $", or {NextStarSecondsFaster} s faster" : string.Empty);
+
+        /// <summary>
+        /// The fewest whole seconds faster that would have earned the next star with everything else about the clear the same
+        /// (#1045): the time bonus <see cref="ScoreKeeper.TimeBonusAt"/> pays at fewer seconds, against what it paid. −1 when there
+        /// is no next star, no par, or not even a clear in no time at all would have reached it.
+        /// </summary>
+        public int NextStarSecondsFaster
+        {
+            get
+            {
+                if (!Cleared || ParSeconds == null || NextStarScore < 0) return -1;
+
+                ScoreKeeper level = new(null, null, LevelBalls, ParSeconds);
+                for (int faster = 1; faster <= SecondsCounted; faster++)
+                    if (level.TimeBonusAt(SecondsCounted - faster) - TimeBonusAwarded >= NextStarGap) return faster;
+
+                return -1;
+            }
+        }
+
+        /// <summary>The breakdown's detail for the time bonus (#1045): the seconds it was paid for against the par, or a dash for a level with none.</summary>
+        public string TimeDetail =>
+            ParSeconds is int par ? $"{SecondsCounted} s · par {par} s" : "—";
 
         /// <summary>The breakdown's "count × worth" for the matched balls.</summary>
         public string MatchedDetail => $"{MatchedBalls} × {ScoreKeeper.MatchedBallPoints}";

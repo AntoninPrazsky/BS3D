@@ -55,6 +55,48 @@ namespace BS3D.Tools.ScoreSim
         /// <summary>One shot in this many misses, in the sloppy run that sets the bottom of the band.</summary>
         private const int SloppyMissEvery = 3;
 
+        /// <summary>
+        /// The time a fast clean clear takes, in pars (#1045): half of one. Every level's best clean clear at that pace must
+        /// earn four stars (UNREACHABLE) and outrank the patient run (INVERTED).
+        /// </summary>
+        private const float FastPars = 0.5f;
+
+        /// <summary>
+        /// The time a slow clean clear takes, in pars (#1045): twice par, where the time bonus is gone
+        /// (<see cref="ScoreKeeper.TimeBonusZeroAtPars"/>). The same shots at that pace must score less than at
+        /// <see cref="FastPars"/> (TIME INVERTED: a faster clear scores more) and must not earn four stars (SLOW FOUR STARS:
+        /// four stars need a fast clear, the owner's ruling of 2026-11-02).
+        /// </summary>
+        private const float SlowPars = 2f;
+
+        /// <summary>
+        /// The seconds the patient and the sloppy runs take (#1045): <see cref="RunBaseSeconds"/> and
+        /// <see cref="RunSecondsAShot"/> for every shot, the par rule's own pace (<see cref="ParRule"/>), so the runs that
+        /// spend the whole budget are timed like any player who fires that many shots.
+        /// </summary>
+        private const float RunBaseSeconds = ParRule.BASE_SECONDS;
+
+        /// <inheritdoc cref="RunBaseSeconds"/>
+        private const float RunSecondsAShot = ParRule.SECONDS_A_SHOT;
+
+        /// <summary>
+        /// The least time a clear may claim, as a share of its par (#1045), written into the ceiling table as
+        /// <c>minSeconds</c> for the score service to refuse a faster claim. A time in the score makes a forged short duration
+        /// worth points, and this is the coarse half of the check (the ceiling at the claimed time is the fine one). 0.15:
+        /// the fastest a real clear has come to, one player's gap between two clears after v0.6.0, held a clear and its
+        /// result page inside 0.57 par, so a par of 20 s floors a clear at 3 s.
+        /// </summary>
+        private const double MinSecondsShareOfPar = 0.15;
+
+        /// <summary>
+        /// The most stars a level the campaign's unlock gates may climb by (#1045), checked as GATE TOO STEEP: an entry may
+        /// ask for at most this many stars for every entry before it (the second asks for one whatever this says). Under
+        /// rules v2 four stars are hard by design, and the #1045 model rates a newcomer's clear 2.2 stars on average (two
+        /// stars on 77 % of the levels): the old ramp of two a level left a newcomer 0.2 a level to spare, so a short run of
+        /// one-star clears walled the campaign. One and a half leaves 0.7. LevelGen's <c>MinStarsAt</c> writes the ramp.
+        /// </summary>
+        private const double GateStarsPerLevel = 1.5;
+
         private static int Main(string[] args)
         {
             string directory = null;
@@ -125,26 +167,33 @@ namespace BS3D.Tools.ScoreSim
             Console.WriteLine();
             //Invariant, like every row under it: this line printed "1,80 / 4,00" on a Czech machine
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
-                "Rules v{0}   Thresholds: {1:F2} / {2:F2} / {3:F2}   multiplier +{4} to x{5}   unused shot = {6} average shots",
+                "Rules v{0}   Thresholds: {1:F2} / {2:F2} / {3:F2}   multiplier +{4} to x{5}   unused shot = {6} average shot(s)"
+                + "   time bonus {7} floors, gone at {8} par",
                 ScoreKeeper.RulesVersion,
                 StarRating.TWO_STAR_FLOOR_MULTIPLE, StarRating.THREE_STAR_FLOOR_MULTIPLE, StarRating.FOUR_STAR_FLOOR_MULTIPLE,
-                ScoreKeeper.MultiplierStep, ScoreKeeper.MaxMultiplier, ScoreKeeper.UnusedShotWorthInShots));
+                ScoreKeeper.MultiplierStep, ScoreKeeper.MaxMultiplier, ScoreKeeper.UnusedShotWorthInShots,
+                ScoreKeeper.TimeBonusWorthInFloors, ScoreKeeper.TimeBonusZeroAtPars));
+            Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
+                "Clean clears in 4/8/16 shots at {0} par; the best of them again at {1} par (slow); budget-1 clean and sloppy at {2} s + {3} s a shot",
+                FastPars, SlowPars, RunBaseSeconds, RunSecondsAShot));
 
             if (ceilingScale != 1.0)
                 Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
                     "Ceilings scaled by {0:F2} for the check ONLY — a test of the gate, not a rule; a table written now is unscaled",
                     ceilingScale));
             Console.WriteLine();
-            Console.WriteLine("level        balls shots |   4 shots      8         16      budget-1  |  sloppy  | ceiling best/ceil min");
+            Console.WriteLine("level        balls shots  par |   4 shots      8         16      slow     | budget-1    sloppy  | ceiling best/ceil min");
 
             bool ok = true;
 
             foreach (Playable level in levels) ok &= Report(level, ceilingScale);
 
+            ok &= CheckGates();
+
             Console.WriteLine();
             Console.WriteLine(ok
-                ? "All levels rate the right way round, and every run is under its ceiling."
-                : "At least one level rates WRONGLY or reaches its ceiling — see above.");
+                ? "All levels rate the right way round, every run is under its ceiling, and no unlock gate is too steep."
+                : "At least one level rates WRONGLY, reaches its ceiling or is gated too steeply — see above.");
 
             if (ceilingsPath != null)
             {
@@ -163,48 +212,75 @@ namespace BS3D.Tools.ScoreSim
         {
             double[] fast = new double[ShotCounts.Length];
             int[] fastStars = new int[ShotCounts.Length];
-            int bestScore = 0;
+            double[] slow = new double[ShotCounts.Length];
+            int slowStars = 0, slowBest = 0;
+
+            //Every run's score beside the most its own time allows, for the ceiling at the claimed time (#1045)
+            List<(int Score, float Seconds)> runs = new();
+
+            float fastSeconds = level.Par.HasValue ? FastPars * level.Par.Value : 0f;
+            float slowSeconds = level.Par.HasValue ? SlowPars * level.Par.Value : 0f;
 
             for (int i = 0; i < ShotCounts.Length; i++)
             {
                 //A clear cannot take fewer shots than it has balls to place, and a level with a small budget
                 //cannot be simulated at more shots than it grants.
-                int shots = Math.Min(ShotCounts[i], level.Shots - 1);
+                int shots = Math.Max(1, Math.Min(ShotCounts[i], level.Shots - 1));
 
-                int score = Clean(level, Math.Max(1, shots));
+                int score = Clean(level, shots, fastSeconds);
                 fast[i] = Multiple(score, level.Balls);
                 fastStars[i] = StarRating.Rate(score, level.Balls);
-                bestScore = Math.Max(bestScore, score);
+                runs.Add((score, fastSeconds));
+
+                //The same clear, slowly (#1045): the time bonus is all that differs
+                int slowScore = Clean(level, shots, slowSeconds);
+                slow[i] = Multiple(slowScore, level.Balls);
+                slowStars = Math.Max(slowStars, StarRating.Rate(slowScore, level.Balls));
+                slowBest = Math.Max(slowBest, slowScore);
+                runs.Add((slowScore, slowSeconds));
             }
 
-            int patientScore = Clean(level, level.Shots - 1);
+            int patientShots = level.Shots - 1;
+            float patientSeconds = RunBaseSeconds + RunSecondsAShot * patientShots;
+            int patientScore = Clean(level, patientShots, patientSeconds);
             double patient = Multiple(patientScore, level.Balls);
             int patientStars = StarRating.Rate(patientScore, level.Balls);
+            runs.Add((patientScore, patientSeconds));
 
-            int sloppyScore = Sloppy(level);
+            float sloppySeconds = RunBaseSeconds + RunSecondsAShot * level.Shots;
+            int sloppyScore = Sloppy(level, sloppySeconds);
             double sloppy = Multiple(sloppyScore, level.Balls);
             int sloppyStars = StarRating.Rate(sloppyScore, level.Balls);
+            runs.Add((sloppyScore, sloppySeconds));
 
             //The best any of the runs above scored, against the ceiling the online boards refuse a score over
-            bestScore = Math.Max(bestScore, Math.Max(patientScore, sloppyScore));
+            int bestScore = 0;
+            foreach ((int score, float _) in runs) bestScore = Math.Max(bestScore, score);
 
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
-                "{0,-12} {1,5} {2,5} | {3,6:F2}({4}) {5,6:F2}({6}) {7,6:F2}({8}) {9,6:F2}({10}) | {11,5:F2}({12}) | {13,7} {14,6:F2} {15,4}",
-                level.Name, level.Balls, level.Shots,
+                "{0,-12} {1,5} {2,5} {3,4} | {4,6:F2}({5}) {6,6:F2}({7}) {8,6:F2}({9}) {10,6:F2}({11}) | {12,6:F2}({13}) {14,5:F2}({15}) | {16,7} {17,6:F2} {18,4}",
+                level.Name, level.Balls, level.Shots, level.Par?.ToString(CultureInfo.InvariantCulture) ?? "-",
                 fast[0], fastStars[0], fast[1], fastStars[1], fast[2], fastStars[2],
+                Multiple(slowBest, level.Balls), slowStars,
                 patient, patientStars, sloppy, sloppyStars,
                 level.Ceiling, bestScore / (double)level.Ceiling, level.MinShots));
 
             bool ok = true;
 
             //THE CEILING (#549): the service refuses a score over it, so a score this simulator reaches with the
-            //real rules must be under it — or the bound has a term missing and real players would be refused
-            if (bestScore >= level.Ceiling * ceilingScale)
+            //real rules must be under it — or the bound has a term missing and real players would be refused. And since
+            //#1045 under the ceiling at each run's own time, which is what the service checks a clear against: a ceiling
+            //that held only for the whole time bonus would let the service refuse a fast clear it should take.
+            foreach ((int score, float seconds) in runs)
             {
+                int ceiling = ScoreKeeper.ScoreCeilingAt(level.Balls, level.Shots, level.Par, seconds);
+                if (score < ceiling * ceilingScale) continue;
+
                 Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
-                    "    OVER CEILING: a simulated clear scores {0}, at or over the ceiling of {1} the online boards would refuse it at",
-                    bestScore, level.Ceiling * ceilingScale));
+                    "    OVER CEILING: a simulated clear of {0:0.#} s scores {1}, at or over the ceiling of {2} the online boards would refuse it at",
+                    seconds, score, ceiling * ceilingScale));
                 ok = false;
+                break;
             }
 
             //THE ORDERING, and it is the whole reason this tool exists. Spending the entire budget must not
@@ -213,9 +289,21 @@ namespace BS3D.Tools.ScoreSim
             foreach (double multiple in fast)
                 if (multiple <= patient)
                 {
-                    Console.WriteLine($"    INVERTED: an efficient clear rates {multiple:F2}, " +
-                        $"no better than spending the whole budget at {patient:F2}");
+                    Console.WriteLine(FormattableString.Invariant($"    INVERTED: an efficient clear rates {multiple:F2}, ")
+                        + FormattableString.Invariant($"no better than spending the whole budget at {patient:F2}"));
                     ok = false;
+                }
+
+            //AND IN TIME (#1045, the owner's ruling of 2026-11-02): the faster of two clears in the same shots scores more.
+            //A level with no par has no time bonus, and fails here: its four stars would be out of reach of any clear
+            for (int i = 0; i < ShotCounts.Length; i++)
+                if (fast[i] <= slow[i])
+                {
+                    Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
+                        "    TIME INVERTED: a clean clear at {0} par rates {1:F2}, no better than the same clear at {2} par ({3:F2}){4}",
+                        FastPars, fast[i], SlowPars, slow[i], level.Par.HasValue ? "" : " - the level has no par"));
+                    ok = false;
+                    break;
                 }
 
             //The top of the scale has to be reachable by the play the levels are designed for...
@@ -224,15 +312,22 @@ namespace BS3D.Tools.ScoreSim
 
             if (best < StarRating.MAX)
             {
-                Console.WriteLine($"    UNREACHABLE: the best clean clear earns {best} of {StarRating.MAX} stars");
+                Console.WriteLine(FormattableString.Invariant($"    UNREACHABLE: the best clean clear at {FastPars} par earns {best} of {StarRating.MAX} stars"));
                 ok = false;
             }
 
-            //...and it has to mean something, so the worst realistic clear must not reach it.
+            //...and it has to mean something, so the worst realistic clear must not reach it...
             if (sloppyStars >= StarRating.MAX)
             {
                 Console.WriteLine($"    UNEARNED: a clear that misses one shot in {SloppyMissEvery} " +
                     $"still earns {sloppyStars} stars");
+                ok = false;
+            }
+
+            //...nor a slow one (#1045): four stars need a fast clear, so a clean clear at twice par earns three at most
+            if (slowStars >= StarRating.MAX)
+            {
+                Console.WriteLine(FormattableString.Invariant($"    SLOW FOUR STARS: a clean clear at {SlowPars} par still earns {slowStars} stars"));
                 ok = false;
             }
 
@@ -252,10 +347,10 @@ namespace BS3D.Tools.ScoreSim
             return ok;
         }
 
-        /// <summary>A clear in exactly <paramref name="shots"/> landing shots, never missing.</summary>
-        private static int Clean(Playable level, int shots)
+        /// <summary>A clear in exactly <paramref name="shots"/> landing shots, never missing, after <paramref name="seconds"/> of play.</summary>
+        private static int Clean(Playable level, int shots, float seconds)
         {
-            ScoreKeeper keeper = new(level.Shots, null, level.Balls);
+            ScoreKeeper keeper = new(level.Shots, null, level.Balls, level.Par);
 
             int perShot = Math.Max(1, level.Balls / shots);
             int placed = 0;
@@ -271,17 +366,18 @@ namespace BS3D.Tools.ScoreSim
             }
 
             keeper.AwardCompletionBonus();
+            keeper.AwardTimeBonus(seconds);
             return keeper.Score;
         }
 
         /// <summary>
         /// The bottom of the band: the whole budget spent, missing one shot in <see cref="SloppyMissEvery"/>
-        /// so the streak keeps resetting. The thresholds have to be set against this as much as against
-        /// perfect play — a top rating the worst realistic clear also earns is not rating anything.
+        /// so the streak keeps resetting, after <paramref name="seconds"/> of play. The thresholds have to be set against
+        /// this as much as against perfect play — a top rating the worst realistic clear also earns is not rating anything.
         /// </summary>
-        private static int Sloppy(Playable level)
+        private static int Sloppy(Playable level, float seconds)
         {
-            ScoreKeeper keeper = new(level.Shots, null, level.Balls);
+            ScoreKeeper keeper = new(level.Shots, null, level.Balls, level.Par);
 
             int landing = Math.Max(1, level.Shots * (SloppyMissEvery - 1) / SloppyMissEvery);
             int perShot = Math.Max(1, level.Balls / landing);
@@ -303,8 +399,37 @@ namespace BS3D.Tools.ScoreSim
             }
 
             keeper.AwardCompletionBonus();
+            keeper.AwardTimeBonus(seconds);
             return keeper.Score;
         }
+
+        /// <summary>
+        /// THE UNLOCK GATES (#1045): no entry of the set may ask for more than <see cref="GateStarsPerLevel"/> stars for every
+        /// entry before it — see that constant for why — beyond the one star the second entry asks for whatever the ramp says.
+        /// Every entry, budgeted or not: a gate locks a sandbox as surely as a level.
+        /// </summary>
+        private static bool CheckGates()
+        {
+            bool ok = true;
+
+            foreach ((int position, string name, int? minStars) in _gates)
+            {
+                if (minStars is not int gate) continue;
+
+                double allowed = Math.Max(1, GateStarsPerLevel * position);
+                if (gate <= allowed) continue;
+
+                Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
+                    "    GATE TOO STEEP: {0} (entry {1}) unlocks at {2} stars, over {3} a level for the {4} before it ({5:0.#})",
+                    name, position + 1, gate, GateStarsPerLevel, position, allowed));
+                ok = false;
+            }
+
+            return ok;
+        }
+
+        /// <summary>Every entry of the set in play order, with its unlock gate, for <see cref="CheckGates"/>.</summary>
+        private static readonly List<(int Position, string Name, int? MinStars)> _gates = new();
 
         /// <summary>
         /// The score as a multiple of the level's floor — the same yardstick <see cref="StarRating"/> rates on,
@@ -386,6 +511,10 @@ namespace BS3D.Tools.ScoreSim
                 return playable;
             }
 
+            _gates.Clear();
+            for (int i = 0; i < set.Levels.Count; i++)
+                _gates.Add((i, set.DisplayName(i), set.Levels[i].MinStars));
+
             foreach (LevelSetEntry entry in set.Levels)
             {
                 //An unlimited budget has no efficiency to rate and no completion bonus to earn, so there is
@@ -406,8 +535,8 @@ namespace BS3D.Tools.ScoreSim
                 if (balls <= 0) continue;
 
                 playable.Add(new Playable(entry.Name ?? entry.File, balls, entry.Shots.Value,
-                    LevelIdentity.Of(entry, File.ReadAllBytes(path)), ScoreKeeper.ScoreCeiling(balls, entry.Shots.Value),
-                    MinimumShots(map), entry.Block));
+                    LevelIdentity.Of(entry, File.ReadAllBytes(path)), ScoreKeeper.ScoreCeiling(balls, entry.Shots.Value, entry.Par),
+                    MinimumShots(map), entry.Block, entry.Par));
             }
 
             return playable;
@@ -420,13 +549,15 @@ namespace BS3D.Tools.ScoreSim
         /// is the honest answer for a sandbox. Every row carries the rules version as well as the header, so a row
         /// copied out of the file on its own still says which rules it bounds.
         /// <para>
-        /// <b>A shot floor, not a time floor.</b> #549 asked for a <c>minSeconds</c> a human cannot beat, as the
-        /// level's minimum shot count times a shot's flight and settle. The shot count half is here as
-        /// <c>minShots</c> (<see cref="MinimumShots"/>). The seconds half is not: nothing in the game spaces shots
-        /// out (<c>Shoot</c> has no interval between them, and several shots fly at once), so the only time floor
-        /// that holds for every player is one flight, a tenth of a second — a floor no forged duration a cheat
-        /// would bother to send falls under. A real one needs a rule the game does not have, and is the owner's
-        /// call.
+        /// <b>A shot floor and, since #1045, a time floor and the time bonus.</b> #549 asked for a <c>minSeconds</c> a human
+        /// cannot beat; the shot count half is <c>minShots</c> (<see cref="MinimumShots"/>), and the seconds half waited for
+        /// a rule that made a short time worth anything, which the time bonus is. So a row on a level with a par carries
+        /// <c>par</c>, <c>minSeconds</c> (<see cref="MinSecondsShareOfPar"/> of it: the service refuses a clear claiming less)
+        /// and <c>timeBonus</c>, the most the time bonus can pay (<see cref="ScoreKeeper.TimeBonusMax"/>, included in
+        /// <c>ceiling</c>). The service checks a clear against the ceiling <b>at its claimed time</b>: <c>ceiling −
+        /// timeBonus + timeBonus × max(0, 1 − seconds / (timeBonusZeroAtPars × par))</c>, which is
+        /// <see cref="ScoreKeeper.ScoreCeilingAt"/>; the game counts whole seconds begun, so the exact claimed time never
+        /// refuses a real clear. <c>timeBonusZeroAtPars</c> is in the header. A row without a par has none of the three.
         /// </para>
         /// <para>
         /// <b>And the star floors (#1024)</b>: the least score for 2, 3 and 4 stars, <see cref="StarRating.LeastScoreFor"/>
@@ -449,11 +580,16 @@ namespace BS3D.Tools.ScoreSim
         {
             List<CeilingRow> rows = new();
             foreach (Playable level in levels)
+            {
+                ScoreKeeper keeper = new(level.Shots, null, level.Balls, level.Par);
                 rows.Add(new CeilingRow(level.Identity.File, level.Name, level.Identity.Hash, ScoreKeeper.RulesVersion,
-                    level.Shots, level.Ceiling, level.MinShots, level.Block, StarFloors(level.Balls)));
+                    level.Shots, level.Ceiling, level.MinShots, level.Block, StarFloors(level.Balls),
+                    level.Par, level.Par.HasValue ? Math.Round(MinSecondsShareOfPar * level.Par.Value, 2) : null,
+                    level.Par.HasValue ? keeper.TimeBonusMax : null));
+            }
 
             CeilingTable table = new(CeilingTable.FormatMarker, CeilingTable.CurrentVersion, ScoreKeeper.RulesVersion,
-                LevelIdentity.HashLength, rows);
+                LevelIdentity.HashLength, ScoreKeeper.TimeBonusZeroAtPars, rows);
 
             string directory = Path.GetDirectoryName(Path.GetFullPath(path));
             if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
@@ -530,17 +666,20 @@ namespace BS3D.Tools.ScoreSim
         }
 
         private readonly record struct Playable(string Name, int Balls, int Shots, LevelIdentity Identity, int Ceiling,
-            int MinShots, string Block);
+            int MinShots, string Block, int? Par);
 
         /// <summary>
         /// The ceiling table's file (#549), marked like every other file this project writes (<c>bs3d-levels</c>,
-        /// <c>bs3d-level</c>) so a reader can refuse something that is not one.
+        /// <c>bs3d-level</c>) so a reader can refuse something that is not one. Still version 1 with the time fields
+        /// (#1045): a field a reader does not know is one it ignores, and the <c>ceiling</c> it does know is still a bound
+        /// above every clear (it holds the whole time bonus), only a looser one than the ceiling at the claimed time.
         /// </summary>
         private sealed record CeilingTable(
             [property: JsonPropertyName("format")] string Format,
             [property: JsonPropertyName("version")] int Version,
             [property: JsonPropertyName("rulesVersion")] int RulesVersion,
             [property: JsonPropertyName("hashLength")] int HashLength,
+            [property: JsonPropertyName("timeBonusZeroAtPars")] int TimeBonusZeroAtPars,
             [property: JsonPropertyName("levels")] List<CeilingRow> Levels)
         {
             public const string FormatMarker = "bs3d-ceilings";
@@ -556,6 +695,9 @@ namespace BS3D.Tools.ScoreSim
             [property: JsonPropertyName("ceiling")] int Ceiling,
             [property: JsonPropertyName("minShots")] int MinShots,
             [property: JsonPropertyName("block"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string Block,
-            [property: JsonPropertyName("starFloors")] int[] StarFloors);
+            [property: JsonPropertyName("starFloors")] int[] StarFloors,
+            [property: JsonPropertyName("par"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? Par,
+            [property: JsonPropertyName("minSeconds"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] double? MinSeconds,
+            [property: JsonPropertyName("timeBonus"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? TimeBonus);
     }
 }

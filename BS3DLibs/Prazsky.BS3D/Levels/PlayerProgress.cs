@@ -1,3 +1,4 @@
+using Prazsky.BS3D.Scoring;
 using Prazsky.Core.Tools;
 using System;
 using System.Collections.Generic;
@@ -63,7 +64,8 @@ namespace Prazsky.BS3D.Levels
         /// Each played level's bests, keyed by the set entry's <see cref="LevelSetEntry.File"/> — the one
         /// identifier that survives a display name being retuned. An entry a set no longer lists goes unread by
         /// the picker and the chapters, so regenerating the set never invalidates the save — but
-        /// <see cref="TotalStars"/> and <see cref="TotalScore"/> still sum it, deliberately: #649 retired three
+        /// <see cref="TotalStars"/> and <see cref="TotalScore"/> (when its best is of this build's rules) still sum it,
+        /// deliberately: #649 retired three
         /// levels players had cleared, and the stars earned on them stay the player's rather than closing a road
         /// they had already opened.
         /// </summary>
@@ -265,8 +267,9 @@ namespace Prazsky.BS3D.Levels
         }
 
         /// <summary>
-        /// The career score: the best scores summed over every level cleared. Best-per-level rather than
-        /// every play summed — see the class doc for why.
+        /// The career score: the best scores summed over every level cleared under this build's scoring rules
+        /// (<see cref="ScoreKeeper.RulesVersion"/>, #1045). Best-per-level rather than every play summed — see the class doc
+        /// for why — and never a best of older rules, which is not a figure a score of these rules can be added to.
         /// </summary>
         [JsonIgnore]
         public int TotalScore
@@ -274,7 +277,8 @@ namespace Prazsky.BS3D.Levels
             get
             {
                 int total = 0;
-                foreach (LevelBest best in Levels.Values) total += best.Score;
+                foreach (LevelBest best in Levels.Values)
+                    if (best.RulesOrFirst == ScoreKeeper.RulesVersion) total += best.Score;
 
                 return total;
             }
@@ -284,28 +288,46 @@ namespace Prazsky.BS3D.Levels
         public int StarsFor(string levelFile) =>
             levelFile != null && Levels.TryGetValue(levelFile, out LevelBest best) ? best.Stars : 0;
 
-        /// <summary>The best score reached on one level, or 0 for a level never cleared.</summary>
-        public int ScoreFor(string levelFile) =>
-            levelFile != null && Levels.TryGetValue(levelFile, out LevelBest best) ? best.Score : 0;
+        /// <summary>
+        /// The best score reached on one level under the scoring rules of <paramref name="rulesVersion"/> (#1045), or 0 for a
+        /// level never cleared under them: a best made under other rules is not a score this one can be compared with.
+        /// </summary>
+        public int ScoreFor(string levelFile, int rulesVersion = ScoreKeeper.RulesVersion) =>
+            levelFile != null && Levels.TryGetValue(levelFile, out LevelBest best) && best.RulesOrFirst == rulesVersion ? best.Score : 0;
 
         /// <summary>
         /// Records one cleared level. Each best only ever rises — a worse replay changes nothing, which is
         /// what lets a player retry freely.
+        /// <para>
+        /// <b>A score is compared only with a best made under the same scoring rules</b> (#1045, <paramref name="rulesVersion"/>,
+        /// <c>ScoreKeeper.RulesVersion</c>). The first clear under new rules replaces a best made under older ones, whatever
+        /// the two figures (a version-2 score holds a time bonus a version-1 one never could, and its unused balls pay a
+        /// quarter of what they did), and <b>the stars are kept</b>: a player never loses a star to a rule change, and the
+        /// stars are what open the campaign.
+        /// </para>
         /// </summary>
-        /// <returns>Whether anything improved, which is what a result screen's "new best" wants to know.</returns>
-        public bool Record(string levelFile, int score, int stars)
+        /// <returns>Whether anything improved, which is what a result screen's "new best" wants to know. The first clear under
+        /// new rules is one.</returns>
+        public bool Record(string levelFile, int score, int stars, int rulesVersion = ScoreKeeper.RulesVersion)
         {
             if (string.IsNullOrEmpty(levelFile)) return false;
 
             if (!Levels.TryGetValue(levelFile, out LevelBest best))
             {
-                Levels[levelFile] = new LevelBest { Score = score, Stars = stars };
+                Levels[levelFile] = new LevelBest { Score = score, Stars = stars, Rules = rulesVersion };
                 return true;
             }
 
             bool improved = false;
 
-            if (score > best.Score) { best.Score = score; improved = true; }
+            if (best.RulesOrFirst != rulesVersion)
+            {
+                best.Score = score;
+                best.Rules = rulesVersion;
+                improved = true;
+            }
+            else if (score > best.Score) { best.Score = score; improved = true; }
+
             if (stars > best.Stars) { best.Stars = stars; improved = true; }
 
             return improved;
@@ -397,10 +419,25 @@ namespace Prazsky.BS3D.Levels
     /// <summary>One level's bests: the highest score and the most stars any single clear of it earned.</summary>
     public sealed class LevelBest
     {
+        /// <summary>The scoring rules every best recorded before #1045 was made under: <c>ScoreKeeper.RulesVersion</c> 1.</summary>
+        public const int FirstRules = 1;
+
         [JsonPropertyName("score")]
         public int Score { get; set; }
 
         [JsonPropertyName("stars")]
         public int Stars { get; set; }
+
+        /// <summary>
+        /// The scoring rules <see cref="Score"/> was made under (#1045, <c>ScoreKeeper.RulesVersion</c>), or null in a save
+        /// written before it was recorded, every best of which is version 1 (<see cref="RulesOrFirst"/>). No format bump: an
+        /// older build ignores the key, and a save without it loads as it always did.
+        /// </summary>
+        [JsonPropertyName("rules")]
+        public int? Rules { get; set; }
+
+        /// <summary><see cref="Rules"/>, or <see cref="FirstRules"/> for a best recorded before the version was.</summary>
+        [JsonIgnore]
+        public int RulesOrFirst => Rules ?? FirstRules;
     }
 }

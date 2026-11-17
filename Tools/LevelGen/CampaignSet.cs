@@ -1,6 +1,7 @@
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.Levels;
 using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace BS3D.Tools.LevelGen
@@ -335,10 +336,17 @@ namespace BS3D.Tools.LevelGen
 
             //Positions run on from one array to the next, so the block name and the unlock gate fall out of the
             //same two position functions for every entry
+            List<string> parSources = new();
             foreach (Design[] block in blocks)
                 foreach (Design d in block)
                 {
                     int index = set.Levels.Count;
+
+                    //The par (#1045) of the level as written, the file the game will load: ParTime plays it. Never of the
+                    //position, so a level moved in the order keeps its par and its board
+                    int? par = ParTime.Of(Path.Combine(LevelEmitter.OutDir, d.File), d.File, out string parSource);
+                    if (par == null) Console.WriteLine($"  WARNING {d.File}: no par ({parSource}), so no time bonus and no four stars");
+                    parSources.Add(parSource);
 
                     set.Levels.Add(new LevelSetEntry
                     {
@@ -349,6 +357,7 @@ namespace BS3D.Tools.LevelGen
                         CeilingStep = d.CeilingStep,
                         WildcardEvery = d.WildcardEvery,
                         MinStars = MinStarsAt(index),
+                        Par = par,
                     });
                 }
 
@@ -369,7 +378,7 @@ namespace BS3D.Tools.LevelGen
 
                 int gate = loaded.Levels[i].MinStars.GetValueOrDefault();
 
-                Console.WriteLine($"  {i + 1,2}. {loaded.DisplayName(i),-12} {loaded.DescribeRules(i)}"
+                Console.WriteLine($"  {i + 1,2}. {loaded.DisplayName(i),-12} {loaded.DescribeRules(i)} ({parSources[i]})"
                     + (gate > 0 ? $", unlocks at {gate} star(s)" : ", open from the start"));
             }
 
@@ -449,26 +458,26 @@ namespace BS3D.Tools.LevelGen
         /// which level a gate guards is a property of the order, and a design moved in the order should carry
         /// its new place's gate, not its old one. In the campaign's star currency (see
         /// <c>Prazsky.BS3D.Scoring.StarRating</c>): the opener is free, the second level asks only that
-        /// something was cleared, and from the third on the ramp climbs two stars per level. Clearing every
-        /// prior level once (one star each) opens the first three gates on its own; past that, par clears
-        /// (two stars) keep the road open with no replays, and only a player scraping by on one-star clears
-        /// goes back for a better one. The most a player can hold at entry <paramref name="index"/> is
-        /// <c>4 × index</c>, so the steepest gate still asks under half of what is on the table.
+        /// something was cleared, and from the third on the ramp climbs <see cref="GATE_STARS_PER_LEVEL"/> stars a
+        /// level, rounded down. A player who two-stars every level ahead of entry <i>i</i> holds <c>2i</c> against a
+        /// gate of about <c>1.5(i − 1)</c>, so the road stays open with no replays and the margin grows as the campaign
+        /// goes; a player scraping by on one-star clears goes back for a better one now and then.
         /// <para>
-        /// <b>The ramp is unchanged by #194, by #207 and again by #182, and that was checked rather than
-        /// assumed</b>, because it now runs to thirty-five entries instead of the fourteen it was written for.
-        /// The property that has to hold is the par one: a player who two-stars every level ahead of entry
-        /// <i>i</i> holds <c>2i</c> against a gate of <c>2(i − 1)</c>, which clears it by two at every
-        /// position, however long the set is. At the last entry the gate is 66 against the 136 four-star
-        /// clears would have banked — still the "under half" above, so nothing needed retuning and no gate
-        /// had to be made block-aware.
+        /// <b>One and a half since #1045 (rules v2), two before.</b> Time in the score made four stars hard on purpose, and
+        /// two stars a level is no longer a clear that is merely competent: the #1045 model rates a newcomer's clear 2.2
+        /// stars on average (two stars on 77 % of the levels, one on 2 %), so a ramp of two a level left a newcomer 0.2 a
+        /// level to spare and a short run of one-star clears would have walled the campaign. <c>Tools/ScoreSim</c> refuses a
+        /// gate steeper than <see cref="GATE_STARS_PER_LEVEL"/> a level (GATE TOO STEEP), with the same reason.
         /// </para>
         /// </summary>
         private static int? MinStarsAt(int index) => index switch
         {
             0 => null,
             1 => 1,
-            _ => 2 * (index - 1),
+            _ => (int)(GATE_STARS_PER_LEVEL * (index - 1)),
         };
+
+        /// <summary>The stars a level the unlock ramp climbs by (#1045): <c>Tools/ScoreSim</c>'s limit, which states the reason.</summary>
+        private const float GATE_STARS_PER_LEVEL = 1.5f;
     }
 }

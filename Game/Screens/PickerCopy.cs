@@ -46,6 +46,15 @@ namespace BS3D.Screens
         /// <summary>A skipped level's tile (#347).</summary>
         internal const string TILE_SKIPPED = "Skipped";
 
+        /// <summary>
+        /// The best score under a tile (#684): the player's best clear of the level under this build's scoring rules, written
+        /// the way the result page writes it, or nothing. Nothing where there is no rating (a lock, a skip, an open level not
+        /// yet cleared), and nothing under a level cleared only under older rules (#1045): its stars are kept and say it was
+        /// cleared, but its best is no score this build's clears are held against, so <paramref name="best"/> is 0 there
+        /// (<c>PlayerProgress.ScoreFor</c>). A clear always scores, so 0 is never a best.
+        /// </summary>
+        internal static string TileScore(bool rated, int best) => rated && best > 0 ? ScoreText.Of(best) : string.Empty;
+
         /// <summary>The detail line for an open level: its name and the rules it is played under.</summary>
         internal static string DetailOpen(string name, string rules) => $"{name} — {rules}";
 

@@ -23,7 +23,7 @@ namespace BS3D.Screens
     /// lost, the card timed out, the event never happened — follows them into the next level, and past its
     /// chapter into the next one (#666), until that chapter's send-off has been read; only then is what it still
     /// owed let go. <b>The score is the second chapter's
-    /// (#666)</b>: the streak and the spare shots' bonus wait for it, so the first chapter is played before it
+    /// (#666)</b>: the streak and the time bonus (#1045) wait for it, so the first chapter is played before it
     /// is explained (<see cref="Definition.Chapter"/>), and past the second chapter the ladder offers nothing —
     /// the first two chapters <i>are</i> the tutorial, which is what the owner asked for. What reaches past them are the
     /// chapterless cards, of a kind (#735) or a tool (#705) met for the first time, the first ball left stuck as dead
@@ -421,19 +421,21 @@ namespace BS3D.Screens
             {
                 //THE SCORE WAITS FOR THE SECOND CHAPTER (#666), on the owner's playtest: the tutorial's explanation
                 //of the score could wait, so the player is not overloaded with new information and can play a bit
-                //first. The first chapter's levels are gentle enough that a player who misses one shot in three - so
-                //the streak keeps resetting - and saves no shot still two-stars them (ScoreSim's sloppy player:
-                //1.85-1.99 on all ten since #664), which is what every gate there asks: the multiplier works whether or not
-                //anybody has explained it. After the send-off in DEFINITIONS, as it is in play. Contextual on the
+                //first. Under rules v2 (#1045) the first chapter's gates ask a star and a half a level, and a clean clear earns
+                //two at up to twice par without the multiplier being explained (ScoreSim's slow column), so the multiplier
+                //works whether or not anybody has explained it. After the send-off in DEFINITIONS, as it is in play. Contextual on the
                 //Gallery's first level, as it was on the Meadow's third: shown when the streak first lights.
                 Lesson = Lesson.Streak, Key = "streak", Chapter = 1, FromLevel = 0, Contextual = true,
                 Caption = "Keep hitting to multiply your score", Detail = "A miss resets it",
             },
             new()
             {
-                //And the budget one level on, so the chapter's first two levels teach one idea each.
+                //And the time one level on, so the chapter's first two levels teach one idea each. The card taught the unused
+                //balls until #1045 made time the score's lever (rules v2: the time bonus up to ten floors, an unused ball worth one
+                //average shot), and it points at the readout draining under the score. Its key stays "budget", so a player taught
+                //the old card is not taught again: the Help page's SCORING tab and the readout itself say it to them.
                 Lesson = Lesson.Budget, Key = "budget", Chapter = 1, FromLevel = 1,
-                Caption = "Save shots for a bonus", Detail = "Fewer shots earn more stars",
+                Caption = "Clear fast for a bigger bonus", Detail = "The time bonus drains every second",
             },
             new()
             {

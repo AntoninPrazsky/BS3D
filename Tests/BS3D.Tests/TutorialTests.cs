@@ -18,7 +18,7 @@ namespace BS3D.Tests
     public class TutorialTests
     {
         private const string STREAK = "Keep hitting to multiply your score";
-        private const string BUDGET = "Save shots for a bonus";
+        private const string BUDGET = "Clear fast for a bigger bonus";
         private const string LINE_RULE = "Keep the cluster above the red line";
         private const string SEND_OFF = "Fire a ball into empty space when stuck";
         private const string SWAP = "Swap the next two balls";

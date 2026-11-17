@@ -2,7 +2,8 @@ namespace BS3D.Screens
 {
     /// <summary>
     /// <b>The level's play clock</b> (#546): the seconds the player had the gun, which the score service is sent as a level's
-    /// duration and which time in the score will be measured by (#1045). Counted where the frame steps the world, so a pause,
+    /// duration and which time in the score is measured by (#1045, <c>ScoreKeeper.TimeBonusAt</c>). Counted where the frame
+    /// steps the world, so a pause,
     /// an unfocused window and the page over a finished level never reach it.
     /// <para>
     /// <b>It stands still while the camera is taken over</b> (#1045, the owner's ruling 2026-11-02: "the clock never runs

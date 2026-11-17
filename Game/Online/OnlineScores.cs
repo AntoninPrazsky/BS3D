@@ -29,7 +29,9 @@ namespace BS3D.Online
     /// crashes or is closed mid-send has lost nothing — the entry is on disk and goes again at the next start,
     /// and the service's idempotence on the submission id makes that resend harmless. The drain runs at start
     /// and after each clear, which is what #546 asks for and all it asks for: there is no retry timer, so a Pi
-    /// that is off costs one failed request per clear, not a request a second.
+    /// that is off costs one failed request per clear, not a request a second. The one exception to the order is a clear
+    /// held for a board the service does not know yet (#1045, <see cref="DrainAsync"/>): it goes after every clear never
+    /// held, and once a start of the game.
     /// </para>
     /// <para>
     /// <b>What an answer means is decided by its status, and the one judgment in it is which refusals are
@@ -94,10 +96,18 @@ namespace BS3D.Online
         internal const string OutboxBackupSuffix = ".bak";
 
         /// <summary>
-        /// Submissions the outbox holds at most; past it the oldest go. Two hundred clears is weeks of play with
-        /// the service away, and a file that could grow without bound is a file that eventually does.
+        /// Submissions the outbox holds at most; past it the oldest go, held ones first (#1045). Two hundred clears is weeks of
+        /// play with the service away, and a file that could grow without bound is a file that eventually does.
         /// </summary>
         internal const int OutboxCapacity = 200;
+
+        /// <summary>
+        /// How many starts of the game a clear held for a board the service does not know (#1045, <see cref="IsHeldForBoard"/>) is
+        /// tried before it is dropped. A release's ceiling table is loaded on the service the day it is published, so a clear
+        /// still unknown after this many starts is on a board the service will never know (a build whose levels no release
+        /// carries), and every start it was tried cost a request of the player's per-minute allowance.
+        /// </summary>
+        internal const int MaxHolds = 5;
 
         /// <summary>How long one request may take, connecting included, before it counts as no answer.</summary>
         internal static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(5);
@@ -186,6 +196,11 @@ namespace BS3D.Online
         //service answers for it, and the open one new counts are merged into. Both are in Outbox.json.
         private StatsBatchBody _statsSending;
         private StatsBatchBody _statsOpen;
+
+        //The clears held for a board the service does not know (#1045), the worker's alone: how many starts each has been held
+        //(in Outbox.json, OutboxFile.Held), and the ones held since this start, which are not tried again before the next
+        private Dictionary<Guid, int> _holds = new();
+        private readonly HashSet<Guid> _heldThisStart = new();
 
         //The play counts' schedule (#709), the worker's alone, on Stopwatch timestamps: when a batch was last sent (none
         //yet: _statsTried false), and the earliest the next may go, a random quiet after the last request that names the player
@@ -659,6 +674,7 @@ namespace BS3D.Online
                     if (outbox[i].Stars != 0 || !SameBoard(outbox[i], submission)) continue;
 
                     Console.WriteLine($"[online] {Describe(outbox[i])}: superseded in the outbox by a newer one; dropped");
+                    _holds.Remove(outbox[i].SubmissionId);
                     outbox.RemoveAt(i);
                 }
 
@@ -670,13 +686,42 @@ namespace BS3D.Online
 
             if (outbox.Count > OutboxCapacity)
             {
-                int dropped = outbox.Count - OutboxCapacity;
-                outbox.RemoveRange(0, dropped);
-                Console.WriteLine($"[online] The outbox is full ({OutboxCapacity}); dropped the {dropped} oldest clear(s)");
+                //The held ones first, oldest first (#1045): a clear on a board the service does not know is the one least likely
+                //ever to land, so a full outbox never drops a clear that would go for one that may not
+                int dropped = outbox.Count - OutboxCapacity, heldDropped = 0;
+                for (int i = 0; i < outbox.Count && heldDropped < dropped;)
+                {
+                    if (_holds.Remove(outbox[i].SubmissionId))
+                    {
+                        outbox.RemoveAt(i);
+                        heldDropped++;
+                    }
+                    else i++;
+                }
+
+                outbox.RemoveRange(0, dropped - heldDropped);
+                Console.WriteLine($"[online] The outbox is full ({OutboxCapacity}); dropped the {dropped} oldest clear(s)"
+                    + (heldDropped > 0 ? $", {heldDropped} of them held for a board the service does not know" : string.Empty));
             }
 
             SaveOutbox(outbox);
         }
+
+        /// <summary>The service's reason for a board no ceiling table of its own names (BS3D-API's <c>Reasons.UnknownBoard</c>).</summary>
+        internal const string UnknownBoardReason = "unknown-board";
+
+        /// <summary>
+        /// Whether a refusal is the service not knowing the board <b>yet</b> (#1045): an <see cref="UnknownBoardReason"/> for a clear
+        /// made under this build's own scoring rules (<see cref="ScoreKeeper.RulesVersion"/>). A release that bumps the rules sends
+        /// every clear on boards the service learns only when its new ceiling table is loaded, and until then every one of them
+        /// was refused as unknown, dropped and lost. Held, they go at the first start after it is loaded (<see cref="DrainAsync"/>,
+        /// at most <see cref="MaxHolds"/> starts). A clear of older rules on a board the
+        /// service does not know is refused for good, as before: the tables of every release stay loaded, so that board will
+        /// never be known.
+        /// </summary>
+        internal static bool IsHeldForBoard(ScoreSubmission submission, ScoreAnswerBody refusal) =>
+            submission != null && submission.RulesVersion == ScoreKeeper.RulesVersion
+            && string.Equals(refusal?.Reason, UnknownBoardReason, StringComparison.Ordinal);
 
         /// <summary>Two submissions by one player to one board (#716).</summary>
         private static bool SameBoard(ScoreSubmission a, ScoreSubmission b) =>
@@ -694,6 +739,15 @@ namespace BS3D.Online
         /// the nickname is the player's, not the clear's, and a clear queued offline under an old name must neither
         /// put that name back on the service nor, through the answer's normalized form, into <c>Online.json</c>.
         /// </para>
+        /// <para>
+        /// <b>A clear of this build's rules on a board the service does not know yet is held, not dropped</b> (#1045,
+        /// <see cref="IsHeldForBoard"/>), and <b>tried once a start of the game</b>, after every clear that was never held: the
+        /// service counts each one against the player's allowance of submissions a minute, so a held clear tried again at every
+        /// drain (a drain follows every clear, and every board the High Scores page asks for) would use the allowance up and
+        /// make a fresh clear behind it wait as if the service were away. A clear held <see cref="MaxHolds"/> starts is
+        /// dropped: the service has had its release's table that long, so its board is one the service will never know. That
+        /// is what a release with new scoring rules meets until the service loads its ceiling table.
+        /// </para>
         /// </summary>
         private async Task DrainAsync(List<ScoreSubmission> outbox, CancellationToken stop)
         {
@@ -702,7 +756,13 @@ namespace BS3D.Online
                 TakeIncoming(outbox);
                 if (outbox.Count == 0) return;
 
-                ScoreSubmission submission = outbox[0];
+                ScoreSubmission submission = NextToSend(outbox);
+                if (submission == null)
+                {
+                    Console.WriteLine($"[online] {outbox.Count} clear(s) held for boards the service does not know yet,"
+                        + " waiting for the next start");
+                    return;
+                }
 
                 //Queued under an identity this install no longer holds: its token is gone with it, so the service
                 //would refuse it anyway. "Remove scores" wipes the outbox with the identity (#548); this is the
@@ -710,8 +770,7 @@ namespace BS3D.Online
                 if (submission.PlayerId != _identity.PlayerId)
                 {
                     Console.WriteLine($"[online] {Describe(submission)}: queued for another player id; dropped");
-                    outbox.RemoveAt(0);
-                    SaveOutbox(outbox);
+                    Forget(outbox, submission);
                     continue;
                 }
 
@@ -724,16 +783,35 @@ namespace BS3D.Online
                 switch (delivery.Kind)
                 {
                     case DeliveryKind.Delivered:
-                        outbox.RemoveAt(0);
-                        SaveOutbox(outbox);
+                        Forget(outbox, submission);
                         _answers.Enqueue(new OnlineAnswer(submission.SubmissionId, OnlineOutcome.Accepted, delivery.Body));
                         NoticeNormalizedName(delivery.Body, sent);
                         Console.WriteLine($"[online] {Describe(submission)}: {delivery.Status} {RankText(delivery.Body)}");
                         break;
 
-                    case DeliveryKind.Refused:
-                        outbox.RemoveAt(0);
+                    case DeliveryKind.Refused when IsHeldForBoard(submission, delivery.Body):
+                        //A board the service has not loaded yet (#1045): kept for the next start, or dropped after MaxHolds of them
+                        int holds = _holds.GetValueOrDefault(submission.SubmissionId) + 1;
+                        _heldThisStart.Add(submission.SubmissionId);
+
+                        if (holds >= MaxHolds)
+                        {
+                            Forget(outbox, submission);
+                            _answers.Enqueue(new OnlineAnswer(submission.SubmissionId, OnlineOutcome.Refused, delivery.Body));
+                            Console.WriteLine($"[online] {Describe(submission)}: {delivery.Status} ({delivery.Body.Reason}) — dropped;"
+                                + $" the service has not known rules v{submission.RulesVersion} of this board for {holds} starts");
+                            break;
+                        }
+
+                        _holds[submission.SubmissionId] = holds;
                         SaveOutbox(outbox);
+                        _answers.Enqueue(new OnlineAnswer(submission.SubmissionId, OnlineOutcome.Held, delivery.Body));
+                        Console.WriteLine($"[online] {Describe(submission)}: {delivery.Status} ({delivery.Body.Reason}) — held"
+                            + $" ({holds} of {MaxHolds} starts); the service does not know rules v{submission.RulesVersion} of this board yet");
+                        break;
+
+                    case DeliveryKind.Refused:
+                        Forget(outbox, submission);
                         _answers.Enqueue(new OnlineAnswer(submission.SubmissionId, OnlineOutcome.Refused, delivery.Body));
                         NoticeRefusedName(delivery.Body);
                         Console.WriteLine($"[online] {Describe(submission)}: REFUSED {delivery.Status}"
@@ -745,11 +823,38 @@ namespace BS3D.Online
                         Console.WriteLine($"[online] {Describe(submission)}: no answer ({delivery.Problem}) — kept,"
                             + $" {outbox.Count} clear(s) waiting for the next start or the next clear");
 
+                        //Not the ones held this start: their answer was given, and they are not tried again before the next
                         foreach (ScoreSubmission waiting in outbox)
-                            _answers.Enqueue(new OnlineAnswer(waiting.SubmissionId, OnlineOutcome.Offline));
+                            if (!_heldThisStart.Contains(waiting.SubmissionId))
+                                _answers.Enqueue(new OnlineAnswer(waiting.SubmissionId, OnlineOutcome.Offline));
                         return;
                 }
             }
+        }
+
+        /// <summary>
+        /// The clear a drain sends next (#1045): the oldest one the service has never held, else the oldest held one not tried
+        /// since this start, else none - every clear still queued is held until the next start. Fresh clears first, so a held
+        /// one never spends the allowance a clear the service knows would need.
+        /// </summary>
+        private ScoreSubmission NextToSend(List<ScoreSubmission> outbox)
+        {
+            ScoreSubmission held = null;
+            foreach (ScoreSubmission waiting in outbox)
+            {
+                if (!_holds.ContainsKey(waiting.SubmissionId)) return waiting;
+                if (held == null && !_heldThisStart.Contains(waiting.SubmissionId)) held = waiting;
+            }
+
+            return held;
+        }
+
+        /// <summary>A clear out of the outbox for good, its hold count with it, and the outbox on disk.</summary>
+        private void Forget(List<ScoreSubmission> outbox, ScoreSubmission submission)
+        {
+            outbox.Remove(submission);
+            _holds.Remove(submission.SubmissionId);
+            SaveOutbox(outbox);
         }
 
         /// <summary>
@@ -866,6 +971,7 @@ namespace BS3D.Online
             }
 
             outbox.Clear();
+            _holds.Clear();
             _statsSending = _statsOpen = null;
             DeleteQuietly(_outboxPath);
             DeleteQuietly(_outboxPath + OutboxBackupSuffix);
@@ -1351,7 +1457,15 @@ namespace BS3D.Online
                 Console.WriteLine($"[online] Play counts of {(_statsSending?.Levels.Count ?? 0) + (_statsOpen?.Levels.Count ?? 0)}"
                     + " level row(s) waiting in the outbox from an earlier run");
 
-            return file?.Submissions ?? new List<ScoreSubmission>();
+            List<ScoreSubmission> submissions = file?.Submissions ?? new List<ScoreSubmission>();
+
+            //How often each held clear has been held (#1045), for the ones still queued: a hold whose clear is gone counts nothing
+            _holds = new Dictionary<Guid, int>();
+            if (file?.Held != null)
+                foreach (ScoreSubmission waiting in submissions)
+                    if (file.Held.TryGetValue(waiting.SubmissionId, out int holds) && holds > 0) _holds[waiting.SubmissionId] = holds;
+
+            return submissions;
         }
 
         /// <summary>
@@ -1439,6 +1553,7 @@ namespace BS3D.Online
                     Submissions = outbox,
                     StatsSending = _statsSending,
                     StatsOpen = _statsOpen,
+                    Held = _holds.Count > 0 ? _holds : null,
                 }, OutboxJson), OutboxBackupSuffix);
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException)

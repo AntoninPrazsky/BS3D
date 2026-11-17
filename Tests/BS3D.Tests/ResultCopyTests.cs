@@ -15,16 +15,17 @@ namespace BS3D.Tests
     {
         private static LevelResult Result(bool cleared = true, int stars = 2, bool campaign = false, bool block = false,
             bool hasNext = true, bool nextUnlocked = true, bool beyondReach = false, bool canSkip = false, bool budget = true,
-            string frontier = "Pinwheel", int unusedBalls = 7, int ballPrice = 120) =>
+            string frontier = "Pinwheel", int unusedBalls = 7, int ballPrice = 120, int? par = 40, float seconds = 34f,
+            int timeBonus = 6900, int score = 2430) =>
             new(cleared: cleared, failureText: cleared ? null : "The cluster reached the line.", stars: cleared ? stars : 0,
                 newBest: cleared, levelBalls: 120, levelName: "Star", levelNumber: 13,
                 hasNextLevel: hasNext, nextLevelUnlocked: nextUnlocked, nextLevelMinStars: 196, totalStars: 194,
                 nextLevelBeyondReach: beyondReach, frontierLevelNumber: 5, frontierLevelName: frontier,
                 canSkip: canSkip, nextLevelName: "Elephant", campaignComplete: campaign,
                 blockComplete: block, blockName: "The Gallery", blockNumber: 2, blockCount: 14,
-                score: 2430, matchedBalls: 96, orphanedBalls: 24, streakBonus: 640,
+                score: score, matchedBalls: 96, orphanedBalls: 24, streakBonus: 640,
                 hadBudget: budget, unusedShotsAwarded: unusedBalls, completionBonusAwarded: unusedBalls * ballPrice,
-                unusedShotValue: ballPrice);
+                unusedShotValue: ballPrice, parSeconds: par, seconds: seconds, timeBonusAwarded: timeBonus);
 
         private static IEnumerable<LevelResult> Endings()
         {
@@ -40,6 +41,8 @@ namespace BS3D.Tests
             yield return Result(nextUnlocked: false, beyondReach: true, frontier: null);
             yield return Result(hasNext: false);
             yield return Result(budget: false);
+            yield return Result(par: null, timeBonus: 0);
+            yield return Result(stars: 3, score: 9260);
         }
 
         private static IEnumerable<string> Strings(LevelResult r)
@@ -53,6 +56,7 @@ namespace BS3D.Tests
             yield return r.MatchedDetail;
             yield return r.OrphanedDetail;
             yield return r.UnusedDetail;
+            yield return r.TimeDetail;
             yield return r.NextLevelLabel;
             yield return r.SkipLabel;
             yield return r.UnlockNote;
@@ -122,6 +126,37 @@ namespace BS3D.Tests
             Assert.Equal(keeper.CompletionBonusAwarded, result.UnusedShotsAwarded * result.UnusedShotValue);
             Assert.Equal(keeper.CompletionBonusAwarded, result.CompletionBonusAwarded);
             Assert.NotEqual(ScoreKeeper.UnusedShotPoints, keeper.UnusedShotValue);
+        }
+
+        /// <summary>The time bonus's row (#1045): the whole seconds begun it was paid for against the par, or a dash on a level
+        /// with no par.</summary>
+        [Fact]
+        public void The_time_detail_is_seconds_against_par()
+        {
+            Assert.Equal("34 s · par 40 s", Result(seconds: 33.2f).TimeDetail);
+            Assert.Equal("—", Result(par: null, timeBonus: 0).TimeDetail);
+        }
+
+        /// <summary>
+        /// The next star in seconds (#1045): the staged page's clear (120 balls, par 40, 34 s paid 6 900, scoring 9 260 for three
+        /// stars) needs 13 200 for four, and the time bonus pays 150 points a second, so 27 s faster would have done it; the
+        /// note says so. A clear the time bonus could not lift, or a level with no par, gets the points alone.
+        /// </summary>
+        [Fact]
+        public void The_next_star_note_says_how_much_faster_would_have_earned_it()
+        {
+            LevelResult staged = Result(stars: 3, score: 9260);
+
+            Assert.Equal(13200, staged.NextStarScore);
+            Assert.Equal(27, staged.NextStarSecondsFaster);
+            Assert.Equal("Next star at 13 200 (+3 940), or 27 s faster", staged.NextStarNote);
+
+            ScoreKeeper level = new(null, null, 120, 40);
+            Assert.True(level.TimeBonusAt(34 - 27) - 6900 >= 3940 && level.TimeBonusAt(34 - 26) - 6900 < 3940);
+
+            Assert.Equal(-1, Result(stars: 3, score: 9260, par: null, timeBonus: 0).NextStarSecondsFaster);
+            Assert.Equal(-1, Result(stars: 1, score: 1300, seconds: 2f, timeBonus: 11700).NextStarSecondsFaster);
+            Assert.Equal(-1, Result(stars: 4, score: 14000).NextStarSecondsFaster);
         }
     }
 }

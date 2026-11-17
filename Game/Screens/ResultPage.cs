@@ -81,7 +81,7 @@ namespace BS3D.Screens
         private Label _matchedDetail, _matchedValue;
         private Label _orphanedDetail, _orphanedValue;
         private Label _streakValue;
-        private Label _unusedDetail, _unusedValue;
+        private Label _unusedDetail, _unusedValue, _timeDetail, _timeValue;
         private Label _totalValue, _nextStarNote, _unlockNote;
         private Widget _breakdown;
 
@@ -92,13 +92,13 @@ namespace BS3D.Screens
         //description of the final text for the two things that need it: ApplyBreakdownReveal, which writes it, and
         //PinBreakdownColumns, which measures it — so the widths that are pinned are the widths that arrive.
         private string _matchedDetailText, _matchedValueText, _orphanedDetailText, _orphanedValueText;
-        private string _streakValueText, _unusedDetailText, _unusedValueText, _totalValueText;
+        private string _streakValueText, _unusedDetailText, _unusedValueText, _timeDetailText, _timeValueText, _totalValueText;
 
         //And the same figures as the labels are given them: in tabular figures for the face each is drawn in (#806), so a
         //column of them lines up digit under digit. Set by Refresh, which a rebuild at another size runs too, since a cell
         //is a width in that size's pixels.
         private string _matchedDetailSet, _matchedValueSet, _orphanedDetailSet, _orphanedValueSet;
-        private string _streakValueSet, _unusedDetailSet, _unusedValueSet, _totalValueSet;
+        private string _streakValueSet, _unusedDetailSet, _unusedValueSet, _timeDetailSet, _timeValueSet, _totalValueSet;
 
         private Button _retryButton, _nextLevelButton, _skipButton;
 
@@ -679,8 +679,15 @@ namespace BS3D.Screens
         /// would overshoot further than the text is tall.</summary>
         private const float BREAKDOWN_PUNCH_SECONDS = 0.22f;
 
-        /// <summary>Matched, detached, streak bonus, balls unused — the total lands one step after the last.</summary>
-        private const int BREAKDOWN_ROW_COUNT = 4;
+        /// <summary>Matched, detached, streak bonus, balls unused, time bonus (#1045) — the total lands one step after the last.</summary>
+        private const int BREAKDOWN_ROW_COUNT = 5;
+
+        /// <summary>
+        /// The breakdown's captions in row order (#1045 added the time bonus's): what each row of <see cref="BuildBreakdown"/> is
+        /// called, and what the caption column is measured over. "time bonus" is the readout's own words under the score in play
+        /// (<c>TimeBonusReadout.LABEL</c>), so the figure the player watched drain is found here beside the same noun.
+        /// </summary>
+        private static readonly string[] BREAKDOWN_CAPTIONS = { "matched", "detached", "streak bonus", "balls unused", TimeBonusReadout.LABEL };
 
         /// <summary>When row <paramref name="row"/> (0-based, in <see cref="BuildBreakdown"/>'s own order) lands.</summary>
         private float BreakdownRowRevealTime(int row) =>
@@ -733,6 +740,7 @@ namespace BS3D.Screens
             WriteBreakdownRow(1, _orphanedDetail, _orphanedDetailSet, _orphanedValue, _orphanedValueSet);
             WriteBreakdownRow(2, null, null, _streakValue, _streakValueSet);
             WriteBreakdownRow(3, _unusedDetail, _unusedDetailSet, _unusedValue, _unusedValueSet);
+            WriteBreakdownRow(4, _timeDetail, _timeDetailSet, _timeValue, _timeValueSet);
 
             float totalProgress = (_revealClock - BreakdownTotalRevealTime) / BREAKDOWN_PUNCH_SECONDS;
 
@@ -768,6 +776,9 @@ namespace BS3D.Screens
             _unusedDetailText = _result.UnusedDetail;
             _unusedValueText = ScoreText.Of(_result.CompletionBonusAwarded);
 
+            _timeDetailText = _result.TimeDetail;
+            _timeValueText = ScoreText.Of(_result.TimeBonusAwarded);
+
             _totalValueText = ScoreText.Of(_result.Score);
         }
 
@@ -788,6 +799,8 @@ namespace BS3D.Screens
             _streakValueSet = FontFigures.Tabular(_streakValueText, body);
             _unusedDetailSet = FontFigures.Tabular(_unusedDetailText, body);
             _unusedValueSet = FontFigures.Tabular(_unusedValueText, body);
+            _timeDetailSet = FontFigures.Tabular(_timeDetailText, body);
+            _timeValueSet = FontFigures.Tabular(_timeValueText, body);
             _totalValueSet = FontFigures.Tabular(_totalValueText, _figuresHeading);
         }
 
@@ -821,22 +834,22 @@ namespace BS3D.Screens
             _figuresBody = body;
             _figuresHeading = heading;
 
-            //Rows 0 to 3 are the captions, details and values, row 4 the total; the notes below keep their own faces
+            //Rows 0 to 4 are the captions, details and values, row 5 the total; the notes below keep their own faces
             foreach (Widget widget in _breakdownGrid.Widgets)
             {
                 if (widget is not Label label) continue;
                 int row = Grid.GetRow(label);
-                if (row <= 3) label.Font = body;
-                else if (row == 4) label.Font = heading;
+                if (row < BREAKDOWN_ROW_COUNT) label.Font = body;
+                else if (row == BREAKDOWN_ROW_COUNT) label.Font = heading;
             }
         }
 
         /// <summary>The three pinned columns' width in the given faces, without the gaps between them (<see cref="PinBreakdownColumns"/>'s sum).</summary>
         private float BreakdownWidth(SpriteFontBase body, SpriteFontBase heading) =>
-            Widest(body, "matched", "detached", "streak bonus", "balls unused")
-            + WidestFigures(body, _matchedDetailText, _orphanedDetailText, _unusedDetailText)
+            Widest(body, BREAKDOWN_CAPTIONS)
+            + WidestFigures(body, _matchedDetailText, _orphanedDetailText, _unusedDetailText, _timeDetailText)
             + MathF.Max(
-                WidestFigures(body, PENDING_MARK, _matchedValueText, _orphanedValueText, _streakValueText, _unusedValueText),
+                WidestFigures(body, PENDING_MARK, _matchedValueText, _orphanedValueText, _streakValueText, _unusedValueText, _timeValueText),
                 WidestFigures(heading, PENDING_MARK, _totalValueText));
 
         /// <summary>
@@ -867,10 +880,10 @@ namespace BS3D.Screens
             SpriteFontBase body = _figuresBody;
             SpriteFontBase heading = _figuresHeading;
 
-            float caption = Widest(body, "matched", "detached", "streak bonus", "balls unused");
-            float detail = WidestFigures(body, _matchedDetailText, _orphanedDetailText, _unusedDetailText);
+            float caption = Widest(body, BREAKDOWN_CAPTIONS);
+            float detail = WidestFigures(body, _matchedDetailText, _orphanedDetailText, _unusedDetailText, _timeDetailText);
             float value = MathF.Max(
-                WidestFigures(body, PENDING_MARK, _matchedValueText, _orphanedValueText, _streakValueText, _unusedValueText),
+                WidestFigures(body, PENDING_MARK, _matchedValueText, _orphanedValueText, _streakValueText, _unusedValueText, _timeValueText),
                 WidestFigures(heading, PENDING_MARK, _totalValueText));
 
             //A note wider than the three columns lengthens the middle one, so captions and values stay at the edges
@@ -1165,10 +1178,11 @@ namespace BS3D.Screens
             grid.ColumnsProportions.Add(new Proportion(ProportionType.Auto));   //detail (count × worth)
             grid.ColumnsProportions.Add(new Proportion(ProportionType.Part));   //value, right-aligned by the cell
 
-            AddRow(grid, 0, "matched", out _matchedDetail, out _matchedValue);
-            AddRow(grid, 1, "detached", out _orphanedDetail, out _orphanedValue);
-            AddRow(grid, 2, "streak bonus", out _, out _streakValue);
-            AddRow(grid, 3, "balls unused", out _unusedDetail, out _unusedValue);
+            AddRow(grid, 0, BREAKDOWN_CAPTIONS[0], out _matchedDetail, out _matchedValue);
+            AddRow(grid, 1, BREAKDOWN_CAPTIONS[1], out _orphanedDetail, out _orphanedValue);
+            AddRow(grid, 2, BREAKDOWN_CAPTIONS[2], out _, out _streakValue);
+            AddRow(grid, 3, BREAKDOWN_CAPTIONS[3], out _unusedDetail, out _unusedValue);
+            AddRow(grid, 4, BREAKDOWN_CAPTIONS[4], out _timeDetail, out _timeValue);
 
             //A hairline rule was tried here (#479) — under the four rows, over the total — and dropped. Three
             //shapes of it (an empty Panel, a Pixels-sized row under it, an empty-then-space-text Label with
@@ -1195,7 +1209,7 @@ namespace BS3D.Screens
                 Margin = ScaledThickness(0, 24, 0, 0),
             };
             Grid.SetColumn(_totalValue, 2);
-            Grid.SetRow(_totalValue, 4);
+            Grid.SetRow(_totalValue, BREAKDOWN_ROW_COUNT);
             grid.Widgets.Add(_totalValue);
 
             //What the NEXT star of THIS level would cost (#385), an aside directly under the total — this
@@ -1213,7 +1227,7 @@ namespace BS3D.Screens
             };
             Grid.SetColumn(_nextStarNote, 0);
             Grid.SetColumnSpan(_nextStarNote, 3);
-            Grid.SetRow(_nextStarNote, 5);
+            Grid.SetRow(_nextStarNote, BREAKDOWN_ROW_COUNT + 1);
             grid.Widgets.Add(_nextStarNote);
 
             //The campaign's gate, as an aside under that: why the NEXT level is shut, shown only when it is —
@@ -1241,7 +1255,7 @@ namespace BS3D.Screens
             };
             Grid.SetColumn(_unlockNote, 0);
             Grid.SetColumnSpan(_unlockNote, 3);
-            Grid.SetRow(_unlockNote, 6);
+            Grid.SetRow(_unlockNote, BREAKDOWN_ROW_COUNT + 2);
             grid.Widgets.Add(_unlockNote);
 
             return grid;
@@ -1599,6 +1613,9 @@ namespace BS3D.Screens
                     //DNS record sent the game to a web host). Say what is known
                     OnlineOutcome.Offline => $"The score server did not answer. This {what} is saved and goes out with your next score.",
                     OnlineOutcome.Refused => $"The score server did not take this {what}.",
+
+                    //A board the service has not learned yet (#1045): a release with new scoring rules ahead of the service
+                    OnlineOutcome.Held => $"The score server does not know this level’s new rules yet. This {what} is saved and goes out once it does.",
                     _ => "Sending your score…",
                 }, answer == null ? OnlineSignal.SignalMode.Working : OnlineSignal.SignalMode.Idle);
                 return;
