@@ -75,7 +75,8 @@ namespace Prazsky.Core.Render
     /// ring, the bank the island sits in, the bank's stones, the clearing's stones, Phobos and Deimos, whether High and Ultra's
     /// ground reads its bake (#1100; off draws the exact program where the baked one would be, the maps kept), what the
     /// scene casts into the sun's map (the bank's planting and the clearing's stones, whichever of them are drawn or not), and
-    /// whether the moons' pass is scissored to the two moons (#1138; off, it runs over the whole frame: the same picture).
+    /// whether the moons' pass is scissored to the two moons (#1138; off, it runs over the whole frame: the same picture, to the
+    /// bit without multisampling).
     /// </summary>
     [System.Flags]
     public enum MarsLayer

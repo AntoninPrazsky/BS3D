@@ -42,13 +42,14 @@ namespace Prazsky.Core.Render
         private EffectParameter _marsMoonsViewRayBasis, _marsMoonsCameraPosition, _sunDirection;
         private EffectTechnique _marsTerrainTechnique, _marsTerrainFull, _marsTerrainReduced, _marsMoonsTechnique;
 
-        //THE MOONS' BOX (#1138): the quad is drawn scissored to each moon's box on the screen, not over the whole frame. A
-        //full-screen pass costs what its pixels cost to raster, depth-test and start a program on, whatever the program does,
-        //and over the whole sky that was nearly all the moons cost (the figures: "What each layer costs" in docs/scenes/mars.md).
-        //Each box holds every ray MoonDisc's cone test lets through (MOON_CONE_SCALE of the moon's radius and the largest
-        //pixel footprint), and a pixel it leaves out is one the program writes an alpha of 0 to, which the premultiplied blend
-        //leaves as it was: the picture is the full screen's to the bit. The directions and radii are the ones
-        //ApplyMarsParameters hands the shader.
+        //THE MOONS' BOX (#1138): the quad is drawn scissored to each moon's box on the screen, not over the whole frame. Over
+        //the whole frame the pass cost 0.13 ms, and the cost sat in covering the frame, not in the program, the blend or the
+        //writes: scissored to one pixel it was all gone (the figures: "What each layer costs" in docs/scenes/mars.md). Each box
+        //holds every ray MoonDisc's cone test lets through (MoonCone), and a pixel it leaves out is one the program writes an
+        //alpha of 0 to, which the premultiplied blend leaves as it was. Without multisampling (High and Ultra, which
+        //supersample) the picture is the full-frame pass's to the bit; with it, a few pixels on a silhouette far from either
+        //moon, which the full-frame pass changed slightly, are left as the scene drew them. The directions and radii
+        //are the ones ApplyMarsParameters hands the shader.
         private Vector3 _phobosDirection, _deimosDirection;
         private float _phobosAngularRadius, _deimosAngularRadius;
         private static readonly RasterizerState SCISSORED = new() { CullMode = CullMode.None, ScissorTestEnable = true };
@@ -113,8 +114,8 @@ namespace Prazsky.Core.Render
             //--- Mars (#277): the sixteenth scene - the Moon's crater field (#125) retextured rust/ochre on
             //the outback's plumbing (an ordinary dome, the shared cloud shadow, a haze-closed horizon)
             //rather than the Moon's domeless, curvature-closed one. Two techniques in one effect: the
-            //terrain grid, and a small full-screen pass for Phobos and Deimos sharing the sky-replacing
-            //scenes' own quad (Services.FullScreenQuad).
+            //terrain grid, and a pass for Phobos and Deimos on the sky-replacing scenes' own full-screen
+            //quad (Services.FullScreenQuad), scissored to the two moons (THE MOONS' BOX).
             _marsEffect = content.Load<Effect>("Shaders/Mars");
             _marsPass = new TerrainPass(Services, _marsEffect, MARS_GRID_N, MARS_EXTENT, null);
 
@@ -549,9 +550,10 @@ namespace Prazsky.Core.Render
         /// discs over a dome and a terrain that are already drawn, not a full-screen backdrop of its own.
         /// <para>
         /// Scissored to each moon's box on the screen (THE MOONS' BOX, #1138), one draw a box, or one over both where the two
-        /// boxes meet so no pixel is blended twice; nothing is drawn while neither moon is in the frame. With
-        /// <see cref="MarsLayer.MoonBounds"/> off (the Testbed's <c>mars=all/-moonbounds</c>) the quad covers the whole frame,
-        /// the same picture.
+        /// boxes share a pixel so none is blended twice (<see cref="MoonDraws"/>); nothing is drawn while neither moon's cone
+        /// comes within a pixel or so of the frame, wherever the lens is turned. With <see cref="MarsLayer.MoonBounds"/> off
+        /// (the Testbed's <c>mars=all/-moonbounds</c>) the quad covers the whole frame, the same picture (to the bit without
+        /// multisampling: THE MOONS' BOX).
         /// </para>
         /// </summary>
         private void DrawMarsMoons(in SceneFrame frame)
@@ -561,25 +563,20 @@ namespace Prazsky.Core.Render
             _sunDirection.SetValue(frame.SunDirection);
 
             bool bounded = (Layers & MarsLayer.MoonBounds) != 0;
-            Rectangle phobos = Rectangle.Empty, deimos = Rectangle.Empty;
+            Rectangle first = Rectangle.Empty, second = Rectangle.Empty;
             if (bounded)
             {
                 Viewport viewport = _graphicsDevice.Viewport;
                 Matrix view = frame.Camera.View;
                 Matrix projection = frame.Camera.Projection;
                 float footprint = SkyRay.MaxPixelAngle(projection, viewport);
-                phobos = MoonBox(_phobosDirection, _phobosAngularRadius, footprint, view, projection, viewport);
-                deimos = MoonBox(_deimosDirection, _deimosAngularRadius, footprint, view, projection, viewport);
-
-                if (HasArea(phobos) && HasArea(deimos) && phobos.Intersects(deimos))
-                {
-                    phobos = Rectangle.Union(phobos, deimos);
-                    deimos = Rectangle.Empty;
-                }
+                (first, second) = MoonDraws(
+                    MoonBox(_phobosDirection, _phobosAngularRadius, footprint, view, projection, viewport),
+                    MoonBox(_deimosDirection, _deimosAngularRadius, footprint, view, projection, viewport));
             }
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
-            if (!bounded || HasArea(phobos) || HasArea(deimos))
+            if (!bounded || HasArea(first) || HasArea(second))
             {
                 _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
                 _graphicsDevice.RasterizerState = bounded ? SCISSORED : RasterizerState.CullNone;
@@ -590,8 +587,8 @@ namespace Prazsky.Core.Render
                 if (!bounded) _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
                 else
                 {
-                    DrawScissored(phobos);
-                    DrawScissored(deimos);
+                    DrawScissored(first);
+                    DrawScissored(second);
                 }
             }
 
@@ -599,13 +596,37 @@ namespace Prazsky.Core.Render
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
-        //One moon's box: the pixels whose rays MoonDisc's cone test can let through. Empty for a moon of no size, which the
-        //shader does not draw either
-        private static Rectangle MoonBox(Vector3 direction, float angularRadius, float footprint, Matrix view, Matrix projection,
+        /// <summary>
+        /// The cone a moon's box is taken round: the one <c>MoonDisc</c> tests, <see cref="MOON_CONE_SCALE"/> of the moon's
+        /// <paramref name="angularRadius"/> and a pixel's footprint, at <paramref name="footprint"/>, the largest any pixel has
+        /// (<see cref="SkyRay.MaxPixelAngle"/>), so the cone holds the shader's at every pixel.
+        /// </summary>
+        internal static float MoonCone(float angularRadius, float footprint) => angularRadius * MOON_CONE_SCALE + footprint;
+
+        /// <summary>
+        /// One moon's box: the pixels whose rays <c>MoonDisc</c>'s cone test can let through (<see cref="MoonCone"/>). Empty for
+        /// a moon of no size, which the shader does not draw either.
+        /// </summary>
+        internal static Rectangle MoonBox(Vector3 direction, float angularRadius, float footprint, Matrix view, Matrix projection,
             Viewport viewport) =>
             angularRadius > 0f
-                ? SkyRay.PixelsWithin(direction, angularRadius * MOON_CONE_SCALE + footprint, view, projection, viewport)
+                ? SkyRay.PixelsWithin(direction, MoonCone(angularRadius, footprint), view, projection, viewport)
                 : Rectangle.Empty;
+
+        /// <summary>
+        /// The draws two moons' boxes take, each blending every pixel it holds once: one over both where they share a pixel
+        /// (their union, the second then empty), each its own where they do not (<see cref="Rectangle.Intersects(Rectangle)"/>
+        /// is strict, so two boxes that only meet along an edge share none), and a box with no area as
+        /// <see cref="Rectangle.Empty"/>.
+        /// </summary>
+        internal static (Rectangle First, Rectangle Second) MoonDraws(Rectangle phobos, Rectangle deimos)
+        {
+            if (!HasArea(phobos)) phobos = Rectangle.Empty;
+            if (!HasArea(deimos)) deimos = Rectangle.Empty;
+            return HasArea(phobos) && HasArea(deimos) && phobos.Intersects(deimos)
+                ? (Rectangle.Union(phobos, deimos), Rectangle.Empty)
+                : (phobos, deimos);
+        }
 
         private static bool HasArea(Rectangle box) => box.Width > 0 && box.Height > 0;
 

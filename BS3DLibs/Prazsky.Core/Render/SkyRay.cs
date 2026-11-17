@@ -74,16 +74,21 @@ namespace Prazsky.Core.Render
         /// The pixels of <paramref name="viewport"/>, in the render target's own coordinates (what
         /// <see cref="GraphicsDevice.ScissorRectangle"/> takes), whose rays can fall within <paramref name="halfAngle"/> of
         /// <paramref name="axis"/>: <see cref="Basis(Matrix, Matrix)"/> run backwards, so a full-screen sky pass that draws
-        /// something small (Mars's moons, #1138) can be scissored to it. Empty where the cone is behind the lens or off the
-        /// frame, and the whole viewport where it reaches round beside the lens, where its outline on the screen has no bound.
+        /// something small (Mars's moons, #1138) can be scissored to it. Empty where the cone misses the frame, behind the lens
+        /// or beside it, by more than its polygon stands past it (below); the whole viewport only for a cone a half-turn or more
+        /// across.
         /// </summary>
         /// <remarks>
         /// <para>
         /// The cone's section at <c>cos(halfAngle)</c> along its axis is a circle; the <see cref="RIM_POINTS"/>-gon round it (its
-        /// corners <c>1 / cos(π / RIM_POINTS)</c> further out) holds it, and the projection onto the screen is projective, so
-        /// it keeps the polygon convex and the circle inside it: the box round the corners' projections holds every ray of the
-        /// cone in front of the lens. Rounded outwards to whole pixels and widened by <see cref="MARGIN_PIXELS"/>, for the
-        /// rounding of the corners' sums against the shader's own.
+        /// corners <c>1 / cos(π / RIM_POINTS)</c> further out) holds it. The polygon is cut to the frustum's four sides first,
+        /// each a plane through the eye (the rays whose screen <c>x</c> or <c>y</c> is ±1): what is left is every ray of the
+        /// polygon's cone that reaches the frame, all of it in front of the lens, since the four sides meet behind it only at
+        /// the eye. Nothing is left of a polygon whose cone misses the frame, wherever it points, the plane through the eye
+        /// square to the lens's axis included, where an outline on the screen would have no bound. The projection of what is
+        /// left is projective on a region wholly in front of the lens, so it keeps the cut polygon convex with the circle's part
+        /// inside it, and the box round its corners' projections holds every pixel of the cone. Rounded outwards to whole
+        /// pixels and widened by <see cref="MARGIN_PIXELS"/>, for the rounding of the corners' sums against the shader's own.
         /// </para>
         /// <para>
         /// A pixel the box leaves out is one whose ray is outside the cone, so a pass whose program writes nothing there (an
@@ -108,17 +113,31 @@ namespace Prazsky.Core.Render
             Vector3 centre = axis * MathF.Cos(halfAngle);
             float corner = MathF.Sin(MathF.Max(halfAngle, 0f)) / MathF.Cos(MathF.PI / RIM_POINTS);
 
+            //Each cut adds at most one corner to a convex polygon: RIM_POINTS and one a side
+            Span<Vector3> polygon = stackalloc Vector3[RIM_POINTS + 4];
+            Span<Vector3> cut = stackalloc Vector3[RIM_POINTS + 4];
+            for (int i = 0; i < RIM_POINTS; i++) polygon[i] = centre + (across * RIM[i].X + along * RIM[i].Y) * corner;
+
+            //The frustum's sides, each normal pointing in. The ray at screen x looks along vx = (x + M31) / M11 at a depth of 1
+            //(Basis), so the right side is vx = (1 + M31) / M11 · depth, and a ray is inside it while that less vx is positive
+            float rightSlope = (1f + projection.M31) / projection.M11, leftSlope = (projection.M31 - 1f) / projection.M11;
+            float topSlope = (1f + projection.M32) / projection.M22, bottomSlope = (projection.M32 - 1f) / projection.M22;
+            int count = Cut(polygon, RIM_POINTS, cut, forward * rightSlope - right);
+            count = Cut(cut, count, polygon, right - forward * leftSlope);
+            count = Cut(polygon, count, cut, forward * topSlope - up);
+            count = Cut(cut, count, polygon, up - forward * bottomSlope);
+            if (count < 0) return whole;
+            if (count == 0) return Rectangle.Empty;
+
             float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
-            int behind = 0;
-            for (int i = 0; i < RIM_POINTS; i++)
+            for (int i = 0; i < count; i++)
             {
-                Vector3 ray = centre + (across * RIM[i].X + along * RIM[i].Y) * corner;
+                Vector3 ray = polygon[i];
                 float depth = Vector3.Dot(ray, forward);
-                if (depth <= 0f)
-                {
-                    behind++;
-                    continue;
-                }
+
+                //Every corner left is in front of the lens; only rounding, for a cone within a hair of a half-turn, puts one
+                //on the eye's plane
+                if (depth <= 0f) return whole;
 
                 //Basis's own mapping turned round: x = M11·vx − M31 at a depth of 1
                 float x = projection.M11 * Vector3.Dot(ray, right) / depth - projection.M31;
@@ -129,21 +148,49 @@ namespace Prazsky.Core.Render
                 maxY = MathF.Max(maxY, y);
             }
 
-            //All behind the lens: so is every ray of the cone. Some: it reaches round beside the lens.
-            if (behind == RIM_POINTS) return Rectangle.Empty;
-            if (behind > 0) return whole;
-            if (maxX < -1f || minX > 1f || maxY < -1f || minY > 1f) return Rectangle.Empty;
-
-            //Clamped to the frame first, so a corner far off it cannot overflow the conversion
-            minX = MathF.Max(minX, -1f);
-            maxX = MathF.Min(maxX, 1f);
-            minY = MathF.Max(minY, -1f);
-            maxY = MathF.Min(maxY, 1f);
+            //Clamped to the frame first: a corner on a side can round a hair past it
+            minX = Math.Clamp(minX, -1f, 1f);
+            maxX = Math.Clamp(maxX, -1f, 1f);
+            minY = Math.Clamp(minY, -1f, 1f);
+            maxY = Math.Clamp(maxY, -1f, 1f);
             int left = (int)MathF.Floor(viewport.X + (minX * 0.5f + 0.5f) * viewport.Width) - MARGIN_PIXELS;
             int rightEdge = (int)MathF.Ceiling(viewport.X + (maxX * 0.5f + 0.5f) * viewport.Width) + MARGIN_PIXELS;
             int top = (int)MathF.Floor(viewport.Y + (0.5f - maxY * 0.5f) * viewport.Height) - MARGIN_PIXELS;
             int bottom = (int)MathF.Ceiling(viewport.Y + (0.5f - minY * 0.5f) * viewport.Height) + MARGIN_PIXELS;
             return Rectangle.Intersect(new Rectangle(left, top, rightEdge - left, bottom - top), whole);
+        }
+
+        //The first `count` corners of the convex polygon `from`, cut to the side of the plane through the eye that `inward`
+        //points to, into `to` (one pass of Sutherland and Hodgman's clipping); how many corners are left, or -1 where rounding
+        //on a corner a hair off the plane gave more than `to` holds (a convex polygon gains at most one a cut), passed on
+        private static int Cut(ReadOnlySpan<Vector3> from, int count, Span<Vector3> to, Vector3 inward)
+        {
+            if (count <= 0) return count;
+
+            int kept = 0;
+            Vector3 previous = from[count - 1];
+            float previousSide = Vector3.Dot(previous, inward);
+            for (int i = 0; i < count; i++)
+            {
+                Vector3 current = from[i];
+                float side = Vector3.Dot(current, inward);
+                if ((side >= 0f) != (previousSide >= 0f))
+                {
+                    if (kept == to.Length) return -1;
+                    to[kept++] = Vector3.Lerp(previous, current, previousSide / (previousSide - side));
+                }
+
+                if (side >= 0f)
+                {
+                    if (kept == to.Length) return -1;
+                    to[kept++] = current;
+                }
+
+                previous = current;
+                previousSide = side;
+            }
+
+            return kept;
         }
 
         /// <summary>The corners of the polygon round a cone's section in <see cref="PixelsWithin"/>.</summary>

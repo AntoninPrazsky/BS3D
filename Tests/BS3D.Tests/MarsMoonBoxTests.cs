@@ -9,12 +9,13 @@ using Xunit;
 namespace BS3D.Tests
 {
     /// <summary>
-    /// Mars's moons scissored to their boxes (#1138). The pass was one full-screen quad, and a full-screen pass costs what its
-    /// pixels cost to raster and start a program on, whatever the program does; scissored to each moon's box it touches the
-    /// moons' pixels and nothing else. The picture stays the full screen's only if every pixel the box leaves out is one the
-    /// program writes nothing to, which is a pixel whose ray <c>MoonDisc</c>'s cone test turns away. These hold that with no
-    /// device: the GPU's own rays and footprints, worked out per pixel as the shader does, against
-    /// <see cref="SkyRay.PixelsWithin"/>; the footprint's bound; and the cone's figure, one in the shader and the backdrop.
+    /// Mars's moons scissored to their boxes (#1138). The pass was one full-screen quad whose cost sat in covering the frame,
+    /// not in its program; scissored to each moon's box it touches the moons' pixels and nothing else. The picture stays the
+    /// full screen's only if every pixel the box leaves out is one the program writes nothing to, which is a pixel whose ray
+    /// <c>MoonDisc</c>'s cone test turns away. These hold that with no device: the GPU's own rays and footprints, worked out
+    /// per pixel as the shader does, against the backdrop's own boxes (<see cref="MarsBackdrop.MoonBox"/>); no box for a moon
+    /// off the frame, at any bearing; the footprint's bound; the cone's figure, one in the shader and the backdrop; and the
+    /// draws the two boxes take, no pixel blended twice.
     /// </summary>
     public class MarsMoonBoxTests
     {
@@ -66,8 +67,7 @@ namespace BS3D.Tests
             Viewport viewport)
         {
             Matrix basis = SkyRay.Basis(view, projection);
-            float footprint = SkyRay.MaxPixelAngle(projection, viewport);
-            Rectangle box = SkyRay.PixelsWithin(direction, angularRadius * MarsBackdrop.MOON_CONE_SCALE + footprint, view, projection,
+            Rectangle box = MarsBackdrop.MoonBox(direction, angularRadius, SkyRay.MaxPixelAngle(projection, viewport), view, projection,
                 viewport);
 
             int inside = 0, left = int.MaxValue, top = int.MaxValue, right = int.MinValue, bottom = int.MinValue;
@@ -159,25 +159,146 @@ namespace BS3D.Tests
         }
 
         /// <summary>
-        /// A moon behind the lens has no pixels; one whose cone reaches round beside the lens (where its outline on the screen
-        /// has no bound) gets the whole viewport; one off the frame none.
+        /// A moon behind the lens has no pixels, nor one off the frame, nor one square to the lens's axis, whose cone straddles
+        /// the plane through the eye where its outline on the screen has no bound; a cone that straddles that plane and
+        /// reaches into the frame gets a box round what it reaches, not the whole viewport.
         /// </summary>
         [Fact]
         public void BehindBesideAndOffTheFrame()
         {
             Viewport viewport = new(0, 0, 320, 180);
             (Matrix view, Matrix projection) = Lens(Phobos, 60f, 16f / 9f);
-            float radius = MathHelper.ToRadians(Moons.PhobosAngularRadiusDegrees) * MarsBackdrop.MOON_CONE_SCALE;
+            float radius = MathHelper.ToRadians(Moons.PhobosAngularRadiusDegrees);
+            float footprint = SkyRay.MaxPixelAngle(projection, viewport);
 
-            Assert.Equal(Rectangle.Empty, SkyRay.PixelsWithin(-Phobos, radius, view, projection, viewport));
+            Assert.Equal(Rectangle.Empty, MarsBackdrop.MoonBox(-Phobos, radius, footprint, view, projection, viewport));
 
             //Square to the lens's axis, the cone straddles the plane the screen cannot reach
             Vector3 beside = Vector3.Normalize(Vector3.Cross(Phobos, Vector3.Up));
-            Assert.Equal(new Rectangle(0, 0, 320, 180), SkyRay.PixelsWithin(beside, radius, view, projection, viewport));
+            Assert.Equal(Rectangle.Empty, MarsBackdrop.MoonBox(beside, radius, footprint, view, projection, viewport));
 
-            //Forty degrees round from the centre of a 60-degree lens, past its side edge
-            Vector3 off = Vector3.Transform(Phobos, Matrix.CreateRotationY(MathHelper.ToRadians(70f)));
-            Assert.Equal(Rectangle.Empty, SkyRay.PixelsWithin(off, radius, view, projection, viewport));
+            //Round the lens's own up axis: this lens's side edges stand 45.7 degrees off its axis
+            Vector3 Round(float degrees) =>
+                Phobos * MathF.Cos(MathHelper.ToRadians(degrees)) + beside * MathF.Sin(MathHelper.ToRadians(degrees));
+
+            //Fifty-four degrees round, past the side edge
+            Assert.Equal(Rectangle.Empty, MarsBackdrop.MoonBox(Round(54f), radius, footprint, view, projection, viewport));
+
+            //A cone forty degrees round, its axis eighty off the lens's: it straddles the eye's plane and reaches past the side
+            //edge into a strip of the frame six degrees deep
+            (int inside, Rectangle box, _) = Check(Round(80f), MathHelper.ToRadians(40f) / MarsBackdrop.MOON_CONE_SCALE, view, projection,
+                viewport);
+            Assert.True(inside > 0, "the wide cone reached no pixel, so nothing was checked");
+            Assert.True(box.Width < viewport.Width / 4, $"the wide cone's box {box} is not the strip it reaches");
+        }
+
+        /// <summary>
+        /// Round a whole turn of the Game's lens (<c>GameplayScreen.GAME_FOV</c>, a window 2.56 times as wide as it is tall),
+        /// pitched from below the horizon to well above it: every pixel of either moon's cone is in its box, and a moon whose
+        /// cone reaches no pixel gets no box, or a strip at most a few pixels deep along the frame's edge, never the frame.
+        /// </summary>
+        [Fact]
+        public void NoMoonOffTheFrameGetsABoxAtAnyBearing()
+        {
+            Viewport viewport = new(0, 0, 256, 100);
+            Matrix projection = Matrix.CreatePerspectiveFieldOfView(MathHelper.Pi / 4.2f, viewport.Width / (float)viewport.Height, 0.05f, 2000f);
+            float footprint = SkyRay.MaxPixelAngle(projection, viewport);
+            int allowed = 3 + SkyRay.MARGIN_PIXELS;
+
+            int inFrame = 0, offFrame = 0;
+            foreach (float pitch in new[] { -30f, -20f, -10f, 0f, 20f, 40f })
+            for (int bearing = 0; bearing < 360; bearing += 2)
+            {
+                Matrix turn = Matrix.CreateRotationX(MathHelper.ToRadians(pitch)) * Matrix.CreateRotationY(MathHelper.ToRadians(bearing));
+                Vector3 look = Vector3.Transform(Vector3.Forward, turn);
+                Matrix view = Matrix.CreateLookAt(Vector3.Zero, look, Vector3.Up);
+                Matrix rays = SkyRay.Basis(view, projection);
+
+                foreach ((Vector3 direction, float radiusDegrees) in new[] { (Phobos, Moons.PhobosAngularRadiusDegrees),
+                             (Deimos, Moons.DeimosAngularRadiusDegrees) })
+                {
+                    float cone = MarsBackdrop.MoonCone(MathHelper.ToRadians(radiusDegrees), footprint);
+                    Rectangle box = MarsBackdrop.MoonBox(direction, MathHelper.ToRadians(radiusDegrees), footprint, view, projection, viewport);
+
+                    //The cone the box is taken round, which holds the shader's at every pixel (TheBoxsConeHoldsTheShadersAtEveryPixel)
+                    int inside = 0;
+                    float gate = MathF.Cos(cone);
+                    for (int py = 0; py < viewport.Height; py++)
+                    for (int px = 0; px < viewport.Width; px++)
+                    {
+                        if (Vector3.Dot(RayAt(rays, viewport, px, py), direction) <= gate) continue;
+                        inside++;
+                        Assert.True(box.Contains(px, py), $"pitch {pitch}, bearing {bearing}: pixel ({px}, {py}) is outside the box {box}");
+                    }
+
+                    if (inside > 0)
+                    {
+                        inFrame++;
+                        continue;
+                    }
+
+                    offFrame++;
+                    Assert.True(Math.Min(box.Width, box.Height) <= allowed,
+                        $"pitch {pitch}, bearing {bearing}: a moon off the frame got the box {box}");
+                }
+            }
+
+            Assert.True(inFrame > 0 && offFrame > 0, $"the sweep saw {inFrame} moons in the frame and {offFrame} off it");
+        }
+
+        /// <summary>
+        /// The cone a box is taken round (<see cref="MarsBackdrop.MoonCone"/>) holds the cone the shader tests at every pixel
+        /// (<c>MOON_CONE_SCALE</c> of the radius and that pixel's own footprint, worked out as the shader works it out), and is
+        /// that cone at the centre of the frame, where a pixel's footprint is the largest; a moon of no size has no box.
+        /// </summary>
+        [Theory]
+        [InlineData(72f, 320, 180)]
+        [InlineData(8f, 320, 180)]
+        [InlineData(120f, 240, 135)]
+        public void TheBoxsConeHoldsTheShadersAtEveryPixel(float fovDegrees, int width, int height)
+        {
+            Viewport viewport = new(0, 0, width, height);
+            (Matrix view, Matrix projection) = Lens(Phobos, fovDegrees, width / (float)height);
+            Matrix basis = SkyRay.Basis(view, projection);
+            float footprint = SkyRay.MaxPixelAngle(projection, viewport);
+
+            foreach (float radiusDegrees in new[] { Moons.PhobosAngularRadiusDegrees, Moons.DeimosAngularRadiusDegrees })
+            {
+                float radius = MathHelper.ToRadians(radiusDegrees);
+                float cone = MarsBackdrop.MoonCone(radius, footprint);
+                float widest = 0f;
+                for (int py = 0; py < height; py++)
+                for (int px = 0; px < width; px++)
+                    widest = MathF.Max(widest, radius * MarsBackdrop.MOON_CONE_SCALE + FootprintAt(basis, viewport, px, py));
+
+                Assert.True(cone >= widest - 1e-4f * footprint, $"the box's cone {cone} is narrower than the shader's {widest}");
+                Assert.True(cone <= widest + 0.01f * footprint, $"the box's cone {cone} is far wider than the shader's {widest}");
+            }
+
+            Assert.Equal(Rectangle.Empty, MarsBackdrop.MoonBox(Phobos, 0f, footprint, view, projection, viewport));
+        }
+
+        /// <summary>
+        /// The two boxes' draws blend every pixel once: two boxes that share a pixel are drawn as one over both, two that only
+        /// meet along an edge (<see cref="Rectangle.Intersects(Rectangle)"/> is strict) or stand apart each as its own, and a box with no
+        /// area is not drawn.
+        /// </summary>
+        [Fact]
+        public void TheTwoBoxesAreDrawnSoNoPixelIsBlendedTwice()
+        {
+            Rectangle a = new(10, 10, 20, 20);
+
+            Assert.Equal((new Rectangle(10, 10, 30, 25), Rectangle.Empty), MarsBackdrop.MoonDraws(a, new Rectangle(25, 15, 15, 20)));
+            Assert.Equal((new Rectangle(5, 10, 25, 20), Rectangle.Empty), MarsBackdrop.MoonDraws(a, new Rectangle(5, 12, 10, 3)));
+
+            Rectangle beside = new(30, 10, 20, 20);
+            Assert.Equal((a, beside), MarsBackdrop.MoonDraws(a, beside));
+            Assert.Equal((a, new Rectangle(100, 50, 4, 4)), MarsBackdrop.MoonDraws(a, new Rectangle(100, 50, 4, 4)));
+
+            Assert.Equal((a, Rectangle.Empty), MarsBackdrop.MoonDraws(a, Rectangle.Empty));
+            Assert.Equal((Rectangle.Empty, a), MarsBackdrop.MoonDraws(Rectangle.Empty, a));
+            Assert.Equal((Rectangle.Empty, a), MarsBackdrop.MoonDraws(new Rectangle(15, 15, 0, 10), a));
+            Assert.Equal((Rectangle.Empty, Rectangle.Empty), MarsBackdrop.MoonDraws(Rectangle.Empty, new Rectangle(3, 3, 10, 0)));
         }
 
         /// <summary>
