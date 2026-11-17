@@ -16,8 +16,8 @@ namespace BS3D.Screens
     /// <b>Written for cold code</b> (#1146): plain floats and <see cref="MathF"/> only, every per-arc figure worked out once,
     /// and the loops <see cref="MethodImplOptions.AggressiveOptimization"/>, so they are compiled optimised at their first call.
     /// The bake runs once a size, so it never runs warm: the first version, written with MonoGame's <see cref="Vector2"/>,
-    /// took 47-50 ms for the chips' three pairs at 3840x1581 at tier 0 against 7-9 ms warm, and 23 ms from ReadyToRun code,
-    /// which cannot inline MonoGame's methods (the Pi's). This one takes about 5 ms in all three, and draws the same pixels:
+    /// took 24 ms for the chips' three pairs at 3840x1581 at tier 0 and 12-14 ms from ReadyToRun code, which cannot inline
+    /// MonoGame's methods (the Pi's), against 6-8 ms warm. This one takes about 3 ms in all three, and draws the same pixels:
     /// the same float operations in the same order (<c>PowerupPictogramTests</c> holds it against the first version).
     /// </para>
     /// </summary>
