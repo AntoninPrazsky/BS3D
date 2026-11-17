@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-17 — #1146 ikony čipů změřené na Pi — Pi (BS3DServer), Claude Code
+
+- Hotovo, zavřeno bez změny kódu: ReadyToRun ddc5d052 proti 8e72c654, skutečný displej, `play`, A B B A, první spuštění na prázdném `userdata=` a druhé na stejném. `BuildLevel` 1,42–1,63 s → 205–209 ms, první snímek 1,56–1,77 s → 342–379 ms. Výpočet ikon 34–36 ms na pracovním vlákně, čtení z cache 3 ms, HUD čekal ≤ 0,2 ms.
+- Předtím: rozdíl prvního snímku u #1086 nebyl mimoobrazovkový; byl to `PrepareChips` z #1095 (1,17–1,19 s na Pi), zahřívání jen ~0,15 s.
+- Otevřené: druhý snímek je o ~60 ms delší (155–206 proti 96–138 ms), nepřiřazeno.
+
 ## 2026-11-15 — #1146 piktogramy čipů pečené jednou na velikost — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: raster pro studený kód (floaty, MathF, šipky spočtené jednou; 24 → 3 ms v tier 0, pixely shodné bit po bitu), `PictogramCache` v `Cache/` uživatelských dat (klíč + RASTER_VERSION, kontrolní součet, max. 12 velikostí), čtení nebo pečení na workeru už v `LoadContent`/`EnsureHudFonts`. Čipy v BuildLevel: 75–429 → 2–5 ms; HUD čeká 0,3–0,4 ms. Hashe textur před/po shodné.
