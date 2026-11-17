@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1045 čas ve skóre (pravidla v2) — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: pravidla v2 podle volby B. Časový bonus 10 × floor × (1 − t / (2 × par)) za započaté sekundy herních hodin, nevyužité koule za 1 výstřel, hvězdy 2,5/6,5/11, `RulesVersion` 2. Par (`ParRule`, 20–115 s) zapisuje LevelGen do `Levels.json` a je v identitě úrovně. ScoreSim hraje čas (TIME INVERTED, SLOW FOUR STARS, GATE TOO STEEP). Nejlepší skóre nese verzi pravidel, hvězdy zůstávají; brány o 1,5 hvězdy na úroveň. HUD, hod TIME BONUS, řádek výsledku, Help, karta druhé kapitoly. Outbox drží zásahy neznámé tabulky (`MaxHolds` 5).
+- majitel: volba B; „medián 5+ dohraní“ zatím jen háček `ParTime.FromPlay` (#1143).
+- ⚠ Výběr úrovní ukazoval „0“ pod úrovněmi dohranými za v1; skóre jiné verze pravidel se nesmí zobrazit ani sčítat.
+- Otevřené: BS3D-API#19 musí běžet před vydáním, poznámky #1142; pochopení hráči je verdict-newcomer.
+
 ## 2026-11-15 — #1138 Mars: měsíce jen ve svém obdélníku — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: průchod Phobosu a Deimosu se ořezává (scissor) na obdélník každého měsíce na obrazovce (`SkyRay.PixelsWithin`, kužel ořezaný stranami frusta), sjednocení překrývajících se, nic když měsíc není v záběru. Pin Testbedu: měsíce 0,13 → 0,00 ms, snímek 4,13 → 4,00 ms. Mars.xnb bajtově shodný, obraz stejný bez multisamplingu; s MSAA se liší ~4 pixely na okraji stropu. Číselník `mars=all/-moonbounds` (starý celoobrazovkový průchod).
