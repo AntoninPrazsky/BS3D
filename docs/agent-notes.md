@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1131 zbylá desktopová čísla znovu změřena — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: zbylé desktopové pasáže (#1131) přeměřeny v ustálených `alt=` oknech na Release Testbedu 43959f47, jen dokumenty a komentáře. Mapa slunce stojí 0,49–0,84 ms (dřív „asi 0,2 všude“); největší díl je čtení mapy, pak vrhání a stín stropního skla, jen ve městě vrhání převáží. Odrazy města bez brány +0,75/+0,85 ms (ne +4,9/+1,9), hrubé pohoří s clip() +3,2, šest oktáv reliéfu 1,04 dohromady, kmen aurory +0,08, kupy mraků +0,37 louka / +0,53 herní kamera / +0,93 hora.
+- ⚠ Podíl „přijímání“ z mapy bez vrhačů zahrnuje i analytický stín stropního skla (0,10–0,21 ms); čtení samo je menší.
+- Otevřené: dočasné číselníky (heaps=, mtfine=, nocasters= …) nejsou v mainu; scratch worktree BS3D-1131-scratch k odstranění.
+
 ## 2026-11-15 — #1102 vrstvové číselníky Marsu, lesa a outbacku — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: Testbed má `mars=` a `outback=` a `forest=` má vlastní `FarRing` a `Bank` (`Floor` je jen mřížka); jdou přes `alt=`, parsování je `LayerDial.Parse` v Core, 19 testů `LayerDialTests`. Výchozí číselníky kreslí totéž co main. Ceny vrstev (ssaa 2, Full.json) jsou v tabulkách `docs/scenes/mars.md`, `forest.md` a `outback.md`: Mars 0,72 z 4,14 ms (vypnutý bake +0,69), les 5,38 z 8,89 (smrky 1,86), outback 4,14 z 8,09, z toho **formace 3,26** → #1137. Měsíce Marsu stojí plochých 0,13 ms při každém rozlišení → #1138. Řádek `[skyorder]` teď hlásí pořadí, které cíl běhu opravdu dává.
