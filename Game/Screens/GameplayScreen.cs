@@ -148,8 +148,8 @@ namespace BS3D.Screens
         /// <summary>
         /// Lets precise aim go: the hold, its pull and the toggle (#1076), at a level's decision and every frame after it. A
         /// covered screen, a lost focus and a camera takeover let go of the hold and its pull alone: a lean toggled in is kept
-        /// through them and comes back as it was (<see cref="LeanInput"/>, which also lets go of the toggle at a level's start
-        /// and when Settings switches the mode, #1140).
+        /// through them and comes back as it was. The toggle is also let go at a level's start (<see cref="BuildLevel"/>) and on
+        /// the first frame read after Settings has switched the mode (<see cref="LeanInput.Read"/>, #1140).
         /// </summary>
         private void ReleaseLean()
         {
