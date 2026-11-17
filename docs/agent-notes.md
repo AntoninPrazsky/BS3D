@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1137 outback: hloubka monolitů napřed — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: na High/Ultra (DirectX) se hloubka monolitů kreslí napřed hloubkovým dvojčetem `OutbackRockDepth` (bez ořezu), pak se stínují s `DepthRead`, takže každý viditelný pixel monolitu se stínuje jednou. Balvany zůstávají v jednom průchodu, GL a nižší úrovně beze změny. Obraz stejný (20/20 párů bez rozdílu, programy bajtově shodné). Pin Testbedu 8,13 → 6,02 ms (formace 3,26 → 1,17), Game Ultra menu ~1 ms levnější. Číselník `outback=all/-rockdepth`.
+- ⚠ Ořez jen v programu balvanů a odřezání zadních stěn disků měnily pixely (jiné instrukce, sdílená hloubka na korunách); zamítnuto.
+- Otevřené: jiné GPU, notebook a telefon neměřeny; cena samotných balvanů neznámá; řádek `High` v tabulce nákladů je starší než změna.
+
 ## 2026-11-15 — #1102 vrstvové číselníky Marsu, lesa a outbacku — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: Testbed má `mars=` a `outback=` a `forest=` má vlastní `FarRing` a `Bank` (`Floor` je jen mřížka); jdou přes `alt=`, parsování je `LayerDial.Parse` v Core, 19 testů `LayerDialTests`. Výchozí číselníky kreslí totéž co main. Ceny vrstev (ssaa 2, Full.json) jsou v tabulkách `docs/scenes/mars.md`, `forest.md` a `outback.md`: Mars 0,72 z 4,14 ms (vypnutý bake +0,69), les 5,38 z 8,89 (smrky 1,86), outback 4,14 z 8,09, z toho **formace 3,26** → #1137. Měsíce Marsu stojí plochých 0,13 ms při každém rozlišení → #1138. Řádek `[skyorder]` teď hlásí pořadí, které cíl běhu opravdu dává.
