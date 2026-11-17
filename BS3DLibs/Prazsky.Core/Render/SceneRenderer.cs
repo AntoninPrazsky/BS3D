@@ -90,7 +90,7 @@ namespace Prazsky.Core.Render
     /// #776), the flock, High and Ultra's crust in the plain's program (#776), the formations' baked shadows the land reads
     /// (#967; off, the land reads none, the bake kept), what the scene casts into the sun's map (the bank's planting and
     /// the plain's, whichever of them are drawn or not), and whether High and Ultra lay the monoliths' depth before shading
-    /// them (#1137; off, they are the one pass the lower tiers draw, the same picture).
+    /// them (#1137; off, they are the one pass the lower tiers draw: the same picture).
     /// </summary>
     [System.Flags]
     public enum OutbackLayer

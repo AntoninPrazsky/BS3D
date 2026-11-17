@@ -30,15 +30,16 @@ namespace Prazsky.Core.Render
     /// <b>Each pixel of a monolith is shaded once where the scene supersamples</b> (#1137, <see cref="Draw"/> with a depth
     /// pass). The discs are drawn two-sided, so a loaf's far wall and whatever one formation hides of another were shaded
     /// before what hides them, and the rock's program is the dearest of the scene (the whole height field three times a
-    /// pixel for its normal). On High and Ultra the monoliths' depth is laid first by their own vertex program, no colour
-    /// written, and they are then shaded on it with <see cref="DepthStencilState.DepthRead"/>: a hidden pixel fails the
-    /// test before its program runs. Their program cuts nothing, so the laid depth is the only judge of what is drawn. The
-    /// boulders are one pass on every tier: their program cuts where a monolith's footprint overlaps theirs (one judge,
-    /// their own program, not two compiled apart, #1130). <b>The picture is the one pass's, bit for bit</b>: the groups are
-    /// shaded in their order either way, and a pixel keeps the last fragment drawn at the nearest depth (the test is
-    /// <c>LessEqual</c>), which laying the depth first does not change. Below the supersampling tiers, and on OpenGL ES (no
-    /// depth twin is compiled there), every formation is the one pass it always was, as every terrain grid is
-    /// (<see cref="TerrainGridCache"/> says why).
+    /// pixel for its normal), and it may discard, so nothing in its own draw was rejected early. On High and Ultra the
+    /// monoliths' depth is laid first (<c>OutbackRockDepth</c>: their own vertex program, the program's cut and no colour),
+    /// and they are then shaded on it with <see cref="DepthStencilState.DepthRead"/>: a hidden pixel fails the test before
+    /// the program runs. The cut is a boulder's (it gives way where a monolith's footprint overlaps its own) and never fires
+    /// on a monolith, so the laid depth is the only judge of what is drawn there. The boulders are one pass on every tier,
+    /// so their cut keeps one judge, their own program, not two compiled apart (#1130). <b>The picture is the one pass's,
+    /// bit for bit</b>: the groups are shaded in their order either way, and a pixel keeps the last fragment drawn at the
+    /// nearest depth (the test is <c>LessEqual</c>), which laying some of the depth first does not change. Below the
+    /// supersampling tiers, and on OpenGL ES (no depth twin is compiled there), every formation is the one pass it always
+    /// was, as every terrain grid is (<see cref="TerrainGridCache"/> says why).
     /// </para>
     /// </summary>
     internal sealed class OutbackRockDiscs : IDisposable
@@ -102,14 +103,13 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Draws what <see cref="Cull"/> picked, the monoliths with <paramref name="monolith"/> and the boulders with
-        /// <paramref name="boulder"/> (the one program that cuts, #1137), the effect's per-frame parameters already pushed
-        /// by the terrain pass (whose states, opaque and two-sided, are current). With <paramref name="monolithDepth"/>, the
-        /// pass of the monoliths' depth alone, their depth is laid first and they are shaded on it without writing it: see
-        /// the class's note on the depth. The depth state is put back as it was found, and it has to have been
+        /// Draws what <see cref="Cull"/> picked with <paramref name="rock"/>, the effect's per-frame parameters already
+        /// pushed by the terrain pass (whose states, opaque and two-sided, are current). With <paramref name="monolithDepth"/>,
+        /// the pass of the same program's depth alone (#1137), the monoliths' depth is laid first and they are shaded on it
+        /// without writing it: see the class. The depth state is put back as it was found, and it has to have been
         /// <see cref="DepthStencilState.Default"/> for the depth to be laid.
         /// </summary>
-        public void Draw(EffectPass monolith, EffectPass boulder, EffectPass monolithDepth)
+        public void Draw(EffectPass rock, EffectPass monolithDepth)
         {
             if (monolithDepth != null)
             {
@@ -125,7 +125,7 @@ namespace Prazsky.Core.Render
             foreach (Group group in _groups)
             {
                 _device.DepthStencilState = monolithDepth != null && !group.Outcrop ? DepthStencilState.DepthRead : depth;
-                DrawGroup(group, group.Outcrop ? boulder : monolith);
+                DrawGroup(group, rock);
             }
 
             _device.DepthStencilState = depth;
@@ -223,7 +223,8 @@ namespace Prazsky.Core.Render
             public Mesh Drawn;
             public int Visible;
 
-            /// <summary>Boulders, whose program cuts where a monolith's footprint overlaps theirs; else monoliths.</summary>
+            /// <summary>Boulders, which the program cuts where a monolith's footprint overlaps theirs; else monoliths, which it
+            /// never cuts.</summary>
             public readonly bool Outcrop;
 
             public Group(GraphicsDevice device, List<TerrainMirror.Footprint> footprints, float plainY, bool outcrop,
@@ -260,7 +261,7 @@ namespace Prazsky.Core.Render
                     TerrainMirror.Footprint f = _footprints[i];
                     _visible[Visible++] = new RockInstance(
                         new Vector4(f.Centre.X, f.Centre.Y, f.Axis.X, f.Axis.Y),
-                        new Vector4(f.SemiLong * scale + RIM_PAD, f.SemiShort * scale + RIM_PAD, 0f, 0f));
+                        new Vector4(f.SemiLong * scale + RIM_PAD, f.SemiShort * scale + RIM_PAD, Outcrop ? 1f : 0f, 0f));
                 }
 
                 if (Visible > 0) Instances.SetData(_visible, 0, Visible, SetDataOptions.Discard);
@@ -269,8 +270,7 @@ namespace Prazsky.Core.Render
             public void Dispose() => Instances.Dispose();
         }
 
-        /// <summary>A footprint: its centre and long axis in world XZ, then its two semi-axes (z and w unused: the kind is
-        /// the program, <see cref="Group.Outcrop"/>).</summary>
+        /// <summary>A footprint: its centre and long axis in world XZ, then its two semi-axes and whether it is a boulder.</summary>
         private readonly struct RockInstance : IVertexType
         {
             public readonly Vector4 Placement;
