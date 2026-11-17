@@ -65,7 +65,8 @@ namespace Prazsky.Core.Render
     /// ground shows and which nothing drawn later behind the ground fills. One the twin makes and the ground does not
     /// lets the ground's farther triangles paint over its nearer ones. Below those tiers the same edit shows nothing, so
     /// <c>TerrainDepthTwinSourceTests</c> reads the effects and holds both, and that each twin runs its ground's vertex
-    /// program.
+    /// program. One twin makes no cut: the outback's monoliths' (<c>OutbackRockDepth</c>, #1137), laid only for draws its
+    /// ground's one cut never reaches, which the test holds to that one cut, spared by the boulders' flag.
     /// </para>
     /// <para>
     /// <b>Below the supersampling tiers a grid is the one pass it always was.</b> The depth pass runs the grid's vertex

@@ -118,6 +118,7 @@ namespace Prazsky.Core.Render
                 _device.BlendState = TerrainGridCache.DEPTH_ONLY;
 
                 //⚠ The monoliths alone: the depth pass makes no cut, which is right only where the rock's cut never fires
+                //(TerrainDepthTwinSourceTests holds this loop, the DepthRead below and the flag Group.Cull writes)
                 foreach (Group group in _groups)
                     if (!group.Outcrop) DrawGroup(group, monolithDepth);
                 _device.BlendState = blend;

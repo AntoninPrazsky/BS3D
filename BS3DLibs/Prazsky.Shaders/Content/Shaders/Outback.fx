@@ -919,7 +919,7 @@ RockVertexOutput OutbackRockVS(float2 disc : POSITION0, float4 placement : TEXCO
 //fires on a monolith (Outcrop 0), which is why the monoliths' depth alone (OutbackRockDepth, below) makes no cut at all.
 //⚠ So every clip() of the rock belongs in here, and each must spare the monoliths: one that cut a monolith, or one the
 //program made elsewhere, would leave the depth laid on High and Ultra where no colour is written, a hole showing whatever
-//was drawn before the rock (TerrainDepthTwinSourceTests holds the rock's program to this one clip()).
+//was drawn before the rock (TerrainDepthTwinSourceTests holds the rock's program to this one clip(), and the clip to `outcrop`).
 void OutbackRockCuts(float outcrop, float2 xz)
 {
     clip(outcrop > 0.5 && InsideMonolith(xz) ? -1.0 : 1.0);
