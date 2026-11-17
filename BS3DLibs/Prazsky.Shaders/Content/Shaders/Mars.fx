@@ -18,7 +18,8 @@
 //    photograph shows, dark volcanic basalt rather than more of the ground's own rust.
 //  - MarsMoons: Phobos and Deimos, two small analytic potatoes (ray-ellipsoid bodies with craters, #744)
 //    composited over the dome and the terrain - space's full-screen-quad machinery (the shared corner quad,
-//    ViewRayBasis), depth-READ against the depth MarsTerrain just wrote (Moon.fx's own measured reason:
+//    ViewRayBasis), scissored to each moon's box on the screen (#1138, MOON_CONE_SCALE below), depth-READ
+//    against the depth MarsTerrain just wrote (Moon.fx's own measured reason:
 //    depth-read after the ground, never before it) so a moon low enough to sit behind a crater rim is occluded
 //    by it, and ALPHA-BLENDED (unlike the Moon's opaque sky pass) so the dome and the terrain show through
 //    everywhere neither moon covers, and part of the dome in front of the moons as well: the airlight. No
@@ -969,9 +970,14 @@ float3 MoonBody(float3 dir, float3 moonDirection, float angularRadius, float3 al
     return surface * (SunColor * (lit * MOON_SUN_GAIN) + MarsshineColor * shine);
 }
 
-//The cheap test every pixel of the full-screen pass runs: only those inside the body's bounding cone (the outline
-//at most 5 % past its largest semi-axis, axes.x = 1, and a pixel's antialiasing) run MoonBody. The body is
-//assigned in the branch rather than returned from it, so nothing is left uninitialised on the way out (#713).
+//The body's bounding cone over its angular radius: the outline at most 5 % past its largest semi-axis (axes.x = 1),
+//and room for the antialiasing. MarsBackdrop.MOON_CONE_SCALE is this figure: the pass is scissored to the box this cone
+//and a pixel's footprint make on the screen (#1138), so a pixel outside it must be one this program writes nothing to.
+static const float MOON_CONE_SCALE = 1.08;
+
+//The cheap test every pixel of the pass runs: only those inside the body's bounding cone (MOON_CONE_SCALE, and a
+//pixel's antialiasing) run MoonBody. The body is assigned in the branch rather than returned from it, so nothing is
+//left uninitialised on the way out (#713).
 float3 MoonDisc(float3 dir, float3 moonDirection, float angularRadius, float3 albedo, float3 axes, float tilt,
                 float detail, float stickney, float pixelAngle, out float coverage)
 {
@@ -979,7 +985,7 @@ float3 MoonDisc(float3 dir, float3 moonDirection, float angularRadius, float3 al
     coverage = 0.0;
 
     [branch]
-    if (angularRadius > 0.0 && dot(dir, moonDirection) > cos(angularRadius * 1.08 + pixelAngle))
+    if (angularRadius > 0.0 && dot(dir, moonDirection) > cos(angularRadius * MOON_CONE_SCALE + pixelAngle))
         color = MoonBody(dir, moonDirection, angularRadius, albedo, axes, tilt, detail, stickney, pixelAngle, coverage);
 
     return color;
@@ -997,7 +1003,9 @@ MarsMoonsVertexOutput MarsMoonsVS(float3 position : POSITION0)
 
     //The quad arrives already in normalized device coordinates; z = w puts it on the far plane, so
     //DepthStencilState.DepthRead passes it wherever the terrain has not already written something nearer
-    //(space's trick, and Moon.fx's own reason for drawing its sky after its terrain, not before).
+    //(space's trick, and Moon.fx's own reason for drawing its sky after its terrain, not before). It is the whole
+    //frame's quad even where MarsBackdrop scissors it to the moons' boxes (#1138), so every interpolant, and every
+    //derivative of one, is the full-screen pass's.
     output.Position = float4(position.xy, 1.0, 1.0);
 
     output.Ray = mul(float4(position.xy, 1.0, 0.0), ViewRayBasis).xyz;

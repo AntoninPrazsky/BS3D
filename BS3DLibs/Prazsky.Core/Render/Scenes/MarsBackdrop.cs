@@ -42,6 +42,20 @@ namespace Prazsky.Core.Render
         private EffectParameter _marsMoonsViewRayBasis, _marsMoonsCameraPosition, _sunDirection;
         private EffectTechnique _marsTerrainTechnique, _marsTerrainFull, _marsTerrainReduced, _marsMoonsTechnique;
 
+        //THE MOONS' BOX (#1138): the quad is drawn scissored to each moon's box on the screen, not over the whole frame. A
+        //full-screen pass costs what its pixels cost to raster, depth-test and start a program on, whatever the program does,
+        //and over the whole sky that was nearly all the moons cost (the figures: "What each layer costs" in docs/scenes/mars.md).
+        //Each box holds every ray MoonDisc's cone test lets through (MOON_CONE_SCALE of the moon's radius and the largest
+        //pixel footprint), and a pixel it leaves out is one the program writes an alpha of 0 to, which the premultiplied blend
+        //leaves as it was: the picture is the full screen's to the bit. The directions and radii are the ones
+        //ApplyMarsParameters hands the shader.
+        private Vector3 _phobosDirection, _deimosDirection;
+        private float _phobosAngularRadius, _deimosAngularRadius;
+        private static readonly RasterizerState SCISSORED = new() { CullMode = CullMode.None, ScissorTestEnable = true };
+
+        /// <summary>Mars.fx's <c>MOON_CONE_SCALE</c>: the cone <c>MoonDisc</c> runs a moon's body in, over its angular radius.</summary>
+        internal const float MOON_CONE_SCALE = 1.08f;
+
         //THE BAKE (#1100): the ground's static fields worked out once into three maps round the arena (Mars.fx's MarsBake,
         //THE BAKE there for what is in them and why the mapping is polar), which the ground reads on High and Ultra
         //(MarsTerrainBaked) wherever the lens stands within BAKE_CAMERA_REACH of the arena. Null on OpenGL ES, which does
@@ -317,12 +331,18 @@ namespace Prazsky.Core.Render
             _marsEffect.Parameters["DustStrength"].SetValue(air.DustStrength);
             _marsEffect.Parameters["HorizonHazeDistance"].SetValue(air.HorizonHazeDistance);
 
-            _marsEffect.Parameters["PhobosDirection"].SetValue(SceneRenderer.DirectionFromElevationAzimuth(moons.PhobosElevation, moons.PhobosAzimuth));
-            _marsEffect.Parameters["PhobosAngularRadius"].SetValue(MathHelper.ToRadians(MathF.Max(moons.PhobosAngularRadiusDegrees, 0f)));
+            //Kept as well: DrawMarsMoons scissors the pass to the boxes they give (THE MOONS' BOX)
+            _phobosDirection = SceneRenderer.DirectionFromElevationAzimuth(moons.PhobosElevation, moons.PhobosAzimuth);
+            _phobosAngularRadius = MathHelper.ToRadians(MathF.Max(moons.PhobosAngularRadiusDegrees, 0f));
+            _deimosDirection = SceneRenderer.DirectionFromElevationAzimuth(moons.DeimosElevation, moons.DeimosAzimuth);
+            _deimosAngularRadius = MathHelper.ToRadians(MathF.Max(moons.DeimosAngularRadiusDegrees, 0f));
+
+            _marsEffect.Parameters["PhobosDirection"].SetValue(_phobosDirection);
+            _marsEffect.Parameters["PhobosAngularRadius"].SetValue(_phobosAngularRadius);
             _marsEffect.Parameters["PhobosColor"].SetValue(moons.PhobosColor.ToVector3());
 
-            _marsEffect.Parameters["DeimosDirection"].SetValue(SceneRenderer.DirectionFromElevationAzimuth(moons.DeimosElevation, moons.DeimosAzimuth));
-            _marsEffect.Parameters["DeimosAngularRadius"].SetValue(MathHelper.ToRadians(MathF.Max(moons.DeimosAngularRadiusDegrees, 0f)));
+            _marsEffect.Parameters["DeimosDirection"].SetValue(_deimosDirection);
+            _marsEffect.Parameters["DeimosAngularRadius"].SetValue(_deimosAngularRadius);
             _marsEffect.Parameters["DeimosColor"].SetValue(moons.DeimosColor.ToVector3());
 
             _marsEffect.Parameters["MoonTransmission"].SetValue(MathHelper.Clamp(moons.Transmission, 0f, 1f));
@@ -526,6 +546,12 @@ namespace Prazsky.Core.Render
         /// rather than before it, carried over even though this pass is far cheaper than a starfield.
         /// Alpha-blended, unlike every sky-replacing scene's opaque quad pass: this composites two small
         /// discs over a dome and a terrain that are already drawn, not a full-screen backdrop of its own.
+        /// <para>
+        /// Scissored to each moon's box on the screen (THE MOONS' BOX, #1138), one draw a box, or one over both where the two
+        /// boxes meet so no pixel is blended twice; nothing is drawn while neither moon is in the frame. With
+        /// <see cref="MarsLayer.MoonBounds"/> off (the Testbed's <c>mars=all/-moonbounds</c>) the quad covers the whole frame,
+        /// the same picture.
+        /// </para>
         /// </summary>
         private void DrawMarsMoons(in SceneFrame frame)
         {
@@ -533,17 +559,60 @@ namespace Prazsky.Core.Render
             _marsMoonsCameraPosition.SetValue(frame.Camera.Position);
             _sunDirection.SetValue(frame.SunDirection);
 
-            _graphicsDevice.BlendState = BlendState.AlphaBlend;
-            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
-            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+            bool bounded = (Layers & MarsLayer.MoonBounds) != 0;
+            Rectangle phobos = Rectangle.Empty, deimos = Rectangle.Empty;
+            if (bounded)
+            {
+                Viewport viewport = _graphicsDevice.Viewport;
+                Matrix view = frame.Camera.View;
+                Matrix projection = frame.Camera.Projection;
+                float footprint = SkyRay.MaxPixelAngle(projection, viewport);
+                phobos = MoonBox(_phobosDirection, _phobosAngularRadius, footprint, view, projection, viewport);
+                deimos = MoonBox(_deimosDirection, _deimosAngularRadius, footprint, view, projection, viewport);
 
-            _graphicsDevice.SetVertexBuffer(Services.FullScreenQuad);
-            _marsEffect.CurrentTechnique = _marsMoonsTechnique;
-            _marsEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
+                if (HasArea(phobos) && HasArea(deimos) && phobos.Intersects(deimos))
+                {
+                    phobos = Rectangle.Union(phobos, deimos);
+                    deimos = Rectangle.Empty;
+                }
+            }
+
+            _graphicsDevice.BlendState = BlendState.AlphaBlend;
+            if (!bounded || HasArea(phobos) || HasArea(deimos))
+            {
+                _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
+                _graphicsDevice.RasterizerState = bounded ? SCISSORED : RasterizerState.CullNone;
+
+                _graphicsDevice.SetVertexBuffer(Services.FullScreenQuad);
+                _marsEffect.CurrentTechnique = _marsMoonsTechnique;
+                _marsEffect.CurrentTechnique.Passes[0].Apply();
+                if (!bounded) _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
+                else
+                {
+                    DrawScissored(phobos);
+                    DrawScissored(deimos);
+                }
+            }
 
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
+        //One moon's box: the pixels whose rays MoonDisc's cone test can let through. Empty for a moon of no size, which the
+        //shader does not draw either
+        private static Rectangle MoonBox(Vector3 direction, float angularRadius, float footprint, Matrix view, Matrix projection,
+            Viewport viewport) =>
+            angularRadius > 0f
+                ? SkyRay.PixelsWithin(direction, angularRadius * MOON_CONE_SCALE + footprint, view, projection, viewport)
+                : Rectangle.Empty;
+
+        private static bool HasArea(Rectangle box) => box.Width > 0 && box.Height > 0;
+
+        private void DrawScissored(Rectangle box)
+        {
+            if (!HasArea(box)) return;
+            _graphicsDevice.ScissorRectangle = box;
+            _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
         }
 
         /// <inheritdoc/>

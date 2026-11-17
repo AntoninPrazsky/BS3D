@@ -73,14 +73,15 @@ namespace Prazsky.Core.Render
     /// <summary>
     /// Mars's separately drawn layers, for <see cref="SceneRenderer.MarsLayers"/> (#1102): the ground (the camera grid), its far
     /// ring, the bank the island sits in, the bank's stones, the clearing's stones, Phobos and Deimos, whether High and Ultra's
-    /// ground reads its bake (#1100; off draws the exact program where the baked one would be, the maps kept), and what the
-    /// scene casts into the sun's map (the bank's planting and the clearing's stones, whichever of them are drawn or not).
+    /// ground reads its bake (#1100; off draws the exact program where the baked one would be, the maps kept), what the
+    /// scene casts into the sun's map (the bank's planting and the clearing's stones, whichever of them are drawn or not), and
+    /// whether the moons' pass is scissored to the two moons (#1138; off, it runs over the whole frame: the same picture).
     /// </summary>
     [System.Flags]
     public enum MarsLayer
     {
-        None = 0, Ground = 1, FarRing = 2, Bank = 4, Stones = 8, Rocks = 16, Moons = 32, Bake = 64, Casters = 128,
-        All = Ground | FarRing | Bank | Stones | Rocks | Moons | Bake | Casters
+        None = 0, Ground = 1, FarRing = 2, Bank = 4, Stones = 8, Rocks = 16, Moons = 32, Bake = 64, Casters = 128, MoonBounds = 256,
+        All = Ground | FarRing | Bank | Stones | Rocks | Moons | Bake | Casters | MoonBounds
     }
 
     /// <summary>
