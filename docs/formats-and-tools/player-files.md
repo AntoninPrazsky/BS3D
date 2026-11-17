@@ -22,7 +22,7 @@ Every file a player's run writes lives in one per-user directory and goes throug
 
 `PlayerProgress`, `CurrentVersion` 1, keyed by the entry's `file` (it survives a renamed display name and a regenerated set).
 
-- **`levels`**: per file `{score, stars}` bests. An entry the set no longer lists goes unread by the picker, but `TotalStars`/`TotalScore` sum every record, so stars on a retired level stay the player's. The star total is what `minStars` gates against.
+- **`levels`**: per file `{score, stars, rules}` bests, `rules` the scoring rules the score was made under (#1045, `ScoreKeeper.RulesVersion`; absent in a save written before it, which reads as 1). A score is compared only with a best of the same rules, the first clear under new rules replacing an older best, and the stars are kept whatever the rules. No version bump: an older build ignores the key. An entry the set no longer lists goes unread by the picker, but `TotalStars`/`TotalScore` sum every record, so stars on a retired level stay the player's. The star total is what `minStars` gates against.
 - **`skipped`** (#347): levels skipped past, null until the first (a skip is not a clear). **`lessons`** (#189): tutorial lessons completed (`"aim"`, `"fire"`, … from the game's `Tutorial` class), null until the first; the save's, not the settings', because it records what the player *did*; `Reset` clears it with the stars. An older build ignores both (it teaches again: the safe direction).
 - **`Load` is lenient**, unlike the level and level-set loaders, which throw: a missing, unreadable or malformed file is a fresh empty progress.
 
