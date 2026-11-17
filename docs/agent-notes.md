@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1146 piktogramy čipů pečené jednou na velikost — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: raster pro studený kód (floaty, MathF, šipky spočtené jednou; 24 → 3 ms v tier 0, pixely shodné bit po bitu), `PictogramCache` v `Cache/` uživatelských dat (klíč + RASTER_VERSION, kontrolní součet, max. 12 velikostí), čtení nebo pečení na workeru už v `LoadContent`/`EnsureHudFonts`. Čipy v BuildLevel: 75–429 → 2–5 ms; HUD čeká 0,3–0,4 ms. Hashe textur před/po shodné.
+- majitel: rastrovat ve velikosti displeje, tedy za běhu; žádná sada z buildu.
+- ⚠ Studený kód na desktopu vysvětlí jen malou část 1,2 s na Pi; skutečná příčina na Pi nenalezena.
+- Otevřené: Pi session změří `play level=31` dvakrát se stejným `userdata=` (řádky `[pictograms]`/`[chips]`, podíl PrepareChips) a issue zavře; telefon neměřen.
+
 ## 2026-11-17 — #1086 zahřátí solveru změřené na Pi — Pi (BS3DServer), Claude Code
 
 - Hotovo, zavřeno bez změny kódu: ReadyToRun 8e3d0f2f proti main a15d6ab5, skutečný displej, dočasná sonda (Stopwatch mezi `Update`, kroky po uvolnění). Nejdelší snímek uvolnění: Mountain 622–681 → 56–68 ms, Cavern 644 → 81 ms. První krok 292–318 → 17–24 ms. Menu během zahřátí bez záseku.
