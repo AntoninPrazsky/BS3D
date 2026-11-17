@@ -105,6 +105,12 @@ namespace BS3D.Screens
         internal int Rasters => Volatile.Read(ref _rasters);
 
         /// <summary>
+        /// Whether <paramref name="key"/>'s set has been read or baked already, for <see cref="Get"/> to take without doing the
+        /// work (a test's question: that <see cref="Prefetch"/> did it ahead).
+        /// </summary>
+        internal bool IsReady(PictogramKey key) => _pending != null && _pendingKey == key && _pending.IsCompleted;
+
+        /// <summary>
         /// Reads or bakes <paramref name="key"/>'s set on a worker, unless it is the set already asked for. Returns at once;
         /// <see cref="Get"/> takes the result.
         /// </summary>

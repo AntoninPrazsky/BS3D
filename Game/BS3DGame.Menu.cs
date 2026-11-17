@@ -1082,10 +1082,11 @@ namespace BS3D
         /// PromptFont at the menu's own body size, for a page that draws real keycaps (#427's Help).
         /// <para>
         /// ⚠ It is resolved HERE and not taken from <c>HudFontPrompt</c>, which is the trap this answers: the
-        /// HUD's fonts are built by <c>EnsureHudFonts</c>, which only the gameplay screen calls, so on a menu
-        /// page that accessor is <b>null</b> — and a Myra label given a null font draws nothing at all,
-        /// silently, with the line's text still laid out beside the gap where the key should be. Photographed
-        /// exactly so before this existed.
+        /// HUD's fonts follow the HUD's own scale (<see cref="HudScaled"/>, the layout height alone) and are sized
+        /// for the tutorial card's caption, so keycaps set in them stand far larger than the menu's line beside
+        /// them and never follow a page's fit (<c>LayoutFit</c>) or the enlarged interface (<see cref="UiScale"/>).
+        /// They do exist on a menu page (<see cref="EnsureHudFonts"/> runs from the load and from
+        /// <c>EnsureMenuLayout</c>, #1146), so nothing fails to draw: the keys are only the wrong size.
         /// </para>
         /// <para>
         /// A fifth over the body size, because PromptFont fills its em with a rounded keycap while a line of
