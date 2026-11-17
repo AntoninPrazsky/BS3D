@@ -17,7 +17,8 @@ namespace BS3D.Tests
     /// the ground's farther triangles paint over its nearer ones. And both must run the one vertex program, or the two
     /// depths are not the same bits. Below High, and on OpenGL ES, the ground is one pass and the same edit is harmless,
     /// so nothing on those tiers would show it. Every cut of a ground lives in its <c>&lt;Scene&gt;Cuts</c>, which the
-    /// ground's entry point and the twin both call; this reads the effects' sources and holds that, as
+    /// ground's entry point and the twin both call (but for a twin laid only where its ground's one cut never fires, the
+    /// outback's monoliths, which makes none: <c>TwinsOfUncutDraws</c>); this reads the effects' sources and holds that, as
     /// <see cref="PotatoShaderSourceTests"/> reads GamePi's (no test can compile an effect without the Windows SDK).
     /// <para>
     /// What it reads: the effect with its includes, without comments, both arms of every <c>#if</c>. Each technique's
