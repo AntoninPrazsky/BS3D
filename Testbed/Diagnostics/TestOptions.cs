@@ -253,7 +253,11 @@ namespace Testbed.Diagnostics
         /// acacias' grown fork, #889 the meadow trees' grown fork, #883 the savanna's thorn bushes, #890 the meadow's shrubs, #733 the spruces' boughs,
         /// #781 the finer mountain range, #958 the cavern's finer hall). On by default, the authored look; 0 draws Low and Medium's tubes, lobed domes,
         /// lathes, range and hall, so the two can be photographed from one pinned camera and, through <c>alt=</c>, measured in one
-        /// process.
+        /// process. ⚠ It is the Game's whole <c>QualityPreset.FineMeshes</c> lever, not only meshes, so a pair prices everything it
+        /// switches at once: the cloud heaps (#989) wherever the sky stands as heaps (<c>weather=clear</c> takes them out of both
+        /// windows), the savanna fires' volume (#886), the daytime forest's whole High wood (#962), the volcano's flank program
+        /// (<c>Volcano</c> against <c>VolcanoMedium</c>), Mars's baked ground (#1100) and the outback's crust and gibber (#776).
+        /// "The dials" in docs/testbed/capture-and-measurement.md lists them.
         /// </summary>
         public bool? FineMeshes { get; private set; }
 

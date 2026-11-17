@@ -114,7 +114,8 @@ namespace Prazsky.Core.Render
                     bucketKinds.Add(ForestLayer.Broadleaves);
                 }
                 //The leaves cast the crown's shade, cut by their own leaves (the meadow's #697), round the arena; past it the wood
-                //alone casts, since the alpha-tested leaves of every crown in the sun's map cost half a millisecond (#962, measured)
+                //alone casts, since the far crowns' alpha-tested leaves in the sun's map would add 0.17 ms at the play camera on
+                //High's 4096 map and 0.52 on Ultra's 8192 (#1131, measured at 3840x1600, ssaa 2)
                 Vector3 leafDry = leaf * new Vector3(1.35f, 1.1f, 0.8f);
                 if (nearAt.Count > 0)
                 {

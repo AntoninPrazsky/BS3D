@@ -195,9 +195,8 @@ namespace BS3D
         /// quarter of the memory (16.8 MB against 67, four bytes a texel) and the same sixteen texels a pixel.
         /// <para>
         /// <b>Measured</b> in the Testbed on the reference desktop, the savanna's play vantage at 1920×1080, ssaa
-        /// 2, alternating in one process: 2048 3.45–3.49 ms, 4096 3.50–3.53, 8192 3.66–3.70 — the receiver's
-        /// reads cost the same whatever the map, so a size costs its rasterisation and its cache and neither
-        /// shows until 8192. <c>Low</c> skips the map through <c>SceneDetail</c> anyway; its figure is stated for
+        /// 2, alternating in one process: 2048 2.91 ms, 4096 +0.04, 8192 +0.18 — the receiver's reads cost the
+        /// same whatever the map, so a size costs its rasterisation and its cache and neither shows much until 8192. <c>Low</c> skips the map through <c>SceneDetail</c> anyway; its figure is stated for
         /// honesty. A cap rather than a size because a tier only takes away (#298): a scene authored small must not
         /// come out larger on a lower rung. See "Sun shadows" in docs/rendering.md.
         /// </para>
@@ -212,9 +211,8 @@ namespace BS3D
         /// <para>
         /// <b>What it costs is memory first</b>: four bytes a texel is <b>268 MB</b> of card memory against
         /// High's 67, which is why only the player can ask for it and the probe never does. The time is small on
-        /// a fast card: +0.22 ms (desert) and +0.30 (savanna) over High at 3840×1600 in the Testbed on the
-        /// reference desktop, paired in one process — see "The map's size, and the tier it follows" in
-        /// docs/rendering.md. The 3 x 3 box stays three texels wide, so the edge gets finer, not softer.
+        /// a fast card: +0.03 ms (desert) and +0.17 (savanna) over High at 3840×1600 in the Testbed on the
+        /// reference desktop, paired in one process — see "The map" in docs/rendering/sun-shadows.md. The 3 x 3 box stays three texels wide, so the edge gets finer, not softer.
         /// </para>
         /// </summary>
         public readonly int ShadowMapScale;
@@ -296,13 +294,19 @@ namespace BS3D
         /// along a cube face's edge with every stalactite where Low and Medium use 104 and leave the short ones out (#958), the Moon's
         /// and the volcano's rocks as fractured blocks and worn boulders with a stone surface where Low and Medium keep twenty flat
         /// facets and the lathes (#777), the outback's near formations on a polar disc of 160 by 80 where Low and Medium lay
-        /// the far ones' 96 by 40 (#967), and the title wordmark's halo round the PNG logo, which Low and Medium leave out (#929, #981). <b>High and Ultra only</b>: the owner asked for the detail there ("on High / Ultra this
+        /// the far ones' 96 by 40 (#967), and the title wordmark's halo round the PNG logo, which Low and Medium leave out (#929, #981).
+        /// The same lever draws more than meshes: the cloud heaps over the deck wherever the sky stands as heaps (#989,
+        /// <c>BS3DGame.CloudVolumesShown</c>), the savanna's fires as volumes (#886), the volcano's authored flank program on its
+        /// full grid where Medium draws <c>VolcanoMedium</c> (#1037), Mars's ground read from its baked maps (#1100) and the
+        /// outback's crust and gibber (#776). <b>High and Ultra only</b>: the owner asked for the detail there ("on High / Ultra this
         /// transition should have more detail"; of the spruces, "they could pass for Low, maybe Medium, but not High or
         /// Ultra"; of the range, "how they look now could be the look of low/medium, but on high/ultra they must have more
         /// detail"), and Medium is the weak machine's rung. What it costs is in "The fork, grown for High and Ultra (#758)" and
         /// "The bush (#883)" in docs/scenes/savanna-trees.md, "Two woods (#889)" and "The shrubs (#890)" in docs/scenes/meadow.md, "The spruces on
         /// High and Ultra" in docs/scenes/aurora.md, "High and Ultra's range" in docs/scenes/mountains.md, "Built off the frame" in docs/scenes/cavern.md,
-        /// "High and Ultra's rocks" in docs/scenes/moon.md and "High and Ultra's wood" in docs/scenes/forest.md.
+        /// "High and Ultra's rocks" in docs/scenes/moon.md and "High and Ultra's wood" in docs/scenes/forest.md; the heaps' in "The clouds
+        /// as volumes on High and Ultra (#989)" in docs/rendering/weather.md, and the lever's as a whole in "What the scene and each lever
+        /// cost" in docs/game-shell/quality-measurements.md.
         /// </summary>
         public readonly bool FineMeshes;
 
