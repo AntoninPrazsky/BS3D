@@ -14,8 +14,8 @@ namespace BS3D.Tests
     /// <b>The precise-aim lean as the hands ask for it</b> (<see cref="LeanInput"/>): a press toggles it in and the next takes it
     /// out (#1054), a trigger wavering on the threshold flips it once, Settings' Hold makes a hold of the right button and the
     /// trigger (#520), the touch screen's button toggles under either mode (#1050), a pause and a takeover keep a toggled lean,
-    /// and a switch of the mode lets go of it (#1140): toggled in under Toggle and switched to Hold from the pause, the lean used
-    /// to stay in with nothing to take it out. And the screen reads the lean through that rule alone: <c>GameplayScreen</c> needs
+    /// and a switch of the mode lets go of it (#1140), seen at the door back into play as well as by the frame's read: toggled in
+    /// under Toggle and switched to Hold from the pause, the lean used to stay in with nothing to take it out. And the screen reads the lean through that rule alone: <c>GameplayScreen</c> needs
     /// the graphics device and cannot be compiled here, so <c>UpdateAim</c> is held on its source, and the check is also run over
     /// the toggle honoured beside the rule, the shape #1140 had, so its failing branch is seen to fire (BestPractices section 10).
     /// </summary>
@@ -25,6 +25,8 @@ namespace BS3D.Tests
 
         private const string UPDATE_AIM = "private void UpdateAim(GameTime gameTime, bool edgeInputAllowed, GamePadState pad)";
         private const string SCRIPTED_HANDS = "private void StepScriptedHands()";
+        private const string COVERED_CHANGED = "public override void CoveredChanged()";
+        private const string SPEND_UNDER_MODE = "_lean.SpendPress(Game.PreciseAimToggles);";
 
         private static MouseState Mouse(bool right) =>
             new(0, 0, 0, ButtonState.Released, ButtonState.Released, right ? ButtonState.Pressed : ButtonState.Released,
@@ -126,8 +128,10 @@ namespace BS3D.Tests
         {
             LeanInput lean = ToggledIn();
 
-            //The pause, Settings' Precise aim switched to Hold, the resume
-            lean.SpendPress();
+            //The pause, Settings' Precise aim switched to Hold, the resume: seen at the door, before a frame is read, since the
+            //touch screen's button is drawn off the toggle and a takeover resumed into reads no frame until it ends
+            lean.SpendPress(HOLD);
+            Assert.False(lean.Toggled);
 
             //The first frame under Hold with nothing down: out
             Assert.Equal((false, 0f), Frame(lean, HOLD));
@@ -145,7 +149,8 @@ namespace BS3D.Tests
             Frame(lean, TOGGLE, trigger: 1f);
             Assert.Equal((true, 1f), Frame(lean, TOGGLE));
 
-            lean.SpendPress();
+            lean.SpendPress(HOLD);
+            Assert.False(lean.Toggled);
 
             //A part-pulled trigger under Hold leans as far as it is pulled, not all the way
             Assert.Equal((false, PreciseAim.LeanAmount(default, Pad(0.3f))), Frame(lean, HOLD, trigger: 0.3f));
@@ -159,9 +164,19 @@ namespace BS3D.Tests
             Assert.Equal((true, 1f), Frame(lean, HOLD, touch: true));
             Assert.Equal((true, 1f), Frame(lean, HOLD));
 
-            lean.SpendPress();
+            lean.SpendPress(TOGGLE);
+            Assert.False(lean.Toggled);
 
             Assert.Equal((false, 0f), Frame(lean, TOGGLE));
+            Assert.False(lean.Toggled);
+        }
+
+        [Fact]
+        public void A_switch_is_seen_by_the_frame_read_too()
+        {
+            //No door spent a press between the two frames: the read sees the other mode on its own
+            LeanInput lean = ToggledIn();
+            Assert.Equal((false, 0f), Frame(lean, HOLD));
             Assert.False(lean.Toggled);
         }
 
@@ -185,12 +200,12 @@ namespace BS3D.Tests
             LeanInput lean = ToggledIn();
 
             //Covered, or a takeover's frames: the toggle is kept, and the screen asks again once play is back
-            lean.SpendPress();
-            lean.SpendPress();
+            lean.SpendPress(TOGGLE);
+            lean.SpendPress(TOGGLE);
             Assert.Equal((true, 1f), Frame(lean, TOGGLE));
 
             //A button still down when play comes back is not a press until it has been let go
-            lean.SpendPress();
+            lean.SpendPress(TOGGLE);
             Assert.Equal((true, 1f), Frame(lean, TOGGLE, right: true));
             Assert.Equal((true, 1f), Frame(lean, TOGGLE));
             Assert.Equal((false, 0f), Frame(lean, TOGGLE, right: true));
@@ -262,13 +277,18 @@ namespace BS3D.Tests
 
             //And not asked at all
             Assert.NotNull(ScreenFault(WithRead(sources)));
+
+            //The resume's press spent under a mode of its own, and not spent at all; and the takeover's under a mode of its own
+            Assert.NotNull(ScreenFault(WithLine(sources, "GameplayScreen.cs", SPEND_UNDER_MODE, "            _lean.SpendPress(true);")));
+            Assert.NotNull(ScreenFault(WithLine(sources, "GameplayScreen.cs", SPEND_UNDER_MODE, "")));
+            Assert.NotNull(ScreenFault(WithLine(sources, "GameplayScreen.Input.cs", SPEND_UNDER_MODE, "                _lean.SpendPress(false);")));
         }
 
         /// <summary>
         /// Why the screen's <paramref name="sources"/> (each file's lines by its name) do not read the lean through
         /// <see cref="LeanInput"/> alone, or null when they do: <c>UpdateAim</c> asks <see cref="LeanInput.Read"/> once, under
-        /// <c>Game.PreciseAimToggles</c>, and takes the frame's hold and pull from it, and nothing else in the screen leans the
-        /// lens in but a scripted run's <c>rmb=</c>.
+        /// <c>Game.PreciseAimToggles</c>, and takes the frame's hold and pull from it, nothing else in the screen leans the lens
+        /// in but a scripted run's <c>rmb=</c>, and the resume and the takeover spend a press under that same mode.
         /// </summary>
         private static string ScreenFault(Dictionary<string, string[]> sources)
         {
@@ -290,7 +310,35 @@ namespace BS3D.Tests
             int all = sources.Values.Sum(lines => lines.Select(ChapterIntroSkipTests.CodeOf).Count(LeansIn));
             if (all != scripted) return $"{all - scripted} lines beside the rule and rmb= lean the lens in";
 
+            //And both doors that spend a press see a switch of the mode there (#1140): the resume, and every frame of a takeover,
+            //which reads none, under Settings' mode as it stands
+            if (!ChapterIntroSkipTests.MethodBody(sources["GameplayScreen.cs"], COVERED_CHANGED)
+                    .Any(line => ChapterIntroSkipTests.CodeOf(line).Contains(SPEND_UNDER_MODE, StringComparison.Ordinal)))
+                return "CoveredChanged does not spend the press under Settings' mode";
+            if (!updateAim.Any(code => code.Contains(SPEND_UNDER_MODE, StringComparison.Ordinal)))
+                return "UpdateAim's takeover does not spend the press under Settings' mode";
+
+            int spent = sources.Values.Sum(lines => lines.Select(ChapterIntroSkipTests.CodeOf)
+                .Count(code => code.Contains("_lean.SpendPress(", StringComparison.Ordinal)));
+            int underMode = sources.Values.Sum(lines => lines.Select(ChapterIntroSkipTests.CodeOf)
+                .Count(code => code.Contains(SPEND_UNDER_MODE, StringComparison.Ordinal)));
+            if (spent != underMode) return $"{spent - underMode} presses are spent under a mode of their own";
+
             return null;
+        }
+
+        /// <summary>
+        /// <paramref name="sources"/> with the one line of <paramref name="file"/> that holds <paramref name="code"/> replaced by
+        /// <paramref name="with"/>.
+        /// </summary>
+        private static Dictionary<string, string[]> WithLine(Dictionary<string, string[]> sources, string file, string code, string with)
+        {
+            string[] lines = (string[])sources[file].Clone();
+            int[] at = Enumerable.Range(0, lines.Length).Where(i => lines[i].Contains(code, StringComparison.Ordinal)).ToArray();
+            Assert.True(at.Length == 1, $"{file} holds '{code}' {at.Length} times");
+            lines[at[0]] = with;
+
+            return new Dictionary<string, string[]>(sources) { [file] = lines };
         }
 
         /// <summary>Whether a line of code writes the hold or the pull anything but let go.</summary>

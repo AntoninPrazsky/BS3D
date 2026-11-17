@@ -313,10 +313,11 @@ namespace BS3D.Screens
 
                 //Forced rather than read: the lean is a hold, so a player still holding the right button when
                 //the takeover ends gets precise aim back, and one who let go during it does not. A toggled lean (#1054)
-                //comes back as it was, and a press made under the takeover is not one: it has to be let go first
+                //comes back as it was, and a press made under the takeover is not one: it has to be let go first. A switch of
+                //the mode is seen here too (#1140), so the touch screen's button is not drawn lit through the takeover
                 _adsHeld = false;
                 _adsPull = 0f;
-                _lean.SpendPress();
+                _lean.SpendPress(Game.PreciseAimToggles);
 
                 if (_cursorCaptured) _mouseAim.Recentre(centreX, centreY);
                 _previousMouse = mouse;

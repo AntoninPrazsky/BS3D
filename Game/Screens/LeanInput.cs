@@ -16,8 +16,8 @@ namespace BS3D.Screens
     /// <item><description><b>A press, not a hold.</b> The trigger counts as down past <see cref="PreciseAim.TRIGGER_THRESHOLD"/>
     /// and as up only under half of it, so a slow pull that wavers on the threshold flips the toggle once. A button or a trigger
     /// still down when play comes back from a menu or a takeover has to be let go first (<see cref="SpendPress"/>).</description></item>
-    /// <item><description><b>Let go</b> at a level's start and at its decision (<see cref="Release"/>, #1076), and on the first
-    /// frame read under the other mode (#1140). Settings switches the mode from the pause, and in Hold the right button and the
+    /// <item><description><b>Let go</b> at a level's start and at its decision (<see cref="Release"/>, #1076), and once the other
+    /// mode is seen, by the frame's read or by the door back into play (#1140). Settings switches the mode from the pause, and in Hold the right button and the
     /// trigger no longer flip the toggle: a lean toggled in and kept through the switch would stay in, with nothing to take it
     /// out, until the level ended.</description></item>
     /// <item><description><b>Kept</b> through a pause, a lost focus and a camera takeover. The screen lets go of the frame's hold
@@ -36,7 +36,7 @@ namespace BS3D.Screens
         //press that opened the level is not one
         private bool _buttonWasDown = true;
 
-        //The mode the last frame was read under, so the first frame under the other one is seen
+        //The mode last seen, by a frame's read or a spent press, so the other one is noticed wherever it first arrives
         private bool _toggles;
 
         /// <summary>
@@ -51,11 +51,7 @@ namespace BS3D.Screens
         internal void Read(bool toggles, bool edgeInputAllowed, bool touchPressed, bool cursorCaptured,
             in MouseState mouse, in GamePadState pad, out bool held, out float pull)
         {
-            if (toggles != _toggles)
-            {
-                Toggled = false;
-                _toggles = toggles;
-            }
+            NoticeMode(toggles);
 
             if (edgeInputAllowed && touchPressed) Toggled = !Toggled;
 
@@ -88,8 +84,22 @@ namespace BS3D.Screens
 
         /// <summary>
         /// A button or a trigger down now is not a press until it has been let go: play coming back from a menu or the pause,
-        /// and every frame of a camera takeover. The toggle is kept.
+        /// and every frame of a camera takeover. The toggle is kept, unless <paramref name="toggles"/>, Settings' mode as it
+        /// stands now, is not the one last seen: the switch is seen here as in <see cref="Read"/>, since a takeover's frames read
+        /// nothing and the touch screen's button is drawn off <see cref="Toggled"/> through them.
         /// </summary>
-        internal void SpendPress() => _buttonWasDown = true;
+        internal void SpendPress(bool toggles)
+        {
+            NoticeMode(toggles);
+            _buttonWasDown = true;
+        }
+
+        //A switch of the mode lets go of the toggle (#1140), wherever it is first seen
+        private void NoticeMode(bool toggles)
+        {
+            if (toggles == _toggles) return;
+            Toggled = false;
+            _toggles = toggles;
+        }
     }
 }
