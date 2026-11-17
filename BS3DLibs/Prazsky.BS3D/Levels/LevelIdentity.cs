@@ -25,6 +25,10 @@ namespace Prazsky.BS3D.Levels
     /// No shipped entry authors it, and an absent rule hashes as absent, so it costs the shipped boards nothing.
     /// </para>
     /// <para>
+    /// <b>So is the par</b> (<see cref="LevelSetEntry.Par"/>, #1045): the time bonus is measured against it, so a retuned
+    /// par changes what a score on the level can be, and it is a fresh board.
+    /// </para>
+    /// <para>
     /// The scoring rules themselves are <b>not</b> in the hash: they are <c>ScoreKeeper.RulesVersion</c>, sent
     /// beside it, because a rate change invalidates every board at once and saying so once is clearer than
     /// changing a hundred hashes.
@@ -56,8 +60,9 @@ namespace Prazsky.BS3D.Levels
         /// exactly the 51 — and 0 once the CRs were dropped. Every submission from it for those levels would have
         /// been refused as an unknown level, silently. The release zip is built from a fresh checkout and is LF
         /// either way; the fix is for every build that is not. After the bytes comes one line of the entry's rules, each
-        /// absent rule spelled <c>-</c>: <c>\nshots=30;ceilingStep=5;wildcardEvery=-</c>. That layout is the
-        /// contract — change it and every board in the wild starts again.
+        /// absent rule spelled <c>-</c>: <c>\nshots=30;ceilingStep=5;wildcardEvery=-;par=40</c>. That layout is the
+        /// contract — change it and every board in the wild starts again. The par joined it with rules v2 (#1045), whose
+        /// version bump started every board again anyway, so it cost no board a v1 build still plays.
         /// </para>
         /// </summary>
         public static LevelIdentity Of(LevelSetEntry entry, byte[] levelBytes)
@@ -66,7 +71,7 @@ namespace Prazsky.BS3D.Levels
             ArgumentNullException.ThrowIfNull(levelBytes);
 
             string rules = "\nshots=" + Rule(entry.Shots) + ";ceilingStep=" + Rule(entry.CeilingStep)
-                + ";wildcardEvery=" + Rule(entry.WildcardEvery);
+                + ";wildcardEvery=" + Rule(entry.WildcardEvery) + ";par=" + Rule(entry.Par);
 
             using IncrementalHash sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
 

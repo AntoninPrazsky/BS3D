@@ -109,6 +109,11 @@ namespace Prazsky.BS3D.Levels
                         throw new InvalidDataException(
                             $"'{path}': level {i + 1} ('{entry.File}') loads a wildcard every {entry.WildcardEvery} balls; omit \"wildcardEvery\" for none");
 
+                    //And the par (#1045): a par of no seconds is a time bonus gone before the level starts
+                    if (entry.Par is <= 0)
+                        throw new InvalidDataException(
+                            $"'{path}': level {i + 1} ('{entry.File}') has a par of {entry.Par} seconds; omit \"par\" for no time bonus");
+
                     //A block is a STRETCH of the campaign, so the same name may not open a second run later on:
                     //that is either a typo or a milestone that fires twice, and both are better refused at the
                     //file than explained in play. Checked against the entry two back and beyond rather than by
@@ -289,10 +294,11 @@ namespace Prazsky.BS3D.Levels
 
             string shots = entry.Shots.HasValue ? $"{entry.Shots.Value} shots" : "unlimited shots";
             string ceiling = entry.CeilingStep.HasValue ? $"ceiling every {entry.CeilingStep.Value}" : "ceiling holds";
+            string par = entry.Par.HasValue ? $"par {entry.Par.Value} s" : "no par";
 
             //The unlock gate is deliberately not in this line: these are the rules a level is PLAYED under,
             //and the gate is over by the time one is — the picker presents it on the locked entry itself
-            return $"{shots}, {ceiling}";
+            return $"{shots}, {ceiling}, {par}";
         }
 
         /// <summary>
@@ -431,5 +437,19 @@ namespace Prazsky.BS3D.Levels
         /// </summary>
         [JsonPropertyName("wildcardEvery")]
         public int? WildcardEvery { get; set; }
+
+        /// <summary>
+        /// The level's <b>par time</b> in seconds of the play clock (#1045): the time bonus is whole at the start, half gone
+        /// at par and gone at twice par (<c>ScoreKeeper.TimeBonusAt</c>). <b>Null means no par and no time bonus</b>, which a
+        /// set authored before it keeps (a plain map, a hand-made set).
+        /// <para>
+        /// <c>Tools/LevelGen</c> writes it for every level of the campaign: 10 s and 2.5 s for every shot LevelGen's casual
+        /// player takes to clear the level (<c>DropProbe</c>, the player the owner's own clears were fitted to), rounded up to
+        /// 5 s. A difficulty rule like <see cref="Shots"/>, so it sits here and is in the <c>LevelIdentity</c>: a retuned par
+        /// is a fresh board. No format bump: an older build ignores it and pays no time bonus.
+        /// </para>
+        /// </summary>
+        [JsonPropertyName("par")]
+        public int? Par { get; set; }
     }
 }

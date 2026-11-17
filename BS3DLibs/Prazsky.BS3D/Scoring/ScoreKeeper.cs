@@ -83,10 +83,30 @@ namespace Prazsky.BS3D.Scoring
         /// have cleared</b>. A flat figure could not do this job: 50 points is a fifth of an average shot on
         /// One and a fiftieth of one on Onion, so it meant something different on every level and far too
         /// little on all of them. Tied to the level's own size it is the same statement everywhere — "not
-        /// needing a shot is worth several shots" — which is what makes efficiency able to outweigh a streak
-        /// the player could otherwise farm by taking longer.
+        /// needing a shot is worth a shot".
+        /// <para>
+        /// <b>One shot since #1045 (rules v2), four before.</b> At four it added about three floor multiples to every
+        /// clear that did not run the budget down (the owner's median clear: 3.0 of its 7.9), and that alone carried
+        /// almost every clear over the four-star line. Time now charges for extra shots (<see cref="TimeBonusAt"/>:
+        /// every shot costs seconds), so the unused balls only have to say that a ball not needed is still worth one.
+        /// </para>
         /// </summary>
-        public const int UnusedShotWorthInShots = 4;
+        public const int UnusedShotWorthInShots = 1;
+
+        /// <summary>
+        /// The most the time bonus can pay (#1045), as a multiple of the level's floor (<see cref="MatchedBallPoints"/> ×
+        /// its balls, <see cref="StarRating"/>'s yardstick): ten, which is 100 points a ball of the level. Ten floors
+        /// against the four-star line's eleven (<see cref="StarRating.FOUR_STAR_FLOOR_MULTIPLE"/>) is the owner's option B
+        /// of 2026-11-17: a clean clear in the shots a casual player takes earns four stars at about three quarters of par,
+        /// and no clear earns them at twice par.
+        /// </summary>
+        public const int TimeBonusWorthInFloors = 10;
+
+        /// <summary>
+        /// How many pars the time bonus drains over (#1045): whole at the start, half gone at par, gone at twice par and
+        /// never below zero. A level with no par (<c>LevelSetEntry.Par</c> absent) has no time bonus at all.
+        /// </summary>
+        public const int TimeBonusZeroAtPars = 2;
 
         /// <summary>
         /// Which version of these rules a score was made under (#549), sent with every online clear beside the
@@ -101,8 +121,13 @@ namespace Prazsky.BS3D.Scoring
         /// A change to <see cref="StarRating"/>'s thresholds is <b>not</b> a bump: the boards rank scores, not
         /// stars.
         /// </para>
+        /// <para>
+        /// <b>2 since #1045</b>: the time bonus (<see cref="TimeBonusAt"/>) and <see cref="UnusedShotWorthInShots"/> four to
+        /// one. A save's best carries the version it was made under (<c>LevelBest.Rules</c>), so a version-1 best is never
+        /// compared with a score of this one.
+        /// </para>
         /// </summary>
-        public const int RulesVersion = 1;
+        public const int RulesVersion = 2;
 
         /// <summary>
         /// A bound <b>above</b> every score a clear of a level can reach (#549) — what the online service refuses a
@@ -122,30 +147,47 @@ namespace Prazsky.BS3D.Scoring
         /// <item>The completion bonus with the whole budget unused but the one shot a clear needs, at this level's
         /// <see cref="UnusedShotValue"/> — although those unused shots are the very ones the first term counted
         /// as fired.</item>
+        /// <item>The whole time bonus (#1045), as at the first second of the level: <see cref="TimeBonusMax"/>, on a level
+        /// with a par.</item>
         /// </list>
-        /// Counting the budget twice is what makes it loose: the simulator's best clears land at 0.44 to 0.53 of it
-        /// on the 120 shipped levels (measured when it was written), which is also the check that no term was
-        /// overcounted by orders of magnitude.
+        /// Counting the budget twice is what makes it loose: <c>Tools/ScoreSim</c> prints each level's best simulated
+        /// clear as a share of it, which is also the check that no term was overcounted by orders of magnitude.
+        /// </para>
+        /// <para>
+        /// <b>At a claimed time it is tighter</b> (<see cref="ScoreCeilingAt"/>): the time bonus a clear of that many seconds
+        /// can have, in place of the whole of it. That is what the service checks a clear against, since a time in the score
+        /// makes a forged short duration worth points.
         /// </para>
         /// </summary>
         /// <param name="levelBalls">Balls the level starts with.</param>
         /// <param name="shotBudget">The entry's <c>shots</c>. An unlimited budget has no ceiling — any number of
         /// shots can stick and fall — so there is no overload for one.</param>
-        public static int ScoreCeiling(int levelBalls, int shotBudget)
+        /// <param name="parSeconds">The entry's <c>par</c>, or null for a level with no time bonus.</param>
+        public static int ScoreCeiling(int levelBalls, int shotBudget, int? parSeconds = null) =>
+            ScoreCeilingAt(levelBalls, shotBudget, parSeconds, 0f);
+
+        /// <summary>
+        /// <see cref="ScoreCeiling"/> for a clear of <paramref name="seconds"/> on the play clock (#1045): every term at its
+        /// maximum but the time bonus, which is what a clear of that many seconds is paid (<see cref="TimeBonusAt"/>).
+        /// </summary>
+        public static int ScoreCeilingAt(int levelBalls, int shotBudget, int? parSeconds, float seconds)
         {
             ArgumentOutOfRangeException.ThrowIfNegative(levelBalls);
             ArgumentOutOfRangeException.ThrowIfNegativeOrZero(shotBudget);
 
+            ScoreKeeper level = new(shotBudget, null, levelBalls, parSeconds);
+
             int richestBall = Math.Max(OrphanedBallPoints, Math.Max(MatchedBallPoints, DestroyedBallPoints));
             long landings = (long)(levelBalls + shotBudget) * richestBall * MaxMultiplier;
-            long bonus = (long)(shotBudget - 1) * new ScoreKeeper(shotBudget, null, levelBalls).UnusedShotValue;
+            long bonus = (long)(shotBudget - 1) * level.UnusedShotValue;
 
-            return (int)Math.Min(int.MaxValue, landings + bonus);
+            return (int)Math.Min(int.MaxValue, landings + bonus + level.TimeBonusAt(seconds));
         }
 
         private readonly int? _shotBudget;
         private readonly int? _ceilingStep;
         private readonly int _levelBalls;
+        private readonly int? _parSeconds;
 
         /// <param name="shotBudget">
         /// Balls the level grants, or <c>null</c> for unlimited — which is what an entry that authors no
@@ -163,11 +205,72 @@ namespace Prazsky.BS3D.Scoring
         /// unknown falls back to the flat <see cref="UnusedShotPoints"/>, so a caller that cannot say — the
         /// built-in fallback cluster, a test — still scores rather than dividing by nothing.
         /// </param>
-        public ScoreKeeper(int? shotBudget = null, int? ceilingStep = null, int levelBalls = 0)
+        /// <param name="parSeconds">
+        /// The level's par time in seconds (#1045, the entry's <c>par</c>), or <c>null</c> for a level with none, which has
+        /// no time bonus (<see cref="TimeBonusAt"/> is zero). Zero or less is no par either.
+        /// </param>
+        public ScoreKeeper(int? shotBudget = null, int? ceilingStep = null, int levelBalls = 0, int? parSeconds = null)
         {
             _shotBudget = shotBudget;
             _ceilingStep = ceilingStep;
             _levelBalls = levelBalls;
+            _parSeconds = parSeconds is > 0 ? parSeconds : null;
+        }
+
+        /// <summary>The level's par time in seconds (#1045), or null for a level with none and so no time bonus.</summary>
+        public int? ParSeconds => _parSeconds;
+
+        /// <summary>
+        /// The time bonus at the level's first second (#1045): <see cref="TimeBonusWorthInFloors"/> floors, which is what
+        /// <see cref="TimeBonusAt"/> drains from. Zero on a level with no par or no balls.
+        /// </summary>
+        public int TimeBonusMax => _parSeconds.HasValue && _levelBalls > 0 ? TimeBonusWorthInFloors * MatchedBallPoints * _levelBalls : 0;
+
+        /// <summary>
+        /// What a clear after <paramref name="seconds"/> on the play clock is paid for its time (#1045, the owner's rule of
+        /// 2026-11-02, option B of 2026-11-17): <see cref="TimeBonusMax"/> × (1 − t / (<see cref="TimeBonusZeroAtPars"/> × par)),
+        /// never below zero, in whole points. The faster the clear, the bigger the bonus: half of it at par, none at twice par.
+        /// <para>
+        /// <b>t is counted in whole seconds begun</b>, so the bonus steps down once a second and the figure the HUD shows
+        /// during the second is exactly what a clear in it is paid (the readout is rebuilt once a second, never a frame). It
+        /// is the play clock's seconds, which stand still under every camera takeover (<c>PlayClock</c>), so the camera
+        /// following falling balls costs nothing. Rounding up never pays more than the exact time would, so a service that
+        /// checks a clear against the ceiling at the exact claimed time (<see cref="ScoreCeilingAt"/>) never refuses one.
+        /// </para>
+        /// </summary>
+        public int TimeBonusAt(float seconds)
+        {
+            int max = TimeBonusMax;
+            if (max == 0) return 0;
+
+            long zeroAt = (long)TimeBonusZeroAtPars * _parSeconds.Value;
+            double begun = Math.Ceiling(Math.Max(0.0, seconds));
+            if (double.IsNaN(begun) || begun >= zeroAt) return 0;
+
+            return (int)(max * (zeroAt - (long)begun) / zeroAt);
+        }
+
+        /// <summary>The time bonus that was awarded at the clear (#1045), recorded as <see cref="CompletionBonusAwarded"/> is.</summary>
+        public int TimeBonusAwarded { get; private set; }
+
+        /// <summary>The play clock's seconds the time bonus was awarded for (#1045).</summary>
+        public float TimeBonusSeconds { get; private set; }
+
+        /// <summary>
+        /// Adds <see cref="TimeBonusAt"/> <paramref name="seconds"/> to the score (#1045). Called when a level is actually
+        /// cleared, beside <see cref="AwardCompletionBonus"/>, and by nothing else: a failed level gets no bonus. Into the base
+        /// score as well, like the completion bonus, so <see cref="StreakBonus"/> stays what the streak earned.
+        /// </summary>
+        /// <returns>What was added.</returns>
+        public int AwardTimeBonus(float seconds)
+        {
+            TimeBonusSeconds = seconds;
+            TimeBonusAwarded = TimeBonusAt(seconds);
+
+            BaseScore += TimeBonusAwarded;
+            Score += TimeBonusAwarded;
+
+            return TimeBonusAwarded;
         }
 
         /// <summary>

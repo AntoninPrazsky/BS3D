@@ -11,15 +11,14 @@ namespace Prazsky.BS3D.Scoring
     /// of its balls, and each released ball scores at least <see cref="ScoreKeeper.MatchedBallPoints"/> at
     /// multiplier ×1 — so no clear of a <c>levelBalls</c>-ball level (<see cref="Rate"/>'s parameter) can
     /// score under <c>MatchedBallPoints × levelBalls</c>. Everything above that floor was <i>earned</i>: orphans pay
-    /// double, a held streak multiplies up to ×<see cref="ScoreKeeper.MaxMultiplier"/>, and unused shots pay
-    /// the completion bonus. Rating the score as a multiple of the floor therefore self-calibrates across
-    /// levels of any size, with no per-level thresholds to author or to drift out of date.
+    /// double, a held streak multiplies up to ×<see cref="ScoreKeeper.MaxMultiplier"/>, unused shots pay
+    /// the completion bonus and a fast clear the time bonus (#1045). Rating the score as a multiple of the floor
+    /// therefore self-calibrates across levels of any size, with no per-level thresholds to author or to drift out
+    /// of date (the time bonus is sized by the floor too, and its par is the level's own).
     /// </para>
     /// <para>
     /// It lives beside <see cref="ScoreKeeper"/> because it is the same kind of thing: a scoring rule that
-    /// will be argued about and retuned. The three thresholds are a <b>first pass reasoned from the rules</b>
-    /// (a sloppy clear lands near ×1.2, mixed orphans on a mid streak near ×3, a sustained ×5 streak with
-    /// collapses runs past ×5) rather than measured from play — retune them here, one constant per step.
+    /// will be argued about and retuned, one constant per step, against <c>Tools/ScoreSim</c>.
     /// </para>
     /// </summary>
     public static class StarRating
@@ -30,22 +29,26 @@ namespace Prazsky.BS3D.Scoring
         //Score as a multiple of the floor (MatchedBallPoints × the level's balls, the least any clear can
         //score — so every threshold is > 1, and 1 star is "cleared" by construction rather than by a rule.
         //
-        //MEASURED, not reasoned, since #173 — which is what the summary above always asked for. A harness
-        //drives the real ScoreKeeper over all thirteen shipped levels at several play styles, and the band it
-        //found is what these three sit in:
+        //MEASURED, not reasoned, since #173: Tools/ScoreSim drives the real ScoreKeeper over every shipped level at
+        //several play styles and refuses thresholds that rate them the wrong way round. Retune against it, never by
+        //intuition (the reasoned first values rated backwards).
         //
-        //  ~1.9   the whole budget spent with one shot in three missing — the worst a clear can realistically be
-        //  ~5.0   the whole budget spent cleanly, never missing: patient rather than skilful
-        //  6.5-7.9 cleared in a handful of shots without missing
+        //SINCE #1045 (rules v2, the owner's option B of 2026-11-17) TIME IS THE LEVER. Under v1 a clear almost always
+        //earned four stars (the owner's save: 38 of 41; the unused balls alone added about three floors). Now the landing
+        //part of a clean clear is about 3.5-5 floors, the unused balls under one, and the time bonus up to
+        //ScoreKeeper.TimeBonusWorthInFloors (10), draining to nothing at twice par. So:
         //
-        //So 2 stars is unchanged at 1.8 (a scrappy clear still earns one), 3 stars moves 3.0 -> 4.0 so that a
-        //clean grind lands there rather than at the top, and 4 stars moves 4.5 -> 6.0, which now takes
-        //EFFICIENCY and not merely patience. Before #173 the top of that band was unreachable by fast play and
-        //handed to slow play instead: the rating rose with the number of shots taken on every level in the
-        //pack. Retune these against the harness, not against intuition — that is the mistake being corrected.
-        public const float TWO_STAR_FLOOR_MULTIPLE = 1.8f;
-        public const float THREE_STAR_FLOOR_MULTIPLE = 4.0f;
-        public const float FOUR_STAR_FLOOR_MULTIPLE = 6.0f;
+        //  2.5  a clean clear in the casual probe's shots earns two stars at twice par; the whole budget with a third
+        //       of it missing (~1.9) earns one
+        //  6.5  three stars within about one and a half par
+        //  11   four stars only at about three quarters of par (option B): out of reach at twice par, and within reach
+        //       of every level's best clean clear at half par, which ScoreSim's UNREACHABLE gate holds
+        //
+        //The #1045 model (the owner's 23 clean levels as play styles over all 140 levels) rates an expert 0/10/32/59 %
+        //at 1/2/3/4 stars, against 0/0/7/93 under v1.
+        public const float TWO_STAR_FLOOR_MULTIPLE = 2.5f;
+        public const float THREE_STAR_FLOOR_MULTIPLE = 6.5f;
+        public const float FOUR_STAR_FLOOR_MULTIPLE = 11.0f;
 
         /// <summary>
         /// The stars a <b>cleared</b> level's <paramref name="score"/> earned, 1 to <see cref="MAX"/>.
