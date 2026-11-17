@@ -2427,9 +2427,10 @@ namespace BS3D.Screens
         //The two widths above, measured once per pair of fonts (a resize rebuilds the HUD's fonts), never per frame
         private SpriteFontBase _chipGlyphFontFor, _chipCaptionFontFor;
 
-        //The power-ups' pictograms beside their keycaps (#991, PowerupPictograms): baked at the keycap's own ink height each
-        //time the fonts are rebuilt (a resize does), the picture and the soft backing it stands on as a chip's words do,
-        //indexed by PowerupKind; and the clear margin round each, wide enough for the backing's falloff
+        //The power-ups' pictograms beside their keycaps (#991, PowerupPictograms): at the keycap's own ink height, taken
+        //again each time the fonts are rebuilt (a resize does) from the pictures baked once a size (PictogramCache, #1146),
+        //the picture and the soft backing it stands on as a chip's words do, indexed by PowerupKind; and the clear margin
+        //round each, wide enough for the backing's falloff
         private readonly Texture2D[] _chipIcons = new Texture2D[4], _chipIconBackings = new Texture2D[4];
         private int _chipIconSize, _chipIconPad;
         private float _chipGlyphColumn, _chipCaptionColumn;
@@ -2532,9 +2533,11 @@ namespace BS3D.Screens
         internal void PulseCutChip() => _cutPulse.Kick(0f);
 
         /// <summary>
-        /// Measures the chips and bakes their pictograms now, at the level's build (#1095), rather than on the first frame that
-        /// draws a chip: that was the first frame of play, where the HUD comes in as the gun is handed over, and the bake held
-        /// it for 140 ms at 1600x900 and 405 ms at 3840x1581. Nothing to do once done, until a resize rebuilds the fonts.
+        /// Measures the chips and makes their pictograms' textures now, at the level's build (#1095), rather than on the first
+        /// frame that draws a chip: that was the first frame of play, where the HUD comes in as the gun is handed over, and
+        /// the bake held it for 140 ms at 1600x900 and 405 ms at 3840x1581. The pictures themselves are baked once a size
+        /// and kept, and read or baked ahead while the game loads (#1146, <see cref="PictogramCache"/>), so the build only
+        /// takes them. Nothing to do once done, until a resize rebuilds the fonts.
         /// </summary>
         internal void PrepareChips()
         {
@@ -2570,30 +2573,52 @@ namespace BS3D.Screens
         /// <summary>
         /// The three pictograms (#991) at the keycap's ink height on <paramref name="glyphFont"/>, the old ones disposed: they
         /// are drawn by <see cref="PowerupPictograms"/> at the size they are shown, never scaled, so they stay crisp at any
-        /// resolution, and they follow the HUD's scale as the fonts do.
+        /// resolution, and they follow the HUD's scale as the fonts do. Drawn once a size and kept (#1146,
+        /// <see cref="PictogramCache"/>), and asked for ahead whenever the HUD's fonts are resolved, so this normally only
+        /// takes the finished pictures and makes the textures.
         /// </summary>
         private void BuildChipIcons(SpriteFontBase glyphFont)
         {
-            FontStashSharp.Bounds ink = glyphFont.TextBounds(BRAKE_GLYPH_PAD, Vector2.Zero);
-            _chipIconSize = Math.Max(8, (int)MathF.Round((ink.Y2 - ink.Y) * CHIP_ICON_SCALE));
-            int blur = Math.Max(1, Scaled(HUD_BACKING_BLUR));
-            _chipIconPad = blur * 2 + 2;
-            int side = _chipIconSize + 2 * _chipIconPad;
-            foreach (PowerupKind kind in CHIP_ICON_KINDS)
+            PictogramKey key = ChipPictogramKey(glyphFont, Math.Max(1, Scaled(HUD_BACKING_BLUR)));
+            _chipIconSize = key.Size;
+            _chipIconPad = key.Pad;
+
+            long start = System.Diagnostics.Stopwatch.GetTimestamp();
+            PictogramSet set = _game.ChipPictograms.Get(key);
+            double waited = System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+
+            for (int k = 0; k < PictogramCache.KINDS.Length; k++)
             {
-                _chipIcons[(int)kind]?.Dispose();
-                _chipIconBackings[(int)kind]?.Dispose();
-                (Color[] picture, Color[] backing) = PowerupPictograms.RasterWithBacking(kind, _chipIconSize, _chipIconPad, blur * 1.5f);
-                _chipIcons[(int)kind] = new Texture2D(_game.GraphicsDevice, side, side);
-                _chipIcons[(int)kind].SetData(picture);
-                _chipIconBackings[(int)kind] = new Texture2D(_game.GraphicsDevice, side, side);
-                _chipIconBackings[(int)kind].SetData(backing);
+                int kind = (int)PictogramCache.KINDS[k];
+                _chipIcons[kind]?.Dispose();
+                _chipIconBackings[kind]?.Dispose();
+                _chipIcons[kind] = new Texture2D(_game.GraphicsDevice, key.Side, key.Side);
+                _chipIcons[kind].SetData(set.Pictures[k]);
+                _chipIconBackings[kind] = new Texture2D(_game.GraphicsDevice, key.Side, key.Side);
+                _chipIconBackings[kind].SetData(set.Backings[k]);
             }
+
+            //Once a size (a launch, a resize): what the HUD took and what it cost the frame it was taken in
+            Console.WriteLine(string.Format(CultureInfo.InvariantCulture, "[chips] pictograms at {0} px {1}, the HUD waited {2:F1} ms",
+                key.Size, set.Baked ? "baked by this run" : "read from the cache", waited));
         }
 
-        //The pictogram's height against the keycap's ink, and the kinds that have one
+        /// <summary>
+        /// The pictograms' key at the HUD's present size (#1146): the keycap's ink height on the chips' glyph font, and the
+        /// margin and falloff of the backing a chip's words stand on. The game asks for it ahead
+        /// (<see cref="PictogramCache.Prefetch"/>) whenever it resolves the HUD's fonts, and the HUD takes the same key here.
+        /// </summary>
+        internal static PictogramKey ChipPictogramKey(BS3DGame game) =>
+            ChipPictogramKey(game.HudFontChipPrompt, Math.Max(1, game.HudScaled(HUD_BACKING_BLUR)));
+
+        private static PictogramKey ChipPictogramKey(SpriteFontBase glyphFont, int blur)
+        {
+            FontStashSharp.Bounds ink = glyphFont.TextBounds(BRAKE_GLYPH_PAD, Vector2.Zero);
+            return new PictogramKey(Math.Max(8, (int)MathF.Round((ink.Y2 - ink.Y) * CHIP_ICON_SCALE)), blur * 2 + 2, blur * 1.5f);
+        }
+
+        //The pictogram's height against the keycap's ink
         private const float CHIP_ICON_SCALE = 1.0f;
-        private static readonly PowerupKind[] CHIP_ICON_KINDS = { PowerupKind.Swap, PowerupKind.Brake, PowerupKind.Cut };
 
         /// <summary>Where a glyph's ink is centred, down from the top of its line box, as the font rasterises it.</summary>
         private static float InkCentreY(SpriteFontBase font, string glyph)

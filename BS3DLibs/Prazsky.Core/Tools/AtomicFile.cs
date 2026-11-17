@@ -7,7 +7,7 @@ namespace Prazsky.Core.Tools
     /// <summary>
     /// Writing a small file so that losing the machine mid-write cannot destroy what was already there
     /// (#353). Every player file uses it — the campaign progress, the settings, the online identity and its
-    /// outbox — and the saved levels since #571; it is here rather than in any of them because each would
+    /// outbox — the saved levels since #571 and the game's kept pictograms since #1146; it is here rather than in any of them because each would
     /// otherwise have been a copy of the first.
     /// </summary>
     /// <remarks>
@@ -45,9 +45,16 @@ namespace Prazsky.Core.Tools
         /// caller's decision, not this helper's.
         /// </para>
         /// </summary>
-        public static void WriteText(string path, string text, string backupSuffix)
+        public static void WriteText(string path, string text, string backupSuffix) =>
+            WriteBytes(path, Encoding.UTF8.GetBytes(text), backupSuffix);
+
+        /// <summary>
+        /// <see cref="WriteText"/> for a file that is not text (the chips' pictograms kept by the game, #1146): the same
+        /// temporary file, flush and swap.
+        /// </summary>
+        public static void WriteBytes(string path, byte[] bytes, string backupSuffix)
         {
-            //The directory can legitimately be absent: both callers write under the player's own profile,
+            //The directory can legitimately be absent: every caller writes under the player's own profile,
             //which nothing else in the game creates
             string directory = Path.GetDirectoryName(path);
             if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
@@ -60,7 +67,6 @@ namespace Prazsky.Core.Tools
             //empty one over it
             using (FileStream stream = new(temp, FileMode.Create, FileAccess.Write, FileShare.None))
             {
-                byte[] bytes = Encoding.UTF8.GetBytes(text);
                 stream.Write(bytes, 0, bytes.Length);
                 stream.Flush(flushToDisk: true);
             }

@@ -706,10 +706,10 @@ namespace BS3D
             //nothing to install. Myra's own stylesheet carries a small bitmap font, which is fine for a tool
             //panel and far too coarse for a title. Each size is rasterized into its own atlas by GetFont, so
             //they are resolved once here rather than per label.
-            _menuFontSystemDisplay = LoadEmbeddedFont("BS3D.Content.Fonts.Anton-Regular.ttf");
+            _menuFontSystemDisplay ??= LoadEmbeddedFont("BS3D.Content.Fonts.Anton-Regular.ttf");  //loaded already for the HUD (#1146)
             _menuFontSystem ??= LoadEmbeddedFont("BS3D.Content.Fonts.Inter-Regular.ttf");  //loaded already for "Loading..." (#637)
             _menuFontSystemBold = LoadEmbeddedFont("BS3D.Content.Fonts.Inter-Bold.ttf");
-            _menuFontSystemPrompt = LoadEmbeddedFont("BS3D.Content.Fonts.PromptFont.ttf");
+            _menuFontSystemPrompt ??= LoadEmbeddedFont("BS3D.Content.Fonts.PromptFont.ttf");  //loaded already for the HUD (#1146)
 
             //What a /f[name] command in a label's text switches to (#996). FontStashSharp's rich text asks this for every
             //such command; Myra sets nothing here, so without it the command throws inside the layout
@@ -767,6 +767,10 @@ namespace BS3D
         {
             MenuPage page = _screens.Active as MenuPage;
             if (ApplyMenuLayout(page?.LayoutFit ?? 1f) && page != null) ShowPage(page);
+
+            //And the HUD's fonts for the same height, so a window resized in the menu has the chips' pictograms for its new
+            //size read or baked on a worker before a level is built (#1146); nothing when the height has not moved
+            EnsureHudFonts();
         }
 
         /// <summary>
@@ -1078,10 +1082,11 @@ namespace BS3D
         /// PromptFont at the menu's own body size, for a page that draws real keycaps (#427's Help).
         /// <para>
         /// ⚠ It is resolved HERE and not taken from <c>HudFontPrompt</c>, which is the trap this answers: the
-        /// HUD's fonts are built by <c>EnsureHudFonts</c>, which only the gameplay screen calls, so on a menu
-        /// page that accessor is <b>null</b> — and a Myra label given a null font draws nothing at all,
-        /// silently, with the line's text still laid out beside the gap where the key should be. Photographed
-        /// exactly so before this existed.
+        /// HUD's fonts follow the HUD's own scale (<see cref="HudScaled"/>, the layout height alone) and are sized
+        /// for the tutorial card's caption, so keycaps set in them stand far larger than the menu's line beside
+        /// them and never follow a page's fit (<c>LayoutFit</c>) or the enlarged interface (<see cref="UiScale"/>).
+        /// They do exist on a menu page (<see cref="EnsureHudFonts"/> runs from the load and from
+        /// <c>EnsureMenuLayout</c>, #1146), so nothing fails to draw: the keys are only the wrong size.
         /// </para>
         /// <para>
         /// A fifth over the body size, because PromptFont fills its em with a rounded keycap while a line of
