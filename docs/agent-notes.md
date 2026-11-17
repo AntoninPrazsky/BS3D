@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1139 About: otočená stránka na telefonu se znovu vejde — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: `RebuildPage` volá `FitPage` jako `ShowPage`, takže stránka přestavěná na místě (otočení About, výběr úrovní při jiné šířce, Top Players, poznámka, benchmark) dostane svůj fit znovu; text zůstane ve scrolleru a Zpět na obrazovce. `FitPage` nově volá `page.Refresh()` před čtením stromu (výběr úrovní měřil starý strom). Na monitoru beze změny. Test `PageFitSourceTests` čte zdroj: každé `_desktop.Root =` má před sebou `FitPage` ve svém těle; viděn selhat na starém kódu.
+- ⚠ Přestavěný `MenuPage.Root` zahodí scroller, který přidal fit; bez nového fitu se stránka kreslí ve velikosti menu a Zpět zmizí pod okrajem.
+- Otevřené: neověřeno na telefonu (vivo nepřipojeno), jen rozvržení inches=2.8 na desktopu; dotyk šipky a tah scrolleru po otočení neviděny.
+
 ## 2026-11-15 — #1137 outback: hloubka monolitů napřed — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: na High/Ultra (DirectX) se hloubka monolitů kreslí napřed hloubkovým dvojčetem `OutbackRockDepth` (bez ořezu), pak se stínují s `DepthRead`, takže každý viditelný pixel monolitu se stínuje jednou. Balvany zůstávají v jednom průchodu, GL a nižší úrovně beze změny. Obraz stejný (20/20 párů bez rozdílu, programy bajtově shodné). Pin Testbedu 8,13 → 6,02 ms (formace 3,26 → 1,17), Game Ultra menu ~1 ms levnější. Číselník `outback=all/-rockdepth`.
