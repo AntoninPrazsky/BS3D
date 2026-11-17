@@ -936,9 +936,12 @@ namespace BS3D
                 if (UiScale <= 1f || page.LayoutFit <= FitFloor) return;
 
                 //Measured with what this visit shows (a result's clear or fail, the resume entry), not the last visit's: a
-                //tree kept from before still carries what Refresh wrote onto it then
-                Widget root = page.Root;
+                //tree kept from before still carries what Refresh wrote onto it then. Refresh before the tree is read: a
+                //Refresh that finds its tree built for another width or switch throws it away (the picker, the benchmark
+                //page), and the tree measured and let out must be the one put up, not the one thrown away (a fresh tree is
+                //refreshed by its build)
                 page.Refresh();
+                Widget root = page.Root;
 
                 Point need = root.Measure(new Point(viewport.Width, viewport.Height * 4));
                 need.Y += page.ScrollShortfall;
@@ -2175,14 +2178,15 @@ namespace BS3D
         }
 
         /// <summary>
-        /// Puts a page's rebuilt tree up <b>without a screen change</b> (#606 — the Help page turning), keeping the
-        /// focus cursor on the entry <paramref name="keepFocusOn"/> names in the NEW tree: a rebuild replaces every
-        /// widget, so the entry to keep is only known once the tree has been built again.
+        /// Puts a page's rebuilt tree up <b>without a screen change</b> (About's page turn, the picker's rebuild for another
+        /// width, Top Players' for another shape, the note and benchmark pages' changed content), keeping the focus cursor on
+        /// the entry <paramref name="keepFocusOn"/> names in the NEW tree: a rebuild replaces every widget, so the entry to
+        /// keep is only known once the tree has been built again.
         /// <para>
-        /// Fitted first, as <see cref="ShowPage"/> fits (#1139): what <see cref="FitPage"/> did to the tree it replaces is
-        /// gone with it (About's text out of the scroller it was put in, a must-fit scroller bound again), while the page's
-        /// <see cref="MenuPage.LayoutFit"/> stays. Unfitted, About's next page stood on a phone at the menus' size, taller
-        /// than the screen, with Back under its bottom edge.
+        /// Fitted first, as <see cref="ShowPage"/> fits (#1139): what <see cref="FitPage"/> did to a tree is gone with it
+        /// (About's text put in a scroller, the picker's must-fit scroller let out), and a rebuild for another window size
+        /// needs that viewport's <see cref="MenuPage.LayoutFit"/>. Unfitted, About's next page stood on a phone at the
+        /// menus' size, taller than the screen, with Back under its bottom edge.
         /// </para>
         /// </summary>
         internal void RebuildPage(MenuPage page, Func<Widget> keepFocusOn)
