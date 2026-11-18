@@ -1118,6 +1118,12 @@ namespace BS3D
         private bool _touchPinned;
 
         /// <summary>
+        /// Whether the <c>touch</c> argument pins the hand to the screen (testing only): the phone's hand on a monitor, so
+        /// what only a phone tells a finger (the note's tap-to-type line, #1149) is laid out where it can be photographed.
+        /// </summary>
+        internal bool TouchPinned => _touchPinned;
+
+        /// <summary>
         /// Whether there is a touch screen to play on: the panel the window reports, or the <c>touch</c> argument standing
         /// in for one on a monitor, so the rows and the Help paragraph only a finger gets (<i>Touch sensitivity</i>, <i>Aim
         /// on the right</i>, Help's touch scheme) are laid out where they can be photographed without the phone (#1073).

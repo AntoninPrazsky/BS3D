@@ -860,15 +860,19 @@ namespace BS3D.Audio
                         ? null
                         : family.DrumLoads[variant] ??= Load(family.DrumFiles[variant]);
 
-                    //And the one after it starts decoding now, so the chapter's next level finds it ready (#486)
+                    if (!track.IsCompleted || drums?.IsCompleted == false) return;
+
+                    //And the one after it starts decoding once this one is decoded, so the chapter's next level finds it
+                    //ready (#486). After and not beside it (#1147): on a Raspberry Pi 5 each decode is a core's work for
+                    //one to two seconds, and four at once (this recording, its drums, the next and its drums) took every
+                    //core as the level opened. Alone, this one's two were ready 0.76-0.86 s after the level's build there
+                    //rather than 1.07-1.30 s, and the level's music with them; the next level is minutes away
                     if (_pinned < 0 && family.Files.Length > 1)
                     {
                         int following = (variant + 1) % family.Files.Length;
                         family.Loads[following] ??= Load(family.Files[following]);
                         if (family.DrumFiles[following] != null) family.DrumLoads[following] ??= Load(family.DrumFiles[following]);
                     }
-
-                    if (!track.IsCompleted || drums?.IsCompleted == false) return;
 
                     if (_pinned < 0) family.Next = (variant + 1) % family.Files.Length;
 
