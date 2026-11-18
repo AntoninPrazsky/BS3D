@@ -363,6 +363,12 @@ def main():
     total = build_timeline(segments)
     frames_total = int(round(total * fps))
 
+    # A card over the footage may name a segment ("segment:<name>", plus "offset" seconds): it follows that segment wherever the
+    # snapped cuts have put it
+    for card in edit.get("cards", []):
+        if isinstance(card.get("at"), str):
+            card["at"] = by_name[card["at"].split(":", 1)[1]]["_start"] + card.get("offset", 0.0)
+
     print("timeline %.3f s, %d frames at %d fps, %dx%d" % (total, frames_total, fps, width, height))
     for segment in segments:
         kind = "card" if "card" in segment else "clip"
@@ -373,10 +379,20 @@ def main():
     if arguments.dry:
         return
 
-    # Film what is missing. A clip is filmed for as long as the cut needs it and half a second more, unless the edit says
+    # Film what is missing, and only what the cut uses: the frames are written from a quarter of a second before the clip's "in"
+    # (the capture's world does not depend on where its window starts: frames before it are drawn and not written), for the
+    # clip's length and half a second more. At 4K a frame is 6-9 MB, so filming each play clip from its "from" would write some
+    # 90 GB for a minute's trailer
+    lead = 0.25
     for segment in segments:
-        if "capture" in segment and "seconds" not in segment["capture"]:
-            segment["capture"]["seconds"] = round(segment.get("in", 0.0) + segment["length"] + 0.5, 2)
+        if "capture" in segment:
+            capture = segment["capture"]
+            start = segment.get("in", 0.0)
+            skip = max(0.0, start - lead)
+            capture["from"] = round(capture.get("from", 0.0) + skip, 4)
+            segment["_in"] = start - skip
+            if "seconds" not in capture:
+                capture["seconds"] = round(segment["_in"] + segment["length"] + 0.5, 2)
     built = False
     footage = {}
     for segment in segments:
@@ -384,7 +400,7 @@ def main():
             folder, built = film(segment, edit, size_text, built, arguments.refilm)
             footage[segment["name"]] = Footage(folder, (width, height))
             clip = footage[segment["name"]]
-            need = (segment.get("in", 0.0) + segment["length"]) * clip.fps
+            need = (segment["_in"] + segment["length"]) * clip.fps
             if clip.count < need - 1:
                 sys.exit("%s has %d frames, the cut needs %d: film more seconds" % (segment["name"], clip.count, need))
 
@@ -397,7 +413,7 @@ def main():
         sound = footage[segment["name"]].sound()
         if sound is None:
             continue
-        a = int(round(segment.get("in", 0.0) * RATE))
+        a = int(round(segment["_in"] * RATE))
         n = int(round(segment["length"] * RATE))
         piece = sound[a:a + n].copy()
         gain = 10 ** (segment["sound"] / 20.0)
@@ -518,7 +534,7 @@ def main():
             local = t - start
             if "capture" in segment:
                 clip = footage[segment["name"]]
-                picture = clip.frame(int(round((segment.get("in", 0.0) + local) * clip.fps)))
+                picture = clip.frame(int(round((segment["_in"] + local) * clip.fps)))
             else:
                 picture = np.zeros((height, width, 3), dtype=np.float32)
                 for kind, layer, y in prepared[segment["name"]]:
