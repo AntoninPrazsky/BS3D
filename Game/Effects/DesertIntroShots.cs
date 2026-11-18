@@ -64,11 +64,12 @@ namespace BS3D.Effects
         private const float CREST_PITCH_DAMPING = 0.6f;
         private const float CREST_SECONDS = 3.4f;
 
-        //The scorpion (#966), where no scorpion home is clear: a low lens this far from the burrow and this high over the sand,
-        //the burrow somewhere in the clearing at a radius between these, the lens easing in this much over the shot; the
-        //scorpion comes up this long into it, walks across the frame with the look on it, and the shot holds it through its
-        //walk and SCORPION_AFTER more (#1110: it cut away mid-step)
-        internal const float SCORPION_STAND = 3.4f, SCORPION_CLEARANCE = 0.85f, SCORPION_PUSH = 0.7f;
+        //The scorpion (#966), where no scorpion home is clear: a low lens as far from the burrow and as high over the sand as
+        //the scorpion home's close view stands (one copy of the figures, DesertLanding.STAND and LENS_ABOVE), the burrow
+        //somewhere in the clearing at a radius between these, the lens easing in this much over the shot; the scorpion comes
+        //up this long into it, walks across the frame with the look on it, and the shot holds it through its walk and
+        //SCORPION_AFTER more (#1110: it cut away mid-step)
+        internal const float SCORPION_STAND = DesertLanding.STAND, SCORPION_CLEARANCE = DesertLanding.LENS_ABOVE, SCORPION_PUSH = 0.7f;
         private const float SCORPION_INNER = 42f, SCORPION_OUTER = 70f;
         internal const float SCORPION_ONSET = 0.4f;
         private const float SCORPION_AFTER = 0.3f;
@@ -79,12 +80,15 @@ namespace BS3D.Effects
         //the dig done as the shot cuts (SceneRenderer.DesertFeatureWalkEnds and DesertFeatureSeconds say when: its life ends on
         //the shot's last moment, which the re-cue every frame keeps it to, so neither it, its hole nor its prints go early).
         //Somewhere on the clearing's flat sand between BEETLE_INNER and BEETLE_OUTER, walking round the island; the lens on the
-        //island's side of it, so it
-        //looks out at the dunes, BEETLE_SIDE off its line and BEETLE_AHEAD ahead along it, BEETLE_LENS_ABOVE over the sand,
-        //dollying with its pace smoothed over BEETLE_SMOOTH either side; the look BEETLE_LOOK_ABOVE over its foot, so it walks
-        //in the lower third with the far dunes along the top edge; BEETLE_LENS of the game's lens. From 0.9 over the sand the
-        //lens looks down on it at about the twenty degrees the references do, so its trail lies open behind it.
-        internal const float BEETLE_SIDE = 2.2f, BEETLE_AHEAD = 0.5f, BEETLE_LENS_ABOVE = 0.9f, BEETLE_LOOK_ABOVE = 0.35f;
+        //island's side of it, so it looks out at the dunes, BEETLE_SIDE off its line and BEETLE_AHEAD ahead along it,
+        //BEETLE_LENS_ABOVE over the sand, dollying with its pace smoothed over BEETLE_SMOOTH either side; the look
+        //BEETLE_LOOK_ABOVE over its foot, so it walks in the lower third with the far dunes along the top edge; BEETLE_LENS of
+        //the game's lens. The lens looks down on it at about the twenty degrees the references do, so its trail lies open
+        //behind it, and stands back far enough that the beetle fills about a sixth of a 16:9 frame's width (#1158, the owner:
+        //"they are small beetles and the burrowing animation does not look very realistic, so let it be seen less"; 2.2 off its
+        //line it filled a quarter). The three lens figures are one stand moved back along the line of sight to the look, so the
+        //view's direction is the nearer stand's and only the beetle's size in the frame differs.
+        internal const float BEETLE_SIDE = 3.5f, BEETLE_AHEAD = 0.8f, BEETLE_LENS_ABOVE = 1.23f, BEETLE_LOOK_ABOVE = 0.35f;
         private const float BEETLE_INNER = 40f, BEETLE_OUTER = 68f;
         internal const float BEETLE_WALKED = 1.2f, BEETLE_SECONDS = 3.6f, BEETLE_LENS = 0.7f;
         private const float BEETLE_SMOOTH = 0.6f;

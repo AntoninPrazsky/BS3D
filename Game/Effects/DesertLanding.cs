@@ -44,8 +44,10 @@ namespace BS3D.Effects
         internal const string NAME = "the scorpion home";
 
         /// <summary>The close view (#966's scorpion shot): the lens this far off the middle of the scorpion's walk, this high over
-        /// the sand, the look this high over its foot.</summary>
-        internal const float STAND = 3.4f, LENS_ABOVE = 0.85f, LOOK_ABOVE = 0.25f;
+        /// the sand, the look this high over its foot. Far enough back that the scorpion fills about a sixth of a 16:9 frame's
+        /// width (#1158, the owner: let its coming up and digging in be seen less; 3.4 off, 0.85 over the sand, it filled a
+        /// quarter): that stand moved back along the line of sight to the look, so the view's direction is the same.</summary>
+        internal const float STAND = 5.44f, LENS_ABOVE = 1.21f, LOOK_ABOVE = 0.25f;
 
         /// <summary>How long into the shot the scorpion comes up, on the shot's own seconds.</summary>
         internal const float ONSET = 0.4f;

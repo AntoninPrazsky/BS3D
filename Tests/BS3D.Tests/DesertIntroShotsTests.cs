@@ -215,6 +215,69 @@ namespace BS3D.Tests
         }
 
         /// <summary>
+        /// The close shots stand back (#1158, the owner: "in the close-ups of the beetle and the scorpion the camera should be
+        /// somewhat farther away. They are small beetles and the burrowing/emerging animation does not look very realistic, so
+        /// let it be seen less"): through its walk across the frame each creature's length (<see cref="DesertCritters"/>' size along its
+        /// heading) spans <see cref="CREATURE_SHARE_MIN"/> to <see cref="CREATURE_SHARE_MAX"/> of a 16:9 frame's width at the
+        /// shot's own lens: the beetle in its shot, the scorpion in the scorpion home until it lifts off and in the scorpion shot
+        /// that stands in where no flight home is clear. From the nearer stands (2.2 off the beetle's line, 3.4 off the
+        /// scorpion's walk) the beetle spanned 0.23-0.24 and the scorpion 0.24-0.30.
+        /// </summary>
+        [Fact]
+        public void The_close_shots_stand_back_so_each_creature_spans_about_a_sixth_of_the_frame()
+        {
+            (float Least, float Most) beetle = (float.MaxValue, 0f), home = (float.MaxValue, 0f), scorpion = (float.MaxValue, 0f);
+            for (int seed = 1; seed <= ROLLS; seed++)
+            {
+                var cue = new Cue();
+                IntroShot shot = DesertIntroShots.Beetle(cue.Take, Desert, Ground, FieldOfView, new Random(seed));
+                shot.Track(0f);
+                Spans(ref beetle, shot, cue.At, cue.Yaw, cue.Onset, 0f, SceneRenderer.DesertFeatureWalkEnds(scorpion: false) + cue.Onset,
+                    DesertCritters.BEETLE_SIZE, scorpion: false);
+
+                IntroShot flight = DesertLanding.Build(Desert, null, GamePosition, GameTarget, FieldOfView, new Random(seed), out DesertLanding.Walk walk);
+                Spans(ref home, flight, walk.Start, walk.Yaw, DesertLanding.ONSET, DesertLanding.ONSET + SceneRenderer.DESERT_FEATURE_EMERGE_SECONDS,
+                    DesertLanding.Lift, DesertCritters.SCORPION_SIZE, scorpion: true);
+
+                cue = new Cue();
+                shot = DesertIntroShots.Scorpion(cue.Take, Desert, Ground, FieldOfView, new Random(seed));
+                shot.Track(0f);
+                Spans(ref scorpion, shot, cue.At, cue.Yaw, cue.Onset, DesertIntroShots.SCORPION_ONSET + SceneRenderer.DESERT_FEATURE_EMERGE_SECONDS,
+                    DesertIntroShots.SCORPION_ONSET + SceneRenderer.DesertFeatureWalkEnds(), DesertCritters.SCORPION_SIZE, scorpion: true);
+            }
+
+            _output.WriteLine(FormattableString.Invariant(
+                $"of a 16:9 frame's width: the beetle {beetle.Least:F2}-{beetle.Most:F2}, the scorpion home's {home.Least:F2}-{home.Most:F2}, the scorpion shot's {scorpion.Least:F2}-{scorpion.Most:F2}"));
+            foreach ((string what, (float least, float most)) in new[] { ("the beetle", beetle), ("the scorpion home's scorpion", home), ("the scorpion", scorpion) })
+            {
+                Assert.True(most <= CREATURE_SHARE_MAX, $"{what} spans up to {most:F2} of the frame's width");
+                Assert.True(least >= CREATURE_SHARE_MIN, $"{what} spans as little as {least:F2} of the frame's width");
+            }
+        }
+
+        //A creature's length as a share of a 16:9 frame's width, at most and at least (small but readable, the owner's "somewhat
+        //farther")
+        private const float CREATURE_SHARE_MIN = 0.11f, CREATURE_SHARE_MAX = 0.2f;
+
+        //The least and the most of the frame's width the creature cued at `at` along `yaw` (its onset `onset` seconds from the
+        //shot's first frame) spans from `from` to `to` seconds into the shot, its length laid along its heading over its foot
+        private static void Spans(ref (float Least, float Most) span, IntroShot shot, Vector2 at, float yaw, float onset, float from, float to,
+            float length, bool scorpion)
+        {
+            var heading = new Vector3(MathF.Sin(yaw), 0f, MathF.Cos(yaw));
+            for (float seconds = from; seconds <= to; seconds += 0.05f)
+            {
+                float t = seconds / shot.Seconds;
+                shot.Pose(t, out Vector3 lens, out Vector3 look);
+                Vector3 foot = SceneRenderer.DesertFeatureAt(at, yaw, seconds - onset, Desert, scorpion);
+                Vector2 nose = DesertLandingTests.Screen(lens, look, foot + heading * (length * 0.5f), shot.FieldOfViewAt(t), 16f / 9f);
+                Vector2 tail = DesertLandingTests.Screen(lens, look, foot - heading * (length * 0.5f), shot.FieldOfViewAt(t), 16f / 9f);
+                float share = MathF.Abs(nose.X - tail.X) * 0.5f;
+                span = (MathF.Min(span.Least, share), MathF.Max(span.Most, share));
+            }
+        }
+
+        /// <summary>
         /// The looks that follow a creature turn like a drone's gimbal, never by a step (#1110): the view's turn, yaw and pitch
         /// together, changes its rate at most <see cref="GIMBAL_TURN"/> through the beetle and the scorpion shots and in the
         /// scorpion home until its look lets go of the scorpion (a lens all but standing, every turn of the view is the
