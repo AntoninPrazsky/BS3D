@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-18 — #1179 záznam natočí 2D logo a nahraje zvuk hry — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: `capturesplash` (úvod se nepřeskočí, `play` počká, až zmizí; logo 0,1–3,2 s, pak přechod do 3D nápisu) a `captureaudio`: každé přehrání třídy Play/Event/Crowd zapíše `CaptureSounds` (přes `VoiceBudget`, `ToSoundEffect`, `VoiceRing`, `Speak`) na hodinách záznamu, `SoundMix` po konci smíchá `audio.wav` (48 kHz float, délka = snímky). Hardware umlčen `SoundEffect.MasterVolume`, ne `mute`. `web-capture.ps1 -Splash -Audio`, master s AAC.
+- majitel (#1178): skriptovaný střih, dvě skladby s jedním zlomem (vybráno: nebula-shoegaze → nebula-trance), 2D logo, zvuk hry pod hudbou, titulky Anton, na konci adresa webu.
+- ⚠ `play` při startu sundá úvod v prvním updatu; MusicBake kompiluje `VoiceBudget`, takže potřebuje i `Game/Capture/CaptureSounds.cs` a `SoundMix.cs`.
+- Otevřené: stereo je jen přiblížení X3DAudio; #1180 (nástroj na střih).
+
 ## 2026-11-18 — #1177 záznam ve 4K nezávisle na monitoru, s HUD, bez zrna — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: `capturesize=<w>x<h>` (back buffer ve velikosti snímků přes `PreparingDeviceSettings`, okno drženo jako náhled přes `MaximumSize`), `capturehud`, `nograin` (jako `mute`, nezapisuje se). `web-capture.ps1` má `-Size -Quality -Hud -NoGrain -Master`; encoder píše 4K60 master (H.264 crf 16). Tightrope 20 s: hra 1200 snímků 4K za 29 s, kódování ~200 s, master 68 MB.

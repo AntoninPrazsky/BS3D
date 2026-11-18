@@ -262,6 +262,7 @@
     <Compile Include="..\..\Game\Capture\CapturePlan.cs" />
     <Compile Include="..\..\Game\Capture\CaptureCamera.cs" />
     <Compile Include="..\..\Game\Capture\CaptureSize.cs" />
+    <Compile Include="..\..\Game\Capture\SoundMix.cs" />
     <Compile Include="..\..\Game\Capture\PngEncoder.cs" />
     <Compile Include="..\..\Game\Capture\CaptureWriter.cs" />
   </ItemGroup>

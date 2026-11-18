@@ -475,6 +475,14 @@ namespace BS3D
         //it leaves out otherwise. The trailer's footage is the game as a player sees it
         internal bool CaptureHud { get; private set; }
 
+        //"capturesplash" (#1179): the capture films the game's 2D logo (the splash) before anything else, which it otherwise
+        //skips: the trailer opens on it
+        internal bool CaptureSplash { get; private set; }
+
+        //"captureaudio" (#1179): the capture records the game's own sound on its clock and mixes it into audio.wav beside the
+        //frames (Capture.CaptureSounds); the hardware is silenced instead of the master, so what is recorded is what plays
+        internal bool CaptureAudio { get; private set; }
+
         #endregion
 
         /// <summary>
@@ -508,9 +516,11 @@ namespace BS3D
         /// </summary>
         private void ImplyCapture()
         {
-            Mute = true;
+            //A capture recording its sound (#1179) is silenced at the hardware instead (SoundEffect.MasterVolume, BS3DGame.BeginCapture):
+            //the master at zero would hand the recorder every volume at zero
+            Mute = !CaptureAudio;
             NoFpsOverlay = true;
-            NoSplash = true;
+            NoSplash = !CaptureSplash;
             NoFocusPause = true;
             Fullscreen ??= false;
             TenBit ??= false;
@@ -912,6 +922,9 @@ namespace BS3D
             //"capturesize=3840x2160" films at that size whatever the window is (#1177); "capturehud" keeps the HUD of play in the picture
             Row.Text("capturesize", (o, v) => o.CaptureSize = v),
             Row.Flag("capturehud", o => o.CaptureHud = true),
+            //"capturesplash" films the 2D logo first; "captureaudio" writes the game's own sound beside the frames (#1179)
+            Row.Flag("capturesplash", o => o.CaptureSplash = true),
+            Row.Flag("captureaudio", o => o.CaptureAudio = true),
         ];
 
         private static bool TryParseSkyDome(string text, out byte dome) =>

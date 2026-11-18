@@ -54,7 +54,13 @@ namespace BS3D.Audio
             Class = voiceClass;
             Name = name;
             _ring = new SoundEffectInstance[voices];
-            for (int i = 0; i < voices; i++) _ring[i] = effect.CreateInstance();
+            for (int i = 0; i < voices; i++)
+            {
+                _ring[i] = effect.CreateInstance();
+
+                //A capture recording its sound learns which buffer each instance plays (#1179)
+                if (Capture.CaptureSounds.Recording) Capture.CaptureSounds.RegisterInstance(_ring[i], effect);
+            }
         }
 
         /// <summary>

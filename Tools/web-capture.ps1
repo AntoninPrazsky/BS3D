@@ -67,6 +67,14 @@
     The film grain off for the run (the Game's nograin): a noise re-rolled in every pixel of every frame is what a video spends its
     bits on, and the trailer's footage is filmed without it.
 
+.PARAMETER Splash
+    Film the game's 2D logo (the splash, 3.15 s) before anything else (#1179): the trailer opens on it. The level follows after the
+    main menu, so a logo clip is -From 0 -Seconds 3.2.
+
+.PARAMETER Audio
+    Record the game's own sound on the capture's clock (#1179): audio.wav beside the frames, 48 kHz stereo float, exactly as long as
+    the frames, the music and the scene's bed left out. With -Master it is muxed into the master as AAC.
+
 .PARAMETER Master
     Encode <Name>-master.mp4 instead of the page's pair: H.264 at the frames' own size, crf 16, a key every half second, for cutting a
     trailer and uploading it (YouTube, itch.io); 29 to 54 Mb/s at 4K60, measured, the busier the scene the more. With -VideoWidth as
@@ -136,6 +144,8 @@ param(
     [ValidateSet('Low', 'Medium', 'High', 'Ultra')][string]$Quality = 'High',
     [switch]$Hud,
     [switch]$NoGrain,
+    [switch]$Splash,
+    [switch]$Audio,
     [switch]$Master,
     [int]$VideoWidth = 0,
     [object]$CamPos = $null,
@@ -247,6 +257,8 @@ if ($Width -gt 0 -and $Height -gt 0) { $arguments += "width=$Width", "height=$He
 if ($Size) { $arguments += "capturesize=$Size" }
 if ($Hud) { $arguments += 'capturehud' }
 if ($NoGrain) { $arguments += 'nograin' }
+if ($Splash) { $arguments += 'capturesplash' }
+if ($Audio) { $arguments += 'captureaudio' }
 if ($CamPos -or $CamTarget) {
     if (-not ($CamPos -and $CamTarget)) { throw '-CamPos and -CamTarget go together' }
     $arguments += "campos=$CamPos", "camtarget=$CamTarget"
@@ -362,7 +374,10 @@ if ($NoEncode) { return }
 New-Item -ItemType Directory -Force $OutDir | Out-Null
 $encoderArguments = @('-I', (Join-Path $PSScriptRoot 'web-capture-encode.py'), '--frames', $frames, '--fps', $manifest.fps, '--out', (Join-Path $OutDir $Name))
 if ($still) { $encoderArguments += '--still' } else { $encoderArguments += @('--poster-frame', $PosterFrame, '--video-width', $VideoWidth) }
-if ($Master -and -not $still) { $encoderArguments += '--master' }
+if ($Master -and -not $still) {
+    $encoderArguments += '--master'
+    if ($manifest.audio) { $encoderArguments += @('--audio', (Join-Path $frames $manifest.audio)) }
+}
 & $Python @encoderArguments
 if ($LASTEXITCODE -ne 0) { throw "The encoder failed (exit $LASTEXITCODE)" }
 

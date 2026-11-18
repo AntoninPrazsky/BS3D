@@ -1269,7 +1269,7 @@ namespace BS3D
         /// Whether this boot opens on the splash (#621): the player's row, unless the run said <c>nosplash</c>.
         /// Asked once, by <see cref="BuildMenu"/>; a click on the row afterwards is for the next launch.
         /// </summary>
-        private bool ShowsSplash => _effective.IntroLogo && !_noSplash;
+        private bool ShowsSplash => (_effective.IntroLogo || CaptureFilmsSplash) && !_noSplash;
         internal SceneKind Scene => _scene;
 
         //DropCinematic's own submerge pull (#193) reads this once at Begin rather than holding a

@@ -31,10 +31,27 @@ namespace BS3D
                 if (_capture.Size is Point frames && (launch.WindowWidth <= 0 || launch.WindowHeight <= 0))
                     _windowedSize = CaptureSize.Preview(frames, CaptureSize.PREVIEW_BOX);
 
+                //The game's own sound, recorded on the capture's clock (#1179): before LoadContent makes a single buffer. The run is not
+                //muted then (LaunchOptions.ImplyCapture), so the recorded volumes are the real ones, and the hardware is silenced
+                //instead: a capture is a run nobody is listening to
+                if (launch.CaptureAudio)
+                {
+                    CaptureSounds.Start();
+                    try
+                    {
+                        Microsoft.Xna.Framework.Audio.SoundEffect.MasterVolume = 0f;
+                    }
+                    catch (Exception exception) when (exception is not OutOfMemoryException)
+                    {
+                        Console.WriteLine($"[capture] the hardware's master volume could not be set to zero ({exception.GetType().Name}): the run may be heard");
+                    }
+                }
+
                 //The first frame the run films, and the two things a script against it needs: the clock and the step
                 string lens = _capture.Lens == null ? "the play camera" : $"a stated lens of {_capture.Lens.KeyCount} key(s)";
                 string action = _capture.Demo ? ", the benchmark's action" : string.Empty;
-                string hud = _capture.ShowHud ? ", the HUD of play" : string.Empty;
+                string hud = (_capture.ShowHud ? ", the HUD of play" : string.Empty) + (_capture.Splash ? ", the 2D logo first" : string.Empty)
+                    + (launch.CaptureAudio ? ", the game's sound recorded" : string.Empty);
                 string size = _capture.Size is Point film ? $", frames of {film.X}x{film.Y} shown in a {_windowedSize.X}x{_windowedSize.Y} window" : string.Empty;
                 Console.WriteLine(string.Create(System.Globalization.CultureInfo.InvariantCulture,
                     $"[capture] {_capture.Plan.Fps} frames a second of game time (a step of {_capture.Plan.StepSeconds * 1000f:0.###} ms), {_capture.Plan.FrameCount} frame(s) from frame {_capture.Plan.FirstUpdate}, {lens}{action}{hud}{size}"));
@@ -42,8 +59,9 @@ namespace BS3D
             }
 
             if (launch.CamPos.HasValue || launch.CamTarget.HasValue || launch.CamFov.HasValue || launch.CamPath != null
-                || launch.CaptureShake || launch.CaptureAim || launch.CaptureDemo || launch.CaptureHud || launch.CaptureSize != null)
-                Console.WriteLine("[capture] campos=, camtarget=, fov=, campath=, captureshake, captureaim, capturedemo, capturehud and capturesize= only mean something with capture=<folder>: ignored");
+                || launch.CaptureShake || launch.CaptureAim || launch.CaptureDemo || launch.CaptureHud || launch.CaptureSize != null
+                || launch.CaptureSplash || launch.CaptureAudio)
+                Console.WriteLine("[capture] campos=, camtarget=, fov=, campath=, captureshake, captureaim, capturedemo, capturehud, capturesize=, capturesplash and captureaudio only mean something with capture=<folder>: ignored");
         }
 
         /// <summary>
@@ -72,6 +90,9 @@ namespace BS3D
         /// (#1177). The skip hint of a tour stays out of every capture whatever this says: nobody can skip a clip.
         /// </summary>
         internal bool CaptureHidesHud => _capture is { ShowHud: false };
+
+        /// <summary>Whether this run is a capture that films the 2D logo first (<c>capturesplash</c>, #1179), whatever the Intro logo row says.</summary>
+        internal bool CaptureFilmsSplash => _capture is { Splash: true };
 
         /// <summary>
         /// Whether this run is a capture (#946). The session draws no HUD or crosshair under it unless it asks for them
@@ -127,6 +148,9 @@ namespace BS3D
         /// </summary>
         private void ServiceCapture()
         {
+            //The sounding voices' volumes, pitches and stops, once a frame on the capture's clock (#1179)
+            if (CaptureSounds.Recording) CaptureSounds.Poll();
+
             if (_capture.Filming && _screens.Active is Screens.MenuPage page && !ReferenceEquals(page, _capturePageReported))
             {
                 _capturePageReported = page;
@@ -135,10 +159,14 @@ namespace BS3D
             }
 
             //Once, on the first frame written: what the frames are drawn from, which no other line of a capture says (#1177). An
-            //8K-into-4K film is the Ultra tier's supersample of 2 under capturesize=3840x2160, and this is where that is seen to hold
-            if (_capture.Updates == _capture.Plan.FirstUpdate && _pipeline?.SceneTarget is { } scene)
+            //8K-into-4K film is the Ultra tier's supersample of 2 under capturesize=3840x2160, and this is where that is seen to hold.
+            //Not on the window's first UPDATE: a window from game time 0 begins with the second, the first is never drawn
+            if (!_captureSceneReported && _capture.Updates >= _capture.Plan.FirstUpdate && _pipeline?.SceneTarget is { } scene)
+            {
+                _captureSceneReported = true;
                 Console.WriteLine($"[capture] the scene is drawn at {scene.Width}x{scene.Height} (the {_quality} tier, supersample {_supersampleFactor}x, "
                     + $"{(scene.MultiSampleCount > 1 ? $"MSAA {scene.MultiSampleCount}x" : "no MSAA")}) and filtered down to the frames, film grain {(_effective.Grain ? "on" : "off")}");
+            }
 
             if (!_capture.EndFrame(GraphicsDevice, _scene)) return;
 
@@ -148,5 +176,6 @@ namespace BS3D
         }
 
         private object _capturePageReported;
+        private bool _captureSceneReported;
     }
 }

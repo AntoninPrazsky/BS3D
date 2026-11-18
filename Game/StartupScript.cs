@@ -321,7 +321,8 @@ namespace BS3D
             //player's click takes. The pop to the backdrop takes the splash off with it — the splash is drawn
             //for the one frame this costs, exactly as a very fast click would leave it, and being off the stack
             //it never asks for its hand-over to the menu (see _play for why this is no longer order-bound).
-            if (_play)
+            //A capture filming the 2D logo (capturesplash, #1179) lets it play out first: the trailer opens on it
+            if (_play && !(game.CaptureFilmsSplash && game.IsSplashUp))
             {
                 _play = false;
 
