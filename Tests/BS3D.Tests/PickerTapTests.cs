@@ -13,6 +13,8 @@ namespace BS3D.Tests
         [Theory]
         [InlineData(false, false)]
         [InlineData(false, true)]
+        [InlineData(true, false)]
+        [InlineData(true, true)]
         public void Without_the_panel_every_press_starts_the_level(bool finger, bool selectedAlready)
         {
             //A monitor's page has no panel for a first tap to fill: a finger on a touch laptop starts the level too
@@ -70,5 +72,29 @@ namespace BS3D.Tests
         [InlineData(0, 9, 140, 0)]
         public void A_chapter_put_up_offers_its_frontier_or_its_first_level(int first, int last, int frontier, int expected) =>
             Assert.Equal(expected, PickerTap.DefaultSelection(first, last, frontier));
+
+        [Theory]
+        //Chosen on the chapter and still open: kept, whatever the frontier - back from its board, the panel still speaks for it
+        [InlineData(14, true, true, 14)]
+        [InlineData(10, true, true, 10)]
+        [InlineData(19, true, true, 19)]
+        //A locked level chosen to read its lock, still locked: kept
+        [InlineData(18, false, false, 18)]
+        //A locked one opened since (a level cleared elsewhere): kept, and open now
+        [InlineData(18, false, true, 18)]
+        //Open when chosen and locked since (a progress reset, unlock-all turned off): the frontier
+        [InlineData(14, true, false, 17)]
+        //On another chapter (a turn) or nothing chosen: the frontier
+        [InlineData(9, true, true, 17)]
+        [InlineData(20, true, true, 17)]
+        [InlineData(-1, false, false, 17)]
+        public void A_choice_on_the_chapter_survives_the_page_being_shown_again(int selected, bool wasOpen, bool isOpen,
+            int expected) =>
+            Assert.Equal(expected, PickerTap.SelectionOnShow(10, 19, 17, selected, wasOpen, isOpen));
+
+        [Fact]
+        public void With_no_choice_on_the_chapter_it_offers_what_a_chapter_put_up_offers() =>
+            //The frontier on another chapter: the chapter's first level, as DefaultSelection says
+            Assert.Equal(PickerTap.DefaultSelection(10, 19, 40), PickerTap.SelectionOnShow(10, 19, 40, 3, true, true));
     }
 }

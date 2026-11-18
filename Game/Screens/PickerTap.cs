@@ -39,9 +39,9 @@ namespace BS3D.Screens
         internal static bool HoverSelects(bool finger) => !finger;
 
         /// <summary>
-        /// Which level the panel speaks for when a chapter is put up and nothing has been chosen on it: the campaign's
-        /// frontier when it is in that chapter (the level the player is most likely about to play, so a single tap on it
-        /// or on Play starts it), otherwise the chapter's first level.
+        /// Which level the panel speaks for when a chapter is put up and nothing on it is chosen
+        /// (<see cref="SelectionOnShow"/>): the campaign's frontier when it is in that chapter (the level the player is most
+        /// likely about to play, so a single tap on it or on Play starts it), otherwise the chapter's first level.
         /// </summary>
         /// <param name="first">The chapter's first level.</param>
         /// <param name="last">The chapter's last level, inclusive.</param>
@@ -49,5 +49,25 @@ namespace BS3D.Screens
         /// level is behind them.</param>
         internal static int DefaultSelection(int first, int last, int frontier) =>
             frontier >= first && frontier <= last ? frontier : first;
+
+        /// <summary>
+        /// Which level the panel speaks for whenever the page writes a chapter: on every showing of the page (back from the
+        /// level's board, from Settings, from a level played) and on a turn. The level chosen before stays chosen while it
+        /// is on the chapter written and has not been locked since it was chosen (a progress reset, the unlock-all switch
+        /// turned off); a locked level chosen to read its lock stays too. Otherwise, a turn to another chapter included,
+        /// <see cref="DefaultSelection"/>. So the panel, the marked tile, Play and the Leaderboard button never move off a
+        /// level the player picked because a page was put over the picker and taken off again.
+        /// </summary>
+        /// <param name="first">The chapter's first level.</param>
+        /// <param name="last">The chapter's last level, inclusive.</param>
+        /// <param name="frontier">As <see cref="DefaultSelection"/> takes it.</param>
+        /// <param name="selected">The level chosen before, or -1 for none.</param>
+        /// <param name="selectedWasOpen">Whether it was open when it was chosen.</param>
+        /// <param name="selectedIsOpen">Whether it is open now.</param>
+        internal static int SelectionOnShow(int first, int last, int frontier, int selected, bool selectedWasOpen,
+            bool selectedIsOpen) =>
+            selected >= first && selected <= last && (selectedIsOpen || !selectedWasOpen)
+                ? selected
+                : DefaultSelection(first, last, frontier);
     }
 }

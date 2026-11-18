@@ -14,7 +14,9 @@ namespace BS3D.Screens
     /// What Play opens: the level set's entries in <b>play order</b>, as a grid of tiles rather than a
     /// scrolling list (#91). A tile carries the number, the name and the player's stars (or the lock); what
     /// does <b>not</b> fit a tile — the entry's rules, a lock's arithmetic — moves to the one detail line
-    /// under the grid, spoken for whichever tile the pointer or the focus cursor stands on.
+    /// under the grid, spoken for whichever tile the pointer or the focus cursor stands on. On the phone's layout (#1152) a
+    /// side panel beside the grid takes the detail line's place and that of the boards plate, spoken for the selected tile,
+    /// with the Play button a finger's first tap leaves the level to.
     /// <para>
     /// <b>One chapter to a page since #273, paged left and right</b>, where it used to be the whole campaign
     /// in one vertically scrolled grid. Ninety levels (#255) is over twenty rows of tiles behind one
@@ -173,18 +175,22 @@ namespace BS3D.Screens
 
         //THE PHONE'S LAYOUT (#1152): on a screen that draws the interface larger (BS3DGame.UiScale > 1, a phone held close),
         //the level the finger chose stands in a side panel right of the band - its name, its stars and best, its rules or
-        //its lock, the player's places on its boards, and a Play button - and a finger's first tap on a tile selects it
-        //(PickerTap) rather than starting it, so a level's rules and boards are seen before it starts. The phone is wide
-        //(2.2:1 on the X300 Ultra) and the band left both sides empty (the owner, 2026-11-18: "use the space at the sides
-        //rather than scrolling"). A monitor keeps the page as it was: no panel, the detail line, the click that plays.
+        //its lock, its boards' #1s and the player's places on them, and a Play button - and a finger's first tap on a tile
+        //selects it (PickerTap) rather than starting it, so a level's rules and boards are seen before it starts. The phone
+        //is wide (2.2:1 on the X300 Ultra) and the band left both sides empty (the owner, 2026-11-18: "use the space at the
+        //sides rather than scrolling"). A monitor keeps the page as it was: no panel, the detail line, the click that plays.
         //
-        //The panel's content width, in design units: the level's name in the heading face and the boards' places beside
-        //their names, with the band beside it inside FIT_ROOM of a 2.2:1 screen (89 % of the X300 Ultra's width, measured)
+        //The panel's content width, in design units: the level's name in the heading face and the boards' lines beside their
+        //names, with the band beside it inside FIT_ROOM of a 2.2:1 screen (89 % of the X300 Ultra's width, measured)
         private const int PANEL_WIDTH = 960;
 
         //Between the band and the panel, and between the panel's lines, in design units
         private const int PANEL_GAP = 48;
         private const int PANEL_LINE_GAP = 14;
+
+        //Between the panel's two boards, and under them to the status row: more than between a board's own two lines, so
+        //each reads as a pair under its name
+        private const int PANEL_BOARD_GAP = 24;
 
         //The Play button's height, and on the panel's layout the footer's beside it (Back, the Leaderboard), in design units:
         //a finger's target of about 9 mm on the X300 Ultra (182 px at its 1.33x, 2.8 in over 1440 rows; 181 measured), where
@@ -322,10 +328,16 @@ namespace BS3D.Screens
         private Button _playButton;
         private Label _playLabel;
 
-        //The player's places on the selected level's two boards (online only): the month's and all time's, under their
-        //names, with the boards' status row beside the signal (the plate's own _boardsStatus and _boardsSignal)
+        //The selected level's two boards (online only): the month's and all time's, each the player's place over the board's
+        //#1 and their score, with the boards' status row beside the signal (the plate's own _boardsStatus and _boardsSignal)
         private Widget _panelPlaces;
-        private Label _panelMonth, _panelAllTime;
+        private PanelBoard _panelMonth, _panelAllTime;
+
+        /// <summary>One board's lines in the side panel (#1152): the player's place, the board's #1 and the #1's score.</summary>
+        private sealed class PanelBoard
+        {
+            public Label You, Leader, LeaderScore;
+        }
 
         //Play's Enabled followed the selection off or onto a locked level: the pad's walk collects enabled entries only,
         //so it is collected again on the next Update rather than from inside the host's highlight pass that selected it
@@ -466,7 +478,7 @@ namespace BS3D.Screens
 
             //The phone's layout (#1152): the band and the panel side by side, the pair centred and as tall as the taller,
             //so the two plates read as one piece of furniture and their buttons end on one row. No boards plate: the
-            //panel says the player's places, and the Leaderboard button opens the whole board.
+            //panel gives each board's #1 and the player's place on it, and the Leaderboard button opens the whole board.
             if (_panelMode)
             {
                 _boardsPlate = null;
@@ -593,8 +605,9 @@ namespace BS3D.Screens
 
         /// <summary>
         /// The side panel of the phone's layout: what a tile has no room for, for the level the finger chose — which level of
-        /// the set it is, its name, its stars and best, its rules (or what keeps it locked), the player's places on its boards
-        /// when online — and the Play button that starts it, at the foot, level with Back. Written by <see cref="WritePanel"/>.
+        /// the set it is, its name, its stars and best, its rules (or what keeps it locked), its boards' #1s and the player's
+        /// places on them when online — and the Play button that starts it, at the foot, level with Back. Written by
+        /// <see cref="WritePanel"/>.
         /// <para>
         /// A grid of three rows, the middle one taking whatever height the band beside it gives the pair, so Play stands at
         /// the plate's foot whichever level is shown and however many lines its rules or its lock take.
@@ -678,24 +691,23 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// The player's places on the selected level's two boards, under the boards' names, and the status row the boards
-        /// plate carries (loading, or the service not answering) with its signal.
+        /// The selected level's two boards, each under its name: the player's place on it and, under that, its #1 and their
+        /// score - the two figures the boards plate's rows give a player to measure a run against, where the panel has no
+        /// room for the plate's five rows of each (the whole board is the Leaderboard button's). Then the status row the
+        /// boards plate carries (loading, or the service not answering) with its signal.
         /// </summary>
         private Widget BuildPanelPlaces(int width)
         {
-            VerticalStackPanel places = new() { Spacing = Scaled(PANEL_LINE_GAP), Margin = ScaledThickness(0, PANEL_GAP, 0, 0) };
+            VerticalStackPanel places = new() { Spacing = Scaled(PANEL_BOARD_GAP), Margin = ScaledThickness(0, PANEL_GAP, 0, 0) };
 
-            Grid board = new() { ColumnSpacing = Scaled(PANEL_GAP), RowSpacing = Scaled(PANEL_LINE_GAP) };
-            board.ColumnsProportions.Add(new Proportion(ProportionType.Auto));
-            board.ColumnsProportions.Add(new Proportion(ProportionType.Fill));
-            board.RowsProportions.Add(new Proportion(ProportionType.Auto));
-            board.RowsProportions.Add(new Proportion(ProportionType.Auto));
+            //The boards' names in a column as wide as the wider of them, the lines beside them in what that leaves
+            int gap = Scaled(PANEL_GAP);
+            int names = (int)MathF.Ceiling(Math.Max(FontSmall.MeasureString(PickerCopy.PANEL_MONTH).X,
+                FontSmall.MeasureString(PickerCopy.PANEL_ALL_TIME).X));
+            int lines = width - names - gap;
 
-            _panelMonth = AddPanelPlace(board, 0, PickerCopy.PANEL_MONTH);
-            _panelAllTime = AddPanelPlace(board, 1, PickerCopy.PANEL_ALL_TIME);
-
-            places.Widgets.Add(new Label { Text = PickerCopy.PANEL_PLACES, Font = FontSmall, TextColor = BS3DGame.MENU_TEXT_DIM });
-            places.Widgets.Add(board);
+            _panelMonth = AddPanelBoard(places, PickerCopy.PANEL_MONTH, names, lines, gap);
+            _panelAllTime = AddPanelBoard(places, PickerCopy.PANEL_ALL_TIME, names, lines, gap);
 
             //The boards plate's status row (#683), as the plate builds it: it holds its line, and only the failure wraps
             int signalSize = FontSmall.LineHeight;
@@ -718,20 +730,60 @@ namespace BS3D.Screens
             return places;
         }
 
-        /// <summary>One board's row in the panel: its name dim on the left, the player's place in the boards' own "you" colour.</summary>
-        private Label AddPanelPlace(Grid board, int row, string name)
+        /// <summary>
+        /// One board in the panel: its name on the left, beside it the player's place in the boards' own "you" colour and
+        /// under that the board's #1 with their score flush right. Every line holds its height while it is empty, so the
+        /// panel does not move as the replies come in. A name too long for its line ends in an ellipsis rather than run
+        /// into the score (High Scores' cells, #1004).
+        /// </summary>
+        private PanelBoard AddPanelBoard(VerticalStackPanel places, string name, int names, int lines, int gap)
         {
-            Label caption = new() { Text = name, Font = FontSmall, TextColor = BS3DGame.MENU_TEXT_BODY };
-            Grid.SetRow(caption, row);
-            board.Widgets.Add(caption);
+            Grid board = new() { ColumnSpacing = gap, RowSpacing = Scaled(PANEL_LINE_GAP) };
+            board.ColumnsProportions.Add(new Proportion(ProportionType.Pixels, names));
+            board.ColumnsProportions.Add(new Proportion(ProportionType.Pixels, lines));
+            board.RowsProportions.Add(new Proportion(ProportionType.Auto));
+            board.RowsProportions.Add(new Proportion(ProportionType.Auto));
 
-            Label place = new() { Text = " ", Font = FontSmall, TextColor = BS3DGame.BoardYouColor };
-            Grid.SetRow(place, row);
-            Grid.SetColumn(place, 1);
-            board.Widgets.Add(place);
+            board.Widgets.Add(new Label { Text = name, Font = FontSmall, TextColor = BS3DGame.MENU_TEXT_BODY });
 
-            return place;
+            PanelBoard panel = new()
+            {
+                You = PanelBoardLine(BS3DGame.BoardYouColor, HorizontalAlignment.Stretch),
+                Leader = PanelBoardLine(BS3DGame.MENU_TEXT_BODY, HorizontalAlignment.Stretch),
+                LeaderScore = PanelBoardLine(BS3DGame.MENU_TEXT_BODY, HorizontalAlignment.Right),
+            };
+
+            panel.You.Width = lines;
+            Grid.SetColumn(panel.You, 1);
+            board.Widgets.Add(panel.You);
+
+            Grid leader = new() { Width = lines, ColumnSpacing = gap };
+            leader.ColumnsProportions.Add(new Proportion(ProportionType.Fill));
+            leader.ColumnsProportions.Add(new Proportion(ProportionType.Auto));
+            leader.RowsProportions.Add(new Proportion(ProportionType.Auto));
+            leader.Widgets.Add(panel.Leader);
+            Grid.SetColumn(panel.LeaderScore, 1);
+            leader.Widgets.Add(panel.LeaderScore);
+            Grid.SetRow(leader, 1);
+            Grid.SetColumn(leader, 1);
+            board.Widgets.Add(leader);
+
+            places.Widgets.Add(board);
+            return panel;
         }
+
+        /// <summary>A line of a board in the panel: one that fills its cell ends in an ellipsis where it would not fit.</summary>
+        private Label PanelBoardLine(Color color, HorizontalAlignment alignment) => new()
+        {
+            Text = " ",
+            Font = FontSmall,
+            TextColor = color,
+            HorizontalAlignment = alignment,
+            AutoEllipsisMethod = alignment == HorizontalAlignment.Stretch
+                ? FontStashSharp.RichText.AutoEllipsisMethod.Character
+                : FontStashSharp.RichText.AutoEllipsisMethod.None,
+            AutoEllipsisString = "…",
+        };
 
         /// <summary>
         /// What the panel speaks for: the level, whether it is open, the backdrop's preview and the Leaderboard's level with
@@ -770,14 +822,17 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// The level the panel speaks for when a chapter is put up (<see cref="PickerTap.DefaultSelection"/>): the frontier if
-        /// it is on it, otherwise its first level.
+        /// The level the panel speaks for when the levels <paramref name="first"/> to <paramref name="last"/> are written
+        /// (<see cref="PickerTap.SelectionOnShow"/>): on every showing of the page and on a chapter turn. The one chosen
+        /// before, while it is on them and has not been locked since; otherwise the frontier if it is on them, else the first.
+        /// Set again even when it is kept, so its lock, Play and the Leaderboard button are read afresh.
         /// </summary>
-        private void SelectDefault(int first, int last)
+        private void SelectOnShow(int first, int last)
         {
             if (!_panelMode) return;
 
-            SetSelection(PickerTap.DefaultSelection(first, last, Game.FirstUnfinishedLevel));
+            bool isOpen = _selected >= 0 && _selected < Game.LevelCount && Game.IsLevelUnlocked(_selected);
+            SetSelection(PickerTap.SelectionOnShow(first, last, Game.FirstUnfinishedLevel, _selected, _selectedUnlocked, isOpen));
         }
 
         /// <summary>
@@ -837,15 +892,24 @@ namespace BS3D.Screens
 
         /// <summary>
         /// Paints the marked tile inverted, the pointer's and the cursor's brushes included, and gives the one marked before
-        /// it back its rest. After the host's highlight pass, which lights the focused entry a step up the grey ramp: on the
-        /// panel's layout the cursor's tile IS the marked one, and grey under the marked tile's dark type would not read.
+        /// it back what the host's highlight pass gives an entry. After that pass, which lights the focused entry a step up
+        /// the grey ramp: on the panel's layout the cursor's tile IS the marked one, and grey under the marked tile's dark
+        /// type would not read.
         /// </summary>
         private void PaintMark(int previous)
         {
             if (previous >= 0 && previous < _tiles.Count && previous != _markedSlot)
             {
-                _tiles[previous].Background = BS3DGame.MENU_BUTTON_BRUSH;
-                _tiles[previous].OverBackground = BS3DGame.MENU_BUTTON_OVER_BRUSH;
+                //As BS3DGame.ApplyNavHighlight paints it: lit if the cursor stands on it, and while the cursor is up (the host
+                //names a focused entry only then) no hover, or a pointer resting on the tile the cursor just left would light
+                //it beside the focused one. A locked tile is drawn with its over brush (Myra's fallback for a disabled
+                //button), so it keeps the hover's slab, the look every locked tile has.
+                Button tile = _tiles[previous];
+                bool cursorUp = _focused != null;
+                Myra.Graphics2D.IBrush rest = cursorUp && tile == _focused ? BS3DGame.MENU_BUTTON_OVER_BRUSH : EntryRestBrush;
+
+                tile.Background = rest;
+                tile.OverBackground = cursorUp && tile.Enabled ? rest : BS3DGame.MENU_BUTTON_OVER_BRUSH;
             }
 
             if (_markedSlot >= 0 && _markedSlot < _tiles.Count)
@@ -986,8 +1050,8 @@ namespace BS3D.Screens
             }
             else
             {
-                _panelMonth.Text = PanelPlace(month, waiting);
-                _panelAllTime.Text = PanelPlace(allTime, waiting);
+                WritePanelBoard(_panelMonth, month, waiting);
+                WritePanelBoard(_panelAllTime, allTime, waiting);
             }
 
             //As prose (#855): the failure wraps at 1080p, and a wrapping label is never handed raw text. The single space
@@ -1000,12 +1064,29 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// The player's place on one board, as the panel shows it (#1152): an ellipsis while it is on its way and a dash where it
-        /// did not come back, the status row under them saying which. An unfinished attempt is a row with no stars (#716).
+        /// One board as the panel shows it (#1152): the player's place, with an ellipsis while the board is on its way and a
+        /// dash where it did not come back (the status row under the boards says which), and the board's #1 with their
+        /// score, empty until it has come and on a board nobody is on. The #1 is the first row of the page asked from the
+        /// top, in the player's colour where it is theirs (as the plate's rows are) and dim for an unfinished attempt (#716,
+        /// a row with no stars, which the service ranks under every clear).
         /// </summary>
-        private static string PanelPlace(BoardPageBody board, bool waiting) =>
-            board != null ? PickerCopy.PanelPlace(board.Me?.Rank ?? 0, board.Total, board.Me is { Rank: > 0, Stars: 0 })
-            : waiting ? "…" : "—";
+        private void WritePanelBoard(PanelBoard panel, BoardPageBody board, bool waiting)
+        {
+            panel.You.Text = board != null
+                ? PickerCopy.PanelPlace(board.Me?.Rank ?? 0, board.Total, board.Me is { Rank: > 0, Stars: 0 })
+                : waiting ? "…" : "—";
+
+            BoardEntryBody top = board?.Entries is { Count: > 0 } entries ? entries[0] : null;
+
+            panel.Leader.Text = top != null ? PickerCopy.Leader(top.Name, top.Stars == 0) : " ";
+            panel.LeaderScore.Text = top != null ? FontFigures.Tabular(ScoreText.Of(top.Score), FontSmall) : " ";
+
+            Color colour = top == null ? BS3DGame.MENU_TEXT_BODY
+                : board.Me is { Rank: > 0 } me && me.Rank == top.Rank ? BS3DGame.BoardYouColor
+                : top.Stars == 0 ? BS3DGame.MENU_TEXT_DIM
+                : BS3DGame.MENU_TEXT_BODY;
+            panel.Leader.TextColor = panel.LeaderScore.TextColor = colour;
+        }
 
         /// <summary>
         /// How wide the grid comes out, in design units: the tiles and the gaps between them as
@@ -1481,8 +1562,9 @@ namespace BS3D.Screens
                 _pips[c].Tint = c == _chapter ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_DIM;
             }
 
-            //The panel speaks for the chapter put up (#1152): its frontier or its first level, until a tile is chosen
-            SelectDefault(first, last);
+            //The panel speaks for the chapter written (#1152): the level chosen on it, kept across every showing of the page
+            //(back from its board, from a level), or else its frontier or its first level
+            SelectOnShow(first, last);
 
             WriteTiles();
             WritePanel();
@@ -1598,7 +1680,7 @@ namespace BS3D.Screens
             }
             else
             {
-                SelectDefault(0, Game.LevelCount - 1);
+                SelectOnShow(0, Game.LevelCount - 1);
                 WriteTiles();
                 WritePanel();
             }
@@ -1698,7 +1780,10 @@ namespace BS3D.Screens
             PaintMark(previousMark);
         }
 
-        /// <summary>The focus cursor's half of the detail line — see <c>BS3DGame.ApplyNavHighlight</c>.</summary>
+        /// <summary>
+        /// The focus cursor's half of the detail line, or on the panel's layout (#1152) of the selection: the tile the cursor
+        /// stands on is the one the panel speaks for — see <c>BS3DGame.ApplyNavHighlight</c>.
+        /// </summary>
         internal override void NavFocusChanged(Button focused)
         {
             _focused = focused;

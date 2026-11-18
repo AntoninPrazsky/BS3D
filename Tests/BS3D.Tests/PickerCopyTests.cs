@@ -44,7 +44,6 @@ namespace BS3D.Tests
             yield return PickerCopy.PANEL_NOT_CLEARED;
             yield return PickerCopy.PANEL_OLD_RULES;
             yield return PickerCopy.PANEL_LOCKED;
-            yield return PickerCopy.PANEL_PLACES;
             yield return PickerCopy.PANEL_MONTH;
             yield return PickerCopy.PANEL_ALL_TIME;
             foreach (bool unfinished in new[] { true, false })
@@ -121,10 +120,10 @@ namespace BS3D.Tests
         }
 
         [Theory]
-        [InlineData(4, 41, false, "#4 of 41")]
-        [InlineData(4, 41, true, "#4 of 41 ☆")]
-        [InlineData(0, 41, false, "Not on it yet")]
-        [InlineData(0, 0, false, "Nobody on it yet")]
+        [InlineData(4, 41, false, "You #4 of 41")]
+        [InlineData(4, 41, true, "You #4 of 41 ☆")]
+        [InlineData(0, 41, false, "You are not on it yet")]
+        [InlineData(0, 0, false, "Nobody is on it yet")]
         public void The_panel_says_the_players_place_beside_the_boards_name(int rank, int total, bool unfinished, string expected) =>
             Assert.Equal(expected, PickerCopy.PanelPlace(rank, total, unfinished));
     }

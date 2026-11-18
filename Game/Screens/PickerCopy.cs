@@ -10,8 +10,9 @@ namespace BS3D.Screens
     /// <para>
     /// <b>One space between words and around a separator</b>: the readout's " · " and the boards' "You #6" were written
     /// with two (a column made of spaces), and "Typesetting" in <c>docs/game-shell/menu-look.md</c> sets one. A quoted
-    /// name takes ‘ ’. The lines here never wrap (each is one label's single line), so they carry no ties - but the side
-    /// panel's prose for a locked level (#1152), which is set through <c>SpaceWrap</c> and ties a number to its star or name.
+    /// name takes ‘ ’. The lines here never wrap (each is one label's single line), so they carry no ties; the exception is
+    /// the side panel's prose for a locked level (#1152), which wraps, is set through <c>SpaceWrap</c> and ties a number to
+    /// its star or name.
     /// </para>
     /// </summary>
     internal static class PickerCopy
@@ -110,21 +111,18 @@ namespace BS3D.Screens
         internal static string PanelPrice(int price, int have) =>
             $"Unlocks at {N(price)}{SpaceWrap.TIE}{STAR}. You have {N(have)}{SpaceWrap.TIE}{STAR}.";
 
-        /// <summary>The side panel's heading over the player's places on the level's two boards (#1152).</summary>
-        internal const string PANEL_PLACES = "Your place";
-
-        /// <summary>The side panel's names of the two boards, left of the player's place on each (#1152).</summary>
+        /// <summary>The side panel's names of the two boards, left of the player's place and the #1 on each (#1152).</summary>
         internal const string PANEL_MONTH = "This month", PANEL_ALL_TIME = "All time";
 
         /// <summary>
-        /// The player's place on one board in the side panel (#1152): <see cref="YouLine"/>'s answer cut to the column
-        /// beside the board's name, so neither "You" (the heading says it) nor the board (the name beside it) is said again.
-        /// An unfinished attempt wears the boards' own hollow star.
+        /// The player's place on one board in the side panel (#1152), over the board's #1 (<see cref="Leader"/>):
+        /// <see cref="YouLine"/>'s answer cut to the column beside the board's name, which says the board, so it is not said
+        /// again. An unfinished attempt wears the boards' own hollow star.
         /// </summary>
         internal static string PanelPlace(int rank, int total, bool unfinished) =>
-            rank > 0 ? $"#{N(rank)} of {N(total)}" + (unfinished ? " " + UNFINISHED_MARK : string.Empty)
-            : total > 0 ? "Not on it yet"
-            : "Nobody on it yet";
+            rank > 0 ? $"You #{N(rank)} of {N(total)}" + (unfinished ? " " + UNFINISHED_MARK : string.Empty)
+            : total > 0 ? "You are not on it yet"
+            : "Nobody is on it yet";
 
         /// <summary>The picker's boards plate's heading: the level's number and name, in capitals.</summary>
         internal static string BoardsHeading(int number, string name) => $"{N(number)} {name}".ToUpperInvariant();
