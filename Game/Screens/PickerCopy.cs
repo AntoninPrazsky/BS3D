@@ -10,7 +10,9 @@ namespace BS3D.Screens
     /// <para>
     /// <b>One space between words and around a separator</b>: the readout's " · " and the boards' "You #6" were written
     /// with two (a column made of spaces), and "Typesetting" in <c>docs/game-shell/menu-look.md</c> sets one. A quoted
-    /// name takes ‘ ’. The lines here never wrap (each is one label's single line), so they carry no ties.
+    /// name takes ‘ ’. The lines here never wrap (each is one label's single line), so they carry no ties; the exception is
+    /// the side panel's prose for a locked level (#1152), which wraps, is set through <c>SpaceWrap</c> and ties a number to
+    /// its star or name.
     /// </para>
     /// </summary>
     internal static class PickerCopy
@@ -65,6 +67,62 @@ namespace BS3D.Screens
         /// <summary>The detail line for a level its price shuts: the price against what the player holds.</summary>
         internal static string DetailPrice(string name, int price, int have) =>
             $"{name} — unlocks at {N(price)} {STAR}, you have {N(have)}";
+
+        /// <summary>The side panel's line over the level's name (#1152): which level of the set it is.</summary>
+        internal static string PanelCaption(int number) => $"Level {N(number)}";
+
+        /// <summary>The side panel's best score (#1152): the player's best clear under this build's rules, written as the tile writes it.</summary>
+        internal static string PanelBest(int best) => $"Best {ScoreText.Of(best)}";
+
+        /// <summary>
+        /// The side panel's rules (#1152): <c>LevelSet.DescribeRules</c>' clauses ("44 shots, ceiling every 9, par 30 s") one
+        /// to a line, each opening on a capital, a list under the level's name rather than the detail line's sentence.
+        /// </summary>
+        internal static string PanelRules(string described)
+        {
+            string[] clauses = described.Split(", ");
+
+            for (int i = 0; i < clauses.Length; i++)
+                if (clauses[i].Length > 0) clauses[i] = char.ToUpperInvariant(clauses[i][0]) + clauses[i][1..];
+
+            return string.Join("\n", clauses);
+        }
+
+        /// <summary>The side panel's line for an open level the player has not cleared (#1152).</summary>
+        internal const string PANEL_NOT_CLEARED = "Not cleared yet";
+
+        /// <summary>
+        /// The side panel's line for a level cleared only under older scoring rules (#1045, #1152): its stars stand, and it
+        /// has no best this build's clears are held against (<see cref="TileScore"/> leaves the tile's line empty there).
+        /// </summary>
+        internal const string PANEL_OLD_RULES = "No best under the new scoring";
+
+        /// <summary>The side panel's line for a locked level (#1152), where an open one's best stands.</summary>
+        internal const string PANEL_LOCKED = "Locked";
+
+        /// <summary>
+        /// The side panel's prose for a level the sequence shuts (#1152): the detail line's clause as a sentence of its own
+        /// under the level's name. It wraps, so the number is tied to the name it opens on.
+        /// </summary>
+        internal static string PanelSequence(int nextNumber, string nextName) =>
+            $"One level at a time; next is {N(nextNumber)}{SpaceWrap.TIE}‘{nextName}’.";
+
+        /// <summary>The side panel's prose for a level its price shuts (#1152): the price against what the player holds, each tied to its star.</summary>
+        internal static string PanelPrice(int price, int have) =>
+            $"Unlocks at {N(price)}{SpaceWrap.TIE}{STAR}. You have {N(have)}{SpaceWrap.TIE}{STAR}.";
+
+        /// <summary>The side panel's names of the two boards, left of the player's place and the #1 on each (#1152).</summary>
+        internal const string PANEL_MONTH = "This month", PANEL_ALL_TIME = "All time";
+
+        /// <summary>
+        /// The player's place on one board in the side panel (#1152), over the board's #1 (<see cref="Leader"/>):
+        /// <see cref="YouLine"/>'s answer cut to the column beside the board's name, which says the board, so it is not said
+        /// again. An unfinished attempt wears the boards' own hollow star.
+        /// </summary>
+        internal static string PanelPlace(int rank, int total, bool unfinished) =>
+            rank > 0 ? $"You #{N(rank)} of {N(total)}" + (unfinished ? " " + UNFINISHED_MARK : string.Empty)
+            : total > 0 ? "You are not on it yet"
+            : "Nobody is on it yet";
 
         /// <summary>The picker's boards plate's heading: the level's number and name, in capitals.</summary>
         internal static string BoardsHeading(int number, string name) => $"{N(number)} {name}".ToUpperInvariant();

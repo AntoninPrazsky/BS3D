@@ -1956,6 +1956,9 @@ namespace BS3D
         /// <summary>Rests the picker's pointer on a level's tile - the <c>pickfocus=</c> argument's (#684).</summary>
         internal void PointPickerAtForTesting(int level) => _levelSelectPage.PointAtForTesting(level);
 
+        /// <summary>A finger's tap on a level's tile in the picker - the <c>picktap=</c> argument's (#1152).</summary>
+        internal void TapPickerForTesting(int level) => _levelSelectPage.TapForTesting(level);
+
         /// <summary>Whether the level picker is the page up, with its tree built - what <c>pickfocus=</c> waits for.</summary>
         internal bool IsLevelSelectReady => _screens.Active == _levelSelectPage && _levelSelectPage.IsBuilt;
 
