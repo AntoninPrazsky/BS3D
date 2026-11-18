@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-18 — #1177 záznam ve 4K nezávisle na monitoru, s HUD, bez zrna — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: `capturesize=<w>x<h>` (back buffer ve velikosti snímků přes `PreparingDeviceSettings`, okno drženo jako náhled přes `MaximumSize`), `capturehud`, `nograin` (jako `mute`, nezapisuje se). `web-capture.ps1` má `-Size -Quality -Hud -NoGrain -Master`; encoder píše 4K60 master (H.264 crf 16). Tightrope 20 s: hra 1200 snímků 4K za 29 s, kódování ~200 s, master 68 MB.
+- majitel: video pro web a itch.io, render 8K → 4K, 60 FPS; zrno pro trailer vypnout; obsah = hra jak ji vidí hráč, menu ne. Podoba traileru a zvuk: #1178 (`owner-decision`).
+- ⚠ Ultra nad `ssaa` 1 nemá MSAA (pipeline ho vypíná); 8K→4K jsou 4 vzorky na pixel. ⚠ Bez držení okna ho MonoGame po každém resetu zvětší na velikost back bufferu (celá obrazovka).
+- Otevřené: dlouhý klip nad ~1 min neměřen (disk: 20–33 GB/min v `%TEMP%`).
+
 ## 2026-11-15 — #1152 výběr úrovně na telefonu s bočním panelem — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: při `UiScale > 1` má výběr úrovně vedle pásu boční panel vybrané úrovně (číslo, hvězdy, nejlepší, pravidla nebo zámek, místo a #1 obou žebříčků, tlačítko Play 9 mm). První ťuknutí prstem jen vybírá, druhé nebo Play spouští (`PickerTap.OnTile`); myš, klávesy a pad spouštějí hned. Výběr přežije návrat ze stránky (`SelectionOnShow`). Dlaždice 14,4 mm, pipy 5,1 × 6,9 mm. Oprava i pro desktop: zamčené dlaždice po otočení kapitoly drží svůj odstín. Argument `picktap=`.

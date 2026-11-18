@@ -253,5 +253,19 @@ namespace BS3D.Platform
             //behind the message being handled rather than run in the event
             form.DpiChanged += (_, _) => form.BeginInvoke(changed);
         }
+
+        /// <summary>
+        /// Holds the window's client area at <paramref name="width"/> by <paramref name="height"/> at most (#1177): a capture whose back
+        /// buffer is larger than the display shows it in a window this size. WinForms clamps every size the form is given, MonoGame's
+        /// own included, to its <c>MaximumSize</c>, which is the client size plus the frame; the frame is measured off the form as it
+        /// is now. Nothing happens for a handle that is not a WinForms form.
+        /// </summary>
+        internal static void HoldClientSize(IntPtr windowHandle, int width, int height)
+        {
+            if (System.Windows.Forms.Control.FromHandle(windowHandle) is not System.Windows.Forms.Form form) return;
+
+            System.Drawing.Size frame = form.Size - form.ClientSize;
+            form.MaximumSize = new System.Drawing.Size(width + frame.Width, height + frame.Height);
+        }
     }
 }

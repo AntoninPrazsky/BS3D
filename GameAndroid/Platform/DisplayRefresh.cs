@@ -52,6 +52,11 @@ namespace BS3D.Platform
             return false;
         }
 
+        /// <summary>The Windows version holds a capture's window at a preview (#1177); a capture of its own size is refused off Windows, so this is never asked.</summary>
+        internal static void HoldClientSize(IntPtr windowHandle, int width, int height)
+        {
+        }
+
         /// <summary>Reads the refresh again once every <see cref="WATCH_SECONDS"/> and raises the Game's callback on a change.</summary>
         internal static void Watch(float elapsed)
         {

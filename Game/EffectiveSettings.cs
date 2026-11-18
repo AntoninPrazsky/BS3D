@@ -4,7 +4,7 @@ namespace BS3D
     /// The value this run uses for each of the eleven rows that are <b>only</b> the player's answer — the five
     /// levels of the mix (master, effects, music, atmosphere, the pad's rumble) and the six taste toggles
     /// (aberration, grain, motion blur, the drop cinematic, the tutorial, the intro logo) — read straight off the settings file
-    /// with the run's one launch override layered over it (#583).
+    /// with the run's two launch overrides (<c>mute</c>, <c>nograin</c>) layered over it (#583).
     /// </summary>
     /// <remarks>
     /// <para>
@@ -16,8 +16,9 @@ namespace BS3D
     /// </para>
     /// <para>
     /// <b>The rule <see cref="GameSettings"/> states still holds, and it holds structurally: a value that arrived
-    /// from <see cref="Program"/> is applied but never written back.</b> The one launch argument that reaches any
-    /// of these rows is <c>mute</c>, which puts the master at zero <i>without</i> a click (#354). It is kept here
+    /// from <see cref="Program"/> is applied but never written back.</b> The launch arguments that reach any of these
+    /// rows are <c>mute</c>, which puts the master at zero <i>without</i> a click (#354), and <c>nograin</c>, which does
+    /// the same to the film grain for a film of the game (#1177, held and lifted exactly as mute is). It is kept here
     /// as a flag and never stored into the file, so a scripted run that clicks some other row saves the player's
     /// own master, not the run's silence. Clicking the master row itself is the player answering it: the step is
     /// taken from what they hear (zero, which the ladder wraps to full), stored, and the flag cleared — exactly
@@ -37,11 +38,18 @@ namespace BS3D
         //The "mute" argument (#354), until the player clicks the master row
         private bool _muted;
 
-        /// <summary>Layers the run's overrides over the player's file. <paramref name="mute"/> is the <c>mute</c> launch argument.</summary>
-        internal EffectiveSettings(GameSettings file, bool mute)
+        //The "nograin" argument (#1177), until the player clicks the grain row: mute's kind of flag, for the trailer's footage
+        private bool _noGrain;
+
+        /// <summary>
+        /// Layers the run's overrides over the player's file. <paramref name="mute"/> is the <c>mute</c> launch argument and
+        /// <paramref name="noGrain"/> the <c>nograin</c> one.
+        /// </summary>
+        internal EffectiveSettings(GameSettings file, bool mute, bool noGrain)
         {
             _file = file;
             _muted = mute;
+            _noGrain = noGrain;
         }
 
         /// <summary>The master level this run plays at: zero while <c>mute</c> holds it, the player's row otherwise.</summary>
@@ -71,7 +79,16 @@ namespace BS3D
 
         internal bool Aberration { get => _file.Aberration; set => _file.Aberration = value; }
 
-        internal bool Grain { get => _file.Grain; set => _file.Grain = value; }
+        /// <summary>The film grain this run draws: off while <c>nograin</c> holds it, the player's row otherwise. A click on the row lifts the flag, as the master's does mute.</summary>
+        internal bool Grain
+        {
+            get => !_noGrain && _file.Grain;
+            set
+            {
+                _noGrain = false;
+                _file.Grain = value;
+            }
+        }
 
         /// <summary>The player's half of the motion blur (#402); the tier's half is <c>QualityPreset.MotionBlur</c>.</summary>
         internal bool MotionBlur { get => _file.MotionBlur; set => _file.MotionBlur = value; }
