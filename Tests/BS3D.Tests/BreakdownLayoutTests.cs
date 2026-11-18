@@ -9,19 +9,21 @@ namespace BS3D.Tests
 {
     /// <summary>
     /// The result page's score breakdown stays inside its plate and clear of the online boards beside it (#1148), on the phone's
-    /// split page and on a monitor's, with the widest lines a shipped level can give under rules v2: the time bonus's row, a total
-    /// of six figures and the longest next-star note. <c>BreakdownLayout</c>, <c>BoardLayout</c>, <c>LevelResult</c>,
-    /// <c>ScoreText</c> and <c>SpaceWrap</c> are compiled in from the Game; the faces are stand-ins in ems, read off the run log's
-    /// <c>[result] breakdown</c> lines of a real clear of Pennant (24 399, "Next star at 26 180 (+1 781), or 3 s faster"): the
-    /// note 464 px in the 29 px small face at 1920x1080, and the three columns about 398 px at 1080p and 875 px in the phone's
-    /// layout at full size. Every page figure is a design unit scaled by the layout's share, as the menu scales them.
+    /// split page and on a monitor's, with the widest lines a shipped level can give under rules v2 in a clear of under
+    /// 10 000 s: the time bonus's row, a total of six figures and the longest next-star note. <c>BreakdownLayout</c>,
+    /// <c>BoardLayout</c>, <c>LevelResult</c>, <c>ScoreText</c> and <c>SpaceWrap</c> are compiled in from the Game; the faces
+    /// are stand-ins in ems, read off the run log's <c>[result] breakdown</c> lines of a real clear of Pennant (24 399, "Next
+    /// star at 26 180 (+1 781), or 3 s faster"): the note 464 px in the 29 px small face at 1920x1080, and the three columns
+    /// about 398 px at 1080p and 875 px in the phone's layout at full size. Every page figure is a design unit scaled by the
+    /// layout's share, as the menu scales them.
     /// <para>
     /// Seen to fail with the behaviour removed: with the note set on one line in its own face whatever the room (the page before
     /// #1148, which measured it apart from the faces' fit), the grid is wider than the plate's content on the phone's split page
     /// at every share and on a monitor at 4:3 and 5:4, and the first test fails; with the note broken on a monitor's page as on
     /// the split one, the page spends a line it has not got and the spending test fails; with the note's copy left untied, a
     /// narrow measure breaks a figure and the comma test fails; with the gap dropped from <c>NoteRoom</c>, the plate reaches
-    /// the boards and the room's own test fails.
+    /// the boards and the room's own test fails; with the detail column left at its rows' width, a note wider than the
+    /// columns runs past the grid on a monitor at 16:9 and wider and the first test fails.
     /// </para>
     /// </summary>
     public class BreakdownLayoutTests
@@ -99,20 +101,27 @@ namespace BS3D.Tests
                 hadBudget: true, unusedShotsAwarded: unused, completionBonusAwarded: unused * ballPrice, unusedShotValue: ballPrice,
                 parSeconds: par, seconds: seconds, timeBonusAwarded: timeBonus);
 
+        //A clear's seconds have no cap (LevelResult.SecondsCounted), so the widest lines are the widest of a clear of four figures
+        //of them, a slow clear of the largest level: its time's detail, and its note's "or N s faster", which counts up to them
+        private const float SLOW_CLEAR_SECONDS = 1400f;
+
         /// <summary>
-        /// The issue's clear, the staged page's, and the widest a shipped level gives (Girandole: 1 204 balls, a par up to 115 s,
-        /// a ceiling of 257 966): six figures in the values and the total, the slowest time's detail, and the longest note.
+        /// The issue's clear, the staged page's, and the widest a shipped level gives in a clear of under 10 000 s (Girandole:
+        /// 1 204 balls, a par up to 115 s, a ceiling of 257 966): six figures in the values and the total, the slowest time's
+        /// detail, and the longest note, a three-star clear at the line's own score over a slow clock ("Next star at 132 440
+        /// (+54 180), or 1274 s faster": the gap is the widest between two stars' lines on that level). Every star count is the
+        /// one <c>StarRating</c> gives its score, so every note is one the page can show.
         /// </summary>
         private static IEnumerable<LevelResult> Results()
         {
             yield return Result(3, 24399, 238, 242, 0, 3860, 26, 79, 20, 12.2f, 16065);
             yield return Result(3, 9260, 120, 96, 24, 640, 7, 40, 40, 34f, 6900);
 
-            int slowBonus = new ScoreKeeper(null, null, 1204, 115).TimeBonusAt(229);
-            yield return Result(3, 40000, 1204, 1204, 999, 48160, 53, 999, 115, 229f, slowBonus);
+            int slowBonus = new ScoreKeeper(null, null, 1204, 115).TimeBonusAt(SLOW_CLEAR_SECONDS);
+            yield return Result(3, StarRating.LeastScoreFor(3, 1204), 1204, 1204, 999, 48160, 53, 999, 115, SLOW_CLEAR_SECONDS, slowBonus);
             yield return Result(3, 99999, 1204, 1204, 999, 148160, 53, 999, 115, 999f, 120400);
             yield return Result(4, 188888, 1204, 1204, 999, 148160, 53, 999, 115, 1f, 120400);
-            yield return Result(2, 18888, 1204, 1204, 999, 4816, 53, 999, null, 999f, 0);
+            yield return Result(2, StarRating.LeastScoreFor(2, 1204), 1204, 1204, 999, 4816, 53, 999, null, 999f, 0);
         }
 
         /// <summary>What the page measures, as <c>ResultPage.CacheBreakdownText</c> writes it: the details, the values, the total.</summary>
@@ -140,7 +149,11 @@ namespace BS3D.Tests
             return new Page(column, content, 2f * l.Scaled(GRID_SPACING), boardsLeft, gap, noteRoom, column - content);
         }
 
-        private static BreakdownLayout.Fit Lay(Layout l, Page page, LevelResult r)
+        /// <summary>
+        /// The grid laid as <c>ResultPage.LayBreakdown</c> lays it; <paramref name="unlockNote"/> is the unlock note's width when
+        /// it shows, which is the column's content width: the label is given that width to wrap against.
+        /// </summary>
+        private static BreakdownLayout.Fit Lay(Layout l, Page page, LevelResult r, float unlockNote = 0f)
         {
             (string[] details, string[] values, string total) = Texts(r);
             float body = l.Scaled(l.Split ? FRONT_BODY : BODY), heading = l.Scaled(HEADING), small = l.Scaled(SMALL);
@@ -150,9 +163,19 @@ namespace BS3D.Tests
                     Widest(CAPTIONS, t => Display(t) * body * scale),
                     Widest(details, t => Display(t) * body * scale),
                     MathF.Max(Widest(values, t => Display(t) * body * scale), Widest(new[] { PENDING, total }, t => Display(t) * heading * scale))),
-                r.NextStarNote, (scale, line) => Small(line) * small * scale, otherNotes: 0f);
+                r.NextStarNote, (scale, line) => Small(line) * small * scale, otherNotes: unlockNote);
         }
 
+        //What float arithmetic leaves over a sum of pixel widths: the grid lengthened to a note is that note's width to within it
+        private const float SUM_SLACK = 0.01f;
+
+        /// <summary>
+        /// The grid is inside the plate's room, and the notes are inside the grid: the plate is the grid and its padding, so a
+        /// note wider than the grid is a line running past the plate's edge however well the grid itself fits. On a monitor at
+        /// 16:9 and wider the next-star note is wider than the column's content (Pennant's 464 px against 394 px at 1920x1080),
+        /// and the detail column is lengthened to hold it; with or without the unlock note under it, which is the column's
+        /// content width wide.
+        /// </summary>
         [Theory]
         [MemberData(nameof(Layouts))]
         public void Every_line_of_the_breakdown_stays_inside_its_plate(float share, bool split, int width, int height)
@@ -161,28 +184,35 @@ namespace BS3D.Tests
             Page page = PageAt(layout);
 
             foreach (LevelResult result in Results())
-            {
-                BreakdownLayout.Fit fit = Lay(layout, page, result);
-                float grid = fit.Pinned.Sum + page.Gaps;
+                foreach (float unlockNote in new[] { 0f, page.Content })
+                {
+                    BreakdownLayout.Fit fit = Lay(layout, page, result, unlockNote);
+                    float grid = fit.Pinned.Sum + page.Gaps;
+                    string at = $"{layout}, {result.Score}{(unlockNote > 0f ? " with the unlock note" : "")}";
 
-                //Where the plate is held to the column (the split page), the grid is inside its content; on a monitor, inside the
-                //note's room, which is never less than that
-                float room = layout.Split ? page.Content : Math.Max(page.Content, page.NoteRoom);
-                Assert.True(grid <= room, $"{layout}, {result.Score}: the grid is {grid:0} px in a room of {room} px");
+                    //Where the plate is held to the column (the split page), the grid is inside its content; on a monitor, inside
+                    //the note's room, which is never less than that
+                    float room = layout.Split ? page.Content : Math.Max(page.Content, page.NoteRoom);
+                    Assert.True(grid <= room + SUM_SLACK, $"{at}: the grid is {grid:0.00} px in a room of {room} px");
 
-                //And every line of the note, as it is set and in the face it is drawn in, is inside it too: a line wider than the
-                //room is the overflow itself
-                foreach (string line in fit.Note.Split('\n').Where(l => l.Length > 0))
-                    Assert.True(Small(line) * layout.Scaled(SMALL) * fit.NoteScale <= room, $"{layout}: '{line}' is wider than {room} px");
-            }
+                    //Every line of the note, as it is set and in the face it is drawn in, is inside the grid, which holds the
+                    //plate's width: a line wider than the grid runs past the plate's edge
+                    foreach (string line in fit.Note.Split('\n').Where(l => l.Length > 0))
+                    {
+                        float drawn = MathF.Ceiling(Small(line) * layout.Scaled(SMALL) * fit.NoteScale);
+                        Assert.True(drawn <= grid + SUM_SLACK, $"{at}: '{line}' is {drawn:0} px in a grid of {grid:0.00} px");
+                    }
+
+                    Assert.True(unlockNote <= grid + SUM_SLACK, $"{at}: the unlock note is {unlockNote} px in a grid of {grid:0.00} px");
+                }
         }
 
         /// <summary>
         /// What the note costs the page where the room is too narrow for it: on the phone's split page, which has the height, a
         /// second line and never a smaller face; on a monitor's page, whose height is its budget (a block's milestone with NEW
         /// BEST already reaches the frame's bottom edge at 1080 rows), never a second line, and its face no smaller than it must
-        /// be. At 4:3 and 5:4, where the plate cannot widen, the widest note a shipped level gives is drawn at about 0.75 of its
-        /// size, which the floor below holds it to (BreakdownLayout's MIN_NOTE_SCALE is 0.7).
+        /// be. At 4:3 and 5:4, where the plate cannot widen, the widest note a shipped level gives is drawn at 0.71 to 0.74 of
+        /// its size, which the floor below holds it to (BreakdownLayout's MIN_NOTE_SCALE is 0.7).
         /// </summary>
         [Theory]
         [MemberData(nameof(Layouts))]

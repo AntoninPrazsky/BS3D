@@ -23,7 +23,7 @@ namespace BS3D.Screens
     /// held to its column beside the buttons and the height has room, the note goes onto two lines at its comma (its copy ties
     /// every other space, <c>LevelResult.NextStarNote</c>) and nothing is drawn smaller for it; on a monitor, where the height is
     /// the budget (a block's milestone with NEW BEST already stands to the frame's bottom edge at 1080 rows), the note stays one
-    /// line in its face scaled down to the room (at 4:3 and 5:4 from about 0.85 of it to 0.75 for the widest note).
+    /// line in its face scaled down to the room (at 4:3 and 5:4 from about 0.85 of it to 0.71 for the widest note).
     /// </para>
     /// </summary>
     internal static class BreakdownLayout
@@ -50,9 +50,10 @@ namespace BS3D.Screens
         private const float MIN_SCALE = 0.25f;
 
         //The least share the note's face is taken down to on a page with no height to spare. At 4:3 and 5:4, where the plate
-        //cannot widen, Pennant's note needs 0.85 of it and the widest a shipped level gives ("Next star at 132 440 (+92 440),
-        //or 177 s faster", on a level of 1 204 balls) about 0.75 by BreakdownLayoutTests' stand-in face; below this it would
-        //stop reading as the page's small print, and it breaks at its comma instead
+        //cannot widen, Pennant's note needs 0.85 of it and the widest a shipped level gives in a clear of under 10 000 s ("Next
+        //star at 132 440 (+54 180), or 1274 s faster", on a level of 1 204 balls) 0.71 to 0.74 by BreakdownLayoutTests'
+        //stand-in face (a clear's seconds have no cap); below this it would stop reading as the page's small print, and it
+        //breaks at its comma instead
         private const float MIN_NOTE_SCALE = 0.7f;
 
         /// <summary>
