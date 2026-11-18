@@ -168,6 +168,8 @@
         note service's length limit (OnlineNotes, plain .NET and HttpClient like the score client below), no device.-->
     <Compile Include="..\..\Game\Screens\NoteText.cs" />
     <Compile Include="..\..\Game\Online\OnlineNotes.cs" />
+    <!--The line under the note's field and the hand it speaks to (#1149): strings over three flags, no device.-->
+    <Compile Include="..\..\Game\Screens\NoteHint.cs" />
     <Compile Include="..\..\Game\GameSettings.cs" />
     <!--The online client (#709's play counts): the real OnlineScores against a loopback stand-in, its identity, its wire
         types and the build's name it reads. Plain .NET and HttpClient, no device.-->

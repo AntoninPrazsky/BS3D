@@ -18,7 +18,9 @@ The frame the player was looking at, not the menu over it: the page's first fram
 
 ## Typing
 
-The nickname plate's way (#763): the characters Windows sends, keyboard captured from the first frame, only what both menu faces draw. **Enter sends**; Shift+Enter or Ctrl+Enter starts a line; at most `OnlineNotes.MaxTextLength` characters. A key within `INPUT_GRACE_SECONDS` of the picture is ignored, so an Enter held from opening the page cannot send a restored draft unseen. Esc goes back and keeps the draft. A pad cannot type: A sends, B goes back.
+The nickname plate's way (#763): the characters Windows sends, keyboard captured from the first frame, only what both menu faces draw. **Enter sends**; Shift+Enter or Ctrl+Enter starts a line; at most `OnlineNotes.MaxTextLength` characters. A key within `INPUT_GRACE_SECONDS` of the picture is ignored, so an Enter held from opening the page cannot send a restored draft unseen. Esc goes back and keeps the draft. A pad cannot type: A sends, B goes back. A phone types through its own dialog, which a finger on the field opens (`StepPhoneTyping`); its OK only puts the text in the field, and the page's Send sends it.
+
+**The line under the field speaks to the hand in use** (`NoteHint`, `NoteHintTests`, #1149): on a phone, whatever is held, "Tap the field to type, then tap Send."; elsewhere the hand the menus last saw, the pad first as the skip hint asks it: a finger the same words, a keyboard "Enter sends. Shift+Enter starts a new line.", a pad that line and "A pad cannot type." Each ends on the length against `OnlineNotes.MaxTextLength`, the two tied. It is rewritten when the hand changes, and its height is measured for the tallest it can say (the three lines at the full count, and the "Write something first." complaint), so a hand picked up never moves Send.
 
 **The field shows the last six lines as laid out** (`FieldTail`, `FieldTailTests`): each line measured against the field's width, an over-wide word broken between characters, an ellipsis opening the first line.
 
