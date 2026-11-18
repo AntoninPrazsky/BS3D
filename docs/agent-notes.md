@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1149 řádek pod polem vzkazu podle ruky — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: `NoteHint` (čistá funkce) volí řádek pod polem vzkazu. Na telefonu (nebo s `touch`) „Tap the field to type, then tap Send. N / 1000.“, s klávesnicí Enter/Shift+Enter bez věty o padu, s padem starý řádek beze změny. Výška řádku je pevná, změřená jen pro řádky, které platforma umí ukázat, takže Send se při změně ruky ani při stížnosti „Write something first.“ nehne. 12 testů v `NoteHintTests`, viděné selhat.
+- ⚠ Prst na dotykové obrazovce Windows nedostane „Tap the field“: psací dialog má jen Android (`StepPhoneTyping`), tam píše klávesnice.
+- Otevřené: skutečný telefon (vivo) nezkoušen. Štítek pro přezdívku (`NicknamePage` HINT) a řádek přezdívky v Nastavení pořád mluví o klávesnici i na telefonu.
+
 ## 2026-11-17 — #1146 ikony čipů změřené na Pi — Pi (BS3DServer), Claude Code
 
 - Hotovo, zavřeno bez změny kódu: ReadyToRun ddc5d052 proti 8e72c654, skutečný displej, `play`, A B B A, první spuštění na prázdném `userdata=` a druhé na stejném. `BuildLevel` 1,42–1,63 s → 205–209 ms, první snímek 1,56–1,77 s → 342–379 ms. Výpočet ikon 34–36 ms na pracovním vlákně, čtení z cache 3 ms, HUD čekal ≤ 0,2 ms.
