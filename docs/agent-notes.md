@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-18 — #1180 skriptovaný střih traileru — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: `Tools/trailer-cut.py` + `Tools/trailer/sample.json`. Střihový JSON: segmenty (záběr přes `web-capture.ps1`, nebo karta na černé), prolínačka/stmívání, titulky Anton, dvě skladby se zlomem (`at: "segment:<jméno>"`, `onBeat`), střihy po zlomu přichycené na doby, zvuk hry z `audio.wav`. Záběry se natáčejí znovu jen při změně argumentů. Záznam nově píše `sounds.json` (jména přehrání a snímky) pro hledání momentů.
+- ⚠ AAC přestřelí špičku PCM o ~2,6 dB: strop −4 dBFS, nástroj výstup dekóduje a hlásí skutečnou špičku.
+- Otevřené: skutečný trailer (#1178): záběry speciálních kuliček, velikosti titulků, verdikt.
+
 ## 2026-11-18 — #1179 záznam natočí 2D logo a nahraje zvuk hry — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: `capturesplash` (úvod se nepřeskočí, `play` počká, až zmizí; logo 0,1–3,2 s, pak přechod do 3D nápisu) a `captureaudio`: každé přehrání třídy Play/Event/Crowd zapíše `CaptureSounds` (přes `VoiceBudget`, `ToSoundEffect`, `VoiceRing`, `Speak`) na hodinách záznamu, `SoundMix` po konci smíchá `audio.wav` (48 kHz float, délka = snímky). Hardware umlčen `SoundEffect.MasterVolume`, ne `mute`. `web-capture.ps1 -Splash -Audio`, master s AAC.

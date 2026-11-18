@@ -16,7 +16,8 @@ namespace BS3D.Capture
     /// <c>VoiceRing</c> and the looped hum say which buffer each instance plays (<see cref="RegisterInstance"/>).</item>
     /// <item><c>ProceduralAudio.Speak</c> says where a placed voice stands in the stereo image (<see cref="Place"/>).</item>
     /// <item><c>VoiceBudget</c>, the one door every sound goes through (<c>VoiceLedgerTests</c>), reports each play of the Play,
-    /// Event and Crowd classes (<see cref="Played(SoundEffectInstance)"/>, <see cref="Played(SoundEffect, float, float, float)"/>).
+    /// Event and Crowd classes, by the name it plays them under (<see cref="Played(SoundEffectInstance, string)"/>,
+    /// <see cref="Played(SoundEffect, float, float, float, string)"/>), which <see cref="EVENTS_FILE"/> lists beside the sound.
     /// The Music class (the theme, the fanfares, the scene's bed) is left out: the trailer has music of its own.</item>
     /// </list>
     /// Once a frame <see cref="Poll"/> reads each sounding instance's volume, pitch and state, so a fade is kept and a stop is
@@ -48,6 +49,9 @@ namespace BS3D.Capture
         //The clock at the previous poll: a change found now is held at its old value until then, so it ramps over one frame and
         //not over everything since the voice's last point
         private static double _lastPoll;
+
+        /// <summary>The plays by name and time beside the sound (<see cref="Write"/>), for a cut to find its moments.</summary>
+        internal const string EVENTS_FILE = "sounds.json";
 
         /// <summary>Whether a capture is recording its sound: false in every other run, and every door asks it first.</summary>
         internal static bool Recording { get; private set; }
@@ -81,7 +85,7 @@ namespace BS3D.Capture
         }
 
         /// <summary>An instance plays now, at its volume, pitch and loop as they are set: a new voice, and the instance's previous one ends.</summary>
-        internal static void Played(SoundEffectInstance voice)
+        internal static void Played(SoundEffectInstance voice, string name)
         {
             lock (Gate)
             {
@@ -93,13 +97,13 @@ namespace BS3D.Capture
                 }
 
                 (float left, float right) = PlacedSide.Remove(voice, out float side) ? SoundMix.PlacedGains(side) : SoundMix.CentreHotGains(voice.Pan);
-                int index = Mix.Begin(buffer, Now, voice.Volume, voice.Pitch, left, right, voice.IsLooped);
+                int index = Mix.Begin(buffer, Now, voice.Volume, voice.Pitch, left, right, voice.IsLooped, name);
                 Active[voice] = new Sounding { Voice = index, Start = Now, Volume = voice.Volume, Pitch = voice.Pitch };
             }
         }
 
         /// <summary>A fire-and-forget play (<see cref="SoundEffect.Play(float, float, float)"/>): a voice that plays its buffer out, unplaced.</summary>
-        internal static void Played(SoundEffect effect, float volume, float pitch, float pan)
+        internal static void Played(SoundEffect effect, float volume, float pitch, float pan, string name)
         {
             lock (Gate)
             {
@@ -110,7 +114,7 @@ namespace BS3D.Capture
                 }
 
                 (float left, float right) = SoundMix.CentreHotGains(pan);
-                Mix.Begin(buffer, Now, volume, pitch, left, right, looped: false);
+                Mix.Begin(buffer, Now, volume, pitch, left, right, looped: false, name);
             }
         }
 
@@ -152,12 +156,21 @@ namespace BS3D.Capture
         /// Renders the window's mix (<paramref name="samples"/> stereo samples at <see cref="SoundMix.OUTPUT_RATE"/> from
         /// <paramref name="from"/> seconds) and writes it to <paramref name="path"/>; returns a line for the log.
         /// </summary>
-        internal static string Write(string path, double from, int samples)
+        internal static string Write(string path, double from, int samples, int fps)
         {
             lock (Gate)
             {
                 float[] mix = Mix.Render(from, samples);
                 SoundMix.WriteWav(path, mix, SoundMix.OUTPUT_RATE);
+
+                //And the plays themselves, by name, beside the sound: where in the clip a blast or a release is, for a cut to find
+                //(Tools/trailer-cut.py) without anyone watching for it. Frames from 1, as the files are numbered
+                var events = new List<object>();
+                foreach ((string name, double at) in Mix.Events(from, from + samples / (double)SoundMix.OUTPUT_RATE))
+                    events.Add(new { name, at = Math.Round(at, 4), frame = (int)Math.Round(at * fps) + 1 });
+                System.IO.File.WriteAllText(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(path)!, EVENTS_FILE),
+                    System.Text.Json.JsonSerializer.Serialize(new { format = "bs3d-capture-sounds", fps, events },
+                        new System.Text.Json.JsonSerializerOptions { WriteIndented = true }) + "\n");
 
                 float peak = 0f;
                 double sum = 0;

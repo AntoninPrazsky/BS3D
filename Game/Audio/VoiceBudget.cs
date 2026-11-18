@@ -70,7 +70,7 @@ namespace BS3D.Audio
         {
             //A capture recording its sound writes the play down whatever the hardware does with it (#1179): the Music class
             //is left out, the trailer has music of its own
-            if (Capture.CaptureSounds.Recording && voiceClass != VoiceClass.Music) Capture.CaptureSounds.Played(voice);
+            if (Capture.CaptureSounds.Recording && voiceClass != VoiceClass.Music) Capture.CaptureSounds.Played(voice, name);
 
             bool played = TryPlay(new Start(voice), voiceClass, name);
             if (played) _ledger.Began(voice, voiceClass, name, Environment.TickCount64);
@@ -84,7 +84,7 @@ namespace BS3D.Audio
         /// </summary>
         internal static bool TryPlay(SoundEffect effect, float volume, float pitch, float pan, VoiceClass voiceClass, string name)
         {
-            if (Capture.CaptureSounds.Recording && voiceClass != VoiceClass.Music) Capture.CaptureSounds.Played(effect, volume, pitch, pan);
+            if (Capture.CaptureSounds.Recording && voiceClass != VoiceClass.Music) Capture.CaptureSounds.Played(effect, volume, pitch, pan, name);
 
             return TryPlay(new Start(effect, volume, pitch, pan), voiceClass, name);
         }

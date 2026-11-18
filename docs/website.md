@@ -123,6 +123,39 @@ The owner's ruling (2026-10-25): the pictures and the looping clips are made **b
 - **`"interpolation": "eased"`** (the default) eases each segment by its **first** key's `"ease"` (`smooth`, the default, `linear`, `in`, `out`), so the lens comes to rest at every key; **`"spline"`** is one cubic Hermite curve through the keys, with each key's rate taken from its neighbours (one-sided at the ends), so the lens never stops at one, and `ease` is ignored. A file that cannot be flown (no `target`, a `t` that does not rise, `fov` on some keys only, a lens on its own target) is refused before a window opens, with the reason in the log, exit code 2.
 - The lens is held level and still: the gun's kick does not shake it (`-Shake`), and the roll of a cinematic is not applied. The curve's own shape is held by `CaptureCameraTests`.
 
+### The trailer's cut (#1180)
+
+**The trailer is an edit file, not a timeline in an editor** (the owner's choice, #1178): `Tools/trailer-cut.py` films what the edit names, cuts it and writes the master, so it can be made again after a release changes the look. Run it with the Python `web-capture-encode.py` uses (PyAV, numpy, Pillow):
+
+```powershell
+$py = 'C:\Users\panrd\AI\ComfyUI\venv\Scripts\python.exe'
+& $py -I Tools\trailer-cut.py Tools\trailer\sample.json --dry                          # the timeline, the music's beats, the snapped cuts
+& $py -I Tools\trailer-cut.py Tools\trailer\sample.json --size 1920x1080 --out-name preview   # a quick look
+& $py -I Tools\trailer-cut.py Tools\trailer\sample.json                                # the 3840x2160 master
+```
+
+- **The edit** (JSON, `//` lines are comments; `Tools/trailer/sample.json` uses every part):
+  - `segments`, in the order of the timeline, each a filmed clip (`capture`: `web-capture.ps1`'s arguments in the edit's spelling, `level`, `from`, `demo`, `splash`, `camPos`, `gameArgs`..., under the edit's `film` defaults) or a `card` on black (`lines` of `[text, scale]`, `logo`), with `in`, `length`, the transition into it (`cut`, `dissolve` overlapping the two by `transitionSeconds`, `dip` to black and back), the game's sound under it (`sound` in dB, `null` for none) and the music ducked under it (`duck` in dB).
+  - `cards`: text over the footage at a time on the timeline.
+  - `music`: two tracks of `Game/Music`, each `from` an offset into the recording and `at` a time on the timeline, or `"segment:<name>"` for where a segment begins. **The second track's `at` is the switch** (the owner: two tracks and one dramatic switch, never a change of music at every cut). The first stops dead there over 40 ms; `onBeat` moves the second's offset to the nearest beat of its recording, so it comes in on one. The recordings are loops and are looped to length.
+  - `snap`: the cuts after the switch move to the second track's nearest beat within 0.3 s, by lengthening or shortening the segment before them. A track's beats are measured from its own recording (spectral-flux onsets, the autocorrelation's tempo between 80 and 180 BPM, the phase with the most onset on it): `nebula-trance` reads 133.3 BPM, `nebula-shoegaze` 105.3.
+  - `mix`: the music's and the game's RMS where they sound, in dBFS (−16 and −22 by default).
+- **Filming**: each clip goes through `web-capture.ps1 -NoEncode -KeepFrames` into `%TEMP%\bs3d-web-capture-frames\trailer-<segment>-<size>`, for as long as the cut needs plus half a second. **It is filmed again only when its arguments change** (`trailer-args.json` beside the frames) or with `--refilm`. A capture is deterministic, so a shot found at `--size 1920x1080` is the same shot at 4K.
+- **The cards** are drawn in Anton (`Game/Content/Fonts/Anton-Regular.ttf`, the game's and the website's display face): uppercase, tracked out, white over a soft dark shadow that keeps them legible over any picture. They fade in over 0.35 s and out over 0.3 s and are pushed slowly from 1.06 to 1. The end card lays the 2D logo (`Images/logo/bs3d-logo-2048.png`) over its lines. A card's `scale` multiplies 150 px at 2160 rows.
+- **The sound**:
+  - each clip's `audio.wav` (#1179), crossfaded with its dissolves, is mixed under the two tracks;
+  - the stems are set against each other by their RMS where they sound;
+  - a soft knee from −7 dBFS and a ceiling at −4 dBFS leave room for the AAC encoder, which overshoots the PCM's peak by about 2.6 dB on this material (measured: a mix held at −1 dBFS decoded back at +1.6 dBFS);
+  - the tool decodes its own output and prints the peak a player hears.
+- **What it writes**:
+  - `<name>-master.mp4`: H.264 High, crf 16, BT.709, a key every half second, AAC 320 kb/s at 48 kHz;
+  - `<name>-cutlist.json`: every segment's source, start and length, the beats, the snapped cuts and the levels.
+- **Measured** (the sample at 1920x1080 on the desktop):
+  - the run, filming its five clips, took 147 s;
+  - the master is 1137 frames, 18.950 s, 34.6 MB;
+  - its sound is 18.965 s (the last AAC frame's padding) and peaks at −3.9 dBFS decoded;
+  - the second track comes in 5 dB over the first at the switch, and the two cuts after it moved +50 and +200 ms onto beats.
+
 ## The blog (#928)
 
 **Adding a post is one Markdown file in `src/blog/`.** Its front matter:

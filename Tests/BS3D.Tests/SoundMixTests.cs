@@ -143,6 +143,23 @@ namespace BS3D.Tests
         }
 
         [Fact]
+        public void TheEventsAreTheWindowsPlaysByNameInOrderFromItsStart()
+        {
+            SoundMix mix = new();
+            int buffer = mix.AddBuffer(Click(10), Rate);
+            mix.Begin(buffer, 12.0, 1f, 0f, 1f, 1f, looped: false, "blast");
+            mix.Begin(buffer, 9.0, 1f, 0f, 1f, 1f, looped: false, "lead-in");
+            mix.Begin(buffer, 10.5, 1f, 0f, 1f, 1f, looped: false, "shot");
+            mix.Begin(buffer, 20.0, 1f, 0f, 1f, 1f, looped: false, "after");
+
+            var events = mix.Events(10.0, 15.0);
+
+            Assert.Equal(2, events.Count);
+            Assert.Equal(("shot", 0.5), (events[0].Name, events[0].At));
+            Assert.Equal(("blast", 2.0), (events[1].Name, events[1].At));
+        }
+
+        [Fact]
         public void TheWavIsAFloatStereoFileOfTheSamplesGiven()
         {
             float[] samples = { 0.5f, -0.25f, 1.5f, 0f };

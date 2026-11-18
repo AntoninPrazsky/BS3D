@@ -266,7 +266,7 @@ namespace BS3D.Capture
                 int samples = (int)Math.Round(written * (double)SoundMix.OUTPUT_RATE / Plan.Fps);
                 try
                 {
-                    Console.WriteLine(CaptureSounds.Write(Path.Combine(_directory, AUDIO_FILE), _firstFrameSeconds, samples));
+                    Console.WriteLine(CaptureSounds.Write(Path.Combine(_directory, AUDIO_FILE), _firstFrameSeconds, samples, Plan.Fps));
                     audio = AUDIO_FILE;
                 }
                 catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
