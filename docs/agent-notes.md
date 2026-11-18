@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1151 Nápověda a Nastavení na telefonu: lišta záložek — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: kde je rozhraní zvětšené (UiScale > 1, telefon nebo `inches=`), stojí záložky Nápovědy a Nastavení v liště vlevo s Back na patě (`MenuPage.RailPage`). Nápověda ve dvou sloupcích, Touch odstavec první, kde hraje prst. Řádky Nastavení vysoké `PHONE_TARGET` (~9 mm), seznam ONLINE ve sloupci vpravo bez scrolleru (zmizelo osamělé „time“). Konce − a + na řádcích žebříků, na koncích se zastaví a ztlumí (`RowStep`, `StepOnLadder`). Fullscreen, Keyboard lights a 10-bit colour na telefonu nejsou. Monitor beze změny.
+- ⚠ Myra počítá horní okraj do explicitní výšky: Back v liště byl o 1 mm nižší než záložky, výška teď okraj zahrnuje.
+- Otevřené: verdict-eye; nic na skutečném vivo X300 (9 mm, písma, fit při 1,59×).
+
 ## 2026-11-18 — #1147 první snímek a dekódování hudby — Pi (BS3DServer), Claude Code
 
 - Hotovo, sloučeno: další nahrávka rodiny se dekóduje až po té hrající, ne souběžně (`GameMusic.Advance`). Na Pi je hudba úrovně připravená 0,76–0,86 s po sestavení místo 1,07–1,30 s.
