@@ -48,14 +48,19 @@ namespace BS3D.Effects
 
         //The summit: the highest ground within SUMMIT_INNER..SUMMIT_OUTER of the arena, sampled every
         //SUMMIT_STEP units; the lens turns round it this far out, this far UNDER the summit (the ground only
-        //lifts it), the look on it — so the peak stands over the lens against the sky. ⚠ Ten units OVER it, the
-        //first cut looked level across a row of crests of one height, and which of them was the summit could
-        //not be told.
+        //lifts it), so the peak stands over the lens. ⚠ Ten units OVER it, the first cut looked level across a
+        //row of crests of one height, and which of them was the summit could not be told.
+        //The look is on the peak's axis SUMMIT_LOOK_UNDER under the apex, not on the apex: looking at the apex itself
+        //tilted the view up 22 degrees and put the apex at the frame's middle, and some 70 % of the frame was sky (#1159, the
+        //owner: "the rock should be what is seen"). This low the view tilts up 6.5 degrees, the apex stands four fifths of the
+        //way up the frame and about 60 % of it is rock (MountainIntroShotsTests); the lens is where it was, so the crests
+        //stand apart as they did.
         private const float SUMMIT_INNER = 170f;
         private const float SUMMIT_OUTER = 420f;
         private const float SUMMIT_STEP = 6f;
         private const float SUMMIT_ORBIT = 70f;
         private const float SUMMIT_UNDER = 28f;
+        internal const float SUMMIT_LOOK_UNDER = 20f;
         private const float SUMMIT_SWEEP_RADIANS = 0.55f;
         internal const float SUMMIT_CLEARANCE = 10f;
         private const float SUMMIT_SECONDS = 3.2f;
@@ -120,8 +125,29 @@ namespace BS3D.Effects
                 lookAhead: 24f, pitchDownDegrees: PASS_PITCH_DOWN_DEGREES, pitchDamping: PASS_PITCH_DAMPING);
         }
 
-        /// <summary>Round the highest summit, a little under it, the look on the peak.</summary>
+        /// <summary>Round the highest summit, a little under it, the look on the peak's axis under its apex
+        /// (<see cref="SUMMIT_LOOK_UNDER"/>), so the apex stands high in the frame over its own rock.</summary>
         internal static IntroShot Summit(Func<float, float, float> ground, float fieldOfView, Random random)
+        {
+            Vector3 apex = Peak(ground);
+            Vector2 peak = new(apex.X, apex.Z);
+            float peakY = apex.Y;
+
+            //From the arena's side of the peak, turning to one side, so the summit stands against the sky beyond.
+            float towardsArena = MathF.Atan2(-peak.Y, -peak.X);
+            float sign = random.Next(2) == 0 ? 1f : -1f;
+            float from = towardsArena - sign * SUMMIT_SWEEP_RADIANS * 0.5f;
+            Vector2[] plan = AridIntroPaths.Arc(peak, from, from + sign * SUMMIT_SWEEP_RADIANS, SUMMIT_ORBIT, SUMMIT_ORBIT);
+
+            Vector3[] path = AridIntroPaths.Hug(plan, ground, SUMMIT_CLEARANCE, 4f, SUMMIT_SECONDS, _ => peakY - SUMMIT_UNDER);
+
+            return new IntroShot("the summit", path, SUMMIT_SECONDS, fieldOfView * 1.1f,
+                lookAt: new Vector3(peak.X, peakY - SUMMIT_LOOK_UNDER, peak.Y));
+        }
+
+        /// <summary>The summit the shot turns round: the highest ground within <see cref="SUMMIT_INNER"/> to
+        /// <see cref="SUMMIT_OUTER"/> of the arena, sampled every <see cref="SUMMIT_STEP"/> units.</summary>
+        internal static Vector3 Peak(Func<float, float, float> ground)
         {
             Vector2 peak = new(SUMMIT_INNER, 0f);
             float peakY = float.MinValue;
@@ -141,16 +167,7 @@ namespace BS3D.Effects
                 }
             }
 
-            //From the arena's side of the peak, turning to one side, so the summit stands against the sky beyond.
-            float towardsArena = MathF.Atan2(-peak.Y, -peak.X);
-            float sign = random.Next(2) == 0 ? 1f : -1f;
-            float from = towardsArena - sign * SUMMIT_SWEEP_RADIANS * 0.5f;
-            Vector2[] plan = AridIntroPaths.Arc(peak, from, from + sign * SUMMIT_SWEEP_RADIANS, SUMMIT_ORBIT, SUMMIT_ORBIT);
-
-            Vector3[] path = AridIntroPaths.Hug(plan, ground, SUMMIT_CLEARANCE, 4f, SUMMIT_SECONDS, _ => peakY - SUMMIT_UNDER);
-
-            return new IntroShot("the summit", path, SUMMIT_SECONDS, fieldOfView * 1.1f,
-                lookAt: new Vector3(peak.X, peakY, peak.Y));
+            return new Vector3(peak.X, peakY, peak.Y);
         }
     }
 }
