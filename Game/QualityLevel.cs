@@ -1,4 +1,5 @@
 using Prazsky.Core.Render;
+using System;
 
 namespace BS3D
 {
@@ -60,6 +61,23 @@ namespace BS3D
             QualityLevel.Ultra => QualityLevel.Potato,
             _ => QualityLevel.Low,
         };
+
+        /// <summary>
+        /// The tier one step less or more in what it draws (#1151, the Quality row's − and + on a touch screen): Potato, Low,
+        /// Medium, High, then Ultra where the build offers it, held at both ends. Not the row's own walk, which comes to
+        /// Potato after Ultra, so a + never lands on the lightest tier.
+        /// </summary>
+        internal static QualityLevel StepOnLadder(this QualityLevel quality, int direction)
+        {
+            int top = PhoneTiers.OffersUltra ? LADDER.Length - 1 : LADDER.Length - 2;
+            int at = Math.Min(Array.IndexOf(LADDER, quality), top);
+
+            return LADDER[Math.Clamp(at + Math.Sign(direction), 0, top)];
+        }
+
+        //What each tier draws, least first: the order StepOnLadder walks (the enum's is not it, Potato was appended)
+        private static readonly QualityLevel[] LADDER =
+            { QualityLevel.Potato, QualityLevel.Low, QualityLevel.Medium, QualityLevel.High, QualityLevel.Ultra };
     }
 
     /// <summary>

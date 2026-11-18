@@ -143,6 +143,12 @@ namespace BS3D.Screens
         private Widget _scrollPrompt;
         private float _scrollCarry;
 
+        //The layout the tree was built for (#1151): the phone's rail and two columns, or a monitor's row and one; the width
+        //a column of text is set across (ProseWidth); and on the phone the space between the two columns and the height the
+        //frame shows unscrolled, which a tab's columns are balanced against (TwoColumns). Pixels at the layout in force
+        private bool _phone;
+        private int _proseWidth, _columnGutter, _frameHeight;
+
         public HelpPage(BS3DGame game) : base(game)
         {
             //Bound once: the ball set's aside takes a method group, and a lambda here would be a closure a frame
@@ -165,6 +171,10 @@ namespace BS3D.Screens
 
         protected override Widget BuildTree()
         {
+            _phone = PhoneLayout;
+            _proseWidth = Scaled(TEXT_WIDTH);
+            if (_phone) return BuildRailTree();
+
             VerticalStackPanel column = MenuColumn();
 
             column.Widgets.Add(ScreenHeading("HELP"));
@@ -225,7 +235,70 @@ namespace BS3D.Screens
             return ScreenRoot(Plate(column, prose: true));
         }
 
-        private VerticalStackPanel BuildBody(int page)
+        /// <summary>
+        /// The phone layout (#1151): the tabs down a rail at the plate's left with Back at its foot, and beside it the heading
+        /// and the tab's text set in two columns across the width, so a tab fits the screen or nearly where one column at a
+        /// monitor's measure scrolled it (ODD BALLS was six screens). The owner: "It is widescreen, so we can use the space at
+        /// the sides too - better to use it than to have frequent scrolling." Every tab still stands in the biggest one's
+        /// frame and scrolls in it when it must (<see cref="TwoColumns"/>); the scroll prompt stands at the heading's right,
+        /// where the rail's column has no room for a row of its own.
+        /// </summary>
+        private Widget BuildRailTree()
+        {
+            Button back = BackButton();
+            _tabRow = new TabRow(this, TAB_NAMES, SelectTab, railFoot: back);
+
+            //Two columns across what the rail leaves, each at most the prose measure (#806) - a wider screen stands its
+            //plate narrower rather than its lines longer - with a gutter of a paragraph's gap and a half between them
+            int gutter = ParagraphGap * 3 / 2;
+            int width = Math.Min(RailContentWidth(_tabRow), 2 * ProseMeasure + gutter);
+            _proseWidth = (width - gutter) / 2;
+            _columnGutter = gutter;
+
+            //The scroller's bound: the content's height less the heading's line. What it shows unscrolled (what a tab's
+            //columns are balanced against, TwoColumns) is that less its clear bands (#1002)
+            Label heading = ScreenHeading("HELP");
+            int bound = RailContentHeight - heading.Measure(new Point(int.MaxValue / 2, int.MaxValue / 2)).Y;
+            _frameHeight = bound - 2 * Scaled(BS3DGame.MENU_SCROLL_EDGE_GAP);
+
+            Panel pageArea = new() { HorizontalAlignment = HorizontalAlignment.Left };
+            Point frame = Point.Zero;
+
+            for (int tab = 0; tab < TAB_NAMES.Length; tab++)
+            {
+                //Bounded by what the rail page leaves rather than by a reserve of design units: the plate's insets here are
+                //the rail page's own
+                ScrollViewer scroller = MenuScroll(BuildBody(tab), 0, clearEdges: true);
+                scroller.MaxHeight = bound;
+                scroller.HorizontalAlignment = HorizontalAlignment.Left;
+                Point size = scroller.Measure(new Point(int.MaxValue / 2, int.MaxValue / 2));
+                frame = new Point(Math.Max(frame.X, size.X), Math.Max(frame.Y, size.Y));
+
+                _scrollers[tab] = scroller;
+                pageArea.Widgets.Add(scroller);
+            }
+
+            foreach (ScrollViewer scroller in _scrollers)
+            {
+                scroller.MinWidth = frame.X;
+                scroller.MinHeight = frame.Y;
+            }
+
+            //The heading over the text, and the scroll prompt at the line's right end, where Back's row had it
+            Panel top = new() { Width = frame.X, HorizontalAlignment = HorizontalAlignment.Left };
+            top.Widgets.Add(heading);
+            top.Widgets.Add(_scrollPrompt = ScrollPrompt());
+
+            VerticalStackPanel content = new() { Spacing = 0 };
+            content.Widgets.Add(top);
+            content.Widgets.Add(pageArea);
+
+            ShowTab(_tab);
+
+            return RailPage(_tabRow, content);
+        }
+
+        private Widget BuildBody(int page)
         {
             VerticalStackPanel body = MenuColumn();
 
@@ -249,8 +322,98 @@ namespace BS3D.Screens
                 default: BuildCeiling(body); break;
             }
 
-            return body;
+            return _phone ? TwoColumns(body) : body;
         }
+
+        /// <summary>
+        /// A tab's blocks in two columns across the phone layout's width (#1151), each block set at the column's width as it
+        /// was built (<see cref="ProseWidth"/>). <b>Read down, then across</b> when the first column fits the frame unscrolled
+        /// and the second nearly does (<see cref="NEARLY"/>): the blocks split where the taller column is shortest, so the
+        /// columns end level, and only the end of the second, read last, may scroll into view. <b>Read across, then down</b>
+        /// otherwise (ODD BALLS, thirteen entries): the blocks in pairs, row by row, so scrolling down never sends the eye
+        /// back up to the top of the second column; a block marked to span (<see cref="SPANS"/>, the lines that head a group
+        /// of entries) takes a row of its own.
+        /// </summary>
+        private Widget TwoColumns(VerticalStackPanel body)
+        {
+            //Taken out one by one rather than cleared, so each is let go of by the stack it was built in before it joins another
+            Widget[] blocks = new Widget[body.Widgets.Count];
+            for (int i = blocks.Length - 1; i >= 0; i--)
+            {
+                blocks[i] = body.Widgets[i];
+                body.Widgets.RemoveAt(i);
+            }
+
+            Point free = new(_proseWidth, int.MaxValue / 2);
+            int[] heights = new int[blocks.Length];
+            int total = 0;
+            for (int i = 0; i < blocks.Length; i++)
+                total += heights[i] = blocks[i].Measure(free).Y;
+
+            //The split that leaves the taller column shortest with the first within the frame: the first is read whole before
+            //the second, so it must not need scrolling; the second may run a little past the bottom (NEARLY), read last
+            int split = -1, tallest = int.MaxValue, above = 0;
+            for (int i = 0; i <= blocks.Length && above <= _frameHeight; i++)
+            {
+                int taller = Math.Max(above, total - above);
+                if (taller < tallest) (tallest, split) = (taller, i);
+                if (i < blocks.Length) above += heights[i];
+            }
+
+            Grid grid = new()
+            {
+                ColumnSpacing = _columnGutter,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Top,
+            };
+            grid.ColumnsProportions.Add(new Proportion(ProportionType.Pixels, _proseWidth));
+            grid.ColumnsProportions.Add(new Proportion(ProportionType.Pixels, _proseWidth));
+
+            if (split >= 0 && tallest <= _frameHeight * NEARLY)
+            {
+                grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
+                for (int column = 0; column < 2; column++)
+                {
+                    VerticalStackPanel stack = new() { Spacing = 0, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top };
+                    for (int i = column == 0 ? 0 : split; i < (column == 0 ? split : blocks.Length); i++)
+                        stack.Widgets.Add(blocks[i]);
+
+                    Grid.SetColumn(stack, column);
+                    grid.Widgets.Add(stack);
+                }
+
+                return grid;
+            }
+
+            int row = -1, side = 2;
+            foreach (Widget block in blocks)
+            {
+                bool spans = block.Tag == SPANS;
+                if (spans || side == 2)
+                {
+                    grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
+                    row++;
+                    side = 0;
+                }
+
+                block.VerticalAlignment = VerticalAlignment.Top;
+                Grid.SetRow(block, row);
+                Grid.SetColumn(block, side);
+                if (spans) Grid.SetColumnSpan(block, 2);
+                grid.Widgets.Add(block);
+
+                side = spans ? 2 : side + 1;
+            }
+
+            return grid;
+        }
+
+        /// <summary>The mark on a block that takes a row of its own in <see cref="TwoColumns"/>' pairs: a line that heads a group.</summary>
+        private static readonly object SPANS = new();
+
+        //How far past the frame's foot the second of two columns read down may run (#1151): CONTROLS on the phone, whose
+        //touch scheme and first lines fill the first column and whose last lines scroll a little into view
+        private const float NEARLY = 1.25f;
 
         /// <summary>
         /// Asks for a tab - a click, the sideways axis, the shoulders, the wheel. Put up by <see cref="Update"/> rather than
@@ -555,21 +718,29 @@ namespace BS3D.Screens
 
         private void BuildBalls(VerticalStackPanel column)
         {
-            column.Widgets.Add(Paragraph(
-                "Most balls are ordinary. These are not — the first few you will meet as the campaign goes on."));
+            //The lines that head a group span both of the phone layout's columns when its entries stand in pairs (#1151,
+            //TwoColumns): a group's line over the first of its pair only read as that one entry's
+            column.Widgets.Add(Spanning(Paragraph(
+                "Most balls are ordinary. These are not — the first few you will meet as the campaign goes on.")));
 
             //The cluster's kinds, then a line of their own, then the two the cannon holds (#895). Which group a kind is in is
             //the entry's own (OddBallCopy.Entry.InGun) and the table keeps the cluster's first, so the squares stand in the
             //table's order whichever way this walks it
             AddOddBalls(column, inGun: false);
-            column.Widgets.Add(Paragraph(OddBallCopy.GunLead));
+            column.Widgets.Add(Spanning(Paragraph(OddBallCopy.GunLead)));
             AddOddBalls(column, inGun: true);
 
             //And the dead weight (#1023), a ball of any colour on its way out rather than a kind, under a line of its own
-            column.Widgets.Add(Paragraph(OddBallCopy.DeadLead));
+            column.Widgets.Add(Spanning(Paragraph(OddBallCopy.DeadLead)));
             column.Widgets.Add(BallRow(out _deadSquare, OddBallCopy.DeadName, OddBallCopy.DeadText));
 
-            column.Widgets.Add(Aside("And the power-ups — the Swap, the Brake and the Cut — are on the Controls tab.", ProseWidth));
+            column.Widgets.Add(Spanning(Aside("And the power-ups — the Swap, the Brake and the Cut — are on the Controls tab.", ProseWidth)));
+        }
+
+        private static Widget Spanning(Widget block)
+        {
+            block.Tag = SPANS;
+            return block;
         }
 
         /// <summary>
@@ -677,6 +848,14 @@ namespace BS3D.Screens
 
         private void BuildControls(VerticalStackPanel column)
         {
+            //The touch screen's scheme first where a finger is what plays (#1151): on a phone, or where the menus' last input
+            //was a touch (the "touch" argument pins it). On a phone it was the last paragraph of the tab, two screens under
+            //nine lines of mouse, keys and pad that a phone player has none of; the keys and the pad follow it, for a pad
+            //plugged into the phone
+            Widget touch = TouchScheme();
+            bool touchFirst = touch != null && (BS3DGame.OnPhone || Game.PromptsForTouch);
+            if (touchFirst) column.Widgets.Add(touch);
+
             //Three columns of their own width - the keycaps, the pad's buttons and the action's name, each as wide as the
             //widest of it - and what the key does beside them (#728, #799, #997). Each line used to be centred as a unit, so
             //where a keycap landed depended on how long its own words were and the icons zig-zagged down the page. Both
@@ -697,21 +876,31 @@ namespace BS3D.Screens
             //Under the table, one line each: when the three power-ups arrive and their price, said once for the three, and the
             //keys that are not play. The tab fits its frame with both (#997), as it did not with the price on every line
             column.Widgets.Add(Paragraph("Power-ups", $"Swap from chapter\u00A0{LevelSet.SWAP_FROM_BLOCK}, Brake from {LevelSet.BRAKE_FROM_BLOCK}, Cut from {LevelSet.CUT_FROM_BLOCK}. Each once a level."));
-            //Not on a phone (#1052), which has no such keys and no window
-            if (!BS3DGame.OnPhone)
+            //Not on a phone (#1052), which has no such keys and no window, nor in the phone layout the desktop emulates one in
+            //(#1151, inches=), so the emulation shows the phone's tab
+            if (!BS3DGame.OnPhone && !_phone)
                 column.Widgets.Add(Paragraph("More keys", "F11 fullscreen, F12 screenshot, F10 the frame-rate counter."));
 
-            //The touch screen's scheme (#1050, #1051), where there is one: in words rather than a third column of glyphs,
-            //because its precise aim is a toggle and its fire and walk share a side, which the table's lines cannot say.
-            //The sides as the player has them (Settings swaps them). Where a touch screen answers, or the "touch" argument stands in
-            //for one (BS3DGame.TouchScreenPresent)
-            if (Game.TouchScreenPresent)
-            {
-                string aim = Game.TouchAimOnRight ? "right" : "left", fire = Game.TouchAimOnRight ? "left" : "right";
-                column.Widgets.Add(Paragraph("Touch",
-                    $"Drag on the {aim} to aim. On the {fire}, tap to fire and drag to walk the gun. The magnifier turns "
-                    + "precise aim on and off, and tapping a power-up's chip uses it. Settings can swap the sides."));
-            }
+            if (touch != null && !touchFirst) column.Widgets.Add(touch);
+        }
+
+        /// <summary>
+        /// The touch screen's scheme (#1050, #1051), where there is one: in words rather than a third column of glyphs,
+        /// because its precise aim is a toggle and its fire and walk share a side, which the table's lines cannot say. The
+        /// sides as the player has them (Settings swaps them). Where a touch screen answers, or the "touch" argument stands in
+        /// for one (<see cref="BS3DGame.TouchScreenPresent"/>); null elsewhere.
+        /// </summary>
+        private Widget TouchScheme()
+        {
+            if (!Game.TouchScreenPresent) return null;
+
+            string aim = Game.TouchAimOnRight ? "right" : "left", fire = Game.TouchAimOnRight ? "left" : "right";
+            string text = $"Drag on the {aim} to aim. On the {fire}, tap to fire and drag to walk the gun. The magnifier turns "
+                + "precise aim on and off, and tapping a power-up's chip uses it. Settings can swap the sides.";
+
+            //On the phone layout under a heading of its own (#1151), the size of the control names beside it: it opens the tab
+            //there, and a run-in lead at the text's size read as small print over the table
+            return _phone ? Headed("Touch", text) : Paragraph("Touch", text);
         }
 
         /// <summary>
@@ -740,6 +929,26 @@ namespace BS3D.Screens
 
             line.Widgets.Add(GlyphLabel(keys, keyWidth));
             line.Widgets.Add(GlyphLabel(pad, padWidth));
+
+            //On the phone layout (#1151) the name heads its words, as every other tab's headings head theirs: in one of two
+            //columns a third column for the names left the words a dozen characters a line, and Precise aim's took five
+            if (_phone)
+            {
+                //The glyphs level with the name over the words rather than with the block's middle
+                foreach (Widget glyph in line.Widgets) glyph.VerticalAlignment = VerticalAlignment.Top;
+
+                //The name as the tabs' headings are set (Headed), the words under it with the line's own gap and no
+                //paragraph's: nine paragraph gaps were what kept the tab from fitting its two columns
+                VerticalStackPanel block = new() { Spacing = Scaled(HEADING_GAP), VerticalAlignment = VerticalAlignment.Top };
+                block.Widgets.Add(new Label { Text = name, Font = FontBody, TextColor = BS3DGame.MENU_TEXT });
+                if (what.Length > 0)
+                    block.Widgets.Add(Prose(what, ProseWidth - keyWidth - padWidth - 2 * gap, BS3DGame.MENU_TEXT_BODY, ProseLeading,
+                        new Thickness(0)));
+
+                line.Widgets.Add(block);
+                return line;
+            }
+
             //A gap more after the name than between the glyphs: the widest name ("Precise aim") otherwise ran into its words
             //(photographed), where a keycap's own round edge keeps it clear of the next
             line.Widgets.Add(new Label
@@ -755,7 +964,7 @@ namespace BS3D.Screens
             //to add (Aim, Pause) has no label at all
             if (what.Length > 0)
             {
-                Label words = Prose(what, Scaled(TEXT_WIDTH) - keyWidth - padWidth - nameWidth - 4 * gap,
+                Label words = Prose(what, ProseWidth - keyWidth - padWidth - nameWidth - 4 * gap,
                     BS3DGame.MENU_TEXT_BODY, ProseLeading, new Thickness(0));
                 words.VerticalAlignment = VerticalAlignment.Center;
                 line.Widgets.Add(words);
@@ -806,9 +1015,9 @@ namespace BS3D.Screens
         /// <summary>
         /// How wide the pages' prose is set: the whole text width (<see cref="TEXT_WIDTH"/>), past the prose measure the
         /// other pages keep (#806) — the owner's ruling on #865, a longer line for less scrolling. Against the frame's left
-        /// edge, so Back stands under the text's first letter (#738).
+        /// edge, so Back stands under the text's first letter (#738). On the phone layout, one of its two columns (#1151).
         /// </summary>
-        private int ProseWidth => Scaled(TEXT_WIDTH);
+        private int ProseWidth => _proseWidth;
 
         private Label Paragraph(string text) => Paragraph(text, ProseWidth);
 

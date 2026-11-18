@@ -13,7 +13,9 @@ namespace Prazsky.Core.Render
     /// Seven rungs with the default in the middle, wide enough either way to matter on a dim laptop panel and on a
     /// bright monitor without crushing or blowing the frame (the old ladder ran 64 to 136 %, this 70 to 130). A row
     /// is one click and has no back-step, so the walk goes <b>up and wraps</b>: from the default the first click is a
-    /// small brighter step, and the dim side comes after the wrap. Pure arithmetic, so the tests can state what the
+    /// small brighter step, and the dim side comes after the wrap. (Where a touch screen answers, the row also has a −
+    /// and a + at its ends, which step either way and hold at the ladder's ends: the Game's <c>RowStep</c>, #1151.)
+    /// Pure arithmetic, so the tests can state what the
     /// row promises without a window.
     /// </para>
     /// </summary>

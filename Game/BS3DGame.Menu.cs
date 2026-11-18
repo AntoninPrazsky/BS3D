@@ -652,28 +652,8 @@ namespace BS3D
         //what a setting means.
         private const float VOLUME_STEP = 0.25f;
 
-        //The ladder the sensitivity row walks (#384), as multipliers over MouseAim.SENSITIVITY. Written out
-        //rather than stepped like the exposure, because what a sensitivity needs is a RATIO between rungs and
-        //not a difference: 25 percentage points is a third of the way up from 75 % and an eighth of the way up
-        //from 200 %, so an even ladder is fine at one end and useless at the other. These are near-geometric
-        //(about √2 apart) and rounded to numbers a player can hold in their head.
-        //
-        //The span is the point and it is not decoration: the constant is an angle per PIXEL, so the two ends
-        //are what lets one machine's feel be carried to another - 0.057°/px at the bottom to 0.34°/px at the
-        //top, a sixfold range, against a 2.4× spread in width between a 1600×900 laptop and a 4K desktop and
-        //whatever the mouse's own DPI adds on top of it.
-        //
-        //1 is on the ladder ON PURPOSE and is the default: the shipped feel has to be reachable, and it has to
-        //be what a player who never opens this row keeps.
-        //⚠ 1.25 EXISTS BECAUSE THE AIM ROW COULD NOT REACH ITS OWN ANSWER (#477). Precise aim multiplies the
-        //cursor rate by PreciseAim.CursorRateScale, which at this game's pair of fields of view (42.86 deg
-        //overview, 36 deg leaned) is tan(18)/tan(21.43) = 0.828 - a 17.2 % slowdown, and geometrically the
-        //right one, since it is what makes the same hand movement cover the same screen distance in both
-        //modes. The owner's playtest reads that as too slow, and the row that is supposed to let a player
-        //answer that went 1 -> 1.5: either leave 17 % of the slowdown in or overshoot to 24 % faster than the
-        //overview. The compensating multiplier is 1/0.828 = 1.208, so 1.25 is the rung that was missing -
-        //0.828 x 1.25 = 1.035, parity with the overview to within 3.5 %.
-        private static readonly float[] SENSITIVITY_LADDER = [0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f, 3f];
+        //The ladder the sensitivity rows walk is SensitivityLadder (#384), which says why it is written out, why it spans
+        //what it does and why 1.25 is on it. Its own file so the tests can state its promises; this file only walks it
 
         //The player's rung, as the multiplier itself rather than an index - it is what the aim path wants every
         //frame, and an index would have to be resolved there instead.
@@ -831,9 +811,10 @@ namespace BS3D
 
         /// <summary>
         /// The share of the screen's height a fitted page may fill (#1052): a little short of all of it, so a page brought down
-        /// to fit does not stand against the screen's edges with its heading and Back.
+        /// to fit does not stand against the screen's edges with its heading and Back. The share of its width too. The phone
+        /// layout's rail pages keep a little under it (<c>MenuPage.RAIL_ROOM</c>), so they are never brought down.
         /// </summary>
-        private const float FIT_ROOM = 0.96f;
+        internal const float FIT_ROOM = 0.96f;
 
         /// <summary>
         /// Whether the game runs on a phone (#1052): no window to make fullscreen, no keyboard with keys F10 to F12 or lamps to
@@ -3116,7 +3097,7 @@ namespace BS3D
         /// The clear band between a <see cref="MenuScroll"/>'s clip and its neighbours at each end, in design units (#1002):
         /// the review's 15 to 20 pixels at 1080p, on top of the column's own spacing.
         /// </summary>
-        private const int MENU_SCROLL_EDGE_GAP = 36;
+        internal const int MENU_SCROLL_EDGE_GAP = 36;
 
         internal VerticalStackPanel MenuColumn() => new()
         {

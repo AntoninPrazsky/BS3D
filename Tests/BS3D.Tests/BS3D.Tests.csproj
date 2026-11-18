@@ -99,6 +99,10 @@
     <Compile Include="..\..\Game\Screens\NavWalk.cs" />
     <!--How far a mouse-wheel notch moves a menu list (#952): a share of the viewport, scaled by the delta, over plain numbers and no Myra.-->
     <Compile Include="..\..\Game\Screens\WheelScroll.cs" />
+    <!--A cycling Settings row's − and + (#1151): one rung either way on its ladder, held at the ends, over plain numbers.-->
+    <Compile Include="..\..\Game\Screens\RowStep.cs" />
+    <!--The ladder the three sensitivity rows walk (#384), so the − and + ends are tested against the game's own rungs.-->
+    <Compile Include="..\..\Game\SensitivityLadder.cs" />
     <!--The paragraph breaker (#769, #806): lines broken at spaces only, for the paragraph's shape, over a measure handed
         in; and the copy's characters held to the typesetting rules.-->
     <Compile Include="..\..\Game\Screens\SpaceWrap.cs" />

@@ -27,6 +27,12 @@ Pravidla:
 - ⚠ `play` při startu sundá úvod v prvním updatu; MusicBake kompiluje `VoiceBudget`, takže potřebuje i `Game/Capture/CaptureSounds.cs` a `SoundMix.cs`.
 - Otevřené: stereo je jen přiblížení X3DAudio; #1180 (nástroj na střih).
 
+## 2026-11-15 — #1151 Nápověda a Nastavení na telefonu: lišta záložek — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: kde je rozhraní zvětšené (UiScale > 1, telefon nebo `inches=`), stojí záložky Nápovědy a Nastavení v liště vlevo s Back na patě (`MenuPage.RailPage`). Nápověda ve dvou sloupcích, Touch odstavec první, kde hraje prst. Řádky Nastavení vysoké `PHONE_TARGET` (~9 mm), seznam ONLINE ve sloupci vpravo bez scrolleru (zmizelo osamělé „time“). Konce − a + na řádcích žebříků, na koncích se zastaví a ztlumí (`RowStep`, `StepOnLadder`). Fullscreen, Keyboard lights a 10-bit colour na telefonu nejsou. Monitor beze změny.
+- ⚠ Myra počítá horní okraj do explicitní výšky: Back v liště byl o 1 mm nižší než záložky, výška teď okraj zahrnuje.
+- Otevřené: verdict-eye; nic na skutečném vivo X300 (9 mm, písma, fit při 1,59×).
+
 ## 2026-11-18 — #1177 záznam ve 4K nezávisle na monitoru, s HUD, bez zrna — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: `capturesize=<w>x<h>` (back buffer ve velikosti snímků přes `PreparingDeviceSettings`, okno drženo jako náhled přes `MaximumSize`), `capturehud`, `nograin` (jako `mute`, nezapisuje se). `web-capture.ps1` má `-Size -Quality -Hud -NoGrain -Master`; encoder píše 4K60 master (H.264 crf 16). Tightrope 20 s: hra 1200 snímků 4K za 29 s, kódování ~200 s, master 68 MB.
