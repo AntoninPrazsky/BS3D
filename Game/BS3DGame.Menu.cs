@@ -144,10 +144,11 @@ namespace BS3D
         //A and Enter at the menu's keycap size, measured with the fonts (DrawFocusPrompt)
         private float _focusPromptInkCentre, _focusPromptPadWidth, _focusPromptKeysWidth;
 
-        //The focus prompt's entries are this share of a column wide at least: a level tile or a chapter arrow is too small
-        //to carry a glyph beside what it already shows, where Help's walking buttons and High Scores' periods (490 and
-        //470 of the column's 1000) have the room
-        private const float FOCUS_PROMPT_MIN_SHARE = 0.4f;
+        //The focus prompt's entries are this share of a column wide at least: a level tile, a phone's scene tile (440 of the
+        //column's 1000, #1153: the key stood on "The Silhouettes") or a chapter arrow is too small to carry a glyph beside
+        //what it already shows, where Help's walking buttons (490) and High Scores' periods (560, and 490 on a phone's rail)
+        //have the room
+        private const float FOCUS_PROMPT_MIN_SHARE = 0.45f;
 
         //The pad's buttons any one of which says the hand is on the pad (#799). The sticks and the triggers are read past
         //their dead zones beside these.
