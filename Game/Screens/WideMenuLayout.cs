@@ -12,7 +12,7 @@ namespace BS3D.Screens
     /// not: the Scene grid with its plate is 3448 units, and the other three about 2800 to 3200 (About's with the version tag
     /// beside it more). So each states the width it needs
     /// (<c>MenuPage.RequiredWidth</c>) and <c>BS3DGame.FitPage</c> brings it inside the screen as it does a height. On the X300
-    /// Ultra (2.2:1) all four fit at the menus' scale; on a 2:1 or 16:9 phone they are drawn a little smaller instead.
+    /// Ultra (2.2:1) all four fit at the menus' scale; on a narrower phone those that do not are drawn smaller instead.
     /// </para>
     /// <para>
     /// Plain arithmetic and design units, kept out of the pages so a test can hold the figures to what they promise (a

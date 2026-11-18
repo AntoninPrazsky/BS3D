@@ -138,7 +138,8 @@ namespace BS3D.Screens
         //enough for the rail beside the body (UsesTheWidth)
         private bool BesideTheRail;
 
-        //The rail page's plate and the version tag beside it, as wide as they were built (ClearOfTheTag), 0 when stacked
+        //The rail page's plate and the version tag beside it, as wide as they were built (ClearOfTheTag); read only beside
+        //the rail
         private int _railPlateWidth, _tagWidth;
 
         /// <summary>
