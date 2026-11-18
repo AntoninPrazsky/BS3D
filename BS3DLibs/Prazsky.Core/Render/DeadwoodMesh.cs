@@ -60,13 +60,7 @@ namespace Prazsky.Core.Render
             var idx = new List<short>();
             const int SEG = 8;
 
-            //The log sits a quarter of its own thickness into the ground (the planter puts its origin on the
-            //terrain), so it reads as lying in the grass rather than balanced on it.
-            float bend = RollBend(rng, length);
-            float thinEnd = radius * (0.5f + 0.15f * (float)rng.NextDouble());
-            Vector3 root = new(-length * 0.5f, radius * 0.75f, 0f);
-            Vector3 middle = new(0f, radius * 0.7f, bend);
-            Vector3 tip = new(length * 0.5f, thinEnd * 0.8f, 0f);
+            (Vector3 root, Vector3 middle, Vector3 tip, float thinEnd) = Spine(rng, length, radius);
 
             //Both ends sawn: discs fanned from the rings' own vertices, so no sliver opens between a disc and its ring
             TubeGeometry.AddSweep(v, idx, SEG, new[] { root, middle, tip }, new[] { radius, radius * 0.82f, thinEnd }, capStart: true, capEnd: true);
@@ -92,6 +86,42 @@ namespace Prazsky.Core.Render
 
             return (v, idx, new BoundingSphere(new Vector3(0f, radius, 0f), length * 0.5f + radius + reach));
         }
+
+        //The log's spine, off the first rolls of its seed: the root end, the bent middle and the tip, and the tip's radius.
+        //The log sits a quarter of its own thickness into the ground (the planter puts its origin on the terrain), so it reads
+        //as lying in the grass rather than balanced on it.
+        private static (Vector3 Root, Vector3 Middle, Vector3 Tip, float ThinEnd) Spine(Random rng, float length, float radius)
+        {
+            float bend = RollBend(rng, length);
+            float thinEnd = radius * (0.5f + 0.15f * (float)rng.NextDouble());
+            return (new Vector3(-length * 0.5f, radius * 0.75f, 0f), new Vector3(0f, radius * 0.7f, bend),
+                new Vector3(length * 0.5f, thinEnd * 0.8f, 0f), thinEnd);
+        }
+
+        /// <summary>
+        /// The log as slabs at scale 1 in its own space (#1157): one at every <see cref="BODY_STEP"/> of its root's radius along
+        /// its spine, through the bend, as thick as the log is there and from its underside to its top. Its broken stubs are left
+        /// out: they rise off its top, thinner than half of it. The offsets are the log's own, along +X; a planter turns them by
+        /// the log's yaw (<see cref="PlantVolumes.Turned"/>).
+        /// </summary>
+        internal static Slab[] Body(float length, float radius, int seed)
+        {
+            (Vector3 root, Vector3 middle, Vector3 tip, float thinEnd) = Spine(new Random(seed), length, radius);
+            int count = Math.Max(2, (int)MathF.Ceiling(length / (radius * BODY_STEP)) + 1);
+            var body = new Slab[count];
+            for (int i = 0; i < count; i++)
+            {
+                float t = i / (float)(count - 1);
+                Vector3 at = t < 0.5f ? Vector3.Lerp(root, middle, t * 2f) : Vector3.Lerp(middle, tip, t * 2f - 1f);
+                float r = t < 0.5f ? MathHelper.Lerp(radius, radius * 0.82f, t * 2f) : MathHelper.Lerp(radius * 0.82f, thinEnd, t * 2f - 1f);
+                body[i] = new Slab(at.Y - r, at.Y + r, r, at.X, at.Z);
+            }
+            return body;
+        }
+
+        /// <summary>How far apart <see cref="Body"/>'s slabs stand along the log, in its root's radii: each one's circle overlaps
+        /// the next well inside the log's own width, so no gap between two of them leaves room for a thing to stand in the log.</summary>
+        internal const float BODY_STEP = 1f;
 
         public void Dispose()
         {
