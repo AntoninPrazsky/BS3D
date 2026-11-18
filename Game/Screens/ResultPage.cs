@@ -830,8 +830,9 @@ namespace BS3D.Screens
         /// the heading's faces where the three columns fit the plate's content width at the column's width, and where they do
         /// not in the display face scaled down by the one share that fits, so the grid stays one piece: on a phone every entry is
         /// set at the front end's size (#1052), and the total in the heading face had run out of the plate's right edge on the
-        /// X300 Ultra (#1073). The next-star note keeps its small face and is set at <see cref="NoteRoom"/>: one line where it
-        /// fits, the score over the time where it does not (its copy ties every space but the one after its comma). It was
+        /// X300 Ultra (#1073). The next-star note is set at <see cref="NoteRoom"/>: one line in the small face where it fits;
+        /// where it does not, on the split page the score over the time (its copy ties every space but the one after its comma),
+        /// and on a monitor's page, whose height is its budget, one line in the small face scaled down to the room. It was
         /// measured apart from the fit, and rules v2's longer note (#1045) then lengthened the detail column after the faces had
         /// been fitted: on the phone the total and the note's end ran out of the plate and under the online boards (#1148). The
         /// unlock note wraps to the column's content width by construction (see <see cref="BuildBreakdown"/>). A note wider than
@@ -855,10 +856,9 @@ namespace BS3D.Screens
             float gaps = 2f * _breakdownGrid.ColumnSpacing;
             int columnRoom = Game.MenuColumnPlateContentWidth, noteRoom = NoteRoom;
 
-            SpriteFontBase noteFace = _nextStarNote.Font;
-            BreakdownLayout.Fit fit = BreakdownLayout.Lay(columnRoom, noteRoom, gaps,
+            BreakdownLayout.Fit fit = BreakdownLayout.Lay(columnRoom, noteRoom, heightToSpare: Split, gaps,
                 scale => BreakdownColumns(FaceAt(body, scale), FaceAt(heading, scale)),
-                _result.NextStarNote, line => noteFace.MeasureString(line).X,
+                _result.NextStarNote, (scale, line) => SmallAt(scale).MeasureString(line).X,
                 _unlockNote.Visible ? _unlockNote.Width ?? 0 : 0);
 
             _figuresBody = FaceAt(body, fit.Scale);
@@ -873,7 +873,8 @@ namespace BS3D.Screens
                 else if (row == BREAKDOWN_ROW_COUNT) label.Font = _figuresHeading;
             }
 
-            //In the lines the layout measured, which the label draws as they are: it has no wrap of its own to add
+            //In the lines and the face the layout measured, which the label draws as they are: it has no wrap of its own to add
+            _nextStarNote.Font = SmallAt(fit.NoteScale);
             _nextStarNote.Text = fit.Note;
             _nextStarNote.Visible = fit.Note.Length > 0;
 
@@ -886,12 +887,15 @@ namespace BS3D.Screens
             string said = $"[result] breakdown: {fit.Pinned.Sum + gaps:0} px wide (columns' room {columnRoom}, note's {noteRoom}), "
                 + $"faces at {fit.Scale:0.00}x, "
                 + (fit.Note.Length == 0 ? "no next-star note"
-                    : $"the next-star note {fit.NoteWidth:0} px on {(fit.Note.Contains('\n') ? "two lines" : "one line")}");
+                    : $"the next-star note {fit.NoteWidth:0} px on {(fit.Note.Contains('\n') ? "two lines" : "one line")} at {fit.NoteScale:0.00}x");
             if (said != _breakdownLogged) Console.WriteLine(_breakdownLogged = said);
         }
 
         /// <summary><paramref name="face"/> at <paramref name="scale"/> of its size: itself at its size, the display face otherwise.</summary>
         private SpriteFontBase FaceAt(SpriteFontBase face, float scale) => scale >= 1f ? face : Game.DisplayFontAt(face.FontSize * scale);
+
+        /// <summary>The small face (the reading face, Inter) at <paramref name="scale"/> of its size.</summary>
+        private SpriteFontBase SmallAt(float scale) => scale >= 1f ? FontSmall : Game.ReadingFontAt(FontSmall.FontSize * scale);
 
         /// <summary>The three pinned columns' widths with the rows in <paramref name="body"/> and the total in <paramref name="heading"/>.</summary>
         private BreakdownLayout.Columns BreakdownColumns(SpriteFontBase body, SpriteFontBase heading) => new(
@@ -1225,12 +1229,12 @@ namespace BS3D.Screens
             //stars: there is nothing above the top to project towards, and a row reading "+0" would look like
             //an error rather than a ceiling.
             //
-            //⚠ ONE LINE OR TWO, CHOSEN BY THE LAYOUT AND NOT BY THE LABEL (#1148). Under rules v2 it is the grid's widest line,
+            //⚠ ITS LINES AND ITS FACE ARE THE LAYOUT'S, NOT THE LABEL'S (#1148). Under rules v2 it is the grid's widest line,
             //"Next star at 26 180 (+1 781), or 3 s faster", wider than the plate's content at the column's width; LayBreakdown
             //sets it at its room (NoteRoom: on a monitor the width beside the column, on the phone's split page the plate's
-            //own), where it breaks at its comma if it must (the copy ties every other space), and hands the label the lines it
-            //measured. No wrap of the label's own, so nothing breaks them again; two lines are prose,
-            //so at the prose leading (#806), each centred.
+            //own) and, where that is too narrow, breaks it at its comma on the split page (the copy ties every other space) or
+            //draws it smaller on a monitor's, and hands the label the lines and the face it measured. No wrap of the label's
+            //own, so nothing breaks them again; two lines are prose, so at the prose leading (#806), each centred.
             grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
             _nextStarNote = new Label
             {

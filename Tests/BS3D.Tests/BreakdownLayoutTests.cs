@@ -16,10 +16,12 @@ namespace BS3D.Tests
     /// note 464 px in the 29 px small face at 1920x1080, and the three columns about 398 px at 1080p and 875 px in the phone's
     /// layout at full size. Every page figure is a design unit scaled by the layout's share, as the menu scales them.
     /// <para>
-    /// Seen to fail with the behaviour removed: with the note set on one line whatever the room (the page before #1148, which
-    /// measured it apart from the faces' fit), the grid on the phone's split page is wider than the plate's content and the
-    /// first test fails at every phone scale; with the note's copy left untied, a narrow measure breaks a figure and the second
-    /// fails; with the gap dropped from <c>NoteRoom</c>, the plate reaches the boards and the third fails.
+    /// Seen to fail with the behaviour removed: with the note set on one line in its own face whatever the room (the page before
+    /// #1148, which measured it apart from the faces' fit), the grid is wider than the plate's content on the phone's split page
+    /// at every share and on a monitor at 4:3 and 5:4, and the first test fails; with the note broken on a monitor's page as on
+    /// the split one, the page spends a line it has not got and the spending test fails; with the note's copy left untied, a
+    /// narrow measure breaks a figure and the comma test fails; with the gap dropped from <c>NoteRoom</c>, the plate reaches
+    /// the boards and the room's own test fails.
     /// </para>
     /// </summary>
     public class BreakdownLayoutTests
@@ -143,12 +145,12 @@ namespace BS3D.Tests
             (string[] details, string[] values, string total) = Texts(r);
             float body = l.Scaled(l.Split ? FRONT_BODY : BODY), heading = l.Scaled(HEADING), small = l.Scaled(SMALL);
 
-            return BreakdownLayout.Lay(page.Content, page.NoteRoom, page.Gaps,
+            return BreakdownLayout.Lay(page.Content, page.NoteRoom, heightToSpare: l.Split, page.Gaps,
                 scale => new BreakdownLayout.Columns(
                     Widest(CAPTIONS, t => Display(t) * body * scale),
                     Widest(details, t => Display(t) * body * scale),
                     MathF.Max(Widest(values, t => Display(t) * body * scale), Widest(new[] { PENDING, total }, t => Display(t) * heading * scale))),
-                r.NextStarNote, line => Small(line) * small, otherNotes: 0f);
+                r.NextStarNote, (scale, line) => Small(line) * small * scale, otherNotes: 0f);
         }
 
         [Theory]
@@ -168,9 +170,41 @@ namespace BS3D.Tests
                 float room = layout.Split ? page.Content : Math.Max(page.Content, page.NoteRoom);
                 Assert.True(grid <= room, $"{layout}, {result.Score}: the grid is {grid:0} px in a room of {room} px");
 
-                //And every line of the note, as it is set, is inside it too: a line wider than the room is the overflow itself
+                //And every line of the note, as it is set and in the face it is drawn in, is inside it too: a line wider than the
+                //room is the overflow itself
                 foreach (string line in fit.Note.Split('\n').Where(l => l.Length > 0))
-                    Assert.True(Small(line) * layout.Scaled(SMALL) <= room, $"{layout}: '{line}' is wider than {room} px");
+                    Assert.True(Small(line) * layout.Scaled(SMALL) * fit.NoteScale <= room, $"{layout}: '{line}' is wider than {room} px");
+            }
+        }
+
+        /// <summary>
+        /// What the note costs the page where the room is too narrow for it: on the phone's split page, which has the height, a
+        /// second line and never a smaller face; on a monitor's page, whose height is its budget (a block's milestone with NEW
+        /// BEST already reaches the frame's bottom edge at 1080 rows), never a second line, and its face no smaller than it must
+        /// be. At 4:3 and 5:4, where the plate cannot widen, the widest note a shipped level gives is drawn at about 0.75 of its
+        /// size, which the floor below holds it to (BreakdownLayout's MIN_NOTE_SCALE is 0.7).
+        /// </summary>
+        [Theory]
+        [MemberData(nameof(Layouts))]
+        public void The_note_spends_what_the_page_has_to_spare(float share, bool split, int width, int height)
+        {
+            Layout layout = new(share, split, width, height);
+            Page page = PageAt(layout);
+
+            foreach (LevelResult result in Results().Where(r => r.NextStarNote.Length > 0))
+            {
+                BreakdownLayout.Fit fit = Lay(layout, page, result);
+                float oneLine = Small(result.NextStarNote) * layout.Scaled(SMALL);
+
+                if (layout.Split)
+                    Assert.Equal(1f, fit.NoteScale);
+                else
+                {
+                    Assert.DoesNotContain('\n', fit.Note);
+                    Assert.True(fit.NoteScale >= 0.7f, $"{layout}: the note is drawn at {fit.NoteScale:0.00} of its size");
+                    if (oneLine <= page.NoteRoom) Assert.Equal(1f, fit.NoteScale);
+                    else Assert.True(oneLine * fit.NoteScale > page.NoteRoom * 0.97f, $"{layout}: the note was shrunk past the room");
+                }
             }
         }
 
