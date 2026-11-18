@@ -556,6 +556,83 @@ namespace BS3D.Screens
 
         protected VerticalStackPanel MenuColumn() => Game.MenuColumn();
 
+        /// <summary>
+        /// Whether this page is laid out for a screen held close (#1151): the enlarged interface (<see cref="BS3DGame.UiScale"/>
+        /// over 1, a phone), where the width is plentiful and the height is not, so a page with tabs stands them down a side
+        /// rail (<see cref="TabRow"/>'s rail, <see cref="RailPage"/>) and sets its reading across the width rather than
+        /// scrolling it. Only a phone, and the desktop's <c>inches=</c> emulation of one: Windows answers no physical height,
+        /// so a monitor's pages are laid out exactly as they were.
+        /// </summary>
+        protected bool PhoneLayout => Game.UiScale > 1f;
+
+        /// <summary>
+        /// The height of a touch target on the phone layout (#1151), in design units: 9 mm on the X300 Ultra at the menus'
+        /// fit there (a unit is 0.044 mm at the front end's 1.33×), the size a fingertip hits without looking twice. A
+        /// Settings row and its − and + are this tall.
+        /// </summary>
+        protected const int PHONE_TARGET = 206;
+
+        //The phone layout's plate (#1151): narrower insets than a monitor's, because the height is what a phone runs out of
+        //and the rail and the reading fill the width
+        private const int RAIL_PLATE_PADDING_X = 60, RAIL_PLATE_PADDING_Y = 40;
+
+        //Between the rail and the page beside it, in design units
+        private const int RAIL_GUTTER = 80;
+
+        /// <summary>
+        /// A page with its tabs down a side rail (#1151, the phone layout): <paramref name="rail"/> at the plate's left, Back at
+        /// its foot, and <paramref name="content"/> (the heading and what the tabs show) beside it. The content is added to
+        /// the tree first and the rail after it, so the pad's walk, which follows the order widgets were added, goes down the
+        /// page's entries and ends on Back as it does on a monitor; a grid places them by column, not by that order.
+        /// </summary>
+        protected Widget RailPage(TabRow rail, Widget content)
+        {
+            Grid grid = new()
+            {
+                ColumnSpacing = Scaled(RAIL_GUTTER),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            grid.ColumnsProportions.Add(new Proportion(ProportionType.Auto));
+            grid.ColumnsProportions.Add(new Proportion(ProportionType.Auto));
+            grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
+
+            content.VerticalAlignment = VerticalAlignment.Top;
+            Grid.SetColumn(content, 1);
+            grid.Widgets.Add(content);
+
+            rail.Root.VerticalAlignment = VerticalAlignment.Top;
+            Grid.SetColumn(rail.Root, 0);
+            grid.Widgets.Add(rail.Root);
+
+            Panel plate = Plate(grid, prose: true);
+            plate.Padding = ScaledThickness(RAIL_PLATE_PADDING_X, RAIL_PLATE_PADDING_Y);
+
+            return ScreenRoot(plate);
+        }
+
+        /// <summary>
+        /// How wide the content beside a rail may be, in pixels at the layout in force (#1151): what is left of
+        /// <see cref="RAIL_PAGE_SHARE"/> of the screen's width once the plate's insets, the rail and the gutter have theirs.
+        /// </summary>
+        protected int RailContentWidth(TabRow rail) =>
+            (int)(Game.GraphicsDevice.Viewport.Width * RAIL_PAGE_SHARE) - 2 * Scaled(RAIL_PLATE_PADDING_X) - rail.Width - Scaled(RAIL_GUTTER);
+
+        /// <summary>
+        /// The share of the screen's width a rail page's plate takes (#1151): nearly all of it, the owner's "it is widescreen,
+        /// so use the space at the sides too", and under <c>FitPage</c>'s own room (96 %) so it is never brought down for width.
+        /// </summary>
+        private const float RAIL_PAGE_SHARE = 0.95f;
+
+        /// <summary>
+        /// The height the content beside a rail may take, in pixels at the layout in force (#1151): the screen's less the
+        /// plate's insets and <c>FitPage</c>'s margin, so a page that keeps to it is not brought down.
+        /// </summary>
+        protected int RailContentHeight => (int)(Game.GraphicsDevice.Viewport.Height * RAIL_FIT_ROOM) - 2 * Scaled(RAIL_PLATE_PADDING_Y);
+
+        //FitPage's room (BS3DGame.FIT_ROOM) less a little, so rounding in a font's size cannot tip a page that keeps to it over
+        private const float RAIL_FIT_ROOM = 0.95f;
+
         //The page's long part and the widget it stands in (#1052, ScrollsWhenTall), and the scroller it was put in once it was
         private Container _tallParent;
         private Widget _tallPart;
@@ -937,6 +1014,12 @@ namespace BS3D.Screens
         /// (the arrow keys, the D-pad, the left stick), the shoulders (<see cref="ShoulderTurn"/>) and the wheel over the row
         /// (<see cref="OnScrollWheel"/>, which asks <see cref="IsMouseOver"/>). Settings and Help share it, so a tab looks and
         /// answers the same on both; what each page shows under it, and what it does on a turn, is the page's own.
+        /// <para>
+        /// <b>Or a rail down the page's left side</b> (#1151, the phone layout, <see cref="RailPage"/>): the same tabs stacked,
+        /// each a touch target's height, with the page's Back at the rail's foot, so the height a row of tabs and a heading took
+        /// goes to the page. The tabs turn the same way (the rail is a row stood on end, and its order is the row's), and the
+        /// shoulders' prompts stand beside its first and last tab rather than above and below it, where the height is not.
+        /// </para>
         /// </summary>
         protected sealed class TabRow
         {
@@ -946,6 +1029,14 @@ namespace BS3D.Screens
             private const int SPACING = 16;
             private const int GAP = 20;
 
+            //The rail (#1151), in design units: a tab's height (8.6 mm on the X300 Ultra, a little under a Settings row's
+            //PHONE_TARGET so the six tabs and Back fit the phone's height at the menus' size), the space between tabs, the
+            //gap above the foot, and the least width, which a Back with the pad's B inside its slab needs
+            private const int RAIL_TAB_HEIGHT = 196;
+            private const int RAIL_SPACING = 8;
+            private const int RAIL_FOOT_GAP = 32;
+            private const int RAIL_MIN_WIDTH = 460;
+
             private readonly Button[] _tabs;
             private readonly Label[] _labels;
 
@@ -953,27 +1044,20 @@ namespace BS3D.Screens
             /// <param name="names">The tabs' names, in the display face's capitals.</param>
             /// <param name="select">Asked with the tab's index on a click. A page puts the tab up from its <c>Update</c>
             /// rather than here, because a click arrives from inside Myra's own processing of the tree it would be changing.</param>
-            internal TabRow(MenuPage page, string[] names, Action<int> select)
+            /// <param name="railFoot">The page's Back, for a rail down the page's side (#1151) with it at the foot; null for a
+            /// row over the page.</param>
+            internal TabRow(MenuPage page, string[] names, Action<int> select, Button railFoot = null)
             {
                 int nameWidth = 0;
                 foreach (string name in names)
                     nameWidth = Math.Max(nameWidth, (int)MathF.Ceiling(page.FontSection.MeasureString(name).X));
 
-                HorizontalStackPanel row = new()
-                {
-                    Spacing = page.Scaled(SPACING),
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    Margin = page.ScaledThickness(0, 0, 0, GAP),
-                };
-
-                //What turns the tabs, at the row's two ends (#799, the owner's "LB ◂ AUDIO · CONTROLS ▸ RB"): the shoulders
-                //for a pad player, the arrow keys for a keyboard one. Outside the tabs, so the pages below stay as wide as
-                //the tabs themselves (#770, Width) and only the row reaches past them.
-                row.Widgets.Add(page.Prompt(PromptGlyph.PAD_LB, PromptGlyph.KEY_LEFT));
+                bool rail = railFoot != null;
+                int tabWidth = nameWidth + 2 * page.Scaled(PADDING_X);
+                if (rail) tabWidth = Math.Max(tabWidth, page.Scaled(RAIL_MIN_WIDTH));
 
                 _tabs = new Button[names.Length];
                 _labels = new Label[names.Length];
-                int tabWidth = nameWidth + 2 * page.Scaled(PADDING_X);
 
                 for (int t = 0; t < names.Length; t++)
                 {
@@ -984,23 +1068,91 @@ namespace BS3D.Screens
                     button.Tag = null;
                     button.Padding = page.ScaledThickness(PADDING_X, PADDING_Y);
                     button.Width = tabWidth;
+                    if (rail) button.Height = page.Scaled(RAIL_TAB_HEIGHT);
                     label.Font = page.FontSection;
 
                     _tabs[t] = button;
                     _labels[t] = label;
-                    row.Widgets.Add(button);
                 }
 
-                row.Widgets.Add(page.Prompt(PromptGlyph.PAD_RB, PromptGlyph.KEY_RIGHT));
+                //What turns the tabs (#799, the owner's "LB ◂ AUDIO · CONTROLS ▸ RB"): the shoulders for a pad player, the
+                //arrow keys for a keyboard one
+                PromptGlyph previous = page.Prompt(PromptGlyph.PAD_LB, PromptGlyph.KEY_LEFT);
+                PromptGlyph next = page.Prompt(PromptGlyph.PAD_RB, PromptGlyph.KEY_RIGHT);
+
+                if (rail)
+                {
+                    Root = BuildRail(page, previous, next, railFoot, tabWidth, out int promptsWidth);
+                    Width = promptsWidth + page.Scaled(SPACING) + tabWidth;
+                    return;
+                }
+
+                HorizontalStackPanel row = new()
+                {
+                    Spacing = page.Scaled(SPACING),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Margin = page.ScaledThickness(0, 0, 0, GAP),
+                };
+
+                //At the row's two ends, outside the tabs, so the pages below stay as wide as the tabs themselves (#770, Width)
+                //and only the row reaches past them
+                row.Widgets.Add(previous);
+                foreach (Button button in _tabs) row.Widgets.Add(button);
+                row.Widgets.Add(next);
 
                 Root = row;
                 Width = names.Length * tabWidth + (names.Length - 1) * row.Spacing;
             }
 
-            /// <summary>The row, prompts included, to add to the page's column.</summary>
+            /// <summary>
+            /// The rail (#1151): the tabs stacked, the foot under them a gap down and as wide, and the shoulders' prompts in a
+            /// column at the left, each level with the tab it stands at the end of — LB the first, RB the last. A slot per
+            /// tab in that column, so the prompts stay level with their tabs whatever the sizes round to.
+            /// </summary>
+            private Widget BuildRail(MenuPage page, PromptGlyph previous, PromptGlyph next, Button foot, int tabWidth, out int promptsWidth)
+            {
+                int spacing = page.Scaled(RAIL_SPACING), height = page.Scaled(RAIL_TAB_HEIGHT);
+
+                VerticalStackPanel tabs = new() { Spacing = spacing, VerticalAlignment = VerticalAlignment.Top };
+                foreach (Button button in _tabs) tabs.Widgets.Add(button);
+
+                foot.Width = tabWidth;
+                foot.Height = height;
+                foot.HorizontalAlignment = HorizontalAlignment.Left;
+                foot.Margin = new Thickness(0, page.Scaled(RAIL_FOOT_GAP) - spacing, 0, 0);
+                tabs.Widgets.Add(foot);
+
+                Point free = new(int.MaxValue / 2, int.MaxValue / 2);
+                promptsWidth = Math.Max(previous.Measure(free).X, next.Measure(free).X);
+
+                VerticalStackPanel prompts = new() { Spacing = spacing, Width = promptsWidth, VerticalAlignment = VerticalAlignment.Top };
+                for (int t = 0; t < _tabs.Length; t++)
+                {
+                    Panel slot = new() { Height = height };
+                    PromptGlyph prompt = t == 0 ? previous : t == _tabs.Length - 1 ? next : null;
+                    if (prompt != null)
+                    {
+                        prompt.HorizontalAlignment = HorizontalAlignment.Right;
+                        prompt.VerticalAlignment = VerticalAlignment.Center;
+                        slot.Widgets.Add(prompt);
+                    }
+                    prompts.Widgets.Add(slot);
+                }
+
+                HorizontalStackPanel rail = new() { Spacing = page.Scaled(SPACING), VerticalAlignment = VerticalAlignment.Top };
+                rail.Widgets.Add(prompts);
+                rail.Widgets.Add(tabs);
+
+                return rail;
+            }
+
+            /// <summary>The row, prompts included, to add to the page's column; or the rail, foot and prompts included (#1151).</summary>
             internal Widget Root { get; }
 
-            /// <summary>The tabs' own width in pixels, the prompts at the ends excluded: what a page's area is cut to (#770).</summary>
+            /// <summary>
+            /// The tabs' own width in pixels, the prompts at the ends excluded: what a page's area is cut to (#770). For a rail,
+            /// the whole rail's, its prompts' column included: what the page beside it is not (#1151).
+            /// </summary>
             internal int Width { get; }
 
             /// <summary>Whether the pointer is over one of the tabs — the wheel there turns them rather than the page.</summary>

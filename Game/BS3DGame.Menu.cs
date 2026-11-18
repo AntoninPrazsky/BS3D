@@ -3107,7 +3107,7 @@ namespace BS3D
         /// The clear band between a <see cref="MenuScroll"/>'s clip and its neighbours at each end, in design units (#1002):
         /// the review's 15 to 20 pixels at 1080p, on top of the column's own spacing.
         /// </summary>
-        private const int MENU_SCROLL_EDGE_GAP = 36;
+        internal const int MENU_SCROLL_EDGE_GAP = 36;
 
         internal VerticalStackPanel MenuColumn() => new()
         {

@@ -86,6 +86,18 @@ namespace BS3D.Screens
         //more of them.
         private const int GROUP_HEADING_GAP = 40;
 
+        //The phone layout (#1151), in design units: between two rows, each a touch target tall (PHONE_TARGET), a gap that
+        //still parts two slabs and lets six rows and the heading fit the phone's height at the menus' size; the value
+        //column's width on ONLINE and GAME, whose values are a box, a name or a word (the other tabs' holds the widest
+        //value and a cycling row's − and +, BuildRailTree); and the gap between the rows and what stands beside them
+        //(ONLINE's note, GAME's campaign pair)
+        private const int PHONE_ROW_SPACING = 6;
+        private const int PHONE_VALUE_WIDTH = 480;
+        private const int PHONE_SIDE_GAP = 80;
+
+        //Between a cycling row's − or + and its value, in design units (#1151)
+        private const int STEP_GAP = 8;
+
 
         //The tab row (#686), in the section face the group headings were set in, since a tab is what those headings
         //became. Every tab is cut to the widest name's width so the row reads as one bar of equal parts.
@@ -204,6 +216,46 @@ namespace BS3D.Screens
         private int _tab = TAB_ONLINE;
         private int _pendingTab = -1;
 
+        //What the page area shows for each tab (#1151): the tab's grid, or on the phone layout the grid with what stands
+        //beside it (ONLINE's note, GAME's campaign pair)
+        private readonly Widget[] _shown = new Widget[TAB_NAMES.Length];
+
+        //The tab each of _rows stands on, and the tab being built while AddValue runs (#1151): a row's value may stand in a
+        //cell with its − and +, so the wheel cannot ask the tab's grid whether it holds the row
+        private readonly List<int> _rowTabs = new();
+        private int _buildingTab;
+
+        //The layout the tree was built for (#1151): the phone's rail, rows a touch target tall and the note beside them, or
+        //a monitor's row of tabs over the rows and the note under them
+        private bool _phone;
+
+        //GAME's campaign pair on the phone layout (#1151): a grid of its own beside the switches, where the six rows and the
+        //heading under one another did not fit the phone's height at a touch target a row
+        private Grid _campaign;
+
+        /// <summary>
+        /// A cycling row's − and + (#1151), on a touch screen: the two ends' buttons and glyphs, and what they ask and do. A
+        /// press on the row itself walks the row's ladder one way and wraps; the ends step it either way and hold at its ends,
+        /// dimmed there.
+        /// </summary>
+        private sealed record Stepper(Func<int, bool> CanStep, Action<int> Step)
+        {
+            public Button Less, More, Value;
+            public MediaGlyph LessGlyph, MoreGlyph;
+            public HorizontalStackPanel Cell;
+
+            public void Show()
+            {
+                bool less = CanStep(-1), more = CanStep(1);
+                Less.Enabled = less;
+                More.Enabled = more;
+                LessGlyph.Tint = less ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_DIM;
+                MoreGlyph.Tint = more ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_DIM;
+            }
+        }
+
+        private readonly List<Stepper> _steppers = new();
+
         //Back, and the entry the pad's cursor stands on - so a tab turned with the cursor on Back leaves it there
         private Button _back;
         private Button _focused;
@@ -260,18 +312,23 @@ namespace BS3D.Screens
             //Rebuilt below by every AddRow call this tree's build makes — cleared first so a resize does not
             //leave a stale button from the tree just thrown away still answering the wheel.
             _rows.Clear();
+            _rowTabs.Clear();
             _captions.Clear();
+            _steppers.Clear();
+            _campaign = null;
+            _phone = PhoneLayout;
+
+            //Back is the rail's foot on the phone layout (#1151), so the rail is built with it
+            _back = BackButton();
+            if (_phone) _tabRow = new TabRow(this, TAB_NAMES, SelectTab, railFoot: _back);
+
+            BuildPages();
+
+            if (_phone) return BuildRailTree();
 
             VerticalStackPanel column = MenuColumn();
             column.Widgets.Add(ScreenHeading("SETTINGS"));
             column.Widgets.Add(BuildTabRow());
-
-            _pages[TAB_ONLINE] = BuildOnlinePage();
-            _pages[TAB_SCREEN] = BuildScreenPage();
-            _pages[TAB_PICTURE] = BuildPicturePage();
-            _pages[TAB_AUDIO] = BuildAudioPage();
-            _pages[TAB_CONTROLS] = BuildControlsPage();
-            _pages[TAB_GAME] = BuildGamePage();
 
             //Two columns of one width, the seam between them on the page's centre line (#833, the owner's call): every
             //caption ends at the seam, right-aligned, and every value starts from it, left-aligned in a button as wide as
@@ -298,25 +355,51 @@ namespace BS3D.Screens
                 page.Width = pageWidth;
             }
 
-            foreach (Button row in _rows)
-                row.Width = columnWidth;
+            SizeValues(columnWidth);
 
             SizeOnlineNote(pageWidth);
 
-            //Every page in one place, only the chosen one shown (Refresh) - and the place as tall as the tallest page,
-            //measured with every page laid out, so Back stands still as the tabs turn. Myra lays out only what is
-            //visible, so without the fixed height the plate would shrink round a short page and Back would jump.
-            //⚠ No margin on it: Myra counts a widget's Margin INSIDE an explicit Height, so the gap under the page area
-            //came out of the tallest page's own rows and cut the then DISPLAY's last one short by exactly the gap (photographed
-            //at two gaps, short by each). The gap is Back's, above it.
+            column.Widgets.Add(PageArea());
+
+            _back.Margin = ScaledThickness(0, PAGE_GAP, 0, 0);
+            column.Widgets.Add(_back);
+
+            return ScreenRoot(Plate(column, prose: true));
+        }
+
+        /// <summary>Every tab's grid, each knowing which tab it is while its rows are added (<see cref="AddValue"/>).</summary>
+        private void BuildPages()
+        {
+            _buildingTab = TAB_ONLINE; _pages[TAB_ONLINE] = BuildOnlinePage();
+            _buildingTab = TAB_SCREEN; _pages[TAB_SCREEN] = BuildScreenPage();
+            _buildingTab = TAB_PICTURE; _pages[TAB_PICTURE] = BuildPicturePage();
+            _buildingTab = TAB_AUDIO; _pages[TAB_AUDIO] = BuildAudioPage();
+            _buildingTab = TAB_CONTROLS; _pages[TAB_CONTROLS] = BuildControlsPage();
+            _buildingTab = TAB_GAME; _pages[TAB_GAME] = BuildGamePage();
+
+            for (int t = 0; t < _pages.Length; t++)
+                _shown[t] = _pages[t];
+        }
+
+        /// <summary>
+        /// Every page in one place, only the chosen one shown (Refresh) - and the place as tall as the tallest page,
+        /// measured with every page laid out, so Back stands still as the tabs turn. Myra lays out only what is
+        /// visible, so without the fixed height the plate would shrink round a short page and Back would jump.
+        /// ⚠ No margin on it: Myra counts a widget's Margin INSIDE an explicit Height, so the gap under the page area
+        /// came out of the tallest page's own rows and cut the then DISPLAY's last one short by exactly the gap (photographed
+        /// at two gaps, short by each). The gap is Back's, above it.
+        /// </summary>
+        private Panel PageArea()
+        {
             Panel pageArea = new()
             {
-                HorizontalAlignment = HorizontalAlignment.Center,
+                HorizontalAlignment = _phone ? HorizontalAlignment.Left : HorizontalAlignment.Center,
             };
 
             Point pageSize = Point.Zero;
-            foreach (Grid page in _pages)
+            foreach (Widget page in _shown)
             {
+                page.HorizontalAlignment = _phone ? HorizontalAlignment.Left : page.HorizontalAlignment;
                 Point size = page.Measure(new Point(int.MaxValue / 2, int.MaxValue / 2));
                 pageSize = new Point(Math.Max(pageSize.X, size.X), Math.Max(pageSize.Y, size.Y));
                 pageArea.Widgets.Add(page);
@@ -325,14 +408,130 @@ namespace BS3D.Screens
             pageArea.Width = pageSize.X;
             pageArea.Height = pageSize.Y;
 
-            column.Widgets.Add(pageArea);
-
-            _back = BackButton();
-            _back.Margin = ScaledThickness(0, PAGE_GAP, 0, 0);
-            column.Widgets.Add(_back);
-
-            return ScreenRoot(Plate(column, prose: true));
+            return pageArea;
         }
+
+        /// <summary>
+        /// Every value button cut to the value column's width (#833), and on a row with − and + (#1151) the cell cut to it,
+        /// its value button what the two ends leave.
+        /// </summary>
+        private void SizeValues(int columnWidth)
+        {
+            _valueWidth = columnWidth;
+
+            foreach (Button row in _rows)
+                row.Width = columnWidth;
+
+            foreach (Stepper stepper in _steppers)
+            {
+                int end = stepper.Less.Width.GetValueOrDefault();
+                stepper.Value.Width = columnWidth - 2 * (end + stepper.Cell.Spacing);
+            }
+        }
+
+        /// <summary>
+        /// The phone layout (#1151): the tabs down a rail at the plate's left with Back at its foot, and beside it the heading
+        /// and the rows, each a touch target tall (<see cref="MenuPage.PHONE_TARGET"/>) - they were 5.3 mm, the tabs 4.5 mm,
+        /// and 37 % of the width stood empty. ONLINE's note stands beside its rows rather than under them, where on a phone
+        /// it was a four-line scroller, and GAME's campaign pair beside its switches. The captions end at one seam on every
+        /// tab and the values start from it (#833), as on a monitor; the value column is as wide as the widest value needs,
+        /// with a cycling row's − and + at its ends where a touch screen answers.
+        /// </summary>
+        private Widget BuildRailTree()
+        {
+            int captionWidth = 0;
+            foreach (Label caption in _captions)
+                captionWidth = Math.Max(captionWidth, (int)MathF.Ceiling(FontBody.MeasureString(caption.Text).X));
+
+            //Two value widths and one seam: ONLINE's and GAME's values are a box, a name or a word, and their tabs fill the width
+            //with what stands beside the rows (the note, the campaign pair); the other tabs' values reach across the width
+            //that leaves, at least the widest value there is (the Resolution row's display size, native) between a cycling
+            //row's − and + where a touch screen draws them. ONLINE's narrow column is what leaves its note the width it needs
+            int spacing = Scaled(COLUMN_SPACING);
+            int plain = Scaled(PHONE_VALUE_WIDTH);
+            int ends = _steppers.Count > 0 ? 2 * (RowHeight + Scaled(STEP_GAP)) : 0;
+            int widest = (int)MathF.Ceiling(FontBody.MeasureString(WIDEST_VALUE).X) + 2 * Scaled(ROW_PADDING_X);
+            int wide = Math.Max(Math.Max(plain, widest + ends), RailContentWidth(_tabRow) - captionWidth - spacing);
+
+            int[] valueWidths = new int[TAB_NAMES.Length];
+            for (int t = 0; t < _pages.Length; t++)
+            {
+                valueWidths[t] = t is TAB_ONLINE or TAB_GAME ? plain : wide;
+                _pages[t].ColumnsProportions[0] = new Proportion(ProportionType.Pixels, captionWidth);
+                _pages[t].ColumnsProportions[1] = new Proportion(ProportionType.Pixels, valueWidths[t]);
+                _pages[t].Width = captionWidth + spacing + valueWidths[t];
+            }
+
+            _valueWidth = plain;
+            for (int i = 0; i < _rows.Count; i++)
+                _rows[i].Width = valueWidths[_rowTabs[i]];
+
+            foreach (Stepper stepper in _steppers)
+                stepper.Value.Width = wide - ends;
+
+            //GAME's campaign pair beside its switches, on the same seam and in a column of the same width
+            int plainRows = captionWidth + spacing + plain;
+            int sideGap = Scaled(PHONE_SIDE_GAP);
+            if (_campaign != null)
+            {
+                _campaign.ColumnsProportions[0] = new Proportion(ProportionType.Pixels, captionWidth);
+                _campaign.ColumnsProportions[1] = new Proportion(ProportionType.Pixels, plain);
+                _campaign.Width = plainRows;
+
+                HorizontalStackPanel pair = new() { Spacing = sideGap, VerticalAlignment = VerticalAlignment.Top };
+                _pages[TAB_GAME].VerticalAlignment = VerticalAlignment.Top;
+                pair.Widgets.Add(_pages[TAB_GAME]);
+                pair.Widgets.Add(_campaign);
+                _shown[TAB_GAME] = pair;
+            }
+
+            Panel pageArea = PageArea();
+
+            //The heading centred on the seam the rows read down, where the eye starts
+            Label heading = ScreenHeading("SETTINGS");
+            heading.HorizontalAlignment = HorizontalAlignment.Left;
+            heading.Width = 2 * captionWidth + spacing;
+            heading.TextAlign = TextHorizontalAlignment.Center;
+
+            VerticalStackPanel main = new()
+            {
+                Spacing = 0,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Top,
+            };
+            main.Widgets.Add(heading);
+            main.Widgets.Add(pageArea);
+            Point mainSize = main.Measure(new Point(int.MaxValue / 2, int.MaxValue / 2));
+
+            //ONLINE's note beside its rows and the heading, from the top of the page: the whole height and what the rail and
+            //ONLINE's rows leave of the width, where under the rows it was a four-line scroller. It overlaps the page area's
+            //empty right on ONLINE and is hidden on every other tab (ShowTabState), so the content keeps one size
+            int noteLeft = plainRows + sideGap;
+            int noteWidth = Math.Max(Scaled(PHONE_VALUE_WIDTH), RailContentWidth(_tabRow) - noteLeft);
+            SizeOnlineNote(noteWidth);
+
+            //Placed by a slot's margin rather than its own: Myra counts a margin inside an explicit size, and the note's is
+            Panel noteSlot = new()
+            {
+                Margin = new Thickness(noteLeft, 0, 0, 0),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Top,
+            };
+            noteSlot.Widgets.Add(_noteArea);
+
+            Panel content = new()
+            {
+                Width = Math.Max(mainSize.X, noteLeft + noteWidth),
+                Height = Math.Max(mainSize.Y, _noteArea.Height.GetValueOrDefault()),
+            };
+            content.Widgets.Add(main);
+            content.Widgets.Add(noteSlot);
+
+            return RailPage(_tabRow, content);
+        }
+
+        //The widest value a row shows (#1151): the Resolution row at the display's own size, measured as the face sets it
+        private const string WIDEST_VALUE = "0000 x 0000 (native)";
 
         /// <summary>
         /// The tab row (#686): the shared <see cref="MenuPage.TabRow"/>, one button per page, all cut to the widest name's
@@ -395,15 +594,18 @@ namespace BS3D.Screens
             Grid grid = NewGroupGrid();
 
             int row = 0;
-            //Not on a phone (#1052), which has no window to make fullscreen
-            if (!BS3DGame.OnPhone) AddCheckRow(grid, row++, "Fullscreen", Game.ToggleFullscreen, out _fullscreenCheck);
+            //Not on a phone (#1052), which has no window to make fullscreen, nor in the phone layout the desktop emulates one
+            //in (#1151, inches=), so the emulation shows the phone's page
+            if (!PhoneOnly) AddCheckRow(grid, row++, "Fullscreen", Game.ToggleFullscreen, out _fullscreenCheck);
             //The height the 3D is drawn at (#801), the menus and the HUD staying the display's: under Fullscreen, the other
             //half of what size the game is. Every rung keeps the display's aspect; on the Raspberry Pi it starts at Auto.
-            AddRow(grid, row++, "Resolution", Game.CycleRenderResolution, out _resolutionValue);
+            AddRow(grid, row++, "Resolution", Game.CycleRenderResolution, out _resolutionValue,
+                stepper: new Stepper(Game.CanStepRenderResolution, Game.StepRenderResolution));
             //One bundled tier rather than the antialiasing dial it replaces (#63). Supersampling was never a
             //performance setting — it is tied to a look decision — and it was the only thing here that reached
             //the rest of the frame at all; the tier reaches the city's per-pixel work and its skyline too.
-            AddRow(grid, row++, "Quality", Game.CycleQuality, out _qualityValue);
+            AddRow(grid, row++, "Quality", Game.CycleQuality, out _qualityValue,
+                stepper: new Stepper(Game.CanStepQuality, Game.StepQuality));
             //Whether the game may lower that tier by itself (#390). Directly under it, because it is the other
             //half of the same answer — and because picking a tier above turns it off, which the player should
             //see happen rather than have to know.
@@ -429,17 +631,20 @@ namespace BS3D.Screens
             Grid grid = NewGroupGrid();
 
             //The tonemap's exposure, said as the brightness it is (#711): a percent of the authored look, 100 % the default
-            AddRow(grid, 0, "Brightness", Game.CycleExposure, out _exposureValue);
-            AddRow(grid, 1, "Sky", Game.CycleSkyDome, out _skyValue);
+            int row = 0;
+            AddRow(grid, row++, "Brightness", Game.CycleExposure, out _exposureValue,
+                stepper: new Stepper(Game.CanStepExposure, Game.StepExposure));
+            AddRow(grid, row++, "Sky", Game.CycleSkyDome, out _skyValue, stepper: new Stepper(Game.CanStepSkyDome, Game.StepSkyDome));
             //The back buffer's depth where the window's monitor takes 10 bits (#859), the way back to 8. Held, and saying
-            //why, on an 8-bit panel, on the Potato path and after a driver's refusal (TenBitHeldBy), as the lens looks say "tier"
-            AddCheckRow(grid, 2, "10-bit colour", Game.ToggleTenBitColour, out _tenBitCheck);
+            //why, on an 8-bit panel, on the Potato path and after a driver's refusal (TenBitHeldBy), as the lens looks say "tier".
+            //Not on a phone (#1151), whose panel the game cannot ask, so the row only ever said "(panel)"
+            if (!PhoneOnly) AddCheckRow(grid, row++, "10-bit colour", Game.ToggleTenBitColour, out _tenBitCheck);
             //The lens's colour fringing at the frame edges — a taste toggle
-            AddCheckRow(grid, 3, "Aberration", Game.ToggleAberration, out _aberrationCheck);
-            AddCheckRow(grid, 4, "Film grain", Game.ToggleGrain, out _grainCheck);
+            AddCheckRow(grid, row++, "Aberration", Game.ToggleAberration, out _aberrationCheck);
+            AddCheckRow(grid, row++, "Film grain", Game.ToggleGrain, out _grainCheck);
             //What moves smeared along its motion (#402). With the lens's looks, being one; a tier that cannot
             //afford it says so on the row rather than leaving an "On" that does nothing.
-            AddCheckRow(grid, 5, "Motion blur", Game.ToggleMotionBlur, out _motionBlurCheck);
+            AddCheckRow(grid, row, "Motion blur", Game.ToggleMotionBlur, out _motionBlurCheck);
 
             return grid;
         }
@@ -457,10 +662,14 @@ namespace BS3D.Screens
             //The three volume rows (#46) scale the authored mix rather than replacing it — 100 % is the game
             //as tuned, and effects and music each sit under the master. See "The sound" in
             //docs/game-feedback.md for the split.
-            AddRow(grid, 0, "Volume", Game.CycleMasterVolume, out _volumeValue);
-            AddRow(grid, 1, "Effects", Game.CycleSfxVolume, out _effectsValue);
-            AddRow(grid, 2, "Music", Game.CycleMusicVolume, out _musicValue);
-            AddRow(grid, 3, "Ambience", Game.CycleAmbienceVolume, out _ambienceValue);
+            AddRow(grid, 0, "Volume", Game.CycleMasterVolume, out _volumeValue,
+                stepper: new Stepper(d => RowStep.CanStepGain(Game.MasterVolume, d), Game.StepMasterVolume));
+            AddRow(grid, 1, "Effects", Game.CycleSfxVolume, out _effectsValue,
+                stepper: new Stepper(d => RowStep.CanStepGain(Game.SfxVolume, d), Game.StepSfxVolume));
+            AddRow(grid, 2, "Music", Game.CycleMusicVolume, out _musicValue,
+                stepper: new Stepper(d => RowStep.CanStepGain(Game.MusicVolume, d), Game.StepMusicVolume));
+            AddRow(grid, 3, "Ambience", Game.CycleAmbienceVolume, out _ambienceValue,
+                stepper: new Stepper(d => RowStep.CanStepGain(Game.AmbienceVolume, d), Game.StepAmbienceVolume));
 
             return grid;
         }
@@ -476,22 +685,25 @@ namespace BS3D.Screens
 
             //The aim dial (#384) — neither a look nor a sound, which is why CONTROLS exists. The pad's own rate is a
             //separate quantity that may earn a row of its own (see MouseAim.PAD_RATE), and this is where it would go.
-            AddRow(grid, 0, "Sensitivity", Game.CycleSensitivity, out _sensitivityValue);
+            AddRow(grid, 0, "Sensitivity", Game.CycleSensitivity, out _sensitivityValue,
+                stepper: new Stepper(Game.CanStepSensitivity, Game.StepSensitivity));
 
             //The lean's own dial (#497): a second rung over the first, read as precise aim blends in. The same
             //ladder and the same percentages, so the two rows read as one family; 100 % is #384's feel.
-            AddRow(grid, 1, "Aim sensitivity", Game.CycleAimSensitivity, out _aimSensitivityValue);
+            AddRow(grid, 1, "Aim sensitivity", Game.CycleAimSensitivity, out _aimSensitivityValue,
+                stepper: new Stepper(Game.CanStepAimSensitivity, Game.StepAimSensitivity));
 
             //The pad's motors (#378), on the volume rows' quarter-step-with-off ladder. It stood among them in the
             //columns as "how hard the game hits back"; on pages it is with the pad's other row, which is where a
             //player with a pad in hand looks for vibration.
-            AddRow(grid, 2, "Rumble", Game.CycleRumbleStrength, out _rumbleValue);
+            AddRow(grid, 2, "Rumble", Game.CycleRumbleStrength, out _rumbleValue,
+                stepper: new Stepper(d => RowStep.CanStepGain(Game.RumbleStrength, d), Game.StepRumbleStrength));
 
             //The keyboard's lights (#987): with the hands, like the pad's motors, because a backlit keyboard is the other thing in
             //them that answers the game. The reason beside it says when Windows lists no keyboard to light. Not on a phone
-            //(#1052), which has no keyboard to light
+            //(#1052), which has no keyboard to light, nor in its emulation (#1151)
             int row = 3;
-            if (!BS3DGame.OnPhone) AddCheckRow(grid, row++, "Keyboard lights", Game.ToggleKeyboardLighting, out _keyboardLightsCheck);
+            if (!PhoneOnly) AddCheckRow(grid, row++, "Keyboard lights", Game.ToggleKeyboardLighting, out _keyboardLightsCheck);
 
             //How the right button and the left trigger lean in (#1054): a press that stays, the owner's ask, or a hold
             AddRow(grid, row++, "Precise aim", Game.TogglePreciseAimMode, out _preciseModeValue);
@@ -501,12 +713,20 @@ namespace BS3D.Screens
             //BS3DGame.TouchScreenPresent): a row with nothing to touch is a dead row
             if (Game.TouchScreenPresent)
             {
-                AddRow(grid, row++, "Touch sensitivity", Game.CycleTouchSensitivity, out _touchSensitivityValue);
+                AddRow(grid, row++, "Touch sensitivity", Game.CycleTouchSensitivity, out _touchSensitivityValue,
+                    stepper: new Stepper(Game.CanStepTouchSensitivity, Game.StepTouchSensitivity));
                 AddCheckRow(grid, row, "Aim on the right", Game.ToggleTouchSides, out _touchSidesCheck);
             }
 
             return grid;
         }
+
+        /// <summary>
+        /// Whether a row the phone does not have is left out (#1052): on a phone, and in the phone layout the desktop emulates
+        /// one in (#1151, <c>inches=</c>), so the emulation shows the page the phone does. Windows answers no screen height,
+        /// so a monitor's page keeps every row.
+        /// </summary>
+        private bool PhoneOnly => BS3DGame.OnPhone || _phone;
 
         /// <summary>
         /// The boards (#548): the switch, the name they show, removal, and the note under them. The first tab since
@@ -532,13 +752,13 @@ namespace BS3D.Screens
             //player is doing: typing, or a removal's outcome. The area is the page's width and the height of the tallest
             //thing it can say, set in BuildTree once the page's width is known (SizeOnlineNote), which also puts the list
             //in. The prose is set as prose (#806): the prose leading, the lines chosen by SpaceWrap. The gap above in true
-            //pixels: ScaledThickness makes each zero side a pixel, and the list is cut to the area's width exactly
-            grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
+            //pixels: ScaledThickness makes each zero side a pixel, and the list is cut to the area's width exactly. On the
+            //phone layout it stands beside the rows rather than under them (#1151, BuildRailTree), its top level with theirs
             _noteArea = new Panel
             {
                 HorizontalAlignment = HorizontalAlignment.Left,
                 VerticalAlignment = VerticalAlignment.Top,
-                Margin = new Thickness(0, Scaled(GROUP_HEADING_GAP), 0, 0),
+                Margin = new Thickness(0, _phone ? 0 : Scaled(GROUP_HEADING_GAP), 0, 0),
             };
             _onlineNote = new Label
             {
@@ -550,10 +770,15 @@ namespace BS3D.Screens
                 VerticalAlignment = VerticalAlignment.Top,
             };
             _noteArea.Widgets.Add(_onlineNote);
-            Grid.SetColumn(_noteArea, 0);
-            Grid.SetColumnSpan(_noteArea, 2);
-            Grid.SetRow(_noteArea, 3);
-            grid.Widgets.Add(_noteArea);
+
+            if (!_phone)
+            {
+                grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
+                Grid.SetColumn(_noteArea, 0);
+                Grid.SetColumnSpan(_noteArea, 2);
+                Grid.SetRow(_noteArea, 3);
+                grid.Widgets.Add(_noteArea);
+            }
 
             return grid;
         }
@@ -582,11 +807,22 @@ namespace BS3D.Screens
             //front of the player, which is what this page's switches are, and DISPLAY's rows were its whole budget
             AddCheckRow(grid, 3, "FPS counter", Game.ToggleFpsOverlay, out _fpsCheck);
 
-            AddGroupHeading(grid, 4, "CAMPAIGN", first: false);
+            //On the phone layout the campaign pair stands beside the switches under its heading (#1151): six rows a touch
+            //target tall and the heading between them do not fit the phone's height, and the destructive pair stands apart
+            //from the switches by that as well as by its heading. BuildRailTree puts it there; the walk reaches it after them
+            Grid switches = grid;
+            int row = 4;
+            if (_phone)
+            {
+                grid = _campaign = NewGroupGrid();
+                row = 0;
+            }
+
+            AddGroupHeading(grid, row++, "CAMPAIGN", first: _phone);
 
             //The campaign back to zero stars (#92) — for testing as much as for a fresh start. The resting
             //value shows the star total the click would erase; the click itself is two-step (see _resetArmed).
-            AddRow(grid, 5, "Reset progress", OnResetProgress, out _progressValue);
+            AddRow(grid, row++, "Reset progress", OnResetProgress, out _progressValue);
 
             //The debug unlock (#349). Under the campaign heading because it is the same kind of thing the row above
             //is - the player's record - and it is a DEVELOPMENT convenience: it is off at every launch and writes
@@ -597,9 +833,9 @@ namespace BS3D.Screens
             //switch itself is inert in a release too (ToggleUnlockAll), so no caller can turn on what no row shows.
             //The grid simply ends at Reset progress there; a row is added per call, so nothing is left blank.
             if (BuildVersion.Release is null)
-                AddCheckRow(grid, 6, "Unlock all", Game.ToggleUnlockAll, out _unlockAllCheck);
+                AddCheckRow(grid, row, "Unlock all", Game.ToggleUnlockAll, out _unlockAllCheck);
 
-            return grid;
+            return switches;
         }
 
         /// <summary>
@@ -612,7 +848,7 @@ namespace BS3D.Screens
             Grid grid = new()
             {
                 ColumnSpacing = Scaled(COLUMN_SPACING),
-                RowSpacing = Scaled(ROW_SPACING),
+                RowSpacing = Scaled(_phone ? PHONE_ROW_SPACING : ROW_SPACING),
                 VerticalAlignment = VerticalAlignment.Top,
             };
 
@@ -662,7 +898,11 @@ namespace BS3D.Screens
         /// <param name="typingRow">The nickname's own row, whose click keeps or starts typing. Every other row's
         /// click first keeps a name being typed when it is one, and drops it when it is not (#687) — the player has
         /// moved on, and only Escape says "not this name".</param>
-        private void AddRow(Grid grid, int row, string caption, Action onClick, out Label value, bool typingRow = false)
+        /// <param name="stepper">A cycling row's − and + (#1151), drawn at the value's two ends where a touch screen answers
+        /// (<see cref="BS3DGame.TouchScreenPresent"/>): a finger has no other way to step the row back, where the pad and the
+        /// keys keep their walk. Null for a row with two states or one that is not a ladder.</param>
+        private void AddRow(Grid grid, int row, string caption, Action onClick, out Label value, bool typingRow = false,
+            Stepper stepper = null)
         {
             AddCaption(grid, row, caption);
 
@@ -678,8 +918,65 @@ namespace BS3D.Screens
             //From the seam, not centred in the slab (#833): every value begins at the same x
             value.HorizontalAlignment = HorizontalAlignment.Left;
 
+            if (stepper != null && Game.TouchScreenPresent)
+            {
+                AddStepped(grid, row, button, stepper);
+                return;
+            }
+
             AddValue(grid, row, button);
         }
+
+        /// <summary>
+        /// A cycling row's value between its − and + (#1151): each end a square of the row's height, with nothing on its
+        /// <c>Tag</c>, so the mouse and a finger press it and the pad's walk does not land on it (the walk keeps the row
+        /// itself, whose press walks the ladder as it always has). Each end keeps a name being typed or drops it, as any
+        /// other row's press does, and dims at the ladder's end (<see cref="Stepper.Show"/>).
+        /// </summary>
+        private void AddStepped(Grid grid, int row, Button value, Stepper stepper)
+        {
+            AddValue(grid, row, value, inCell: true);
+
+            int side = RowHeight;
+            stepper.Value = value;
+            stepper.Less = StepEnd(MediaGlyph.Symbol.Minus, -1, stepper, side, out stepper.LessGlyph);
+            stepper.More = StepEnd(MediaGlyph.Symbol.Plus, 1, stepper, side, out stepper.MoreGlyph);
+
+            stepper.Cell = new HorizontalStackPanel { Spacing = Scaled(STEP_GAP), HorizontalAlignment = HorizontalAlignment.Left };
+            stepper.Cell.Widgets.Add(stepper.Less);
+            stepper.Cell.Widgets.Add(value);
+            stepper.Cell.Widgets.Add(stepper.More);
+
+            Grid.SetColumn(stepper.Cell, 1);
+            Grid.SetRow(stepper.Cell, row);
+            grid.Widgets.Add(stepper.Cell);
+
+            _steppers.Add(stepper);
+        }
+
+        private Button StepEnd(MediaGlyph.Symbol symbol, int direction, Stepper stepper, int side, out MediaGlyph glyph)
+        {
+            glyph = ButtonGlyph(symbol);
+            Button end = MenuButton(glyph, () =>
+            {
+                KeepOrDropTyping();
+                stepper.Step(direction);
+            });
+            end.Tag = null;
+            end.Width = side;
+            end.Height = side;
+            end.Padding = new Thickness(0);
+            //At the ladder's end its slab stays and only the sign dims (Stepper.Show), as About's arrows do: Myra's own
+            //disabled slab reads as a lock, not as "no further this way"
+            end.DisabledBackground = BS3DGame.MENU_BUTTON_BRUSH;
+            return end;
+        }
+
+        /// <summary>
+        /// A row's height in pixels: a touch target's on the phone layout (#1151), and otherwise a line of the body face in the
+        /// rows' padding, as a value button stands.
+        /// </summary>
+        private int RowHeight => _phone ? Scaled(PHONE_TARGET) : FontBody.LineHeight + 2 * Scaled(ROW_PADDING_Y);
 
         /// <summary>
         /// A row with two states, On and Off, as a checkbox (#816): the box in the value column where the word stood, and
@@ -734,16 +1031,25 @@ namespace BS3D.Screens
             return captionLabel;
         }
 
-        private void AddValue(Grid grid, int row, Button button)
+        /// <param name="inCell">The value stands in a cell with its − and + (#1151), which is what goes into the grid.</param>
+        private void AddValue(Grid grid, int row, Button button, bool inCell = false)
         {
             button.Width = Scaled(VALUE_WIDTH);
             button.Padding = ScaledThickness(ROW_PADDING_X, ROW_PADDING_Y);
 
-            Grid.SetColumn(button, 1);
-            Grid.SetRow(button, row);
-            grid.Widgets.Add(button);
+            //A touch target's height on the phone layout (#1151): the rows were 5.3 mm there
+            if (_phone) button.Height = Scaled(PHONE_TARGET);
 
+            if (!inCell)
+            {
+                Grid.SetColumn(button, 1);
+                Grid.SetRow(button, row);
+                grid.Widgets.Add(button);
+            }
+
+            //Cut to the value column in SizeValues, or between a − and a + to what they leave of it
             _rows.Add(button);
+            _rowTabs.Add(_buildingTab);
         }
 
         /// <summary>
@@ -766,11 +1072,11 @@ namespace BS3D.Screens
                 return;
             }
 
-            foreach (Button row in _rows)
+            for (int i = 0; i < _rows.Count; i++)
             {
-                if (!row.IsMouseInside || !_pages[_tab].Widgets.Contains(row)) continue;
+                if (!_rows[i].IsMouseInside || _rowTabs[i] != _tab) continue;
 
-                (row.Tag as Action)?.Invoke();
+                (_rows[i].Tag as Action)?.Invoke();
                 return;
             }
         }
@@ -794,7 +1100,7 @@ namespace BS3D.Screens
             _fpsCheck.Show(Game.IsFpsOverlayVisible);
             //Ticked only where the back buffer really is 10-bit: held off by the panel, the path or the driver, the box
             //is empty with the reason beside it, whatever the setting says (#859)
-            _tenBitCheck.Show(Game.IsTenBitColourEnabled && Game.TenBitHeldBy == null, Game.TenBitHeldBy);
+            _tenBitCheck?.Show(Game.IsTenBitColourEnabled && Game.TenBitHeldBy == null, Game.TenBitHeldBy);
             //"Monitor", not a number: the cap is whatever the panel refreshes at, and naming the rate here
             //would go stale the moment the window lands on another monitor. A phone names its one display's rate, and
             //says when the phone itself is what holds it at 60 (#1070, PhoneTiers.FpsLimitLabel)
@@ -829,6 +1135,10 @@ namespace BS3D.Screens
             //bare number (which is exactly how this line first rendered).
             _progressValue.Text = _resetArmed ? "Sure?"
                 : Game.TotalStars == 1 ? "1 star" : $"{Game.TotalStars} stars";
+
+            //The − and + of the cycling rows (#1151), dimmed at their ladders' ends
+            foreach (Stepper stepper in _steppers)
+                stepper.Show();
 
             //What is left for the player to do is red (#687, BS3DGame.MENU_TEXT_ALERT): the boards off, and on with
             //nowhere to send - a local build whose settings name no server, or one the client refused. A release
@@ -866,7 +1176,10 @@ namespace BS3D.Screens
         private void ShowTabState(bool onlineAlert)
         {
             for (int t = 0; t < TAB_NAMES.Length; t++)
-                _pages[t].Visible = t == _tab;
+                _shown[t].Visible = t == _tab;
+
+            //On the phone layout the note stands beside the page area rather than in ONLINE's grid (#1151, BuildRailTree)
+            if (_phone) _noteArea.Visible = _tab == TAB_ONLINE;
 
             _tabRow.Show(_tab, t => t == TAB_ONLINE && onlineAlert ? BS3DGame.MENU_TEXT_ALERT : BS3DGame.MENU_TEXT_BODY);
         }
@@ -977,46 +1290,6 @@ namespace BS3D.Screens
 
             //A new tree's note is empty, whatever the last one said
             _noteSource = null;
-
-            ScrollOnlineNote();
-        }
-
-        /// <summary>
-        /// On a screen that draws the interface larger (#1052, <c>BS3DGame.UiScale</c>), the ONLINE tab's note in a scroller
-        /// a finger drags, as tall as the other tabs leave it: the privacy list was what made the whole page the tallest
-        /// (every tab is as tall as the tallest, so Back stands still), and on a phone it took the page down to its design
-        /// size. The rows of every tab then set the page's height, and the note is read by dragging it. At the design's
-        /// own size the note stands whole, as it always has.
-        /// </summary>
-        private void ScrollOnlineNote()
-        {
-            if (Game.UiScale <= 1f) return;
-
-            Point free = new(int.MaxValue / 2, int.MaxValue / 2);
-            int others = 0;
-            for (int i = 0; i < _pages.Length; i++)
-                if (i != TAB_ONLINE) others = Math.Max(others, _pages[i].Measure(free).Y);
-
-            Grid online = _pages[TAB_ONLINE];
-            int over = online.Measure(free).Y - others;
-            if (over <= 0) return;
-
-            //At least a few lines of it, however short the other tabs
-            int bound = Math.Max(_noteArea.Height.GetValueOrDefault() - over, 3 * FontSmall.LineHeight);
-
-            online.Widgets.Remove(_noteArea);
-            MenuScrollViewer scroller = new()
-            {
-                Content = _noteArea,
-                ShowHorizontalScrollBar = false,
-                Height = bound,
-                HorizontalAlignment = HorizontalAlignment.Left,
-                VerticalAlignment = VerticalAlignment.Top,
-            };
-            Grid.SetColumn(scroller, 0);
-            Grid.SetColumnSpan(scroller, 2);
-            Grid.SetRow(scroller, 3);
-            online.Widgets.Add(scroller);
         }
 
         /// <summary>
