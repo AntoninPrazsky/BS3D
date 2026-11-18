@@ -17,7 +17,7 @@ namespace BS3D.Tests
     public class StandSprucesTests
     {
         //The lenses the issue was about: the chapter intro's run through the wood at its end (sceneseed=0 seed=7, the
-        //[introshot] lines), and the menu's viewpoint over the treeline looking out across the stand
+        //[introshot] lines), and the scene's viewpoint over the treeline (AuroraBackdrop.TryGetViewpoint) looking out across the stand
         public static IEnumerable<object[]> Lenses() => new[]
         {
             new object[] { new Vector3(-57.79f, -1.68f, -133.67f), new Vector3(-62.45f, 2.42f, -141.51f) },
@@ -84,10 +84,13 @@ namespace BS3D.Tests
             {
                 Vector4 place = spires[i].Place, look = spires[i].Look;
                 int v = i % variants;
+                Vector2 foot = stand.Feet[v][next[v]];
                 Matrix world = stand.Spruces[v][next[v]++].World;
                 total++;
 
-                //The very floats the shader's swap test reads
+                //The very floats the shader's swap test reads, where the passes test them and where the spruce stands
+                Assert.Equal(place.X, foot.X);
+                Assert.Equal(place.Z, foot.Y);
                 Assert.Equal(place.X, world.M41);
                 Assert.Equal(place.Z, world.M43);
 

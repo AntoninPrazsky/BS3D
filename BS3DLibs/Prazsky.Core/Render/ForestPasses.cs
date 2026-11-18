@@ -109,9 +109,10 @@ namespace Prazsky.Core.Render
                 if (swaps)
                 {
                     ModelInstance[] spruces = stand.Spruces[v];
+                    Vector2[] feet = stand.Feet[v];
                     for (int i = 0; i < spruces.Length; i++)
                     {
-                        if (!StandSpruces.Swaps(spruces[i].World.M41, spruces[i].World.M43, lens)) continue;
+                        if (!StandSpruces.Swaps(feet[i].X, feet[i].Y, lens)) continue;
                         if (!ForestScatterRenderer.Meets(_frustum, bounds, spruces[i].World)) continue;
                         seen[n++] = spruces[i];
                         if (ForestScatterRenderer.WearsNearCrown(spruces[i].World.Translation, lens)) near[nn++] = spruces[i];

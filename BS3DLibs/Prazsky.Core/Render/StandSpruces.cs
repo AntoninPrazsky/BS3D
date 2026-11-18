@@ -33,6 +33,10 @@ namespace Prazsky.Core.Render
         /// <summary>Each spire's spruce, by the conifer variant it wears (indexed as <see cref="ForestScatter.Conifers"/>' buckets).</summary>
         public ModelInstance[][] Spruces { get; }
 
+        /// <summary>Each spruce's foot (x, z) as <see cref="Spruces"/> holds them, the very floats <see cref="Swaps"/> is
+        /// asked about, packed apart so a pass's test of every spire stays in the cache (nine thousand of them, a pass).</summary>
+        public Vector2[][] Feet { get; }
+
         /// <summary>The nearest any of them stands to the arena's axis, horizontally: a lens further than
         /// <see cref="SWAP_RADIUS"/> inside it swaps none (<see cref="Reaches"/>).</summary>
         public float InnerRadius { get; }
@@ -56,7 +60,12 @@ namespace Prazsky.Core.Render
             for (int i = 0; i < count; i++) perVariant[i % variants]++;
 
             Spruces = new ModelInstance[variants][];
-            for (int v = 0; v < variants; v++) Spruces[v] = new ModelInstance[perVariant[v]];
+            Feet = new Vector2[variants][];
+            for (int v = 0; v < variants; v++)
+            {
+                Spruces[v] = new ModelInstance[perVariant[v]];
+                Feet[v] = new Vector2[perVariant[v]];
+            }
 
             var filled = new int[variants];
             float inner = float.MaxValue;
@@ -79,6 +88,7 @@ namespace Prazsky.Core.Render
                     * Matrix.CreateFromAxisAngle(new Vector3(MathF.Cos(leanAzimuth), 0f, MathF.Sin(leanAzimuth)), lean)
                     * Matrix.CreateTranslation(place.X, ground - (0.15f + lean * 0.9f) * scale, place.Z);
 
+                Feet[v][filled[v]] = new Vector2(place.X, place.Z);
                 Spruces[v][filled[v]++] = new ModelInstance(world, new Vector4(0f, 0f, 0f, 1f));
                 inner = MathF.Min(inner, MathF.Sqrt(place.X * place.X + place.Z * place.Z));
             }
@@ -102,7 +112,7 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>Whether a pass from <paramref name="lens"/> can swap any spire at all: the dial is on and the lens stands
-        /// within <see cref="SWAP_RADIUS"/> of the ring's inside. The play camera, near the axis, never does.</summary>
+        /// within <see cref="SWAP_RADIUS"/> of the ring's inside.</summary>
         public bool Reaches(Vector3 lens) =>
             Enabled && MathF.Sqrt(lens.X * lens.X + lens.Z * lens.Z) + SWAP_RADIUS > InnerRadius;
     }

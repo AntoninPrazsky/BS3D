@@ -506,8 +506,7 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// How near the lens (horizontally) a spruce wears the near crown on High and Ultra, wherever the lens is and frame by
         /// frame (#1163), as well as within <see cref="FINE_NEAR_RADIUS"/> of the arena: a chapter intro's lens flies 100 to 200
-        /// units out, and a menu's orbits 155 out, where every tree past the arena's reach would wear the far crown beside the
-        /// lens. The play camera stands within about 50 of the axis, so there every tree this near it is inside the arena's
+        /// units out, where every tree past the arena's reach would wear the far crown beside the lens. The play camera stands within about 50 of the axis, so there every tree this near it is inside the arena's
         /// reach already (the frustum looks inwards), and a gun walked round the island swaps no crown.
         /// </summary>
         public const float NEAR_LENS_RADIUS = 90f;
