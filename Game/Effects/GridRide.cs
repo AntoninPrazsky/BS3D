@@ -53,10 +53,17 @@ namespace BS3D.Effects
         //Where the lens stands in the frame turned to the cycle: this far across from the cycle's middle, this far ahead of it
         //and this high over the floor (over the walls' 2.6 and the cycle's 2.5); and what it looks at, this far behind the
         //middle and this high, so the whole cycle stands near the middle of the frame, at any aspect from 4:3, with its wall
-        //running back from it. ⚠ 1.5 behind put the front wheel at 0.94 of a 4:3 frame's half-width
-        internal const float SIDE = 9f;
-        internal const float AHEAD = 1.5f;
-        internal const float HEIGHT = 3.4f;
+        //running back from it. ⚠ 1.5 behind put the front wheel at 0.94 of a 4:3 frame's half-width.
+        //Far enough off that the cycle spans about a quarter of a 16:9 frame's width (0.27 on average, GridRideTests; #1161, the
+        //owner: "the motorcycles do not have much detail, so we should not show them needlessly close"): 9 across, 1.5 ahead
+        //and 3.4 up it spanned 0.40, and the stand was moved back along the line of sight to the look, so the view's direction
+        //is the same. ⚠ The lattice's lines are LightCycles.LATTICE (16) apart and a wall on one keeps the lens WALL_CLEARANCE
+        //off it, so a lens 13 to 19 across stands within 3 of the next line and is refused wherever a wall runs along it: 13 is
+        //the farthest across that keeps the lens in the cycle's own cell. The farther off, the faster the lens swings round the
+        //cycle through a turn (up to 43 u/s; 37 at 9 across)
+        internal const float SIDE = 13f;
+        internal const float AHEAD = 2.4f;
+        internal const float HEIGHT = 4.4f;
         internal const float LOOK_BEHIND = 0.5f;
         internal const float LOOK_HEIGHT = 1.2f;
 

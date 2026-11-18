@@ -76,7 +76,7 @@ namespace BS3D.Effects
         private static readonly float[] RING_FACE_TURNS_DEGREES = { 0f, 25f, -25f, 50f, -50f };
         private const float RING_SECONDS = 3.2f;
 
-        //The ride (#1116): this long, on this lens (the cycle a third to a half of a 16:9 frame's width, its wall running back). It
+        //The ride (#1116): this long, on this lens (the cycle about a quarter of a 16:9 frame's width, its wall running back). It
         //is planned for the seconds the reel puts it at, and for up to RIDE_LATE more: the intro's clock falls behind the wall
         //clock by every frame longer than ChapterIntro.MAX_INTRO_STEP, the frame that builds the level first, and the shot comes
         //on screen that much later (0.94 s in a level= run with a capture taken in the first shot). Later still (a pause, a long
