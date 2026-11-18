@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework.Input;
 using Myra.Graphics2D.TextureAtlases;
 using Myra.Graphics2D.UI;
 using System;
+using System.Collections.Generic;
 using System.Text;
 using System.Text.Json.Nodes;
 using HorizontalAlignment = Myra.Graphics2D.UI.HorizontalAlignment;
@@ -31,7 +32,14 @@ namespace BS3D.Screens
     /// <b>Typing</b> is the nickname plate's way (#763): the characters Windows sends, the keyboard captured from the
     /// first frame, the letters the menu's faces draw. <b>Enter sends</b>, which is what a short message box in a game
     /// does; Shift+Enter or Ctrl+Enter starts a new line. Esc goes back, and the draft waits for the next time the page
-    /// opens in this run. A pad cannot type, which the hint says; its A sends and its B goes back.
+    /// opens in this run. A pad cannot type; its A sends and its B goes back. A phone types through its own dialog, which
+    /// a finger on the field opens (<c>BS3DGame.StepPhoneTyping</c>), and its OK only puts the text in the field.
+    /// </para>
+    /// <para>
+    /// <b>The line under the field speaks to the hand in use</b> (#1149, <see cref="NoteHint"/>): a finger's on a phone
+    /// (tap the field, then Send), the keys for a keyboard, a finger off the phone's included, and for a pad the keys with
+    /// the sentence that it cannot type. It follows the hand while the page stands, at a height measured for the tallest
+    /// of the lines this platform can show, so a hand picked up does not move Send under the pointer or the finger.
     /// </para>
     /// </summary>
     internal sealed class NotePage : MenuPage
@@ -86,6 +94,9 @@ namespace BS3D.Screens
         private string _problem;
 
         private Label _field, _hint, _status;
+
+        //The hand the hint was last written for (NoteHint.HandFor), so a hand picked up rewrites it once and not per frame
+        private NoteHint.Hand _hintHand;
 
         /// <summary>The picture's checkbox (#816): ticked while the picture goes with the note.</summary>
         private CheckGlyph _attachCheck;
@@ -174,6 +185,9 @@ namespace BS3D.Screens
                     _caretShown = shown;
                     ShowField();
                 }
+
+                //A hand picked up while the page stands: its words, once
+                if (_problem == null && HintHand != _hintHand) Refresh();
             }
 
             //Every outcome is drained while the page is up; one for an earlier note is simply not this one's
@@ -233,7 +247,18 @@ namespace BS3D.Screens
             };
             field.Widgets.Add(_field);
             left.Widgets.Add(field);
-            left.Widgets.Add(_hint = BodyLabel(string.Empty, BS3DGame.MENU_TEXT_DIM, ColumnWidth));
+            //As tall as the tallest thing it can say here, measured as it is laid out (#806's way), at the count's widest:
+            //the line changes with the hand and with the complaint, and Send under it must not move. Only this platform's
+            //hands (NoteHint.HandsFor), so a phone keeps no row for the pad's longer line
+            _hint = BodyLabel(string.Empty, BS3DGame.MENU_TEXT_DIM, ColumnWidth);
+            _hint.VerticalAlignment = VerticalAlignment.Top;
+            IReadOnlyList<NoteHint.Hand> hands = NoteHint.HandsFor(PhoneHand);
+            string[] hintLines = new string[hands.Count + 1];
+            for (int i = 0; i < hands.Count; i++)
+                hintLines[i] = NoteHint.Line(hands[i], OnlineNotes.MaxTextLength, OnlineNotes.MaxTextLength);
+            hintLines[hands.Count] = NoteHint.NOTHING_WRITTEN;
+            _hint.Height = ProseHeight(_hint, hintLines);
+            left.Widgets.Add(_hint);
             left.Widgets.Add(_send = MenuButton("Send", Send));
             left.Widgets.Add(_back = BackButton());
             row.Widgets.Add(left);
@@ -297,11 +322,11 @@ namespace BS3D.Screens
             if (_field == null) return;
             ShowField();
 
-            //Chosen into lines on every keystroke and once for a phone's dialog answer (TakeTypedText), which is when Refresh
-            //runs: a few hundred measurements, never per frame.
+            //Chosen into lines on every keystroke, once for a phone's dialog answer (TakeTypedText) and once for a hand picked
+            //up (Update), which is when Refresh runs: a few hundred measurements, never per frame.
             //The count is tied to its limit, so a line never ends on "5" and starts on "/ 1000" (seen at 1080p)
-            SetProse(_hint, _problem
-                ?? $"Enter sends. Shift+Enter starts a new line. {_draft.Length}{SpaceWrap.TIE}/{SpaceWrap.TIE}{OnlineNotes.MaxTextLength}. A pad cannot type.");
+            _hintHand = HintHand;
+            SetProse(_hint, _problem ?? NoteHint.Line(_hintHand, _draft.Length, OnlineNotes.MaxTextLength));
             _hint.TextColor = _problem != null ? BS3DGame.MENU_TEXT_ALERT : BS3DGame.MENU_TEXT_DIM;
 
             if (_attachCheck != null)
@@ -310,6 +335,13 @@ namespace BS3D.Screens
                 _image.Opacity = _attach ? 1f : 0.35f;
             }
         }
+
+        //The hand the line speaks to, a phone's always a finger's (NoteHint.HandFor)
+        private NoteHint.Hand HintHand => NoteHint.HandFor(Game.PromptsForPad, PhoneHand);
+
+        //The phone, or the "touch" argument laying its hand out on a monitor: fixed for the run, so the hint's measured
+        //height and the line it shows agree
+        private bool PhoneHand => BS3DGame.OnPhone || Game.TouchPinned;
 
         private void ShowField()
         {
@@ -395,7 +427,7 @@ namespace BS3D.Screens
             string text = _draft.ToString().Trim();
             if (text.Length == 0)
             {
-                _problem = "Write something first.";
+                _problem = NoteHint.NOTHING_WRITTEN;
                 Refresh();
                 return;
             }
