@@ -26,6 +26,7 @@ namespace BS3D.Capture
 
         private sealed class Voice
         {
+            internal string Name;
             internal int Buffer;
             internal double Start, End = double.PositiveInfinity;
             internal bool Looped;
@@ -51,9 +52,9 @@ namespace BS3D.Capture
         /// <paramref name="volume"/> and <paramref name="pitch"/> (octaves), into the left and right channels at the two gains.
         /// Returns the voice's index, for <see cref="Point"/> and <see cref="End"/>.
         /// </summary>
-        internal int Begin(int buffer, double start, float volume, float pitch, float left, float right, bool looped)
+        internal int Begin(int buffer, double start, float volume, float pitch, float left, float right, bool looped, string name = null)
         {
-            Voice voice = new() { Buffer = buffer, Start = start, Looped = looped, Left = left, Right = right };
+            Voice voice = new() { Name = name, Buffer = buffer, Start = start, Looped = looped, Left = left, Right = right };
             voice.Points.Add((start, volume, pitch));
             _voices.Add(voice);
             return _voices.Count - 1;
@@ -129,6 +130,20 @@ namespace BS3D.Capture
         }
 
         private static float Clamp(float sample) => sample < -1f ? -1f : sample > 1f ? 1f : sample;
+
+        /// <summary>
+        /// The voices that begin inside [<paramref name="from"/>, <paramref name="to"/>) seconds, in order, by the name the game plays
+        /// them under (<c>VoiceBudget</c>'s: "blast", "release", "shot"...) and their start in seconds from <paramref name="from"/>: the
+        /// moments a cut is looking for, found without looking.
+        /// </summary>
+        internal List<(string Name, double At)> Events(double from, double to)
+        {
+            List<(string, double)> events = new();
+            foreach (Voice voice in _voices)
+                if (voice.Start >= from && voice.Start < to) events.Add((voice.Name ?? "?", voice.Start - from));
+            events.Sort((a, b) => a.Item2.CompareTo(b.Item2));
+            return events;
+        }
 
         /// <summary>
         /// MonoGame's pan law for a mono voice that is not placed (<c>SoundEffect.Play</c>'s pan, an instance's <c>Pan</c>): the

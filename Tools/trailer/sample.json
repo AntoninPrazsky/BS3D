@@ -1,0 +1,32 @@
+// A short edit that exercises everything Tools/trailer-cut.py does (#1180): the 2D logo, a card on black, two tours dissolved
+// into each other, the switch from the calm track to the energetic one on a downbeat, play with the HUD and the game's sound,
+// a card over the footage, and the end card. About 18 s.
+{
+  "format": "bs3d-trailer",
+  "name": "trailer-sample",
+  "size": "3840x2160",
+  "fps": 60,
+  "film": { "quality": "Ultra", "hud": true, "noGrain": true, "audio": true },
+  "segments": [
+    { "name": "logo", "capture": { "level": "Meander", "from": 0, "splash": true, "hud": false }, "in": 0.1, "length": 3.0, "sound": null },
+    { "name": "worlds", "card": { "lines": [["21 WORLDS", 1.6]] }, "length": 1.6, "transition": "dip", "transitionSeconds": 0.5 },
+    { "name": "tour-desert", "capture": { "level": "Rope", "from": 0 }, "in": 1.5, "length": 2.6, "transition": "dip", "transitionSeconds": 0.5, "sound": -6 },
+    { "name": "tour-bigtop", "capture": { "level": "Tightrope", "from": 0 }, "in": 3.0, "length": 2.6, "transition": "dissolve", "transitionSeconds": 0.6, "sound": -6 },
+    { "name": "play-volcano", "capture": { "level": "Vent", "from": 6, "demo": true }, "in": 0.0, "length": 4.0, "sound": 0 },
+    { "name": "play-meander", "capture": { "level": "Meander", "from": 8, "demo": true }, "in": 0.0, "length": 2.5, "sound": 0 },
+    { "name": "end", "card": { "logo": true, "logoWidth": 0.4, "logoY": 0.38,
+        "lines": [["140 LEVELS  ·  21 WORLDS", 0.55], ["WINDOWS  ·  RASPBERRY PI  ·  ANDROID", 0.42], ["bs3d.winphonew.eu", 0.62]], "textY": 0.74 },
+      "length": 3.0, "transition": "dip", "transitionSeconds": 0.5 }
+  ],
+  "cards": [
+    { "lines": [["SHOOT.  MATCH.  BRING IT DOWN.", 1.0]], "at": 13.2, "length": 2.0, "y": 0.2 }
+  ],
+  "music": [
+    { "file": "nebula-shoegaze.ogg", "from": 35.0, "at": 0.0, "gain": 0 },
+    { "file": "nebula-trance.ogg", "from": 3.0, "onBeat": true, "at": "segment:play-volcano", "gain": 0 }
+  ],
+  "snap": true,
+  "mix": { "music": -16.0, "game": -20.0 },
+  "endFade": 2.0,
+  "endFadeVideo": 0.8
+}
