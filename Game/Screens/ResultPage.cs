@@ -90,7 +90,7 @@ namespace BS3D.Screens
 
         //What each breakdown label reads once its row has landed, worked out once per result in Take (#665). One
         //description of the final text for the two things that need it: ApplyBreakdownReveal, which writes it, and
-        //PinBreakdownColumns, which measures it — so the widths that are pinned are the widths that arrive.
+        //LayBreakdown, which measures it — so the widths that are pinned are the widths that arrive.
         private string _matchedDetailText, _matchedValueText, _orphanedDetailText, _orphanedValueText;
         private string _streakValueText, _unusedDetailText, _unusedValueText, _timeDetailText, _timeValueText, _totalValueText;
 
@@ -662,7 +662,7 @@ namespace BS3D.Screens
         //value arrives with the star row's own punch (PunchScale), staggered after the stars settle, from a
         //placeholder dash to its earned number — the caption and the plate are there from the first frame
         //(there is a sum coming), only the numbers themselves perform. And the grid they land in is at its final
-        //size from the first frame (#665, PinBreakdownColumns), so a number arriving changes what is written into
+        //size from the first frame (#665, LayBreakdown), so a number arriving changes what is written into
         //a cell and never where the cells are.
 
         /// <summary>Held on screen before a value has landed — the row is there, its number is not yet.</summary>
@@ -805,96 +805,105 @@ namespace BS3D.Screens
         }
 
         //The faces the breakdown's rows and total are set in (#1073): the body's and the heading's, or both scaled down by
-        //one factor where the pinned columns would run past the plate's content width
+        //one share where the pinned columns would run past the plate's content width (LayBreakdown)
         private SpriteFontBase _figuresBody, _figuresHeading;
 
+        //The run log's line about the grid last laid, so a page refreshed several times while it is fitted says it once
+        private string _breakdownLogged;
+
         /// <summary>
-        /// Chooses the faces of the breakdown's rows and total so the pinned columns fit the plate (#1073). On a phone every
-        /// entry is set at the front end's size (#1052) against the same menu column, and a total of four figures in the
-        /// heading face ran out of the plate's right edge on the X300 Ultra; the desktop's sizes fit by construction, so
-        /// there this changes nothing. The captions, the details, the values and the total all shrink by the one factor
-        /// that fits the widest line, so the grid stays one piece; the two notes under them wrap or are measured apart
-        /// (see <see cref="PinBreakdownColumns"/>). Before <see cref="SetBreakdownFigures"/>, whose figure sets are set for
-        /// these faces.
+        /// The widest the next-star note may run (#1148, <see cref="BreakdownLayout.NoteRoom"/>): on the split page the plate's own
+        /// content width, the plate being cut to its column beside the buttons with the boards' strip starting at its edge; on a
+        /// monitor's page, where the plate stands alone in the column with free width either side, as wide as the plate may
+        /// grow, centred, before it comes within <see cref="BOARD_COLUMN_GAP"/> of the boards' plate. Read after the tree is built,
+        /// which places the boards (<see cref="BuildBoards"/>).
         /// </summary>
-        private void FitBreakdownFaces()
+        private int NoteRoom => BreakdownLayout.NoteRoom(Game.GraphicsDevice.PresentationParameters.BackBufferWidth, ColumnWidth,
+            Game.MenuColumnPlateContentWidth, Split, _boardsLeft, Scaled(BOARD_COLUMN_GAP));
+
+        /// <summary>
+        /// Lays the breakdown grid (#1073, #1148, <see cref="BreakdownLayout"/>) and fixes its three columns at the width of
+        /// their <b>final</b> contents, so the layout is the finished one from the first frame and the reveal only changes what
+        /// is written into it (#665).
+        /// <para>
+        /// Every line the grid holds is measured. The captions, the details, the values and the total are set in the body's and
+        /// the heading's faces where the three columns fit the plate's content width at the column's width, and where they do
+        /// not in the display face scaled down by the one share that fits, so the grid stays one piece: on a phone every entry is
+        /// set at the front end's size (#1052), and the total in the heading face had run out of the plate's right edge on the
+        /// X300 Ultra (#1073). The next-star note is set at <see cref="NoteRoom"/>: one line in the small face where it fits;
+        /// where it does not, on the split page the score over the time (its copy ties every space but the one after its comma),
+        /// and on a monitor's page, whose height is its budget, one line in the small face scaled down to the room. It was
+        /// measured apart from the fit, and rules v2's longer note (#1045) then lengthened the detail column after the faces had
+        /// been fitted: on the phone the total and the note's end ran out of the plate and under the online boards (#1148). The
+        /// unlock note wraps to the column's content width by construction (see <see cref="BuildBreakdown"/>). A note wider than
+        /// the columns lengthens the detail column, the one between the captions on the left and the right-aligned values.
+        /// </para>
+        /// <para>
+        /// The columns were Auto, Auto and Part on a grid centred in its plate (#665), so each one sized to whatever was in
+        /// it that frame: a row landing widened the detail column (an empty label became "96 × 10"), the values
+        /// column grew from a dash to "1 280", and the total in the heading font widened it again last — and each
+        /// change re-centred the whole grid, so every caption slid sideways as the numbers arrived. Measured
+        /// (1080p, <c>result stars=3</c>, one reveal): the captions' left edge moved 852, 809, 782 px and the
+        /// values' right edge 1066, 1110, 1136 — 70 px each way. The widths come from the same strings
+        /// <see cref="ApplyBreakdownReveal"/> writes, measured with the faces the labels use; the pending dash is included
+        /// in the values column so it cannot be the widest. Written by <see cref="Refresh"/>, so a rebuild (a resize) comes
+        /// up laid too, and before <see cref="SetBreakdownFigures"/>, whose figure sets are set for these faces.
+        /// </para>
+        /// </summary>
+        private void LayBreakdown()
         {
             SpriteFontBase body = FontBody, heading = Game.MenuFontHeading;
-
             float gaps = 2f * _breakdownGrid.ColumnSpacing;
-            float needed = BreakdownWidth(body, heading);
-            float available = Game.MenuColumnPlateContentWidth - gaps;
-            if (needed > available)
-            {
-                float fit = available / needed;
-                body = Game.DisplayFontAt(body.FontSize * fit);
-                heading = Game.DisplayFontAt(heading.FontSize * fit);
-            }
+            int columnRoom = Game.MenuColumnPlateContentWidth, noteRoom = NoteRoom;
 
-            _figuresBody = body;
-            _figuresHeading = heading;
+            BreakdownLayout.Fit fit = BreakdownLayout.Lay(columnRoom, noteRoom, heightToSpare: Split, gaps,
+                scale => BreakdownColumns(FaceAt(body, scale), FaceAt(heading, scale)),
+                _result.NextStarNote, (scale, line) => SmallAt(scale).MeasureString(line).X,
+                _unlockNote.Visible ? _unlockNote.Width ?? 0 : 0);
+
+            _figuresBody = FaceAt(body, fit.Scale);
+            _figuresHeading = FaceAt(heading, fit.Scale);
 
             //Rows 0 to 4 are the captions, details and values, row 5 the total; the notes below keep their own faces
             foreach (Widget widget in _breakdownGrid.Widgets)
             {
                 if (widget is not Label label) continue;
                 int row = Grid.GetRow(label);
-                if (row < BREAKDOWN_ROW_COUNT) label.Font = body;
-                else if (row == BREAKDOWN_ROW_COUNT) label.Font = heading;
+                if (row < BREAKDOWN_ROW_COUNT) label.Font = _figuresBody;
+                else if (row == BREAKDOWN_ROW_COUNT) label.Font = _figuresHeading;
             }
+
+            //In the lines and the face the layout measured, which the label draws as they are: it has no wrap of its own to add
+            _nextStarNote.Font = SmallAt(fit.NoteScale);
+            _nextStarNote.Text = fit.Note;
+            _nextStarNote.Visible = fit.Note.Length > 0;
+
+            _breakdownGrid.ColumnsProportions[0] = new Proportion(ProportionType.Pixels, fit.Pinned.Caption);
+            _breakdownGrid.ColumnsProportions[1] = new Proportion(ProportionType.Pixels, fit.Pinned.Detail);
+            _breakdownGrid.ColumnsProportions[2] = new Proportion(ProportionType.Pixels, fit.Pinned.Value);
+
+            //What was laid, once a result and size: the grid's width against the most it may take, which says on any layout
+            //whether the breakdown is inside its plate and clear of the boards
+            string said = $"[result] breakdown: {fit.Pinned.Sum + gaps:0} px wide (columns' room {columnRoom}, note's {noteRoom}), "
+                + $"faces at {fit.Scale:0.00}x, "
+                + (fit.Note.Length == 0 ? "no next-star note"
+                    : $"the next-star note {fit.NoteWidth:0} px on {(fit.Note.Contains('\n') ? "two lines" : "one line")} at {fit.NoteScale:0.00}x");
+            if (said != _breakdownLogged) Console.WriteLine(_breakdownLogged = said);
         }
 
-        /// <summary>The three pinned columns' width in the given faces, without the gaps between them (<see cref="PinBreakdownColumns"/>'s sum).</summary>
-        private float BreakdownWidth(SpriteFontBase body, SpriteFontBase heading) =>
-            Widest(body, BREAKDOWN_CAPTIONS)
-            + WidestFigures(body, _matchedDetailText, _orphanedDetailText, _unusedDetailText, _timeDetailText)
-            + MathF.Max(
+        /// <summary><paramref name="face"/> at <paramref name="scale"/> of its size: itself at its size, the display face otherwise.</summary>
+        private SpriteFontBase FaceAt(SpriteFontBase face, float scale) => scale >= 1f ? face : Game.DisplayFontAt(face.FontSize * scale);
+
+        /// <summary>The small face (the reading face, Inter) at <paramref name="scale"/> of its size.</summary>
+        private SpriteFontBase SmallAt(float scale) => scale >= 1f ? FontSmall : Game.ReadingFontAt(FontSmall.FontSize * scale);
+
+        /// <summary>The three pinned columns' widths with the rows in <paramref name="body"/> and the total in <paramref name="heading"/>.</summary>
+        private BreakdownLayout.Columns BreakdownColumns(SpriteFontBase body, SpriteFontBase heading) => new(
+            Widest(body, BREAKDOWN_CAPTIONS),
+            WidestFigures(body, _matchedDetailText, _orphanedDetailText, _unusedDetailText, _timeDetailText),
+            MathF.Max(
                 WidestFigures(body, PENDING_MARK, _matchedValueText, _orphanedValueText, _streakValueText, _unusedValueText, _timeValueText),
-                WidestFigures(heading, PENDING_MARK, _totalValueText));
-
-        /// <summary>
-        /// Fixes the breakdown grid's three columns at the width of their <b>final</b> contents, so the layout is
-        /// the finished one from the first frame and the reveal only changes what is written into it (#665).
-        /// <para>
-        /// The columns were Auto, Auto and Part on a grid centred in its plate, so each one sized to whatever was in
-        /// it that frame: a row landing widened the detail column (an empty label became "96 × 10"), the values
-        /// column grew from a dash to "1 280", and the total in the heading font widened it again last — and each
-        /// change re-centred the whole grid, so every caption slid sideways as the numbers arrived. Measured
-        /// (1080p, <c>result stars=3</c>, one reveal): the captions' left edge moved 852, 809, 782 px and the
-        /// values' right edge 1066, 1110, 1136 — 70 px each way.
-        /// </para>
-        /// <para>
-        /// The widths come from the same strings <see cref="ApplyBreakdownReveal"/> writes, measured with the
-        /// fonts the labels use; the pending dash is included in the values column so it cannot be the widest.
-        /// The two notes that span the grid stay whole: the next-star line is measured as it will read, and the
-        /// unlock note is a fixed width by construction (see <see cref="BuildBreakdown"/>), so a note wider than
-        /// the columns lengthens the detail column — the one between the captions on the left and the right-aligned
-        /// values — instead of overflowing its cell. Written by <see cref="Refresh"/>, so a rebuild (a resize) comes
-        /// up pinned too.
-        /// </para>
-        /// </summary>
-        private void PinBreakdownColumns()
-        {
-            if (_breakdownGrid == null || !_result.ShowsBreakdown) return;
-
-            SpriteFontBase body = _figuresBody;
-            SpriteFontBase heading = _figuresHeading;
-
-            float caption = Widest(body, BREAKDOWN_CAPTIONS);
-            float detail = WidestFigures(body, _matchedDetailText, _orphanedDetailText, _unusedDetailText, _timeDetailText);
-            float value = MathF.Max(
-                WidestFigures(body, PENDING_MARK, _matchedValueText, _orphanedValueText, _streakValueText, _unusedValueText, _timeValueText),
-                WidestFigures(heading, PENDING_MARK, _totalValueText));
-
-            //A note wider than the three columns lengthens the middle one, so captions and values stay at the edges
-            float gaps = 2f * _breakdownGrid.ColumnSpacing;
-            float notes = MathF.Max(Widest(_nextStarNote.Font, _nextStarNote.Text), _unlockNote.Visible ? _unlockNote.Width ?? 0 : 0);
-            detail += MathF.Max(0f, notes - (caption + detail + value + gaps));
-
-            _breakdownGrid.ColumnsProportions[0] = new Proportion(ProportionType.Pixels, caption);
-            _breakdownGrid.ColumnsProportions[1] = new Proportion(ProportionType.Pixels, detail);
-            _breakdownGrid.ColumnsProportions[2] = new Proportion(ProportionType.Pixels, value);
-        }
+                WidestFigures(heading, PENDING_MARK, _totalValueText)));
 
         /// <summary>The widest of <paramref name="texts"/> in <paramref name="font"/>, rounded up to a whole pixel.</summary>
         private static float Widest(SpriteFontBase font, params string[] texts)
@@ -1100,7 +1109,10 @@ namespace BS3D.Screens
             //measured size with the padding already in, so at the minimum the plate's edges land exactly on the
             //buttons'. It was chosen over Width so the unlock note could run longer than the column — and what
             //that bought in play was a sentence running out past the plate's right edge (#397). The note wraps
-            //inside the plate now; see BuildBreakdown.
+            //inside the plate now; see BuildBreakdown. A minimum and not a width for the next-star note too (#1148,
+            //NoteRoom): on a monitor's page the plate stands alone in the column and grows past it where the note's one
+            //line needs it to; on the split page the column it stands in is cut to this width, and the grid is laid to
+            //fit inside it.
             _breakdown.MinWidth = ColumnWidth;
 
             actions.Widgets.Add(_breakdown);
@@ -1171,7 +1183,7 @@ namespace BS3D.Screens
             };
             _breakdownGrid = grid;
 
-            //Auto, Auto and Part only until the first Refresh: PinBreakdownColumns fixes all three at the width of
+            //Auto, Auto and Part only until the first Refresh: LayBreakdown fixes all three at the width of
             //their final contents, because a column that sizes to what is in it that frame slides the whole
             //centred grid sideways as each row lands (#665)
             grid.ColumnsProportions.Add(new Proportion(ProportionType.Auto));   //caption
@@ -1216,12 +1228,21 @@ namespace BS3D.Screens
             //clear's own rating first, the campaign's gate (below) second. Absent rather than zero at four
             //stars: there is nothing above the top to project towards, and a row reading "+0" would look like
             //an error rather than a ceiling.
+            //
+            //⚠ ITS LINES AND ITS FACE ARE THE LAYOUT'S, NOT THE LABEL'S (#1148). Under rules v2 it is the grid's widest line,
+            //"Next star at 26 180 (+1 781), or 3 s faster", wider than the plate's content at the column's width; LayBreakdown
+            //sets it at its room (NoteRoom: on a monitor the width beside the column, on the phone's split page the plate's
+            //own) and, where that is too narrow, breaks it at its comma on the split page (the copy ties every other space) or
+            //draws it smaller on a monitor's, and hands the label the lines and the face it measured. No wrap of the label's
+            //own, so nothing breaks them again; two lines are prose, so at the prose leading (#806), each centred.
             grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
             _nextStarNote = new Label
             {
                 Text = string.Empty,
                 Font = FontSmall,
                 TextColor = BS3DGame.MENU_TEXT_DIM,
+                VerticalSpacing = ProseLeading,
+                TextAlign = TextHorizontalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
             };
@@ -1358,11 +1379,10 @@ namespace BS3D.Screens
 
             if (_result.ShowsBreakdown)
             {
-                //Only below four stars — NextStarScore's own -1 says there is nothing left to project towards,
-                //the same sentinel LevelResult itself uses, so this can never show a note the total contradicts.
-                _nextStarNote.Text = _result.NextStarNote;
-                _nextStarNote.Visible = _nextStarNote.Text.Length > 0;
-
+                //The next-star note is LayBreakdown's to write (below), in the lines it measured. Only below four stars —
+                //NextStarScore's own -1 says there is nothing left to project towards, the same sentinel LevelResult itself
+                //uses, so the page can never show a note the total contradicts.
+                //
                 //Only when the road ahead is actually shut — which is also when the Next Level button below
                 //is absent, so this line is the absence explained rather than a number always on display.
                 //It is a clear's note and only a clear's, because it is a row of the breakdown grid and the
@@ -1378,11 +1398,11 @@ namespace BS3D.Screens
                 SetProse(_unlockNote, unlockNote);
                 _unlockNote.Visible = unlockNote.Length > 0;
 
-                //The figures set for this tree's faces (#806), then the columns at their final widths before anything of
-                //the reveal is written (#665), and after the two notes above, whose widths they take account of
-                FitBreakdownFaces();
+                //The grid laid, every line measured, with the columns at their final widths before anything of the reveal is written
+                //(#665, #1148), after the unlock note above, whose width it takes account of; then the figures set for the
+                //faces it chose (#806)
+                LayBreakdown();
                 SetBreakdownFigures();
-                PinBreakdownColumns();
             }
 
             //The rows and the total are the reveal's to write, not this method's (#479) — see
@@ -1439,6 +1459,9 @@ namespace BS3D.Screens
         private const int BOARD_SECTION_GAP = 40;
         private int _boardWidth;
 
+        //The boards' plate's left edge in pixels at the layout in force, set where the plate is placed (BuildBoards)
+        private int _boardsLeft;
+
         //The signal in front of the status line (#683): the small face's whole line height, so it scales with the
         //letters beside it at every layout - at their cap height (0.72) it was some twenty pixels at 1080p and easy to
         //miss, which is the one thing it exists not to be - and a gap of design units between them
@@ -1484,8 +1507,8 @@ namespace BS3D.Screens
             //it may be with the larger of the two floors on both sides, never under its own floor, and the margin to the
             //edge half of what is left. The column's plate is cut to ColumnWidth (MenuColumnPlateContentWidth), so its
             //right edge is the strip's left one; where the strip is narrower than the plate at its floor, the edge
-            //margin holds its floor and the plate is what crosses the gap, as it always did
-            int beside = (Game.GraphicsDevice.PresentationParameters.BackBufferWidth - CentreWidth) / 2;
+            //margin holds its floor and the plate is what crosses the gap, as it always did (BoardLayout.Place). Its left edge
+            //is as far as the breakdown may widen towards it (NoteRoom, #1148)
             int padding = 2 * Scaled(BOARD_PADDING);
             int sideFloor = Math.Max(Scaled(BOARD_COLUMN_GAP), Scaled(BOARD_MIN_EDGE_MARGIN));
             //The ceiling is BOARD_WIDTH up to 16:9 and grows with the strip past it (#934): the margins stay the ones 16:9 has and
@@ -1493,8 +1516,8 @@ namespace BS3D.Screens
             var screen = Game.GraphicsDevice.PresentationParameters;
             int ceiling = BoardLayout.Ceiling(screen.BackBufferWidth, screen.BackBufferHeight, Scaled(BOARD_WIDTH),
                 BoardView.FullWidth(FontSmall, Game.MenuFontPromptSmall, Scaled));
-            _boardWidth = Math.Clamp(beside - padding - 2 * sideFloor, Scaled(BOARD_MIN_WIDTH), ceiling);
-            int margin = Math.Max((beside - _boardWidth - padding) / 2, Scaled(BOARD_MIN_EDGE_MARGIN));
+            (_boardWidth, int margin, _boardsLeft) = BoardLayout.Place(screen.BackBufferWidth, CentreWidth, padding, sideFloor,
+                Scaled(BOARD_MIN_EDGE_MARGIN), Scaled(BOARD_MIN_WIDTH), ceiling);
 
             //Held to the width worked out above: a stack sizes to its widest child, and one long line — the first cut's
             //"Every clear since the boards began" — widened the whole plate back across the column at 4:3

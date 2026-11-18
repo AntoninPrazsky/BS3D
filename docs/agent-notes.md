@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1148 rozpis skóre se vejde do desky i na telefonu — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: čistá třída `BreakdownLayout` klade celou mřížku; řádky dál lícují se sloupcem (#1073), poznámka o další hvězdě má vlastní místo (`NoteRoom`). Na monitoru smí deska růst až na `BOARD_COLUMN_GAP` od desky žebříčků (16:9 a širší beze změny); na telefonu se poznámka láme u čárky (ostatní mezery v `NextStarNote` nezlomitelné), na 4:3 a 5:4 zůstane na řádku menší (min. `MIN_NOTE_SCALE` 0,7). `BoardLayout.Place` sdílí stránka i test.
+- ⚠ Příčina: `PinBreakdownColumns` prodlužoval sloupec o poznámku, kterou fit nikdy neměřil; s pravidly v2 je to nejširší řádek mřížky a lezl pod žebříčky.
+- Otevřené: neověřeno na vivo ani na GL ES, 5:4 a stránka s `nextlocked` bez páru; blokový milník v 1080 řádcích už na main ořezává Main Menu (vlastní issue).
+
 ## 2026-11-18 — #1154–#1176 poznámky majitele ke scénám a About založeny (jen zakládání) — desktop (RDT-PC), Claude Code
 
 - Hotovo: 23 issues, jedna na poznámku (Sea dělí čtyři, Space tři, Forest dva, Grid dva, Savanna dva): About > Privacy štítky #1154, lana a navijáky stropu #1155, savana #1156 #1157, poušť #1158, hory #1159, jeskyně #1160, Grid #1161 #1162, záře #1163, sopka #1164, les #1165 #1166, Mars #1167, polár #1168 (moaré, `priority-now`), moře #1169–#1172, vesmír #1173–#1175, Outback jako druhý kandidát nové kapitoly #1176 (`parked`, vedle #1113). Komentáře: #1145, #1113, #1034, #896.

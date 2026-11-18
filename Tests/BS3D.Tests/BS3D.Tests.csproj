@@ -113,6 +113,9 @@
     <!--The online boards' row (#934): the name's column, a name cut to it and how wide a board may be on a wide display - arithmetic over
         measured widths, no device.-->
     <Compile Include="..\..\Game\Screens\BoardLayout.cs" />
+    <!--The result page's score breakdown (#1148): its room, the faces' share, where the next-star note breaks and the pinned
+        columns - arithmetic over measured widths, no device.-->
+    <Compile Include="..\..\Game\Screens\BreakdownLayout.cs" />
     <!--What a High Scores row says of its level, and when a level counts as cleared (#898): texts over a summary's board, no device-->
     <Compile Include="..\..\Game\Screens\HighScoresRow.cs" />
     <!--The High Scores page's levels' board keys, read off the frame (#898): a flag and a slot per level over a read handed in, no device-->

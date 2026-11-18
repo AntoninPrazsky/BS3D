@@ -1,6 +1,7 @@
 using BS3D.Screens;
 using Prazsky.BS3D.Scoring;
 using System.Collections.Generic;
+using System.Linq;
 using Xunit;
 
 namespace BS3D.Tests
@@ -149,7 +150,9 @@ namespace BS3D.Tests
 
             Assert.Equal(13200, staged.NextStarScore);
             Assert.Equal(27, staged.NextStarSecondsFaster);
-            Assert.Equal("Next star at 13 200 (+3 940), or 27 s faster", staged.NextStarNote);
+            //Drawn with every tie a space; the one plain space is the note's one break (#1148, BreakdownLayoutTests)
+            Assert.Equal("Next star at 13 200 (+3 940), or 27 s faster", staged.NextStarNote.Replace(SpaceWrap.TIE, ' '));
+            Assert.Equal(1, staged.NextStarNote.Count(c => c == ' '));
 
             ScoreKeeper level = new(null, null, 120, 40);
             Assert.True(level.TimeBonusAt(34 - 27) - 6900 >= 3940 && level.TimeBonusAt(34 - 26) - 6900 < 3940);
