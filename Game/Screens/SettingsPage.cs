@@ -809,7 +809,8 @@ namespace BS3D.Screens
 
             //On the phone layout the campaign pair stands beside the switches under its heading (#1151): six rows a touch
             //target tall and the heading between them do not fit the phone's height, and the destructive pair stands apart
-            //from the switches by that as well as by its heading. BuildRailTree puts it there; the walk reaches it after them
+            //from the switches by that as well as by its heading, its rows on the switches' lines (AddGroupHeading).
+            //BuildRailTree puts it there; the walk reaches it after them
             Grid switches = grid;
             int row = 4;
             if (_phone)
@@ -875,7 +876,10 @@ namespace BS3D.Screens
         /// <see cref="GROUP_HEADING_GAP"/> of air above it to break from the rows before.</param>
         private void AddGroupHeading(Grid grid, int row, string text, bool first)
         {
-            grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
+            //On the phone layout (#1151) the heading's row is a row's height: it heads GAME's campaign pair beside the
+            //switches, so the heading stands level with the first switch and the pair's rows with the next two, where an
+            //Auto row left them half a row off the switches' lines
+            grid.RowsProportions.Add(_phone ? new Proportion(ProportionType.Pixels, RowHeight) : new Proportion(ProportionType.Auto));
 
             //Centred over the seam between the two columns (#833): a heading at the page's left edge stood over the empty
             //half of the caption column once the captions moved to the seam
