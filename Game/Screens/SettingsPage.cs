@@ -434,8 +434,8 @@ namespace BS3D.Screens
         /// and the rows, each a touch target tall (<see cref="MenuPage.PHONE_TARGET"/>) - they were 5.3 mm, the tabs 4.5 mm,
         /// and 37 % of the width stood empty. ONLINE's note stands beside its rows rather than under them, where on a phone
         /// it was a four-line scroller, and GAME's campaign pair beside its switches. The captions end at one seam on every
-        /// tab and the values start from it (#833), as on a monitor; the value column is as wide as the widest value needs,
-        /// with a cycling row's − and + at its ends where a touch screen answers.
+        /// tab and the values start from it (#833), as on a monitor; on the tabs with nothing beside their rows the values
+        /// reach across the width, with a cycling row's − and + at their ends where a touch screen answers.
         /// </summary>
         private Widget BuildRailTree()
         {
