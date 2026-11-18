@@ -96,6 +96,30 @@ namespace BS3D.Screens
         /// </summary>
         internal virtual int RequiredWidth => 0;
 
+        /// <summary>
+        /// Whether a page with a layout of its own for the screen's width builds it (#1153): on an enlarged interface
+        /// (<see cref="BS3DGame.UiScale"/> over 1, a phone's) whose screen is wide enough (<see cref="WideMenuLayout.MIN_ASPECT"/>).
+        /// The Scene grid, the Jukebox's three columns, About's and High Scores' rail: each is wider than a stacked page, so a
+        /// page that builds one states its width (<see cref="RequiredWidth"/>, <see cref="UnboundedWidth"/>) and
+        /// <c>BS3DGame.FitPage</c> brings it inside the screen. Read when the tree is built and kept with it, so what the page
+        /// does later (a highlight, a refill) answers to the tree that is up.
+        /// </summary>
+        protected bool UsesTheWidth
+        {
+            get
+            {
+                Microsoft.Xna.Framework.Graphics.Viewport viewport = Game.GraphicsDevice.Viewport;
+                return Game.UiScale > 1f && WideMenuLayout.WideEnough(viewport.Width, viewport.Height);
+            }
+        }
+
+        /// <summary>
+        /// The width <paramref name="widget"/> takes laid out with no bound, its margin and padding counted (#1153): what a page
+        /// built to the screen's width states as its <see cref="RequiredWidth"/>, measured off the tree so the figure is the
+        /// one drawn. <c>FitPage</c> reads a page's measured height and this width, never the measure's width.
+        /// </summary>
+        protected static int UnboundedWidth(Widget widget) => widget.Measure(new Point(int.MaxValue / 2, int.MaxValue / 2)).X;
+
         protected MenuPage(BS3DGame game) => Game = game;
 
         /// <summary>

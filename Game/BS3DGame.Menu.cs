@@ -455,9 +455,15 @@ namespace BS3D
         /// wider than 2560:2160 (about 1.19) nothing changes.
         /// <para>
         /// Since #686 the settings page is one column under a tab row, its plate about 1880 units across, so it no
-        /// longer sets this. Since #685 the widest page is High Scores: its rows and the plate's padding come to about 2590
-        /// units by their own figures (2380 + 2 × 106), which 2560 clipped by some fifteen units a side below about 1.2:1
+        /// longer sets this. Since #685 the widest stacked page is High Scores: its rows and the plate's padding come to about
+        /// 2590 units by their own figures (2380 + 2 × 106), which 2560 clipped by some fifteen units a side below about 1.2:1
         /// (found by review). 2600 holds it; at any aspect wider than 2600:2160 (about 1.2) nothing changes.
+        /// </para>
+        /// <para>
+        /// It does not hold the layouts an enlarged interface builds on a wide screen (#1153: the Scene grid, the Jukebox's
+        /// three columns, About and High Scores beside a rail), up to 3448 units across. Those are built only on a screen at
+        /// least <see cref="Screens.WideMenuLayout.MIN_ASPECT"/> wide, and each states its width
+        /// (<see cref="Screens.MenuPage.RequiredWidth"/>), which <see cref="FitPage"/> brings it down to.
         /// </para>
         /// </summary>
         private const int MENU_MIN_DESIGN_WIDTH = 2600;
@@ -472,7 +478,8 @@ namespace BS3D
             get
             {
                 Microsoft.Xna.Framework.Graphics.Viewport viewport = GraphicsDevice.Viewport;
-                //A screen held close draws the interface larger (#1052, UiScale), but never wider than the widest page holds
+                //A screen held close draws the interface larger (#1052, UiScale), but never wider than the widest stacked page
+                //holds; the wider layouts of a wide screen state their own width (#1153, MenuPage.RequiredWidth, FitPage)
                 return Math.Min((int)(viewport.Height * UiScale), viewport.Width * MENU_DESIGN_HEIGHT / MENU_MIN_DESIGN_WIDTH);
             }
         }
@@ -912,8 +919,9 @@ namespace BS3D
         private float FitFloor => 1f / UiScale;
 
         /// <summary>
-        /// Lays <paramref name="page"/> out at the interface scale and, where that makes it taller than the screen, at the
-        /// smaller scale it fits (#1052): the page measured as Myra lays it out, its share brought down by the overrun, at
+        /// Lays <paramref name="page"/> out at the interface scale and, where that makes it taller than the screen or the width
+        /// it states (<see cref="Screens.MenuPage.RequiredWidth"/>) wider, at the smaller scale it fits (#1052): the page
+        /// measured as Myra lays it out, its share brought down by the overrun, at
         /// most three passes since a font's sizes round. Only where the interface is drawn larger than its design
         /// (<see cref="UiScale"/>): at the design's size every page fits by construction, and a monitor's menus are left
         /// exactly as they were.

@@ -73,8 +73,9 @@ namespace BS3D.Screens
         private const int LEFT_SURROUNDINGS = 620;
         private const int RIGHT_SURROUNDINGS = 1180;
 
-        //The phone's three columns (#1153), in design units: each list as wide as its longest name needs with the play mark
-        //clear of it ("The Silhouettes" is 440 in the display face at the phone's size), the player a little wider than a
+        //The phone's three columns (#1153), in design units: both lists as wide as the longest chapter's name needs with the
+        //play mark clear of it ("The Silhouettes" is 440 in the display face at the phone's size; a recording's title is
+        //shorter), the player a little wider than a
         //menu column so the now-playing line cuts less, the visualizer as tall as About's, and round the lists only the
         //heading and the plate, Back standing under the player
         private const int PHONE_LIST_WIDTH = 760;
@@ -145,6 +146,7 @@ namespace BS3D.Screens
             _groupMarks.Clear();
             _shownState = -1;
             _group = Math.Clamp(_group, 0, Math.Max(0, _groups.Count - 1));
+            ThreeColumns = UsesTheWidth;
 
             VerticalStackPanel column = MenuColumn();
             column.Widgets.Add(ScreenHeading("JUKEBOX"));
@@ -163,13 +165,23 @@ namespace BS3D.Screens
             column.Widgets.Add(columns);
             if (!ThreeColumns) column.Widgets.Add(BackButton());
 
-            return ScreenRoot(Plate(column));
+            Panel plate = Plate(column);
+            _threeColumnPlate = ThreeColumns ? plate : null;
+            return ScreenRoot(plate);
         }
 
-        //Whether the tree up is the phone's three columns (#1153): the interface drawn larger, as on a phone held close
-        private bool ThreeColumns => Game.UiScale > 1f;
+        //Whether the tree up is the phone's three columns (#1153): the interface drawn larger, as on a phone held close, on a
+        //screen wide enough for them (UsesTheWidth); and their plate, whose width the page needs
+        private bool ThreeColumns;
+        private Panel _threeColumnPlate;
 
-        //A list's entries' width: a menu column's, or the phone's narrower lists
+        /// <summary>
+        /// The three columns' plate, laid out unbounded (#1153): wider than a stacked page, so on a screen narrower than the
+        /// X300 Ultra's 2.2:1 <c>FitPage</c> brings the page down to fit it rather than cut the player's Next off.
+        /// </summary>
+        internal override int RequiredWidth => ThreeColumns && _threeColumnPlate != null ? UnboundedWidth(_threeColumnPlate) : 0;
+
+        //Both lists' entries' width (the chapters' and the recordings'): a menu column's, or the phone's narrower lists
         private int ListWidth => ThreeColumns ? Scaled(PHONE_LIST_WIDTH) : ColumnWidth;
 
         private Widget BuildChapters()
@@ -346,7 +358,7 @@ namespace BS3D.Screens
             {
                 int index = group.First + i;
                 Button button = MenuButton(player.Tracks[index].Title, () => Game.Recordings?.PlayAt(index), out Label label);
-                button.Width = ColumnWidth;
+                button.Width = ListWidth;
                 _trackButtons.Add(button);
                 _trackLabels.Add(label);
                 _tracks.Widgets.Add(button);

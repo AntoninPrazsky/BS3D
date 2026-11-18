@@ -50,8 +50,16 @@ namespace BS3D.Screens
         private readonly string[] _chapters = new string[SceneRenderer.SceneCount];
         private LevelSet _orderedFor;
 
-        //Whether the tree up is the phone's grid (#1153): the interface drawn larger, as on a phone held close
-        private bool AsGrid => Game.UiScale > 1f;
+        //Whether the tree up is the phone's grid (#1153): the interface drawn larger, as on a phone held close, on a screen
+        //wide enough for it (UsesTheWidth); and the grid's plate, whose width the page needs
+        private bool AsGrid;
+        private Panel _gridPlate;
+
+        /// <summary>
+        /// The grid's plate, laid out unbounded (#1153): seven tiles across are wider than a stacked page, and on a screen
+        /// narrower than the X300 Ultra's 2.2:1 <c>FitPage</c> brings the page down to fit it rather than cut a column off.
+        /// </summary>
+        internal override int RequiredWidth => AsGrid && _gridPlate != null ? UnboundedWidth(_gridPlate) : 0;
 
         /// <summary>
         /// What the page needs around the list — the heading, the note under it, the Back button and the
@@ -64,6 +72,8 @@ namespace BS3D.Screens
 
         protected override Widget BuildTree()
         {
+            AsGrid = UsesTheWidth;
+
             VerticalStackPanel column = MenuColumn();
             column.Widgets.Add(ScreenHeading("SCENE"));
 
@@ -100,7 +110,9 @@ namespace BS3D.Screens
             });
             column.Widgets.Add(BackButton());
 
-            return ScreenRoot(Plate(column));
+            Panel plate = Plate(column);
+            _gridPlate = AsGrid ? plate : null;
+            return ScreenRoot(plate);
         }
 
         /// <summary>

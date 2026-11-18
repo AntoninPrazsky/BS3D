@@ -224,6 +224,8 @@ namespace BS3D.Screens
             _rowMeScores.Clear();
             _rowRest.Clear();
 
+            BesideTheRail = UsesTheWidth;
+            _railPlate = null;
             if (BesideTheRail) return BuildBesideTheRail();
 
             VerticalStackPanel column = MenuColumn();
@@ -239,14 +241,37 @@ namespace BS3D.Screens
 
             //The door to opting in, shown only while there is nothing to show without it
             _settingsButton = MenuButton("Settings", Game.OpenSettings);
-            column.Widgets.Add(_settingsButton);
-            column.Widgets.Add(BackButton());
+            if (Game.UiScale > 1f)
+            {
+                //Side by side on an enlarged interface too square for the rail (#1052): the width it has, and a line more of
+                //the levels above them
+                HorizontalStackPanel ways = new() { Spacing = Scaled(20), HorizontalAlignment = HorizontalAlignment.Center };
+                ways.Widgets.Add(_settingsButton);
+                ways.Widgets.Add(BackButton());
+                column.Widgets.Add(ways);
+            }
+            else
+            {
+                column.Widgets.Add(_settingsButton);
+                column.Widgets.Add(BackButton());
+            }
 
+            //There the levels are dragged rather than the whole page drawn smaller (#1052); a monitor's page fits as built
+            ScrollsWhenTall(column, rows);
             return ScreenRoot(Plate(column));
         }
 
-        //Whether the tree up is the phone's (#1153): the interface drawn larger, as on a phone held close
-        private bool BesideTheRail => Game.UiScale > 1f;
+        //Whether the tree up is the phone's (#1153): the interface drawn larger, as on a phone held close, on a screen wide
+        //enough for the rail beside the rows (UsesTheWidth); and its plate, whose width the page needs
+        private bool BesideTheRail;
+        private Panel _railPlate;
+
+        /// <summary>
+        /// The rail page's plate, laid out unbounded (#1153): the rail and two columns of rows are wider than a stacked page,
+        /// so on a screen narrower than the X300 Ultra's 2.2:1 <c>FitPage</c> brings the page down to fit it rather than cut
+        /// the second column's scores off.
+        /// </summary>
+        internal override int RequiredWidth => BesideTheRail && _railPlate != null ? UnboundedWidth(_railPlate) : 0;
 
         /// <summary>
         /// The phone's page (#1153): the heading, the periods and the pager down a rail with Settings and Back at its foot,
@@ -322,7 +347,8 @@ namespace BS3D.Screens
 
             //On a screen too short even for this, the levels are dragged rather than the whole page drawn smaller
             ScrollsWhenTall(right, levels);
-            return ScreenRoot(Plate(grid));
+            _railPlate = Plate(grid);
+            return ScreenRoot(_railPlate);
         }
 
         /// <summary>

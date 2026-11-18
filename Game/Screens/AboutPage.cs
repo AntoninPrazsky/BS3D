@@ -114,6 +114,7 @@ namespace BS3D.Screens
             //The frame first: the pager is as wide as it is, so the arrows stand over its edges
             Panel frame = BuildFrame();
 
+            BesideTheRail = UsesTheWidth;
             if (BesideTheRail) return BuildBesideTheRail(frame);
 
             VerticalStackPanel column = MenuColumn();
@@ -124,14 +125,28 @@ namespace BS3D.Screens
             column.Widgets.Add(frame);
             column.Widgets.Add(BackButton());
 
+            //An enlarged interface too square for the rail (UsesTheWidth) drags the pages' text rather than draw the whole
+            //page smaller (#1052); a monitor's page fits as built and its body never scrolls
+            ScrollsWhenTall(column, frame);
+
             //The same tag, in the same corner, as the front end's — About is where a player looks for which version
-            //they run, once they have found the entry. Stacked, the page is a monitor's: the design's size fits it, so its
-            //body never scrolls (a phone's stands beside the rail, BuildBesideTheRail)
+            //they run, once they have found the entry
             return ScreenRoot(Plate(column, prose: true), VersionTag());
         }
 
-        //Whether the tree up is the phone's (#1153): the interface drawn larger, as on a phone held close
-        private bool BesideTheRail => Game.UiScale > 1f;
+        //Whether the tree up is the phone's (#1153): the interface drawn larger, as on a phone held close, on a screen wide
+        //enough for the rail beside the body (UsesTheWidth)
+        private bool BesideTheRail;
+
+        //The rail page's plate and the version tag beside it, as wide as they were built (ClearOfTheTag), 0 when stacked
+        private int _railPlateWidth, _tagWidth;
+
+        /// <summary>
+        /// The rail page's plate and the version tag right of it, with the clearance between (#1153): the plate stands left
+        /// of the tag (<see cref="ClearOfTheTag"/>), and on a screen too narrow for both at the menus' scale <c>FitPage</c>
+        /// brings the page down until they fit rather than squeeze the plate under its body or the body under the tag.
+        /// </summary>
+        internal override int RequiredWidth => BesideTheRail ? _railPlateWidth + Scaled(TAG_CLEARANCE) + _tagWidth : 0;
 
         /// <summary>
         /// The phone's page (#1153): the heading and the pager down a rail with Back at its foot, and the page's body beside
@@ -196,16 +211,23 @@ namespace BS3D.Screens
         /// bottom-right corner, as on the front end, and the plate beside the rail is as tall as the screen allows and wider
         /// than the stacked page, so centred its corner ran under the tag. A right margin on a centred widget shifts it by half
         /// the margin, so the plate moves by as much as it overlaps and no more, and stays centred where there is room.
+        /// <para>
+        /// Never further than the screen's left edge: a margin larger than the room left of the plate made Myra squeeze the
+        /// plate narrower than its body, which then ran out of it. The page states both widths (<see cref="RequiredWidth"/>),
+        /// so <c>FitPage</c> brings it down until the shift clears the tag; only at the design's own size, where it can come
+        /// down no further, would the tag stand over the plate's corner.
+        /// </para>
         /// </summary>
         private void ClearOfTheTag(Panel plate, Widget content, Label tag)
         {
-            Point huge = new(int.MaxValue / 2, int.MaxValue / 2);
             int screen = Game.GraphicsDevice.Viewport.Width;
-            int plateWidth = content.Measure(huge).X + plate.Padding.Left + plate.Padding.Right;
+            _railPlateWidth = UnboundedWidth(content) + plate.Padding.Left + plate.Padding.Right;
             //Myra's measure counts a widget's margin, which for the tag is its inset from the corner
-            int tagLeft = screen - tag.Measure(huge).X;
+            _tagWidth = UnboundedWidth(tag);
+            int tagLeft = screen - _tagWidth;
 
-            int overlap = (screen + plateWidth) / 2 - (tagLeft - Scaled(TAG_CLEARANCE));
+            int overlap = (screen + _railPlateWidth) / 2 - (tagLeft - Scaled(TAG_CLEARANCE));
+            overlap = Math.Min(overlap, (screen - _railPlateWidth) / 2);
             if (overlap > 0) plate.Margin = new Thickness(0, 0, 2 * overlap, 0);
         }
 
