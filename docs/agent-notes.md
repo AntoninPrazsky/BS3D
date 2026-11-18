@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-18 — #1178 trailer v1 — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: `Tools/trailer/trailer.json` (57 s: logo, 21 WORLDS, 6 průletů, 140 LEVELS, zlom shoegaze → trance, rychlá hra, speciální kuličky, Cut, bomby, dohrání Cannonball, závěrečná karta s webem). Master 4K60 v `Videos\BS3D trailer\bs3d-trailer-v1-master.mp4` (411 MB). Nástroj nahrává jen použité úseky (ořez okna, 0 pixelů rozdíl ověřeno).
+- ⚠ Moment hledej ve stejném fps jako finál: demo se při 30 a 60 fps rozejde (Sierpinski dohrál při 30, při 60 ne); rozlišení vliv nemá.
+- Otevřené: verdikt majitele (vzhled, zvuk, délka, titulky); zap, kyselina a další druhy bez okamžiku; 36,5 GB 4K snímků v `%TEMP%` pro přestřih.
+
 ## 2026-11-18 — #1153 Scény, Jukebox, About a žebříčky přes šířku telefonu — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: na zvětšeném UI (`UiScale > 1`) a obrazovce aspoň 1,7:1 (`WideMenuLayout.MIN_ASPECT`) mají Scene (mřížka 7×3 dlaždic), Jukebox (tři sloupce), About (levý sloupec + text) a High Scores (dva sloupce po pěti úrovních) široké rozložení; monitor beze změny. `FOCUS_PROMPT_MIN_SHARE` 0,4 → 0,45. Testy `WideMenuLayoutTests`.
