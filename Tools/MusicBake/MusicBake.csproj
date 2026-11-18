@@ -24,6 +24,10 @@
         way, and the platform's voice limit it asks.-->
     <Compile Include="..\..\Game\Audio\VoiceLedger.cs" />
     <Compile Include="..\..\Game\Platform\AudioBackend.cs" />
+    <!--And the capture's recorder the door reports to (#1179) with the mix it records into: in scope to compile, idle here
+        (CaptureSounds.Recording is never set outside a capture).-->
+    <Compile Include="..\..\Game\Capture\CaptureSounds.cs" />
+    <Compile Include="..\..\Game\Capture\SoundMix.cs" />
     <!--The fade the fanfare in that file walks, and the FFT this tool's band table shares with the About page's
         visualizer: plain arithmetic too, each in a file of its own only because the game shares it.-->
     <Compile Include="..\..\Game\Audio\MusicFade.cs" />

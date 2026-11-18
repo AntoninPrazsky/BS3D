@@ -25,7 +25,9 @@ namespace BS3D.Capture
     /// preview (<see cref="BS3DGame.CaptureHidesHud"/>), and the FPS line is off.</item>
     /// </list>
     /// And the frames may be a size of their own (<c>capturesize=</c>, #1177, <see cref="Size"/>): the back buffer is made that size
-    /// and the window only shows it, so the film's size is not the display's.
+    /// and the window only shows it, so the film's size is not the display's. The game's 2D logo may open the film
+    /// (<c>capturesplash</c>, #1179, <see cref="Splash"/>), and the game's own sound may be recorded beside it on the same clock
+    /// (<c>captureaudio</c>, #1179, <see cref="CaptureSounds"/>), mixed into <see cref="AUDIO_FILE"/> when the run finishes.
     /// A run that is not a capture has none of this: the host holds a null here and tests it once a frame.
     /// </summary>
     internal sealed class CaptureRun
@@ -37,8 +39,10 @@ namespace BS3D.Capture
         private float _firstFrameSeconds;
         private bool _failed, _finished;
 
-        private CaptureRun(string directory, CapturePlan plan, CaptureCamera lens, bool keepShake, bool showAim, bool demo, bool showHud, Point? size)
+        private CaptureRun(string directory, CapturePlan plan, CaptureCamera lens, bool keepShake, bool showAim, bool demo, bool showHud, Point? size,
+            bool splash)
         {
+            Splash = splash;
             _directory = directory;
             Plan = plan;
             Lens = lens;
@@ -50,6 +54,9 @@ namespace BS3D.Capture
         }
 
         internal CapturePlan Plan { get; }
+
+        /// <summary>The game's sound beside the frames, when the run records it (<c>captureaudio</c>, #1179).</summary>
+        internal const string AUDIO_FILE = "audio.wav";
 
         /// <summary>The stated lens, or null to film through the play camera.</summary>
         internal CaptureCamera Lens { get; }
@@ -71,6 +78,9 @@ namespace BS3D.Capture
         /// the window at a preview of it (<see cref="CaptureSize"/>). Null: the frames are the window's back buffer, as before.
         /// </summary>
         internal Point? Size { get; }
+
+        /// <summary>Whether the run films the game's 2D logo first (<c>capturesplash</c>, #1179), whatever the Intro logo row says.</summary>
+        internal bool Splash { get; }
 
         /// <summary>The updates counted so far, from 1: the frame the run is on.</summary>
         internal int Updates => _update;
@@ -139,7 +149,8 @@ namespace BS3D.Capture
                         $"capturesize={size.X}x{size.Y} at a supersample factor of {factor} is a scene of {size.X * factor}x{size.Y * factor}, over Direct3D's {CaptureSize.MAX_SIDE} a side: a lower ssaa= or a smaller size"));
             }
 
-            return new CaptureRun(directory, plan, lens, launch.CaptureShake, launch.CaptureAim, launch.CaptureDemo, launch.CaptureHud, frames);
+            return new CaptureRun(directory, plan, lens, launch.CaptureShake, launch.CaptureAim, launch.CaptureDemo, launch.CaptureHud, frames,
+                launch.CaptureSplash);
         }
 
         /// <summary>
@@ -156,6 +167,9 @@ namespace BS3D.Capture
             _update++;
             gameTime.ElapsedGameTime = Plan.Step;
             gameTime.TotalGameTime = TimeSpan.FromTicks(Plan.StepTicks * _update);
+
+            //The game's sound is stamped with the same clock as the frames (#1179)
+            if (CaptureSounds.Recording) CaptureSounds.Now = GameSeconds;
         }
 
         /// <summary>
@@ -245,6 +259,23 @@ namespace BS3D.Capture
                 Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
                     $"[capture] {_undrawn} update(s) inside the window drew no frame: the clip jumps {_undrawn / (float)Plan.Fps:0.###} s ahead there"));
 
+            //The game's sound for exactly the frames written (#1179): from the first frame's clock, as many samples as the frames last
+            string audio = null;
+            if (CaptureSounds.Recording && written > 0)
+            {
+                int samples = (int)Math.Round(written * (double)SoundMix.OUTPUT_RATE / Plan.Fps);
+                try
+                {
+                    Console.WriteLine(CaptureSounds.Write(Path.Combine(_directory, AUDIO_FILE), _firstFrameSeconds, samples));
+                    audio = AUDIO_FILE;
+                }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+                {
+                    _failed = true;
+                    Console.WriteLine($"[capture] {AUDIO_FILE} could not be written: {exception.Message}");
+                }
+            }
+
             try
             {
                 string manifest = JsonSerializer.Serialize(new
@@ -259,6 +290,8 @@ namespace BS3D.Capture
                     undrawnUpdates = _undrawn,
                     scene = scene.ToString(),
                     build = BuildVersion.DisplayName,
+                    audio,
+                    audioRate = audio != null ? SoundMix.OUTPUT_RATE : 0,
                 }, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(Path.Combine(_directory, "capture.json"), manifest + "\n");
             }

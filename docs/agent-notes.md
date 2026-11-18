@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-18 — #1179 záznam natočí 2D logo a nahraje zvuk hry — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: `capturesplash` (úvod se nepřeskočí, `play` počká, až zmizí; logo 0,1–3,2 s, pak přechod do 3D nápisu) a `captureaudio`: každé přehrání třídy Play/Event/Crowd zapíše `CaptureSounds` (přes `VoiceBudget`, `ToSoundEffect`, `VoiceRing`, `Speak`) na hodinách záznamu, `SoundMix` po konci smíchá `audio.wav` (48 kHz float, délka = snímky). Hardware umlčen `SoundEffect.MasterVolume`, ne `mute`. `web-capture.ps1 -Splash -Audio`, master s AAC.
+- majitel (#1178): skriptovaný střih, dvě skladby s jedním zlomem (vybráno: nebula-shoegaze → nebula-trance), 2D logo, zvuk hry pod hudbou, titulky Anton, na konci adresa webu.
+- ⚠ `play` při startu sundá úvod v prvním updatu; MusicBake kompiluje `VoiceBudget`, takže potřebuje i `Game/Capture/CaptureSounds.cs` a `SoundMix.cs`.
+- Otevřené: stereo je jen přiblížení X3DAudio; #1180 (nástroj na střih).
+
 ## 2026-11-15 — #1151 Nápověda a Nastavení na telefonu: lišta záložek — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: kde je rozhraní zvětšené (UiScale > 1, telefon nebo `inches=`), stojí záložky Nápovědy a Nastavení v liště vlevo s Back na patě (`MenuPage.RailPage`). Nápověda ve dvou sloupcích, Touch odstavec první, kde hraje prst. Řádky Nastavení vysoké `PHONE_TARGET` (~9 mm), seznam ONLINE ve sloupci vpravo bez scrolleru (zmizelo osamělé „time“). Konce − a + na řádcích žebříků, na koncích se zastaví a ztlumí (`RowStep`, `StepOnLadder`). Fullscreen, Keyboard lights a 10-bit colour na telefonu nejsou. Monitor beze změny.

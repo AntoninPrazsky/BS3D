@@ -1140,6 +1140,15 @@ namespace BS3D.Audio
             //gate in UpdateListener for what a NaN costs.
             _emitter.Position = Finite(world) ? Placed(world, widen) : _listener.Position;
 
+            //A capture recording its sound notes where in the stereo image the voice stands (#1179): the emitter's offset along
+            //the listener's right over its distance, which is what X3DAudio's stereo matrix comes from
+            if (Capture.CaptureSounds.Recording)
+            {
+                Vector3 to = _emitter.Position - _listener.Position;
+                float distance = to.Length();
+                Capture.CaptureSounds.Place(voice, distance > 1e-4f ? Vector3.Dot(to, _listenerRight) / distance : 0f);
+            }
+
             voice.Volume = MathHelper.Clamp(volume, 0f, 1f);
 
             //OpenAL (GamePi, #790) places a voice only while it holds a source, which it takes at Play: placed first,
@@ -2776,7 +2785,11 @@ namespace BS3D.Audio
                 pcm[i * 2 + 1] = (byte)((v >> 8) & 0xff);
             }
 
-            return new SoundEffect(pcm, SAMPLE_RATE, AudioChannels.Mono);
+            SoundEffect effect = new(pcm, SAMPLE_RATE, AudioChannels.Mono);
+
+            //A capture recording its sound keeps the signal, to play it again in its own mix (#1179); every other run asks one bool
+            if (Capture.CaptureSounds.Recording) Capture.CaptureSounds.Register(effect, signal, SAMPLE_RATE);
+            return effect;
         }
 
         #region The ceiling's step (#500)
@@ -2949,6 +2962,7 @@ namespace BS3D.Audio
         {
             SoundEffectInstance voice = effect.CreateInstance();
             voice.IsLooped = true;
+            if (Capture.CaptureSounds.Recording) Capture.CaptureSounds.RegisterInstance(voice, effect);
             return voice;
         }
 

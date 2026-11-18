@@ -58,7 +58,19 @@ def open_output(path, fps, width, height, spec, key_seconds=2.0):
     return container, stream, path
 
 
-def encode_video(files, fps, base, video_width, master):
+def read_wav(path):
+    """The capture's audio.wav (#1179): 32-bit float stereo, as frames x 2, and its rate."""
+    with av.open(path) as container:
+        stream = container.streams.audio[0]
+        rate = stream.rate
+        chunks = [frame.to_ndarray() for frame in container.decode(stream)]
+    samples = np.concatenate(chunks, axis=1)  # planar or packed: PyAV gives (channels, n) for planar, (1, n*channels) for packed
+    if samples.shape[0] == 1 and stream.channels == 2:
+        samples = samples.reshape(-1, 2).T
+    return np.ascontiguousarray(samples.T, dtype=np.float32), rate
+
+
+def encode_video(files, fps, base, video_width, master, audio=None):
     with Image.open(files[0]) as first:
         # 4:2:0 pairs its pixels: an odd edge loses one
         source_width, source_height = first.width // 2 * 2, first.height // 2 * 2
@@ -76,6 +88,16 @@ def encode_video(files, fps, base, video_width, master):
         outputs.append(((width, height), open_output(base + ".webm", fps, width, height, VP9)))
         outputs.append(((width, height), open_output(base + ".mp4", fps, width, height, H264)))
 
+    # The game's sound (#1179) goes into the master only, as AAC: the page's loops are silent. Fed a frame's worth after each frame
+    sound = sound_stream = None
+    if master and audio:
+        sound, sound_rate = read_wav(audio)
+        sound_stream = outputs[0][1][0].add_stream("aac", rate=sound_rate)
+        sound_stream.layout = "stereo"
+        sound_stream.bit_rate = 320000
+        per_frame = sound_rate / fps
+        print("audio: %s, %d samples at %d Hz (%.3f s; the frames %.3f s)" % (audio, len(sound), sound_rate, len(sound) / sound_rate, len(files) / fps))
+
     for index, path in enumerate(files):
         with Image.open(path) as image:
             pixels = np.ascontiguousarray(np.asarray(image.convert("RGB"))[:source_height, :source_width])
@@ -89,9 +111,21 @@ def encode_video(files, fps, base, video_width, master):
                 converted[size] = frame
             for packet in stream.encode(converted[size]):
                 container.mux(packet)
+        if sound_stream is not None:
+            begin, end = round(index * per_frame), round((index + 1) * per_frame)
+            if begin < len(sound):
+                chunk = np.ascontiguousarray(sound[begin:end].T)  # planar: channels x samples
+                frame = av.AudioFrame.from_ndarray(chunk, format="fltp", layout="stereo")
+                frame.sample_rate = sound_rate
+                frame.pts = begin
+                for packet in sound_stream.encode(frame):
+                    outputs[0][1][0].mux(packet)
         if (index + 1) % 120 == 0:
             print("encoded %d of %d frames" % (index + 1, len(files)), flush=True)
 
+    if sound_stream is not None:
+        for packet in sound_stream.encode():
+            outputs[0][1][0].mux(packet)
     for _, (container, stream, _) in outputs:
         for packet in stream.encode():
             container.mux(packet)
@@ -129,6 +163,7 @@ def main():
     parser.add_argument("--still", action="store_true", help="write the first frame as <out>-1600.jpg and <out>-800.jpg and no video")
     parser.add_argument("--master", action="store_true",
                         help="write <out>-master.mp4 at the frames' size for upload and cutting; the page's pair only with --video-width")
+    parser.add_argument("--audio", default=None, help="the capture's audio.wav, muxed into the master as AAC (#1179)")
     arguments = parser.parse_args()
 
     files = frame_files(arguments.frames)
@@ -136,7 +171,7 @@ def main():
         still(files, arguments.out)
         return
 
-    encode_video(files, round(arguments.fps), arguments.out, arguments.video_width, arguments.master)
+    encode_video(files, round(arguments.fps), arguments.out, arguments.video_width, arguments.master, arguments.audio)
     poster(files, arguments.poster_frame, arguments.out)
 
 

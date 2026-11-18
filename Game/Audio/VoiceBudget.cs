@@ -68,6 +68,10 @@ namespace BS3D.Audio
         /// </summary>
         internal static bool TryPlay(SoundEffectInstance voice, VoiceClass voiceClass, string name)
         {
+            //A capture recording its sound writes the play down whatever the hardware does with it (#1179): the Music class
+            //is left out, the trailer has music of its own
+            if (Capture.CaptureSounds.Recording && voiceClass != VoiceClass.Music) Capture.CaptureSounds.Played(voice);
+
             bool played = TryPlay(new Start(voice), voiceClass, name);
             if (played) _ledger.Began(voice, voiceClass, name, Environment.TickCount64);
             return played;
@@ -78,8 +82,12 @@ namespace BS3D.Audio
         /// as a sound of <paramref name="voiceClass"/>. Such a voice cannot be taken back, so it is never one that gives
         /// way. True when it plays.
         /// </summary>
-        internal static bool TryPlay(SoundEffect effect, float volume, float pitch, float pan, VoiceClass voiceClass, string name) =>
-            TryPlay(new Start(effect, volume, pitch, pan), voiceClass, name);
+        internal static bool TryPlay(SoundEffect effect, float volume, float pitch, float pan, VoiceClass voiceClass, string name)
+        {
+            if (Capture.CaptureSounds.Recording && voiceClass != VoiceClass.Music) Capture.CaptureSounds.Played(effect, volume, pitch, pan);
+
+            return TryPlay(new Start(effect, volume, pitch, pan), voiceClass, name);
+        }
 
         /// <summary>
         /// Resumes <paramref name="voice"/>, paused by its player (the Jukebox's play/pause), as a sound of
