@@ -47,7 +47,7 @@ namespace BS3D.Tests
         {
             string code = WithoutComments(File.ReadAllText(JukeboxPagePath()));
 
-            int build = code.IndexOf("private Widget BuildPlayer()", StringComparison.Ordinal);
+            int build = code.IndexOf("private void BuildPlayer(", StringComparison.Ordinal);
             int end = code.IndexOf("private VerticalStackPanel SubColumn()", StringComparison.Ordinal);
             Assert.True(build >= 0 && end > build, "BuildPlayer was not found; update this test with the page.");
             string player = code.Substring(build, end - build);
@@ -67,7 +67,9 @@ namespace BS3D.Tests
             Assert.True(label >= 0, "The label's initializer was not found; update this test with the page.");
             string initializer = player.Substring(label, player.IndexOf("};", label, StringComparison.Ordinal) - label);
 
-            Assert.Contains("Width = ColumnWidth", initializer);
+            //The player's column's width: a menu column's on a monitor, the phone's player's in its three columns (#1153)
+            Assert.Contains("Width = width", initializer);
+            Assert.Contains("int width = ThreeColumns ? Scaled(PHONE_PLAYER_WIDTH) : ColumnWidth;", player);
             Assert.Contains("AutoEllipsisMethod.Character", initializer);
         }
 

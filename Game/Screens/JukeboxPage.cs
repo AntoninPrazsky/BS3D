@@ -46,6 +46,12 @@ namespace BS3D.Screens
     /// new scroller starts at the top. Only the recordings' own scroller goes back to the top, for the new chapter.
     /// </para>
     /// <para>
+    /// <b>On a phone the page stands in three columns</b> (#1153): the chapters, the chosen chapter's recordings, and the
+    /// player - a taller visualizer, the now-playing line, the buttons and Back at its foot - so both lists run the plate's
+    /// height under the heading, where the player's column under the recordings had squeezed them to two and a half rows. A
+    /// monitor keeps the two columns.
+    /// </para>
+    /// <para>
     /// <b>The chapter playing keeps a mark of its own</b> (#901: "the currently playing one should stay visibly
     /// selected"): the player's play triangle at its slab's left inner edge, whichever chapter is shown. Brightness says
     /// which chapter is shown, as it says it on every list of the menu; the triangle says where the recording that sounds
@@ -66,6 +72,15 @@ namespace BS3D.Screens
         //line, the visualizer and the buttons), so a scroller gives up only what those take
         private const int LEFT_SURROUNDINGS = 620;
         private const int RIGHT_SURROUNDINGS = 1180;
+
+        //The phone's three columns (#1153), in design units: each list as wide as its longest name needs with the play mark
+        //clear of it ("The Silhouettes" is 440 in the display face at the phone's size), the player a little wider than a
+        //menu column so the now-playing line cuts less, the visualizer as tall as About's, and round the lists only the
+        //heading and the plate, Back standing under the player
+        private const int PHONE_LIST_WIDTH = 760;
+        private const int PHONE_PLAYER_WIDTH = 1100;
+        private const int PHONE_VISUALIZER_HEIGHT = 440;
+        private const int PHONE_LIST_SURROUNDINGS = 420;
 
         private const string MUSIC_DIRECTORY = "Music";
         private const string MENU_TRACK = "menu";
@@ -140,15 +155,22 @@ namespace BS3D.Screens
                 HorizontalAlignment = HorizontalAlignment.Center,
             };
 
-            //Added in this order, and that IS the pad's order: the chapters, then the recordings, then the buttons
+            //Added in this order, and that IS the pad's order: the chapters, then the recordings, then the buttons (and on a
+            //phone Back, which stands under them)
             columns.Widgets.Add(BuildChapters());
-            columns.Widgets.Add(BuildPlayer());
+            BuildPlayer(columns);
 
             column.Widgets.Add(columns);
-            column.Widgets.Add(BackButton());
+            if (!ThreeColumns) column.Widgets.Add(BackButton());
 
             return ScreenRoot(Plate(column));
         }
+
+        //Whether the tree up is the phone's three columns (#1153): the interface drawn larger, as on a phone held close
+        private bool ThreeColumns => Game.UiScale > 1f;
+
+        //A list's entries' width: a menu column's, or the phone's narrower lists
+        private int ListWidth => ThreeColumns ? Scaled(PHONE_LIST_WIDTH) : ColumnWidth;
 
         private Widget BuildChapters()
         {
@@ -158,14 +180,18 @@ namespace BS3D.Screens
             {
                 int group = g;
                 Button button = MenuButton(ChapterContent(_groups[g].Name, out Label label, out MediaGlyph mark), () => _pendingGroup = group);
-                button.Width = ColumnWidth;
+                button.Width = ListWidth;
                 _groupButtons.Add(button);
                 _groupLabels.Add(label);
                 _groupMarks.Add(mark);
                 list.Widgets.Add(button);
             }
 
-            return MenuScroll(list, LEFT_SURROUNDINGS);
+            ScrollViewer scroller = MenuScroll(list, ThreeColumns ? PHONE_LIST_SURROUNDINGS : LEFT_SURROUNDINGS);
+
+            //Both lists from under the heading (#1153): the two scrollers stand level, whichever of them is cut
+            if (ThreeColumns) scroller.VerticalAlignment = VerticalAlignment.Top;
+            return scroller;
         }
 
         /// <summary>
@@ -199,7 +225,12 @@ namespace BS3D.Screens
             return content;
         }
 
-        private Widget BuildPlayer()
+        /// <summary>
+        /// The recordings and the player, added to <paramref name="columns"/>: on a monitor one column, the recordings over the
+        /// visualizer, the now-playing line and the buttons; on a phone (#1153) two, the recordings in a column of their own
+        /// and the player beside them with Back at its foot.
+        /// </summary>
+        private void BuildPlayer(HorizontalStackPanel columns)
         {
             VerticalStackPanel right = SubColumn();
 
@@ -208,11 +239,19 @@ namespace BS3D.Screens
 
             //The clear band at its ends whether or not this chapter's recordings are cut (#1002): the list is refilled in place
             //for every chapter (ShowChapter), and a band decided by the first chapter's count would be wrong for the next
-            _trackScroll = MenuScroll(_tracks, RIGHT_SURROUNDINGS, clearEdges: true);
-            right.Widgets.Add(_trackScroll);
+            _trackScroll = MenuScroll(_tracks, ThreeColumns ? PHONE_LIST_SURROUNDINGS : RIGHT_SURROUNDINGS, clearEdges: true);
+            if (ThreeColumns)
+            {
+                _trackScroll.VerticalAlignment = VerticalAlignment.Top;
+                columns.Widgets.Add(_trackScroll);
+            }
+            else right.Widgets.Add(_trackScroll);
+
+            int width = ThreeColumns ? Scaled(PHONE_PLAYER_WIDTH) : ColumnWidth;
 
             RecordingPlayer player = Game.Recordings;
-            right.Widgets.Add(new MusicVisualizer(player, ColumnWidth, Scaled(VISUALIZER_HEIGHT), Scaled(VISUALIZER_BAR_GAP))
+            right.Widgets.Add(new MusicVisualizer(player, width, Scaled(ThreeColumns ? PHONE_VISUALIZER_HEIGHT : VISUALIZER_HEIGHT),
+                Scaled(VISUALIZER_BAR_GAP))
             {
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Palette = Game.Birthday ? MusicVisualizer.VisualizerPalette.Spectrum : MusicVisualizer.VisualizerPalette.Led,
@@ -231,7 +270,7 @@ namespace BS3D.Screens
                 TextAlign = FontStashSharp.RichText.TextHorizontalAlignment.Center,
                 AutoEllipsisMethod = FontStashSharp.RichText.AutoEllipsisMethod.Character,
                 AutoEllipsisString = "…",
-                Width = ColumnWidth,
+                Width = width,
             };
             right.Widgets.Add(_nowPlaying);
 
@@ -241,22 +280,44 @@ namespace BS3D.Screens
                 HorizontalAlignment = HorizontalAlignment.Center,
             };
 
+            //Three to the column's width: on the phone's wider player, a third of it less the gaps
+            int buttonWidth = ThreeColumns ? (width - 2 * Scaled(PLAYER_BUTTON_GAP)) / 3 : Scaled(PLAYER_BUTTON_WIDTH);
+
             Button previous = MenuButton(ButtonGlyph(MediaGlyph.Symbol.Previous), () => Game.Recordings?.Previous());
-            previous.Width = Scaled(PLAYER_BUTTON_WIDTH);
+            previous.Width = buttonWidth;
             controls.Widgets.Add(previous);
 
             _playGlyph = ButtonGlyph(MediaGlyph.Symbol.Play);
             Button play = MenuButton(_playGlyph, () => Game.Recordings?.PlayPause());
-            play.Width = Scaled(PLAYER_BUTTON_WIDTH);
+            play.Width = buttonWidth;
             controls.Widgets.Add(play);
 
             Button next = MenuButton(ButtonGlyph(MediaGlyph.Symbol.Next), () => Game.Recordings?.Next());
-            next.Width = Scaled(PLAYER_BUTTON_WIDTH);
+            next.Width = buttonWidth;
             controls.Widgets.Add(next);
 
             right.Widgets.Add(controls);
 
-            return right;
+            if (!ThreeColumns)
+            {
+                columns.Widgets.Add(right);
+                return;
+            }
+
+            //The phone's player (#1153): the visualizer, the line and the buttons in the middle of the column and Back at its
+            //foot, level with the lists' last rows. Added after the buttons, so the pad walks to it last as it did under them.
+            //Stretched to the row's height, which the lists set
+            Button back = BackButton();
+            back.Width = width;
+            back.VerticalAlignment = VerticalAlignment.Bottom;
+
+            right.VerticalAlignment = VerticalAlignment.Center;
+            right.Margin = new Myra.Graphics2D.Thickness(0, 0, 0, back.Measure(new Point(width, int.MaxValue / 2)).Y);
+
+            Panel playerColumn = new() { VerticalAlignment = VerticalAlignment.Stretch };
+            playerColumn.Widgets.Add(right);
+            playerColumn.Widgets.Add(back);
+            columns.Widgets.Add(playerColumn);
         }
 
         private VerticalStackPanel SubColumn() => new()
