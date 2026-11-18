@@ -66,7 +66,9 @@ namespace Prazsky.Core.Render
         /// under a lilac sky, its haze having made the ground wholly teal by 900). A ground still mostly its OWN colour where
         /// the fade begins has no foreign colour to squeeze into those pixels: they show its own edge going into the sky, and
         /// its pass may state a later latest start (<see cref="TerrainPass.FarFadeStartLatest"/>; the outback's plain is
-        /// 0.85 its own colour at its 1000, #1123). A ground whose haze is strong by then, towards HorizonColor, may not.
+        /// 0.85 its own colour at its 1000, #1123). A ground whose haze is strong by then, towards HorizonColor, may not; one
+        /// whose haze is the drawn sky itself, darker, may, and it hands <see cref="Begin"/> its own latest start (the
+        /// volcano's land, <see cref="VolcanoBackdrop.FarFadeStartLatest"/>, #1164).
         /// </summary>
         public const float FAR_FADE_START_LATEST = 600f;
 

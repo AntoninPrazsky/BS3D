@@ -187,8 +187,18 @@ float WaterFire;
 //What the air over the land is, away from the cone (VolcanoBackdrop.CountryHaze, stated every frame): the dome as it is
 //drawn at the horizon, dimmed. The ash pall the field hazes into is the eruption's and thins away from it over PALL_THINS
 //past the field's edge; hazed into the pall all the way out, the green hills went the brown of felt, where every reference
-//turns its far ranges blue. The land's plants are hazed into the same colour (PlantPass.DrawInWeather).
+//turns its far ranges blue. Dimmed to well under half (VolcanoBackdrop.LAND_HAZE_SKY, #1164), because the scene is a night
+//and its far ranges stand as dark slate against the sky. The land's plants are hazed into the same colour
+//(PlantPass.DrawInWeather).
 float3 LandHazeColor;
+
+//The deck as the sky shader draws it over the dome, for the last fade (VolcanoFadeToSky, #1164). CloudOpacity and
+//CloudShadowColor arrive with the rest of the deck (CloudField.ApplyTo, through the frame's ApplyClouds); CloudHorizonFade is
+//CloudField.HORIZON_FADE, stated by VolcanoBackdrop at load. With no weather (the map editor) the deck's gain stays 0, and
+//there is no lid.
+float CloudOpacity;
+float3 CloudShadowColor;
+float CloudHorizonFade;
 
 //The land's shape, VolcanoCountry's constants to the figure (see there for what each says): the field's edge, the
 //front, the country's rise, hills and ridges, the dormant cone, the valley and the meanders, the woods, the fields.
@@ -1103,6 +1113,28 @@ float3 CountrySurface(VolcanoVertexOutput input, float footprint, float sunlight
     return color;
 }
 
+//The last step to the sky (#1164): FarFadeToSky's (FarField.fxh), over the same distances, but to the sky as it is DRAWN
+//behind the point - the dome (FarSky) with the deck closed over it as Sky.fx closes it, from nothing at the skyline to its
+//full cover CloudHorizonFade up, the deck at its mean (Forest.fx's ForestSkyBehind, #1121, says why each term). FarSky is the
+//dome without its deck: the far ranges stand a few degrees over the skyline, where the deck has begun to close, and faded
+//to the dome alone they stood paler than the lid round them, pale silhouettes along every horizon of a night scene. Ground
+//below the skyline, where the deck is not drawn, ends in FarSky as every other ground does, so the land's end still cannot
+//show (#551).
+float3 VolcanoFadeToSky(float3 color, float3 worldPosition)
+{
+    [branch]
+    if (FarFade.y > FarFade.x)
+    {
+        float3 toPixel = worldPosition - CameraPosition;
+        float dist = length(toPixel);
+        float directionY = toPixel.y / max(dist, 1e-3);
+        float deck = saturate(saturate(CloudCoverageBias * CloudCoverageGain) * CloudOpacity) * smoothstep(0.0, CloudHorizonFade, directionY);
+        color = lerp(color, lerp(FarSkyAt(directionY), CloudShadowColor, deck), smoothstep(FarFade.x, FarFade.y, dist));
+    }
+
+    return color;
+}
+
 //Whether a pixel is shaded at all: not where the far fade has all but finished (FarField.fxh), where the ground is the
 //sky behind it to within a hundredth whatever is shaded there (#748: the land's ranges stand where the dome was). Worked
 //out again at each branch rather than held, since anything held is live through the field's branch, the register peak.
@@ -1200,7 +1232,7 @@ float4 VolcanoSurface(VolcanoVertexOutput input, uniform bool fullDetail)
     float haze = saturate(length(CameraPosition - worldPosition) / HorizonHazeDistance);
     color = lerp(color, hazeColor, haze * haze * HazeStrength);
 
-    return float4(FarFadeToSky(color, worldPosition), 1.0);
+    return float4(VolcanoFadeToSky(color, worldPosition), 1.0);
 }
 
 //Two programs from one body, the idiom Forest.fx established (#298). "Volcano" is the authored flank;

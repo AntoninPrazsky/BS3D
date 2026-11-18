@@ -188,6 +188,8 @@ namespace Prazsky.Core.Render
             _volcanoEffect.Parameters["HorizonHazeDistance"].SetValue(MathF.Max(volcano.HorizonHazeDistance, 1f));
             _volcanoEffect.Parameters["HazeTint"].SetValue(volcano.HazeTint.ToVector3());
             _volcanoEffect.Parameters["HazeStrength"].SetValue(volcano.HazeStrength);
+            //Where the deck closes over the dome, for the last fade to the sky as drawn (Volcano.fx's VolcanoFadeToSky, #1164)
+            _volcanoEffect.Parameters["CloudHorizonFade"].SetValue(CloudField.HORIZON_FADE);
             //?. because Volcano.fx declares it and reads it nowhere: the OpenGL ES build drops such a uniform (#1059)
             _volcanoEffect.Parameters["WindDirection"]?.SetValue(volcano.Wind.ToVector2());
 
@@ -404,12 +406,30 @@ namespace Prazsky.Core.Render
         /// haze into: the dome as it is drawn at the horizon (<see cref="SceneFrame.FarSky"/>'s direction.y 0), dimmed to
         /// <see cref="LAND_HAZE_SKY"/>, or the light rig's horizon where a frame hands no drawn dome over.
         /// </summary>
-        private static Vector3 CountryHaze(in SceneFrame frame) =>
+        internal static Vector3 CountryHaze(in SceneFrame frame) =>
             (frame.FarSky != null ? frame.FarSky[SkyLightRig.FAR_SKY_HORIZON] : frame.HorizonLinear) * LAND_HAZE_SKY;
 
-        //How much of the drawn horizon the land's air is: the far ranges stay darker than the sky behind them, so they read
-        //as ranges
-        private const float LAND_HAZE_SKY = 0.55f;
+        /// <summary>
+        /// How much of the drawn horizon the land's air is (#1164), the land's plants' included. The scene is a night: the far
+        /// ranges stand as dark slate against the sky behind them, each a shade paler than the one before, and only the far
+        /// field's last fade (<see cref="FarFadeStartLatest"/>, Volcano.fx's VolcanoFadeToSky) takes the farthest into the sky.
+        /// At 0.55 a range 900 out was two fifths of the way to the sky's own colour before that fade began, and the owner saw
+        /// the horizon's mountains "very light, lighter the farther they are". <c>VolcanoFarHazeTests</c> holds the near ranges
+        /// under 0.6 of the sky.
+        /// </summary>
+        internal const float LAND_HAZE_SKY = 0.32f;
+
+        /// <summary>
+        /// Where the flank's and the land's last fade into the drawn sky (<c>FarField.fxh</c>) may begin at the latest (#1164):
+        /// where the scene's own haze has finished (<see cref="VolcanoSceneConfig.HorizonHazeDistance"/>), not the far field's
+        /// <see cref="FarField.FAR_FADE_START_LATEST"/>. From 600 the fade had a range 1 000 out three fifths of the way to the
+        /// sky whatever the land's air was, so the ranges went paler the farther they stood, to the sky's colour at the skyline.
+        /// The cap is there for a haze that has made its ground ANOTHER colour by then (the icesheet's teal under a lilac sky);
+        /// the land's air here is the drawn horizon itself, dimmed (<see cref="CountryHaze"/>), and the field's pall a dark
+        /// shade, so the last few hundred units squeezed into the skyline's pixels run from darker than the sky into it and lay
+        /// no line. The fade is still complete by <see cref="FarField.FAR_FADE_END"/>, so the ring's edge never shows (#551).
+        /// </summary>
+        internal static float FarFadeStartLatest(VolcanoSceneConfig volcano) => MathF.Max(volcano.HorizonHazeDistance, 1f);
 
         //How far inside the field's edge a fumarole and a block keep (#748): off the front's levee and face, which are its margin
         private const float FIELD_MARGIN = 20f;
@@ -618,7 +638,7 @@ namespace Prazsky.Core.Render
 
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
 
-            Services.FarField.Begin(_volcanoEffect, frame, VOLCANO_EXTENT);
+            Services.FarField.Begin(_volcanoEffect, frame, VOLCANO_EXTENT, FarFadeStartLatest(_volcanoConfig));
             _graphicsDevice.SetVertexBuffer(_volcanoVertexBuffer);
             _graphicsDevice.Indices = _volcanoGrid.Indices;
 
