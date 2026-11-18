@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1153 Scény, Jukebox, About a žebříčky přes šířku telefonu — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: na zvětšeném UI (`UiScale > 1`) a obrazovce aspoň 1,7:1 (`WideMenuLayout.MIN_ASPECT`) mají Scene (mřížka 7×3 dlaždic), Jukebox (tři sloupce), About (levý sloupec + text) a High Scores (dva sloupce po pěti úrovních) široké rozložení; monitor beze změny. `FOCUS_PROMPT_MIN_SHARE` 0,4 → 0,45. Testy `WideMenuLayoutTests`.
+- ⚠ `FitPage` zmenšuje jen podle výšky a deklarované `RequiredWidth`: široká stránka bez `RequiredWidth` se na 16:9 ořízne (Moon, Dream, Polar nešly ťuknout). Každá široká stránka ji teď přepisuje (`MenuPage.UnboundedWidth`).
+- Otevřené: verdict-eye; skutečný telefon, pad, prst a živé žebříčky nezkoušeny. Majitel: mřížku scén i na monitoru? Prompt přes skóre řádku High Scores (i na main).
+
 ## 2026-11-18 — #1180 skriptovaný střih traileru — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: `Tools/trailer-cut.py` + `Tools/trailer/sample.json`. Střihový JSON: segmenty (záběr přes `web-capture.ps1`, nebo karta na černé), prolínačka/stmívání, titulky Anton, dvě skladby se zlomem (`at: "segment:<jméno>"`, `onBeat`), střihy po zlomu přichycené na doby, zvuk hry z `audio.wav`. Záběry se natáčejí znovu jen při změně argumentů. Záznam nově píše `sounds.json` (jména přehrání a snímky) pro hledání momentů.

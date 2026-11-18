@@ -50,6 +50,12 @@ namespace BS3D.Screens
     /// two columns. They were written into one line with the name before them ("#1  Kuba   41 200"), so each score stood
     /// wherever its name ended, with runs of spaces doing a column's work.
     /// </para>
+    /// <para>
+    /// <b>On a phone the chapter's ten rows stand on one screen</b> (#1153): the heading, the periods and the pager down a rail
+    /// with Settings and Back at its foot, and the rows beside it in two columns of five, each its three blocks one over
+    /// another and as tall as a finger needs (<see cref="WideMenuLayout"/>). Stacked under the switches a phone showed five
+    /// to seven rows, 3.6 mm tall. A monitor keeps the one column.
+    /// </para>
     /// </summary>
     internal sealed class HighScoresPage : MenuPage
     {
@@ -84,6 +90,11 @@ namespace BS3D.Screens
         private const int ARROW_SIZE = 160;
         private const int CHAPTER_NAME_WIDTH = 1300;
 
+        //The phone's rows (#1153), in design units: between the two columns, between two rows down a column, and between a
+        //row's three lines (the small face's three lines and two of these sit inside WideMenuLayout.BOARD_ROW_HEIGHT)
+        private const int TALL_COLUMN_GAP = 40;
+        private const int TALL_ROW_SPACING = 16;
+        private const int TALL_LINE_GAP = 6;
 
         //Which period is up, and the summary of each as it has come (null until then); the tickets out for them
         private bool _allTime;
@@ -204,24 +215,6 @@ namespace BS3D.Screens
         {
             FindPages();
 
-            VerticalStackPanel column = MenuColumn();
-            column.Widgets.Add(ScreenHeading("HIGH SCORES"));
-
-            //The period, two entries side by side and both in the pad's walk. The one up wears the inverted slab the Help and
-            //Settings tabs do (#1003): told by its type's brightness alone, the player was not sure which was chosen. The host's
-            //focus highlight repaints every entry's slab each pass (ApplyNavHighlight), so the slab is handed over through
-            //EntryRestBrushFor rather than set once; focused or under the pointer the chosen one takes the shared hover slab
-            //like any entry, its dark type still readable on it
-            HorizontalStackPanel periods = new() { Spacing = Scaled(20), HorizontalAlignment = HorizontalAlignment.Center };
-            _monthButton = MenuButton("This month", () => SetPeriod(false), out _monthLabel);
-            _allTimeButton = MenuButton("All time", () => SetPeriod(true), out _allTimeLabel);
-            _monthButton.Width = _allTimeButton.Width = Scaled(PERIOD_BUTTON_WIDTH);
-            periods.Widgets.Add(_monthButton);
-            periods.Widgets.Add(_allTimeButton);
-            column.Widgets.Add(periods);
-
-            column.Widgets.Add(BuildPager());
-
             _rows.Clear();
             _rowNumbers.Clear();
             _rowNames.Clear();
@@ -231,25 +224,27 @@ namespace BS3D.Screens
             _rowMeScores.Clear();
             _rowRest.Clear();
 
+            BesideTheRail = UsesTheWidth;
+            _railPlate = null;
+            if (BesideTheRail) return BuildBesideTheRail();
+
+            VerticalStackPanel column = MenuColumn();
+            column.Widgets.Add(ScreenHeading("HIGH SCORES"));
+            column.Widgets.Add(BuildPeriods(Scaled(PERIOD_BUTTON_WIDTH)));
+            column.Widgets.Add(BuildPager(Scaled(CHAPTER_NAME_WIDTH)));
+
             VerticalStackPanel rows = new() { Spacing = Scaled(ROW_SPACING), HorizontalAlignment = HorizontalAlignment.Center };
             for (int slot = 0; slot < LongestPage(); slot++) rows.Widgets.Add(BuildRow(slot));
             column.Widgets.Add(rows);
 
-            _status = new Label
-            {
-                Font = FontSmall,
-                TextColor = BS3DGame.MENU_TEXT_BODY,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Wrap = true,
-                Width = Scaled(NAME_WIDTH + TOP_WIDTH + ME_WIDTH + 2 * COLUMN_GAP),
-            };
-            column.Widgets.Add(_status);
+            column.Widgets.Add(BuildStatus(Scaled(NAME_WIDTH + TOP_WIDTH + ME_WIDTH + 2 * COLUMN_GAP)));
 
             //The door to opting in, shown only while there is nothing to show without it
             _settingsButton = MenuButton("Settings", Game.OpenSettings);
             if (Game.UiScale > 1f)
             {
-                //Side by side on a phone (#1052): the width it has, and a line more of the levels above them
+                //Side by side on an enlarged interface too square for the rail (#1052): the width it has, and a line more of
+                //the levels above them
                 HorizontalStackPanel ways = new() { Spacing = Scaled(20), HorizontalAlignment = HorizontalAlignment.Center };
                 ways.Widgets.Add(_settingsButton);
                 ways.Widgets.Add(BackButton());
@@ -261,16 +256,135 @@ namespace BS3D.Screens
                 column.Widgets.Add(BackButton());
             }
 
-            //On a phone the levels are dragged rather than the whole page drawn smaller (#1052)
+            //There the levels are dragged rather than the whole page drawn smaller (#1052); a monitor's page fits as built
             ScrollsWhenTall(column, rows);
             return ScreenRoot(Plate(column));
         }
 
+        //Whether the tree up is the phone's (#1153): the interface drawn larger, as on a phone held close, on a screen wide
+        //enough for the rail beside the rows (UsesTheWidth); and its plate, whose width the page needs
+        private bool BesideTheRail;
+        private Panel _railPlate;
+
+        /// <summary>
+        /// The rail page's plate, laid out unbounded (#1153): the rail and two columns of rows are wider than a stacked page,
+        /// so on a screen narrower than the X300 Ultra's 2.2:1 <c>FitPage</c> brings the page down to fit it rather than cut
+        /// the second column's scores off.
+        /// </summary>
+        internal override int RequiredWidth => BesideTheRail && _railPlate != null ? UnboundedWidth(_railPlate) : 0;
+
+        /// <summary>
+        /// The phone's page (#1153): the heading, the periods and the pager down a rail with Settings and Back at its foot,
+        /// and beside it a chapter's levels in two columns of five (<see cref="WideMenuLayout"/>), each row three lines - the
+        /// level, its leader, the player's place - and tall enough for a finger, with the status line under them. Stacked, a
+        /// phone showed five to seven of the ten rows, each 3.6 mm tall.
+        /// <para>
+        /// One grid row, the rail's two ends in its first cell and the levels in the second, added in the walk's order: the
+        /// periods, the arrows, the levels, then Settings and Back. The levels' column is at least as tall as the rail's two
+        /// ends, so they never meet.
+        /// </para>
+        /// </summary>
+        private Widget BuildBesideTheRail()
+        {
+            int railWidth = ColumnWidth;
+            int gap = Scaled(20);
+
+            VerticalStackPanel top = MenuColumn();
+            top.VerticalAlignment = VerticalAlignment.Top;
+            top.Widgets.Add(ScreenHeading("HIGH SCORES"));
+            top.Widgets.Add(BuildPeriods((railWidth - gap) / 2));
+            top.Widgets.Add(BuildPager(railWidth - 2 * (Scaled(ARROW_SIZE) + gap)));
+
+            //A chapter's levels down two columns, one to five and six to ten, as a list reads on; the walk the same order
+            int rowsPerColumn = Math.Max(1, WideMenuLayout.Rows(LongestPage(), WideMenuLayout.BOARD_COLUMNS));
+            Grid levels = new()
+            {
+                ColumnSpacing = Scaled(TALL_COLUMN_GAP),
+                RowSpacing = Scaled(TALL_ROW_SPACING),
+                HorizontalAlignment = HorizontalAlignment.Center,
+            };
+            for (int c = 0; c < WideMenuLayout.BOARD_COLUMNS; c++) levels.ColumnsProportions.Add(new Proportion(ProportionType.Auto));
+            for (int r = 0; r < rowsPerColumn; r++) levels.RowsProportions.Add(new Proportion(ProportionType.Auto));
+
+            for (int slot = 0; slot < LongestPage(); slot++)
+            {
+                Button row = BuildTallRow(slot);
+                (int column, int at) = WideMenuLayout.ColumnMajor(slot, rowsPerColumn);
+                Grid.SetColumn(row, column);
+                Grid.SetRow(row, at);
+                levels.Widgets.Add(row);
+            }
+
+            int levelsWidth = WideMenuLayout.BOARD_COLUMNS * Scaled(WideMenuLayout.BOARD_ROW_WIDTH + 2 * ROW_PADDING_X)
+                + (WideMenuLayout.BOARD_COLUMNS - 1) * Scaled(TALL_COLUMN_GAP);
+
+            VerticalStackPanel right = MenuColumn();
+            right.VerticalAlignment = VerticalAlignment.Top;
+            right.Widgets.Add(levels);
+            right.Widgets.Add(BuildStatus(levelsWidth));
+
+            //The door to opting in, shown only while there is nothing to show without it; Back under it at the rail's foot
+            _settingsButton = MenuButton("Settings", Game.OpenSettings);
+            VerticalStackPanel ways = MenuColumn();
+            ways.VerticalAlignment = VerticalAlignment.Bottom;
+            ways.Widgets.Add(_settingsButton);
+            ways.Widgets.Add(BackButton());
+
+            Point huge = new(int.MaxValue / 2, int.MaxValue / 2);
+            right.MinHeight = top.Measure(huge).Y + ways.Spacing + ways.Measure(huge).Y;
+
+            Grid grid = new() { ColumnSpacing = Scaled(WideMenuLayout.RAIL_GAP) };
+            grid.ColumnsProportions.Add(new Proportion(ProportionType.Pixels, railWidth));
+            grid.ColumnsProportions.Add(new Proportion(ProportionType.Auto));
+            grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
+
+            Grid.SetColumn(top, 0);
+            grid.Widgets.Add(top);
+            Grid.SetColumn(right, 1);
+            grid.Widgets.Add(right);
+            Grid.SetColumn(ways, 0);
+            grid.Widgets.Add(ways);
+
+            //On a screen too short even for this, the levels are dragged rather than the whole page drawn smaller
+            ScrollsWhenTall(right, levels);
+            _railPlate = Plate(grid);
+            return ScreenRoot(_railPlate);
+        }
+
+        /// <summary>
+        /// The period, two entries side by side and both in the pad's walk, each <paramref name="width"/> pixels wide. The one up
+        /// wears the inverted slab the Help and Settings tabs do (#1003): told by its type's brightness alone, the player was
+        /// not sure which was chosen. The host's focus highlight repaints every entry's slab each pass (ApplyNavHighlight), so
+        /// the slab is handed over through EntryRestBrushFor rather than set once; focused or under the pointer the chosen one
+        /// takes the shared hover slab like any entry, its dark type still readable on it.
+        /// </summary>
+        private Widget BuildPeriods(int width)
+        {
+            HorizontalStackPanel periods = new() { Spacing = Scaled(20), HorizontalAlignment = HorizontalAlignment.Center };
+            _monthButton = MenuButton("This month", () => SetPeriod(false), out _monthLabel);
+            _allTimeButton = MenuButton("All time", () => SetPeriod(true), out _allTimeLabel);
+            _monthButton.Width = _allTimeButton.Width = width;
+            periods.Widgets.Add(_monthButton);
+            periods.Widgets.Add(_allTimeButton);
+            return periods;
+        }
+
+        /// <summary>The line under the levels that says why there is nothing, or what the player leads: prose, <paramref name="width"/> pixels wide.</summary>
+        private Label BuildStatus(int width) => _status = new Label
+        {
+            Font = FontSmall,
+            TextColor = BS3DGame.MENU_TEXT_BODY,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Wrap = true,
+            Width = width,
+        };
+
         /// <summary>
         /// The chapter's name between two arrows, which turn it one chapter at a time and stop at the ends (#727): the picker
-        /// wraps, and it can afford to because its pips say where the player is, which this page has none of.
+        /// wraps, and it can afford to because its pips say where the player is, which this page has none of. The name's block
+        /// is <paramref name="nameWidth"/> pixels wide: the page's own on a monitor, the rail's less the two arrows on a phone.
         /// </summary>
-        private Widget BuildPager()
+        private Widget BuildPager(int nameWidth)
         {
             HorizontalStackPanel row = new() { Spacing = Scaled(20), HorizontalAlignment = HorizontalAlignment.Center };
 
@@ -291,7 +405,7 @@ namespace BS3D.Screens
             //The name centred in a block of fixed width, so the arrows stand still between "THE MEADOW" and "THE SPECTRUM" -
             //a label given a width of its own draws its text from the left, so the width is the block's
             //Level with the arrows' slabs, the shoulders hanging under them (ArrowWithShoulder stacks from the top)
-            Panel name = new() { Width = Scaled(CHAPTER_NAME_WIDTH), Height = Scaled(ARROW_SIZE), VerticalAlignment = VerticalAlignment.Top };
+            Panel name = new() { Width = nameWidth, Height = Scaled(ARROW_SIZE), VerticalAlignment = VerticalAlignment.Top };
             name.Widgets.Add(_chapterName);
             row.Widgets.Add(name);
 
@@ -329,15 +443,8 @@ namespace BS3D.Screens
         {
             HorizontalStackPanel content = new() { Spacing = Scaled(COLUMN_GAP), VerticalAlignment = VerticalAlignment.Center };
 
-            //The number's column holds the set's longest number in tabular figures, so every name starts at one edge
-            int numberWidth = FontFigures.Width(Game.LevelCount.ToString(CultureInfo.InvariantCulture), FontSmall);
-            Label number = RowLabel(BS3DGame.MENU_TEXT, HorizontalAlignment.Right);
-            Label name = RowLabel(BS3DGame.MENU_TEXT, HorizontalAlignment.Stretch);
-            Label top = RowLabel(BS3DGame.MENU_TEXT_BODY, HorizontalAlignment.Stretch);
-            Label topScore = RowLabel(BS3DGame.MENU_TEXT_BODY, HorizontalAlignment.Right);
-            Label me = RowLabel(BS3DGame.BoardYouColor, HorizontalAlignment.Stretch);
-            Label meScore = RowLabel(BS3DGame.BoardYouColor, HorizontalAlignment.Right);
-            content.Widgets.Add(Block(NAME_WIDTH, number, name, numberWidth));
+            RowLabels(out Label number, out Label name, out Label top, out Label topScore, out Label me, out Label meScore);
+            content.Widgets.Add(Block(NAME_WIDTH, number, name, NumberWidth));
             content.Widgets.Add(Block(TOP_WIDTH, top, topScore));
             content.Widgets.Add(Block(ME_WIDTH, me, meScore));
 
@@ -345,6 +452,47 @@ namespace BS3D.Screens
                 NAME_WIDTH + TOP_WIDTH + ME_WIDTH + 2 * COLUMN_GAP + 2 * ROW_PADDING_X, ROW_HEIGHT);
             row.Padding = ScaledThickness(ROW_PADDING_X, 0);
 
+            return KeepRow(row, number, name, top, topScore, me, meScore);
+        }
+
+        /// <summary>
+        /// One row slot on a phone (#1153): the same three blocks as <see cref="BuildRow"/>, one over another - the level, the
+        /// board's leader, the player's place - so two columns of rows fit the width beside the rail, each as tall as a
+        /// finger needs (<see cref="WideMenuLayout.BOARD_ROW_HEIGHT"/>).
+        /// </summary>
+        private Button BuildTallRow(int slot)
+        {
+            VerticalStackPanel content = new() { Spacing = Scaled(TALL_LINE_GAP), VerticalAlignment = VerticalAlignment.Center };
+
+            RowLabels(out Label number, out Label name, out Label top, out Label topScore, out Label me, out Label meScore);
+            content.Widgets.Add(Block(WideMenuLayout.BOARD_ROW_WIDTH, number, name, NumberWidth));
+            content.Widgets.Add(Block(WideMenuLayout.BOARD_ROW_WIDTH, top, topScore));
+            content.Widgets.Add(Block(WideMenuLayout.BOARD_ROW_WIDTH, me, meScore));
+
+            Button row = Game.MenuTile(content, () => OpenSlot(slot),
+                WideMenuLayout.BOARD_ROW_WIDTH + 2 * ROW_PADDING_X, WideMenuLayout.BOARD_ROW_HEIGHT);
+            row.Padding = ScaledThickness(ROW_PADDING_X, 0);
+
+            return KeepRow(row, number, name, top, topScore, me, meScore);
+        }
+
+        //The number's column holds the set's longest number in tabular figures, so every name starts at one edge
+        private int NumberWidth => FontFigures.Width(Game.LevelCount.ToString(CultureInfo.InvariantCulture), FontSmall);
+
+        /// <summary>A row's six labels: the level's number and name, the leader and their score, the player's place and theirs.</summary>
+        private void RowLabels(out Label number, out Label name, out Label top, out Label topScore, out Label me, out Label meScore)
+        {
+            number = RowLabel(BS3DGame.MENU_TEXT, HorizontalAlignment.Right);
+            name = RowLabel(BS3DGame.MENU_TEXT, HorizontalAlignment.Stretch);
+            top = RowLabel(BS3DGame.MENU_TEXT_BODY, HorizontalAlignment.Stretch);
+            topScore = RowLabel(BS3DGame.MENU_TEXT_BODY, HorizontalAlignment.Right);
+            me = RowLabel(BS3DGame.BoardYouColor, HorizontalAlignment.Stretch);
+            meScore = RowLabel(BS3DGame.BoardYouColor, HorizontalAlignment.Right);
+        }
+
+        /// <summary>Keeps a built row and its labels for the writing pass (<see cref="Refresh"/>), in slot order.</summary>
+        private Button KeepRow(Button row, Label number, Label name, Label top, Label topScore, Label me, Label meScore)
+        {
             //A row that cannot be opened - every row while the boards cannot be asked - is a quiet row and not a greyed-out
             //control: Myra's own disabled slab and type turned the opted-out page into ten unreadable bars (photographed). The
             //writing pass gives it the slab of its level (DisabledBackground, as the host gives an entry its Background).
@@ -494,8 +642,16 @@ namespace BS3D.Screens
         internal override void NavFocusChanged(Button focused) => _focused = focused;
 
         /// <summary>
-        /// Left or right, the D-pad, the stick or the shoulders turn the chapter. False at an end, where nothing moved, so the
-        /// host plays no tick and the cursor does not go anywhere (#727).
+        /// On a phone's two columns of rows (#1153) the pad walks in the direction pressed, as on the level picker's tiles: right
+        /// from a level is the level beside it, and the shoulders turn the chapter, as the prompts under the arrows say. The
+        /// arrow keys keep walking the list and turning the chapter.
+        /// </summary>
+        internal override bool PadWalksGrid => BesideTheRail;
+
+        /// <summary>
+        /// Left or right, the D-pad, the stick or the shoulders turn the chapter (on a phone, the arrow keys and the shoulders:
+        /// <see cref="PadWalksGrid"/>). False at an end, where nothing moved, so the host plays no tick and the cursor does not
+        /// go anywhere (#727).
         /// </summary>
         internal override bool PageSideways(int direction)
         {
@@ -589,6 +745,15 @@ namespace BS3D.Screens
                 _rowTopScores[slot].Text = texts.HasLeaderScore ? FontFigures.Tabular(texts.LeaderScore, FontSmall) : string.Empty;
                 _rowMes[slot].Text = texts.Place;
                 _rowMeScores[slot].Text = texts.HasPlaceScore ? FontFigures.Tabular(texts.PlaceScore, FontSmall) : string.Empty;
+
+                //A phone's row (#1153) gives a line only to what it has, so the level's name stands in the middle of its row
+                //while the boards are off or still on their way, rather than over two empty lines. The blocks are the labels'
+                //own grids (Block); a monitor's row keeps its columns, which a hidden block would close up
+                if (BesideTheRail)
+                {
+                    _rowTops[slot].Parent.Visible = texts.Leader.Length > 0 || texts.HasLeaderScore;
+                    _rowMes[slot].Parent.Visible = texts.Place.Length > 0 || texts.HasPlaceScore;
+                }
             }
 
             //As prose (#855): the line wraps, and a wrapping label is never handed raw text. Refresh runs on a change, not
