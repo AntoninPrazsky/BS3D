@@ -20,7 +20,7 @@ Pravidla:
 
 ---
 
-## 2026-11-15 — #1153 Scény, Jukebox, About a žebříčky přes šířku telefonu — desktop (RDT-PC), Claude Code
+## 2026-11-18 — #1153 Scény, Jukebox, About a žebříčky přes šířku telefonu — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: na zvětšeném UI (`UiScale > 1`) a obrazovce aspoň 1,7:1 (`WideMenuLayout.MIN_ASPECT`) mají Scene (mřížka 7×3 dlaždic), Jukebox (tři sloupce), About (levý sloupec + text) a High Scores (dva sloupce po pěti úrovních) široké rozložení; monitor beze změny. `FOCUS_PROMPT_MIN_SHARE` 0,4 → 0,45. Testy `WideMenuLayoutTests`.
 - ⚠ `FitPage` zmenšuje jen podle výšky a deklarované `RequiredWidth`: široká stránka bez `RequiredWidth` se na 16:9 ořízne (Moon, Dream, Polar nešly ťuknout). Každá široká stránka ji teď přepisuje (`MenuPage.UnboundedWidth`).
@@ -39,7 +39,7 @@ Pravidla:
 - ⚠ `play` při startu sundá úvod v prvním updatu; MusicBake kompiluje `VoiceBudget`, takže potřebuje i `Game/Capture/CaptureSounds.cs` a `SoundMix.cs`.
 - Otevřené: stereo je jen přiblížení X3DAudio; #1180 (nástroj na střih).
 
-## 2026-11-15 — #1151 Nápověda a Nastavení na telefonu: lišta záložek — desktop (RDT-PC), Claude Code
+## 2026-11-18 — #1151 Nápověda a Nastavení na telefonu: lišta záložek — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: kde je rozhraní zvětšené (UiScale > 1, telefon nebo `inches=`), stojí záložky Nápovědy a Nastavení v liště vlevo s Back na patě (`MenuPage.RailPage`). Nápověda ve dvou sloupcích, Touch odstavec první, kde hraje prst. Řádky Nastavení vysoké `PHONE_TARGET` (~9 mm), seznam ONLINE ve sloupci vpravo bez scrolleru (zmizelo osamělé „time“). Konce − a + na řádcích žebříků, na koncích se zastaví a ztlumí (`RowStep`, `StepOnLadder`). Fullscreen, Keyboard lights a 10-bit colour na telefonu nejsou. Monitor beze změny.
 - ⚠ Myra počítá horní okraj do explicitní výšky: Back v liště byl o 1 mm nižší než záložky, výška teď okraj zahrnuje.
@@ -52,13 +52,13 @@ Pravidla:
 - ⚠ Ultra nad `ssaa` 1 nemá MSAA (pipeline ho vypíná); 8K→4K jsou 4 vzorky na pixel. ⚠ Bez držení okna ho MonoGame po každém resetu zvětší na velikost back bufferu (celá obrazovka).
 - Otevřené: dlouhý klip nad ~1 min neměřen (disk: 20–33 GB/min v `%TEMP%`).
 
-## 2026-11-15 — #1152 výběr úrovně na telefonu s bočním panelem — desktop (RDT-PC), Claude Code
+## 2026-11-18 — #1152 výběr úrovně na telefonu s bočním panelem — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: při `UiScale > 1` má výběr úrovně vedle pásu boční panel vybrané úrovně (číslo, hvězdy, nejlepší, pravidla nebo zámek, místo a #1 obou žebříčků, tlačítko Play 9 mm). První ťuknutí prstem jen vybírá, druhé nebo Play spouští (`PickerTap.OnTile`); myš, klávesy a pad spouštějí hned. Výběr přežije návrat ze stránky (`SelectionOnShow`). Dlaždice 14,4 mm, pipy 5,1 × 6,9 mm. Oprava i pro desktop: zamčené dlaždice po otočení kapitoly drží svůj odstín. Argument `picktap=`.
 - ⚠ Myra posílá `TouchDown` i zakázanému widgetu a na mobilu nevyvolá žádné myší události — hover tam prst nevybírá.
 - Otevřené: verdict-hands na vivu (ťuknout–ťuknout bez nápovědy), zamčená dlaždice skutečným prstem, skutečné žebříčky v panelu.
 
-## 2026-11-15 — #1148 rozpis skóre se vejde do desky i na telefonu — desktop (RDT-PC), Claude Code
+## 2026-11-18 — #1148 rozpis skóre se vejde do desky i na telefonu — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: čistá třída `BreakdownLayout` klade celou mřížku; řádky dál lícují se sloupcem (#1073), poznámka o další hvězdě má vlastní místo (`NoteRoom`). Na monitoru smí deska růst až na `BOARD_COLUMN_GAP` od desky žebříčků (16:9 a širší beze změny); na telefonu se poznámka láme u čárky (ostatní mezery v `NextStarNote` nezlomitelné), na 4:3 a 5:4 zůstane na řádku menší (min. `MIN_NOTE_SCALE` 0,7). `BoardLayout.Place` sdílí stránka i test.
 - ⚠ Příčina: `PinBreakdownColumns` prodlužoval sloupec o poznámku, kterou fit nikdy neměřil; s pravidly v2 je to nejširší řádek mřížky a lezl pod žebříčky.
@@ -78,7 +78,7 @@ Pravidla:
 - majitel: varianta (a) ze čtyř.
 - ⚠ CPU vláken přes `/proc/self/task/*/schedstat` ukáže, jestli hlavní vlákno pracuje, nebo čeká; .NET `ThreadPriority` na Linuxu nic nedělá.
 
-## 2026-11-15 — #1149 řádek pod polem vzkazu podle ruky — desktop (RDT-PC), Claude Code
+## 2026-11-18 — #1149 řádek pod polem vzkazu podle ruky — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: `NoteHint` (čistá funkce) volí řádek pod polem vzkazu. Na telefonu (nebo s `touch`) „Tap the field to type, then tap Send. N / 1000.“, s klávesnicí Enter/Shift+Enter bez věty o padu, s padem starý řádek beze změny. Výška řádku je pevná, změřená jen pro řádky, které platforma umí ukázat, takže Send se při změně ruky ani při stížnosti „Write something first.“ nehne. 12 testů v `NoteHintTests`, viděné selhat.
 - ⚠ Prst na dotykové obrazovce Windows nedostane „Tap the field“: psací dialog má jen Android (`StepPhoneTyping`), tam píše klávesnice.
@@ -90,7 +90,7 @@ Pravidla:
 - Předtím: rozdíl prvního snímku u #1086 nebyl mimoobrazovkový; byl to `PrepareChips` z #1095 (1,17–1,19 s na Pi), zahřívání jen ~0,15 s.
 - Otevřené: druhý snímek je o ~60 ms delší (155–206 proti 96–138 ms), nepřiřazeno.
 
-## 2026-11-15 — #1146 piktogramy čipů pečené jednou na velikost — desktop (RDT-PC), Claude Code
+## 2026-11-17 — #1146 piktogramy čipů pečené jednou na velikost — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: raster pro studený kód (floaty, MathF, šipky spočtené jednou; 24 → 3 ms v tier 0, pixely shodné bit po bitu), `PictogramCache` v `Cache/` uživatelských dat (klíč + RASTER_VERSION, kontrolní součet, max. 12 velikostí), čtení nebo pečení na workeru už v `LoadContent`/`EnsureHudFonts`. Čipy v BuildLevel: 75–429 → 2–5 ms; HUD čeká 0,3–0,4 ms. Hashe textur před/po shodné.
 - majitel: rastrovat ve velikosti displeje, tedy za běhu; žádná sada z buildu.
@@ -104,56 +104,56 @@ Pravidla:
 - ⚠ `[pace]` ořezává maximum na 500 ms; zásek před změnou byl ~0,65 s, ne 0,3–0,5 s. Delší držení měř Stopwatchem.
 - Otevřené: první snímek spuštění s `play` je na main 1,2–1,6 s (předtím 0,55–0,67 s), nepřiřazeno (zahřátí, nebo #1095); hráč začíná v menu.
 
-## 2026-11-15 — #1045 čas ve skóre (pravidla v2) — desktop (RDT-PC), Claude Code
+## 2026-11-17 — #1045 čas ve skóre (pravidla v2) — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: pravidla v2 podle volby B. Časový bonus 10 × floor × (1 − t / (2 × par)) za započaté sekundy herních hodin, nevyužité koule za 1 výstřel, hvězdy 2,5/6,5/11, `RulesVersion` 2. Par (`ParRule`, 20–115 s) zapisuje LevelGen do `Levels.json` a je v identitě úrovně. ScoreSim hraje čas (TIME INVERTED, SLOW FOUR STARS, GATE TOO STEEP). Nejlepší skóre nese verzi pravidel, hvězdy zůstávají; brány o 1,5 hvězdy na úroveň. HUD, hod TIME BONUS, řádek výsledku, Help, karta druhé kapitoly. Outbox drží zásahy neznámé tabulky (`MaxHolds` 5).
 - majitel: volba B; „medián 5+ dohraní“ zatím jen háček `ParTime.FromPlay` (#1143).
 - ⚠ Výběr úrovní ukazoval „0“ pod úrovněmi dohranými za v1; skóre jiné verze pravidel se nesmí zobrazit ani sčítat.
 - Otevřené: BS3D-API#19 musí běžet před vydáním, poznámky #1142; pochopení hráči je verdict-newcomer.
 
-## 2026-11-15 — #1138 Mars: měsíce jen ve svém obdélníku — desktop (RDT-PC), Claude Code
+## 2026-11-17 — #1138 Mars: měsíce jen ve svém obdélníku — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: průchod Phobosu a Deimosu se ořezává (scissor) na obdélník každého měsíce na obrazovce (`SkyRay.PixelsWithin`, kužel ořezaný stranami frusta), sjednocení překrývajících se, nic když měsíc není v záběru. Pin Testbedu: měsíce 0,13 → 0,00 ms, snímek 4,13 → 4,00 ms. Mars.xnb bajtově shodný, obraz stejný bez multisamplingu; s MSAA se liší ~4 pixely na okraji stropu. Číselník `mars=all/-moonbounds` (starý celoobrazovkový průchod).
 - ⚠ Cenu nesl dotyk celého snímku (rasterizace, hloubka, start programu), ne program: konstantní 0 ušetřila 0,02 ms, scissor na 1 px celých 0,13. `mars=none/...` vypne i `moonbounds`, `bake`, `rockdepth` – vyjmenovat je.
 - Otevřené: GL (telefon), MapEditor a intro Phobosu nefotografovány; notebook neměřen.
 
-## 2026-11-15 — #1141 pět drobných vad (pass 18) — desktop (RDT-PC), Claude Code
+## 2026-11-17 — #1141 pět drobných vad (pass 18) — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: (1) #1064 uložené Potato už neruší držení slabého zařízení (`QualityLock.ChooseAtPotato` při `_deviceWhy` nic nemění); (2) #1074 obnovovací frekvence se žádá i na Androidu 7–10 přes `DisplayRefresh.PreferMode` (preferovaný režim je API 23, jen `Activity.Display` je 11); (3) #1052 odpověď telefonního dialogu jde do stránky jednou editací (`MenuPage.TakeTypedText`, nový `NoteText`), dřív 0,7–1,4 s v jednom snímku; (4) #1068 doc komentáře zpět na svých členech, `DocCommentPlacementTests` našel šest bloků se dvěma summary; (5) #1077 `VoiceLedgerTests` tvrdí třídu Music. Každý nový test viděn selhat.
 - ⚠ Kompilátor nevaruje na dvě `<summary>` v jednom bloku; hlídá to až test. Zdrojový test volání (#1074) musí číst i volání, nejen členy, které zapisují — jinak šlo vrátit bránu Androidu 11 nepozorovaně.
 - Otevřené: nic neběželo na telefonu (žádný Android 7–10, cena dialogu na telefonu neměřena).
 
-## 2026-11-15 — #1139 About: otočená stránka na telefonu se znovu vejde — desktop (RDT-PC), Claude Code
+## 2026-11-17 — #1139 About: otočená stránka na telefonu se znovu vejde — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: `RebuildPage` volá `FitPage` jako `ShowPage`, takže stránka přestavěná na místě (otočení About, výběr úrovní při jiné šířce, Top Players, poznámka, benchmark) dostane svůj fit znovu; text zůstane ve scrolleru a Zpět na obrazovce. `FitPage` nově volá `page.Refresh()` před čtením stromu (výběr úrovní měřil starý strom). Na monitoru beze změny. Test `PageFitSourceTests` čte zdroj: každé `_desktop.Root =` má před sebou `FitPage` ve svém těle; viděn selhat na starém kódu.
 - ⚠ Přestavěný `MenuPage.Root` zahodí scroller, který přidal fit; bez nového fitu se stránka kreslí ve velikosti menu a Zpět zmizí pod okrajem.
 - Otevřené: neověřeno na telefonu (vivo nepřipojeno), jen rozvržení inches=2.8 na desktopu; dotyk šipky a tah scrolleru po otočení neviděny.
 
-## 2026-11-15 — #1140 přesné míření: přepnutí režimu pustí zamknutý náklon — desktop (RDT-PC), Claude Code
+## 2026-11-17 — #1140 přesné míření: přepnutí režimu pustí zamknutý náklon — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: náklon přesného míření čte nová třída `Game/Screens/LeanInput.cs` (bez zařízení, testovatelná). První snímek čtený pod jiným režimem (Toggle ↔ Hold) zruší zamknutý náklon, ať ho zapnulo pravé tlačítko, spoušť nebo dotykové tlačítko; totéž hlídá `SpendPress` při návratu do hry a během převzetí kamery. Dřív zůstal náklon zapnutý po přepnutí na Hold až do konce levelu. Zamknutý náklon dál přežije pauzu, ztrátu fokusu a převzetí kamery (#1054). 13 testů `LeanInputTests` včetně zdrojového testu obrazovky.
 - ⚠ Shrnutí `ReleaseLean` tvrdilo, že pauza a ztráta fokusu toggle ruší; nerušily. Komentář, který lže o tom, co kód pouští, schová past.
 - Otevřené: živý běh Game ani telefon neověřeny; zda má pauza toggle rušit, je otázka pro majitele (změna by chtěla verdict-hands).
 
-## 2026-11-15 — #1137 outback: hloubka monolitů napřed — desktop (RDT-PC), Claude Code
+## 2026-11-17 — #1137 outback: hloubka monolitů napřed — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: na High/Ultra (DirectX) se hloubka monolitů kreslí napřed hloubkovým dvojčetem `OutbackRockDepth` (bez ořezu), pak se stínují s `DepthRead`, takže každý viditelný pixel monolitu se stínuje jednou. Balvany zůstávají v jednom průchodu, GL a nižší úrovně beze změny. Obraz stejný (20/20 párů bez rozdílu, programy bajtově shodné). Pin Testbedu 8,13 → 6,02 ms (formace 3,26 → 1,17), Game Ultra menu ~1 ms levnější. Číselník `outback=all/-rockdepth`.
 - ⚠ Ořez jen v programu balvanů a odřezání zadních stěn disků měnily pixely (jiné instrukce, sdílená hloubka na korunách); zamítnuto.
 - Otevřené: jiné GPU, notebook a telefon neměřeny; cena samotných balvanů neznámá; řádek `High` v tabulce nákladů je starší než změna.
 
-## 2026-11-15 — #1131 zbylá desktopová čísla znovu změřena — desktop (RDT-PC), Claude Code
+## 2026-11-17 — #1131 zbylá desktopová čísla znovu změřena — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: zbylé desktopové pasáže (#1131) přeměřeny v ustálených `alt=` oknech na Release Testbedu 43959f47, jen dokumenty a komentáře. Mapa slunce stojí 0,49–0,84 ms (dřív „asi 0,2 všude“); největší díl je čtení mapy, pak vrhání a stín stropního skla, jen ve městě vrhání převáží. Odrazy města bez brány +0,75/+0,85 ms (ne +4,9/+1,9), hrubé pohoří s clip() +3,2, šest oktáv reliéfu 1,04 dohromady, kmen aurory +0,08, kupy mraků +0,37 louka / +0,53 herní kamera / +0,93 hora.
 - ⚠ Podíl „přijímání“ z mapy bez vrhačů zahrnuje i analytický stín stropního skla (0,10–0,21 ms); čtení samo je menší.
 - Otevřené: dočasné číselníky (heaps=, mtfine=, nocasters= …) nejsou v mainu; scratch worktree BS3D-1131-scratch k odstranění.
 
-## 2026-11-15 — #1102 vrstvové číselníky Marsu, lesa a outbacku — desktop (RDT-PC), Claude Code
+## 2026-11-17 — #1102 vrstvové číselníky Marsu, lesa a outbacku — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: Testbed má `mars=` a `outback=` a `forest=` má vlastní `FarRing` a `Bank` (`Floor` je jen mřížka); jdou přes `alt=`, parsování je `LayerDial.Parse` v Core, 19 testů `LayerDialTests`. Výchozí číselníky kreslí totéž co main. Ceny vrstev (ssaa 2, Full.json) jsou v tabulkách `docs/scenes/mars.md`, `forest.md` a `outback.md`: Mars 0,72 z 4,14 ms (vypnutý bake +0,69), les 5,38 z 8,89 (smrky 1,86), outback 4,14 z 8,09, z toho **formace 3,26** → #1137. Měsíce Marsu stojí plochých 0,13 ms při každém rozlišení → #1138. Řádek `[skyorder]` teď hlásí pořadí, které cíl běhu opravdu dává.
 - ⚠ Sloupec „ušetřeno vypnutím“: cena se píše záporně, ne „+“.
 - Otevřené: #1137, #1138; obrácený opakovaný běh jen pro ssaa 2 Full; A/B snímku Game mezi mainem a větví neběželo.
 
-## 2026-11-15 — #1100 Mars: pevná pole země předpečená do map — desktop (RDT-PC), Claude Code
+## 2026-11-16 — #1100 Mars: pevná pole země předpečená do map — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: na High/Ultra (DirectX) se pevná pole země Marsu (albedo, sklon, velké krátery, masky skal, desek a zrna) pečou jednou do tří polárních map 4096×2048 (úhel × log vzdálenosti) v `BeforeShadowMaps`, znovu jen při pohybu slunce. Země je čte (`MarsTerrainBaked`), dokud kamera stojí do 70 od arény; jemné detaily (okraje malých kráterů, koleje roveru, praskliny desek, pruhy mes) zůstávají po pixelech. Jedna funkce `MarsGroundFields` krmí obě cesty. Odchod z Marsu nebo vypnutá Scenery vrací 171 MiB (`Backdrop.Leave`). Game menu Ultra 7,31 → 4,75 ms (strop 4,50).
 - ⚠ Detail široký pár texelů čtený z mapy vypadá jako bloky nebo hřeben; patří k pixelu.
@@ -165,7 +165,7 @@ Pravidla:
 - ⚠ Úspora je malá: šestnáct čtení nebylo tím, co stojí přijímač stínu nejvíc.
 - Otevřené: GL cesta neběžela na telefonu; notebook a Pi neměřeny; hardwarové PCF nepostaveno (změnilo by polostín).
 
-## 2026-11-15 — #1120 #1122 #1099 les: hustší smrky a ořez podle pohledu — desktop (RDT-PC), Claude Code
+## 2026-11-16 — #1120 #1122 #1099 les: hustší smrky a ořez podle pohledu — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: každý průchod (kamera i slunce) kreslí jen stromy ve svém frustu (`ForestPasses`, `InstanceCells` pro statickou výzdobu a vzdálený porost), průchody kamery řadí od nejbližšího. Na High/Ultra nosí blízkou korunu i stromy do 90 jednotek od ohniska, které skočí ke kameře jen při střihu (> 8 jednotek za snímek). Blízká koruna hustší (91–179 větví). Testbed má číselník `forest=`.
 - Ultra, Heart v lese: 10,15 → 10,06 ms; háj v úvodu +0,20 ms; aurora na Fish ~+0,1 ms.
@@ -183,58 +183,58 @@ Pravidla:
 - ⚠ Zahřátí jednou jízdou nestačí: jednorázový náklad první cesty (prvního volání, líně postaveného pomocníka) se na runnerech s málo jádry objevil až v pozdější jízdě. Test alokací musí zahřát každou cestu, kterou počítá.
 - ⚠ Slučovací agent, kterého zabil limit, pushnul merge a CI už neviděl: po přerušení vždy zkontroluj `gh run list --branch main`.
 
-## 2026-11-15 — #1111 poušť: pata pyramid v oparu dun — desktop (RDT-PC), Claude Code
+## 2026-11-16 — #1111 poušť: pata pyramid v oparu dun — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: kámen pyramid bere do výšky `Pyramids.SandTop` (nejvyšší písek pod půdorysy, z `TerrainMirror.Desert`, asi −0,5) přesně opar a murk dun a `FarField.Begin` s rozsahem dun; výš prach řídne e× na `Pyramids.DustThin` (30) k `HorizonColor` jako dřív, horní stěny beze změny. Matematika vzduchu sdílená v `DesertAir.fxh` (Desert.fx bajtově stejný). Testy `PyramidAirTests`.
 - ⚠ Příčina se našla vypínáním po jednom (lesk, far fade, opar): duny za 420 jsou celé murk, kámen jen 25 % k teplému horizontu, takže pata tmavá za světlými hřebeny. Opar ke murku i nahoře zašedí stěny pod kupolí 6.
 - Otevřené: verdikt oka (pás u paty: opar, nebo zeď mlhy?; Khafre z herního pohledu); Potato/Pi pata zůstává tmavá (PYRAMID_HAZE 1600 proti 420), chce vlastní issue.
 
-## 2026-11-15 — #1125 moře: maják, kontejnerová loď a jachta — desktop (RDT-PC), Claude Code
+## 2026-11-16 — #1125 moře: maják, kontejnerová loď a jachta — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: na otevřeném moři stojí vedle dvou plošin maják na nízké skále (850 ven, azimut -1,30) a dvěma rovnoběžnými pruhy (880 a 1010 ven) plují jachta (5 u/s) a kontejnerová loď (12 u/s). Kód: `SeaTrafficLayout`, `SeaTrafficMeshes`, `SeaTraffic`; Rig.fx dostal World, látku plachet a ponor za obzor (od 1400 od kamery). Plošiny a maják se neponořují (`NO_SINK`). Hodiny lodí startují znovu, kdykoli Game moře vybere; jedna z lodí je pak v úvodním záběru 22–30 % času, obě 1–3 %. Úvod rámuje maják asi ve 3 rolích ze 4, loď v 5 z 6. Cena asi +0,01 ms.
 - ⚠ Test příďové nástavby napoprvé neselhal se starou krabicí: obrys trupu se měřil i z ní samé.
 - Otevřené: verdikt oka; pohyb nikdo neviděl; ptáci, paleta kontejnerů a blikání majáku jsou otázky pro majitele.
 
-## 2026-11-15 — #1136 Mřížka: cykly mimo krychle — desktop (RDT-PC), Claude Code
+## 2026-11-16 — #1136 Mřížka: cykly mimo krychle — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: světelné cykly ani jejich zdi už nevjedou do těles (sceneseed=18, modrý cyklus v 25,5 s stál napůl v krychli). Rozmístění těles je v `GridLayout` (bez grafiky, stejný proud náhod, desktop i Životy beze změny); `LightCycles.Lattice` povolí krok jen se `SOLID_CLEARANCE` 6,85 od půdorysu a jen tam, odkud vede další krok bez otočky. Bez těles v prstenci jedou cykly přesně jako dřív. Potato teď staví tělesa jako desktop (na Pi dá stejné sceneseed jiné rozmístění) a úvod #1116 bere běhy postavené mezi tělesy.
 - ⚠ Kontrola podle obalové kružnice přeháněla dosah krychle (116 místo 98 z 205 rozmístění); počítej podle krabice.
 - Otevřené: pohyb nových zatáček nikdo neviděl; GameAndroid nesestaven; `GridRideTests` dál rolují tělesa vlastním zjednodušeným `Solids(seed)`.
 
-## 2026-11-15 — #1121 les: soumrakové barvy podle referencí — desktop (RDT-PC), Claude Code
+## 2026-11-16 — #1121 les: soumrakové barvy podle referencí — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: `ForestHaze` už nemlží k tyrkysové `HorizonColor` rigu (průměr spodní pětiny dómu, skoro celý pod obzorem), ale k obloze kreslené za bodem (`FarSkyAt` jeho směrem) se zatažením mraků (`ForestSkyBehind`, stejný smoothstep jako Sky.fx). První stupeň je tmavá břidlicová mlha `ForestMurk` počítaná z oblohy na obzoru; stupeň k obloze jde jen do `FOREST_SKY_REACH` 0,45. Listnáče olivové (1,35× jas jehličnanů) a kreslené v počasí (`PlantPass.DrawInWeather`).
 - Vzdálené špičky proti obloze ve hře: medián 2,66 → 0,47, nad oblohou 95 % → 0,4 %.
 - ⚠ `HorizonColor` není barva oblohy na obzoru; poušť a Potato do téže pasti spadly dřív.
 - Otevřené: verdikt oka; `FarSky` bez mraků pro ostatní scény a mlha instancovaných smrků lesa chtějí vlastní issue.
 
-## 2026-11-15 — #1123 outback: mlha nad plání — desktop (RDT-PC), Claude Code
+## 2026-11-16 — #1123 outback: mlha nad plání — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: bledý závoj nad plání outbacku dělaly tři věci, poznané vypínáním po jedné v záběrech úvodu: tetelení vzduchu v `Outback.fx` (šum podle směru pohledu, skvrny ±11 úrovní zelené, při pohybu kamery se plazí po zemi), `HazeDistance` 3000 a poslední fade od 600. Tetelení odstraněno (s uniformami a hodinami), haze 6000 pro plán i skály, fade plání od 1000 (`TerrainPass.FarFadeStartLatest`, ostatní scény dál 600 kvůli tyrkysové čáře ledovce). Cena: −0,08–0,10 ms. Testy `OutbackAirTests` (5).
 - ⚠ Jasný HDR vzduch zbledí tmavě červenou plán už při pár setinách podílu; saturace plání 0,34–0,41 s haze, 0,59–0,65 bez ní.
 - Otevřené: `verdict-eye` (pohyb neviděn, Low/Medium/Ultra a menu nezachyceny); skutečná refrakce na obzoru #1135; trsy spinifexu u nízké kamery jako šedé šmouhy (bez issue).
 
-## 2026-11-15 — #1117 Vesmír: úvod otevírá stojící záběr s talířem — desktop (RDT-PC), Claude Code
+## 2026-11-16 — #1117 Vesmír: úvod otevírá stojící záběr s talířem — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: první záběr úvodu Vesmíru „the saucer“ (4,2 s) nahradil jízdu „the station“: čočka stojí 280 od osy, celá planeta v horní půlce, malá stanice dole na druhé straně. Talíř je načasovaný (`SaucerPass` v Prazsky.Core, `SceneRenderer.CueSpaceSaucer`): posune fázi smyčky a 2,6 s kolem okamžiku 2,4 s letí rovně 28 u/s kolem čočky (nejblíž 29), nakloněný kupolí k ní. Bez narážky je `SaucerFlight.WorldAt` přesně stará smyčka (menu, hra, Potato). Úvod 14,2 s.
 - majitel: na issue schválil zrušit pravidlo „nic, co stanici filmuje, ji nepotká“.
 - ⚠ Narážka jen v prvním snímku nechala talíř po zaseknutí nebo pauze utéct (48 u mimo); narazí se každý snímek podle hodin úvodu. Test „je v záběru“ podle obalové koule pouštěl okraj do 0,02 s před střihem na 2,4:1; počítá se podle vrcholů sítě.
 - Otevřené: verdikt oka (pohyb nikdo neviděl, notebook ani Potato neběžely, cena kreslení talíře neměřena).
 
-## 2026-11-15 — #1126 Sen: větší skleněná tělesa — desktop (RDT-PC), Claude Code
+## 2026-11-16 — #1126 Sen: větší skleněná tělesa — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: tělesa Snu 1,4× větší (`Shapes.Size` 22,4) a 12 místo 8 na desktopu, Pi i telefonu (`SHAPE_COUNT`, `DREAM_SOLID_COUNT`, Potato `DREAM_SOLIDS`). Pochod hlídá vlastní poloměr × 1,45 místo `ShapeSize` × 1,9; oběžná dráha 0,82 + 0,18·sin, nejbližší mez 61 j od osy. Cena Ultra +0,2 ms (Solitaire, 3840x1500, ~6 ms).
 - Testy: 3 920 úvodů staví všechny tři záběry, žádná čočka ani let tour do pózy nevjede do tělesa; zdroj `Dream.fx` držen proti hostiteli (počet, dráha, poloměr).
 - ⚠ Pokrytí měřené na 40 s okně (11,3 %) je menší než dlouhodobé (14,5 %); cenu měř na delším okně.
 - Otevřené: `verdict-eye` (velikost a počet, pohyb neviděn); cena na Pi, telefonu (i desktopová cesta přes GLES) a notebooku neměřena; Potato tour se může na nejširší póze otřít o vnitřní těleso.
 
-## 2026-11-15 — #1128 polární tábor ve hře a v úvodu — desktop (RDT-PC), Claude Code
+## 2026-11-16 — #1128 polární tábor ve hře a v úvodu — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: tábor (`PolarPlanting`) je 2,5× větší (stožár 27,5, dosah 55,8, `CampClearRadius` 58) a stojí na azimutu −1,92 ve vzdálenosti 150, takže ho herní pohled vidí vlevo nad palubou ve 4:3 až 2.4. `CampTurn` 0,96 ho natáčí čelem ke slunci. Úvod má nový záběr „the camp“ (3,2 s, oblouk 26°), ostatní tři záběry ubraly 1,2 s, reel 16,1 s. Stínová krabice sahá nad stožár (`SceneRenderer.ShadowBoxTop`), texely o ~8 % hrubší. Mrtvé dotazy na zem (`PolarGroundHeight` aj.) odstraněny.
 - ⚠ Test herního pohledu mířil na těžiště clusteru, kam session nikdy nemíří; teď míří přes `OverviewFocus.FollowAim` jako session.
 - Otevřené: `verdict-eye` (velikost tábora a záběr v pohybu neviděny, úvod 16,1 s); na Potato tábor chybí; cena neměřena; žádná kampaňová úroveň na ledu.
 
-## 2026-11-15 — #1116 Mřížka: úvod jede vedle světelného cyklu — desktop (RDT-PC), Claude Code
+## 2026-11-16 — #1116 Mřížka: úvod jede vedle světelného cyklu — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: druhý záběr úvodu Mřížky „the cycle“ (`Game/Effects/GridRide.cs`): čočka jede 3,4 nad podlahou vedle jednoho cyklu jeho rychlostí, kolem uzlu se točí nejvýš 37,5 °/s (U-obrat 71). Pózuje se podle nástěnných hodin (`IntroShot.OnTheWallClock`), cyklus bere z `LightCycleRuns` (stejné semínko jako kreslené). Po pauze nebo pod 20 fps volí znovu (`GridIntroShots.Again`). Úvod 16,5 s (dřív 13,9).
 - Zdi cyklů se kreslí až po ostrově (`LightCycles.DrawWalls` z `GridBackdrop.DrawGrounded`); dřív je nízká čočka mohla vidět zakryté ostrovem.
@@ -256,7 +256,7 @@ Pravidla:
 - ⚠ `precise` ruší i skládání konstant fxc (`seed + 23.7`).
 - Otevřené: řádek `[hash]` z desktopu, GTX 1060 a Androidu nikdo neviděl.
 
-## 2026-11-15 — #1110 poušť: brouk, štír a přistání z úvodu — desktop (RDT-PC), Claude Code
+## 2026-11-16 — #1110 poušť: brouk, štír a přistání z úvodu — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: High a Ultra kreslí nové sítě `CritterMesh.FineBeetle` (5 584 tr.) a `FineScorpion` (8 940) podle referencí z #966; Low/Medium staré, Potato nic. Cena nerozlišitelná od nuly (alt=finemeshes, 7680x3200). Úvod: nový záběr brouka (3,6 s), štír držen celou chůzí, poslední záběr vzlétne od štíra a přistane na herní póze (`DesertLanding` přes sdílené `IntroLanding`); hejno vypadlo, hřeben 3,4 s. Úvod 23,9–24,2 s (dřív 23,2), test drží ≤ 24,5. Tvorové se znovu cuejí každý snímek (`IntroShot.Track`), takže pauza ani zásek nenechá pohled na prázdném písku. Opravena stopa brouka z #966 (byla barvou písku) a stín padá od slunce.
 - ⚠ Bash heredoc snědl zpětná lomítka, `userdata=` prázdné, jeden běh šel do profilu majitele: Stats.json a Outbox.json vráceny z .bak, last-run.log ztracen. Skripty spouštění psát nástrojem Write.
