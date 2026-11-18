@@ -64,6 +64,13 @@ namespace Prazsky.Core.Render
         public ModelInstance[][] SnagsAt(bool fineMeshes) => fineMeshes ? FineSnags : Snags;
         public ModelInstance[][] LogsAt(bool fineMeshes) => fineMeshes ? FineLogs : Logs;
 
+        /// <summary>
+        /// A far stand's spires as this wood's spruces, drawn on High and Ultra in place of the spires the lens comes near
+        /// (#1163, <see cref="StandSpruces"/>): the aurora's, which its backdrop hands over once it has planted its stand round
+        /// this planting, before any host builds a renderer of it. Null in every other wood.
+        /// </summary>
+        public StandSpruces Stand { get; internal set; }
+
         //No neighbouring-cell occlusion; the instanced shader still expects the vector (W=1 = fully open).
         private static readonly Vector4 NO_OCCLUSION = new(0f, 0f, 0f, 1f);
 

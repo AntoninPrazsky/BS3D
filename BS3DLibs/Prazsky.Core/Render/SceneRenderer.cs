@@ -18,14 +18,16 @@ namespace Prazsky.Core.Render
 
     /// <summary>
     /// The aurora's separately drawn layers, for <see cref="SceneRenderer.AuroraLayers"/> (#1027): the fine and the coarse
-    /// snow grid, the collars, the far stand's near and far rings, the sky, the planted wood (drawn by the host, which asks)
-    /// and the falling snow.
+    /// snow grid, the collars, the far stand's near and far rings, the sky, the planted wood (drawn by the host, which asks),
+    /// the falling snow, and the near ring's spires the lens comes near drawn as the wood's spruces on High and Ultra (#1163,
+    /// <see cref="StandSpruces"/>; out, they are drawn as spires).
     /// </summary>
     [System.Flags]
     public enum AuroraLayer
     {
         None = 0, FineGrid = 1, CoarseGrid = 2, Collars = 4, NearStand = 8, FarStand = 16, Sky = 32, Wood = 64, Snow = 128,
-        All = FineGrid | CoarseGrid | Collars | NearStand | FarStand | Sky | Wood | Snow
+        StandSpruces = 256,
+        All = FineGrid | CoarseGrid | Collars | NearStand | FarStand | Sky | Wood | Snow | StandSpruces
     }
 
     /// <summary>

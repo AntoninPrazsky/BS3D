@@ -438,6 +438,8 @@ technique AuroraCollarReduced
 
 float3 StandNeedles;    //the needles' colour (linear)
 float3 StandSnow;       //the snow on the tiers' tops
+float StandSwapRadius;  //a spire whose foot is nearer the lens than this is drawn by the hosts' wood as a spruce (#1163,
+                        //StandSpruces.Swaps, the same test): 0, none
 
 struct StandVertexInput
 {
@@ -466,10 +468,13 @@ StandVertexOutput StandVS(StandVertexInput input, StandInstanceInput instance)
 
     float s = instance.Look.x, c = instance.Look.y;
 
-    //A spruce past where the ground is drawn would stand on nothing: it goes to a point (no triangle to draw)
+    //A spruce past where the ground is drawn would stand on nothing: it goes to a point (no triangle to draw). So does one
+    //the lens is within the swap of, whose spruce the hosts' wood draws in its place
     float2 offGround = abs(instance.Place.xz - CoarseOriginXZ);
     float onGround = step(max(offGround.x, offGround.y), CoarseReach - 4.0);
-    float3 local = input.Position * float3(1.0, instance.Look.z, 1.0) * (instance.Place.w * onGround);
+    float2 fromLens = instance.Place.xz - CameraPosition.xz;
+    float kept = step(StandSwapRadius * StandSwapRadius, dot(fromLens, fromLens));
+    float3 local = input.Position * float3(1.0, instance.Look.z, 1.0) * (instance.Place.w * onGround * kept);
     float3 world = float3(local.x * c - local.z * s, local.y, local.x * s + local.z * c) + instance.Place.xyz;
     float3 normal = float3(input.Normal.x * c - input.Normal.z * s, input.Normal.y / instance.Look.z, input.Normal.x * s + input.Normal.z * c);
 

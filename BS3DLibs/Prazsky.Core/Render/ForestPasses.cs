@@ -4,16 +4,19 @@ using System;
 namespace Prazsky.Core.Render
 {
     /// <summary>
-    /// What one pass of <see cref="ForestScatterRenderer"/> draws (#1099, #1120), device-free so a test reaches the whole rule:
-    /// the focus the near crowns stand round, moved by the pass's lens (<see cref="ForestScatterRenderer.NextFocus"/>), then of
-    /// every kind the tier draws the instances whose bounds meet the pass's frustum (<see cref="ForestScatterRenderer.Meets"/>),
-    /// the spruces among them split by the crown they wear (<see cref="ForestScatterRenderer.WearsNearCrown"/>). The camera's
-    /// pass and the sun's both go through <see cref="Pass"/>, which moves the focus before it splits, so a tree casts the crown
-    /// it is drawn in, on the frame of a cut too.
+    /// What one pass of <see cref="ForestScatterRenderer"/> draws (#1099, #1120, #1163), device-free so a test reaches the whole
+    /// rule: of every kind the tier draws, the instances whose bounds meet the pass's frustum
+    /// (<see cref="ForestScatterRenderer.Meets"/>), and on High and Ultra the spruces among them split by the crown their
+    /// distance from this pass's lens gives them (<see cref="ForestScatterRenderer.WearsNearCrown"/>), with the spruces of a
+    /// far stand's spires the lens is within the swap of among them (<see cref="ForestScatter.Stand"/>,
+    /// <see cref="StandSpruces.Swaps"/>) in the camera's pass. The camera's pass and the sun's both go through
+    /// <see cref="Pass"/> with the frame's lens, so a planted tree casts the crown it is drawn in, and nothing carries from one
+    /// frame to the next. The stand's spruces cast nothing, as the spires they stand in for never did: a shadow thrown from
+    /// two hundred units off would sweep in across the snow each time the swap reached its tree.
     /// <para>
     /// Allocation-free: the arrays a pass fills are made here once, each as long as that variant's largest planting (its
-    /// <c>Fine</c> one, which starts with the one every tier draws), and a pass fills them and draws them before the next one
-    /// fills them again (each draw uploads what it is handed there and then).
+    /// <c>Fine</c> one, which starts with the one every tier draws) and its share of the stand's spruces, and a pass fills them
+    /// and draws them before the next one fills them again (each draw uploads what it is handed there and then).
     /// </para>
     /// </summary>
     internal sealed class ForestPasses
@@ -25,10 +28,6 @@ namespace Prazsky.Core.Render
 
         //The frustum a pass culls by: the camera's, or the sun's map's box. One instance, its matrix set per pass
         private readonly BoundingFrustum _frustum = new(Matrix.Identity);
-
-        //The focus the near crowns stand round besides the arena (#1120), and the lens of the last pass, which tells a cut
-        private Vector3 _focus, _lastLens;
-        private bool _focused;
 
         /// <summary>This pass's spruces seen (their trunks and stems, and on Low and Medium their lathe crowns).</summary>
         public readonly Culled Conifers;
@@ -49,9 +48,11 @@ namespace Prazsky.Core.Render
             _stumpBounds = stumpBounds;
             _snagBounds = snagBounds;
             _logBounds = logBounds;
-            Conifers = new Culled(scatter.FineConifers);
-            NearConifers = new Culled(scatter.FineConifers);
-            FarConifers = new Culled(scatter.FineConifers);
+            //The stand's spruces after the planting's, so a variant's arrays hold every spruce a pass can take
+            ModelInstance[][] stand = scatter.Stand?.Spruces;
+            Conifers = new Culled(scatter.FineConifers, stand);
+            NearConifers = new Culled(scatter.FineConifers, stand);
+            FarConifers = new Culled(scatter.FineConifers, stand);
             Broadleaves = new Culled(scatter.FineBroadleaves);
             Rocks = new Culled(scatter.FineRocks);
             Stumps = new Culled(scatter.FineStumps);
@@ -59,53 +60,65 @@ namespace Prazsky.Core.Render
             Logs = new Culled(scatter.FineLogs);
         }
 
-        /// <summary>Where the near crowns stand round besides the arena (<see cref="ForestScatterRenderer.FOCUS_RADIUS"/>).</summary>
-        public Vector3 Focus => _focus;
-
         /// <summary>
-        /// Fills this pass's instances: moves the focus by <paramref name="lens"/> first, then takes of every kind the tier draws
-        /// (<paramref name="fineMeshes"/>) those whose bounds meet <paramref name="viewProjection"/>'s frustum, and on High and
-        /// Ultra splits the spruces among them by the crown they wear. A tree outside the frustum puts nothing on the screen or
-        /// in the map, so the cut is exact; the split does not look at the frustum, so a tree casts the crown it is drawn in.
+        /// Fills this pass's instances: takes of every kind the tier draws (<paramref name="fineMeshes"/>) those whose bounds
+        /// meet <paramref name="viewProjection"/>'s frustum, in the camera's pass on High and Ultra with the stand's spruces
+        /// <paramref name="lens"/> is within the swap of, and there splits the spruces among them by the crown their distance
+        /// from <paramref name="lens"/> gives them. A tree outside the frustum puts nothing on the screen or in the map, so the
+        /// cut is exact; the split does not look at the frustum, so a tree casts the crown it is drawn in.
         /// </summary>
         /// <param name="viewProjection">The camera's view times its projection, or the sun's map's (its box is the frustum).</param>
         /// <param name="lens">This frame's camera position, in the sun's pass as in the camera's.</param>
         /// <param name="fineMeshes">The caller's <c>SceneRenderer.FineMeshes</c>: which planting and which spruce crowns.</param>
-        /// <param name="nearestFirst">Whether to sort each variant's spruces and broadleaves nearest the lens first (the
-        /// camera's pass, <see cref="Culled.SortFrom"/>).</param>
-        public void Pass(in Matrix viewProjection, Vector3 lens, bool fineMeshes, bool nearestFirst)
+        /// <param name="camera">Whether this is the camera's pass, not the sun's: it takes the stand's spruces, and it sorts
+        /// each variant's spruces and broadleaves nearest the lens first (<see cref="Culled.SortFrom"/>).</param>
+        public void Pass(in Matrix viewProjection, Vector3 lens, bool fineMeshes, bool camera)
         {
-            _focus = ForestScatterRenderer.NextFocus(_focused, _focus, _lastLens, lens);
-            _focused = true;
-            _lastLens = lens;
-
             _frustum.Matrix = viewProjection;
-            Select(fineMeshes);
+            Select(fineMeshes, lens, camera);
 
-            if (!nearestFirst) return;
+            if (!camera) return;
             Conifers.SortFrom(lens);
             NearConifers.SortFrom(lens);
             FarConifers.SortFrom(lens);
             Broadleaves.SortFrom(lens);
         }
 
-        private void Select(bool fineMeshes)
+        private void Select(bool fineMeshes, Vector3 lens, bool camera)
         {
             ModelInstance[][] conifers = _scatter.ConifersAt(fineMeshes);
+            StandSpruces stand = _scatter.Stand;
+            bool swaps = camera && fineMeshes && stand != null && stand.Reaches(lens);
             for (int v = 0; v < conifers.Length; v++)
             {
-                ModelInstance[] bucket = conifers[v];
                 ModelInstance[] seen = Conifers.Items[v], near = NearConifers.Items[v], far = FarConifers.Items[v];
                 int n = 0, nn = 0, nf = 0;
                 BoundingSphere bounds = _coniferBounds[v];
+
+                ModelInstance[] bucket = conifers[v];
                 for (int i = 0; i < bucket.Length; i++)
                 {
                     if (!ForestScatterRenderer.Meets(_frustum, bounds, bucket[i].World)) continue;
                     seen[n++] = bucket[i];
                     if (!fineMeshes) continue;
-                    if (ForestScatterRenderer.WearsNearCrown(bucket[i].World.Translation, _focus)) near[nn++] = bucket[i];
+                    if (ForestScatterRenderer.WearsNearCrown(bucket[i].World.Translation, lens)) near[nn++] = bucket[i];
                     else far[nf++] = bucket[i];
                 }
+
+                //The far stand's spires the lens is within the swap of, as spruces (#1163): the backdrop draws none of them
+                if (swaps)
+                {
+                    ModelInstance[] spruces = stand.Spruces[v];
+                    for (int i = 0; i < spruces.Length; i++)
+                    {
+                        if (!StandSpruces.Swaps(spruces[i].World.M41, spruces[i].World.M43, lens)) continue;
+                        if (!ForestScatterRenderer.Meets(_frustum, bounds, spruces[i].World)) continue;
+                        seen[n++] = spruces[i];
+                        if (ForestScatterRenderer.WearsNearCrown(spruces[i].World.Translation, lens)) near[nn++] = spruces[i];
+                        else far[nf++] = spruces[i];
+                    }
+                }
+
                 Conifers.Counts[v] = n;
                 NearConifers.Counts[v] = nn;
                 FarConifers.Counts[v] = nf;
@@ -143,15 +156,17 @@ namespace Prazsky.Core.Render
             //Each instance's distance from the lens, squared, the sort's keys
             private readonly float[] _keys;
 
-            public Culled(ModelInstance[][] largest)
+            /// <summary>Room for each variant's <paramref name="largest"/> planting and, where given, its <paramref name="more"/>.</summary>
+            public Culled(ModelInstance[][] largest, ModelInstance[][] more = null)
             {
                 Items = new ModelInstance[largest.Length][];
                 Counts = new int[largest.Length];
                 int longest = 0;
                 for (int v = 0; v < largest.Length; v++)
                 {
-                    Items[v] = new ModelInstance[largest[v].Length];
-                    longest = Math.Max(longest, largest[v].Length);
+                    int length = largest[v].Length + (more != null ? more[v].Length : 0);
+                    Items[v] = new ModelInstance[length];
+                    longest = Math.Max(longest, length);
                 }
                 _keys = new float[longest];
             }
