@@ -65,20 +65,23 @@ namespace BS3D
         internal void CycleTouchSensitivity() => SetTouchSensitivity(NextSensitivityRung(_touchSensitivity));
 
         //The three sensitivity rows' − and + (#1151): a rung slower or faster, held at the ladder's ends
-        internal void StepSensitivity(int direction) => SetSensitivity(RowStep.OnRungs(SENSITIVITY_LADDER, _mouseSensitivity, direction));
-        internal void StepAimSensitivity(int direction) => SetAimSensitivity(RowStep.OnRungs(SENSITIVITY_LADDER, _aimSensitivity, direction));
-        internal void StepTouchSensitivity(int direction) => SetTouchSensitivity(RowStep.OnRungs(SENSITIVITY_LADDER, _touchSensitivity, direction));
-        internal bool CanStepSensitivity(int direction) => RowStep.OnRungs(SENSITIVITY_LADDER, _mouseSensitivity, direction) != _mouseSensitivity;
-        internal bool CanStepAimSensitivity(int direction) => RowStep.OnRungs(SENSITIVITY_LADDER, _aimSensitivity, direction) != _aimSensitivity;
-        internal bool CanStepTouchSensitivity(int direction) => RowStep.OnRungs(SENSITIVITY_LADDER, _touchSensitivity, direction) != _touchSensitivity;
+        internal void StepSensitivity(int direction) => SetSensitivity(RowStep.OnRungs(SensitivityLadder.Rungs, _mouseSensitivity, direction));
+        internal void StepAimSensitivity(int direction) => SetAimSensitivity(RowStep.OnRungs(SensitivityLadder.Rungs, _aimSensitivity, direction));
+        internal void StepTouchSensitivity(int direction) => SetTouchSensitivity(RowStep.OnRungs(SensitivityLadder.Rungs, _touchSensitivity, direction));
+        internal bool CanStepSensitivity(int direction) => RowStep.OnRungs(SensitivityLadder.Rungs, _mouseSensitivity, direction) != _mouseSensitivity;
+        internal bool CanStepAimSensitivity(int direction) => RowStep.OnRungs(SensitivityLadder.Rungs, _aimSensitivity, direction) != _aimSensitivity;
+        internal bool CanStepTouchSensitivity(int direction) => RowStep.OnRungs(SensitivityLadder.Rungs, _touchSensitivity, direction) != _touchSensitivity;
 
         /// <summary>
         /// The rung after <paramref name="rung"/>, wrapping at the top. -1 cannot happen while the constructor snaps the
         /// file's value onto the ladder, and +1 on it is still the first rung, so an unfindable value walks to the bottom
         /// rather than throwing.
         /// </summary>
-        private static float NextSensitivityRung(float rung) =>
-            SENSITIVITY_LADDER[(Array.IndexOf(SENSITIVITY_LADDER, rung) + 1) % SENSITIVITY_LADDER.Length];
+        private static float NextSensitivityRung(float rung)
+        {
+            ReadOnlySpan<float> rungs = SensitivityLadder.Rungs;
+            return rungs[(rungs.IndexOf(rung) + 1) % rungs.Length];
+        }
 
         private void SetSensitivity(float rung)
         {
@@ -145,7 +148,7 @@ namespace BS3D
             float best = 1f;
             float bestDistance = float.MaxValue;
 
-            foreach (float rung in SENSITIVITY_LADDER)
+            foreach (float rung in SensitivityLadder.Rungs)
             {
                 float distance = MathF.Abs(MathF.Log(stored / rung));
 
@@ -158,9 +161,9 @@ namespace BS3D
         internal void CycleSkyDome() => ChooseSkyDome((byte)(_skyDome == SKY_DOME_COUNT ? 1 : _skyDome + 1));
 
         /// <summary>The Sky row's − and + (#1151): the dome before or after, held at the first and the last.</summary>
-        internal void StepSkyDome(int direction) => ChooseSkyDome((byte)Math.Clamp(_skyDome + Math.Sign(direction), 1, SKY_DOME_COUNT));
+        internal void StepSkyDome(int direction) => ChooseSkyDome((byte)RowStep.InRange(_skyDome, 1, SKY_DOME_COUNT, direction));
 
-        internal bool CanStepSkyDome(int direction) => direction < 0 ? _skyDome > 1 : direction > 0 && _skyDome < SKY_DOME_COUNT;
+        internal bool CanStepSkyDome(int direction) => RowStep.InRange(_skyDome, 1, SKY_DOME_COUNT, direction) != _skyDome;
 
         private void ChooseSkyDome(byte dome)
         {
@@ -423,7 +426,8 @@ namespace BS3D
         {
             if (_renderLadder.Length == 0) return;
 
-            int next = RenderRungFrom(CurrentRenderRung, direction);
+            //The ladder is native first, largest down: OnRungs takes the nearest rung that way whatever the order
+            int next = RowStep.OnRungs(_renderLadder, CurrentRenderRung, direction);
             _renderHeight = next == _renderLadder[0] ? 0 : next;
             _renderHeightChosen = true;
 
@@ -431,23 +435,10 @@ namespace BS3D
         }
 
         internal bool CanStepRenderResolution(int direction) =>
-            _renderLadder.Length > 0 && RenderRungFrom(CurrentRenderRung, direction) != CurrentRenderRung;
+            _renderLadder.Length > 0 && RowStep.OnRungs(_renderLadder, CurrentRenderRung, direction) != CurrentRenderRung;
 
         //The rung the row stands on: the display's own (the ladder's first) when no height is set
         private int CurrentRenderRung => EffectiveRenderHeight > 0 ? EffectiveRenderHeight : _renderLadder[0];
-
-        /// <summary>The nearest rung above (<paramref name="direction"/> positive) or below <paramref name="height"/>, or itself at an end.</summary>
-        private int RenderRungFrom(int height, int direction)
-        {
-            int best = height;
-            foreach (int rung in _renderLadder)
-            {
-                bool way = direction > 0 ? rung > height : direction < 0 && rung < height;
-                if (way && (best == height || Math.Abs(rung - height) < Math.Abs(best - height))) best = rung;
-            }
-
-            return best;
-        }
 
         /// <summary>What every choice of the Resolution row does once the height is set: applied, said, written, and the probe re-opened.</summary>
         private void ApplyRenderChoice()

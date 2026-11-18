@@ -1,4 +1,6 @@
+using System;
 using BS3D.Screens;
+using Prazsky.Core;
 using Prazsky.Core.Render;
 using Xunit;
 
@@ -52,8 +54,6 @@ namespace BS3D.Tests
         public void TheBrightnessStepsARungEitherWayAndHoldsAtItsEnds(int percent, int direction, int expected) =>
             Assert.Equal(expected, RowStep.OnRungs(BrightnessLadder.Rungs, percent, direction));
 
-        private static readonly float[] SENSITIVITY = [0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f, 3f];
-
         [Theory]
         [InlineData(1f, -1, 0.75f)]
         [InlineData(1f, 1, 1.25f)]
@@ -62,8 +62,57 @@ namespace BS3D.Tests
         //A rung read back from a settings file a hair off itself is still that rung, not the one before it
         [InlineData(0.99999f, 1, 1.25f)]
         [InlineData(1.00001f, -1, 0.75f)]
+        //1.25 is the rung #477 added between 1 and 1.5: a step from either side lands on it, not past it
+        [InlineData(1.5f, -1, 1.25f)]
+        [InlineData(1.25f, 1, 1.5f)]
         public void ASensitivityStepsARungEitherWayAndHoldsAtItsEnds(float rung, int direction, float expected) =>
-            Assert.Equal(expected, RowStep.OnRungs(SENSITIVITY, rung, direction), 5);
+            Assert.Equal(expected, RowStep.OnRungs(SensitivityLadder.Rungs, rung, direction), 5);
+
+        [Fact]
+        public void TheSensitivityLadderIsWalkedEndToEndByItsPlusesAndBackByItsMinuses()
+        {
+            //Every rung reached from the bottom one + at a time, the top held, and back down the same way: the − and + ends
+            //cover the game's whole ladder and nothing else
+            ReadOnlySpan<float> rungs = SensitivityLadder.Rungs;
+            float at = rungs[0];
+            for (int i = 1; i < rungs.Length; i++)
+            {
+                at = RowStep.OnRungs(rungs, at, 1);
+                Assert.Equal(rungs[i], at);
+            }
+            Assert.Equal(at, RowStep.OnRungs(rungs, at, 1));
+
+            for (int i = rungs.Length - 2; i >= 0; i--)
+            {
+                at = RowStep.OnRungs(rungs, at, -1);
+                Assert.Equal(rungs[i], at);
+            }
+            Assert.Equal(at, RowStep.OnRungs(rungs, at, -1));
+        }
+
+        [Theory]
+        //The ladder stands native first, largest down (RenderResolution.Heights): + is a rung larger, − a rung smaller
+        [InlineData(1600, 1, 1600)]
+        [InlineData(1600, -1, 1330)]
+        [InlineData(1330, 1, 1600)]
+        [InlineData(1070, -1, 800)]
+        [InlineData(530, -1, 530)]
+        [InlineData(530, 1, 800)]
+        //A height off the ladder (a command line's or an old settings file's) steps onto the nearest rung that way
+        [InlineData(1000, 1, 1070)]
+        [InlineData(1000, -1, 800)]
+        public void TheResolutionStepsARungEitherWayAndHoldsAtNativeAndAtTheSmallest(int height, int direction, int expected) =>
+            Assert.Equal(expected, RowStep.OnRungs(RenderResolution.Heights(3840, 1600), height, direction));
+
+        [Theory]
+        [InlineData(1, -1, 1)]
+        [InlineData(1, 1, 2)]
+        [InlineData(5, -1, 4)]
+        [InlineData(SkyDome.Count, -1, SkyDome.Count - 1)]
+        //Held at the last dome, where the row's own press wraps round to the first
+        [InlineData(SkyDome.Count, 1, SkyDome.Count)]
+        public void TheSkyStepsADomeEitherWayAndHoldsAtTheFirstAndTheLast(int dome, int direction, int expected) =>
+            Assert.Equal(expected, RowStep.InRange(dome, 1, SkyDome.Count, direction));
 
         [Theory]
         //Less is less of what the tier draws: Potato under Low, though the row's own press comes to Potato after Ultra

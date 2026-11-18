@@ -12,43 +12,51 @@ namespace BS3D.Screens
     internal static class RowStep
     {
         /// <summary>
-        /// The rung one step from <paramref name="value"/> on <paramref name="rungs"/> (lowest first): the first rung above
-        /// it for a positive <paramref name="direction"/>, the last below it for a negative one, and <paramref name="value"/>
-        /// itself past the ladder's end. A value between two rungs (a command line's <c>exposure=1.0</c>, 91 %) steps onto
-        /// the ladder, as the row's own press does.
+        /// The rung one step from <paramref name="value"/> on <paramref name="rungs"/>, in whatever order they stand (the
+        /// brightness lowest first, the Resolution row's native first): the nearest rung above it for a positive
+        /// <paramref name="direction"/>, the nearest below it for a negative one, and <paramref name="value"/> itself past
+        /// the ladder's end. A value between two rungs (a command line's <c>exposure=1.0</c>, 91 %) steps onto the ladder,
+        /// as the row's own press does.
         /// </summary>
         internal static int OnRungs(ReadOnlySpan<int> rungs, int value, int direction)
         {
-            if (direction > 0)
+            int best = value;
+            foreach (int rung in rungs)
             {
-                foreach (int rung in rungs)
-                    if (rung > value) return rung;
-            }
-            else if (direction < 0)
-            {
-                for (int i = rungs.Length - 1; i >= 0; i--)
-                    if (rungs[i] < value) return rungs[i];
+                bool way = direction > 0 ? rung > value : direction < 0 && rung < value;
+                if (way && (best == value || Math.Abs(rung - value) < Math.Abs(best - value))) best = rung;
             }
 
-            return value;
+            return best;
         }
 
-        /// <summary><see cref="OnRungs(ReadOnlySpan{int}, int, int)"/> for a ladder of ratios (the sensitivities).</summary>
+        /// <summary>
+        /// <see cref="OnRungs(ReadOnlySpan{int}, int, int)"/> for a ladder of ratios (the sensitivities): a rung within
+        /// <see cref="EPSILON"/> of <paramref name="value"/> is the rung it stands on, not one to step to.
+        /// </summary>
         internal static float OnRungs(ReadOnlySpan<float> rungs, float value, int direction)
         {
-            if (direction > 0)
+            float best = value;
+            bool found = false;
+            foreach (float rung in rungs)
             {
-                foreach (float rung in rungs)
-                    if (rung > value + EPSILON) return rung;
-            }
-            else if (direction < 0)
-            {
-                for (int i = rungs.Length - 1; i >= 0; i--)
-                    if (rungs[i] < value - EPSILON) return rungs[i];
+                bool way = direction > 0 ? rung > value + EPSILON : direction < 0 && rung < value - EPSILON;
+                if (way && (!found || MathF.Abs(rung - value) < MathF.Abs(best - value)))
+                {
+                    best = rung;
+                    found = true;
+                }
             }
 
-            return value;
+            return best;
         }
+
+        /// <summary>
+        /// One step from <paramref name="value"/> along the whole numbers <paramref name="first"/> to <paramref name="last"/>
+        /// (the Sky row's domes), held at either end where the row's own press wraps round.
+        /// </summary>
+        internal static int InRange(int value, int first, int last, int direction) =>
+            Math.Clamp(value + Math.Sign(direction), first, last);
 
         /// <summary>
         /// A gain on a ladder of even steps from Off (0) to full (1), the volumes' and the rumble's: one

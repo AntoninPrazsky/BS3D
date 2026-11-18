@@ -39,7 +39,7 @@ namespace BS3D.Screens
     /// and not entries for the pad is the host's rule: a button with no action on its <c>Tag</c> is not walked.
     /// </para>
     /// <para>
-    /// <b>Every page stands in the same frame</b>: the page area is as tall as the tallest page and every page as wide as the tab row, its caption column filling what the value buttons leave (#770), so a
+    /// <b>Every page stands in the same frame</b>: the page area is as tall as the tallest page and, on a monitor, every page as wide as the tab row, its caption column filling what the value buttons leave (#770; on the phone layout the caption column and the values beside the rail, <see cref="BuildRailTree"/>), so a
     /// tab changes what the rows say and not where they, the plate's edge or Back stand. Still no scroller (<see cref="MenuPage.MenuScroll"/>):
     /// the pad can reach a row inside one since #245, but a page that fits needs none, and every page here fits.
     /// </para>
@@ -431,9 +431,9 @@ namespace BS3D.Screens
 
         /// <summary>
         /// The phone layout (#1151): the tabs down a rail at the plate's left with Back at its foot, and beside it the heading
-        /// and the rows, each a touch target tall (<see cref="MenuPage.PHONE_TARGET"/>) - they were 5.3 mm, the tabs 4.5 mm,
-        /// and 37 % of the width stood empty. ONLINE's note stands beside its rows rather than under them, where on a phone
-        /// it was a four-line scroller, and GAME's campaign pair beside its switches. The captions end at one seam on every
+        /// and the rows, each a touch target tall (<see cref="MenuPage.PHONE_TARGET"/>), the reading across the width rather
+        /// than scrolled. ONLINE's note stands beside its heading and rows rather than under them, unscrolled, and GAME's
+        /// campaign pair beside its switches. The captions end at one seam on every
         /// tab and the values start from it (#833), as on a monitor; on the tabs with nothing beside their rows the values
         /// reach across the width, with a cycling row's − and + at their ends where a touch screen answers.
         /// </summary>
@@ -753,7 +753,8 @@ namespace BS3D.Screens
             //thing it can say, set in BuildTree once the page's width is known (SizeOnlineNote), which also puts the list
             //in. The prose is set as prose (#806): the prose leading, the lines chosen by SpaceWrap. The gap above in true
             //pixels: ScaledThickness makes each zero side a pixel, and the list is cut to the area's width exactly. On the
-            //phone layout it stands beside the rows rather than under them (#1151, BuildRailTree), its top level with theirs
+            //phone layout it stands beside the heading and the rows rather than under them (#1151, BuildRailTree), from the
+            //top of the page, level with the heading
             _noteArea = new Panel
             {
                 HorizontalAlignment = HorizontalAlignment.Left,

@@ -613,25 +613,24 @@ namespace BS3D.Screens
 
         /// <summary>
         /// How wide the content beside a rail may be, in pixels at the layout in force (#1151): what is left of
-        /// <see cref="RAIL_PAGE_SHARE"/> of the screen's width once the plate's insets, the rail and the gutter have theirs.
+        /// <see cref="RAIL_ROOM"/> of the screen's width once the plate's insets, the rail and the gutter have theirs.
         /// </summary>
         protected int RailContentWidth(TabRow rail) =>
-            (int)(Game.GraphicsDevice.Viewport.Width * RAIL_PAGE_SHARE) - 2 * Scaled(RAIL_PLATE_PADDING_X) - rail.Width - Scaled(RAIL_GUTTER);
+            (int)(Game.GraphicsDevice.Viewport.Width * RAIL_ROOM) - 2 * Scaled(RAIL_PLATE_PADDING_X) - rail.Width - Scaled(RAIL_GUTTER);
 
         /// <summary>
-        /// The share of the screen's width a rail page's plate takes (#1151): nearly all of it, the owner's "it is widescreen,
-        /// so use the space at the sides too", and under <c>FitPage</c>'s own room (96 %) so it is never brought down for width.
+        /// The height the content beside a rail may take, in pixels at the layout in force (#1151): <see cref="RAIL_ROOM"/>
+        /// of the screen's less the plate's insets, so a page that keeps to it is not brought down.
         /// </summary>
-        private const float RAIL_PAGE_SHARE = 0.95f;
+        protected int RailContentHeight => (int)(Game.GraphicsDevice.Viewport.Height * RAIL_ROOM) - 2 * Scaled(RAIL_PLATE_PADDING_Y);
 
         /// <summary>
-        /// The height the content beside a rail may take, in pixels at the layout in force (#1151): the screen's less the
-        /// plate's insets and <c>FitPage</c>'s margin, so a page that keeps to it is not brought down.
+        /// The share of the screen's width and height a rail page takes (#1151): nearly all of it, the owner's "it is
+        /// widescreen, so use the space at the sides too", and a hundredth under <c>FitPage</c>'s own room
+        /// (<see cref="BS3DGame.FIT_ROOM"/>), so rounding in a font's size cannot tip a page that keeps to it over and have it
+        /// brought down.
         /// </summary>
-        protected int RailContentHeight => (int)(Game.GraphicsDevice.Viewport.Height * RAIL_FIT_ROOM) - 2 * Scaled(RAIL_PLATE_PADDING_Y);
-
-        //FitPage's room (BS3DGame.FIT_ROOM) less a little, so rounding in a font's size cannot tip a page that keeps to it over
-        private const float RAIL_FIT_ROOM = 0.95f;
+        private const float RAIL_ROOM = BS3DGame.FIT_ROOM - 0.01f;
 
         //The page's long part and the widget it stands in (#1052, ScrollsWhenTall), and the scroller it was put in once it was
         private Container _tallParent;
@@ -1016,7 +1015,7 @@ namespace BS3D.Screens
         /// answers the same on both; what each page shows under it, and what it does on a turn, is the page's own.
         /// <para>
         /// <b>Or a rail down the page's left side</b> (#1151, the phone layout, <see cref="RailPage"/>): the same tabs stacked,
-        /// each a touch target's height, with the page's Back at the rail's foot, so the height a row of tabs and a heading took
+        /// each a touch-sized tab (<c>RAIL_TAB_HEIGHT</c>), with the page's Back at the rail's foot and as tall, so the height a row of tabs and a heading took
         /// goes to the page. The tabs turn the same way (the rail is a row stood on end, and its order is the row's), and the
         /// shoulders' prompts stand beside its first and last tab rather than above and below it, where the height is not.
         /// </para>
@@ -1116,10 +1115,13 @@ namespace BS3D.Screens
                 VerticalStackPanel tabs = new() { Spacing = spacing, VerticalAlignment = VerticalAlignment.Top };
                 foreach (Button button in _tabs) tabs.Widgets.Add(button);
 
+                //The gap above the foot is its own top margin, and Myra counts a margin INSIDE an explicit height: the margin
+                //goes on top of the tabs' height, or it comes out of Back's slab and leaves it shorter than the tabs
+                int footGap = page.Scaled(RAIL_FOOT_GAP) - spacing;
                 foot.Width = tabWidth;
-                foot.Height = height;
+                foot.Height = height + footGap;
                 foot.HorizontalAlignment = HorizontalAlignment.Left;
-                foot.Margin = new Thickness(0, page.Scaled(RAIL_FOOT_GAP) - spacing, 0, 0);
+                foot.Margin = new Thickness(0, footGap, 0, 0);
                 tabs.Widgets.Add(foot);
 
                 Point free = new(int.MaxValue / 2, int.MaxValue / 2);
