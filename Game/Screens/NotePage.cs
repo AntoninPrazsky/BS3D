@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework.Input;
 using Myra.Graphics2D.TextureAtlases;
 using Myra.Graphics2D.UI;
 using System;
+using System.Collections.Generic;
 using System.Text;
 using System.Text.Json.Nodes;
 using HorizontalAlignment = Myra.Graphics2D.UI.HorizontalAlignment;
@@ -36,9 +37,9 @@ namespace BS3D.Screens
     /// </para>
     /// <para>
     /// <b>The line under the field speaks to the hand in use</b> (#1149, <see cref="NoteHint"/>): a finger's on a phone
-    /// (tap the field, then Send), the keys for a keyboard, and for a pad the keys with the sentence that it cannot type.
-    /// It follows the hand while the page stands, at a height measured for the tallest of its lines, so a hand picked up
-    /// does not move Send under the pointer or the finger.
+    /// (tap the field, then Send), the keys for a keyboard, a finger off the phone's included, and for a pad the keys with
+    /// the sentence that it cannot type. It follows the hand while the page stands, at a height measured for the tallest
+    /// of the lines this platform can show, so a hand picked up does not move Send under the pointer or the finger.
     /// </para>
     /// </summary>
     internal sealed class NotePage : MenuPage
@@ -246,15 +247,17 @@ namespace BS3D.Screens
             };
             field.Widgets.Add(_field);
             left.Widgets.Add(field);
-            //As tall as the tallest thing it can say, measured as it is laid out (#806's way), at the count's widest: the
-            //line changes with the hand and with the complaint, and Send under it must not move
+            //As tall as the tallest thing it can say here, measured as it is laid out (#806's way), at the count's widest:
+            //the line changes with the hand and with the complaint, and Send under it must not move. Only this platform's
+            //hands (NoteHint.HandsFor), so a phone keeps no row for the pad's longer line
             _hint = BodyLabel(string.Empty, BS3DGame.MENU_TEXT_DIM, ColumnWidth);
             _hint.VerticalAlignment = VerticalAlignment.Top;
-            _hint.Height = ProseHeight(_hint,
-                NoteHint.Line(NoteHint.Hand.Keyboard, OnlineNotes.MaxTextLength, OnlineNotes.MaxTextLength),
-                NoteHint.Line(NoteHint.Hand.Pad, OnlineNotes.MaxTextLength, OnlineNotes.MaxTextLength),
-                NoteHint.Line(NoteHint.Hand.Touch, OnlineNotes.MaxTextLength, OnlineNotes.MaxTextLength),
-                NoteHint.NOTHING_WRITTEN);
+            IReadOnlyList<NoteHint.Hand> hands = NoteHint.HandsFor(PhoneHand);
+            string[] hintLines = new string[hands.Count + 1];
+            for (int i = 0; i < hands.Count; i++)
+                hintLines[i] = NoteHint.Line(hands[i], OnlineNotes.MaxTextLength, OnlineNotes.MaxTextLength);
+            hintLines[hands.Count] = NoteHint.NOTHING_WRITTEN;
+            _hint.Height = ProseHeight(_hint, hintLines);
             left.Widgets.Add(_hint);
             left.Widgets.Add(_send = MenuButton("Send", Send));
             left.Widgets.Add(_back = BackButton());
@@ -333,8 +336,12 @@ namespace BS3D.Screens
             }
         }
 
-        //The hand the menus last saw, a phone's always a finger's (NoteHint.HandFor)
-        private NoteHint.Hand HintHand => NoteHint.HandFor(Game.PromptsForPad, Game.PromptsForTouch, BS3DGame.OnPhone);
+        //The hand the line speaks to, a phone's always a finger's (NoteHint.HandFor)
+        private NoteHint.Hand HintHand => NoteHint.HandFor(Game.PromptsForPad, PhoneHand);
+
+        //The phone, or the "touch" argument laying its hand out on a monitor: fixed for the run, so the hint's measured
+        //height and the line it shows agree
+        private bool PhoneHand => BS3DGame.OnPhone || Game.TouchPinned;
 
         private void ShowField()
         {

@@ -1,6 +1,7 @@
 using BS3D.Online;
 using BS3D.Screens;
 using System;
+using System.Collections.Generic;
 using Xunit;
 
 namespace BS3D.Tests
@@ -8,8 +9,9 @@ namespace BS3D.Tests
     /// <summary>
     /// #1149: on the phone the note page's line read "Enter sends. Shift+Enter starts a new line. … A pad cannot type." -
     /// a keyboard's words on a touch screen, where the note is typed through the phone's dialog and sent with the page's
-    /// button. Held here: which hand each set of flags gets (a phone always a finger's, elsewhere the menus' last hand,
-    /// the pad first), and that each hand's line names its own way of typing and sending and no other's.
+    /// button. Held here: which hand each set of flags gets (a phone always a finger's, elsewhere the pad if last seen and
+    /// otherwise the keyboard), that the height is measured for exactly those, and that each hand's line names its own
+    /// way of typing and sending and no other's.
     /// </summary>
     public class NoteHintTests
     {
@@ -17,16 +19,30 @@ namespace BS3D.Tests
 
         [Theory]
         //A phone types only through its dialog, whatever the menus last saw
-        [InlineData(false, false, true, "Touch")]
-        [InlineData(true, false, true, "Touch")]
-        [InlineData(false, true, true, "Touch")]
-        //Elsewhere the last hand, the pad first
-        [InlineData(true, false, false, "Pad")]
-        [InlineData(true, true, false, "Pad")]
-        [InlineData(false, true, false, "Touch")]
-        [InlineData(false, false, false, "Keyboard")]
-        public void Each_hand_gets_its_line(bool promptsForPad, bool promptsForTouch, bool onPhone, string expected) =>
-            Assert.Equal(expected, NoteHint.HandFor(promptsForPad, promptsForTouch, onPhone).ToString());
+        [InlineData(false, true, "Touch")]
+        [InlineData(true, true, "Touch")]
+        //Elsewhere the pad if it was last seen, otherwise the keyboard's - a finger's too, since a tap on the field opens
+        //nothing off the phone: HandFor is not even told about a finger there
+        [InlineData(true, false, "Pad")]
+        [InlineData(false, false, "Keyboard")]
+        public void Each_hand_gets_its_line(bool promptsForPad, bool phoneHand, string expected) =>
+            Assert.Equal(expected, NoteHint.HandFor(promptsForPad, phoneHand).ToString());
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void The_height_is_measured_for_every_line_the_platform_shows_and_no_other(bool phoneHand)
+        {
+            //The hint's height is the tallest of HandsFor's lines: one HandFor cannot give is a row a phone keeps empty,
+            //one it can give and HandsFor misses is Send moving when that hand is picked up
+            var given = new SortedSet<NoteHint.Hand>
+            {
+                NoteHint.HandFor(promptsForPad: false, phoneHand),
+                NoteHint.HandFor(promptsForPad: true, phoneHand),
+            };
+
+            Assert.Equal(given, new SortedSet<NoteHint.Hand>(NoteHint.HandsFor(phoneHand)));
+        }
 
         [Fact]
         public void A_finger_is_told_to_tap_the_field_and_Send_and_no_key()
