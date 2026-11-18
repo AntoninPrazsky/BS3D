@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-18 — #1147 první snímek a dekódování hudby — Pi (BS3DServer), Claude Code
+
+- Hotovo, sloučeno: další nahrávka rodiny se dekóduje až po té hrající, ne souběžně (`GameMusic.Advance`). Na Pi je hudba úrovně připravená 0,76–0,86 s po sestavení místo 1,07–1,30 s.
+- Příčina #1147: v `play` spuštění kreslí první snímek ~100 ms CPU a sdílí jádra s až šesti dekódováními OGG (menu, pauza, úroveň); #1146 jen odstranilo 1,2 s, které je schovávalo. Z menu je první snímek úrovně 25–46 ms v obou verzích.
+- majitel: varianta (a) ze čtyř.
+- ⚠ CPU vláken přes `/proc/self/task/*/schedstat` ukáže, jestli hlavní vlákno pracuje, nebo čeká; .NET `ThreadPriority` na Linuxu nic nedělá.
+
 ## 2026-11-15 — #1149 řádek pod polem vzkazu podle ruky — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: `NoteHint` (čistá funkce) volí řádek pod polem vzkazu. Na telefonu (nebo s `touch`) „Tap the field to type, then tap Send. N / 1000.“, s klávesnicí Enter/Shift+Enter bez věty o padu, s padem starý řádek beze změny. Výška řádku je pevná, změřená jen pro řádky, které platforma umí ukázat, takže Send se při změně ruky ani při stížnosti „Write something first.“ nehne. 12 testů v `NoteHintTests`, viděné selhat.
