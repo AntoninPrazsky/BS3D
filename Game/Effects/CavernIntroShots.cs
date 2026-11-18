@@ -5,10 +5,11 @@ using System;
 namespace BS3D.Effects
 {
     /// <summary>
-    /// The cavern's own shots for a chapter intro's prologue (#559, re-authored for the rebuilt hall in #958): the hall from
-    /// high on one side, a glide low over the black lake onto a glowing crystal cluster, an arc round a shaft of light
-    /// falling through the vault, and the island from underneath over its own reflection — cut together, then cut to the tour's last
-    /// leg. One concrete thing a shot, as the owner asked of every prologue.
+    /// The cavern's own shots for a chapter intro's prologue (#559, re-authored for the rebuilt hall in #958): a push out of
+    /// a passage off the hall (#984; the hall from high on one side where none clears), an arc round a shaft of light falling
+    /// through the vault, a glide low over the black lake onto a glowing crystal cluster, and the island from underneath over
+    /// its own reflection — cut together, then cut to the tour's last leg. One concrete thing a shot, as the owner asked of
+    /// every prologue.
     /// <para>
     /// <b>Everything is placed against the hall itself</b> (<see cref="CavernChamber"/>, the CPU geometry the backdrop
     /// draws), and every lens path is checked against it before it is used: a shot rolls its place and keeps it only if
@@ -89,14 +90,22 @@ namespace BS3D.Effects
             return Build(scenes.CavernChamber, fieldOfView, random);
         }
 
-        /// <summary>The prologue against a hall, with no renderer: what the tests fly.</summary>
-        internal static IntroShot[] Build(CavernChamber chamber, float fieldOfView, Random random) => new[]
+        /// <summary>
+        /// The prologue against a hall, with no renderer: what the tests fly. The passage (or the hall), the shaft, the crystals
+        /// and the underside, so the kinds of picture alternate (#1160, the owner: "now two similar ones came right after each
+        /// other"): the passage and the crystals are both level glides a few units over the lake with a cluster and the island
+        /// ahead, and cut together they read as one shot, however far apart they stand; the shaft's look up the beam stands
+        /// between them. Rolled in the order they always were, the crystals before the shaft, so a seed flies the same four
+        /// shots and the session's rolls after the prologue are what they were.
+        /// </summary>
+        internal static IntroShot[] Build(CavernChamber chamber, float fieldOfView, Random random)
         {
-            Passage(chamber, fieldOfView) ?? Hall(chamber, fieldOfView, random),
-            Crystals(chamber, fieldOfView, random),
-            Shaft(chamber, fieldOfView, random),
-            Underside(chamber, random),
-        };
+            IntroShot opening = Passage(chamber, fieldOfView) ?? Hall(chamber, fieldOfView, random);
+            IntroShot crystals = Crystals(chamber, fieldOfView, random);
+            IntroShot shaft = Shaft(chamber, fieldOfView, random);
+            IntroShot underside = Underside(chamber, random);
+            return new[] { opening, shaft, crystals, underside };
+        }
 
         /// <summary>Whether every point of <paramref name="path"/> stands clear of the hall by <paramref name="margin"/>.</summary>
         internal static bool Clear(CavernChamber chamber, Vector3[] path, float margin)
