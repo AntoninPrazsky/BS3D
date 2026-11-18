@@ -115,7 +115,7 @@ The Raspberry Pi build greets a new player with a personal note before anything 
 
 ## The level picker fits the frame's aspect (#496)
 
-The menu scales by height (`MENU_DESIGN_HEIGHT`), so the picker kept the same share of the frame's height at every aspect and read as a tall narrow block on a 2.4:1 monitor. `LevelSelectPage.Fit` shrinks the page's geometry (tile widths, pips, arrows, spacing, the header's width) by 16:9 over the frame's aspect, clamped to 0.7–1: exactly 1 at 16:9 and 16:10.
+The menu scales by height (`MENU_DESIGN_HEIGHT`), so the picker kept the same share of the frame's height at every aspect and read as a tall narrow block on a 2.4:1 monitor. `LevelSelectPage.Fit` shrinks the page's geometry (tile widths, pips, arrows, spacing, the header's width) by 16:9 over the frame's aspect, clamped to 0.7–1: exactly 1 at 16:9 and 16:10. **Not on the phone's layout** (an enlarged interface, #1152): there `Fit` returns its design units, the band and the side panel take the screen's height anyway, and no detail line is built (the panel says it); see [the level picker on a phone](level-picker-and-result.md#on-a-phone-the-selected-level-in-a-side-panel-1152).
 
 **The rule: what is font-bound keeps the font's size, and `Fit` touches nothing that wraps a glyph.**
 

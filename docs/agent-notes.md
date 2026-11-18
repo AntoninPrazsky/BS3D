@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1152 výběr úrovně na telefonu s bočním panelem — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: při `UiScale > 1` má výběr úrovně vedle pásu boční panel vybrané úrovně (číslo, hvězdy, nejlepší, pravidla nebo zámek, místo a #1 obou žebříčků, tlačítko Play 9 mm). První ťuknutí prstem jen vybírá, druhé nebo Play spouští (`PickerTap.OnTile`); myš, klávesy a pad spouštějí hned. Výběr přežije návrat ze stránky (`SelectionOnShow`). Dlaždice 14,4 mm, pipy 5,1 × 6,9 mm. Oprava i pro desktop: zamčené dlaždice po otočení kapitoly drží svůj odstín. Argument `picktap=`.
+- ⚠ Myra posílá `TouchDown` i zakázanému widgetu a na mobilu nevyvolá žádné myší události — hover tam prst nevybírá.
+- Otevřené: verdict-hands na vivu (ťuknout–ťuknout bez nápovědy), zamčená dlaždice skutečným prstem, skutečné žebříčky v panelu.
+
 ## 2026-11-15 — #1148 rozpis skóre se vejde do desky i na telefonu — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: čistá třída `BreakdownLayout` klade celou mřížku; řádky dál lícují se sloupcem (#1073), poznámka o další hvězdě má vlastní místo (`NoteRoom`). Na monitoru smí deska růst až na `BOARD_COLUMN_GAP` od desky žebříčků (16:9 a širší beze změny); na telefonu se poznámka láme u čárky (ostatní mezery v `NextStarNote` nezlomitelné), na 4:3 a 5:4 zůstane na řádku menší (min. `MIN_NOTE_SCALE` 0,7). `BoardLayout.Place` sdílí stránka i test.

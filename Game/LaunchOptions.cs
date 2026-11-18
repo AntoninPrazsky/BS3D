@@ -250,6 +250,10 @@ namespace BS3D
         //1-based. Null means absent.
         internal string PickFocus { get; private set; }
 
+        //Testing only: a finger's taps on the picker's tiles (#1152), "<level>@<seconds>[,<level>@<seconds>...]", the levels
+        //1-based. Null means absent.
+        internal string PickTap { get; private set; }
+
         //Testing only: open the About page at boot, with "about=play" start its player (#443) on the player's page (the
         //last), with "about=<n>" on its nth page (#807), "about=2:play" both. Null means the argument was absent; empty
         //means the first page alone.
@@ -757,6 +761,9 @@ namespace BS3D
             //tile's own MouseEntered: the plate of online boards beside the band follows the pointer, and a script can
             //neither move the Game's pointer nor press a key in it. On "shot="'s clock.
             Row.Text("pickfocus", (o, v) => o.PickFocus = v),
+            //"picktap=<level>@<s>[,...]" taps the picker's tiles with a finger at those wall-clock seconds (#1152): on the
+            //phone's layout a first tap selects and a second starts, which no script could otherwise show without a phone
+            Row.Text("picktap", (o, v) => o.PickTap = v),
             //"about" puts the About page up at boot and "about=play" starts its player of the original score
             //(#443), on the player's page — pick's reasoning, plus the press a visualizer needs before there is anything
             //to see. "about=<n>" opens it on that page (#807), help=<n>'s reasoning: the page turns behind an arrow no
