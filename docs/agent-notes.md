@@ -41,10 +41,10 @@ Pravidla:
 
 ## 2026-11-18 — #1154–#1176 poznámky majitele ke scénám a About založeny (jen zakládání) — desktop (RDT-PC), Claude Code
 
-- Hotovo: 23 issues, jedna na poznámku (Sea dělí čtyři, Space tři, Forest dva, Grid dva, Savanna dva): About > Privacy štítky #1154, lana a navijáky stropu #1155, savana #1156 #1157, poušť #1158, hory #1159, jeskyně #1160, Grid #1161 #1162, záře #1163, sopka #1164, les #1165 #1166, Mars #1167, polár #1168 (moaré, `priority-now`), moře #1169–#1172, vesmír #1173–#1175, Outback jako druhý kandidát nové kapitoly #1176 (`parked`, vedle #1113). Komentáře: #1145, #1113, #1034, #896.
-- Postup: tři čtecí agenti na Sonnetu (kamery, vzhled, moře a vesmír) vrátili file:line, konstanty a jména, kterým jsem u nosných tvrzení ověřil řádky; čísla, která agenti spočítali sami (sytost moře, pokrytí mraky a krátery, pixely jiskření), jsou v issues označena „computed“.
-- ⚠ Co kód ukazuje a co ne: z-fighting plošin #1169 je vidět ve zdroji (horní paluba a moduly sdílejí roviny z=+24 a z=-28), ale příčinu moaré #1168 a klipování stromu #1156 kód neukazuje, issues žádají nejdřív měření.
-- Otevřené: poznámka k Grid zatáčení (#1162) si odporuje (příliš často × menší interval); vzal jsem „příliš často“ a ptám se. Nic nebylo sestaveno ani nasnímáno.
+- Hotovo: 23 issues, jedna na poznámku (moře 4, vesmír 3, les, Grid a savana po dvou): About #1154, lana stropu #1155, savana #1156 #1157, poušť #1158, hory #1159, jeskyně #1160, Grid #1161 #1162, záře #1163, sopka #1164, les #1165 #1166, Mars #1167, polár #1168, moře #1169–#1172, vesmír #1173–#1175, Outback #1176 (`parked`, vedle #1113). Komentáře: #1145, #1113, #1034, #896.
+- ⚠ Kód ukazuje jen příčinu z-fightingu plošin #1169 (paluba a moduly sdílejí roviny z=+24 a z=-28); moaré #1168 a klipování stromu #1156 ne, issues žádají nejdřív měření. Čísla, která spočítal agent, jsou v issues označena „computed“.
+- majitel (téhož dne): scény bez kapitoly (moře, les, Outback, Tropical, Mars, bouře, polár) mají nízkou prioritu: štítek `priority-low` (po nezaštítkovaných) na #1165–#1172, #1168 přišel o `priority-now`; pravidlo v CLAUDE.md. Motorky mají zatáčet méně často (#1162 potvrzeno).
+- Nic nebylo sestaveno ani nasnímáno.
 
 ## 2026-11-18 — #1147 první snímek a dekódování hudby — Pi (BS3DServer), Claude Code
 
