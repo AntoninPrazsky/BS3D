@@ -560,16 +560,33 @@ namespace BS3D
         /// drawn through the Raspberry Pi's renderer from the next start, and the desktop path applies its preset meanwhile.
         /// A tier picked here is the tier's own look, so the scenery comes back on with it.
         /// </summary>
-        internal void CycleQuality()
+        internal void CycleQuality() => ChooseQuality(0);
+
+        /// <summary>
+        /// The Quality row's − and + (#1151): a tier less or more in what it draws (<see cref="QualityLevels.StepOnLadder"/>),
+        /// held at Potato and at the top, and otherwise exactly what the row's own press does with the tier it lands on.
+        /// </summary>
+        internal void StepQuality(int direction) => ChooseQuality(direction);
+
+        internal bool CanStepQuality(int direction) =>
+            !IsQualityLocked && QualityOnRow.StepOnLadder(direction) != QualityOnRow;
+
+        //The tier the row stands on: on a Potato run the player chose, the one stored for the next start
+        private QualityLevel QualityOnRow => PotatoPath ? _settings.Quality ?? QualityLevel.Potato : _quality;
+
+        /// <param name="direction">0 for the row's own press, the next tier on the row (wrapping); −1 or +1 for its − and +.</param>
+        private void ChooseQuality(int direction)
         {
             //The row reads the locked tier and does nothing (#788): GamePi's Potato is not the player's to step
             if (IsQualityLocked) return;
+
+            QualityLevel next = direction == 0 ? QualityOnRow.NextOnRow() : QualityOnRow.StepOnLadder(direction);
 
             //A Potato run the player chose (#808) cannot change its renderer while it runs: the next tier is stored for the
             //next start, and the row says "(restart)" until then
             if (PotatoPath)
             {
-                _settings.Quality = (_settings.Quality ?? QualityLevel.Potato).NextOnRow();
+                _settings.Quality = next;
                 _settings.Scenery = null;
                 _settings.AdaptiveQuality = false;
                 SaveSettings();
@@ -578,7 +595,7 @@ namespace BS3D
             }
 
             _settings.Scenery = null;
-            ApplyQuality(_quality.NextOnRow());
+            ApplyQuality(next);
 
             //The player has now said what they want, so the adaptive path stops second-guessing them — and the
             //notice about what it did has been answered and goes away. Marked as pinned, so a later fullscreen

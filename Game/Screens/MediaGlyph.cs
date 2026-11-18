@@ -26,7 +26,7 @@ namespace BS3D.Screens
     /// </summary>
     internal sealed class MediaGlyph : Widget
     {
-        internal enum Symbol : byte { Play, Pause, Next, Previous, Back }
+        internal enum Symbol : byte { Play, Pause, Next, Previous, Back, Minus, Plus }
 
         /// <summary>Which symbol is drawn; a page sets it as the player's state changes.</summary>
         public Symbol Shape { get; set; }
@@ -112,6 +112,27 @@ namespace BS3D.Screens
                     FlatBrush.Fill(context, new Rectangle(left, top, bar, h), tint);
                     Triangle(context, left + bar, top, h, width, tint, pointsRight: false);
                     Triangle(context, left + bar + (int)MathF.Round(width), top, h, width, tint, pointsRight: false);
+                    break;
+                }
+
+                case Symbol.Minus:
+                case Symbol.Plus:
+                {
+                    //A Settings row's − and + ends (#1151): a bar a sixth of the cap height thick and as long as it is tall,
+                    //centred on the slab, and for + a second one across it. Anton's own − and + stand an x-height tall and
+                    //read as small print on a slab this size
+                    int bar = Math.Max(2, (int)MathF.Round(h / 6f));
+                    int across = top + (h - bar) / 2;
+                    int left = centreX - h / 2;
+                    FlatBrush.Fill(context, new Rectangle(left, across, h, bar), tint);
+
+                    //The upright in two halves round the bar, so no pixel is laid twice under a tint that is not opaque
+                    if (Shape == Symbol.Plus)
+                    {
+                        int x = left + (h - bar) / 2;
+                        FlatBrush.Fill(context, new Rectangle(x, top, bar, across - top), tint);
+                        FlatBrush.Fill(context, new Rectangle(x, across + bar, bar, top + h - across - bar), tint);
+                    }
                     break;
                 }
             }

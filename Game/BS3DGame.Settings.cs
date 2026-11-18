@@ -1,4 +1,5 @@
 using BS3D.Audio;
+using BS3D.Screens;
 using Prazsky.Core.Render;
 using Prazsky.Core.Tools;
 using System;
@@ -23,9 +24,17 @@ namespace BS3D
         /// <see cref="BrightnessLadder"/>). A command-line exposure can start anywhere (<c>exposure=1.0</c> is 91 %), and
         /// from there the next click lands on 100, so the row is back on its ladder after one.
         /// </summary>
-        internal void CycleExposure()
+        internal void CycleExposure() => SetBrightness(BrightnessLadder.NextAbove(BrightnessPercent));
+
+        /// <summary>The Brightness row's − and + (#1151): a rung dimmer or brighter, held at the ladder's ends.</summary>
+        internal void StepExposure(int direction) => SetBrightness(RowStep.OnRungs(BrightnessLadder.Rungs, BrightnessPercent, direction));
+
+        internal bool CanStepExposure(int direction) =>
+            RowStep.OnRungs(BrightnessLadder.Rungs, BrightnessPercent, direction) != BrightnessPercent;
+
+        private void SetBrightness(int percent)
         {
-            _exposure = BrightnessLadder.ExposureOf(BrightnessLadder.NextAbove(BrightnessPercent));
+            _exposure = BrightnessLadder.ExposureOf(percent);
 
             //The Potato path (#789) has no resolve: each of its effects takes the exposure itself
             if (PotatoPath) ApplyPotatoExposure();
@@ -47,13 +56,36 @@ namespace BS3D
         /// paused behind this page.
         /// </para>
         /// </summary>
-        internal void CycleSensitivity()
-        {
-            int rung = Array.IndexOf(SENSITIVITY_LADDER, _mouseSensitivity);
+        internal void CycleSensitivity() => SetSensitivity(NextSensitivityRung(_mouseSensitivity));
 
-            //-1 cannot happen while the constructor snaps the file's value onto the ladder, and +1 on it is
-            //still the first rung — so an unfindable value walks to the bottom rather than throwing
-            _mouseSensitivity = SENSITIVITY_LADDER[(rung + 1) % SENSITIVITY_LADDER.Length];
+        /// <summary>The lean's own rung (#497), walked exactly as <see cref="CycleSensitivity"/> walks the general one.</summary>
+        internal void CycleAimSensitivity() => SetAimSensitivity(NextSensitivityRung(_aimSensitivity));
+
+        /// <summary>The touch screen's rung (#1051), walked as <see cref="CycleSensitivity"/> walks the mouse's.</summary>
+        internal void CycleTouchSensitivity() => SetTouchSensitivity(NextSensitivityRung(_touchSensitivity));
+
+        //The three sensitivity rows' − and + (#1151): a rung slower or faster, held at the ladder's ends
+        internal void StepSensitivity(int direction) => SetSensitivity(RowStep.OnRungs(SensitivityLadder.Rungs, _mouseSensitivity, direction));
+        internal void StepAimSensitivity(int direction) => SetAimSensitivity(RowStep.OnRungs(SensitivityLadder.Rungs, _aimSensitivity, direction));
+        internal void StepTouchSensitivity(int direction) => SetTouchSensitivity(RowStep.OnRungs(SensitivityLadder.Rungs, _touchSensitivity, direction));
+        internal bool CanStepSensitivity(int direction) => RowStep.OnRungs(SensitivityLadder.Rungs, _mouseSensitivity, direction) != _mouseSensitivity;
+        internal bool CanStepAimSensitivity(int direction) => RowStep.OnRungs(SensitivityLadder.Rungs, _aimSensitivity, direction) != _aimSensitivity;
+        internal bool CanStepTouchSensitivity(int direction) => RowStep.OnRungs(SensitivityLadder.Rungs, _touchSensitivity, direction) != _touchSensitivity;
+
+        /// <summary>
+        /// The rung after <paramref name="rung"/>, wrapping at the top. -1 cannot happen while the constructor snaps the
+        /// file's value onto the ladder, and +1 on it is still the first rung, so an unfindable value walks to the bottom
+        /// rather than throwing.
+        /// </summary>
+        private static float NextSensitivityRung(float rung)
+        {
+            ReadOnlySpan<float> rungs = SensitivityLadder.Rungs;
+            return rungs[(rungs.IndexOf(rung) + 1) % rungs.Length];
+        }
+
+        private void SetSensitivity(float rung)
+        {
+            _mouseSensitivity = rung;
 
             _settings.Sensitivity = _mouseSensitivity;
             SaveSettings();
@@ -61,11 +93,9 @@ namespace BS3D
             _settingsPage.Refresh();
         }
 
-        /// <summary>The lean's own rung (#497), walked exactly as <see cref="CycleSensitivity"/> walks the general one.</summary>
-        internal void CycleAimSensitivity()
+        private void SetAimSensitivity(float rung)
         {
-            int rung = Array.IndexOf(SENSITIVITY_LADDER, _aimSensitivity);
-            _aimSensitivity = SENSITIVITY_LADDER[(rung + 1) % SENSITIVITY_LADDER.Length];
+            _aimSensitivity = rung;
 
             _settings.AimSensitivity = _aimSensitivity;
             SaveSettings();
@@ -73,11 +103,9 @@ namespace BS3D
             _settingsPage.Refresh();
         }
 
-        /// <summary>The touch screen's rung (#1051), walked as <see cref="CycleSensitivity"/> walks the mouse's.</summary>
-        internal void CycleTouchSensitivity()
+        private void SetTouchSensitivity(float rung)
         {
-            int rung = Array.IndexOf(SENSITIVITY_LADDER, _touchSensitivity);
-            _touchSensitivity = SENSITIVITY_LADDER[(rung + 1) % SENSITIVITY_LADDER.Length];
+            _touchSensitivity = rung;
 
             _settings.TouchSensitivity = _touchSensitivity;
             SaveSettings();
@@ -120,7 +148,7 @@ namespace BS3D
             float best = 1f;
             float bestDistance = float.MaxValue;
 
-            foreach (float rung in SENSITIVITY_LADDER)
+            foreach (float rung in SensitivityLadder.Rungs)
             {
                 float distance = MathF.Abs(MathF.Log(stored / rung));
 
@@ -130,9 +158,16 @@ namespace BS3D
             return best;
         }
 
-        internal void CycleSkyDome()
+        internal void CycleSkyDome() => ChooseSkyDome((byte)(_skyDome == SKY_DOME_COUNT ? 1 : _skyDome + 1));
+
+        /// <summary>The Sky row's − and + (#1151): the dome before or after, held at the first and the last.</summary>
+        internal void StepSkyDome(int direction) => ChooseSkyDome((byte)RowStep.InRange(_skyDome, 1, SKY_DOME_COUNT, direction));
+
+        internal bool CanStepSkyDome(int direction) => RowStep.InRange(_skyDome, 1, SKY_DOME_COUNT, direction) != _skyDome;
+
+        private void ChooseSkyDome(byte dome)
         {
-            SetSkyDome((byte)(_skyDome == SKY_DOME_COUNT ? 1 : _skyDome + 1));
+            SetSkyDome(dome);
 
             _settings.SkyDome = _skyDome;
             SaveSettings();
@@ -176,6 +211,38 @@ namespace BS3D
         internal void CycleRumbleStrength()
         {
             _effective.RumbleStrength = NextVolume(_effective.RumbleStrength);
+            OnVolumeRowChanged();
+        }
+
+        //The same five rows' − and + (#1151): a quarter quieter or louder (or weaker or stronger), held at Off and at full,
+        //where the row's own press wraps from Off to full
+        internal void StepMasterVolume(int direction)
+        {
+            _effective.MasterVolume = RowStep.Gain(_effective.MasterVolume, VOLUME_STEP, direction);
+            OnVolumeRowChanged();
+        }
+
+        internal void StepSfxVolume(int direction)
+        {
+            _effective.SfxVolume = RowStep.Gain(_effective.SfxVolume, VOLUME_STEP, direction);
+            OnVolumeRowChanged();
+        }
+
+        internal void StepMusicVolume(int direction)
+        {
+            _effective.MusicVolume = RowStep.Gain(_effective.MusicVolume, VOLUME_STEP, direction);
+            OnVolumeRowChanged();
+        }
+
+        internal void StepAmbienceVolume(int direction)
+        {
+            _effective.AmbienceVolume = RowStep.Gain(_effective.AmbienceVolume, VOLUME_STEP, direction);
+            OnVolumeRowChanged();
+        }
+
+        internal void StepRumbleStrength(int direction)
+        {
+            _effective.RumbleStrength = RowStep.Gain(_effective.RumbleStrength, VOLUME_STEP, direction);
             OnVolumeRowChanged();
         }
 
@@ -324,7 +391,7 @@ namespace BS3D
         {
             if (_renderLadder.Length == 0) return;
 
-            int current = EffectiveRenderHeight > 0 ? EffectiveRenderHeight : _renderLadder[0];
+            int current = CurrentRenderRung;
             int next = RenderResolution.Next(_renderLadder, current);
 
             if (IsResolutionAutomatic)
@@ -347,6 +414,35 @@ namespace BS3D
                 _renderHeightChosen = true;
             }
 
+            ApplyRenderChoice();
+        }
+
+        /// <summary>
+        /// The Resolution row's − and + (#1151): a rung smaller or larger, held at the smallest and at native. Always the
+        /// player's choice, from Auto as well, as the row's own first press from Auto is; Auto itself is reached only by
+        /// that press, past the ladder's bottom.
+        /// </summary>
+        internal void StepRenderResolution(int direction)
+        {
+            if (_renderLadder.Length == 0) return;
+
+            //The ladder is native first, largest down: OnRungs takes the nearest rung that way whatever the order
+            int next = RowStep.OnRungs(_renderLadder, CurrentRenderRung, direction);
+            _renderHeight = next == _renderLadder[0] ? 0 : next;
+            _renderHeightChosen = true;
+
+            ApplyRenderChoice();
+        }
+
+        internal bool CanStepRenderResolution(int direction) =>
+            _renderLadder.Length > 0 && RowStep.OnRungs(_renderLadder, CurrentRenderRung, direction) != CurrentRenderRung;
+
+        //The rung the row stands on: the display's own (the ladder's first) when no height is set
+        private int CurrentRenderRung => EffectiveRenderHeight > 0 ? EffectiveRenderHeight : _renderLadder[0];
+
+        /// <summary>What every choice of the Resolution row does once the height is set: applied, said, written, and the probe re-opened.</summary>
+        private void ApplyRenderChoice()
+        {
             ApplyRenderResolution();
             Console.WriteLine($"[resolution] {(IsResolutionAutomatic ? "Auto" : "Chosen")}: the 3D at {_renderSize.X}x{_renderSize.Y}");
 
