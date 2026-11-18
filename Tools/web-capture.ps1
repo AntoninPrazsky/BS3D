@@ -8,8 +8,10 @@
     (docs/game-session/controls-and-testing.md, "Capture"), then encodes the numbered frames it wrote.
 
     Capture mode steps a FIXED amount of game time a rendered frame (-Fps, 60 by default), so frame n is the world at n/Fps
-    seconds however long a frame took to render and write, and the same arguments make the same clip. It draws no HUD and has no
-    FPS line, takes no input, and films a stated camera (-CamPos, -CamTarget, -Fov, or a keyframed -CamPath) if there is one.
+    seconds however long a frame took to render and write, and the same arguments make the same clip. It draws no HUD (unless -Hud)
+    and has no FPS line, takes no input, and films a stated camera (-CamPos, -CamTarget, -Fov, or a keyframed -CamPath) if there is
+    one. -Size films frames of their own size whatever the window's (#1177): the trailer's 4K footage, with -Quality Ultra, -Hud,
+    -NoGrain and -Master.
     The window is 16:9 and not fullscreen (the HUD is laid out to the window's edges; docs/website.md says what a cut-down
     fullscreen cost the gallery), and the run uses a scratch profile (userdata=) of its own, so it never touches your save and
     never reaches the online boards. It is started without taking the keyboard focus: type as you like while it runs.
@@ -44,7 +46,31 @@
 
 .PARAMETER Width
 .PARAMETER Height
-    The window's size, which is the frame's. By default the largest of 1920x1080, 1600x900 and 1280x720 the display's working area holds.
+    The window's size, which is the frame's unless -Size says otherwise. By default the largest of 1920x1080, 1600x900 and 1280x720 the
+    display's working area holds; with -Size, the Game's own preview of the frames (1280x720 for 16:9).
+
+.PARAMETER Size
+    The frames' own size, whatever the window's (#1177): '3840x2160' films 16:9 4K out of the desktop's 21:9 panel or a laptop. The Game
+    makes its back buffer that size and shows it scaled down in the window. Both sides even, at most 16384, and the scene (the size times
+    the tier's supersample) at most 16384 a side too: the Game refuses anything else before a window opens.
+
+.PARAMETER Quality
+    The detail tier, High by default. Ultra draws the scene at twice the frame's size each way and filters it down (four samples a
+    pixel; the pipeline drops MSAA above a supersample of 1): with -Size 3840x2160 that is an 8K scene in a 4K frame, the trailer's
+    footage. -GameArgs 'ssaa=3' or 'ssaa=4' draws more samples still (11520x6480, 15360x8640), at that many times the pixels.
+
+.PARAMETER Hud
+    Draw the HUD of play (the score, the chips, the strip, the crosshair), which a capture leaves out otherwise: the game as a player
+    sees it. The menus stay out, and so do the tutorial's cards and a tour's skip hint.
+
+.PARAMETER NoGrain
+    The film grain off for the run (the Game's nograin): a noise re-rolled in every pixel of every frame is what a video spends its
+    bits on, and the trailer's footage is filmed without it.
+
+.PARAMETER Master
+    Encode <Name>-master.mp4 instead of the page's pair: H.264 at the frames' own size, crf 16, a key every half second, for cutting a
+    trailer and uploading it (YouTube, itch.io); 29 to 54 Mb/s at 4K60, measured, the busier the scene the more. With -VideoWidth as
+    well, the page's pair is written beside it.
 
 .PARAMETER VideoWidth
     Scale the clip down to this width when it is encoded (1280 for a page's hero), keeping the aspect. The frames, and the poster, stay the
@@ -84,7 +110,7 @@
     Stop after the frames: leave them in %TEMP%\bs3d-web-capture-frames\<Name> and write nothing else.
 
 .PARAMETER KeepFrames
-    Keep the frames after encoding (they are 1-4 MB each at 1080p).
+    Keep the frames after encoding (they are 1-4 MB each at 1080p, about 9 MB at 4K without grain).
 
 .PARAMETER PosterFrame
     The 1-based frame the poster is made of.
@@ -96,6 +122,7 @@
     .\Tools\web-capture.ps1 -Name reel-fall -Level Reel -From 6 -Seconds 4 -GameArgs 'aim=3:32:0 fire=4.5'
     .\Tools\web-capture.ps1 -Name demo -Level Vortex -Demo -From 10 -Seconds 20 -Fps 30
     .\Tools\web-capture.ps1 -Name island-still -Level Meander -From 9 -Seconds 0 -CamPos 30,-6,40 -CamTarget 0,-5,0 -Fov 45
+    .\Tools\web-capture.ps1 -Name trailer-meander -Level Meander -Demo -From 6 -Seconds 8 -Size 3840x2160 -Quality Ultra -Hud -NoGrain -Master
 #>
 param(
     [Parameter(Mandatory)][string]$Name,
@@ -105,6 +132,11 @@ param(
     [ValidateRange(15, 240)][int]$Fps = 60,
     [int]$Width = 0,
     [int]$Height = 0,
+    [string]$Size = '',
+    [ValidateSet('Low', 'Medium', 'High', 'Ultra')][string]$Quality = 'High',
+    [switch]$Hud,
+    [switch]$NoGrain,
+    [switch]$Master,
     [int]$VideoWidth = 0,
     [object]$CamPos = $null,
     [object]$CamTarget = $null,
@@ -173,15 +205,23 @@ $settings = @'
   "fpsOverlay": false,
   "tutorial": false,
   "introLogo": false,
-  "quality": "High",
+  "quality": "QUALITY",
   "adaptiveQuality": false,
   "online": false
 }
 '@
+$settings = $settings.Replace('QUALITY', $Quality)
 [System.IO.File]::WriteAllText((Join-Path $profileDir 'Settings.json'), $settings, (New-Object System.Text.UTF8Encoding $false))
 
-# The 16:9 window: the largest standard size the working area holds, not above 1920x1080 unless asked for
-if ($Width -le 0 -or $Height -le 0) {
+if ($Size -and $Size -notmatch '^\d+[xX]\d+$') { throw "-Size '$Size' is <width>x<height>, e.g. 3840x2160" }
+
+# The 16:9 window: the largest standard size the working area holds, not above 1920x1080 unless asked for. With -Size the window
+# only shows the frames, and the Game sizes it itself unless -Width and -Height do
+if ($Size) {
+    if ($Width -gt 0 -and $Height -gt 0) { Write-Host "Frames: $Size, shown in a ${Width}x${Height} window" }
+    else { Write-Host "Frames: $Size, shown in the Game's preview window" }
+}
+elseif ($Width -le 0 -or $Height -le 0) {
     Add-Type -AssemblyName System.Windows.Forms
     $area = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
     $window = @(@(1920, 1080), @(1600, 900), @(1280, 720)) |
@@ -190,8 +230,10 @@ if ($Width -le 0 -or $Height -le 0) {
     $Width = $window[0]
     $Height = $window[1]
 }
-if ($Width % 2 -ne 0 -or $Height % 2 -ne 0) { throw "The window's size ($Width x $Height) must be even: a video's pixels are in pairs" }
-Write-Host "Window: ${Width}x${Height}"
+if (-not $Size) {
+    if ($Width % 2 -ne 0 -or $Height % 2 -ne 0) { throw "The window's size ($Width x $Height) must be even: a video's pixels are in pairs" }
+    Write-Host "Window: ${Width}x${Height}"
+}
 
 # The frames' folder is this script's own: emptied here, because the Game refuses a folder that holds frames
 if (Test-Path $frames) { Remove-Item -Recurse -Force $frames }
@@ -199,8 +241,12 @@ New-Item -ItemType Directory -Force $frames | Out-Null
 
 $arguments = @(
     "capture=`"$frames`"", "capturefps=$Fps", "capturefrom=$From", "captureseconds=$Seconds",
-    "windowed", "width=$Width", "height=$Height", "level=$Level", "userdata=`"$profileDir`""
+    "windowed", "level=$Level", "userdata=`"$profileDir`"", "quality=$Quality"
 )
+if ($Width -gt 0 -and $Height -gt 0) { $arguments += "width=$Width", "height=$Height" }
+if ($Size) { $arguments += "capturesize=$Size" }
+if ($Hud) { $arguments += 'capturehud' }
+if ($NoGrain) { $arguments += 'nograin' }
 if ($CamPos -or $CamTarget) {
     if (-not ($CamPos -and $CamTarget)) { throw '-CamPos and -CamTarget go together' }
     $arguments += "campos=$CamPos", "camtarget=$CamTarget"
@@ -316,6 +362,7 @@ if ($NoEncode) { return }
 New-Item -ItemType Directory -Force $OutDir | Out-Null
 $encoderArguments = @('-I', (Join-Path $PSScriptRoot 'web-capture-encode.py'), '--frames', $frames, '--fps', $manifest.fps, '--out', (Join-Path $OutDir $Name))
 if ($still) { $encoderArguments += '--still' } else { $encoderArguments += @('--poster-frame', $PosterFrame, '--video-width', $VideoWidth) }
+if ($Master -and -not $still) { $encoderArguments += '--master' }
 & $Python @encoderArguments
 if ($LASTEXITCODE -ne 0) { throw "The encoder failed (exit $LASTEXITCODE)" }
 

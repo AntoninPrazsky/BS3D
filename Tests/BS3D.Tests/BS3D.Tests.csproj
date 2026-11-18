@@ -253,11 +253,13 @@
     <Compile Include="..\..\Game\Screens\GunPass.cs" />
   </ItemGroup>
 
-  <!--The website capture's parts that have no device in them (#946): its clock and window, the stated camera's keys and curves, and
-      the PNG encoder and the writer threads the frames go out through. CaptureRun, which reads the back buffer, is read as source.-->
+  <!--The website capture's parts that have no device in them (#946): its clock and window, the stated camera's keys and curves,
+      the PNG encoder and the writer threads the frames go out through, and the frames' own size (#1177). CaptureRun, which reads
+      the back buffer, is read as source.-->
   <ItemGroup>
     <Compile Include="..\..\Game\Capture\CapturePlan.cs" />
     <Compile Include="..\..\Game\Capture\CaptureCamera.cs" />
+    <Compile Include="..\..\Game\Capture\CaptureSize.cs" />
     <Compile Include="..\..\Game\Capture\PngEncoder.cs" />
     <Compile Include="..\..\Game\Capture\CaptureWriter.cs" />
   </ItemGroup>

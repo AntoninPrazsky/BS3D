@@ -21,9 +21,11 @@ namespace BS3D.Capture
     /// <item><b>The lens can be stated</b> (<see cref="CaptureCamera"/>): held (<c>campos=</c>, <c>camtarget=</c>, <c>fov=</c>) or flown
     /// (<c>campath=</c>), replacing the play camera's pose in <c>GameplayScreen.UpdateCamera</c>, and with it held still (no kick of the
     /// gun's shake) unless <c>captureshake</c> says otherwise.</item>
-    /// <item><b>No HUD:</b> the session draws no readout, crosshair, chip, card or aim preview (<see cref="BS3DGame.Capturing"/>),
-    /// and the FPS line is off.</item>
+    /// <item><b>No HUD</b> unless <c>capturehud</c> asks for it (#1177): the session draws no readout, crosshair, chip, card or aim
+    /// preview (<see cref="BS3DGame.CaptureHidesHud"/>), and the FPS line is off.</item>
     /// </list>
+    /// And the frames may be a size of their own (<c>capturesize=</c>, #1177, <see cref="Size"/>): the back buffer is made that size
+    /// and the window only shows it, so the film's size is not the display's.
     /// A run that is not a capture has none of this: the host holds a null here and tests it once a frame.
     /// </summary>
     internal sealed class CaptureRun
@@ -35,7 +37,7 @@ namespace BS3D.Capture
         private float _firstFrameSeconds;
         private bool _failed, _finished;
 
-        private CaptureRun(string directory, CapturePlan plan, CaptureCamera lens, bool keepShake, bool showAim, bool demo)
+        private CaptureRun(string directory, CapturePlan plan, CaptureCamera lens, bool keepShake, bool showAim, bool demo, bool showHud, Point? size)
         {
             _directory = directory;
             Plan = plan;
@@ -43,6 +45,8 @@ namespace BS3D.Capture
             KeepShake = keepShake;
             ShowAim = showAim;
             Demo = demo;
+            ShowHud = showHud;
+            Size = size;
         }
 
         internal CapturePlan Plan { get; }
@@ -58,6 +62,15 @@ namespace BS3D.Capture
 
         /// <summary>Whether the benchmark's action plays (<c>capturedemo</c>): the gun fires by itself and its lens circles it.</summary>
         internal bool Demo { get; }
+
+        /// <summary>Whether the HUD of play is drawn (<c>capturehud</c>, #1177): the score, the chips, the strip, the crosshair. Off, the clip is the picture alone.</summary>
+        internal bool ShowHud { get; }
+
+        /// <summary>
+        /// The frames' size when it is not the window's (<c>capturesize=</c>, #1177): the host makes the back buffer this size and holds
+        /// the window at a preview of it (<see cref="CaptureSize"/>). Null: the frames are the window's back buffer, as before.
+        /// </summary>
+        internal Point? Size { get; }
 
         /// <summary>The updates counted so far, from 1: the frame the run is on.</summary>
         internal int Updates => _update;
@@ -105,7 +118,28 @@ namespace BS3D.Capture
                 lens = CaptureCamera.Held(launch.CamPos.Value, launch.CamTarget.Value, launch.CamFov ?? float.NaN);
             }
 
-            return new CaptureRun(directory, plan, lens, launch.CaptureShake, launch.CaptureAim, launch.CaptureDemo);
+            Point? frames = null;
+            if (launch.CaptureSize != null)
+            {
+                if (!CaptureSize.TryParse(launch.CaptureSize, out Point size))
+                    throw new FormatException(string.Create(CultureInfo.InvariantCulture,
+                        $"capturesize={launch.CaptureSize} is not <width>x<height> with both sides even, from {CaptureSize.MIN_SIDE} to {CaptureSize.MAX_SIDE} (3840x2160)"));
+                frames = size;
+
+                //The window is held at a preview of the frames through WinForms (DisplayRefresh.HoldClientSize); off Windows nothing
+                //holds it, and a window the frames' size is the display's problem again
+                if (!OperatingSystem.IsWindows()) throw new FormatException("capturesize= is the Windows build's (its window is held at a preview through WinForms)");
+
+                //The scene is drawn at the frames' size times the tier's supersample factor (ssaa= over it), and Direct3D 11 makes no
+                //texture over 16384 a side: an 8K film at Ultra is 15360 wide, at ssaa=3 it would fail on its first target
+                int factor = Math.Clamp(launch.SupersampleFactor ?? QualityPreset.Presets[(int)(launch.Quality ?? QualityLevel.High)].SupersampleFactor,
+                    1, PhoneTiers.MaxSupersample);
+                if (!CaptureSize.SceneFits(size, factor))
+                    throw new FormatException(string.Create(CultureInfo.InvariantCulture,
+                        $"capturesize={size.X}x{size.Y} at a supersample factor of {factor} is a scene of {size.X * factor}x{size.Y * factor}, over Direct3D's {CaptureSize.MAX_SIDE} a side: a lower ssaa= or a smaller size"));
+            }
+
+            return new CaptureRun(directory, plan, lens, launch.CaptureShake, launch.CaptureAim, launch.CaptureDemo, launch.CaptureHud, frames);
         }
 
         /// <summary>
@@ -163,6 +197,11 @@ namespace BS3D.Capture
 
                 //Two threads do for 1080p at 60 frames a second on a few cores and four for more than that; the render thread and
                 //the simulation's workers have the rest
+                //A size of the run's own that the back buffer does not have is a film of the wrong size for its whole length: the
+                //device was made at another (PreparingDeviceSettings did not run, or something reset it)
+                if (Size is Point stated && (width != stated.X || height != stated.Y))
+                    return Abort($"the back buffer is {width}x{height}, not the {stated.X}x{stated.Y} capturesize= asked for");
+
                 _writer = new CaptureWriter(_directory, width, height, Math.Clamp(Environment.ProcessorCount / 4, 2, 4));
                 Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
                     $"[capture] writing {Plan.FrameCount} frame(s) of {width}x{height} to '{_directory}', {Plan.Fps} a second of game time, the first drawn after update {_update} ({GameSeconds:0.###} s)"));

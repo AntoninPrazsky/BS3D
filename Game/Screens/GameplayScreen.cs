@@ -2035,10 +2035,11 @@ namespace BS3D.Screens
             //Under a page's blur the beat's layer carries the account alone; the Potato path, which has no layer, drops
             //the rest at once.
             //The benchmark's play (#1018) shows no HUD: nobody is playing it
-            //Nor for a capture run's (#946), which is made of nothing but the picture
-            float hudOpacity = _run is { Benchmark: true } || Game.Capturing ? 0f : _chapterIntro.HudOpacity;
+            //Nor for a capture run's (#946), which is made of nothing but the picture - unless it asks for the HUD of play
+            //(capturehud, #1177: the trailer's footage is the game as a player sees it)
+            float hudOpacity = _run is { Benchmark: true } || Game.CaptureHidesHud ? 0f : _chapterIntro.HudOpacity;
             bool overlayUp = !LevelOver && hudOpacity > 0f;
-            bool lossPreviews = LevelOver && _pendingFailure != LevelFailure.None && !Game.Capturing;
+            bool lossPreviews = LevelOver && _pendingFailure != LevelFailure.None && !Game.CaptureHidesHud;
             float overlayBlur = overlayUp ? OverlayBlur : 0f;
             bool clearedBeat = overlayUp && _phase == LevelPhase.ClearedBeat;
             float layerOpacity = hudOpacity * (clearedBeat ? PlayReadoutsOpacity : 1f);

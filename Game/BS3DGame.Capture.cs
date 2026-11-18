@@ -25,21 +25,57 @@ namespace BS3D
             {
                 _capture = CaptureRun.Create(launch);
 
+                //Frames of their own size (#1177): the window only shows them, at width=/height= when those are given and otherwise as
+                //large as the preview's box holds at the frames' aspect. The back buffer is made the frames' size in
+                //Graphics_PreparingDeviceSettings, and HoldCaptureWindow keeps the window from growing to it
+                if (_capture.Size is Point frames && (launch.WindowWidth <= 0 || launch.WindowHeight <= 0))
+                    _windowedSize = CaptureSize.Preview(frames, CaptureSize.PREVIEW_BOX);
+
                 //The first frame the run films, and the two things a script against it needs: the clock and the step
                 string lens = _capture.Lens == null ? "the play camera" : $"a stated lens of {_capture.Lens.KeyCount} key(s)";
                 string action = _capture.Demo ? ", the benchmark's action" : string.Empty;
+                string hud = _capture.ShowHud ? ", the HUD of play" : string.Empty;
+                string size = _capture.Size is Point film ? $", frames of {film.X}x{film.Y} shown in a {_windowedSize.X}x{_windowedSize.Y} window" : string.Empty;
                 Console.WriteLine(string.Create(System.Globalization.CultureInfo.InvariantCulture,
-                    $"[capture] {_capture.Plan.Fps} frames a second of game time (a step of {_capture.Plan.StepSeconds * 1000f:0.###} ms), {_capture.Plan.FrameCount} frame(s) from frame {_capture.Plan.FirstUpdate}, {lens}{action}"));
+                    $"[capture] {_capture.Plan.Fps} frames a second of game time (a step of {_capture.Plan.StepSeconds * 1000f:0.###} ms), {_capture.Plan.FrameCount} frame(s) from frame {_capture.Plan.FirstUpdate}, {lens}{action}{hud}{size}"));
                 return;
             }
 
             if (launch.CamPos.HasValue || launch.CamTarget.HasValue || launch.CamFov.HasValue || launch.CamPath != null
-                || launch.CaptureShake || launch.CaptureAim || launch.CaptureDemo)
-                Console.WriteLine("[capture] campos=, camtarget=, fov=, campath=, captureshake, captureaim and capturedemo only mean something with capture=<folder>: ignored");
+                || launch.CaptureShake || launch.CaptureAim || launch.CaptureDemo || launch.CaptureHud || launch.CaptureSize != null)
+                Console.WriteLine("[capture] campos=, camtarget=, fov=, campath=, captureshake, captureaim, capturedemo, capturehud and capturesize= only mean something with capture=<folder>: ignored");
         }
 
         /// <summary>
-        /// Whether this run is a capture (#946). The session draws no HUD, crosshair, card or aim preview under it, reads its scripted
+        /// The size the back buffer is made when a capture states its frames' own (#1177), or null for the window's: what
+        /// <see cref="Graphics_PreparingDeviceSettings"/> writes over the presentation every time the device is made or reset.
+        /// </summary>
+        private Point? CaptureBackBufferSize => _capture?.Size;
+
+        /// <summary>
+        /// Keeps the window of a capture with frames of their own size at its preview (#1177), before the device is made. MonoGame
+        /// sizes the window to the back buffer whenever the presentation changes (<c>WinFormsGameWindow.OnPresentationChanged</c>), and
+        /// a 3840x2160 window on the desktop's 3840x1600 panel is the whole screen, clamped; held, the window stays the preview and the
+        /// swap chain stays the frames' size, because MonoGame sets that size with its own resize handler switched off and the
+        /// window's real size never reaches the back buffer. A resize by hand ends the same way: the back buffer is asked for the
+        /// window's size, the presentation is made the frames' again, and the window is held again.
+        /// </summary>
+        private void HoldCaptureWindow()
+        {
+            if (_capture?.Size == null) return;
+
+            Platform.DisplayRefresh.HoldClientSize(Window.Handle, _windowedSize.X, _windowedSize.Y);
+        }
+
+        /// <summary>
+        /// Whether the session leaves the HUD of play out of the frame: a capture that did not ask for it with <c>capturehud</c>
+        /// (#1177). The skip hint of a tour stays out of every capture whatever this says: nobody can skip a clip.
+        /// </summary>
+        internal bool CaptureHidesHud => _capture is { ShowHud: false };
+
+        /// <summary>
+        /// Whether this run is a capture (#946). The session draws no HUD or crosshair under it unless it asks for them
+        /// (<see cref="CaptureHidesHud"/>, #1177), no tutorial card, skip hint or aim preview (unless <c>captureaim</c>), reads its scripted
         /// hands (<c>fire=</c>, <c>aim=</c>...) whether or not the window has the focus, and takes no input from the keyboard, the
         /// mouse or the pad: nobody is at it, and one who is must not move a frame.
         /// </summary>
@@ -97,6 +133,12 @@ namespace BS3D
                 Console.WriteLine(FormattableString.Invariant(
                     $"[capture] a page is up over the frame at game time {_capture.GameSeconds:0.###} s: {page.GetType().Name} (it is in the picture)"));
             }
+
+            //Once, on the first frame written: what the frames are drawn from, which no other line of a capture says (#1177). An
+            //8K-into-4K film is the Ultra tier's supersample of 2 under capturesize=3840x2160, and this is where that is seen to hold
+            if (_capture.Updates == _capture.Plan.FirstUpdate && _pipeline?.SceneTarget is { } scene)
+                Console.WriteLine($"[capture] the scene is drawn at {scene.Width}x{scene.Height} (the {_quality} tier, supersample {_supersampleFactor}x, "
+                    + $"{(scene.MultiSampleCount > 1 ? $"MSAA {scene.MultiSampleCount}x" : "no MSAA")}) and filtered down to the frames, film grain {(_effective.Grain ? "on" : "off")}");
 
             if (!_capture.EndFrame(GraphicsDevice, _scene)) return;
 

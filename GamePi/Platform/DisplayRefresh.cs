@@ -97,5 +97,13 @@ namespace BS3D.Platform
             bitsPerColor = 0;
             return false;
         }
+
+        /// <summary>
+        /// The Windows version holds a capture's window at a preview of frames larger than it (#1177). A capture of a size of its
+        /// own is refused off Windows before a window opens (CaptureRun.Create), so this is never asked anything.
+        /// </summary>
+        internal static void HoldClientSize(IntPtr windowHandle, int width, int height)
+        {
+        }
     }
 }

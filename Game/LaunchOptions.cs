@@ -198,6 +198,11 @@ namespace BS3D
         //what a player sees.
         internal bool NoFpsOverlay { get; private set; }
 
+        //"nograin" (#1177): the film grain off for this run, whatever the settings file says, and never written back - "mute"'s
+        //kind of instruction. A noise re-rolled in every pixel of every frame is what a video's bits go to, and the trailer's
+        //footage is filmed without it. The Film grain row still answers a click (EffectiveSettings)
+        internal bool NoGrain { get; private set; }
+
         //Testing only: open straight on the main menu, with no 2D logo first (#621) — the Settings row "Intro
         //logo" for one run. A scripted run that wants the menu has no business waiting out the intro, and one
         //that times its shot= against the menu would otherwise be timing it against the splash's figures too.
@@ -456,6 +461,16 @@ namespace BS3D
         //benchmark's lens circles it, unless a lens of the capture's own is stated
         internal bool CaptureDemo { get; private set; }
 
+        //"capturesize=<w>x<h>" (#1177): the frames' size, whatever the window's - the back buffer is made that size and the window
+        //shows it scaled down (Capture.CaptureSize), so a 16:9 4K film comes out of a 21:9 panel or a laptop. Null: the window's.
+        //Kept as written and read by CaptureRun.Create, which REFUSES a size it cannot take: a row that did not parse would only be
+        //an Ignored line, and the clip would be filmed at the window's size for its whole length
+        internal string CaptureSize { get; private set; }
+
+        //"capturehud" (#1177): the capture draws the HUD of play - the score, the chips, the strip, the crosshair, the awards - which
+        //it leaves out otherwise. The trailer's footage is the game as a player sees it
+        internal bool CaptureHud { get; private set; }
+
         #endregion
 
         /// <summary>
@@ -670,6 +685,7 @@ namespace BS3D
             Row.Flag("mute", o => o.Mute = true),
             //"nofps" hides the FPS overlay for this run, for a picture somebody else will look at (#452).
             Row.Flag("nofps", o => o.NoFpsOverlay = true),
+            Row.Flag("nograin", o => o.NoGrain = true),
             //"nosplash" opens on the main menu with no intro logo (#621) — the Settings row for this run only.
             Row.Flag("nosplash", o => o.NoSplash = true),
             //"birthday" makes today the game's birthday (#230), for the camera.
@@ -886,6 +902,9 @@ namespace BS3D
             Row.Flag("captureshake", o => o.CaptureShake = true),
             Row.Flag("captureaim", o => o.CaptureAim = true),
             Row.Flag("capturedemo", o => o.CaptureDemo = true),
+            //"capturesize=3840x2160" films at that size whatever the window is (#1177); "capturehud" keeps the HUD of play in the picture
+            Row.Text("capturesize", (o, v) => o.CaptureSize = v),
+            Row.Flag("capturehud", o => o.CaptureHud = true),
         ];
 
         private static bool TryParseSkyDome(string text, out byte dome) =>

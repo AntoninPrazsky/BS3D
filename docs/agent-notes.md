@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-18 — #1177 záznam ve 4K nezávisle na monitoru, s HUD, bez zrna — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: `capturesize=<w>x<h>` (back buffer ve velikosti snímků přes `PreparingDeviceSettings`, okno drženo jako náhled přes `MaximumSize`), `capturehud`, `nograin` (jako `mute`, nezapisuje se). `web-capture.ps1` má `-Size -Quality -Hud -NoGrain -Master`; encoder píše 4K60 master (H.264 crf 16). Tightrope 20 s: hra 1200 snímků 4K za 29 s, kódování ~200 s, master 68 MB.
+- majitel: video pro web a itch.io, render 8K → 4K, 60 FPS; zrno pro trailer vypnout; obsah = hra jak ji vidí hráč, menu ne. Podoba traileru a zvuk: #1178 (`owner-decision`).
+- ⚠ Ultra nad `ssaa` 1 nemá MSAA (pipeline ho vypíná); 8K→4K jsou 4 vzorky na pixel. ⚠ Bez držení okna ho MonoGame po každém resetu zvětší na velikost back bufferu (celá obrazovka).
+- Otevřené: dlouhý klip nad ~1 min neměřen (disk: 20–33 GB/min v `%TEMP%`).
+
 ## 2026-11-15 — #1148 rozpis skóre se vejde do desky i na telefonu — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: čistá třída `BreakdownLayout` klade celou mřížku; řádky dál lícují se sloupcem (#1073), poznámka o další hvězdě má vlastní místo (`NoteRoom`). Na monitoru smí deska růst až na `BOARD_COLUMN_GAP` od desky žebříčků (16:9 a širší beze změny); na telefonu se poznámka láme u čárky (ostatní mezery v `NextStarNote` nezlomitelné), na 4:3 a 5:4 zůstane na řádku menší (min. `MIN_NOTE_SCALE` 0,7). `BoardLayout.Place` sdílí stránka i test.

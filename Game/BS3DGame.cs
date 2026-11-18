@@ -860,8 +860,8 @@ namespace BS3D
             _chipPictograms = new PictogramCache(UserData.PathTo(PictogramCache.FOLDER_NAME));
 
             //The eleven rows that are only the player's answer are read through the file from here on (#583), with
-            //"mute" held over the master as a flag and never stored — see EffectiveSettings
-            _effective = new EffectiveSettings(_settings, launch.Mute);
+            //"mute" held over the master and "nograin" over the grain as flags and never stored — see EffectiveSettings
+            _effective = new EffectiveSettings(_settings, launch.Mute, launch.NoGrain);
 
             //Seeded BEFORE SetScene rather than applied after it, which is the opposite of what sky= does and
             //deliberately so: the scenes that state a dome of their own must still replace it, and every
@@ -1016,6 +1016,9 @@ namespace BS3D
                 if (_screens?.Active is Screens.MenuPage { CapturesKeyboard: true } page) page.OnTextInput(e.Character);
             };
 #endif
+
+            //Before the device is made: a capture whose frames are larger than the display would otherwise take the whole screen (#1177)
+            HoldCaptureWindow();
 
             SetGraphics();
 
@@ -1210,6 +1213,15 @@ namespace BS3D
             //Nothing but one already-resolved full-screen quad ever reaches the back buffer, so multisampling
             //it would cost memory and antialias nothing.
             e.GraphicsDeviceInformation.PresentationParameters.MultiSampleCount = 0;
+
+            //A capture's frames of their own size (#1177): the back buffer is made that size whatever the window asks for, on every
+            //make and reset of the device, so a 16:9 4K film comes out of any display. The window is held at a preview of it
+            //(HoldCaptureWindow) and the swap chain's picture is stretched into it
+            if (CaptureBackBufferSize is Point frames)
+            {
+                e.GraphicsDeviceInformation.PresentationParameters.BackBufferWidth = frames.X;
+                e.GraphicsDeviceInformation.PresentationParameters.BackBufferHeight = frames.Y;
+            }
         }
 
         private void SetGraphics()
