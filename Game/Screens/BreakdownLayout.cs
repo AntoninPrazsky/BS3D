@@ -51,8 +51,8 @@ namespace BS3D.Screens
 
         //The least share the note's face is taken down to on a page with no height to spare. At 4:3 and 5:4, where the plate
         //cannot widen, Pennant's note needs 0.85 of it and the widest a shipped level gives ("Next star at 132 440 (+92 440),
-        //or 177 s faster", on a level of 1 204 balls) about 0.75; below this it would stop reading as the page's small print,
-        //and it breaks at its comma instead
+        //or 177 s faster", on a level of 1 204 balls) about 0.75 by BreakdownLayoutTests' stand-in face; below this it would
+        //stop reading as the page's small print, and it breaks at its comma instead
         private const float MIN_NOTE_SCALE = 0.7f;
 
         /// <summary>
