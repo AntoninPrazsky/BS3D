@@ -121,7 +121,7 @@ namespace BS3D.Screens
         {
             //Not on the panel's layout (#1152): the fit keeps a wide monitor's preview clear above a lower, narrower band,
             //and on a phone the band and the panel take the screen's whole height anyway, where the width the fit would
-            //take off is a finger's (a tile 14.5 mm across on the X300 Ultra rather than 11.7)
+            //take off is a finger's (a tile 14.4 mm across in the X300 Ultra's layout rather than 11.7)
             if (_panelMode) return Math.Max(1, designUnits);
 
             Microsoft.Xna.Framework.Graphics.Viewport viewport = Game.GraphicsDevice.Viewport;
@@ -168,7 +168,7 @@ namespace BS3D.Screens
         //every chapter. Without it "The Coil" and "The Spectrum" would shift them, and paging would read as
         //the buttons jumping about under the pointer. Wide enough for the readout line, which is the longer
         //of the two. On the panel's layout (#1152) it is what the grid's width leaves beside the two arrows instead,
-        //so the pager, the pips and the tiles stand as one column: 1314 units, over the 1120 Fit's floor gives it here.
+        //so the pager, the pips and the tiles stand as one column: 1304 units, over the 1120 Fit's floor gives it.
         private const int CHAPTER_HEADER_WIDTH = 1600;
 
         //THE PHONE'S LAYOUT (#1152): on a screen that draws the interface larger (BS3DGame.UiScale > 1, a phone held close),
@@ -179,7 +179,7 @@ namespace BS3D.Screens
         //rather than scrolling"). A monitor keeps the page as it was: no panel, the detail line, the click that plays.
         //
         //The panel's content width, in design units: the level's name in the heading face and the boards' places beside
-        //their names, with the band beside it inside FIT_ROOM of a 2.2:1 screen (86 % of the X300 Ultra's width, measured)
+        //their names, with the band beside it inside FIT_ROOM of a 2.2:1 screen (89 % of the X300 Ultra's width, measured)
         private const int PANEL_WIDTH = 960;
 
         //Between the band and the panel, and between the panel's lines, in design units
@@ -187,17 +187,17 @@ namespace BS3D.Screens
         private const int PANEL_LINE_GAP = 14;
 
         //The Play button's height, and on the panel's layout the footer's beside it (Back, the Leaderboard), in design units:
-        //a finger's target of about 9 mm on the X300 Ultra (182 px at its 1.33x, 2.8 in over 1440 rows), where a
-        //button sized by its line and padding is 7.3 mm
+        //a finger's target of about 9 mm on the X300 Ultra (182 px at its 1.33x, 2.8 in over 1440 rows; 181 measured), where
+        //a button sized by its line and padding is 7.3 mm
         private const int PLAY_HEIGHT = 205;
 
         //The chapter arrows on the panel's layout: 9 mm squares on the X300 Ultra where ARROW_SIZE's are 7
         private const int PANEL_ARROW_SIZE = 205;
 
-        //The pips on the panel's layout: as wide as the grid's width shares out between them (fourteen chapters, 118 units
+        //The pips on the panel's layout: as wide as the grid's width shares out between them (fourteen chapters, 117 units
         //each), never under PIP_SIZE nor over PIP_TOUCH_MAX, and taller than they are wide - fourteen 9 mm squares are
         //2550 px, more than the band's whole width, so a finger gets the height the column has to spare instead (3.8 mm
-        //squares on the X300 Ultra before, 5.2 by 7 mm after, measured). Drawn marks stay PIP_DOT across.
+        //squares on the X300 Ultra before, 5.1 by 6.9 mm after, in its layout on the desktop). Their marks stay PIP_DOT.
         private const int PIP_TOUCH_HEIGHT = 158;
         private const int PIP_TOUCH_GAP = 8;
         private const int PIP_TOUCH_MAX = 240;
@@ -348,6 +348,7 @@ namespace BS3D.Screens
             _focused = null;
             _markedSlot = -1;
             _navStale = false;
+            _playButton = null;
             _panelPlaces = null;
             _boardsSignal = null;
             _boardsStatus = null;
@@ -1288,7 +1289,7 @@ namespace BS3D.Screens
             Button tile = Game.MenuTile(content, () => StartSlot(slot), Fit(TILE_WIDTH), TILE_HEIGHT);
 
             //⚠ ON THE PANEL'S LAYOUT THE SUM ABOVE DOES NOT HOLD (#1152): an enlarged interface sets FontBody at the front
-            //end's 108 rather than 80 (#1052), 260 units of type and gaps in 236 of room, and the score line was cut off the
+            //end's 108 rather than 80 (#1052), 258 units of type and gaps in 236 of room, and the score line was cut off the
             //bottom of the second row's tiles (photographed in the phone's layout). The box grows to what it holds there.
             if (_panelMode)
                 tile.Height = Math.Max(tile.Height ?? 0, FontBody.LineHeight + 3 * FontTile.LineHeight + 3 * content.Spacing
