@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1148 rozpis skóre se vejde do desky i na telefonu — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: čistá třída `BreakdownLayout` klade celou mřížku; řádky dál lícují se sloupcem (#1073), poznámka o další hvězdě má vlastní místo (`NoteRoom`). Na monitoru smí deska růst až na `BOARD_COLUMN_GAP` od desky žebříčků (16:9 a širší beze změny); na telefonu se poznámka láme u čárky (ostatní mezery v `NextStarNote` nezlomitelné), na 4:3 a 5:4 zůstane na řádku menší (min. `MIN_NOTE_SCALE` 0,7). `BoardLayout.Place` sdílí stránka i test.
+- ⚠ Příčina: `PinBreakdownColumns` prodlužoval sloupec o poznámku, kterou fit nikdy neměřil; s pravidly v2 je to nejširší řádek mřížky a lezl pod žebříčky.
+- Otevřené: neověřeno na vivo ani na GL ES, 5:4 a stránka s `nextlocked` bez páru; blokový milník v 1080 řádcích už na main ořezává Main Menu (vlastní issue).
+
 ## 2026-11-17 — #1146 ikony čipů změřené na Pi — Pi (BS3DServer), Claude Code
 
 - Hotovo, zavřeno bez změny kódu: ReadyToRun ddc5d052 proti 8e72c654, skutečný displej, `play`, A B B A, první spuštění na prázdném `userdata=` a druhé na stejném. `BuildLevel` 1,42–1,63 s → 205–209 ms, první snímek 1,56–1,77 s → 342–379 ms. Výpočet ikon 34–36 ms na pracovním vlákně, čtení z cache 3 ms, HUD čekal ≤ 0,2 ms.
