@@ -79,11 +79,14 @@ namespace BS3D.Tests
 
             int variants = ForestScatterRenderer.CONIFER_VARIANTS.Length;
             var next = new int[variants];
-            int total = 0;
+            var used = new int[variants];
+            int total = 0, planted = 0;
             for (int i = 0; i < spires.Length; i++)
             {
                 Vector4 place = spires[i].Place, look = spires[i].Look;
-                int v = i % variants;
+                float spireTall = config.FarStand.Height * place.W * look.Z;
+                int v = StandSpruces.VariantFor(i, spireTall, config.Terrain.Trees);
+                used[v]++;
                 Vector2 foot = stand.Feet[v][next[v]];
                 Matrix world = stand.Spruces[v][next[v]++].World;
                 total++;
@@ -96,14 +99,20 @@ namespace BS3D.Tests
 
                 float scale = new Vector3(world.M11, world.M12, world.M13).Length();
                 float spruceTall = StandSpruces.SpruceHeight(config.Terrain.Trees, ForestScatterRenderer.CONIFER_VARIANTS[v]) * scale;
-                float spireTall = config.FarStand.Height * place.W * look.Z;
                 Assert.InRange(spruceTall, spireTall * 0.999f, spireTall * 1.001f);
+
+                //At a scale the planting rolls, wherever a variant stands that tall at one
+                if (scale >= config.Terrain.Trees.MinScale * 0.999f && scale <= config.Terrain.Trees.MaxScale * 1.001f) planted++;
 
                 //Planted as a planted spruce is: a little under the snow the spire stood on, never floating
                 float ground = TerrainMirror.AuroraBase(place.X, place.Z, config);
                 Assert.InRange(world.M42, ground - 0.4f * scale, ground - 0.1f * scale);
             }
             Assert.Equal(spires.Length, total);
+            Assert.True(planted >= spires.Length * 0.99f, $"only {planted} of {spires.Length} spruces stand at a scale the planting rolls");
+            //And the stand mixes every variant, as a grove does (the tallest two, on their long stems, are the rarest: few spires
+            //stand that tall at a planted scale)
+            foreach (int count in used) Assert.True(count >= spires.Length / 50, $"a variant wears only {count} of {spires.Length}: {string.Join(", ", used)}");
             Assert.True(stand.InnerRadius >= config.FarStand.InnerRadius - 0.01f);
         }
 

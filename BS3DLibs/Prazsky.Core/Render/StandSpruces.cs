@@ -6,8 +6,8 @@ namespace Prazsky.Core.Render
     /// <summary>
     /// The aurora's far stand drawn as the planted wood's own spruces wherever the lens comes near it (#1163). Each spire of
     /// the stand's near ring (<see cref="AuroraStandMesh"/>, the silhouette the hills' skylines are made of) has a spruce of
-    /// the planting's kind in reserve: one of <see cref="ForestScatterRenderer.CONIFER_VARIANTS"/>, standing on the spire's
-    /// foot, turned as it is and as tall. On High and Ultra a spire within <see cref="SWAP_RADIUS"/> of the lens is not drawn
+    /// the planting's kind in reserve: one of <see cref="ForestScatterRenderer.CONIFER_VARIANTS"/> (<see cref="VariantFor"/>),
+    /// standing on the spire's foot, turned as it is and as tall. On High and Ultra a spire within <see cref="SWAP_RADIUS"/> of the lens is not drawn
     /// (<c>Aurora.fx</c>'s <c>StandVS</c> puts it to a point) and the hosts' <see cref="ForestScatterRenderer"/> draws its
     /// spruce in its place (<see cref="ForestPasses"/>), in the crown its distance gives it. So what a tree is drawn as
     /// follows its distance from the lens frame by frame, wherever the lens flies: a chapter intro's run through the wood ends
@@ -56,8 +56,13 @@ namespace Prazsky.Core.Render
         public StandSpruces(Vector4[] places, Vector4[] looks, int count, float spireHeight, float sink, ForestTreeConfig trees)
         {
             int variants = ForestScatterRenderer.CONIFER_VARIANTS.Length;
+            var variantOf = new int[count];
             var perVariant = new int[variants];
-            for (int i = 0; i < count; i++) perVariant[i % variants]++;
+            for (int i = 0; i < count; i++)
+            {
+                variantOf[i] = VariantFor(i, spireHeight * places[i].W * looks[i].Z, trees);
+                perVariant[variantOf[i]]++;
+            }
 
             Spruces = new ModelInstance[variants][];
             Feet = new Vector2[variants][];
@@ -72,7 +77,7 @@ namespace Prazsky.Core.Render
             for (int i = 0; i < count; i++)
             {
                 Vector4 place = places[i], look = looks[i];
-                int v = i % variants;
+                int v = variantOf[i];
 
                 //As tall as the spire, the spruce's own trunk and crown together, its foot on the spire's ground as a planted
                 //spruce's is (ForestScatter sinks one 0.15 of its scale)
@@ -94,6 +99,26 @@ namespace Prazsky.Core.Render
             }
 
             InnerRadius = count > 0 ? inner : float.MaxValue;
+        }
+
+        /// <summary>
+        /// Which variant the spruce of the <paramref name="index"/>th spire wears, <paramref name="tall"/> units tall: the
+        /// variants in turn from the index's, the first that stands that tall at a scale the planting itself rolls
+        /// (<see cref="ForestTreeConfig.MinScale"/> to <see cref="ForestTreeConfig.MaxScale"/>), so the stand mixes them as a
+        /// grove does and none is blown up past any planted tree (strictly in turn, a third of them stood outside that range, a
+        /// squat variant matched to a tall spire at twice its planted size).
+        /// The index's own where none fits.
+        /// </summary>
+        public static int VariantFor(int index, float tall, ForestTreeConfig trees)
+        {
+            int variants = ForestScatterRenderer.CONIFER_VARIANTS.Length;
+            for (int k = 0; k < variants; k++)
+            {
+                int v = (index + k) % variants;
+                float scale = tall / SpruceHeight(trees, ForestScatterRenderer.CONIFER_VARIANTS[v]);
+                if (scale >= trees.MinScale && scale <= trees.MaxScale) return v;
+            }
+            return index % variants;
         }
 
         /// <summary>How tall a spruce of <paramref name="variant"/> stands at scale 1: its trunk and its crown, as
