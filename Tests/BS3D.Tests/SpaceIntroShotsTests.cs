@@ -61,13 +61,17 @@ namespace BS3D.Tests
 
         //"Unexpected": the frame holds still with no craft in it for at least this long at every shape, and this long at 16:9;
         //and it is gone, wholly outside the frame, at least this long before the cut at every shape. Measured, at whole frames:
-        //0.80 s still and gone 0.20 s before the cut at 2.4:1, where the frame is widest; 1.03 and 0.43 at 16:9
+        //0.82 s still and gone 0.22 s before the cut at 2.4:1, where the frame is widest; 1.15 and 0.55 at 16:9
         private const float STILL_SECONDS = 0.75f, STILL_SECONDS_16_9 = 1f;
         private const float GONE_BEFORE_CUT = 0.17f;
 
-        //Neither a blur nor a crawl: the craft crosses the frame (from first in to last out) in this many seconds at 16:9 (2.40,
-        //measured)
-        private const float CROSSING_MIN = 1.8f, CROSSING_MAX = 3.2f;
+        //Neither a blur nor a crawl: the craft crosses the frame (from first in to last out) in this many seconds at 16:9 (3.33
+        //to 3.35, measured). The owner found 2.40 too quick (#1175: "the saucer should fly somewhat more slowly")
+        private const float CROSSING_MIN = 2.8f, CROSSING_MAX = 4f;
+
+        //And the line from the lens to the craft's middle turns at most this many degrees a second where it passes nearest (40.6,
+        //measured; 55.3 at the 28 u/s the owner found too quick)
+        private const float SWEEP_DEGREES = 45f;
 
         //Its dome turned to the lens: at its moment the lens sees the craft's top at least this many degrees over its rim's plane
         //(the loop's own bank would show it the belly), at every phase of the craft's slow rock, which swings it some three
@@ -75,9 +79,9 @@ namespace BS3D.Tests
         private const float TOP_SEEN_DEGREES = 8f;
         private const float ROCK_PERIOD = MathHelper.TwoPi / 0.7f;
 
-        //The space reel's whole opening, the tour's last leg included: 13.9 s before the still shot, and the owner prefers
-        //faster over slower
-        private const float MAX_OPENING_SECONDS = 14.3f;
+        //The space reel's whole opening, the tour's last leg included (15.5 s): the still shot is as long as the slower pass
+        //needs (#1175), and the owner prefers faster over slower
+        private const float MAX_OPENING_SECONDS = 15.6f;
 
         private static readonly SpaceSceneConfig Space = new();
 
@@ -243,7 +247,7 @@ namespace BS3D.Tests
         public void The_saucer_crosses_the_frame_close_to_the_lens_after_a_moment_of_stillness_and_is_gone_before_the_cut(float aspect)
         {
             float shortestStill = float.MaxValue, shortestGone = float.MaxValue, nearest = float.MaxValue, farthest = 0f;
-            float crossingMin = float.MaxValue, crossingMax = 0f;
+            float crossingMin = float.MaxValue, crossingMax = 0f, sweep = 0f;
 
             for (int seed = 1; seed <= ROLLS; seed++)
             {
@@ -263,12 +267,18 @@ namespace BS3D.Tests
 
                     var frustum = new BoundingFrustum(view * projection);
                     float first = float.NaN, last = float.NaN, closest = float.MaxValue;
+                    Vector3 was = Vector3.Normalize(SaucerFlight.WorldAt(wall, pass).Translation - lens);
                     for (float s = 0f; s <= shot.Seconds; s += FRAME)
                     {
                         float time = wall + s;
                         Assert.Equal(1f, pass.Weight(time));
                         Matrix world = SaucerFlight.WorldAt(time, pass);
                         closest = MathF.Min(closest, Vector3.Distance(world.Translation, lens));
+
+                        //How fast the craft sweeps across the view: the turn of the line from the lens to its middle
+                        Vector3 towards = Vector3.Normalize(world.Translation - lens);
+                        sweep = MathF.Max(sweep, MathHelper.ToDegrees(MathF.Acos(MathHelper.Clamp(Vector3.Dot(was, towards), -1f, 1f))) / FRAME);
+                        was = towards;
                         if (AnyInFrame(world, frustum))
                         {
                             if (float.IsNaN(first)) first = s;
@@ -283,6 +293,7 @@ namespace BS3D.Tests
                     Assert.InRange(closest, SpaceIntroShots.PASS_DISTANCE - NEAREST_SLACK, SpaceIntroShots.PASS_DISTANCE + 0.01f);
                     if (aspect == 16f / 9f)
                         Assert.InRange(last - first, CROSSING_MIN, CROSSING_MAX);
+                    Assert.True(sweep <= SWEEP_DEGREES, $"seed {seed} at {wall}: the craft sweeps across the view at {sweep:F1} degrees a second");
 
                     shortestStill = MathF.Min(shortestStill, first);
                     shortestGone = MathF.Min(shortestGone, shot.Seconds - last);
@@ -294,7 +305,7 @@ namespace BS3D.Tests
             }
 
             _output.WriteLine(FormattableString.Invariant(
-                $"aspect {aspect:F2}: still for {shortestStill:F2} s at least, gone {shortestGone:F2} s before the cut, crossing {crossingMin:F2}-{crossingMax:F2} s, nearest {nearest:F1}-{farthest:F1}"));
+                $"aspect {aspect:F2}: still for {shortestStill:F2} s at least, gone {shortestGone:F2} s before the cut, crossing {crossingMin:F2}-{crossingMax:F2} s, nearest {nearest:F1}-{farthest:F1}, sweeping at {sweep:F1} deg/s at most"));
         }
 
         [Fact]

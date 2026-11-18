@@ -27,8 +27,13 @@ namespace Prazsky.Core.Render
     /// </summary>
     internal readonly struct SaucerPass
     {
-        /// <summary>The run's pace, units a second: a little brisker than the loop's (<see cref="SaucerFlight.LOOP_SPEED"/>).</summary>
-        internal const float SPEED = 28f;
+        /// <summary>
+        /// The run's pace, units a second: a little under the loop's (<see cref="SaucerFlight.LOOP_SPEED"/>), the owner having
+        /// found the pass too quick (#1175: "the saucer should fly somewhat more slowly"; at 28 it crossed a 16:9 frame in 2.4 s,
+        /// at this in 3.3). The craft is in the frame for as long as one over it, and the shot that films it is longer by what
+        /// that adds (<c>SpaceIntroShots</c>).
+        /// </summary>
+        internal const float SPEED = 20f;
 
         /// <summary>
         /// How long the craft holds the run either side of its moment: the whole of the intro's still shot round it
@@ -36,10 +41,12 @@ namespace Prazsky.Core.Render
         /// of a second after it cuts away, so the shot sees the craft only on the run and never easing on or off it.
         /// <c>SpaceIntroShotsTests</c> holds the two together.
         /// </summary>
-        internal const float HOLD_SECONDS = 2.6f;
+        internal const float HOLD_SECONDS = 3.3f;
 
-        /// <summary>How long the craft takes to leave the loop for the run, and to ease back onto it after.</summary>
-        internal const float EASE_SECONDS = 2f;
+        /// <summary>How long the craft takes to leave the loop for the run, and to ease back onto it after: long enough that it
+        /// swoops back onto the loop at 39 units a second at its quickest (<c>SpaceIntroShotsTests</c>); over 2 s, past the hold
+        /// this pace needs, it swooped at 50.</summary>
+        internal const float EASE_SECONDS = 3f;
 
         /// <summary>
         /// The bank the run eases to, radians about the craft's heading: negative tips its outer side down, where the loop's own
