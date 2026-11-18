@@ -128,6 +128,30 @@ namespace BS3D
             else Console.WriteLine($"[pick] Testing: 'pickfocus={value}' dropped, expected <level>@<seconds>");
         }
 
+        //Testing only: a finger's taps on the picker's tiles, "picktap=<level>@<s>,..." (#1152) - the levels 1-based, in the
+        //order of their seconds, and the next one due
+        private (int Level, float At)[] _pickTaps = Array.Empty<(int, float)>();
+        private int _pickTapNext;
+
+        private void ParsePickTaps(string value)
+        {
+            if (value == null) return;
+
+            List<(int, float)> taps = new();
+            foreach (string tap in value.Split(','))
+            {
+                string[] parts = tap.Split('@');
+                if (parts.Length == 2
+                    && int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out int level) && level >= 1
+                    && float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float at) && at >= 0f)
+                    taps.Add((level, at));
+                else Console.WriteLine($"[pick] Testing: 'picktap' entry '{tap}' dropped, expected <level>@<seconds>");
+            }
+
+            taps.Sort((a, b) => a.Item2.CompareTo(b.Item2));
+            _pickTaps = taps.ToArray();
+        }
+
         //Testing only: the "tour" argument (#406) - the scene menu with the current scene's establishing
         //flight already running, which is the only way this can be photographed from a script.
         private bool _tour;
@@ -235,6 +259,7 @@ namespace BS3D
             _nextLocked = launch.NextLocked;
             _pick = launch.Pick;
             ParsePickFocus(launch.PickFocus);
+            ParsePickTaps(launch.PickTap);
             _about = launch.About;
             _extras = launch.Extras;
             _benchmark = launch.Benchmark;
@@ -378,6 +403,10 @@ namespace BS3D
                 _pickFocusAt = null;
                 game.PointPickerAtForTesting(_pickFocusLevel - 1);
             }
+
+            //A finger's taps on the picker's tiles (#1152), on the same terms: each once its second has come and the picker is up
+            if (_pickTapNext < _pickTaps.Length && game.WallClock >= _pickTaps[_pickTapNext].At && game.IsLevelSelectReady)
+                game.TapPickerForTesting(_pickTaps[_pickTapNext++].Level - 1);
 
             //The About page and its player (#443), held back past the title card for the same reason.
             //Extras, and the Jukebox over it on a chapter, playing if asked (#704)

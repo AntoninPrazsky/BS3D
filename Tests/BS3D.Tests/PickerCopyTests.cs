@@ -32,7 +32,25 @@ namespace BS3D.Tests
                 yield return PickerCopy.BoardButton(name);
                 yield return PickerCopy.TileLock(true, i + 1, 0);
                 yield return PickerCopy.TileLock(false, 0, 2 * i);
+
+                //The side panel's (#1152)
+                yield return PickerCopy.PanelCaption(i + 1);
+                yield return PickerCopy.PanelBest(1000 * i + 7);
+                yield return PickerCopy.PanelRules(set.DescribeRules(i));
+                yield return PickerCopy.PanelSequence(i + 2, next);
+                yield return PickerCopy.PanelPrice(2 * i + 1, i);
             }
+
+            yield return PickerCopy.PANEL_NOT_CLEARED;
+            yield return PickerCopy.PANEL_OLD_RULES;
+            yield return PickerCopy.PANEL_LOCKED;
+            yield return PickerCopy.PANEL_PLACES;
+            yield return PickerCopy.PANEL_MONTH;
+            yield return PickerCopy.PANEL_ALL_TIME;
+            foreach (bool unfinished in new[] { true, false })
+                yield return PickerCopy.PanelPlace(6, 21, unfinished);
+            yield return PickerCopy.PanelPlace(0, 21, false);
+            yield return PickerCopy.PanelPlace(0, 0, false);
 
             foreach (bool anyOpen in new[] { true, false })
                 foreach (bool beyondReach in new[] { true, false })
@@ -89,5 +107,25 @@ namespace BS3D.Tests
         [InlineData(21, "21st")]
         [InlineData(112, "112th")]
         public void Ordinals_are_english(int n, string expected) => Assert.Equal(expected, PickerCopy.Ordinal(n));
+
+        [Fact]
+        public void The_panel_lists_the_rules_one_to_a_line() =>
+            Assert.Equal("44 shots\nCeiling every 9\nPar 30 s", PickerCopy.PanelRules("44 shots, ceiling every 9, par 30 s"));
+
+        [Fact]
+        public void The_panels_lock_ties_each_figure_to_its_star_or_name()
+        {
+            //Prose that wraps (#1152): a break between a price and its star, or a number and the name it opens, would part them
+            Assert.Equal("Unlocks at 12 ★. You have 9 ★.", PickerCopy.PanelPrice(12, 9));
+            Assert.Equal("One level at a time; next is 8 ‘Saturn’.", PickerCopy.PanelSequence(8, "Saturn"));
+        }
+
+        [Theory]
+        [InlineData(4, 41, false, "#4 of 41")]
+        [InlineData(4, 41, true, "#4 of 41 ☆")]
+        [InlineData(0, 41, false, "Not on it yet")]
+        [InlineData(0, 0, false, "Nobody on it yet")]
+        public void The_panel_says_the_players_place_beside_the_boards_name(int rank, int total, bool unfinished, string expected) =>
+            Assert.Equal(expected, PickerCopy.PanelPlace(rank, total, unfinished));
     }
 }

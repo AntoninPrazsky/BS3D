@@ -119,6 +119,11 @@ namespace BS3D.Screens
 
         private int Fit(int designUnits)
         {
+            //Not on the panel's layout (#1152): the fit keeps a wide monitor's preview clear above a lower, narrower band,
+            //and on a phone the band and the panel take the screen's whole height anyway, where the width the fit would
+            //take off is a finger's (a tile 14.5 mm across on the X300 Ultra rather than 11.7)
+            if (_panelMode) return Math.Max(1, designUnits);
+
             Microsoft.Xna.Framework.Graphics.Viewport viewport = Game.GraphicsDevice.Viewport;
             float aspect = viewport.Height > 0 ? viewport.Width / (float)viewport.Height : FIT_ASPECT;
             float fit = Math.Clamp(FIT_ASPECT / aspect, FIT_FLOOR, 1f);
@@ -140,6 +145,9 @@ namespace BS3D.Screens
         //font-bound now, so the margin round it is the same at every aspect.
         private const int ARROW_SIZE = 160;
 
+        //Between the arrows and the chapter's name, in design units (fitted)
+        private const int PAGER_SPACING = 20;
+
         //The chapter arrow's triangle against the heading's capitals beside it: a little taller, since a triangle has
         //less ink than a capital of its height (1.2 x 53 px at 3840x1600 is 64; Inter's glyph was 75 and overflowed)
         private const float ARROW_OF_CAP = 1.2f;
@@ -159,8 +167,44 @@ namespace BS3D.Screens
         //The name and its readout sit in a block of FIXED width, so the arrows stand in the same place on
         //every chapter. Without it "The Coil" and "The Spectrum" would shift them, and paging would read as
         //the buttons jumping about under the pointer. Wide enough for the readout line, which is the longer
-        //of the two.
+        //of the two. On the panel's layout (#1152) it is what the grid's width leaves beside the two arrows instead,
+        //so the pager, the pips and the tiles stand as one column: 1314 units, over the 1120 Fit's floor gives it here.
         private const int CHAPTER_HEADER_WIDTH = 1600;
+
+        //THE PHONE'S LAYOUT (#1152): on a screen that draws the interface larger (BS3DGame.UiScale > 1, a phone held close),
+        //the level the finger chose stands in a side panel right of the band - its name, its stars and best, its rules or
+        //its lock, the player's places on its boards, and a Play button - and a finger's first tap on a tile selects it
+        //(PickerTap) rather than starting it, so a level's rules and boards are seen before it starts. The phone is wide
+        //(2.2:1 on the X300 Ultra) and the band left both sides empty (the owner, 2026-11-18: "use the space at the sides
+        //rather than scrolling"). A monitor keeps the page as it was: no panel, the detail line, the click that plays.
+        //
+        //The panel's content width, in design units: the level's name in the heading face and the boards' places beside
+        //their names, with the band beside it inside FIT_ROOM of a 2.2:1 screen (86 % of the X300 Ultra's width, measured)
+        private const int PANEL_WIDTH = 960;
+
+        //Between the band and the panel, and between the panel's lines, in design units
+        private const int PANEL_GAP = 48;
+        private const int PANEL_LINE_GAP = 14;
+
+        //The Play button's height, and on the panel's layout the footer's beside it (Back, the Leaderboard), in design units:
+        //a finger's target of about 9 mm on the X300 Ultra (182 px at its 1.33x, 2.8 in over 1440 rows), where a
+        //button sized by its line and padding is 7.3 mm
+        private const int PLAY_HEIGHT = 205;
+
+        //The chapter arrows on the panel's layout: 9 mm squares on the X300 Ultra where ARROW_SIZE's are 7
+        private const int PANEL_ARROW_SIZE = 205;
+
+        //The pips on the panel's layout: as wide as the grid's width shares out between them (fourteen chapters, 118 units
+        //each), never under PIP_SIZE nor over PIP_TOUCH_MAX, and taller than they are wide - fourteen 9 mm squares are
+        //2550 px, more than the band's whole width, so a finger gets the height the column has to spare instead (3.8 mm
+        //squares on the X300 Ultra before, 5.2 by 7 mm after, measured). Drawn marks stay PIP_DOT across.
+        private const int PIP_TOUCH_HEIGHT = 158;
+        private const int PIP_TOUCH_GAP = 8;
+        private const int PIP_TOUCH_MAX = 240;
+
+        //A marked tile's asides (#1152): the lock's price and the hollow stars on its inverted slab, where the plate's dim
+        //grey and STAR_EMPTY would read at under 3:1 against near-white
+        private static readonly Color SELECTED_ASIDE = new(104, 104, 104);
 
         //One pip per chapter: filled for a chapter whose every level is cleared, hollow otherwise, and the one
         //being shown is the bright one. Two orthogonal bits, each read at a glance, and no hue — emphasis here
@@ -262,6 +306,35 @@ namespace BS3D.Screens
         //stay where it was, which means naming the button it was on.
         private Button _focused;
 
+        //Whether the tree stands with the side panel (#1152): the phone's layout, built where the interface is drawn larger
+        //than its design (BS3DGame.UiScale > 1) and the set has levels. Decided per tree, as the boards plate is.
+        private bool _panelMode;
+
+        //The level the panel speaks for, -1 for none, and whether it was open when chosen (asked every frame by the boards,
+        //where IsLevelUnlocked walks the set). The tile showing it is the MARKED one, inverted (SELECTED_BRUSH), the slot
+        //below; -1 where it is on no tile of the chapter showing.
+        private int _selected = -1;
+        private bool _selectedUnlocked;
+        private int _markedSlot = -1;
+
+        //The panel's widgets, written by WritePanel
+        private Label _panelCaption, _panelName, _panelStarsEarned, _panelStarsRest, _panelBest, _panelRules;
+        private Button _playButton;
+        private Label _playLabel;
+
+        //The player's places on the selected level's two boards (online only): the month's and all time's, under their
+        //names, with the boards' status row beside the signal (the plate's own _boardsStatus and _boardsSignal)
+        private Widget _panelPlaces;
+        private Label _panelMonth, _panelAllTime;
+
+        //Play's Enabled followed the selection off or onto a locked level: the pad's walk collects enabled entries only,
+        //so it is collected again on the next Update rather than from inside the host's highlight pass that selected it
+        private bool _navStale;
+
+        //How wide the band and the panel stand side by side, in pixels at the layout the tree was built for: what
+        //BS3DGame.FitPage has to fit across the screen (RequiredWidth), since the measure it takes counts heights
+        private int _rowWidth;
+
         protected override Widget BuildTree()
         {
             _tiles.Clear();
@@ -273,11 +346,19 @@ namespace BS3D.Screens
             _pips.Clear();
             _detailSlot = -1;
             _focused = null;
+            _markedSlot = -1;
+            _navStale = false;
+            _panelPlaces = null;
+            _boardsSignal = null;
+            _boardsStatus = null;
 
             int count = Game.LevelCount;
 
             _builtWidth = Game.GraphicsDevice.PresentationParameters.BackBufferWidth;
             _builtOnline = Game.Online.Enabled;
+
+            //Before anything is sized: Fit answers differently on the panel's layout
+            _panelMode = Game.UiScale > 1f && count > 0;
 
             //A chaptered set pages; anything else is the one grid it always was. Blocks are the same gate every
             //other block-aware corner of the game reads, and for the same reason: a set naming none has as many
@@ -298,6 +379,9 @@ namespace BS3D.Screens
             //their price against is on the same screen. Named in words since #273, because the chapter's own
             //readout above it now states a star figure too and the two must not be mistaken for each other.
             //Inter, for the glyph.
+            //On the panel's layout (#1152) it heads the panel instead, opposite the level's number (BuildPanel): still on
+            //the screen the prices are, and its line and margin went to the tiles, whose number the enlarged interface sets
+            //at the front end's size
             _totalStars = new Label
             {
                 Font = FontSmall,
@@ -305,7 +389,7 @@ namespace BS3D.Screens
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = ScaledThickness(0, 0, 0, 26),
             };
-            page.Widgets.Add(_totalStars);
+            if (!_panelMode) page.Widgets.Add(_totalStars);
 
             if (count == 0)
             {
@@ -328,7 +412,8 @@ namespace BS3D.Screens
             //the line drew into the Back button below it. Whatever still will not fit the width is cut with an
             //ellipsis rather than let overflow, the same choice as clipping over a widening page - the one character,
             //not FontStashSharp's default of three full stops (#806)
-            _detail = new Label
+            //Not on the panel's layout (#1152), where the panel says all of it and more, at the height the line took
+            _detail = _panelMode ? null : new Label
             {
                 Font = FontSmall,
                 TextColor = BS3DGame.MENU_TEXT_DIM,
@@ -340,11 +425,13 @@ namespace BS3D.Screens
                 Height = Scaled(70),
                 Margin = ScaledThickness(0, 13, 0, 13),
             };
-            page.Widgets.Add(_detail);
+            if (_detail != null) page.Widgets.Add(_detail);
 
             //The online boards of the level last looked at (#547), beside Back rather than under it — the page is pulled
             //into a band and has no height to spare — and only while the player can see the boards. A button rather than
             //a key of its own, so the pointer, the arrows and the pad all reach it the way they reach everything else.
+            //On the panel's layout both stand as tall as Play beside them (#1152), so the two plates end on one row of
+            //finger-sized buttons.
             if (Game.Online.Enabled)
             {
                 HorizontalStackPanel footer = new() { Spacing = Scaled(FOOTER_GAP), HorizontalAlignment = HorizontalAlignment.Center };
@@ -352,6 +439,7 @@ namespace BS3D.Screens
                 _boardButton.Width = Scaled(FOOTER_BUTTON_WIDTH);
                 Button back = BackButton();
                 back.Width = Scaled(FOOTER_BUTTON_WIDTH);
+                if (_panelMode) _boardButton.Height = back.Height = Scaled(PLAY_HEIGHT);
                 footer.Widgets.Add(_boardButton);
                 footer.Widgets.Add(back);
                 page.Widgets.Add(footer);
@@ -360,7 +448,9 @@ namespace BS3D.Screens
             else
             {
                 _boardButton = null;
-                page.Widgets.Add(BackButton());
+                Button back = BackButton();
+                if (_panelMode) back.Height = Scaled(PLAY_HEIGHT);
+                page.Widgets.Add(back);
             }
 
             //⚠ PULLED DOWN INTO A BAND rather than centred like every other page (#472). This is the one
@@ -371,9 +461,40 @@ namespace BS3D.Screens
             plate.VerticalAlignment = VerticalAlignment.Bottom;
             plate.Margin = ScaledThickness(0, 0, 0, PLATE_BOTTOM_MARGIN);
 
+            _boardsStale = true;
+
+            //The phone's layout (#1152): the band and the panel side by side, the pair centred and as tall as the taller,
+            //so the two plates read as one piece of furniture and their buttons end on one row. No boards plate: the
+            //panel says the player's places, and the Leaderboard button opens the whole board.
+            if (_panelMode)
+            {
+                _boardsPlate = null;
+                plate.Margin = new Myra.Graphics2D.Thickness(0);
+                plate.VerticalAlignment = VerticalAlignment.Stretch;
+
+                Panel panel = BuildPanel();
+
+                //Centred, not pulled down into a band with a margin under it: the pair takes the phone's whole height,
+                //where the preview a monitor keeps clear above the band cannot be seen anyway, and the margin was 53 px of
+                //the 1440 the page has to fit at the front end's size (#1052's rule)
+                HorizontalStackPanel row = new()
+                {
+                    Spacing = Scaled(PANEL_GAP),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                };
+                row.Widgets.Add(plate);
+                row.Widgets.Add(panel);
+
+                _rowWidth = row.Measure(new Point(int.MaxValue / 2, int.MaxValue / 2)).X;
+
+                return ScreenRoot(row);
+            }
+
+            _rowWidth = 0;
+
             int shift = 0;
             _boardsPlate = Game.Online.Enabled && count > 0 ? BuildBoards(plate, out shift) : null;
-            _boardsStale = true;
 
             //Off-centre by the board's need, through the margin: a centred child is centred in what its margin leaves
             if (_boardsPlate != null) plate.Margin = new Myra.Graphics2D.Thickness(0, 0, 2 * shift, Scaled(PLATE_BOTTOM_MARGIN));
@@ -467,6 +588,275 @@ namespace BS3D.Screens
             return plate;
         }
 
+        #region The side panel (#1152)
+
+        /// <summary>
+        /// The side panel of the phone's layout: what a tile has no room for, for the level the finger chose — which level of
+        /// the set it is, its name, its stars and best, its rules (or what keeps it locked), the player's places on its boards
+        /// when online — and the Play button that starts it, at the foot, level with Back. Written by <see cref="WritePanel"/>.
+        /// <para>
+        /// A grid of three rows, the middle one taking whatever height the band beside it gives the pair, so Play stands at
+        /// the plate's foot whichever level is shown and however many lines its rules or its lock take.
+        /// </para>
+        /// </summary>
+        private Panel BuildPanel()
+        {
+            int width = Scaled(PANEL_WIDTH);
+
+            Grid grid = new() { Width = width, VerticalAlignment = VerticalAlignment.Stretch };
+            grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
+            grid.RowsProportions.Add(new Proportion(ProportionType.Fill));
+            grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
+
+            VerticalStackPanel info = new() { Spacing = Scaled(PANEL_LINE_GAP), Width = width };
+
+            //Which level of the set it is, and opposite it the campaign's star total, which the band gives up on this layout
+            Grid caption = new() { Width = width };
+            caption.ColumnsProportions.Add(new Proportion(ProportionType.Fill));
+            caption.ColumnsProportions.Add(new Proportion(ProportionType.Auto));
+            _panelCaption = new Label { Font = FontSmall, TextColor = BS3DGame.MENU_TEXT_DIM };
+            caption.Widgets.Add(_panelCaption);
+            _totalStars.Margin = new Myra.Graphics2D.Thickness(0);
+            _totalStars.HorizontalAlignment = HorizontalAlignment.Right;
+            Grid.SetColumn(_totalStars, 1);
+            caption.Widgets.Add(_totalStars);
+            info.Widgets.Add(caption);
+
+            //The heading face, cut with the one-character ellipsis where a name would not fit (none of the shipped ones)
+            _panelName = new Label
+            {
+                Font = FontHeading,
+                TextColor = BS3DGame.MENU_TEXT,
+                Width = width,
+                AutoEllipsisMethod = FontStashSharp.RichText.AutoEllipsisMethod.Character,
+                AutoEllipsisString = "…",
+            };
+            info.Widgets.Add(_panelName);
+
+            //The result page's rating face: the earned run in the tier's colour and the rest hollow (#139)
+            HorizontalStackPanel stars = new();
+            _panelStarsEarned = new Label { Font = FontStars, TextColor = BS3DGame.MENU_TEXT_DIM };
+            _panelStarsRest = new Label { Font = FontStars, TextColor = BS3DGame.STAR_EMPTY };
+            stars.Widgets.Add(_panelStarsEarned);
+            stars.Widgets.Add(_panelStarsRest);
+            info.Widgets.Add(stars);
+
+            _panelBest = new Label { Font = FontBody, TextColor = BS3DGame.MENU_TEXT_BODY };
+            info.Widgets.Add(_panelBest);
+
+            //The rules, one to a line, or the lock as prose (WritePanel)
+            _panelRules = new Label
+            {
+                Font = FontSmall,
+                TextColor = BS3DGame.MENU_TEXT_BODY,
+                Width = width,
+                Wrap = true,
+                VerticalSpacing = ProseLeading,
+                Margin = ScaledThickness(0, PANEL_LINE_GAP, 0, 0),
+            };
+            info.Widgets.Add(_panelRules);
+
+            if (Game.Online.Enabled) info.Widgets.Add(BuildPanelPlaces(width));
+
+            Grid.SetRow(info, 0);
+            grid.Widgets.Add(info);
+
+            //Play, as tall as a finger's target and as wide as the panel; a locked level's is disabled, on the rest slab
+            //rather than Myra's fallback for a disabled button, the hover's lighter one
+            _playButton = MenuButton("Play", PlaySelected, out _playLabel);
+            _playButton.Width = width;
+            _playButton.Height = Scaled(PLAY_HEIGHT);
+            _playButton.DisabledBackground = BS3DGame.MENU_BUTTON_BRUSH;
+            _playButton.VerticalAlignment = VerticalAlignment.Bottom;
+            Grid.SetRow(_playButton, 2);
+            grid.Widgets.Add(_playButton);
+
+            Panel plate = Plate(grid);
+            plate.VerticalAlignment = VerticalAlignment.Stretch;
+            return plate;
+        }
+
+        /// <summary>
+        /// The player's places on the selected level's two boards, under the boards' names, and the status row the boards
+        /// plate carries (loading, or the service not answering) with its signal.
+        /// </summary>
+        private Widget BuildPanelPlaces(int width)
+        {
+            VerticalStackPanel places = new() { Spacing = Scaled(PANEL_LINE_GAP), Margin = ScaledThickness(0, PANEL_GAP, 0, 0) };
+
+            Grid board = new() { ColumnSpacing = Scaled(PANEL_GAP), RowSpacing = Scaled(PANEL_LINE_GAP) };
+            board.ColumnsProportions.Add(new Proportion(ProportionType.Auto));
+            board.ColumnsProportions.Add(new Proportion(ProportionType.Fill));
+            board.RowsProportions.Add(new Proportion(ProportionType.Auto));
+            board.RowsProportions.Add(new Proportion(ProportionType.Auto));
+
+            _panelMonth = AddPanelPlace(board, 0, PickerCopy.PANEL_MONTH);
+            _panelAllTime = AddPanelPlace(board, 1, PickerCopy.PANEL_ALL_TIME);
+
+            places.Widgets.Add(new Label { Text = PickerCopy.PANEL_PLACES, Font = FontSmall, TextColor = BS3DGame.MENU_TEXT_DIM });
+            places.Widgets.Add(board);
+
+            //The boards plate's status row (#683), as the plate builds it: it holds its line, and only the failure wraps
+            int signalSize = FontSmall.LineHeight;
+            _boardsSignal = new OnlineSignal(signalSize);
+            _boardsStatus = new Label
+            {
+                Font = FontSmall,
+                TextColor = BS3DGame.MENU_TEXT_BODY,
+                Width = width - signalSize - Scaled(SIGNAL_GAP),
+                VerticalAlignment = VerticalAlignment.Center,
+                Wrap = true,
+                VerticalSpacing = ProseLeading,
+            };
+            HorizontalStackPanel statusRow = new() { Spacing = Scaled(SIGNAL_GAP) };
+            statusRow.Widgets.Add(_boardsSignal);
+            statusRow.Widgets.Add(_boardsStatus);
+            places.Widgets.Add(statusRow);
+
+            _panelPlaces = places;
+            return places;
+        }
+
+        /// <summary>One board's row in the panel: its name dim on the left, the player's place in the boards' own "you" colour.</summary>
+        private Label AddPanelPlace(Grid board, int row, string name)
+        {
+            Label caption = new() { Text = name, Font = FontSmall, TextColor = BS3DGame.MENU_TEXT_BODY };
+            Grid.SetRow(caption, row);
+            board.Widgets.Add(caption);
+
+            Label place = new() { Text = " ", Font = FontSmall, TextColor = BS3DGame.BoardYouColor };
+            Grid.SetRow(place, row);
+            Grid.SetColumn(place, 1);
+            board.Widgets.Add(place);
+
+            return place;
+        }
+
+        /// <summary>
+        /// What the panel speaks for: the level, whether it is open, the backdrop's preview and the Leaderboard's level with
+        /// it, and Play's Enabled. Writes neither the tiles nor the panel - <see cref="Select"/> does, and a chapter put up
+        /// writes both itself.
+        /// </summary>
+        private void SetSelection(int level)
+        {
+            _selected = level;
+            _selectedUnlocked = level >= 0 && Game.IsLevelUnlocked(level);
+
+            //The backdrop hangs it and the boards are its, as a tile looked at always has (#405); never a locked one (#266)
+            if (_selectedUnlocked)
+            {
+                Game.Backdrop?.RequestPreview(level);
+                _boardLevel = level;
+            }
+
+            ShowBoardButton();
+
+            if (_playButton != null && _playButton.Enabled != _selectedUnlocked)
+            {
+                _playButton.Enabled = _selectedUnlocked;
+                _navStale = true;
+            }
+        }
+
+        /// <summary>Makes <paramref name="level"/> the one the panel speaks for and writes the tiles and the panel, if it changed.</summary>
+        private void Select(int level)
+        {
+            if (level < 0 || level == _selected) return;
+
+            SetSelection(level);
+            WriteTiles();
+            WritePanel();
+        }
+
+        /// <summary>
+        /// The level the panel speaks for when a chapter is put up (<see cref="PickerTap.DefaultSelection"/>): the frontier if
+        /// it is on it, otherwise its first level.
+        /// </summary>
+        private void SelectDefault(int first, int last)
+        {
+            if (!_panelMode) return;
+
+            SetSelection(PickerTap.DefaultSelection(first, last, Game.FirstUnfinishedLevel));
+        }
+
+        /// <summary>
+        /// The panel's lines for the selected level. A locked one is named and says what opens it; its stars stay hollow
+        /// and it shows no best and no boards, so it hints at nothing ahead (#266). Called on a change only: a Label's
+        /// Text setter re-measures.
+        /// </summary>
+        private void WritePanel()
+        {
+            if (_playButton == null || _selected < 0) return;
+
+            int level = _selected;
+            bool open = _selectedUnlocked;
+            int stars = open ? Game.LevelStars(level) : 0;
+
+            _panelCaption.Text = PickerCopy.PanelCaption(level + 1);
+            _panelName.Text = Game.LevelDisplayName(level).ToUpperInvariant();
+
+            _panelStarsEarned.Text = StarsEarned(stars);
+            _panelStarsEarned.TextColor = BS3DGame.StarTierColor(stars);
+            _panelStarsRest.Text = StarsRemaining(stars);
+
+            int best = stars > 0 ? Game.LevelBestScore(level) : 0;
+            _panelBest.Text = !open ? PickerCopy.PANEL_LOCKED
+                : stars > 0 ? (best > 0 ? PickerCopy.PanelBest(best) : PickerCopy.PANEL_OLD_RULES)
+                : Game.LevelSkipped(level) ? PickerCopy.TILE_SKIPPED
+                : PickerCopy.PANEL_NOT_CLEARED;
+            _panelBest.TextColor = open && stars > 0 ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_DIM;
+
+            //The rules one to a line, as a list rather than the detail line's sentence; a lock's arithmetic as prose
+            SetProse(_panelRules, open ? PickerCopy.PanelRules(Game.LevelRulesText(level))
+                : Game.IsLevelBeyondReach(level)
+                    ? PickerCopy.PanelSequence(Game.FirstUnfinishedLevel + 1, Game.LevelDisplayName(Game.FirstUnfinishedLevel))
+                    : PickerCopy.PanelPrice(Game.LevelMinStars(level), Game.TotalStars));
+
+            _playLabel.TextColor = open ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_DIM;
+        }
+
+        /// <summary>What Play does: the selected level, if it is open. A locked one's Play is disabled; this is the guard behind it.</summary>
+        private void PlaySelected()
+        {
+            if (_selected >= 0 && _selectedUnlocked) Game.StartGameAt(_selected);
+        }
+
+        /// <summary>
+        /// The width the band and the panel take side by side (#1152), which <c>BS3DGame.FitPage</c> brings the page down to
+        /// fit; nothing off the panel's layout.
+        /// </summary>
+        internal override int RequiredWidth => _panelMode ? _rowWidth : 0;
+
+        /// <summary>
+        /// The marked tile rests inverted (#1152), as a choice does on every page (<see cref="MenuPage.SELECTED_BRUSH"/>), so
+        /// the host's highlight pass, which rests every entry it repaints, does not take the mark off it.
+        /// </summary>
+        internal override Myra.Graphics2D.IBrush EntryRestBrushFor(Button entry) =>
+            _markedSlot >= 0 && _markedSlot < _tiles.Count && entry == _tiles[_markedSlot] ? SELECTED_BRUSH : EntryRestBrush;
+
+        /// <summary>
+        /// Paints the marked tile inverted, the pointer's and the cursor's brushes included, and gives the one marked before
+        /// it back its rest. After the host's highlight pass, which lights the focused entry a step up the grey ramp: on the
+        /// panel's layout the cursor's tile IS the marked one, and grey under the marked tile's dark type would not read.
+        /// </summary>
+        private void PaintMark(int previous)
+        {
+            if (previous >= 0 && previous < _tiles.Count && previous != _markedSlot)
+            {
+                _tiles[previous].Background = BS3DGame.MENU_BUTTON_BRUSH;
+                _tiles[previous].OverBackground = BS3DGame.MENU_BUTTON_OVER_BRUSH;
+            }
+
+            if (_markedSlot >= 0 && _markedSlot < _tiles.Count)
+            {
+                //A locked tile is drawn with its over brush, Myra's fallback for a disabled one
+                _tiles[_markedSlot].Background = SELECTED_BRUSH;
+                _tiles[_markedSlot].OverBackground = SELECTED_BRUSH;
+            }
+        }
+
+        #endregion
+
         public override void Update(GameTime gameTime)
         {
             base.Update(gameTime);
@@ -479,10 +869,19 @@ namespace BS3D.Screens
                 return;
             }
 
-            if (_boardsPlate == null) return;
+            //Play came on or went off with the selection (#1152): the walk is collected again, keeping the cursor where it is
+            if (_navStale && IsActive && IsBuilt)
+            {
+                _navStale = false;
+                Game.RefreshNavEntries(_focused);
+            }
+
+            //The boards plate, or on the panel's layout the panel's places (#1152)
+            Widget boards = (Widget)_boardsPlate ?? _panelPlaces;
+            if (boards == null) return;
 
             UpdateBoards();
-            if (_boardsPlate.Visible) _boardsSignal.Advance((float)gameTime.ElapsedGameTime.TotalSeconds);
+            if (boards.Visible) _boardsSignal.Advance((float)gameTime.ElapsedGameTime.TotalSeconds);
         }
 
         /// <summary>
@@ -541,8 +940,11 @@ namespace BS3D.Screens
         /// The level whose boards the plate shows and the Leaderboard button opens: the last unlocked one the cursor rested
         /// on, and before it has rested on any, the frontier - the level the player is most likely about to play. Never a
         /// locked one (#266). Asked every frame, so the frontier is the one <see cref="Refresh"/> read, not a fresh walk.
+        /// On the panel's layout (#1152) the selected level's, while it is open: the panel speaks for one level at a time.
         /// </summary>
-        private int BoardsLevel() => _boardLevel >= 0 ? _boardLevel : _boardsFrontier;
+        private int BoardsLevel() =>
+            _panelMode ? (_selectedUnlocked ? _selected : -1)
+            : _boardLevel >= 0 ? _boardLevel : _boardsFrontier;
 
         private LevelIdentity IdentityOf(int level)
         {
@@ -558,10 +960,10 @@ namespace BS3D.Screens
         /// <summary>Writes the plate - only when something changed, because a Label's Text setter re-measures.</summary>
         private void WriteBoards()
         {
-            _boardsPlate.Visible = _boardsLevel >= 0;
+            //The plate, or the panel's places (#1152): neither for a locked level, nor before any level is chosen
+            Widget boards = (Widget)_boardsPlate ?? _panelPlaces;
+            boards.Visible = _boardsLevel >= 0;
             if (_boardsLevel < 0) return;
-
-            _boardsHeading.Text = PickerCopy.BoardsHeading(_boardsLevel + 1, Game.LevelDisplayName(_boardsLevel));
 
             BoardPageBody month = _boardsMonthReply?.Page, allTime = _boardsAllTimeReply?.Page;
             bool waiting = _boardsMonthTicket >= 0 || _boardsAllTimeTicket >= 0;
@@ -570,12 +972,22 @@ namespace BS3D.Screens
             //since the page was built; a reply without a page is the service not answering
             bool failed = !waiting && (month == null || allTime == null);
 
-            _boardMonth.Fill("THIS MONTH", BoardView.MonthName(month?.Month), month, month?.Me?.Rank ?? 0, month?.Total ?? 0);
-            _boardAllTime.Fill("ALL TIME", BoardView.AllTimePeriod, allTime, allTime?.Me?.Rank ?? 0, allTime?.Total ?? 0);
+            if (_boardsPlate != null)
+            {
+                _boardsHeading.Text = PickerCopy.BoardsHeading(_boardsLevel + 1, Game.LevelDisplayName(_boardsLevel));
 
-            //"Nobody is on this board yet" is the answer of a board that came back empty, not of one still on its way
-            if (month == null) _boardMonth.You.Text = " ";
-            if (allTime == null) _boardAllTime.You.Text = " ";
+                _boardMonth.Fill("THIS MONTH", BoardView.MonthName(month?.Month), month, month?.Me?.Rank ?? 0, month?.Total ?? 0);
+                _boardAllTime.Fill("ALL TIME", BoardView.AllTimePeriod, allTime, allTime?.Me?.Rank ?? 0, allTime?.Total ?? 0);
+
+                //"Nobody is on this board yet" is the answer of a board that came back empty, not of one still on its way
+                if (month == null) _boardMonth.You.Text = " ";
+                if (allTime == null) _boardAllTime.You.Text = " ";
+            }
+            else
+            {
+                _panelMonth.Text = PanelPlace(month, waiting);
+                _panelAllTime.Text = PanelPlace(allTime, waiting);
+            }
 
             //As prose (#855): the failure wraps at 1080p, and a wrapping label is never handed raw text. The single space
             //that holds the line's height comes back from the breaker as it is
@@ -585,6 +997,14 @@ namespace BS3D.Screens
             _boardsSignal.Visible = waiting || failed;
             _boardsSignal.Show(waiting ? OnlineSignal.SignalMode.Working : OnlineSignal.SignalMode.Idle);
         }
+
+        /// <summary>
+        /// The player's place on one board, as the panel shows it (#1152): an ellipsis while it is on its way and a dash where it
+        /// did not come back, the status row under them saying which. An unfinished attempt is a row with no stars (#716).
+        /// </summary>
+        private static string PanelPlace(BoardPageBody board, bool waiting) =>
+            board != null ? PickerCopy.PanelPlace(board.Me?.Rank ?? 0, board.Total, board.Me is { Rank: > 0, Stars: 0 })
+            : waiting ? "…" : "—";
 
         /// <summary>
         /// How wide the grid comes out, in design units: the tiles and the gaps between them as
@@ -673,7 +1093,10 @@ namespace BS3D.Screens
 
             VerticalStackPanel header = new()
             {
-                Width = Scaled(Fit(CHAPTER_HEADER_WIDTH)),
+                //On the panel's layout (#1152) what the grid leaves beside the arrows, so the pager is the grid's width
+                Width = Scaled(_panelMode
+                    ? GridWidth(Game.LevelCount) - 2 * (PANEL_ARROW_SIZE + PAGER_SPACING)
+                    : Fit(CHAPTER_HEADER_WIDTH)),
                 Spacing = Scaled(Fit(8)),
                 VerticalAlignment = VerticalAlignment.Center,
             };
@@ -682,9 +1105,11 @@ namespace BS3D.Screens
 
             HorizontalStackPanel row = new()
             {
-                Spacing = Scaled(Fit(20)),
+                Spacing = Scaled(Fit(PAGER_SPACING)),
                 HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = ScaledThickness(0, 0, 0, 20),
+                //None under it on the panel's layout (#1152): its taller arrows' shoulder prompts already stand well under
+                //the readout, and the 18 px went to the pips
+                Margin = _panelMode ? new Myra.Graphics2D.Thickness(0) : ScaledThickness(0, 0, 0, 20),
             };
 
             //Aligned to the top, so the arrows' slabs stand level with the heading while the shoulders hang under them
@@ -712,7 +1137,9 @@ namespace BS3D.Screens
             int height = (int)MathF.Round(CapHeightOf(FontHeading) * ARROW_OF_CAP);
             MediaGlyph triangle = new(symbol, height, height);
 
-            return Game.MenuTile(triangle, () => TurnChapter(direction), ARROW_SIZE, ARROW_SIZE);
+            //A finger's size on the panel's layout (#1152); the triangle is the heading's, so it is the same on both
+            int size = _panelMode ? PANEL_ARROW_SIZE : ARROW_SIZE;
+            return Game.MenuTile(triangle, () => TurnChapter(direction), size, size);
         }
 
         /// <summary>
@@ -735,13 +1162,22 @@ namespace BS3D.Screens
         /// </summary>
         private Widget BuildPips()
         {
+            //On the panel's layout (#1152) the pips share the grid's width out between them and stand taller than wide, a
+            //finger's target as big as the row can give fourteen of them (PIP_TOUCH_HEIGHT); elsewhere the square of #348
+            int count = _chapterStart.Length;
+            int gap = _panelMode ? PIP_TOUCH_GAP : Fit(18);
+            int width = _panelMode
+                ? Math.Clamp((GridWidth(Game.LevelCount) - (count - 1) * gap) / count, PIP_SIZE, PIP_TOUCH_MAX)
+                : Fit(PIP_SIZE);
+            int height = _panelMode ? PIP_TOUCH_HEIGHT : Fit(PIP_SIZE);
+
             HorizontalStackPanel row = new()
             {
-                Spacing = Scaled(Fit(18)),
+                Spacing = Scaled(gap),
                 HorizontalAlignment = HorizontalAlignment.Center,
             };
 
-            for (int c = 0; c < _chapterStart.Length; c++)
+            for (int c = 0; c < count; c++)
             {
                 PipGlyph pip = new(Scaled(Fit(PIP_DOT)));
 
@@ -753,7 +1189,7 @@ namespace BS3D.Screens
 
                 //Fitted with its mark (#847): until the mark was drawn it was a 140-unit font glyph, and #539 had to
                 //keep the square unfitted so the ring stayed on it. A drawn mark shrinks with its plate.
-                row.Widgets.Add(Game.MenuTile(pip, () => GoToChapter(chapter), Fit(PIP_SIZE), Fit(PIP_SIZE)));
+                row.Widgets.Add(Game.MenuTile(pip, () => GoToChapter(chapter), width, height));
             }
 
             return row;
@@ -851,10 +1287,28 @@ namespace BS3D.Screens
             //the menu's - fitting the height clipped every name at 2.4:1 (photographed, #496)
             Button tile = Game.MenuTile(content, () => StartSlot(slot), Fit(TILE_WIDTH), TILE_HEIGHT);
 
+            //⚠ ON THE PANEL'S LAYOUT THE SUM ABOVE DOES NOT HOLD (#1152): an enlarged interface sets FontBody at the front
+            //end's 108 rather than 80 (#1052), 260 units of type and gaps in 236 of room, and the score line was cut off the
+            //bottom of the second row's tiles (photographed in the phone's layout). The box grows to what it holds there.
+            if (_panelMode)
+                tile.Height = Math.Max(tile.Height ?? 0, FontBody.LineHeight + 3 * FontTile.LineHeight + 3 * content.Spacing
+                    + tile.Padding.Top + tile.Padding.Bottom);
+
             //The pointer's half of the detail line; the focus cursor's half is NavFocusChanged. Leaving only
             //clears a description this tile still owns — the cursor may already have replaced it.
-            tile.MouseEntered += (_, _) => ShowDetail(slot);
-            tile.MouseLeft += (_, _) => { if (_detailSlot == slot) ShowDetail(-1); };
+            //On the panel's layout (#1152) the pointer selects instead, unless the hand is a finger (PickerTap.HoverSelects:
+            //a phone's touch moves no pointer, and the desktop's stand-in for it must answer as the phone does), and leaving
+            //takes nothing back: the panel keeps speaking for the level last chosen, which Play starts.
+            tile.MouseEntered += (_, _) =>
+            {
+                if (!_panelMode || PickerTap.HoverSelects(Game.PromptsForTouch)) ShowDetail(slot);
+            };
+            tile.MouseLeft += (_, _) => { if (!_panelMode && _detailSlot == slot) ShowDetail(-1); };
+
+            //A locked tile is never pressed (Myra presses no disabled button), so on the panel's layout a finger landing on
+            //one selects it here, and the panel says what opens it. Myra raises TouchDown on a disabled widget, and a mouse
+            //press is a touch to it too.
+            tile.TouchDown += (_, _) => { if (_panelMode && !tile.Enabled) Select(LevelAt(slot)); };
 
             _tiles.Add(tile);
             _tileNumbers.Add(number);
@@ -866,11 +1320,21 @@ namespace BS3D.Screens
             return tile;
         }
 
-        private void StartSlot(int slot)
+        /// <summary>
+        /// A tile pressed: the click, the tap, Enter or the pad's A. The level starts, as it always has - but a finger's first
+        /// tap on the panel's layout only selects the tile (#1152, <see cref="PickerTap.OnTile"/>), so its rules and boards
+        /// are seen in the panel before anything starts, and a second tap on it or Play starts it.
+        /// </summary>
+        private void StartSlot(int slot) => PressTile(slot, Game.PromptsForTouch);
+
+        private void PressTile(int slot, bool finger)
         {
             int level = LevelAt(slot);
 
-            if (level >= 0) Game.StartGameAt(level);
+            if (level < 0) return;
+
+            if (PickerTap.OnTile(_panelMode, finger, _selected, level) == PickerTap.Outcome.Select) Select(level);
+            else Game.StartGameAt(level);
         }
 
         #region The chapters
@@ -1016,7 +1480,11 @@ namespace BS3D.Screens
                 _pips[c].Tint = c == _chapter ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_DIM;
             }
 
+            //The panel speaks for the chapter put up (#1152): its frontier or its first level, until a tile is chosen
+            SelectDefault(first, last);
+
             WriteTiles();
+            WritePanel();
         }
 
         /// <summary>Whether every level of a chapter has been cleared — what fills its pip.</summary>
@@ -1129,7 +1597,9 @@ namespace BS3D.Screens
             }
             else
             {
+                SelectDefault(0, Game.LevelCount - 1);
                 WriteTiles();
+                WritePanel();
             }
         }
 
@@ -1142,6 +1612,10 @@ namespace BS3D.Screens
         /// </summary>
         private void WriteTiles()
         {
+            //The tile the panel speaks for (#1152), on the chapter showing or on none
+            int previousMark = _markedSlot;
+            _markedSlot = _panelMode && _selected >= 0 ? Array.IndexOf(_slotLevel, _selected) : -1;
+
             for (int slot = 0; slot < _tiles.Count; slot++)
             {
                 int level = LevelAt(slot);
@@ -1156,8 +1630,18 @@ namespace BS3D.Screens
                 bool unlocked = Game.IsLevelUnlocked(level);
                 int stars = Game.LevelStars(level);
 
+                //The marked tile is inverted, near-white with dark type (PaintMark): every line of it is the dark grey, the
+                //asides a lighter one, and its stars are counted by their shapes there - the tiers' colours are lost on
+                //near-white, and the panel beside it strikes them large
+                bool marked = slot == _markedSlot;
+
                 _tiles[slot].Visible = true;
                 _tiles[slot].Enabled = unlocked;
+
+                //A locked tile is drawn with its over brush (Myra's fallback for a disabled button), which the host's pass
+                //rests to the slab while the cursor is up and the mark inverts (#1152): a tile locked by this chapter turn,
+                //or no longer marked, takes back the look every locked tile has
+                if (!unlocked && !marked) _tiles[slot].OverBackground = BS3DGame.MENU_BUTTON_OVER_BRUSH;
 
                 _tileNumbers[slot].Text = (level + 1).ToString();
                 _tileNames[slot].Text = Game.LevelDisplayName(level);
@@ -1165,8 +1649,10 @@ namespace BS3D.Screens
                 //A locked tile is present but visibly not an offer: its type drops to the dim grey the
                 //palette keeps for asides, which on this menu IS the disabled state — emphasis is brightness,
                 //never hue (see the palette comment in BS3DGame.Menu.cs).
-                _tileNumbers[slot].TextColor = unlocked ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_DIM;
-                _tileNames[slot].TextColor = unlocked ? BS3DGame.MENU_TEXT_BODY : BS3DGame.MENU_TEXT_DIM;
+                _tileNumbers[slot].TextColor = marked ? (unlocked ? SELECTED_TEXT : SELECTED_ASIDE)
+                    : unlocked ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_DIM;
+                _tileNames[slot].TextColor = marked ? (unlocked ? SELECTED_TEXT : SELECTED_ASIDE)
+                    : unlocked ? BS3DGame.MENU_TEXT_BODY : BS3DGame.MENU_TEXT_DIM;
 
                 //The star line earns its place or stays empty: stars once there are any (an untouched
                 //campaign is not a wall of hollow glyphs), the price on a lock, nothing on an open level
@@ -1191,9 +1677,11 @@ namespace BS3D.Screens
                     : rated ? StarsEarned(stars)
                     : Game.LevelSkipped(level) ? PickerCopy.TILE_SKIPPED
                     : string.Empty;
-                _tileStarsEarned[slot].TextColor = rated ? BS3DGame.StarTierColor(stars) : BS3DGame.MENU_TEXT_DIM;
+                _tileStarsEarned[slot].TextColor = marked ? (rated ? SELECTED_TEXT : SELECTED_ASIDE)
+                    : rated ? BS3DGame.StarTierColor(stars) : BS3DGame.MENU_TEXT_DIM;
 
                 _tileStarsRest[slot].Text = rated ? StarsRemaining(stars) : string.Empty;
+                _tileStarsRest[slot].TextColor = marked ? SELECTED_ASIDE : BS3DGame.STAR_EMPTY;
 
                 //The best score the player has cleared it with (#684), the owner's "highest score, but only for
                 //unlocked levels": the player's own, offline and always there, written the way the result page
@@ -1203,7 +1691,10 @@ namespace BS3D.Screens
                 //request (GET /v1/boards); a tile here is the player's own record, offline and always there. A level
                 //cleared only under older scoring rules (#1045) keeps its stars and shows no score (PickerCopy.TileScore).
                 _tileScores[slot].Text = PickerCopy.TileScore(rated, rated ? Game.LevelBestScore(level) : 0);
+                _tileScores[slot].TextColor = marked ? SELECTED_TEXT : BS3DGame.MENU_TEXT_BODY;
             }
+
+            PaintMark(previousMark);
         }
 
         /// <summary>The focus cursor's half of the detail line — see <c>BS3DGame.ApplyNavHighlight</c>.</summary>
@@ -1214,15 +1705,25 @@ namespace BS3D.Screens
             //Back, an arrow, or another page's entry should the stack change under the call: all describe
             //nothing, and IndexOf's -1 is exactly the "clear it" the detail line wants then.
             ShowDetail(focused == null ? -1 : _tiles.IndexOf(focused));
+
+            //The host's pass has just rested and lit every entry: the marked tile is inverted again over it (#1152)
+            PaintMark(-1);
         }
 
         /// <summary>
         /// Points the detail line at one tile — the rules the tile has no room for, or a lock's full
-        /// arithmetic: the price next to what the player actually holds.
+        /// arithmetic: the price next to what the player actually holds. On the panel's layout (#1152) the tile is
+        /// selected instead, and a slot that is no tile (Back, an arrow, Play) leaves the panel as it is.
         /// </summary>
         private void ShowDetail(int slot)
         {
             _detailSlot = slot;
+
+            if (_panelMode)
+            {
+                Select(LevelAt(slot));
+                return;
+            }
 
             if (_detail == null) return;
 
@@ -1273,7 +1774,8 @@ namespace BS3D.Screens
 
         /// <summary>
         /// Rests the pointer on a level's tile, exactly as its <c>MouseEntered</c> does - the <c>pickfocus=</c> argument's
-        /// (#684), since no script reaches the Game's pointer. A level not on the chapter showing is named and left.
+        /// (#684), since no script reaches the Game's pointer. A level not on the chapter showing is named and left. On the
+        /// panel's layout it selects the tile whatever the hand, as the pointer of a mouse does there.
         /// </summary>
         internal void PointAtForTesting(int level)
         {
@@ -1284,6 +1786,37 @@ namespace BS3D.Screens
                 : $"[pick] Testing: level {level + 1} is not on the chapter showing");
 
             if (slot >= 0) ShowDetail(slot);
+        }
+
+        /// <summary>
+        /// A finger's tap on a level's tile - the <c>picktap=</c> argument's (#1152): what the tile's press does for a finger
+        /// (<see cref="PickerTap.OnTile"/>), or for a locked tile what its touch does (it selects on the panel's layout and
+        /// nothing elsewhere). Logged with what it did, so a script can tell a selection from a start.
+        /// </summary>
+        internal void TapForTesting(int level)
+        {
+            int slot = Array.IndexOf(_slotLevel, level);
+            string name = level >= 0 && level < Game.LevelCount ? Game.LevelDisplayName(level) : "?";
+
+            if (slot < 0)
+            {
+                Console.WriteLine($"[pick] Testing: a finger on {level + 1} '{name}': not on the chapter showing");
+                return;
+            }
+
+            if (!_tiles[slot].Enabled)
+            {
+                if (_panelMode) Select(level);
+                Console.WriteLine($"[pick] Testing: a finger on {level + 1} '{name}', locked: "
+                    + (_panelMode ? "selected" : "nothing"));
+                return;
+            }
+
+            PickerTap.Outcome outcome = PickerTap.OnTile(_panelMode, true, _selected, level);
+            Console.WriteLine($"[pick] Testing: a finger on {level + 1} '{name}': "
+                + (outcome == PickerTap.Outcome.Select ? "selected" : "started"));
+
+            PressTile(slot, finger: true);
         }
 
         /// <summary>The level a tile slot is showing, or -1 for no tile and for a slot this chapter leaves empty.</summary>
