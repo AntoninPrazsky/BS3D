@@ -125,9 +125,8 @@ namespace BS3D.Screens
             column.Widgets.Add(BackButton());
 
             //The same tag, in the same corner, as the front end's — About is where a player looks for which version
-            //they run, once they have found the entry
-            //On a phone the pages' text is dragged rather than the whole page drawn smaller (#1052)
-            ScrollsWhenTall(column, frame);
+            //they run, once they have found the entry. Stacked, the page is a monitor's: the design's size fits it, so its
+            //body never scrolls (a phone's stands beside the rail, BuildBesideTheRail)
             return ScreenRoot(Plate(column, prose: true), VersionTag());
         }
 
