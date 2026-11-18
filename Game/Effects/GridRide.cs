@@ -62,9 +62,9 @@ namespace BS3D.Effects
 
         //How many seconds of the cycle's run either side the heading the lens turns to is averaged over: the swing round one node
         //takes twice this and turns at most 90 / REACH_SECONDS degrees a second (37.5) at its middle; a U-turn, two right angles
-        //the same way a node apart, at up to 71. ⚠ Both sides together, with the longest stretch a choice is made over, stay
-        //inside the run a rider keeps (LightCycleRuns.KEPT_SECONDS): past it, the first frame posed after a choice would make the
-        //cycle's run again from its start
+        //the same way as close as a cycle turns them (two nodes apart, #1162), at up to 62. ⚠ Both sides together, with the
+        //longest stretch a choice is made over, stay inside the run a rider keeps (LightCycleRuns.KEPT_SECONDS): past it, the
+        //first frame posed after a choice would make the cycle's run again from its start
         internal const float REACH_SECONDS = 2.4f;
 
         //What the lens keeps off, through the seconds the shot plays in: any wall seen from above; any other cycle's middle; any
@@ -85,10 +85,11 @@ namespace BS3D.Effects
         //Nearer the axis than this the lens would be over the island; the cycles keep 56 off it, so it never binds
         private const float ISLAND_CLEARANCE = ArenaIsland.RADIUS + 6f;
 
-        //The fastest a calm ride's frame swings round its cycle, degrees a second (Keep.Calm): a cycle that turns three right
-        //angles within a few nodes (circling at the edge of its ring) swings it faster than a U-turn's 71, at up to about 100.
-        //⚠ Averaged over 1.2 s either side, one right angle swung at 75 a second and a U-turn at 123 (150 averaged as vectors,
-        //see Heading), and refusing every U-turn left two reels in five without a ride
+        //The fastest a calm ride's frame swings round its cycle, degrees a second (Keep.Calm). A cycle turns at most every two
+        //nodes (#1162), so three right angles the same way swing it at about 69 at most and every ride is calm; this binds again
+        //if the cycles turn closer (at successive nodes, three right angles swung it at up to about 100). ⚠ Averaged over 1.2 s
+        //either side, one right angle swung at 75 a second and a U-turn at 123 (150 averaged as vectors, see Heading), and
+        //refusing every U-turn left two reels in five without a ride
         internal const float MAX_SWING_DEGREES = 80f;
 
         //How finely the seconds are tested
