@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-15 — #1153 Scény, Jukebox, About a žebříčky přes šířku telefonu — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: na zvětšeném UI (`UiScale > 1`) a obrazovce aspoň 1,7:1 (`WideMenuLayout.MIN_ASPECT`) mají Scene (mřížka 7×3 dlaždic), Jukebox (tři sloupce), About (levý sloupec + text) a High Scores (dva sloupce po pěti úrovních) široké rozložení; monitor beze změny. `FOCUS_PROMPT_MIN_SHARE` 0,4 → 0,45. Testy `WideMenuLayoutTests`.
+- ⚠ `FitPage` zmenšuje jen podle výšky a deklarované `RequiredWidth`: široká stránka bez `RequiredWidth` se na 16:9 ořízne (Moon, Dream, Polar nešly ťuknout). Každá široká stránka ji teď přepisuje (`MenuPage.UnboundedWidth`).
+- Otevřené: verdict-eye; skutečný telefon, pad, prst a živé žebříčky nezkoušeny. Majitel: mřížku scén i na monitoru? Prompt přes skóre řádku High Scores (i na main).
+
 ## 2026-11-15 — #1149 řádek pod polem vzkazu podle ruky — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: `NoteHint` (čistá funkce) volí řádek pod polem vzkazu. Na telefonu (nebo s `touch`) „Tap the field to type, then tap Send. N / 1000.“, s klávesnicí Enter/Shift+Enter bez věty o padu, s padem starý řádek beze změny. Výška řádku je pevná, změřená jen pro řádky, které platforma umí ukázat, takže Send se při změně ruky ani při stížnosti „Write something first.“ nehne. 12 testů v `NoteHintTests`, viděné selhat.
