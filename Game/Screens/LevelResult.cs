@@ -280,11 +280,19 @@ namespace BS3D.Screens
         /// the time bonus alone could pay it, how much faster the same clear would have had to be (<see cref="NextStarSecondsFaster"/>):
         /// "Next star at 12 300 (+800), or 3 s faster". Time is the lever four stars turn on, and this is where a player who has
         /// just missed one is told so in a number.
+        /// <para>
+        /// <b>It breaks at its comma or not at all</b> (#1148): every other space is a tie (<see cref="SpaceWrap.TIE"/>), the
+        /// figures' group separators too, so where the plate is too narrow for the note on one line (the phone's split page) it
+        /// is set as the score over the time, "Next star at 26 180 (+1 781)," over "or 3 s faster", and never parts a figure.
+        /// </para>
         /// </summary>
         public string NextStarNote =>
             NextStarScore < 0 ? string.Empty
-            : $"Next star at {ScoreText.Of(NextStarScore)} (+{ScoreText.Of(NextStarGap)})"
-              + (NextStarSecondsFaster > 0 ? $", or {NextStarSecondsFaster} s faster" : string.Empty);
+            : Tied($"Next star at {ScoreText.Of(NextStarScore)} (+{ScoreText.Of(NextStarGap)})")
+              + (NextStarSecondsFaster > 0 ? ", " + Tied($"or {NextStarSecondsFaster} s faster") : string.Empty);
+
+        /// <summary><paramref name="text"/> with every space a tie: a clause no line may part.</summary>
+        private static string Tied(string text) => text.Replace(' ', SpaceWrap.TIE);
 
         /// <summary>
         /// The fewest whole seconds faster that would have earned the next star with everything else about the clear the same

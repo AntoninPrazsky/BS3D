@@ -89,6 +89,24 @@ namespace BS3D.Screens
         }
 
         /// <summary>
+        /// Where the result page's boards plate stands (#701): centred in the strip right of the page's middle
+        /// (<paramref name="centreWidth"/> wide, centred on <paramref name="screenWidth"/>), as wide as it may be with
+        /// <paramref name="sideFloor"/> on both sides, never under <paramref name="minWidth"/> nor over <paramref name="ceiling"/>,
+        /// and the margin to the edge half of what is left. Where the strip is narrower than the plate at its floor, the margin
+        /// holds <paramref name="edgeFloor"/> and the plate is what crosses towards the middle. <paramref name="padding"/> is the
+        /// plate's two side paddings together. Returns the board's width inside the padding, the right margin and the plate's
+        /// left edge, the line the breakdown beside it keeps clear of (<c>BreakdownLayout.NoteRoom</c>, #1148).
+        /// </summary>
+        internal static (int Width, int Margin, int Left) Place(int screenWidth, int centreWidth, int padding, int sideFloor,
+            int edgeFloor, int minWidth, int ceiling)
+        {
+            int beside = (screenWidth - centreWidth) / 2;
+            int width = Math.Clamp(beside - padding - 2 * sideFloor, minWidth, ceiling);
+            int margin = Math.Max((beside - width - padding) / 2, edgeFloor);
+            return (width, margin, screenWidth - margin - width - padding);
+        }
+
+        /// <summary>
         /// <paramref name="text"/> as it is, or - when <paramref name="width"/> says it is wider than <paramref name="measure"/> -
         /// its longest beginning that, with <see cref="ELLIPSIS"/> after it, is not (a space before the ellipsis goes: "Nonex …"
         /// reads as two words). A name is cut between characters, never through a surrogate pair. Where not even the ellipsis
