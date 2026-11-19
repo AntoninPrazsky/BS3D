@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-19 — #1163 smrky polární záře podle vzdálenosti — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: „obrácené trychtýře“ v úvodu (záběr *wood*, High/Ultra) byly špice vzdáleného porostu (`AuroraStandMesh`), ne smrky. Na High/Ultra se špice blíž než 200 jednotek od objektivu stáhne v `StandVS` do bodu a na jejím místě se kreslí smrk z výsadby (`StandSpruces`, stejný test na stejných floatech). Blízká koruna smrků teď sleduje objektiv každý snímek (90 od objektivu / 110 od arény); měsíční stín bere frustum kamery, takže hra nemění žádnou korunu v žádném průchodu. Smrky porostu nevrhají stín. Číselník `aurora=all/-standspruces`.
+- ⚠ Stínový průchod přepínal koruny (a stíny) mimo záběr, když se dělo otáčelo; test chodil jen kamerový průchod.
+- Otevřené: verdict-eye; pohyb (přeskoky při 200 a 90) nikdo neviděl; poloměr 200 vs. 150 (cena ~0,4–0,5 ms) a stíny porostu jsou na majiteli.
+
 ## 2026-11-19 — #1158 #1159 #1160 #1161 #1175 poznámky k záběrům úvodů kapitol — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: poušť — kamery brouka a štíra 1,6× dál po téže ose (štír jako nakreslený ~0,22–0,23 šířky 16:9, brouk 0,18); hory — vrchol mířen 16 pod apex, kamera na místě, špička ~0,66 nahoru, skála 53–55 %; jeskyně — pořadí chodba, šachta, krystaly, spodek (losuje se ve starém pořadí, seedy beze změny); grid — jízda 13 napříč (dál v buňce mřížky nejde), cyklus 0,27 šířky; vesmír — talíř 20 u/s místo 28, záběr 5,5 s, úvod 15,5 s.
