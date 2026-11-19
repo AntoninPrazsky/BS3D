@@ -208,7 +208,8 @@ namespace BS3D
 
         //The two faces a paragraph may switch to inside its own line (#996), at the small face's size so a line keeps its
         //height: the display face for a lead-in, the reading face's bold cut for a strong word. Reached by name through
-        //FontStashSharp's rich-text command (ResolveProseFont), never set on a label
+        //FontStashSharp's rich-text command (ResolveProseFont); the bold cut is also set on a label of its own, a fact
+        //list's label (MenuFontStrong, #1154)
         private SpriteFontBase _menuFontLead, _menuFontStrong;
 
         /// <summary>The names a paragraph's copy switches face by (<c>/f[lead]</c>, <c>/f[strong]</c>, #996): see <see cref="ResolveProseFont"/>.</summary>
@@ -1175,6 +1176,12 @@ namespace BS3D
         /// </summary>
         internal SpriteFontBase MenuFontPromptSmall => _menuFontPromptSmall;
         internal SpriteFontBase MenuFontSmall => _menuFontSmall;
+
+        /// <summary>
+        /// The reading face's bold cut at the small face's size: what a strong word switches to inside a line
+        /// (<see cref="PROSE_FONT_STRONG"/>), and a fact list's labels beside their prose (<c>MenuPage.FactList</c>, #1154).
+        /// </summary>
+        internal SpriteFontBase MenuFontStrong => _menuFontStrong;
         internal SpriteFontBase MenuFontHeading => _menuFontHeading;
         internal SpriteFontBase MenuFontSection => _menuFontSection;
         internal SpriteFontBase MenuFontTitle => _menuFontTitle;

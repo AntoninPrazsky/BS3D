@@ -462,7 +462,8 @@ namespace BS3D.Online
         /// What online scores send and what the service keeps (#548), as a short labelled list (#868): what is sent, where,
         /// what the server adds, how to delete it, and the play counts — on the settings page and on the About page, from
         /// here, so the two cannot drift apart. Each line is a label and what it says, which the pages set as two columns
-        /// (<c>MenuPage.FactList</c>, #1034). <b>It must stay exactly true of <see cref="ScoreSubmission"/> and of the
+        /// (<c>MenuPage.FactList</c>, #1034), the label drawn as it is written here, a capital and then lower case (#1154).
+        /// <b>It must stay exactly true of <see cref="ScoreSubmission"/> and of the
         /// service's audit row (#544)</b>: change one, change this in the same commit, the way the documents are held to
         /// the code. It says everything the sentence it replaced said, the unfinished attempt (#716) and the play counts
         /// (#709, <see cref="StatsBatchBody"/>, the service's <c>play_stats</c>) included: only what the code guarantees of

@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-19 — #1154 popisky soukromí písmem textu — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: `MenuPage.FactList` (About > Privacy i Settings > ONLINE) sází popisky v Inter Bold velikostí textu (`MENU_FONT_SMALL`), jak jsou zapsané (Sent, Where, …), bez vynucených verzálek; dál bílé a zarovnané vpravo. Inter Bold už byl načtený za `MenuPage.Strong`, jen je vystavený jako `MenuFontStrong`/`FontStrong`. Regular a Bold mají shodné svislé metriky, takže pokles účaří (`ANTON_ASCENT_OF_LINE`) zmizel; rozestup faktů je teď všude stejný (86 jednotek). Settings > ONLINE je o 6 px na stranu nižší, na telefonu se Added there vejde na řádek. Testy `FactListTests`.
+- ⚠ Starý rozestup byl „stejný“ jen za víceřádkovým faktem; za jednořádkovým stál fakt o 6 jednotek níž pod vyšším Antonem.
+- Otevřené: verdict-eye; skutečný telefon a GL nezkoušeny. Možná šedé popisky jako text (rozhodne majitel).
+
 ## 2026-11-19 — #1162 cykly gridu zatáčejí méně — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: jezdec po zatáčce jede rovně aspoň `MIN_RUN` (2) segmenty, pak rovně v 0,75 uzlů (dřív 0,6); směr zatáčky volí bit hashe. Průměrný rovný úsek 3,9 segmentu (2,6 s, dřív 2,1 / 1,4 s), nejkratší 2. Úvodní jízda gridu má záběr ve 120 ze 120 sestav; znovu se volí, když plán nedosáhne konce záběru.
