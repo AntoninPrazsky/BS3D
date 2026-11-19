@@ -204,9 +204,9 @@ namespace BS3D
         internal bool NoGrain { get; private set; }
 
         //"maxdetail" (#1178): every distance rule drawn at its finest from every lens (Prazsky.Core's RenderDetail): the
-        //aurora's spruces, the woods' near crowns and dressing, the roofs' clutter, the balls' finest sphere. For filming,
-        //where the owner saw trees pop as a tour flew in and the frame time is nobody's concern; it costs any shown run
-        //frames. Engaged before the first scene is built, and never written anywhere
+        //aurora's spruces, the woods' near crowns and dressing, the roofs' clutter, the sea's finer oil platforms, the balls'
+        //finest sphere. For filming, where the owner saw trees pop as a tour flew in and the frame time is nobody's concern;
+        //it costs any shown run frames. Engaged before the first scene is built, and never written anywhere
         internal bool MaxDetail { get; private set; }
 
         //Testing only: open straight on the main menu, with no 2D logo first (#621) — the Settings row "Intro

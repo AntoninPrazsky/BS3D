@@ -263,9 +263,11 @@ namespace Prazsky.Core.Render
 
         /// <summary>Whether a rig whose jacket stands on <paramref name="foot"/> is drawn in its finer mesh from
         /// <paramref name="lens"/>: where the tier draws finer meshes (<paramref name="fineMeshes"/>) and within
-        /// <see cref="FINE_REACH"/>.</summary>
+        /// <see cref="FINE_REACH"/>, or at any distance under <see cref="RenderDetail.Maximum"/> (a filming run, #1178, which must
+        /// not see a rig change its mesh as a lens flies in).</summary>
         internal static bool DrawsFine(bool fineMeshes, Vector3 lens, Vector3 foot) =>
-            fineMeshes && Vector2.DistanceSquared(new Vector2(lens.X, lens.Z), new Vector2(foot.X, foot.Z)) < FINE_REACH * FINE_REACH;
+            fineMeshes && (RenderDetail.Maximum
+                || Vector2.DistanceSquared(new Vector2(lens.X, lens.Z), new Vector2(foot.X, foot.Z)) < FINE_REACH * FINE_REACH);
 
         /// <summary>A rig's triangles, the coarser mesh or the finer, wound clockwise seen from outside: in the world for a rig
         /// that stands in it, in its own frame for <see cref="LOCAL"/> (what the buffer holds).</summary>
@@ -960,7 +962,7 @@ namespace Prazsky.Core.Render
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
 
             //Every part is shut and wound clockwise seen from outside, so the faces turned away are culled (MonoGame's default):
-            //drawn CullNone, the finer rig's back faces cost a third of its time at the intro's closest frame
+            //drawn CullNone, every member of the finer rig would be shaded twice where the intro's run fills the frame with it
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
             _graphicsDevice.SetVertexBuffer(_vertices);
 
