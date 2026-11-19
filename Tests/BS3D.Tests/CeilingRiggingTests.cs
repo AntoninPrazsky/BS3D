@@ -11,7 +11,7 @@ namespace BS3D.Tests
     /// The plate's cables and winches (#896, <see cref="CeilingRigging"/>): a drum lets out exactly the cable the plate has come
     /// down, from the side the cable leaves, and every winch stands on the plate's flat top on every footprint the set ships.
     /// And (#1155) the cable wound on the drum is no thinner than the cable leaving it, and a far lens never sees the cable
-    /// narrower than its floor on the screen.
+    /// narrower than its floor on the screen where it is nearest the lens, measured through a real projection.
     /// </summary>
     public class CeilingRiggingTests
     {
@@ -83,6 +83,77 @@ namespace BS3D.Tests
 
             //A lens that is not a perspective one asks for no floor
             Assert.Equal(CeilingRigging.CABLE_RADIUS, CeilingRigging.CableRadius(300f, 0f, 1080f));
+        }
+
+        [Fact]
+        public void A_far_lens_sees_a_flat_cable_at_its_floor_where_it_is_nearest_and_a_near_lens_a_round_one_at_its_own_radius()
+        {
+            Vector3 foot = new(7.4f, 8.6f, -7.4f);
+            const float rise = 600f;
+            Matrix projection = Matrix.CreatePerspectiveFieldOfView(MathHelper.ToRadians(45f), 16f / 9f, 0.1f, 2000f);
+
+            //150 off across the ground, from under the foot, level with the cable's middle and over its end: the floor holds
+            //the point nearest the lens, which for those three is the foot, the point level with the lens and the end
+            Vector3 away = Vector3.Normalize(new Vector3(-3f, 0f, -1f)) * 150f;
+            foreach (float eyeY in new[] { -40f, 300f, 700f })
+            {
+                Vector3 eye = foot + away;
+                eye.Y = eyeY;
+                Vector3 nearest = new(foot.X, MathHelper.Clamp(eyeY, foot.Y, foot.Y + rise), foot.Z);
+
+                //A 2x supersampled target under a 1080-high back buffer, and a target drawn under the screen's resolution:
+                //the floor counts the coarser of the two
+                foreach ((int target, int screen) in new[] { (2160, 1080), (1080, 1600) })
+                {
+                    Matrix world = CeilingRigging.CableInstance(foot, rise, eye, projection, target, screen);
+                    AssertStands(world, foot, rise);
+
+                    float across = ProjectedWidth(world, nearest, eye, projection, 1080);
+                    Assert.True(MathF.Abs(across - CeilingRigging.MIN_CABLE_PIXELS) < 1e-3f,
+                        $"from {eye}, on {target} over {screen} px, the cable is {across:0.###} px across at {nearest}");
+                    Assert.Equal(CeilingRigging.CABLE_FLAT_DEPTH, Depth(world), 4);
+                }
+            }
+
+            //12 off, level with the foot, the cable is about a dozen pixels across at its own radius: no floor, round
+            Vector3 close = foot + Vector3.Normalize(new Vector3(1f, 0f, 2f)) * 12f;
+            Matrix near = CeilingRigging.CableInstance(foot, rise, close, projection, 1080, 1080);
+            AssertStands(near, foot, rise);
+            Assert.Equal(CeilingRigging.CABLE_RADIUS, Radius(near), 5);
+            Assert.Equal(1f, Depth(near), 4);
+            Assert.True(ProjectedWidth(near, foot, close, projection, 1080) > 10f);
+
+            //30 off, between the two, the depth follows the width the lens sees there
+            Vector3 middle = foot + Vector3.Normalize(new Vector3(1f, 0f, 2f)) * 30f;
+            Matrix eased = CeilingRigging.CableInstance(foot, rise, middle, projection, 1080, 1080);
+            float width = ProjectedWidth(eased, foot, middle, projection, 1080);
+            Assert.InRange(width, 3.5f, 5.5f);
+            Assert.Equal(CeilingRigging.CableDepth(width), Depth(eased), 3);
+        }
+
+        //The cable's radius across the lens's view, and its depth along it as a share of that radius: the lengths of its
+        //world's Z and X rows (CableWorld)
+        private static float Radius(Matrix world) => new Vector3(world.M31, world.M32, world.M33).Length();
+        private static float Depth(Matrix world) => new Vector3(world.M11, world.M12, world.M13).Length() / Radius(world);
+
+        private static void AssertStands(Matrix world, Vector3 foot, float rise)
+        {
+            Assert.Equal(0f, Vector3.Distance(foot, world.Translation), 4);
+            Assert.Equal(0f, Vector3.Distance(Vector3.Up * rise, new Vector3(world.M21, world.M22, world.M23)), 2);
+        }
+
+        //How many pixels across the drawn cable is at a point of its axis, on a frame this many pixels high: its two edges
+        //across the lens's view put through a real view and projection, not through the code's own formula
+        private static float ProjectedWidth(Matrix world, Vector3 at, Vector3 eye, Matrix projection, int pixelHeight)
+        {
+            Vector3 across = new(world.M31, world.M32, world.M33);
+            Matrix viewProjection = Matrix.CreateLookAt(eye, at, Vector3.Up) * projection;
+            Vector4 a = Vector4.Transform(new Vector4(at - across, 1f), viewProjection);
+            Vector4 b = Vector4.Transform(new Vector4(at + across, 1f), viewProjection);
+
+            //Normalised x to pixels: the frame's width is its height times the aspect, which M11 divides back out
+            float pixelsPerUnitX = pixelHeight * Constants.HALF * projection.M22 / projection.M11;
+            return MathF.Abs(a.X / a.W - b.X / b.W) * pixelsPerUnitX;
         }
 
         [Fact]

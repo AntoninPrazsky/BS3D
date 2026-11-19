@@ -54,17 +54,20 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The cable's radius, in world units (a ball is one across), as it is drawn from near: a ninth of a ball across,
-        /// still wire against a pane a dozen balls wide, and about four pixels wide forty units off on a frame 1080 high
-        /// (the menu's wide orbit, the result page's swing-out; #1155: at 0.035 it was two and a half, and seen through the
-        /// glass's cut it broke into a jagged squiggle). Further off, where this would be under
-        /// <see cref="MIN_CABLE_PIXELS"/> on the screen, <see cref="CableRadius"/> draws it wider.
+        /// still wire against a pane a dozen balls wide, and 3.6 pixels wide forty units off through a 45-degree lens on a
+        /// frame 1080 high (the menu's wide orbit, the result page's swing-out), where 0.035 is 2.3 (#1155). Further off,
+        /// where this would be under <see cref="MIN_CABLE_PIXELS"/> on the screen, <see cref="CableRadius"/> draws it wider.
+        /// Seen through the pane from under the plate the cable is the glass's bent copy, which the cut breaks into short
+        /// strokes at any radius: a thicker cable makes the strokes wider, not whole.
         /// </summary>
         public const float CABLE_RADIUS = 0.055f;
 
         /// <summary>
-        /// The narrowest the cable is ever drawn, in pixels across on the screen (#1155). A line under about a pixel wide
-        /// misses whole pixels of its own length and breaks into a dotted crawl, which an intro's long shot of the island,
-        /// 150 to 300 away, made of every cable; held at this, it is a thin unbroken line at any distance and any resolution.
+        /// The narrowest the cable is drawn, in pixels across on the screen, at its point nearest the lens (#1155;
+        /// <see cref="CableInstance"/>). A line under about a pixel wide misses whole pixels of its own length and breaks
+        /// into a dotted crawl, as every cable at its own radius does in an intro's long shot of the island, 150 to 300
+        /// away; held at this, it is a thin unbroken line there at any resolution. Above that point a cable seen steeply
+        /// from close up tapers as perspective does.
         /// </summary>
         public const float MIN_CABLE_PIXELS = 1.5f;
 
@@ -89,7 +92,7 @@ namespace Prazsky.Core.Render
 
         //The drum, in its own frame (DrumProfile): the flanges' radius, the wound core's, the width between the flanges'
         //outer faces, a flange's thickness, how many wraps of cable lie on the core and how far each stands proud of it.
-        //Nearly a ball across (#1155: at 0.64 it was a dot from an intro's long shot). The wraps' pitch, 2 * (DRUM_WIDTH / 2
+        //Nearly a ball across, where one 0.64 across is a dot from an intro's long shot (#1155). The wraps' pitch, 2 * (DRUM_WIDTH / 2
         //- FLANGE_THICKNESS) / WRAPS, is held at least the cable's diameter (CeilingRiggingTests), or the wound cable is
         //thinner than the cable leaving it: a thicker cable needs a wider drum or fewer wraps
         internal const float FLANGE_RADIUS = 0.44f;
@@ -215,8 +218,8 @@ namespace Prazsky.Core.Render
         /// The cables, the drums, their axles and their blocks, four instanced draws, opaque, hung from the plate's own pose
         /// (the kinematic body's world, the one the plate is drawn from). Nothing before the first <see cref="Fit"/>. Each
         /// cable ends <see cref="CABLE_RISE"/> over the plate, or at <paramref name="scenes"/>' roof over it for
-        /// <paramref name="scene"/> (none asked when it is null: the Potato path has no scene renderer), and is drawn
-        /// <see cref="CableRadius"/> thick and <see cref="CableDepth"/> deep for this lens on the render target bound now.
+        /// <paramref name="scene"/> (none asked when it is null: the Potato path has no scene renderer), and is drawn for this
+        /// lens on the render target bound now (<see cref="CableInstance"/>).
         /// </summary>
         public void Draw(ICamera camera, in Matrix plateWorld, BasicEffectParams effectParams, SceneRenderer scenes = null,
             SceneKind scene = default)
@@ -225,13 +228,9 @@ namespace Prazsky.Core.Render
 
             Vector3 centre = plateWorld.Translation;
             Vector4 custom = new(0f, 0f, 0f, 1f);
-
-            //The cable's floor is a width on the screen, counted on the coarser of the target drawn into and the back buffer
-            //shown: a supersampled target is finer than the screen, and a 3D drawn under the screen's resolution breaks a
-            //line narrower than its own pixels however the screen magnifies it
             Vector3 eye = camera.Position;
-            float focal = camera.Projection.M22;
-            float pixels = Math.Min(_device.Viewport.Height, _device.PresentationParameters.BackBufferHeight);
+            Matrix projection = camera.Projection;
+            int targetHeight = _device.Viewport.Height, screenHeight = _device.PresentationParameters.BackBufferHeight;
 
             float axleLength = DRUM_WIDTH + 2f * (BLOCK_WIDTH + AXLE_PROUD);
             float blockOffset = (DRUM_WIDTH + BLOCK_WIDTH) * Constants.HALF;
@@ -263,15 +262,7 @@ namespace Prazsky.Core.Render
                 Vector3 foot = drumAt + outward * CORE_RADIUS;
                 float rise = CABLE_RISE;
                 if (scenes != null) rise = MathHelper.Clamp(scenes.RoofAbove(scene, foot.X, foot.Z) - foot.Y, 0f, CABLE_RISE);
-
-                //Its width held, and its shading flattened, where it is nearest the lens: the point of it level with the lens,
-                //or its end
-                Vector3 nearest = foot;
-                nearest.Y += MathHelper.Clamp(eye.Y - foot.Y, 0f, rise);
-                float distance = Vector3.Distance(eye, nearest);
-                float radius = CableRadius(distance, focal, pixels);
-                float depth = focal > 0f ? CableDepth(radius * focal * pixels / distance) : 1f;
-                _cables[k] = new ModelInstance(CableWorld(foot, rise, eye, radius, depth), custom);
+                _cables[k] = new ModelInstance(CableInstance(foot, rise, eye, projection, targetHeight, screenHeight), custom);
             }
 
             _block.Draw(camera, _blocks, _blocks.Length, effectParams);
@@ -279,6 +270,38 @@ namespace Prazsky.Core.Render
             _drum.Draw(camera, _drums, _drums.Length, effectParams);
             _cable.Draw(camera, _cables, _cables.Length, effectParams);
         }
+
+        /// <summary>
+        /// One cable's world for this lens (<see cref="Draw"/>'s, per corner): stood on <paramref name="foot"/>,
+        /// <paramref name="rise"/> tall, and drawn <see cref="CableRadius"/> thick and <see cref="CableDepth"/> deep for the
+        /// point of it nearest <paramref name="eye"/>, through <paramref name="projection"/> (its <c>M22</c> is the vertical
+        /// scale) onto the coarser of <paramref name="targetHeight"/>, the render target drawn into, and
+        /// <paramref name="screenHeight"/>, the back buffer shown. The nearest point is the one level with the lens, or the
+        /// foot from under it, or the end from over it. Only that point is held: a cable seen from close up and steeply
+        /// tapers above it as perspective does, and is shaded as wide as that point is. Pure, so a test can hold the wiring.
+        /// </summary>
+        internal static Matrix CableInstance(Vector3 foot, float rise, Vector3 eye, in Matrix projection, int targetHeight,
+            int screenHeight)
+        {
+            //The floor is a width on the screen, counted on the coarser of the two: a supersampled target is finer than the
+            //screen, and a 3D drawn under the screen's resolution breaks a line narrower than its own pixels however the
+            //screen magnifies it
+            float focal = projection.M22;
+            float pixels = Math.Min(targetHeight, screenHeight);
+
+            Vector3 nearest = foot;
+            nearest.Y += MathHelper.Clamp(eye.Y - foot.Y, 0f, rise);
+            float distance = Vector3.Distance(eye, nearest);
+
+            float radius = CableRadius(distance, focal, pixels);
+            float depth = focal > 0f && distance > 0f ? CableDepth(PixelsAcross(radius, distance, focal, pixels)) : 1f;
+            return CableWorld(foot, rise, eye, radius, depth);
+        }
+
+        //How many pixels across a cable of this radius is, this far from a lens of this vertical scale, on a frame this many
+        //pixels high: its width (twice the radius) times half the height times the scale, over the distance
+        private static float PixelsAcross(float radius, float distance, float focal, float pixelHeight) =>
+            radius * focal * pixelHeight / distance;
 
         /// <summary>
         /// How deep the cable is drawn along the lens's view, as a share of its radius, when it is
@@ -294,7 +317,8 @@ namespace Prazsky.Core.Render
         /// and <paramref name="radius"/> across the lens's view, turned about its own length so its local X looks at
         /// <paramref name="eye"/> and drawn <paramref name="depth"/> of its radius deep along that look. The width the lens
         /// sees is the radius whatever the depth; a shallower section turns the normals the shader takes from this matrix (its
-        /// cofactors, so they stay square to the squashed surface) towards the lens. A proper rotation, so the winding holds.
+        /// cofactors, so they stay square to the squashed surface) towards the lens. Its rows are a right-handed frame scaled
+        /// by positive figures, so its determinant is positive and the winding holds.
         /// </summary>
         internal static Matrix CableWorld(Vector3 foot, float rise, Vector3 eye, float radius, float depth)
         {
