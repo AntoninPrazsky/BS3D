@@ -79,6 +79,41 @@ namespace BS3D.Tests
             Assert.True(found >= countA * 0.9f, $"{found} of {countA} heaps found a second later where the wind took them");
         }
 
+        /// <summary>
+        /// A heap leans down the wind, the way it travels (#1145): every heap's top stands off its base towards where the wind
+        /// takes it (the heap itself, found a second later), as a tower's top does where the wind is stronger aloft. The deck
+        /// reads its noise at the world plus <see cref="CloudField.Wind"/> times the clock, so its cloud travels along minus
+        /// the wind: taken from the wind vector itself, the lean pointed upwind. Seen to fire on that sign: every tower leaned
+        /// against its travel.
+        /// </summary>
+        [Theory]
+        [InlineData(WeatherPreset.Scattered)]
+        [InlineData(WeatherPreset.Broken)]
+        public void AHeapLeansTheWayItTravels(WeatherPreset preset)
+        {
+            var lens = new Vector3(0f, -4f, 30f);
+            CloudField before = Sky(preset, 700f), after = Sky(preset, 701f);
+            (CloudVolumes.Heap[] a, int countA) = Place(lens, before);
+            (CloudVolumes.Heap[] b, int countB) = Place(lens, after);
+
+            int leaning = 0, towers = 0;
+            for (int i = 0; i < countA; i++)
+            {
+                Vector2 from = new(a[i].Cloud.X, a[i].Cloud.Z);
+                int j = Array.FindIndex(b, 0, countB, h => h.Shape.Y == a[i].Shape.Y && Vector2.Distance(new Vector2(h.Cloud.X, h.Cloud.Z), from) < 2f * before.Wind.Length());
+                if (j < 0) continue;
+                Vector2 travel = new Vector2(b[j].Cloud.X, b[j].Cloud.Z) - from;
+                //Where the top of its outline stands off its base (CloudVolumeVS: Form.w radii along the axis)
+                Vector2 lean = new Vector2(a[i].Form.X, a[i].Form.Y) * a[i].Form.W * a[i].Cloud.W;
+                if (lean.Length() < 1e-3f) continue;
+                leaning++;
+                if (a[i].Shape.X / a[i].Cloud.W >= 2f) towers++;
+                Assert.True(Vector2.Dot(lean, travel) > 0f,
+                    $"{preset}: a heap {a[i].Shape.X / a[i].Cloud.W:0.00} radii high leans ({lean.X:0.0}, {lean.Y:0.0}) against its travel ({travel.X:0.00}, {travel.Y:0.00})");
+            }
+            Assert.True(leaning > 100 && towers > 3, $"{preset}: only {leaning} leaning heaps and {towers} towers followed");
+        }
+
         /// <summary>The layer's own far plane (it has no depth buffer, so the heaps may stand past the scene's): only the far plane moves.</summary>
         [Fact]
         public void TheLayersProjectionMovesOnlyTheFarPlane()
@@ -218,7 +253,8 @@ namespace BS3D.Tests
         /// <summary>
         /// Not a grid of like buns (#1145): in either sky that stands as heaps the field is a spread, many small heaps and a few
         /// big ones (the biggest tenth at least three times the smallest tenth across), and among them flat heaps and towers.
-        /// Seen to fire on the placement before #1145, whose heaps differed by the cover alone: 63 to 105 radii, a ratio of 1.6.
+        /// Seen to fire on the placement before #1145, whose heaps differed by the cover alone: the smallest tenth to about 71
+        /// radii and the biggest from about 105 in a scattered sky (95 and 140 in a broken one), a ratio of about 1.5.
         /// </summary>
         [Theory]
         [InlineData(WeatherPreset.Scattered)]
@@ -341,32 +377,59 @@ namespace BS3D.Tests
         }
 
         /// <summary>
-        /// The layer's far plane stands BOX_REACH past the reach, so no heap's box may stand farther than that from its centre,
-        /// or its front faces past the plane are clipped in a straight line: the box's corners (CloudVolumeVS: the margin
-        /// round the outline, stretched along the axis and leaned) in every sky that stands heaps and while a broken sky
-        /// fades into an overcast, whose cells are the biggest. Seen to fire: the far plane before the spread, 500 past the
-        /// reach, is passed.
+        /// The layer's own far plane clips nothing that shows, however big a heap's box: the shader dissolves a heap by where
+        /// its march starts (from FadeNear to FadeFar), and the march starts inside the margin's bound, which the box holds, so
+        /// never nearer the lens than the box face a pixel is drawn for; a face past a far plane beyond FadeFar starts its
+        /// march where the heap is dissolved whole. Seen to fire: a far plane inside FadeFar would cut a heap still showing.
         /// </summary>
         [Fact]
-        public void NoBoxStandsPastTheLayersFarPlane()
+        public void TheLayersFarPlaneClipsNothingThatShows()
         {
-            float margin = Constant("CLOUD_MARGIN"), farthest = 0f;
-            foreach (CloudField clouds in new[] { Sky(WeatherPreset.Scattered, 300f), Sky(WeatherPreset.Broken, 300f), Sky(WeatherPreset.Broken, 1200f) })
-                for (int step = 0; step <= 4; step++)
-                {
-                    if (step > 0) { clouds.SetWeather(WeatherPreset.Overcast); clouds.Step(1.5f * step); }
-                    (CloudVolumes.Heap[] heaps, int count) = Place(new Vector3(0f, -4f, 30f), clouds);
-                    for (int i = 0; i < count; i++)
+            Assert.True(CloudVolumes.LAYER_FAR >= CloudVolumes.DISSOLVED_BY,
+                $"the layer's far plane, {CloudVolumes.LAYER_FAR:0}, clips heaps the shader shows out to {CloudVolumes.DISSOLVED_BY:0}");
+            //The dissolve is by the march's start, and the start is the bound's entry, never before the lens
+            Assert.Contains("float fade = (1.0 - smoothstep(FadeNear, FadeFar, t0)) * shape.w;", SourceText);
+            Assert.Contains("float t0 = max(max((-eb - eroot) / ea, min(ya, yc)), 0.0);", SourceText);
+            Assert.Contains("float3 rd = normalize(input.WorldPosition - CameraPosition);", SourceText);
+        }
+
+        /// <summary>
+        /// A dense sky gathers its heaps in clumps with open sky between them (#1145: "an irregular, clumpy arrangement ...
+        /// not an even spacing"): in a broken sky, a share of the ground near the lens lies more than OPEN of a cell from
+        /// every heap's outline, the lanes between the clumps. Seen to fire: the field of one heap a jittered cell, all of
+        /// them kept, spaced a broken sky so evenly that hardly any ground (under 2 % in these skies) was that far from one.
+        /// </summary>
+        [Fact]
+        public void ADenseSkyStandsInClumpsWithOpenSkyBetween()
+        {
+            const float OPEN = 0.6f, NEAR = 1500f, STEP = 20f;
+            var lens = new Vector3(0f, -4f, 30f);
+            foreach (float time in new[] { 0f, 300f, 1200f, 2400f })
+            {
+                CloudField clouds = Sky(WeatherPreset.Broken, time);
+                float cell = 0.5f / clouds.Scale;
+                (CloudVolumes.Heap[] heaps, int count) = Place(lens, clouds);
+                int open = 0, all = 0;
+                for (float x = -NEAR; x <= NEAR; x += STEP)
+                    for (float z = -NEAR; z <= NEAR; z += STEP)
                     {
-                        float radius = heaps[i].Cloud.W, aspect = heaps[i].Shape.X / radius;
-                        Vector4 form = heaps[i].Form;
-                        float along = ((1f + margin) * form.Z + form.W * (aspect + margin) / aspect) * radius;
-                        float across = (1f + margin) * radius, up = (aspect + margin) * radius;
-                        farthest = MathF.Max(farthest, MathF.Sqrt(along * along + across * across + up * up));
+                        if (x * x + z * z > NEAR * NEAR) continue;
+                        var at = new Vector2(lens.X + x, lens.Z + z);
+                        all++;
+                        float nearest = float.MaxValue;
+                        for (int i = 0; i < count; i++)
+                        {
+                            if (heaps[i].Shape.W < 0.5f) continue;
+                            Vector2 toward = at - new Vector2(heaps[i].Cloud.X, heaps[i].Cloud.Z);
+                            float apart = toward.Length();
+                            float gap = apart < 1e-3f ? -1f : apart - heaps[i].Cloud.W * Extent(heaps[i].Form, toward / apart);
+                            nearest = MathF.Min(nearest, gap);
+                        }
+                        if (nearest > OPEN * cell) open++;
                     }
-                }
-            Assert.True(farthest <= CloudVolumes.BOX_REACH, $"a box stands {farthest:0} from its heap's centre");
-            Assert.True(farthest > 500f, $"the farthest box corner, {farthest:0}, was inside the far plane before the spread: the check cannot tell");
+                float share = (float)open / all;
+                Assert.True(share > 0.05f, $"Broken at {time}: only {100f * share:0.0} % of the ground near the lens is open sky between clumps");
+            }
         }
 
         [Fact]

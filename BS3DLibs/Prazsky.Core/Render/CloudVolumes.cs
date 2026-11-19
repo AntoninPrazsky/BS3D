@@ -14,14 +14,16 @@ namespace Prazsky.Core.Render
     /// <para>
     /// <b>Where a heap stands is the deck's own weather.</b> The heaps sit on a lattice that rides the weather layer's first
     /// octave (<see cref="CloudField.Wind"/> times <see cref="CloudField.Time"/>), so they drift with the deck; each stands
-    /// where <see cref="CloudField.Cover"/> says there is cloud, so as the second octave evolves the field a heap grows, thins
-    /// and is gone, and the cloud overhead is still the one that shades the ground.
+    /// only where <see cref="CloudField.Cover"/> says there is cloud, so as the second octave evolves the field a heap grows,
+    /// thins and is gone. They stand on the deck's cover but do not fill it: the lanes between them are cover the deck still
+    /// shades the ground with.
     /// </para>
     /// <para>
     /// <b>A field, not a grid of buns</b> (#1145). Each cell's heap draws its size from a spread (many small, a few big; a
-    /// dense patch more big ones), is drawn out along the wind and, if big, may tower and lean; where the weather organises
-    /// them the heaps line up in streets along the wind. Then each is no bigger than the room its neighbours leave it, the
-    /// bigger keeping most of it, so a big heap stands among small ones and the march stays at about one heap a pixel.
+    /// dense patch more big ones), is drawn out down the wind and, if big, may tower and lean down it; where the weather
+    /// organises them the heaps line up in streets along the wind, and elsewhere a dense patch gathers them in clumps with
+    /// open sky between. Then each is no bigger than the room its neighbours leave it, the bigger keeping most of it, so a
+    /// big heap stands among small ones and the march stays at about one heap a pixel.
     /// </para>
     /// </summary>
     public sealed class CloudVolumes : IDisposable
@@ -31,10 +33,10 @@ namespace Prazsky.Core.Render
         //FarProjection) and where they dissolve into the sky
         private const float CELL_SHARE = 0.5f;
         private const float REACH = 4000f, FADE_NEAR = 2600f, FADE_FAR = 3900f;
-        //How far a heap's box can stand from its centre: the biggest radius a weather's cells allow (SIZE_BIG on a street's
-        //crest, the cells of a broken sky fading into an overcast), stretched, leaned and grown by the shader's margin, up to
-        //about 800 (CloudVolumeTests). The layer's far plane stands this far past the reach, so no box's front face is clipped by it
-        internal const float BOX_REACH = 1000f;
+        //The layer's own far plane (FarProjection): anywhere past FADE_FAR clips nothing that shows. The shader dissolves a
+        //heap by where its march starts, which is never nearer the lens than the face of the box the pixel is drawn for, so a
+        //face past the plane would start its march where the heap is dissolved whole (CloudVolumeTests)
+        internal const float LAYER_FAR = REACH + 500f;
         private const int MAX_HEAPS = 900;
 
         //A heap stands where the cover is at least COVER_MIN, fading in over COVER_FADE; from there to COVER_FULL the patch
@@ -47,30 +49,37 @@ namespace Prazsky.Core.Render
         //THIN_SPREAD of the range; a dense one draws towards the big end (SKEW_DENSE) and from no smaller than SIZE_DENSE,
         //so a broken sky is big heaps with lanes between them, not a scatter of small ones.
         private const float SIZE_SMALL = 0.14f, SIZE_DENSE = 0.32f, SIZE_BIG = 0.8f, SKEW_THIN = 1.9f, SKEW_DENSE = 0.6f, THIN_SPREAD = 0.6f;
-        //How much longer than wide a heap is along its axis, which lies within AXIS_SPREAD radians of the wind's: a real one
-        //is drawn out down the wind
+        //How much longer than wide a heap is along its axis, which lies within AXIS_SPREAD radians of down the wind (the way
+        //the heaps travel, minus CloudField.Wind): a real one is drawn out down the wind
         private const float STRETCH_MIN = 1.0f, STRETCH_MAX = 1.6f, AXIS_SPREAD = 0.6f;
         //Its height against its radius: a small heap flat, a big one domed, and TOWER_SHARE of the big ones (from TOWER_FROM
-        //of SIZE_BIG, fully by TOWER_FULL) towers, narrower and leaning down the wind (LEAN_TOWER radii at the top; LEAN_ANY
-        //any heap)
+        //of SIZE_BIG, fully by TOWER_FULL) towers, narrower and leaning down the wind, its top ahead of its base the way it
+        //travels, as the wind aloft is stronger (LEAN_TOWER radii at the top; LEAN_ANY any heap)
         private const float ASPECT_FLAT = 0.75f, ASPECT_BIG = 1.5f, ASPECT_TOWER = 2.4f, TOWER_SHARE = 0.3f, TOWER_FROM = 0.4f, TOWER_FULL = 0.8f;
         private const float STRETCH_TOWER = 1.1f, LEAN_ANY = 0.08f, LEAN_TOWER = 0.3f;
 
         //CLOUD STREETS: where the weather organises them (a slow field, ORGANISED_SCALE of the weather's frequency, over
         //ORGANISED_FROM), the heaps line up in rows along the wind, STREET_SPACING cells apart, bent by STREET_BEND of a
         //spacing: a heap in a row grows to STREET_CREST of its draw, one between rows shrinks to STREET_GAP, so open lanes run
-        //between the rows. Elsewhere the field is clumps. The rows are the weather's own frame, so they drift with the heaps.
+        //between the rows. The rows are the weather's own frame, so they drift with the heaps.
         private const float STREET_SPACING = 2.6f, STREET_BEND = 0.35f, STREET_GAP = 0.3f, STREET_CREST = 1.15f;
         private const float ORGANISED_SCALE = 0.3f, ORGANISED_FROM = -0.05f, ORGANISED_FULL = 0.3f;
+        //CLUMPS: elsewhere a patch gathers its heaps in clumps with open sky between them, the more the denser it is (one heap
+        //a jittered cell, all kept, spaced a broken sky as evenly as a grid). A second slow field of the weather (CLUMP_SCALE
+        //of its frequency) says where a clump stands, from CLUMP_FROM to CLUMP_FULL: in one, a heap draws its size as the
+        //densest patch does and grows to CLUMP_CREST of its draw, the room packing the clump's heaps against each other; out
+        //of one it shrinks to CLUMP_GAP and is squeezed out (SQUEEZED_TO), leaving open sky and a fragment or two at a
+        //clump's edge. A thin patch keeps the cover's own patchiness. The weather's own frame, as the streets are.
+        private const float CLUMP_SCALE = 0.8f, CLUMP_FROM = -0.15f, CLUMP_FULL = 0.1f, CLUMP_GAP = 0.05f, CLUMP_CREST = 1.3f;
 
         //THE ROOM: a heap is no bigger than the room its neighbours leave it, so a big one stands with small ones squeezed
         //round it and the march stays at about one heap a pixel. Two outlines may overlap by ROOM_OVERLAP of the distance
-        //between their centres, their billows meeting; the room is shared out by size (ROOM_POWER: twice the size, four times
-        //the share), so the bigger keeps most of it, and every term is continuous in the cover, so nothing pops. The
+        //between their centres, their billows meeting; the room is shared out by the square of size (twice the size, four
+        //times the share), so the bigger keeps most of it, and every term is continuous in the cover, so nothing pops. The
         //neighbours are the cells ROOM_CELLS round; a heap squeezed under SQUEEZED_TO of the cell fades out by SQUEEZED_FROM.
         //⚠ Not much more: the layer composites whole heaps far first by their centres, so where two heaps stand in each
         //other the farther one's flank is laid over the nearer one's, and at 0.4 the heaps overhead read as columns of smoke.
-        private const float ROOM_OVERLAP = 0.15f, ROOM_POWER = 2f;
+        private const float ROOM_OVERLAP = 0.15f;
         private const int ROOM_CELLS = 2;
         private const float SQUEEZED_FROM = 0.03f, SQUEEZED_TO = 0.06f;
 
@@ -82,7 +91,7 @@ namespace Prazsky.Core.Render
         //The heaps' noise, baked once (CloudVolume.fx's NOISE_PERIOD)
         internal const int NOISE_PERIOD = 8, NOISE_TEXELS_PER_UNIT = 4, NOISE_SEED = 989;
         internal const int CAPACITY = MAX_HEAPS;
-        internal const float COVER_THRESHOLD = COVER_MIN, REACH_DISTANCE = REACH;
+        internal const float COVER_THRESHOLD = COVER_MIN, REACH_DISTANCE = REACH, DISSOLVED_BY = FADE_FAR;
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         internal struct Heap : IVertexType
@@ -207,7 +216,7 @@ namespace Prazsky.Core.Render
 
             ReadSky(skyEffect);
             _view.SetValue(camera.View);
-            _projection.SetValue(FarProjection(camera.Projection, REACH + BOX_REACH));
+            _projection.SetValue(FarProjection(camera.Projection, LAYER_FAR));
             _cameraPosition.SetValue(camera.Position);
             _sunDirection.SetValue(_skySunDirection.GetValueVector3());
             _sunColor.SetValue(_skySunColor.GetValueVector3());
@@ -326,7 +335,9 @@ namespace Prazsky.Core.Render
             lattice.Ensure(side * side);
             int x0 = (int)MathF.Floor(centre.X / cell) - reach, z0 = (int)MathF.Floor(centre.Y / cell) - reach;
             Vector2 wind = clouds.Wind.LengthSquared() > 1e-8f ? Vector2.Normalize(clouds.Wind) : Vector2.UnitX;
-            float windAngle = MathF.Atan2(wind.Y, wind.X);
+            //Down the wind is the way the heaps travel, minus the wind vector: the deck reads its noise at the world plus the
+            //drift, so its cloud moves the other way. A heap's axis points that way, so its lean does (Form.w is along the axis)
+            float travelAngle = MathF.Atan2(-wind.Y, -wind.X);
 
             //The candidates: every cell's heap as big as it would like to be, its cover and its own draw deciding
             for (int i = 0; i < side; i++)
@@ -346,11 +357,22 @@ namespace Prazsky.Core.Render
 
                     uint second = Hash((int)hash, (int)(hash >> 7));
                     float grow = SmoothStep((cover - COVER_MIN) / (COVER_FULL - COVER_MIN));
-                    float draw = MathF.Pow(Unit(hash, 16), MathHelper.Lerp(SKEW_THIN, SKEW_DENSE, grow)) * MathHelper.Lerp(THIN_SPREAD, 1f, grow);
-                    lattice.Want[k] = cell * MathHelper.Lerp(MathHelper.Lerp(SIZE_SMALL, SIZE_DENSE, grow), SIZE_BIG, draw) * Street(at + drift, wind, cell, clouds.Scale);
+                    //Where it stands in the field's arrangement, in the weather's own frame: on a street where the weather
+                    //organises the heaps, in a clump or the open sky between clumps elsewhere, the more the denser the patch
+                    Vector2 weatherAt = at + drift;
+                    float organised = SmoothStep((ShaderMath.Noise(weatherAt * (clouds.Scale * ORGANISED_SCALE) + new Vector2(57.3f, 11.9f)) - ORGANISED_FROM)
+                        / (ORGANISED_FULL - ORGANISED_FROM));
+                    float clustered = (1f - organised) * grow;
+                    float clump = clustered > 0f ? SmoothStep((ShaderMath.Noise(weatherAt * (clouds.Scale * CLUMP_SCALE) + new Vector2(-71.9f, 5.3f)) - CLUMP_FROM)
+                        / (CLUMP_FULL - CLUMP_FROM)) : 0f;
+                    //A clump draws its sizes as the densest patch does
+                    float spread = MathHelper.Lerp(grow, MathF.Max(grow, clump), clustered);
+                    float draw = MathF.Pow(Unit(hash, 16), MathHelper.Lerp(SKEW_THIN, SKEW_DENSE, spread)) * MathHelper.Lerp(THIN_SPREAD, 1f, spread);
+                    lattice.Want[k] = cell * MathHelper.Lerp(MathHelper.Lerp(SIZE_SMALL, SIZE_DENSE, spread), SIZE_BIG, draw)
+                        * MathHelper.Lerp(1f, MathHelper.Lerp(CLUMP_GAP, CLUMP_CREST, clump), clustered) * Street(weatherAt, wind, cell, clouds.Scale, organised);
                     lattice.FadeIn[k] = SmoothStep((cover - COVER_MIN) / COVER_FADE);
                     lattice.Stretch[k] = MathHelper.Lerp(STRETCH_MIN, STRETCH_MAX, Unit(second, 0));
-                    float angle = windAngle + (Unit(second, 8) - 0.5f) * 2f * AXIS_SPREAD;
+                    float angle = travelAngle + (Unit(second, 8) - 0.5f) * 2f * AXIS_SPREAD;
                     lattice.Axis[k] = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
                     lattice.Seed[k] = hash;
                 }
@@ -366,24 +388,35 @@ namespace Prazsky.Core.Render
 
                     Vector2 at = lattice.At[k], axis = lattice.Axis[k];
                     float stretch = lattice.Stretch[k], fadeIn = lattice.FadeIn[k];
-                    float radius = want;
+                    float radius = want, ownMost = want * fadeIn * fadeIn;
                     for (int di = -ROOM_CELLS; di <= ROOM_CELLS; di++)
                         for (int dj = -ROOM_CELLS; dj <= ROOM_CELLS; dj++)
                         {
                             int n = k + di * side + dj;
-                            if (n == k || lattice.Want[n] <= 0f) continue;
+                            //A neighbour not faded in at all leaves the room whole (the lerp below at 0)
+                            float fadeN = lattice.FadeIn[n];
+                            if (n == k || lattice.Want[n] <= 0f || fadeN <= 0f) continue;
                             Vector2 toward = lattice.At[n] - at;
                             float apart = toward.Length();
                             if (apart < 1e-3f) continue;
+                            float roomy = apart * (1f + ROOM_OVERLAP);
+                            //Skipped where the two stand too far apart for the neighbour to squeeze this one however they lie.
+                            //Exact: the room below is no less than `want` wherever want * fadeIn^2 * own * (roomy - want * own)
+                            //is at least the square of the neighbour's reach at its longest, and that term is concave in own,
+                            //so it is least at one of own's two ends, 1 and the stretch
+                            float theirsMost = lattice.Want[n] * lattice.Stretch[n] * fadeN;
+                            if (MathF.Min(ownMost * (roomy - want), ownMost * stretch * (roomy - want * stretch)) >= theirsMost * theirsMost) continue;
                             toward /= apart;
                             //Each one's reach towards the other: its radius across, stretched by how near its axis the line between them runs
                             float own = Extent(axis, stretch, toward), theirs = Extent(lattice.Axis[n], lattice.Stretch[n], toward);
-                            float mine = MathF.Pow(want * own * fadeIn, ROOM_POWER);
-                            float other = MathF.Pow(lattice.Want[n] * theirs * lattice.FadeIn[n], ROOM_POWER);
+                            //Shared out by the square of each one's reach: the bigger keeps most of the room
+                            float mine = want * own * fadeIn, other = lattice.Want[n] * theirs * fadeN;
+                            mine *= mine;
+                            other *= other;
                             float share = mine + other > 1e-20f ? mine / (mine + other) : 0.5f;
                             //A neighbour only fading in makes room for itself as it does, or a big heap shrank all at once
                             //the moment the cover under its neighbour crossed COVER_MIN
-                            radius = MathF.Min(radius, MathHelper.Lerp(want, apart * (1f + ROOM_OVERLAP) * share / own, lattice.FadeIn[n]));
+                            radius = MathF.Min(radius, MathHelper.Lerp(want, roomy * share / own, fadeN));
                         }
 
                     float fade = fadeIn * SmoothStep((radius / cell - SQUEEZED_FROM) / (SQUEEZED_TO - SQUEEZED_FROM)) * strength;
@@ -430,12 +463,10 @@ namespace Prazsky.Core.Render
             return count;
         }
 
-        //How much of its draw a heap at this point of the weather's own frame keeps for the street it stands in: all of it
-        //where the field is not organised, more on a row and less between rows where it is
-        private static float Street(Vector2 weatherAt, Vector2 wind, float cell, float scale)
+        //How much of its draw a heap at this point of the weather's own frame keeps for the street it stands in, as far as
+        //the weather organises the heaps there: more on a row, less between rows
+        private static float Street(Vector2 weatherAt, Vector2 wind, float cell, float scale, float organised)
         {
-            float organised = SmoothStep((ShaderMath.Noise(weatherAt * (scale * ORGANISED_SCALE) + new Vector2(57.3f, 11.9f)) - ORGANISED_FROM)
-                / (ORGANISED_FULL - ORGANISED_FROM));
             if (organised <= 0f) return 1f;
             float across = Vector2.Dot(weatherAt, new Vector2(-wind.Y, wind.X)) / (STREET_SPACING * cell);
             float bend = STREET_BEND * ShaderMath.Noise(weatherAt * scale + new Vector2(-23.1f, 41.7f));
