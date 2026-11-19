@@ -28,6 +28,17 @@ namespace Prazsky.Core.Render
         /// </summary>
         public const float SWAP_RADIUS = 200f;
 
+        /// <summary>
+        /// The swap's radius under <see cref="RenderDetail.Maximum"/> (the trailer, #1178): past the near ring's whole width
+        /// (<c>FarStandConfig.NearRadius</c>, 600) from a lens a tour flies 100 to 200 units out, so no spire with a spruce in
+        /// reserve turns into it in the frame. The far ring's spires have none and stay spires, under the haze.
+        /// </summary>
+        public const float MAXIMUM_SWAP_RADIUS = 1000f;
+
+        /// <summary>This stand's swap radius: <see cref="SWAP_RADIUS"/>, or <see cref="MAXIMUM_SWAP_RADIUS"/> under
+        /// <see cref="RenderDetail.Maximum"/> as it stood when the stand was built, which <see cref="MostTaken"/> is sized for.</summary>
+        public float Radius { get; }
+
         /// <summary>Each spire's spruce, by the conifer variant it wears (indexed as <see cref="ForestScatter.Conifers"/>' buckets).</summary>
         public ModelInstance[][] Spruces { get; }
 
@@ -37,14 +48,14 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The most of each variant's spruces (indexed as <see cref="Spruces"/>) a lens anywhere can be within
-        /// <see cref="SWAP_RADIUS"/> of, bounded from above (<see cref="MostWithinSwap"/>): a pass takes no more, so the arrays
+        /// <see cref="Radius"/> of, bounded from above (<see cref="MostWithinSwap"/>): a pass takes no more, so the arrays
         /// it fills, and the instance buffers they are drawn from, need room for the planting and this many
         /// (<see cref="ForestPasses"/>), not for every spruce of the ring.
         /// </summary>
         public int[] MostTaken { get; }
 
         /// <summary>The nearest any of them stands to the arena's axis, horizontally: a lens further than
-        /// <see cref="SWAP_RADIUS"/> inside it swaps none (<see cref="Reaches"/>).</summary>
+        /// <see cref="Radius"/> inside it swaps none (<see cref="Reaches"/>).</summary>
         public float InnerRadius { get; }
 
         /// <summary>
@@ -61,6 +72,7 @@ namespace Prazsky.Core.Render
         /// </summary>
         public StandSpruces(Vector4[] places, Vector4[] looks, int count, float spireHeight, float sink, ForestTreeConfig trees)
         {
+            Radius = RenderDetail.Maximum ? MAXIMUM_SWAP_RADIUS : SWAP_RADIUS;
             int variants = ForestScatterRenderer.CONIFER_VARIANTS.Length;
             var variantOf = new int[count];
             var perVariant = new int[variants];
@@ -103,7 +115,7 @@ namespace Prazsky.Core.Render
             }
 
             MostTaken = new int[variants];
-            for (int v = 0; v < variants; v++) MostTaken[v] = MostWithinSwap(Feet[v]);
+            for (int v = 0; v < variants; v++) MostTaken[v] = MostWithinSwap(Feet[v], Radius);
             InnerRadius = count > 0 ? inner : float.MaxValue;
         }
 
@@ -134,53 +146,54 @@ namespace Prazsky.Core.Render
             + trees.ConiferCrownHeight * variant.Height;
 
         /// <summary>Whether a spire whose foot is at (<paramref name="x"/>, <paramref name="z"/>) is drawn as its spruce from
-        /// <paramref name="lens"/> where the swap is made (<see cref="SwapRadiusFor"/>): within <see cref="SWAP_RADIUS"/> of
-        /// it horizontally. <c>StandVS</c> keeps the spire on exactly the other side of the same test.</summary>
-        public static bool Swaps(float x, float z, Vector3 lens)
+        /// <paramref name="lens"/> where the swap is made (<see cref="SwapRadiusFor"/>): within <paramref name="radius"/> (the
+        /// stand's <see cref="Radius"/>) of it horizontally. <c>StandVS</c> keeps the spire on exactly the other side of the
+        /// same test.</summary>
+        public static bool Swaps(float x, float z, Vector3 lens, float radius)
         {
             float dx = x - lens.X, dz = z - lens.Z;
-            return dx * dx + dz * dz < SWAP_RADIUS * SWAP_RADIUS;
+            return dx * dx + dz * dz < radius * radius;
         }
 
         /// <summary>
-        /// How near the lens a spire is drawn as its spruce: <see cref="SWAP_RADIUS"/> on High and Ultra
+        /// How near the lens a spire is drawn as its spruce: <see cref="Radius"/> on High and Ultra
         /// (<paramref name="fineMeshes"/>, the caller's <c>SceneRenderer.FineMeshes</c>) with the dial on
         /// (<see cref="Enabled"/>), and 0, none, otherwise. The backdrop hands it to <c>StandVS</c> as <c>StandSwapRadius</c>
         /// and the passes take the spruces only where it is not 0, so a spire is drawn one way or the other, never both and
         /// never neither.
         /// </summary>
-        public float SwapRadiusFor(bool fineMeshes) => fineMeshes && Enabled ? SWAP_RADIUS : 0f;
+        public float SwapRadiusFor(bool fineMeshes) => fineMeshes && Enabled ? Radius : 0f;
 
-        /// <summary>Whether a lens at <paramref name="lens"/> can be within <see cref="SWAP_RADIUS"/> of any spire: it stands
+        /// <summary>Whether a lens at <paramref name="lens"/> can be within <see cref="Radius"/> of any spire: it stands
         /// within it of the ring's inside.</summary>
-        public bool Reaches(Vector3 lens) => MathF.Sqrt(lens.X * lens.X + lens.Z * lens.Z) + SWAP_RADIUS > InnerRadius;
+        public bool Reaches(Vector3 lens) => MathF.Sqrt(lens.X * lens.X + lens.Z * lens.Z) + Radius > InnerRadius;
 
         //The cells MostWithinSwap counts the feet in: a quarter of the swap's radius wide
         private const int CELLS_IN_RADIUS = 4;
-        private const float CELL = SWAP_RADIUS / CELLS_IN_RADIUS;
 
         /// <summary>
-        /// At least as many of <paramref name="feet"/> as a lens anywhere is within <see cref="SWAP_RADIUS"/> of: the feet
+        /// At least as many of <paramref name="feet"/> as a lens anywhere is within <paramref name="radius"/> of: the feet
         /// counted by cells a quarter of the radius wide, and of every cell a lens can stand in, the most the cells within the
         /// radius of it hold. A cell is within it when the gap between it and the lens's cell, a whole number of cells along
         /// each axis, is no wider than the radius; a foot in any other cell is further than the radius from every point of the
         /// lens's cell, by at least a tenth of a cell, which no rounding of a coordinate comes near.
         /// </summary>
-        internal static int MostWithinSwap(Vector2[] feet)
+        internal static int MostWithinSwap(Vector2[] feet, float radius)
         {
             if (feet.Length == 0) return 0;
+            float cell = radius / CELLS_IN_RADIUS;
 
             int x0 = int.MaxValue, z0 = int.MaxValue, x1 = int.MinValue, z1 = int.MinValue;
             foreach (Vector2 foot in feet)
             {
-                int cx = (int)MathF.Floor(foot.X / CELL), cz = (int)MathF.Floor(foot.Y / CELL);
+                int cx = (int)MathF.Floor(foot.X / cell), cz = (int)MathF.Floor(foot.Y / cell);
                 x0 = Math.Min(x0, cx); x1 = Math.Max(x1, cx);
                 z0 = Math.Min(z0, cz); z1 = Math.Max(z1, cz);
             }
             int width = x1 - x0 + 1, depth = z1 - z0 + 1;
             var counts = new int[width, depth];
             foreach (Vector2 foot in feet)
-                counts[(int)MathF.Floor(foot.X / CELL) - x0, (int)MathF.Floor(foot.Y / CELL) - z0]++;
+                counts[(int)MathF.Floor(foot.X / cell) - x0, (int)MathF.Floor(foot.Y / cell) - z0]++;
 
             //A cell (dx, dz) cells off the lens's leaves a gap of |dx| - 1 and |dz| - 1 whole cells between them
             int reach = CELLS_IN_RADIUS + 1, most = 0;
