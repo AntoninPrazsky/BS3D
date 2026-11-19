@@ -54,7 +54,7 @@ namespace Prazsky.Core
 
         //The meadow (#1019) is the first chapter's Bliss hill, and every one of its levels names dome 1, the clear
         //sunny blue: a meadow that kept whatever dome was up flew the benchmark under the forest's late twilight just
-        //before it, and showed the menu a purple dusk after a forest level. The owner: "very positive and bright...
+        //before it, and showed the menu the forest's dusk after a forest level. The owner: "very positive and bright...
         //the sky should be azure"
         private const byte MEADOW_DOME = 1;
 
