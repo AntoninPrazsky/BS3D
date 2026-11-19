@@ -50,7 +50,7 @@ namespace Prazsky.Core.Render
         private readonly StandSectors _standSectors, _standFarSectors;
 
         //The near ring's spires as the wood's spruces (#1163), and how near the lens StandVS puts a near-ring spire to a point
-        //for its spruce to stand in its place: StandSpruces.SWAP_RADIUS on High and Ultra, 0 (none) otherwise and for the far ring
+        //for its spruce to stand in its place: StandSpruces.SwapRadiusFor the tier, 0 (none) for the far ring
         private readonly StandSpruces _standSpruces;
         private readonly EffectParameter _standSwapRadius;
 
@@ -407,7 +407,7 @@ namespace Prazsky.Core.Render
             //point, and the hosts' wood draws its spruce there (#1163, StandSpruces); the far ring is never within it
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
             _standFrustum.Matrix = frame.Camera.View * frame.Camera.Projection;
-            _standSwapRadius.SetValue(Services.FineMeshes && _standSpruces.Enabled ? StandSpruces.SWAP_RADIUS : 0f);
+            _standSwapRadius.SetValue(_standSpruces.SwapRadiusFor(Services.FineMeshes));
             if ((Layers & AuroraLayer.NearStand) != 0) DrawStand(_standMesh, _standInstances, _standSectors);
             _standSwapRadius.SetValue(0f);
             if ((Layers & AuroraLayer.FarStand) != 0) DrawStand(_standFarMesh, _standFarInstances, _standFarSectors);

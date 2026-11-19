@@ -75,8 +75,35 @@ namespace Prazsky.Core.Render
         private static readonly Vector4 NO_OCCLUSION = new(0f, 0f, 0f, 1f);
 
         //How far a tree may lean off vertical, in radians. Small: a leaning tree reads as a tree, a tilted
-        //one reads as a felled one. Rocks take their own, much larger tumble below.
-        private const float TREE_LEAN = 0.075f;
+        //one reads as a felled one. Rocks take their own, much larger tumble below. The aurora's stand spruces lean
+        //within it too (StandSpruces).
+        internal const float TREE_LEAN = 0.075f;
+
+        /// <summary>
+        /// Where a planted tree stands: a mesh whose base sits at Y=0 at <paramref name="scale"/>, turned by
+        /// <paramref name="yaw"/> about its axis (<see cref="Matrix.CreateRotationY(float)"/>'s sense), leaned over by
+        /// <paramref name="lean"/> towards <paramref name="leanAzimuth"/>, its foot at (<paramref name="x"/>,
+        /// <paramref name="z"/>) on <paramref name="ground"/>. The aurora's stand spruces stand by it too (<see cref="StandSpruces"/>).
+        /// </summary>
+        internal static Matrix PlantedWorld(float x, float ground, float z, float scale, float yaw, float lean, float leanAzimuth)
+        {
+            //Sunk a little below the sampled height: the floor is lumpy and the sample is one point, so
+            //a base planted exactly on it floats off the downhill side of every lump. Sinking reads as
+            //ground cover lapping the base; floating reads as a render bug. Leaning sinks a touch more,
+            //since tipping a flat base about its centre lifts the edge it tips away from clear of the
+            //ground.
+            float y = ground - (0.15f + lean * 0.9f) * scale;
+
+            //Scale, then yaw about the axis, then lean the axis over, then translate: the mesh's base
+            //sits at Y=0, so translating by the terrain height plants it on the ground. The lean is a
+            //rotation, so it leaves the normals correct — a non-uniform scale would not (the shader
+            //transforms normals by the world matrix itself, with no inverse transpose), which is why the
+            //variety in proportions comes from the caller's mesh variants rather than from stretching.
+            return Matrix.CreateScale(scale)
+                * Matrix.CreateRotationY(yaw)
+                * Matrix.CreateFromAxisAngle(new Vector3(MathF.Cos(leanAzimuth), 0f, MathF.Sin(leanAzimuth)), lean)
+                * Matrix.CreateTranslation(x, y, z);
+        }
 
         //How far a boulder may lie tipped. A glacial erratic lies however it came to rest, and tumbling it
         //is what stops a scatter of one dome mesh reading as a field of identical mushrooms.
@@ -339,26 +366,11 @@ namespace Prazsky.Core.Render
 
                 float yaw = (float)rng.NextDouble() * MathHelper.TwoPi;
 
-                //Sunk a little below the sampled height: the floor is lumpy and the sample is one point, so
-                //a base planted exactly on it floats off the downhill side of every lump. Sinking reads as
-                //ground cover lapping the base; floating reads as a render bug. Leaning sinks a touch more,
-                //since tipping a flat base about its centre lifts the edge it tips away from clear of the
-                //ground.
+                //Sunk a little and leaned a little (PlantedWorld)
                 float lean = maxLean * (float)rng.NextDouble();
                 float leanAzimuth = (float)rng.NextDouble() * MathHelper.TwoPi;
-                float y = terrainHeight(x, z) - (0.15f + lean * 0.9f) * scale;
 
-                //Scale, then yaw about the axis, then lean the axis over, then translate: the mesh's base
-                //sits at Y=0, so translating by the terrain height plants it on the ground. The lean is a
-                //rotation, so it leaves the normals correct — a non-uniform scale would not (the shader
-                //transforms normals by the world matrix itself, with no inverse transpose), which is why the
-                //variety in proportions comes from the caller's mesh variants rather than from stretching.
-                Matrix world = Matrix.CreateScale(scale)
-                    * Matrix.CreateRotationY(yaw)
-                    * Matrix.CreateFromAxisAngle(new Vector3(MathF.Cos(leanAzimuth), 0f, MathF.Sin(leanAzimuth)), lean)
-                    * Matrix.CreateTranslation(x, y, z);
-
-                all[i] = new ModelInstance(world, NO_OCCLUSION);
+                all[i] = new ModelInstance(PlantedWorld(x, terrainHeight(x, z), z, scale, yaw, lean, leanAzimuth), NO_OCCLUSION);
                 variantOf[i] = rng.Next(variants);
                 perVariant[variantOf[i]]++;
             }

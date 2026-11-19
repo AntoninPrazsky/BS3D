@@ -10,10 +10,10 @@ namespace BS3D.Tests
     /// <summary>
     /// The forest's wood drawn by what a frustum meets (#1099) and its near crowns round the lens (#1120, #1163): a sector is
     /// skipped only when nothing in it can reach the frustum, the play camera's share is a run or two, a planted tree is tested
-    /// by its placed bounds, and a spruce's crown follows its distance from the lens on every frame of a flight while the play
-    /// camera walked round the island swaps none. <see cref="ForestPasses"/> is reached whole: a pass takes what its frustum
-    /// meets and nothing else, and the sun's pass, which comes first, splits by the same lens, so a tree casts the crown it is
-    /// drawn in.
+    /// by its placed bounds, and a spruce the camera sees wears the crown its distance from the lens gives it on every frame
+    /// of a flight, while the play camera walked round the island swaps none in either pass. <see cref="ForestPasses"/> is
+    /// reached whole: a pass takes what its frustum meets and nothing else, and the sun's pass, which comes first, gives a tree
+    /// the camera sees the crown it is drawn in and one it does not see the crown of the arena's reach alone.
     /// </summary>
     public class ForestCullingTests
     {
@@ -230,7 +230,7 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void Every_frame_of_a_flight_puts_the_near_crowns_round_the_lens_in_the_sun_s_pass_as_in_the_camera_s()
+        public void Every_frame_of_a_flight_gives_each_spruce_the_camera_sees_its_crown_by_the_lens_and_casts_it()
         {
             ForestPasses passes = Passes(out ForestScatter scatter);
             var tree = new BoundingSphere(new Vector3(0f, 9f, 0f), 10f);
@@ -239,14 +239,14 @@ namespace BS3D.Tests
             //SceneRenderer.DrawShadowMaps runs it
             var start = new Vector3(0f, -4f, 30f);
             var heading = Vector3.Normalize(new Vector3(-0.8f, 0.02f, 0.6f));
-            int nearByLens = 0, both = 0;
+            int nearByLens = 0, both = 0, unseenByLens = 0;
             for (int frame = 0; frame < 240; frame++)
             {
                 Vector3 lens = start + heading * frame;
                 Matrix camera = ViewProjection(lens, lens + heading * 30f);
-                passes.Pass(SUN, lens, true, false);
+                passes.SunPass(SUN, camera, lens, true);
                 HashSet<Vector3> castNear = Where(passes.NearConifers), castFar = Where(passes.FarConifers);
-                passes.Pass(camera, lens, true, true);
+                passes.CameraPass(camera, lens, true);
                 HashSet<Vector3> drawnNear = Where(passes.NearConifers), drawnFar = Where(passes.FarConifers);
 
                 //What the camera's frustum meets is drawn, and nothing else, each spruce in the crown its distance from this
@@ -257,14 +257,23 @@ namespace BS3D.Tests
                     {
                         Vector3 at = planted.World.Translation;
                         bool seen = ForestScatterRenderer.Meets(frustum, tree, planted.World);
-                        Assert.Equal(seen, drawnNear.Contains(at) || drawnFar.Contains(at));
-                        if (!seen) continue;
                         float fromLens = new Vector2(at.X - lens.X, at.Z - lens.Z).Length();
                         bool fromArena = new Vector2(at.X, at.Z).Length() < ForestScatterRenderer.FINE_NEAR_RADIUS;
+                        Assert.Equal(seen, drawnNear.Contains(at) || drawnFar.Contains(at));
+                        if (!seen)
+                        {
+                            //One the camera does not see casts by the arena's reach alone, however near the lens: its shadow
+                            //does not follow the lens from off the screen
+                            if (!castNear.Contains(at) && !castFar.Contains(at)) continue;
+                            Assert.True(fromArena == castNear.Contains(at),
+                                $"frame {frame}: a spruce off the screen {fromLens:F1} from the lens, {(fromArena ? "inside" : "outside")} the arena's reach, casts the wrong crown");
+                            if (!fromArena && fromLens < ForestScatterRenderer.NEAR_LENS_RADIUS) unseenByLens++;
+                            continue;
+                        }
                         bool near = fromArena || fromLens < ForestScatterRenderer.NEAR_LENS_RADIUS;
                         Assert.True(near == drawnNear.Contains(at),
                             $"frame {frame}: a spruce {fromLens:F1} from the lens, {(fromArena ? "inside" : "outside")} the arena's reach, is drawn in the wrong crown");
-                        //Near the lens, out in the wood, a long way from where the flight began: no focus left behind reaches it
+                        //Near the lens, out in the wood, a long way from where the flight began: the crown follows the lens itself
                         if (near && !fromArena && Vector3.Distance(lens, start) > 2f * ForestScatterRenderer.NEAR_LENS_RADIUS) nearByLens++;
                     }
                 Assert.Equal(passes.Conifers.Counts.Sum(), drawnNear.Count + drawnFar.Count);
@@ -275,27 +284,66 @@ namespace BS3D.Tests
             }
             Assert.True(nearByLens > 0, "no spruce near the lens out in the wood, far from where the flight began, wears the near crown");
             Assert.True(both > 0);
+            Assert.True(unseenByLens > 0, "no spruce the camera does not see stood near the lens outside the arena's reach in the map");
         }
 
-        //The play camera stands near the axis and looks in; walked round the island it must swap no crown, so every near crown
-        //it draws is one the arena's reach gives anyway, in both woods
+        //The play camera stands near the axis and looks in; walked round the island it must swap no crown in either pass, so
+        //every near crown it draws or casts is one the arena's reach gives anyway, in both woods. The sun's map is laid round
+        //the lens as the hosts lay it, so it holds trees behind the lens that are within its reach and outside the arena's
         [Theory]
-        [InlineData(false, 30f)]
+        [InlineData(false, 28f)]
         [InlineData(false, 55f)]
-        [InlineData(true, 30f)]
+        [InlineData(true, 28f)]
+        [InlineData(true, 45f)]
         [InlineData(true, 55f)]
-        public void The_play_camera_walked_round_the_island_swaps_no_crown(bool aurora, float standOff)
+        public void The_play_camera_walked_round_the_island_swaps_no_crown_in_either_pass(bool aurora, float standOff)
         {
             ForestPasses passes = aurora ? AuroraPasses(out _) : Passes(out _);
-            for (int step = 0; step < 72; step++)
-            {
-                float bearing = step * MathHelper.TwoPi / 72f;
-                var lens = new Vector3(MathF.Sin(bearing) * standOff, -4f, MathF.Cos(bearing) * standOff);
-                passes.Pass(ViewProjection(lens, new Vector3(0f, -2f, 0f)), lens, true, true);
-                foreach (Vector3 at in Where(passes.NearConifers))
-                    Assert.True(new Vector2(at.X, at.Z).Length() < ForestScatterRenderer.FINE_NEAR_RADIUS,
-                        $"from {lens}, a spruce at {at} outside the arena's reach wears the near crown: it swaps as the gun walks");
-            }
+            int nearLensInMap = 0;
+            foreach (Vector3 target in new[] { new Vector3(0f, -2f, 0f), new Vector3(0f, 6f, 0f) })
+                for (int step = 0; step < 144; step++)
+                {
+                    float bearing = step * MathHelper.TwoPi / 144f;
+                    var lens = new Vector3(MathF.Sin(bearing) * standOff, -1.5f, MathF.Cos(bearing) * standOff);
+                    Matrix camera = ViewProjection(lens, target);
+                    passes.SunPass(aurora ? AuroraMoonMap(lens, target) : ForestSunMap(lens, target), camera, lens, true);
+                    foreach (Vector3 at in Where(passes.Conifers))
+                        if (!ForestScatterRenderer.InArenaReach(at) && new Vector2(at.X - lens.X, at.Z - lens.Z).Length() < ForestScatterRenderer.NEAR_LENS_RADIUS)
+                            nearLensInMap++;
+                    foreach (Vector3 at in Where(passes.NearConifers))
+                        Assert.True(ForestScatterRenderer.InArenaReach(at),
+                            $"from {lens}, a spruce at {at} outside the arena's reach casts the near crown: its shadow swaps as the gun walks");
+
+                    passes.CameraPass(camera, lens, true);
+                    foreach (Vector3 at in Where(passes.NearConifers))
+                        Assert.True(ForestScatterRenderer.InArenaReach(at),
+                            $"from {lens}, a spruce at {at} outside the arena's reach wears the near crown: it swaps as the gun walks");
+                }
+            //The map did hold trees the lens's reach would have swapped had the camera seen them
+            Assert.True(nearLensInMap > 0, "the sun's map held no spruce near the lens outside the arena's reach");
+        }
+
+        //The sun's map round a lens as SceneRenderer lays it (TryShadowFit, SunShadowMap.FitWindow at Ultra's 8192), over a
+        //wood's ground as its backdrop states it: the aurora's under its Moon, the forest's under the low sun SUN stands in for
+        internal static Matrix AuroraMoonMap(Vector3 lens, Vector3 target)
+        {
+            var config = new AuroraSceneConfig();
+            Vector3 moon = SceneRenderer.DirectionFromElevationAzimuth(
+                Math.Clamp(config.Sky.MoonElevationDegrees, 1f, 89f), config.Sky.MoonAzimuthDegrees);
+            return MapOver(config.Terrain, config.Shadows.Extent, moon, lens, target);
+        }
+
+        private static Matrix ForestSunMap(Vector3 lens, Vector3 target)
+        {
+            var config = new ForestSceneConfig();
+            return MapOver(config, config.Shadows.Extent, Vector3.Normalize(new Vector3(-490f, 95f, -150f)), lens, target);
+        }
+
+        private static Matrix MapOver(ForestSceneConfig ground, float extent, Vector3 sun, Vector3 lens, Vector3 target)
+        {
+            (Vector3 centre, float yMin, float yMax) = SceneRenderer.ShadowBox(lens, target, extent,
+                ground.LevelY, ground.HillHeight * 0.5f, ground.HillHeight);
+            return SunShadowMap.FitWindow(8192, centre, sun, extent, yMin, yMax).ViewProjection;
         }
 
         //The aurora's planting with its far stand's spruces, as AuroraBackdrop hands them over (#1163)
