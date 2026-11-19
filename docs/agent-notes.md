@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-19 — #1145 kupy bez rovné hrany, pole kup všech velikostí — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: rovná svislá hrana kup zmizela — march končí na elipsoidu čepice zvětšeném o okraj (`CLOUD_MARGIN` 0,45 R), push billows dozní před ním, krabice obepíná okraj (detektor řezu: louka 55/80 snímků → 0, hory 10/80 → 0). `CloudVolumes.Place` je dvouprůchodová mřížka: velikosti zešikmené k malým, protažení po větru, 30 % velkých kup jsou věže nakloněné po směru pohybu (−Wind), ulice podle pomalého pole, shluky s otevřeným nebem mezi nimi, místo podle sousedů 5×5 (překryv ≤ 15 %). Broken: stopa kup do 1500 jednotek 57 % → ~28 %.
+- ⚠ Překryv 0,4 dělal nad hlavou sloupy kouře (složení od nejvzdálenější); hrana jako podíl poloměru změkčila velké kupy.
+- Otevřené: verdict-eye (pohyb, ulice, zda Broken není moc řídké); GPU cena +0,3 ms změřena před shluky; Place 0,5–0,6 ms CPU (Broken).
+
 ## 2026-11-19 — #1178 trailer v3 — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: trailer v3 (57 s, `Videos\BS3D trailer\bs3d-trailer-v3-master.mp4`): poušť jako první, dolet neonu za dělo, projektor a síť zblízka, první výstřel na zlomu hudby, přesné míření, pohybující se kamery (`Tools/trailer/paths`), na závěr 20 světů za 5 s kolem jedné hry, přátelská věta o vývoji. Hudba: klidný pouštní úvod a pouštní rock od dropu, dva rendery ACE-Step.
