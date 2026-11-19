@@ -213,17 +213,38 @@ float CraterLayer(float2 p, float seedOffset, float chance, out float ejecta)
 //shows its tracks as the darker ground under it
 static const float TRACK_DARKEN = 0.25;
 
+//HOW MANY CRATERS (#1167): the chance of a crater in a cell, per octave - Mars's own, not the Moon's. The Moon's figures
+//(0.86, 0.82, 0.70 and the pixel octave's 0.64) are a highland's: every octave covers about the same share of the ground,
+//so the four together laid bowls over 22 % of the plain and rims over 56 %, and the owner's "craters cover absolutely
+//everything, Mars does not have so many". A Martian plain is a few big craters on open regolith, the small ones scattered.
+//So the big octave keeps the Moon's chance (#638 asked for MORE big craters, and BigCraters stands on top of it) and the
+//smaller three are thinned to about a fifth: the bowls cover 9.5 % of the plain, rims to 1.6 radii 24 %, and the three
+//smaller octaves 3.2 % of it where they covered 15.7 (each octave's share is its chance x pi x CraterLayer's mean squared
+//radius, 0.0232 of a cell; MarsCraterCoverageTests holds it on the rolls themselves).
+static const float CRATER_CHANCE_0 = 0.86;   //129-unit cells: craters 15-27 units across the rim, one in 140 x 140 units
+static const float CRATER_CHANCE_1 = 0.20;   //49-unit cells: 6-10, one in 110 x 110
+static const float CRATER_CHANCE_2 = 0.14;   //18.6-unit cells: 2.2-3.9, one in 50 x 50
+static const float SMALL_CRATER_CHANCE = 0.10;   //the pixel octave's 7.2-unit cells (SmallCraterLayer): 0.9-1.5, one in 23 x 23
+static const float SMALL_CRATER_PERIOD = 7.2;
+
 float CraterField(float2 p, out float ejecta)
 {
     float e0, e1, e2;
 
-    float height = CraterLayer(TurnCrater(p, CRATER_TURN_0) * (1.0 / 129.0), 11.3, 0.86, e0) * 0.58
-        + CraterLayer(TurnCrater(p, CRATER_TURN_1) * (1.0 / 49.0), 37.7, 0.82, e1) * 0.29
-        + CraterLayer(TurnCrater(p, CRATER_TURN_2) * (1.0 / 18.6), 71.1, 0.70, e2) * 0.13;
+    float height = CraterLayer(TurnCrater(p, CRATER_TURN_0) * (1.0 / 129.0), 11.3, CRATER_CHANCE_0, e0) * 0.58
+        + CraterLayer(TurnCrater(p, CRATER_TURN_1) * (1.0 / 49.0), 37.7, CRATER_CHANCE_1, e1) * 0.29
+        + CraterLayer(TurnCrater(p, CRATER_TURN_2) * (1.0 / 18.6), 71.1, CRATER_CHANCE_2, e2) * 0.13;
 
     ejecta = max(e0 * 0.9, max(e1, e2 * 0.8));
 
     return height;
+}
+
+//The Moon's fourth, small-crater detail octave: the pixel's own (MarsGroundFields, MarsGroundBaked), normal-only - at this
+//scale a crater is shading, not silhouette - and the one octave the clearing does not flatten
+float SmallCraterLayer(float2 p, out float ejecta)
+{
+    return CraterLayer(TurnCrater(p, CRATER_TURN_3) * (1.0 / SMALL_CRATER_PERIOD), 133.7, SMALL_CRATER_CHANCE, ejecta);
 }
 
 //The stone field: two lattices of boulders and pebbles, derived from Outback.fx's RockLayer (which has since
@@ -471,6 +492,10 @@ float MarsHeight(float2 p, out float ejecta, out float rockShape)
     float mare = MareBase(p);
     float field = CraterField(p, ejecta) + mare * 0.18;
 
+    //A crater the clearing flattens keeps no rim of fresh ejecta either (#1167): un-ramped, every crater of the field drew
+    //its pale ring flat on the clearing's level, a crater painted on the ground rather than cut into it
+    ejecta *= ramp;
+
     //Two lattices, ROTATED against each other (the outback's own reason) so the boulders and the pebbles
     //between them never come out ranked along one grid's rows. Neither carries a rib (ribDepth 0) - Mars
     //rock is wind-worn, not water-cut.
@@ -654,11 +679,9 @@ MarsGround MarsGroundFields(float3 worldPosition, float3 meshNormal, bool onBank
         baseNormal = normalize(lerp(baseNormal, meshNormal, buried));
     }
 
-    //Fine surface: the Moon's fourth, small-crater detail octave (normal-only - at this scale a crater is
-    //shading, not silhouette) plus an isotropic fine relief, both band-limited against the footprint.
+    //Fine surface: the small craters (SmallCraterLayer) plus an isotropic fine relief, both band-limited against the footprint.
     float smallEjecta;
-    float smallCraters = CraterLayer(TurnCrater(worldPosition.xz, CRATER_TURN_3) * (1.0 / 7.2), 133.7, 0.64, smallEjecta)
-        * saturate(1.0 - footprint * (2.0 / 5.0)) * (1.0 - buried);
+    float smallCraters = SmallCraterLayer(worldPosition.xz, smallEjecta) * saturate(1.0 - footprint * (2.0 / 5.0)) * (1.0 - buried);
 
     float relief = baking ? 0.0 : Fbm2BandLimited(worldPosition.xz * 1.7, 3, footprint * 1.7);
 
@@ -1323,8 +1346,7 @@ float4 MarsGroundBaked(float3 worldPosition)
     float plain = 1.0 - ground.RockMask;
     float relief = Fbm2BandLimited(worldPosition.xz * 1.7, 3, footprint * 1.7);
     float smallEjectaUnused;
-    float smallCraters = CraterLayer(TurnCrater(worldPosition.xz, CRATER_TURN_3) * (1.0 / 7.2), 133.7, 0.64, smallEjectaUnused)
-        * saturate(1.0 - footprint * (2.0 / 5.0));
+    float smallCraters = SmallCraterLayer(worldPosition.xz, smallEjectaUnused) * saturate(1.0 - footprint * (2.0 / 5.0));
     TrackPrint track = RoverTrack(worldPosition.xz, footprint);
     ground.Normal = PerturbNormalFromHeight(ground.BaseNormal, worldPosition,
         (smallCraters * (MicroReliefStrength * 3.0) + relief * MicroReliefStrength + track.Height * plain) * plain);
