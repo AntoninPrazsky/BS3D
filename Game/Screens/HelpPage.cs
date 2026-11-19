@@ -789,15 +789,18 @@ namespace BS3D.Screens
             column.Widgets.Add(Headed("Chapters",
                 $"{Game.LevelCount}\u00A0levels in {Game.BlockCount}\u00A0chapters of ten, each against one backdrop and with a "
                 + "puzzle of its own — towers, things hidden inside other things, mathematics."));
+            //The stars as rules v2 rates them (#1045, #1185): every star past the first is score (StarRating's multiples of the
+            //floor) and the time bonus is the biggest line of it, so four are said as SCORING's tip says them, a clean clear
+            //well inside the par time (about three quarters of par in ScoreSim's casual shots), never by shots alone
             column.Widgets.Add(Headed("Stars",
-                "Every level you clear is rated from one to four stars. One is for clearing it. Two and three are for your "
-                + "score: fewer shots, bigger drops, longer streaks. Four means you cleared it well under the shots it allows."));
+                "Every level you clear earns one to four stars. One is for clearing it, the rest for your score, and the "
+                + "faster the clear, the more it scores. Four need a clean clear well inside the par time."));
             column.Widgets.Add(Headed("Cups",
                 "A cleared level hands you a cup for its stars: bronze for one, silver for two, gold for three and crystal "
                 + "for four."));
             column.Widgets.Add(Headed("Stars open the way",
-                "Later levels ask for a total of stars across everything you have played, so a level you rushed is worth "
-                + "playing again."));
+                "Later levels ask for a total of stars across everything you have played, so a level you scraped through is "
+                + "worth playing again."));
         }
 
         private void BuildCeiling(VerticalStackPanel column)
