@@ -830,54 +830,23 @@ namespace BS3D
         /// </summary>
         internal static bool OnPhone => OperatingSystem.IsAndroid();
 
-        //The page a phone's text dialog was opened for, and the dialog's answer while it is up (#1052)
-        private MenuPage _typingDialogFor;
-        private System.Threading.Tasks.Task<string> _typingDialog;
+        //A phone's typing (#1052): the system's text dialog, behind the seam its step is tested through (#1182)
+        private Screens.PhoneTyping _phoneTyping;
 
         /// <summary>
-        /// A phone's typing (#1052): the window sends no characters on Android, and Myra's text box opens no soft keyboard,
-        /// so a page that takes the keyboard (the nickname plate, the Settings nickname row, the note) gets the system's own
-        /// text dialog (<c>KeyboardInput.Show</c>), opening on what is typed so far. Its answer takes the field's place in one
-        /// edit (<c>MenuPage.TakeTypedText</c>, #1141), then comes the page's Enter where OK means it (<c>TypingDialogEnters</c>);
-        /// a cancel is the page's Esc. Asked once per page until the page stops taking the keyboard or a finger lands on its
-        /// field again, so a name the page refuses is not asked for in a loop.
+        /// A phone's typing (#1052): a page that takes the keyboard gets the system's own text dialog
+        /// (<c>KeyboardInput.Show</c>), opening on what is typed so far. What its answer and its cancel do to the page, and when
+        /// it is asked again, is <see cref="Screens.PhoneTyping"/>'s: a cancel is the page's Esc only where the page says so
+        /// (<c>MenuPage.TypingDialogEscapes</c>), so on the note it leaves the page and its text as they were (#1182).
         /// </summary>
         private void StepPhoneTyping()
         {
             if (!OnPhone) return;
 
-            MenuPage page = _screens.Active as MenuPage;
-
-            if (_typingDialog != null)
-            {
-                if (!_typingDialog.IsCompleted) return;
-
-                string text = _typingDialog.Status == System.Threading.Tasks.TaskStatus.RanToCompletion ? _typingDialog.Result : null;
-                _typingDialog = null;
-
-                if (page == null || page != _typingDialogFor || !page.CapturesKeyboard) return;
-
-                if (text == null)
-                {
-                    page.OnTextInput('\x1b');
-                    return;
-                }
-
-                page.TakeTypedText(text);
-                if (page.TypingDialogEnters) page.OnTextInput('\r');
-                return;
-            }
-
-            //Another page, or a finger on the field again, asks afresh: not a finger anywhere, which on the note is its Send
-            if (page == null || !page.CapturesKeyboard || page != _typingDialogFor || TouchOnTypingField(page))
-                _typingDialogFor = null;
-
-            if (page == null || !page.CapturesKeyboard || _typingDialogFor == page
-                || Microsoft.Xna.Framework.Input.KeyboardInput.IsVisible) return;
-
-            _typingDialogFor = page;
-            (string title, string description, string current) = page.TypingDialog;
-            _typingDialog = Microsoft.Xna.Framework.Input.KeyboardInput.Show(title, description, current);
+            _phoneTyping ??= new Screens.PhoneTyping(
+                (title, description, text) => Microsoft.Xna.Framework.Input.KeyboardInput.Show(title, description, text),
+                () => Microsoft.Xna.Framework.Input.KeyboardInput.IsVisible, page => TouchOnTypingField((MenuPage)page));
+            _phoneTyping.Step(_screens.Active as MenuPage);
         }
 
         /// <summary>Whether a finger is down on the page's typing field (#1052).</summary>
