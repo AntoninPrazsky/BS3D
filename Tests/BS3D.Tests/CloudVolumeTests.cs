@@ -1,4 +1,7 @@
 using System;
+using System.Globalization;
+using System.IO;
+using System.Text.RegularExpressions;
 using Microsoft.Xna.Framework;
 using Prazsky.Core.Render;
 using Xunit;
@@ -90,6 +93,97 @@ namespace BS3D.Tests
             Assert.InRange(point.Z / point.W, 0f, 1f);
             Vector4 before = Vector4.Transform(new Vector4(0f, 0f, -4400f, 1f), camera);
             Assert.True(before.Z / before.W > 1f, "the camera's own projection already reached 4400");
+        }
+
+        private static readonly string Source = FindFile(Path.Combine("BS3DLibs", "Prazsky.Shaders", "Content", "Shaders", "CloudVolume.fx"));
+
+        private static string FindFile(string relative)
+        {
+            for (DirectoryInfo directory = new(AppContext.BaseDirectory); directory != null; directory = directory.Parent)
+            {
+                string candidate = Path.Combine(directory.FullName, relative);
+                if (File.Exists(candidate)) return candidate;
+            }
+
+            throw new FileNotFoundException($"No {relative} was found above the test assembly.");
+        }
+
+        private static float Constant(string name)
+        {
+            Match match = Regex.Match(File.ReadAllText(Source), $@"static const float {name} = ([0-9.]+);");
+            Assert.True(match.Success, $"CloudVolume.fx has no {name}");
+            return float.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
+        }
+
+        /// <summary>
+        /// The most the billows can make of a point at <paramref name="u"/> radii from the axis and <paramref name="h"/> of the
+        /// height (CloudVolume.fx's HeapInside and HeapDensity, the noise at its extreme in the push's favour): its outline,
+        /// plus the push of both octaves at the baked noise's largest value, faded by how far out the point stands.
+        /// </summary>
+        private static float HighestBody(float u, float h, float noiseMax, float reach, float fadeFrom, bool fades)
+        {
+            float waistAt = Constant("CLOUD_WAIST"), baseWidth = Constant("CLOUD_BASE_WIDTH");
+            float push = Constant("CLOUD_BILLOW_PUSH") + Constant("CLOUD_RIM_PUSH");
+            float inside, e;
+            if (h < waistAt)
+            {
+                float waist = MathHelper.Lerp(baseWidth, 1f, h / waistAt);
+                inside = waist - u;
+                e = u / waist;
+            }
+            else
+            {
+                float v = (h - waistAt) / (1f - waistAt);
+                e = MathF.Sqrt(u * u + v * v);
+                inside = 1f - e;
+            }
+            float t = MathHelper.Clamp((e - fadeFrom) / (reach - fadeFrom), 0f, 1f);
+            float weight = fades ? 1f - t * t * (3f - 2f * t) : 1f;
+            return inside + weight * push * noiseMax;
+        }
+
+        //How far out (HeapInside's e, 1 on the outline) the billows can leave any density at all, at the waist where the
+        //outline is widest: the first e past which the highest body the noise can make stays at or under 0
+        private static float Support(float noiseMax, float reach, float fadeFrom, bool fades)
+        {
+            float waistAt = Constant("CLOUD_WAIST");
+            for (float u = 1f; u < 3f; u += 0.001f)
+                if (HighestBody(u, waistAt, noiseMax, reach, fadeFrom, fades) <= 0f) return u;
+            return 3f;
+        }
+
+        /// <summary>
+        /// A straight vertical edge on a heap's flank (#1145): the march stopped where the density could still be solid, so
+        /// in the phases a billow rolled out to it the heap was cut off there by a wall. Now the billows' push fades out
+        /// before the reach, so nothing a heap's noise can do leaves density at or past it (held against the baked noise's
+        /// own extreme: a trilinear sample never exceeds a texel), and every face the march stops at stands at the reach:
+        /// the box, the cylinder below the waist and the cap's ellipsoid over it. Seen to fire: the push unfaded reaches past
+        /// the reach, and the bound before, a cylinder 1.12 radii round the axis inside a box whose sides stood at 1, left the
+        /// billows solid at both.
+        /// </summary>
+        [Fact]
+        public void NoNoiseLeavesDensityWhereTheMarchStops()
+        {
+            float noiseMax = 0f;
+            foreach (float texel in ProxyVolumes.GradientNoiseTexels(CloudVolumes.NOISE_PERIOD, CloudVolumes.NOISE_TEXELS_PER_UNIT, CloudVolumes.NOISE_SEED))
+                noiseMax = MathF.Max(noiseMax, MathF.Abs(texel));
+            Assert.InRange(noiseMax, 0.3f, 1f);
+
+            float reach = Constant("CLOUD_REACH"), fadeFrom = Constant("CLOUD_PUSH_FADE_FROM");
+            float support = Support(noiseMax, reach, fadeFrom, fades: true);
+            Assert.True(support < reach - 0.05f, $"the billows can leave density {support:0.000} out, against a reach of {reach}");
+
+            //Seen to fire: unfaded, the push stands past the reach; and the bound before #1145 cut inside the support
+            Assert.True(Support(noiseMax, reach, fadeFrom, fades: false) > reach, "the unfaded push stays inside the reach: the check cannot tell");
+            Assert.True(Support(noiseMax, 1.12f, 1.12f, fades: false) > 1.12f, "the bound before #1145 held its billows: the check cannot tell a cut");
+
+            //Every face the march stops at is the reach's: the push's fade, the box, the cylinder and the cap
+            string source = File.ReadAllText(Source);
+            Assert.Contains("float push = 1.0 - smoothstep(CLOUD_PUSH_FADE_FROM, CLOUD_REACH, e);", source);
+            Assert.Contains("extent = float3(input.Cloud.w * CLOUD_REACH, input.Shape.x * CLOUD_TOP, input.Cloud.w * CLOUD_REACH)", source);
+            Assert.Contains("float reachR = radius * CLOUD_REACH;", source);
+            Assert.Contains("float capY = shape.x * (1.0 - CLOUD_WAIST) * CLOUD_REACH;", source);
+            Assert.Contains("static const float CLOUD_TOP = CLOUD_WAIST + CLOUD_REACH * (1.0 - CLOUD_WAIST);", source);
         }
 
         [Fact]

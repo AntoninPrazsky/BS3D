@@ -45,6 +45,17 @@ static const float CLOUD_SKY_GAIN = 0.55;
 static const float CLOUD_WAIST = 0.3;
 static const float CLOUD_BASE_WIDTH = 0.78;
 static const float CLOUD_BILLOW = 0.45;
+//How far the billows and the rim's erosion push the outline, in radii for a unit of noise
+static const float CLOUD_BILLOW_PUSH = 0.6;
+static const float CLOUD_RIM_PUSH = 0.25;
+//THE REACH (#1145): how far past its outline a heap may stand, in the outline's own measure (HeapInside's `e`, 1 on the
+//outline), and where the billows' push starts to fade so that it is gone by then. The march stands inside the reach (the
+//box, the cylinder below the waist and the cap's ellipsoid above it, CloudVolumePS), so the density is zero on every face
+//it stops at, whatever the noise does there. ⚠ Cut at the march's bound instead (a cylinder 1.12 radii round the axis, the
+//box's sides at 1), a billow rolling out to it was solid there: a straight vertical edge on a heap's flank, in the phases
+//a lobe stood at it, and seen near a world axis the box's own sides cut every heap at its waist.
+static const float CLOUD_REACH = 1.3;
+static const float CLOUD_PUSH_FADE_FROM = 0.95;
 
 //The heaps' noise, baked (ProxyVolumes.GradientNoiseTexels), repeating every NOISE_PERIOD units
 static const float NOISE_PERIOD = 8.0;
@@ -81,10 +92,15 @@ struct CloudVertexOutput
     nointerpolation float4 Shape : TEXCOORD2;
 };
 
+//How high the march reaches, as a share of the heap's height: the top of the cap's ellipsoid at CLOUD_REACH
+static const float CLOUD_TOP = CLOUD_WAIST + CLOUD_REACH * (1.0 - CLOUD_WAIST);
+
 CloudVertexOutput CloudVolumeVS(CloudVertexInput input)
 {
     CloudVertexOutput output;
-    float3 extent = float3(input.Cloud.w, input.Shape.x, input.Cloud.w);
+    //The box round the reach, not the outline: the billows stand past the outline, and a pixel outside the box is never
+    //marched at all
+    float3 extent = float3(input.Cloud.w * CLOUD_REACH, input.Shape.x * CLOUD_TOP, input.Cloud.w * CLOUD_REACH);
     float3 world = input.Cloud.xyz + input.Position.xyz * extent;
     output.Position = mul(mul(float4(world, 1.0), View), Projection);
     output.WorldPosition = world;
@@ -94,13 +110,20 @@ CloudVertexOutput CloudVolumeVS(CloudVertexInput input)
 }
 
 //How far inside the heap's outline p stands, in radii (negative outside): from the flat base out to its waist, then
-//rounding in to the top; h is how high up it the point stands (0 at the base, 1 at the top)
-float HeapInside(float3 p, float4 cloud, float4 shape, out float h)
+//rounding in to the top; h is how high up it the point stands (0 at the base, 1 at the top of the outline), e how far out
+//it stands in the outline's own measure (0 on the axis, 1 on the outline, rising on past it in every direction: the
+//distance to the waist's point in radii below the waist, and above it to the cap's centre, the cap an ellipsoid of the
+//radius across and the rest of the height up)
+float HeapInside(float3 p, float4 cloud, float4 shape, out float h, out float e)
 {
     h = (p.y - cloud.y) / shape.x;
-    float waist = h < CLOUD_WAIST ? lerp(CLOUD_BASE_WIDTH, 1.0, h / CLOUD_WAIST)
-        : sqrt(saturate(1.0 - (h - CLOUD_WAIST) * (h - CLOUD_WAIST) / ((1.0 - CLOUD_WAIST) * (1.0 - CLOUD_WAIST))));
-    return waist - length(p.xz - cloud.xz) / cloud.w;
+    float u = length(p.xz - cloud.xz) / cloud.w;
+    float waist = lerp(CLOUD_BASE_WIDTH, 1.0, h / CLOUD_WAIST);
+    float v = (h - CLOUD_WAIST) / (1.0 - CLOUD_WAIST);
+    float cap = length(float2(u, v));
+    bool below = h < CLOUD_WAIST;
+    e = below ? u / max(waist, 1e-3) : cap;
+    return below ? waist - u : 1.0 - cap;
 }
 
 //The heap's density at p (0 to its own density). `fine` 0 leaves the rim's erosion out: the sun's tap, where only the
@@ -108,18 +131,21 @@ float HeapInside(float3 p, float4 cloud, float4 shape, out float h)
 float HeapDensity(float3 p, float4 cloud, float4 shape, float fine, out float h)
 {
     float radius = cloud.w;
-    float inside = HeapInside(p, cloud, shape, h);
+    float e;
+    float inside = HeapInside(p, cloud, shape, h, e);
 
     //One return: an inlined early return inside a branch is the X4000 pattern Clouds.fxh records
     float density = 0.0;
     [branch]
-    if (inside > -0.5 && h > 0.0 && h < 1.0)
+    if (e < CLOUD_REACH && h > 0.0)
     {
-        //The billows, in the heap's own size, rolling slowly upward, then a finer octave that erodes the rim most
+        //The billows, in the heap's own size, rolling slowly upward, then a finer octave that erodes the rim most. Their
+        //push fades out towards the reach, so past it the outline alone (negative there) is all there is
         float3 q = p / (radius * CLOUD_BILLOW) + shape.y * float3(13.7, 5.3, 9.1) + float3(0.0, -CloudTime * 0.004, 0.0);
         float billow = VolumeNoise(q);
         float rim = fine > 0.0 ? VolumeNoise(q * 3.1 + 11.3) : 0.0;
-        float body = inside + 0.6 * billow + 0.25 * rim * saturate(1.0 - inside * 1.5);
+        float push = 1.0 - smoothstep(CLOUD_PUSH_FADE_FROM, CLOUD_REACH, e);
+        float body = inside + push * (CLOUD_BILLOW_PUSH * billow + CLOUD_RIM_PUSH * rim * saturate(1.0 - inside * 1.5));
         //The base flat, the top let go
         body *= smoothstep(0.0, 0.04, h);
         density = saturate(body * 9.0) * shape.z;
@@ -141,19 +167,38 @@ float4 CloudVolumePS(CloudVertexOutput input) : COLOR
     float radius = cloud.w;
 
     float3 rd = normalize(input.WorldPosition - CameraPosition);
-    //The cylinder the heap's outline stands in (its billows reach a little past it): round the axis, then between the
-    //base and the top. The box's corners are outside it, and a sample there would only find nothing
-    float reachR = radius * 1.12;
+    //Where the heap can stand at all, its reach (CLOUD_REACH): a cylinder round the axis from the base up to the waist, and
+    //above it the cap's ellipsoid, the radius across and the rest of the height up, both CLOUD_REACH times the outline. The
+    //ray is marched from where it first enters either to where it last leaves; the box's corners are outside both, and a
+    //sample there would only find nothing
+    float reachR = radius * CLOUD_REACH;
+    float waistY = shape.x * CLOUD_WAIST;
+    float capY = shape.x * (1.0 - CLOUD_WAIST) * CLOUD_REACH;
     float3 o = CameraPosition - cloud.xyz;
+    float ry = abs(rd.y) > 1e-5 ? rd.y : 1e-5;
+
     float a = max(dot(rd.xz, rd.xz), 1e-6);
     float b = dot(o.xz, rd.xz);
     float disc = b * b - a * (dot(o.xz, o.xz) - reachR * reachR);
-    clip(disc);
     float root = sqrt(max(disc, 0.0));
-    float ry = abs(rd.y) > 1e-5 ? rd.y : 1e-5;
-    float ya = -o.y / ry, yb = (shape.x - o.y) / ry;
-    float t0 = max(max((-b - root) / a, min(ya, yb)), 0.0);
-    float t1 = min((-b + root) / a, max(ya, yb));
+    float ya = -o.y / ry, yb = (waistY - o.y) / ry;
+    float c0 = max((-b - root) / a, min(ya, yb));
+    float c1 = min((-b + root) / a, max(ya, yb));
+    bool cylinder = disc >= 0.0 && c1 > c0;
+
+    float squash = reachR / capY;
+    float3 oe = float3(o.x, (o.y - waistY) * squash, o.z);
+    float3 de = float3(rd.x, rd.y * squash, rd.z);
+    float ea = dot(de, de), eb = dot(oe, de);
+    float ed = eb * eb - ea * (dot(oe, oe) - reachR * reachR);
+    float eroot = sqrt(max(ed, 0.0));
+    float yc = (waistY + capY - o.y) / ry;
+    float e0 = max((-eb - eroot) / ea, min(ya, yc));
+    float e1 = min((-eb + eroot) / ea, max(ya, yc));
+    bool ellipsoid = ed >= 0.0 && e1 > e0;
+
+    float t0 = max(min(cylinder ? c0 : 1e30, ellipsoid ? e0 : 1e30), 0.0);
+    float t1 = max(cylinder ? c1 : -1e30, ellipsoid ? e1 : -1e30);
     clip(t1 - t0);
 
     int steps = (int)round(lerp((float)CLOUD_STEPS, (float)CLOUD_STEPS_FAR, saturate((t0 - STEPS_FAR_FROM) / (STEPS_FAR_AT - STEPS_FAR_FROM))));
@@ -180,9 +225,9 @@ float4 CloudVolumePS(CloudVertexOutput input) : COLOR
         {
             //The sun through the heap: one tap close by through the billows, then the outline alone further on, which is
             //the heap's broad shading (its sunward side lit, its belly in its own shade) for no noise at all
-            float hs;
+            float hs, es;
             float near = HeapDensity(p + SunDirection * (radius * 0.12), cloud, shape, 0.0, hs);
-            float far = saturate(HeapInside(p + SunDirection * (radius * 0.5), cloud, shape, hs) * 4.0) * shape.z;
+            float far = saturate(HeapInside(p + SunDirection * (radius * 0.5), cloud, shape, hs, es) * 4.0) * shape.z;
             float depth = (near * 0.12 + far * 0.38) * radius;
             float sun = exp(-CLOUD_SIGMA * depth);
             //The powder term: a thin edge facing away from the sun is darker than Beer-Lambert alone says
