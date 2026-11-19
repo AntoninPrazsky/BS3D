@@ -7,7 +7,8 @@
 Run with a Python that has PyAV (its bundled FFmpeg), numpy and Pillow - the one web-capture-encode.py uses. No ffmpeg install.
 
 The edit file (JSON; a line starting with // is a comment) says, in order of the timeline:
-  - "segments": each a filmed clip ("capture": the arguments of Tools/web-capture.ps1, in its own spelling) or a card on black
+  - "segments": each a filmed clip ("capture": the arguments of Tools/web-capture.ps1, in its own spelling, and "hands", a scripted
+    player made into its aim=/fire=/rmb=, see hands_arguments) or a card on black
     ("card"), with "in" (seconds into the clip), "length", the transition into it ("cut", "dissolve", "dip", "white";
     "transitionSeconds"), the game's sound under it ("sound": dB, or null for none), the music ducked under it ("duck": dB) and
     the trailer's own sound on its cut ("sfx": "hit", "boom" or "whoosh", made by synth_sfx);
@@ -82,10 +83,42 @@ def level_copy(level_file, scene):
     return path
 
 
+def hands_arguments(hands):
+    """A player's hands as the Game's scripted arguments (aim=, fire=, rmb=), from a capture's "hands" (#1178): the barrel at its
+    "rest" pose ([t, elevation, traverse], in degrees, from when the game hands it over), then eased onto each of the "shots" (each
+    [t, elevation, traverse], as a capture run with the benchmark prints them: "[bench] shot at <t> s: aim=<t>:<e>:<tr>") over
+    "ease" seconds (smoothstep, 60 keys a second), held "hold" seconds and fired; every shot moved by "shift" seconds; precise aim
+    held over "rmb" ([from, to]) if given. Replayed at their own seconds the benchmark's shots make the benchmark's game, filmed by
+    the game's own camera, which its lens replaces (the owner on v4: the game does not look like that)."""
+    rest_t, e0, tr0 = hands["rest"]
+    ease, hold, shift = hands.get("ease", 0.5), hands.get("hold", 0.15), hands.get("shift", 0.0)
+    keys = ["aim=%.3f:%.3f:%.3f" % (rest_t, e0, tr0)]
+    fires = []
+    previous = (rest_t, e0, tr0)
+    for t, e, tr in hands["shots"]:
+        fire = t + shift
+        end = fire - hold
+        start = max(previous[0] + 0.05, end - ease)
+        steps = max(1, int(round((end - start) * 60)))
+        for i in range(1, steps + 1):
+            x = i / steps
+            w = x * x * (3 - 2 * x)
+            keys.append("aim=%.3f:%.3f:%.3f" % (start + (end - start) * x, previous[1] + (e - previous[1]) * w,
+                                                 previous[2] + (tr - previous[2]) * w))
+        fires.append(fire)
+        previous = (fire, e, tr)
+    if hands.get("rmb"):
+        keys.append("rmb=%.2f:%.2f" % tuple(hands["rmb"]))
+    keys.append("fire=" + ",".join("%.3f" % f for f in fires))
+    return " ".join(keys)
+
+
 def capture_arguments(capture, film, size):
     """web-capture.ps1's arguments for a clip: the edit's defaults ("film") under the clip's own."""
     merged = dict(film)
     merged.update(capture)
+    if merged.get("hands"):
+        merged["gameArgs"] = (merged.get("gameArgs", "") + " " + hands_arguments(merged["hands"])).strip()
     where = (["-LevelFile", level_copy(merged["levelFile"], merged["scene"])] if merged.get("levelFile")
              else ["-Level", str(merged["level"])])
     args = where + ["-From", str(merged.get("from", 0)), "-Seconds", str(capture["seconds"]),
@@ -201,40 +234,81 @@ def _peak1(x):
     return x / (np.max(np.abs(x)) + 1e-12)
 
 
+def _convolve(x, ir):
+    """x (mono) through each channel of a stereo impulse response, by FFT; as long as x."""
+    n = len(x) + len(ir) - 1
+    size = 1 << (n - 1).bit_length()
+    spectrum = np.fft.rfft(x, size)
+    return np.stack([np.fft.irfft(spectrum * np.fft.rfft(ir[:, c], size), size)[:len(x)] for c in range(2)], axis=1)
+
+
+def _hall(rng, seconds, decay, cutoff):
+    """A dark hall's stereo impulse response: a 12 ms pre-delay, then a different noise in each channel decaying over `decay`
+    seconds and darkened twice at `cutoff` Hz, each channel of unit energy."""
+    n = int(seconds * RATE)
+    t = np.arange(n) / RATE
+    channels = []
+    for _ in range(2):
+        tail = _lowpass(_lowpass(rng.standard_normal(n), cutoff), cutoff) * np.exp(-t / decay)
+        tail = np.concatenate([np.zeros(int(0.012 * RATE)), tail])[:n]
+        channels.append(tail / math.sqrt(float(np.sum(tail ** 2))))
+    return np.stack(channels, axis=1)
+
+
 _SFX = {}
+
+# A struck circular membrane's first twelve modes over its fundamental: a drum's own, inharmonic, timbre
+MEMBRANE = (1.0, 1.593, 2.136, 2.296, 2.653, 2.918, 3.156, 3.501, 3.600, 3.652, 4.060, 4.154)
+# The beater's knock on the head: a few damped partials, the hit's clean edge where a monitor speaker plays it
+KNOCK_WEIGHT = 0.8
+SUB_WEIGHT = 0.6
+KNOCK = ((820.0, 1.0), (1240.0, 0.7), (1870.0, 0.5), (2650.0, 0.3))
 
 
 def synth_sfx(kind):
-    """The cuts' sounds, made here from sines and filtered noise (#1178), mono, peak 1, and the second of each that marks the
-    cut (a hit's start, a whoosh's crest):
-      - "hit": a trailer hit for a cut in the fast part, a pitch-dropping sub with a body at 140-300 Hz and its harmonics, a
-        drum shell's ring at 400-560 Hz and a dark strike, so a monitor speaker that plays no sub still plays the hit (#726);
-      - "boom": the same, bigger and longer, for a part's first frame (the white flash, out of black);
+    """The cuts' sounds, made here (#1178), stereo, peak 1, and the second of each that marks the cut (a hit's start, a whoosh's
+    crest):
+      - "hit": a cinematic hit for a cut in the fast part: a sub falling from 85 to 30 Hz, a body from 150 to 55 Hz, a big drum's
+        membrane at 160 Hz with its own inharmonic modes up to 660 Hz and the beater's knock at 0.8-2.7 kHz, which a monitor
+        speaker that plays no sub still plays (#726), and a clean click, all in a dark hall;
+      - "boom": the same, deeper, longer and in a bigger hall, for a part's first frame (the white flash, out of black);
       - "whoosh": the last shot's switch of world, a resonant band of noise swept up from 500 Hz to 3.2 kHz into the cut and a
         short 2.2 kHz tick on it.
-    Warm and without a drive or a hiss above 5 kHz (the owner's sound rulings); deterministic, so a re-cut sounds the same."""
+    No noise burst and no saturation (the owner on v4: "cleaner, not so low-res"), nothing above about 5 kHz; deterministic, so a
+    re-cut sounds the same."""
     if kind in _SFX:
         return _SFX[kind]
     rng = np.random.default_rng({"hit": 1178, "boom": 1179, "whoosh": 1180}[kind])
     if kind in ("hit", "boom"):
         big = kind == "boom"
-        n = int((2.4 if big else 1.1) * RATE)
+        n = int((3.2 if big else 2.0) * RATE)
         t = np.arange(n) / RATE
-        attack = 1.0 - np.exp(-t / 0.002)
-        lo, hi = (36.0, 92.0) if big else (46.0, 110.0)
-        sub = np.sin(2 * np.pi * np.cumsum(lo + (hi - lo) * np.exp(-t / 0.06)) / RATE) * np.exp(-t / (0.85 if big else 0.32))
-        lo, hi = (120.0, 260.0) if big else (140.0, 300.0)
-        phase = 2 * np.pi * np.cumsum(lo + (hi - lo) * np.exp(-t / 0.025)) / RATE
-        body = (np.sin(phase) + 0.6 * np.sin(2 * phase) + 0.35 * np.sin(3 * phase)) * np.exp(-t / (0.2 if big else 0.11))
-        #A drum's shell: the hit's identity where a monitor speaker plays it
-        lo, hi = (380.0, 520.0) if big else (400.0, 560.0)
-        shell = np.sin(2 * np.pi * np.cumsum(lo + (hi - lo) * np.exp(-t / 0.03)) / RATE) * np.exp(-t / (0.08 if big else 0.05))
-        strike = _lowpass(rng.standard_normal(n), 2500.0) * np.exp(-t / (0.04 if big else 0.03))
-        tail = _lowpass(_lowpass(rng.standard_normal(n), 300.0), 300.0) * np.exp(-t / (0.9 if big else 0.4)) * (1 - np.exp(-t / 0.05))
-        #Weighted towards the shell and the strike: the cuts land on the music's beats, whose own kick carries the low end, and
-        #measured against the music in 300 Hz-4 kHz a sub-heavy hit sat 14-18 dB under it, lost on a monitor speaker
-        weights = (0.6, 0.7, 1.0, 0.8, 0.25) if big else (0.35, 0.6, 1.0, 0.9, 0.2)
-        x = attack * sum(w * _peak1(part) for w, part in zip(weights, (sub, body, shell, strike, tail)))
+        attack = 1.0 - np.exp(-t / 0.0015)
+        lo, hi, fall, ring = (26.0, 70.0, 0.12, 1.1) if big else (30.0, 85.0, 0.09, 0.55)
+        sub = np.sin(2 * np.pi * np.cumsum(lo + (hi - lo) * np.exp(-t / fall)) / RATE) * np.exp(-t / ring)
+        lo, hi, ring = (45.0, 120.0, 0.28) if big else (55.0, 150.0, 0.16)
+        phase = 2 * np.pi * np.cumsum(lo + (hi - lo) * np.exp(-t / 0.04)) / RATE
+        body = (np.sin(phase) + 0.5 * np.sin(2 * phase)) * np.exp(-t / ring)
+        f0, ring = (120.0, 0.32) if big else (160.0, 0.2)
+        bend = 1.0 + 0.12 * np.exp(-t / 0.05)
+        membrane = np.zeros(n)
+        for k, ratio in enumerate(MEMBRANE):
+            membrane += np.sin(2 * np.pi * np.cumsum(f0 * ratio * bend) / RATE + rng.uniform(0, 2 * np.pi)) \
+                * np.exp(-t / (ring / (1.0 + 0.35 * k))) / (1.0 + 0.35 * k)
+        knock = np.zeros(n)
+        for k, (frequency, amp) in enumerate(KNOCK):
+            knock += amp * np.sin(2 * np.pi * np.cumsum(frequency * (1.0 + 0.06 * np.exp(-t / 0.01))) / RATE) \
+                * np.exp(-t / ((0.035 if big else 0.025) / (1.0 + 0.3 * k)))
+        click = np.zeros(n)
+        width = int(0.0015 * RATE)
+        click[:width] = np.hanning(width)
+        mid = 0.6 * _peak1(body) + _peak1(membrane) + KNOCK_WEIGHT * _peak1(knock) + 0.2 * click
+        hall = _hall(rng, 2.6 if big else 1.6, 0.7 if big else 0.45, 3000.0)
+        wet = _convolve(mid * attack, hall)
+        window = slice(0, int(0.5 * RATE))
+        wet *= 0.4 * math.sqrt(float(np.mean(mid[window] ** 2))) / (math.sqrt(float(np.mean(wet[window] ** 2))) + 1e-12)
+        dry = attack * (SUB_WEIGHT * _peak1(sub) + mid)
+        x = dry[:, None] + wet
         mark = 0.0
     elif kind == "whoosh":
         n = int(0.42 * RATE)
@@ -257,12 +331,38 @@ def synth_sfx(kind):
         zip_tone = np.sin(2 * np.pi * np.cumsum(800.0 * (2400.0 / 800.0) ** sweep) / RATE)
         after = np.maximum(t - crest, 0.0)
         tick = np.where(t >= crest, np.sin(2 * np.pi * 2200.0 * after) * np.exp(-after / 0.012) * (1 - np.exp(-after / 0.001)), 0.0)
-        x = envelope * (_peak1(band) + 0.18 * zip_tone) + 0.35 * tick
+        dry = envelope * (_peak1(band) + 0.18 * zip_tone) + 0.35 * tick
+        tail = np.concatenate([dry, np.zeros(int(0.3 * RATE))])
+        wet = _convolve(tail, _hall(rng, 0.5, 0.18, 4000.0))
+        wet *= 0.25 * math.sqrt(float(np.mean(dry ** 2))) / (math.sqrt(float(np.mean(wet ** 2))) + 1e-12)
+        x = tail[:, None] + wet
         mark = crest
     else:
         sys.exit("no sound %r: hit, boom or whoosh" % kind)
-    _SFX[kind] = (_peak1(x).astype(np.float32), mark)
+    _SFX[kind] = ((x / (np.max(np.abs(x)) + 1e-12)).astype(np.float32), mark)
     return _SFX[kind]
+
+
+def limit(mix, ceiling_db=-4.0, lookahead=0.005, release=0.12):
+    """A clean peak limiter: the gain each sample needs to stay under the ceiling, its minimum over the lookahead either side, that
+    averaged over the same span (so the gain is down before a peak arrives and never above what the peak needs), then let back up
+    over `release` seconds. No sample is reshaped, so nothing is added to the sound (the soft knee it replaced distorted the cuts'
+    hits, #1178). Returns the limited mix and the gain applied."""
+    ceiling = 10 ** (ceiling_db / 20.0)
+    need = np.minimum(1.0, ceiling / np.maximum(np.abs(mix).max(axis=1), 1e-9))
+    if need.min() >= 1.0:
+        return mix, np.ones(len(mix), dtype=np.float32)
+    span = int(lookahead * RATE)
+    padded = np.pad(need, (span, span), constant_values=1.0)
+    lowest = np.lib.stride_tricks.sliding_window_view(padded, 2 * span + 1).min(axis=1)
+    smooth_gain = np.convolve(np.pad(lowest, (span, span), constant_values=1.0), np.ones(2 * span + 1) / (2 * span + 1), mode="valid")
+    back = 1.0 - math.exp(-1.0 / (release * RATE))
+    gain = np.empty_like(smooth_gain)
+    g = 1.0
+    for i, target in enumerate(smooth_gain):
+        g = target if target < g else g + (min(1.0, target) - g) * back
+        gain[i] = g
+    return mix * gain[:, None].astype(np.float32), gain
 
 
 # ---------------------------------------------------------------- the timeline
@@ -626,7 +726,7 @@ def main():
         lo, hi = max(0, a), min(samples, a + len(sound))
         if hi > lo:
             for c in range(2):
-                effects[lo:hi, c] += sound[lo - a:hi - a] * level * gains[c]
+                effects[lo:hi, c] += sound[lo - a:hi - a, c] * level * gains[c]
         placed.append({"sound": entry["sound"], "at": round(at + entry.get("offset", 0.0), 3), "gain": entry.get("gain", 0.0)})
         # "duck": the music dips by that much under the sound's mark for 0.12 s, in over 10 ms and back over 0.25 s, so a hit on a
         # beat is heard over the beat's own kick in the band a monitor speaker plays (measured: 7-11 dB under it without)
@@ -656,7 +756,7 @@ def main():
     effects_gain = 10 ** (mix_settings.get("sfx", -9.0) / 20.0)
     mix = music * music_gain + game * game_gain + effects * effects_gain
     if arguments.stems:
-        # Each stem as it enters the mix (before the knee), to measure what a cut's sound adds over the music in a band
+        # Each stem as it enters the mix (before the level and the limiter), to measure what a cut's sound adds over the music in a band
         for stem_name, stem in (("music", music * music_gain), ("game", game * game_gain), ("sfx", effects * effects_gain)):
             stem_path = os.path.join(out_dir, "%s-%s.wav" % (out_name, stem_name))
             with wave.open(stem_path, "wb") as w:
@@ -665,15 +765,14 @@ def main():
                 w.setframerate(RATE)
                 w.writeframes((np.clip(stem, -1.0, 1.0) * 32767).astype("<i2").tobytes())
             print("stem", stem_path)
-    # A soft knee above -7 dBFS, then a peak at -4 dBFS at most: the AAC encoder overshoots the PCM's peak by 2.6 dB on this
-    # material (measured: a mix held at -1 dBFS decoded back at +1.6, one at -3.0 at -0.4), so the headroom is the codec's. The
-    # decoded file's own peak is measured and printed at the end
-    knee = 10 ** (-7 / 20.0)
-    over = np.abs(mix) > knee
-    mix[over] = np.sign(mix[over]) * (knee + (1 - knee) * np.tanh((np.abs(mix[over]) - knee) / (1 - knee)))
+    # The whole mix set to the edit's RMS ("rms", -18.5 dBFS by default), then a clean limiter at -4 dBFS: the headroom is the AAC
+    # encoder's, which overshoots a PCM peak on this material (measured with the earlier soft knee: a mix held at -1 dBFS decoded
+    # back at +1.6). The decoded file's own peak is measured and printed at the end
+    mix *= 10 ** ((mix_settings.get("rms", -18.5) - rms_db(mix)) / 20.0)
+    mix, gain = limit(mix)
+    reduction = -20 * np.log10(np.maximum(gain, 1e-6))
+    print("limiter: at most %.1f dB, more than 1 dB on %.2f %% of the samples" % (float(reduction.max()), 100.0 * float(np.mean(reduction > 1.0))))
     peak = float(np.max(np.abs(mix))) if mix.size else 0.0
-    if peak > 10 ** (-4 / 20.0):
-        mix *= 10 ** (-4 / 20.0) / peak
     levels = {"musicRmsBefore": round(music_level, 1), "gameRmsBefore": round(game_level, 1),
               "mixPeak": round(peak_db(mix), 1), "mixRms": round(rms_db(mix), 1)}
     print("sound: music %.1f dB RMS -> %s, game %.1f dB RMS -> %s, mix peak %.1f dBFS, RMS %.1f dBFS"
