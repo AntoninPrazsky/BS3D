@@ -216,19 +216,44 @@ float3 CloudThicknessD(float2 world, float footprint)
 //The shadow itself, for CloudSunlight below. Split off so the uniform branch there can wrap one call and
 //return once: a [branch] around an early return in an inlined function is what fxc reports as X4000, "use of
 //potentially uninitialized variable", once per shader that includes this - 45 of the ~480 lines a build printed.
-float CloudSunlightLit(float3 worldPosition, float3 sunDirection)
+//Where the sun ray from a point crosses the cloud plane (CloudField.SunlightAt's crossing on the CPU).
+float2 CloudSunHit(float3 worldPosition, float3 sunDirection)
 {
     //Guarded rather than branched. A sun on the horizon would send the ray along the plane for an
     //unbounded distance, which is meaningless as a shadow lookup and noisy as a number.
     float climb = max(sunDirection.y, 0.05);
     float distanceToPlane = max((CloudPlaneY - worldPosition.y) / climb, 0.0);
 
-    float2 hit = worldPosition.xz + sunDirection.xz * distanceToPlane;
+    return worldPosition.xz + sunDirection.xz * distanceToPlane;
+}
 
+//The light the deck lets through to a point standing under a cover of `cover`: never less than the floor, because a
+//cloud scatters most of the light it takes out of the sun's beam down round its shadow.
+float CloudSunlightUnder(float cover)
+{
+    return lerp(1.0, CloudShadowFloor, saturate(cover * CloudShadowGain));
+}
+
+float CloudSunlightLit(float3 worldPosition, float3 sunDirection)
+{
     //The weather layer alone, deliberately. A cloud shadow thrown from that height has a penumbra
     //hundreds of units wide, so the fine detail would not survive the trip anyway - and leaving it out
     //is also what keeps the shadow in step with the coarse field the CPU dims the light rig by.
-    return lerp(1.0, CloudShadowFloor, saturate(CloudCover(hit) * CloudShadowGain));
+    return CloudSunlightUnder(CloudCover(CloudSunHit(worldPosition, sunDirection)));
+}
+
+//How much cloud stands between a point and the sun: the weather layer where the sun ray crosses the deck, 0 with no
+//weather (the map editor never sets the uniforms, so the gain sits at 0). For a shader that wants the sun's own beam
+//as well as the light under the deck (Sea.fx's glint, #1172): CloudSunlightUnder of it is CloudSunlight, and the
+//beam is what the sky shader's disc is seen through, which has no floor.
+float CloudSunCover(float3 worldPosition, float3 sunDirection)
+{
+    float cover = 0.0;
+
+    [branch]
+    if (CloudCoverageGain > 0.0) cover = CloudCover(CloudSunHit(worldPosition, sunDirection));
+
+    return cover;
 }
 
 float CloudSunlight(float3 worldPosition, float3 sunDirection)

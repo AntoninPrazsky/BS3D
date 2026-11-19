@@ -13,9 +13,14 @@ namespace Prazsky.Core.Render
         public override SceneKind Kind => SceneKind.Sea;
 
         /// <summary>
-        /// The sea is the moodiest backdrop in the set and its own doc says a bright dome gives it a breezy mood rather than the intended one - a broken deck over open water is the weather that makes it read as weather at sea rather than as a postcard.
+        /// The sea is the moodiest backdrop in the set and its own doc says a bright dome gives it a breezy mood rather than the intended one - a deck of broken cloud over open water is the weather that makes it read as weather at sea rather than as a postcard.
+        /// <para>
+        /// <see cref="WeatherPreset.Mixed"/> since #1172, Broken's clouds with as much open sky between them: under Broken
+        /// itself the sun stood behind cloud from almost everywhere, and the owner: "the cloud cover seems too large to me - it
+        /// does not quite correspond to the sun's reflection on the water".
+        /// </para>
         /// </summary>
-        public SeaSceneConfig() => Weather = WeatherPreset.Broken;
+        public SeaSceneConfig() => Weather = WeatherPreset.Mixed;
 
         /// <summary>Mean water level (world Y). Kept well below the platform so a rough sea has headroom for its crests.</summary>
         public float LevelY { get; set; } = -13f;

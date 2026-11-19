@@ -31,6 +31,13 @@ namespace Prazsky.Core.Render
 
         /// <summary>A heavy low deck with the light nearly out of it: dark, fast and shredded.</summary>
         Storm,
+
+        /// <summary>
+        /// Broken's clouds with about as much open sky between them as cloud (#1172), so the sun is out as often as it is
+        /// behind one. It sits between <see cref="Scattered"/> and <see cref="Broken"/> and is written last only so the
+        /// five older values keep their numbers.
+        /// </summary>
+        Mixed,
     }
 
     /// <summary>
@@ -137,7 +144,7 @@ namespace Prazsky.Core.Render
     }
 
     /// <summary>
-    /// The five authored skies, and the one parse that turns a level file's word into one of them (#221).
+    /// The six authored skies, and the one parse that turns a level file's word into one of them (#221).
     /// </summary>
     public static class WeatherLooks
     {
@@ -152,8 +159,8 @@ namespace Prazsky.Core.Render
         /// volcano's sky, which was the fastest and the lowest at 4.9 degrees a second overhead and is about 2 now - still
         /// the fastest, as a storm should be. Measured on the volcano from a pinned Testbed camera, the forms' shift a
         /// second apart: 107 px/s before (correlation 0.86).
-        /// </para> Every other preset is stated as a departure from it, and the four
-        /// departures are the four things a sky can do: go away, close in, close over, and turn ugly.
+        /// </para> Every other preset is stated as a departure from it, and the departures are the things a sky can do:
+        /// go away, close in (half way, Mixed, or most of the way, Broken), close over, and turn ugly.
         /// </summary>
         private static readonly WeatherLook Scattered = new(
             planeY: 190f, scale: 1f / 450f, wind: new Vector2(2.25f, 1f),
@@ -189,6 +196,25 @@ namespace Prazsky.Core.Render
             detailStrength: 2.1f, opacity: 2.6f,
             formStrength: 70f, shapeStrength: 1.5f, characterStrength: 0.6f,
             shadowColor: new Vector3(0.15f, 0.17f, 0.23f));
+
+        //MIXED (#1172): Broken's clouds, fewer of them - every figure Broken's but the bias, so a fade between the two is a
+        //change of cover and nothing else. The owner, of the sea under Broken: "the cloud cover seems too large to me - it
+        //does not quite correspond to the sun's reflection on the water". Broken stands cloud over nearly the whole deck
+        //(cover above 0.5 over seven tenths of it), so the weather layer leaves the sun's disc more than half seen from a
+        //twentieth of it; at this bias, from nearly half, and the cloud the disc cannot be seen through at all (cover over
+        //1 / opacity) stands over under three tenths, against eight tenths under Broken (SeaCloudCoverTests). On High and Ultra
+        //the heaps stand over about a fifth of the ground within 1500 of the lens, against Broken's 28 %. The references'
+        //dusk sea under broken cloud: heaps with as much open sky between them, the sun breaking through.
+        private static readonly WeatherLook Mixed = new(
+            planeY: 175f, scale: 1f / 520f, wind: new Vector2(3f, 1.3f),
+            coverageBias: MIXED_BIAS, coverageGain: 2.2f,
+            shadowFloor: 0.30f, shadowGain: 1.5f,
+            detailStrength: 2.1f, opacity: 2.6f,
+            formStrength: 70f, shapeStrength: 1.5f, characterStrength: 0.6f,
+            shadowColor: new Vector3(0.15f, 0.17f, 0.23f));
+
+        /// <summary><see cref="WeatherPreset.Mixed"/>'s coverage bias, the one figure it does not share with Broken's.</summary>
+        internal const float MIXED_BIAS = 0.10f;
 
         //OVERCAST: closed over. The bias is past what the field can undo, so there are no holes at all, and
         //the gain is low because at full cover the gain only decides how hard the (non-existent) edges are.
@@ -227,6 +253,7 @@ namespace Prazsky.Core.Render
         public static WeatherLook Of(WeatherPreset preset) => preset switch
         {
             WeatherPreset.Clear => Clear,
+            WeatherPreset.Mixed => Mixed,
             WeatherPreset.Broken => Broken,
             WeatherPreset.Overcast => Overcast,
             WeatherPreset.Storm => Storm,
@@ -246,6 +273,7 @@ namespace Prazsky.Core.Render
             {
                 "clear" => WeatherPreset.Clear,
                 "scattered" => WeatherPreset.Scattered,
+                "mixed" => WeatherPreset.Mixed,
                 "broken" => WeatherPreset.Broken,
                 "overcast" => WeatherPreset.Overcast,
                 "storm" => WeatherPreset.Storm,
@@ -257,6 +285,7 @@ namespace Prazsky.Core.Render
         public static string NameOf(WeatherPreset preset) => preset switch
         {
             WeatherPreset.Clear => "clear",
+            WeatherPreset.Mixed => "mixed",
             WeatherPreset.Broken => "broken",
             WeatherPreset.Overcast => "overcast",
             WeatherPreset.Storm => "storm",

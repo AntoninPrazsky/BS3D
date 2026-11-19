@@ -110,6 +110,11 @@ float2 WindDirection;
 float SunGlintStrength;
 float SunGlintPower;
 
+//How opaque the densest cloud gets: the sky shader's figure (CloudField.ApplyTo hands it to any effect declaring it), what
+//the sun's disc is hidden behind there and the glint behind here (#1172). 0 where nothing pushes the weather: no beam is
+//taken out then, as no cover is.
+float CloudOpacity;
+
 //Whitecap foam: how far the Gerstner Jacobian must fold before foam appears (nearer 1 = more foam), how
 //strong that fold foam is, where on a crest the height-driven foam starts (0..1) and how strong it is, and
 //the foam's own near-white color.
@@ -481,8 +486,13 @@ float4 SeaPS(SeaVertexOutput input) : COLOR
     float2 outward = worldPosition.xz / max(r, 1e-3);
     normal = normalize(normal - float3(outward.x, 0.0, outward.y) * (meniscus * meniscus * MENISCUS_TILT));
 
-    //How much sun reaches this patch through the clouds - the very field the whole scene is shadowed by
-    float sunlight = CloudSunlight(worldPosition, SunDirection);
+    //How much sun reaches this patch through the clouds - the very field the whole scene is shadowed by - and how much of
+    //the sun's own beam does (#1172): the light under a cloud never falls under the weather's floor, since the cloud
+    //scatters most of what it takes out of the beam down round its shadow, but the beam itself is what the sky shader's
+    //disc is seen through, and that goes to nothing under a cloud it cannot be seen through. One crossing serves both.
+    float sunCover = CloudSunCover(worldPosition, SunDirection);
+    float sunlight = CloudSunlightUnder(sunCover);
+    float sunBeam = 1.0 - saturate(sunCover * CloudOpacity);
 
     //Sky reflection. The dome is a vertical gradient, so the reflected ray's height picks between horizon
     //and zenith in closed form - the same trick InstancedModel.fx's SkyRadiance uses. A grazing view mirrors
@@ -582,14 +592,17 @@ float4 SeaPS(SeaVertexOutput input) : COLOR
     //nothing ever saw. The third power spreads it across the sunward quarter of the view, and the tighter
     //crest gate spends that back: it now needs a real crest (the top fifth of the swell) rather than
     //anything above the mean, so what it lights is the thin water at the top of a wave, which is the only
-    //water light gets through.
+    //water light gets through. It is the sun's beam coming through the crest, so it takes the beam as the glint below does
+    //(#1172): under a cloud the sun cannot be seen through, no crest is lit from behind.
     float backlight = pow(saturate(dot(viewDir, -SunDirection)), 3.0);
-    float sss = backlight * saturate(input.Foam.y * 2.5 - 1.0) * SssStrength * sunlight * (1.0 - calm);
+    float sss = backlight * saturate(input.Foam.y * 2.5 - 1.0) * SssStrength * sunBeam * (1.0 - calm);
     color += SssColor * SunColor * sss;
 
-    //Sun glint: a sharp spark where the reflected ray points at the sun, sparkling across the chop facets,
-    //snuffed out under a cloud shadow
-    float glint = pow(saturate(dot(reflected, SunDirection)), SunGlintPower) * SunGlintStrength * sunlight;
+    //Sun glint: a sharp spark where the reflected ray points at the sun, sparkling across the chop facets. It is the
+    //sun's own image in the water, so it takes the sun's beam and not the light under the deck (#1172): under a cloud the
+    //sky's disc cannot be seen through it goes out, where the weather's floor left a glitter path at 0.3 under a sky with
+    //no sun in it. The owner: "the cloud cover ... does not quite correspond to the sun's reflection on the water".
+    float glint = pow(saturate(dot(reflected, SunDirection)), SunGlintPower) * SunGlintStrength * sunBeam;
     color += glint * SunColor;
 
     //Whitecap foam. Two per-vertex signals say where foam may LIVE - the Jacobian fold (the wave genuinely
