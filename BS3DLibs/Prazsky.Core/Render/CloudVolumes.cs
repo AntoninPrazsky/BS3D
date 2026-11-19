@@ -14,24 +14,61 @@ namespace Prazsky.Core.Render
     /// <para>
     /// <b>Where a heap stands is the deck's own weather.</b> The heaps sit on a lattice that rides the weather layer's first
     /// octave (<see cref="CloudField.Wind"/> times <see cref="CloudField.Time"/>), so they drift with the deck; each stands
-    /// where <see cref="CloudField.Cover"/> says there is cloud and is as big as the cover there, so as the second octave
-    /// evolves the field a heap grows, thins and is gone, and the cloud overhead is still the one that shades the ground.
+    /// where <see cref="CloudField.Cover"/> says there is cloud, so as the second octave evolves the field a heap grows, thins
+    /// and is gone, and the cloud overhead is still the one that shades the ground.
+    /// </para>
+    /// <para>
+    /// <b>A field, not a grid of buns</b> (#1145). Each cell's heap draws its size from a spread (many small, a few big; a
+    /// dense patch more big ones), is drawn out along the wind and, if big, may tower and lean; where the weather organises
+    /// them the heaps line up in streets along the wind. Then each is no bigger than the room its neighbours leave it, the
+    /// bigger keeping most of it, so a big heap stands among small ones and the march stays at about one heap a pixel.
     /// </para>
     /// </summary>
     public sealed class CloudVolumes : IDisposable
     {
-        //The lattice: a heap a cell, the cell this share of the weather layer's feature size (1 / Scale); how far out heaps
-        //stand (past the camera's far plane, DEFAULT_FAR_PLANE_DISTANCE 2000: the layer has a far plane of its own, FarProjection)
-        //and where they dissolve into the sky
+        //The lattice: a heap a cell at most, the cell this share of the weather layer's feature size (1 / Scale); how far out
+        //heaps stand (past the camera's far plane, DEFAULT_FAR_PLANE_DISTANCE 2000: the layer has a far plane of its own,
+        //FarProjection) and where they dissolve into the sky
         private const float CELL_SHARE = 0.5f;
         private const float REACH = 4000f, FADE_NEAR = 2600f, FADE_FAR = 3900f;
         private const int MAX_HEAPS = 900;
 
-        //A heap's size against the cover under it: none under COVER_MIN, its radius a share of the cell and its height a
-        //share of its radius, both growing with the cover, so a dense patch towers
-        private const float COVER_MIN = 0.12f, COVER_FADE = 0.15f;
-        private const float RADIUS_MIN = 0.30f, RADIUS_GROWTH = 0.22f;
-        private const float HEIGHT_MIN = 0.75f, HEIGHT_GROWTH = 1.1f;
+        //A heap stands where the cover is at least COVER_MIN, fading in over COVER_FADE; from there to COVER_FULL the patch
+        //grows from thin (only small heaps) to dense (the whole spread)
+        private const float COVER_MIN = 0.12f, COVER_FADE = 0.15f, COVER_FULL = 0.75f;
+
+        //THE SPREAD (#1145; the owner: "similarly sized little buns laid out on a grid"). A heap's radius across its axis, a
+        //share of the cell, drawn from SIZE_SMALL to SIZE_BIG and skewed towards the small end, as a real field is: many
+        //small heaps and fragments, a few big ones. A thin patch skews hard (SKEW_THIN) and draws only from the first
+        //THIN_SPREAD of the range; a dense one draws towards the big end (SKEW_DENSE) and from no smaller than SIZE_DENSE,
+        //so a broken sky is big heaps with lanes between them, not a scatter of small ones.
+        private const float SIZE_SMALL = 0.14f, SIZE_DENSE = 0.32f, SIZE_BIG = 0.8f, SKEW_THIN = 1.9f, SKEW_DENSE = 0.6f, THIN_SPREAD = 0.6f;
+        //How much longer than wide a heap is along its axis, which lies within AXIS_SPREAD radians of the wind's: a real one
+        //is drawn out down the wind
+        private const float STRETCH_MIN = 1.0f, STRETCH_MAX = 1.6f, AXIS_SPREAD = 0.6f;
+        //Its height against its radius: a small heap flat, a big one domed, and TOWER_SHARE of the big ones (from TOWER_FROM
+        //of SIZE_BIG, fully by TOWER_FULL) towers, narrower and leaning down the wind (LEAN_TOWER radii at the top; LEAN_ANY
+        //any heap)
+        private const float ASPECT_FLAT = 0.75f, ASPECT_BIG = 1.5f, ASPECT_TOWER = 2.4f, TOWER_SHARE = 0.3f, TOWER_FROM = 0.4f, TOWER_FULL = 0.8f;
+        private const float STRETCH_TOWER = 1.1f, LEAN_ANY = 0.08f, LEAN_TOWER = 0.3f;
+
+        //CLOUD STREETS: where the weather organises them (a slow field, ORGANISED_SCALE of the weather's frequency, over
+        //ORGANISED_FROM), the heaps line up in rows along the wind, STREET_SPACING cells apart, bent by STREET_BEND of a
+        //spacing: a heap in a row grows to STREET_CREST of its draw, one between rows shrinks to STREET_GAP, so open lanes run
+        //between the rows. Elsewhere the field is clumps. The rows are the weather's own frame, so they drift with the heaps.
+        private const float STREET_SPACING = 2.6f, STREET_BEND = 0.35f, STREET_GAP = 0.3f, STREET_CREST = 1.15f;
+        private const float ORGANISED_SCALE = 0.3f, ORGANISED_FROM = -0.05f, ORGANISED_FULL = 0.3f;
+
+        //THE ROOM: a heap is no bigger than the room its neighbours leave it, so a big one stands with small ones squeezed
+        //round it and the march stays at about one heap a pixel. Two outlines may overlap by ROOM_OVERLAP of the distance
+        //between their centres, their billows meeting; the room is shared out by size (ROOM_POWER: twice the size, four times
+        //the share), so the bigger keeps most of it, and every term is continuous in the cover, so nothing pops. The
+        //neighbours are the cells ROOM_CELLS round; a heap squeezed under SQUEEZED_TO of the cell fades out by SQUEEZED_FROM.
+        //⚠ Not much more: the layer composites whole heaps far first by their centres, so where two heaps stand in each
+        //other the farther one's flank is laid over the nearer one's, and at 0.4 the heaps overhead read as columns of smoke.
+        private const float ROOM_OVERLAP = 0.15f, ROOM_POWER = 2f;
+        private const int ROOM_CELLS = 2;
+        private const float SQUEEZED_FROM = 0.03f, SQUEEZED_TO = 0.06f;
 
         //Which skies stand as heaps: the weather's coverage bias, below which a sky is cumulus (Scattered 0.02, Broken 0.30) and
         //above which it is a lid (Storm 0.72, Overcast 0.85), the volumes and the deck's cut fading between them as a change of
@@ -46,12 +83,14 @@ namespace Prazsky.Core.Render
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         internal struct Heap : IVertexType
         {
-            public Vector4 Cloud;   //the base's centre (x, height, z) and the radius
+            public Vector4 Cloud;   //the base's centre (x, height, z) and the radius across its axis
             public Vector4 Shape;   //the height, the seed, the density and how far in it has faded
+            public Vector4 Form;    //its axis (x, z, a unit vector), how much longer it is along it, how far it leans along it
 
             public static readonly VertexDeclaration Declaration = new(
                 new VertexElement(0, VertexElementFormat.Vector4, VertexElementUsage.TextureCoordinate, 1),
-                new VertexElement(16, VertexElementFormat.Vector4, VertexElementUsage.TextureCoordinate, 2));
+                new VertexElement(16, VertexElementFormat.Vector4, VertexElementUsage.TextureCoordinate, 2),
+                new VertexElement(32, VertexElementFormat.Vector4, VertexElementUsage.TextureCoordinate, 3));
 
             readonly VertexDeclaration IVertexType.VertexDeclaration => Declaration;
         }
@@ -150,7 +189,7 @@ namespace Prazsky.Core.Render
         /// </summary>
         public void March(ICamera camera, CloudField clouds, Effect skyEffect)
         {
-            Count = Place(camera.Position, clouds, _heaps, _order);
+            Count = Place(camera.Position, clouds, _heaps, _order, _lattice);
             if (Count == 0) return;
 
             int width = Math.Max(_device.PresentationParameters.BackBufferWidth, 1);
@@ -238,49 +277,181 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// The heaps within <see cref="REACH"/> of <paramref name="lens"/>, written into <paramref name="heaps"/> far first
-        /// (<paramref name="order"/> is the sort's scratch, as long); how many, at most their length.
+        /// What <see cref="Place"/> works in: the candidate heap of every cell round the lens, kept from frame to frame so a
+        /// frame allocates nothing (it grows only when a weather with smaller cells needs more of them).
         /// </summary>
-        internal static int Place(Vector3 lens, CloudField clouds, Heap[] heaps, float[] order)
+        internal sealed class Lattice
+        {
+            public Vector2[] At = Array.Empty<Vector2>();
+            public Vector2[] Axis = Array.Empty<Vector2>();
+            public float[] Want = Array.Empty<float>(), Stretch = Array.Empty<float>(), FadeIn = Array.Empty<float>(), Distance = Array.Empty<float>();
+            public uint[] Seed = Array.Empty<uint>();
+
+            public void Ensure(int cells)
+            {
+                if (At.Length >= cells) return;
+                At = new Vector2[cells];
+                Axis = new Vector2[cells];
+                Want = new float[cells];
+                Stretch = new float[cells];
+                FadeIn = new float[cells];
+                Distance = new float[cells];
+                Seed = new uint[cells];
+            }
+        }
+
+        private readonly Lattice _lattice = new();
+
+        /// <summary>
+        /// The heaps within <see cref="REACH"/> of <paramref name="lens"/>, written into <paramref name="heaps"/> far first
+        /// (<paramref name="order"/> is the sort's scratch, as long); how many, at most their length. Past their length the
+        /// nearest are kept. <paramref name="lattice"/> is the scratch the cells are worked in (a fresh one when null).
+        /// </summary>
+        internal static int Place(Vector3 lens, CloudField clouds, Heap[] heaps, float[] order, Lattice lattice = null)
         {
             float strength = Strength(clouds);
             if (strength <= 0f) return 0;
+            lattice ??= new Lattice();
             float cell = CELL_SHARE / MathF.Max(clouds.Scale, 1e-5f);
             Vector2 drift = clouds.Wind * clouds.Time;
             //The lattice is in the weather's own frame, so it drifts with the deck: a heap's place in the world is its
             //lattice point less the drift
             Vector2 centre = new Vector2(lens.X, lens.Z) + drift;
-            int reach = (int)MathF.Ceiling(REACH / cell) + 1;
-            int x0 = (int)MathF.Floor(centre.X / cell), z0 = (int)MathF.Floor(centre.Y / cell);
+            int reach = (int)MathF.Ceiling(REACH / cell) + 1 + ROOM_CELLS;
+            int side = 2 * reach + 1;
+            lattice.Ensure(side * side);
+            int x0 = (int)MathF.Floor(centre.X / cell) - reach, z0 = (int)MathF.Floor(centre.Y / cell) - reach;
+            Vector2 wind = clouds.Wind.LengthSquared() > 1e-8f ? Vector2.Normalize(clouds.Wind) : Vector2.UnitX;
+            float windAngle = MathF.Atan2(wind.Y, wind.X);
 
-            int count = 0;
-            for (int i = x0 - reach; i <= x0 + reach && count < heaps.Length; i++)
-                for (int j = z0 - reach; j <= z0 + reach && count < heaps.Length; j++)
+            //The candidates: every cell's heap as big as it would like to be, its cover and its own draw deciding
+            for (int i = 0; i < side; i++)
+                for (int j = 0; j < side; j++)
                 {
-                    uint hash = Hash(i, j);
-                    Vector2 at = (new Vector2(i + 0.5f, j + 0.5f) + 0.6f * new Vector2(Unit(hash, 0) - 0.5f, Unit(hash, 8) - 0.5f)) * cell - drift;
-                    float dx = at.X - lens.X, dz = at.Y - lens.Z;
-                    float distance = MathF.Sqrt(dx * dx + dz * dz);
-                    if (distance > REACH) continue;
+                    int k = i * side + j;
+                    uint hash = Hash(x0 + i, z0 + j);
+                    Vector2 at = (new Vector2(x0 + i + 0.5f, z0 + j + 0.5f) + 0.7f * new Vector2(Unit(hash, 0) - 0.5f, Unit(hash, 8) - 0.5f)) * cell - drift;
+                    lattice.At[k] = at;
+                    lattice.Want[k] = 0f;
+                    float distance = Vector2.Distance(at, new Vector2(lens.X, lens.Z));
+                    lattice.Distance[k] = distance;
+                    if (distance > REACH + ROOM_CELLS * cell) continue;
 
                     float cover = clouds.Cover(at);
                     if (cover < COVER_MIN) continue;
 
-                    float radius = cell * (RADIUS_MIN + RADIUS_GROWTH * cover) * (0.85f + 0.3f * Unit(hash, 16));
-                    float height = radius * (HEIGHT_MIN + HEIGHT_GROWTH * cover) * (0.8f + 0.4f * Unit(hash, 24));
-                    float fadeIn = MathHelper.Clamp((cover - COVER_MIN) / COVER_FADE, 0f, 1f);
-                    heaps[count] = new Heap
+                    uint second = Hash((int)hash, (int)(hash >> 7));
+                    float grow = SmoothStep((cover - COVER_MIN) / (COVER_FULL - COVER_MIN));
+                    float draw = MathF.Pow(Unit(hash, 16), MathHelper.Lerp(SKEW_THIN, SKEW_DENSE, grow)) * MathHelper.Lerp(THIN_SPREAD, 1f, grow);
+                    lattice.Want[k] = cell * MathHelper.Lerp(MathHelper.Lerp(SIZE_SMALL, SIZE_DENSE, grow), SIZE_BIG, draw) * Street(at + drift, wind, cell, clouds.Scale);
+                    lattice.FadeIn[k] = SmoothStep((cover - COVER_MIN) / COVER_FADE);
+                    lattice.Stretch[k] = MathHelper.Lerp(STRETCH_MIN, STRETCH_MAX, Unit(second, 0));
+                    float angle = windAngle + (Unit(second, 8) - 0.5f) * 2f * AXIS_SPREAD;
+                    lattice.Axis[k] = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
+                    lattice.Seed[k] = hash;
+                }
+
+            //Each heap as big as the room its neighbours leave it, then shaped by the size it has
+            int count = 0;
+            for (int i = ROOM_CELLS; i < side - ROOM_CELLS; i++)
+                for (int j = ROOM_CELLS; j < side - ROOM_CELLS; j++)
+                {
+                    int k = i * side + j;
+                    float want = lattice.Want[k];
+                    if (want <= 0f || lattice.Distance[k] > REACH) continue;
+
+                    Vector2 at = lattice.At[k], axis = lattice.Axis[k];
+                    float stretch = lattice.Stretch[k], fadeIn = lattice.FadeIn[k];
+                    float radius = want;
+                    for (int di = -ROOM_CELLS; di <= ROOM_CELLS; di++)
+                        for (int dj = -ROOM_CELLS; dj <= ROOM_CELLS; dj++)
+                        {
+                            int n = k + di * side + dj;
+                            if (n == k || lattice.Want[n] <= 0f) continue;
+                            Vector2 toward = lattice.At[n] - at;
+                            float apart = toward.Length();
+                            if (apart < 1e-3f) continue;
+                            toward /= apart;
+                            //Each one's reach towards the other: its radius across, stretched by how near its axis the line between them runs
+                            float own = Extent(axis, stretch, toward), theirs = Extent(lattice.Axis[n], lattice.Stretch[n], toward);
+                            float mine = MathF.Pow(want * own * fadeIn, ROOM_POWER);
+                            float other = MathF.Pow(lattice.Want[n] * theirs * lattice.FadeIn[n], ROOM_POWER);
+                            float share = mine + other > 1e-20f ? mine / (mine + other) : 0.5f;
+                            //A neighbour only fading in makes room for itself as it does, or a big heap shrank all at once
+                            //the moment the cover under its neighbour crossed COVER_MIN
+                            radius = MathF.Min(radius, MathHelper.Lerp(want, apart * (1f + ROOM_OVERLAP) * share / own, lattice.FadeIn[n]));
+                        }
+
+                    float fade = fadeIn * SmoothStep((radius / cell - SQUEEZED_FROM) / (SQUEEZED_TO - SQUEEZED_FROM)) * strength;
+                    if (fade < 1e-3f) continue;
+
+                    uint hash = lattice.Seed[k], third = Hash((int)(hash >> 3), (int)hash ^ 0x5bd1e995);
+                    float size = radius / (SIZE_BIG * cell);
+                    float tower = Unit(third, 0) < TOWER_SHARE ? SmoothStep((size - TOWER_FROM) / (TOWER_FULL - TOWER_FROM)) : 0f;
+                    float aspect = MathHelper.Lerp(ASPECT_FLAT, ASPECT_BIG, SmoothStep((size - 0.1f) / 0.8f)) * (0.85f + 0.3f * Unit(third, 8));
+                    aspect = MathHelper.Lerp(aspect, ASPECT_TOWER, tower);
+                    float height = radius * aspect;
+                    float lean = MathHelper.Lerp(LEAN_ANY, LEAN_TOWER, tower) * Unit(third, 16);
+
+                    Heap heap = new()
                     {
                         Cloud = new Vector4(at.X, clouds.PlaneY - 0.02f * height, at.Y, radius),
-                        Shape = new Vector4(height, Unit(hash * 2654435761u, 4) * 10f, 1f, fadeIn * fadeIn * (3f - 2f * fadeIn) * strength),
+                        Shape = new Vector4(height, Unit(hash * 2654435761u, 4) * 10f, 1f, fade),
+                        //A tower is narrower, never longer: the room was shared out for the stretch it drew
+                        Form = new Vector4(axis.X, axis.Y, MathF.Min(stretch, MathHelper.Lerp(stretch, STRETCH_TOWER, tower)), lean),
                     };
                     //Far first: the blend composites each heap over the ones behind it
-                    order[count] = -distance;
-                    count++;
+                    float key = -lattice.Distance[k];
+                    if (count < heaps.Length)
+                    {
+                        heaps[count] = heap;
+                        order[count] = key;
+                        count++;
+                    }
+                    else
+                    {
+                        //Full: the nearest are kept (the farthest is the highest key's opposite, the lowest key)
+                        int farthest = 0;
+                        for (int f = 1; f < count; f++)
+                            if (order[f] < order[farthest]) farthest = f;
+                        if (key > order[farthest])
+                        {
+                            heaps[farthest] = heap;
+                            order[farthest] = key;
+                        }
+                    }
                 }
 
             Array.Sort(order, heaps, 0, count);
             return count;
+        }
+
+        //How much of its draw a heap at this point of the weather's own frame keeps for the street it stands in: all of it
+        //where the field is not organised, more on a row and less between rows where it is
+        private static float Street(Vector2 weatherAt, Vector2 wind, float cell, float scale)
+        {
+            float organised = SmoothStep((ShaderMath.Noise(weatherAt * (scale * ORGANISED_SCALE) + new Vector2(57.3f, 11.9f)) - ORGANISED_FROM)
+                / (ORGANISED_FULL - ORGANISED_FROM));
+            if (organised <= 0f) return 1f;
+            float across = Vector2.Dot(weatherAt, new Vector2(-wind.Y, wind.X)) / (STREET_SPACING * cell);
+            float bend = STREET_BEND * ShaderMath.Noise(weatherAt * scale + new Vector2(-23.1f, 41.7f));
+            float row = 0.5f + 0.5f * MathF.Cos(MathHelper.TwoPi * (across + bend));
+            return MathHelper.Lerp(1f, MathHelper.Lerp(STREET_GAP, STREET_CREST, row), organised);
+        }
+
+        //How far a heap reaches from its centre along a unit direction, in radii across: 1 across its axis, its stretch
+        //along it, an ellipse between
+        private static float Extent(Vector2 axis, float stretch, Vector2 direction)
+        {
+            float along = Vector2.Dot(axis, direction);
+            float across2 = MathF.Max(1f - along * along, 0f);
+            return stretch / MathF.Sqrt(stretch * stretch * across2 + along * along);
+        }
+
+        private static float SmoothStep(float t)
+        {
+            t = MathHelper.Clamp(t, 0f, 1f);
+            return t * t * (3f - 2f * t);
         }
 
         private static uint Hash(int x, int z)
