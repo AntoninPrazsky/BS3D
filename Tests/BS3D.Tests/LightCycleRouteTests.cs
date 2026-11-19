@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Prazsky.Core.Render;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -13,7 +14,8 @@ namespace BS3D.Tests
     /// A rider makes its route node by node; where the move it rolled would leave the ring it tries another, and the first
     /// picker reversed (the way it came) after trying only two of the three, so a cycle at the ring's edge turned round.
     /// And they never ride into a solid (#1136): a cube near the solids' inner radius reaches in among them, and a run that
-    /// knew only the ring rode a cycle and its wall through one (sceneseed=18, the blue cycle 25.5 s into the clock).
+    /// knew only the ring rode a cycle and its wall through one (sceneseed=18, the blue cycle 25.5 s into the clock). And they
+    /// ride long straight runs between turns (#1162, the owner: they turned too often): half the runs were a single segment.
     /// </summary>
     public class LightCycleRouteTests
     {
@@ -198,6 +200,63 @@ namespace BS3D.Tests
             Assert.True(turns > 10000, $"the riders turned only {turns} times: the test is not exercising the picker");
             Assert.Equal(0, reversals);
             Assert.Equal(0, outside);
+        }
+
+        /// <summary>Adds to <paramref name="runs"/> every straight run between two turns of <paramref name="rider"/>'s first
+        /// <paramref name="segments"/> segments, in segments: the run it starts on (begun before any turn) and the one it ends on
+        /// (not yet ended) left out. Each segment's heading read at its middle.</summary>
+        private static void StraightRuns(LightCycles.Rider rider, int segments, List<int> runs)
+        {
+            rider.At(LightCycles.LATTICE * 0.5f, out _, out Vector2 was);
+            int length = 1;
+            bool begun = false;
+            for (int k = 1; k < segments; k++)
+            {
+                rider.At((k + 0.5f) * LightCycles.LATTICE, out _, out Vector2 heading);
+                if (Vector2.Dot(was, heading) < 0.5f)
+                {
+                    if (begun) runs.Add(length);
+                    begun = true;
+                    length = 1;
+                }
+                else length++;
+
+                was = heading;
+            }
+        }
+
+        //At 0.6 straight on and no shortest run the riders ran 2.1 segments between turns (1.4 s) and 46 % of the runs were one
+        //segment, a turn a node after a turn (#1162)
+        private const float MEAN_RUN_SEGMENTS = 3.5f;
+        private const int SHORTEST_RUN_SEGMENTS = 2;
+
+        [Fact]
+        public void Riders_run_long_straight_runs_between_turns()
+        {
+            float seconds = LightCycles.LATTICE / LightCycles.SPEED;
+            var runs = new List<int>[] { new(), new() };
+            for (int seed = 0; seed < SEEDS; seed++)
+                StraightRuns(new LightCycles.Rider(seed * 7919 + 13, LightCycles.Lattice.Bare), (int)(RUN / LightCycles.LATTICE), runs[0]);
+            foreach (int sceneSeed in SceneSeeds())
+            {
+                var lattice = new LightCycles.Lattice(GridLayout.PlaceSolids(Grid, sceneSeed, null, out _));
+                for (int i = 0; i < LightCycles.RIDERS; i++)
+                    StraightRuns(new LightCycles.Rider(LightCycles.RiderSeed(Grid, i), lattice), (int)(CLOCK * LightCycles.SPEED / LightCycles.LATTICE), runs[1]);
+            }
+
+            string[] what = { $"{SEEDS} riders on the bare ring, {RUN:F0} units each", $"the drawn riders of {SceneSeeds().Count()} layouts, {CLOCK:F0} s each" };
+            for (int k = 0; k < runs.Length; k++)
+            {
+                List<int> all = runs[k];
+                double mean = all.Average();
+                int shortest = all.Min(), single = all.Count(r => r == 1), twoSegments = all.Count(r => r == 2);
+                _output.WriteLine($"{what[k]}: {all.Count} runs between turns, {mean:F2} segments on average ({mean * seconds:F2} s), the shortest "
+                    + $"{shortest} ({shortest * seconds:F2} s), the longest {all.Max()}; {single * 100.0 / all.Count:F1} % one segment, "
+                    + $"{twoSegments * 100.0 / all.Count:F1} % two");
+                Assert.True(all.Count > 10000, $"{what[k]}: only {all.Count} runs: the test is not exercising the picker");
+                Assert.True(shortest >= SHORTEST_RUN_SEGMENTS, $"{what[k]}: a run of {shortest} segments between two turns");
+                Assert.True(mean >= MEAN_RUN_SEGMENTS, $"{what[k]}: {mean:F2} segments between turns on average");
+            }
         }
 
         [Fact]

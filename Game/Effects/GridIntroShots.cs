@@ -150,8 +150,8 @@ namespace BS3D.Effects
         /// Beside a light cycle (#1116): the lens low beside one of the cycles at its own speed, turning with it at a node, posed
         /// by the wall clock the cycles ride on, so it is beside the cycle on screen whenever the shot comes on (see
         /// <see cref="GridRide"/>). Planned for <paramref name="start"/> to <see cref="RIDE_LATE"/> after the shot's end, and chosen
-        /// again as it comes on screen if the intro has fallen further behind than that, and on any frame posed past the seconds
-        /// the last choice was made for (<see cref="Again"/>); null when no cycle is clear.
+        /// again as it comes on screen if that plan does not reach the shot's end from there, and on any frame posed past the
+        /// seconds the last choice was made for (<see cref="Again"/>); null when no cycle is clear.
         /// </summary>
         private static IntroShot Ride(GridSceneConfig grid, IReadOnlyList<GridSolid> solids, GridRing? ring, float start, Func<float> clock,
             GridRide.Keep keep)
@@ -170,8 +170,12 @@ namespace BS3D.Effects
                 },
                 onStart: () =>
                 {
+                    //Chosen again unless the plan covers the shot's whole RIDE_SECONDS from now. ⚠ Not "now > start + RIDE_LATE":
+                    //a shot coming on just RIDE_LATE late ends on the plan's last second, and the float sum of the two put its
+                    //last frame a hundred-thousandth past it, where a frame on screen chooses again and, its cycle not clear
+                    //for the seconds after, cut to another on that frame (#1162, GridRideTests)
                     float now = clock();
-                    if (now < start || now > start + RIDE_LATE) Again(ride, now, onScreen: false);
+                    if (now < start || now + RIDE_SECONDS > ride.Until) Again(ride, now, onScreen: false);
                 });
         }
 

@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-19 — #1162 cykly gridu zatáčejí méně — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: jezdec po zatáčce jede rovně aspoň `MIN_RUN` (2) segmenty, pak rovně v 0,75 uzlů (dřív 0,6); směr zatáčky volí bit hashe. Průměrný rovný úsek 3,9 segmentu (2,6 s, dřív 2,1 / 1,4 s), nejkratší 2. Úvodní jízda gridu má záběr ve 120 ze 120 sestav; znovu se volí, když plán nedosáhne konce záběru.
+- ⚠ Pravidlo jen ve výběru nestačí: okraj prstence nebo krychle vynutily dvě zatáčky uzel po sobě (12 % úseků, 21 obratů). Nejkratší úsek musí držet i `LightCycles.Lattice` (živost kroku podle délky úseku).
+- Otevřené: verdict-eye; pohyb nikdo neviděl (nejsou teď moc rovné?). Jízda v úvodu teď často zatáčku neukáže (88 zatáček ve 120 jízdách, dřív 173); worktree `BS3D-1162-before` se snímky „před“ zůstává.
+
 ## 2026-11-19 — #1164 tmavší vzdálená pásma sopky — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: hory sopky stojí tmavší než noční obloha, každé další pásmo o odstín světlejší. Opar země 0,55 → 0,32 barvy horizontu (`LAND_HAZE_SKY`), poslední prolnutí do oblohy začíná až na 900 místo 600 (`VolcanoBackdrop.FarFadeStartLatest`, druhá výjimka ze stropu 600 vedle outbacku) a nad obzorem končí v obloze i s mrakovou palubou (`VolcanoFadeToSky`, vzorec #1121). Testy `VolcanoFarHazeTests`.

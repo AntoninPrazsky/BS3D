@@ -362,6 +362,70 @@ namespace BS3D.Tests
             Assert.True(slowest > LightCycleRuns.SPEED - MathHelper.ToRadians(fastestTurn) * Beside - 0.5f, $"the lens slowed to {slowest:F1} u/s");
         }
 
+        //A swing limit one right angle never reaches (90 / REACH_SECONDS, 37.5 deg/s) and two the same way two nodes apart, as
+        //close as a cycle turns them, do (62)
+        private const float LOW_SWING_LIMIT = 50f;
+
+        /// <summary>
+        /// A calm ride's limit (<see cref="GridRide.Keep"/>) seen to fire: the cycles turn two nodes apart at the closest (#1162), so
+        /// no ride reaches <see cref="GridRide.MAX_SWING_DEGREES"/> and the reel's tests pass with the limit or without it. Held to
+        /// <see cref="LOW_SWING_LIMIT"/>, a calm choice never swings the view faster, over stretches where a clear choice over the
+        /// same seconds takes a cycle that does.
+        /// </summary>
+        [Fact]
+        public void A_calm_ride_never_swings_faster_than_its_limit()
+        {
+            Assert.True(90f / GridRide.REACH_SECONDS < LOW_SWING_LIMIT, "one right angle swings the view faster than the low limit");
+
+            float stretch = GridIntroShots.RIDE_SECONDS + GridIntroShots.RIDE_LATE;
+            int calm = 0, swiftClear = 0;
+            float calmFastest = 0f, clearFastest = 0f;
+            for (int b = 0; b < BUILDS; b++)
+            {
+                float from = BuildTime(b) + 3.2f;
+                List<GridSolid> solids = Solids(b);
+
+                GridRide clear = GridRide.Plan(new LightCycleRuns(Grid, solids), FloorY, solids, RingOf(Grid), from, from + stretch,
+                    GridIntroShots.RIDE_SECONDS, GridRide.Keep.Clear);
+                if (clear != null)
+                {
+                    float swing = ViewSwing(clear, from, from + stretch);
+                    clearFastest = MathF.Max(clearFastest, swing);
+                    if (swing > LOW_SWING_LIMIT) swiftClear++;
+                }
+
+                GridRide ride = GridRide.Plan(new LightCycleRuns(Grid, solids), FloorY, solids, RingOf(Grid), from, from + stretch,
+                    GridIntroShots.RIDE_SECONDS, GridRide.Keep.Calm, LOW_SWING_LIMIT);
+                if (ride == null) continue;
+                calm++;
+                calmFastest = MathF.Max(calmFastest, ViewSwing(ride, from, from + stretch));
+            }
+
+            _output.WriteLine($"held to {LOW_SWING_LIMIT:F0} deg/s: {calm} of {BUILDS} stretches had a calm ride, its view at most "
+                + $"{calmFastest:F1} deg/s; a clear ride swung faster in {swiftClear}, at most {clearFastest:F1}");
+            Assert.True(swiftClear >= 5, $"a clear ride swung faster than {LOW_SWING_LIMIT} deg/s in only {swiftClear} stretches: the limit is not exercised");
+            Assert.True(calm >= BUILDS / 2, $"only {calm} of {BUILDS} stretches had a calm ride");
+            Assert.True(calmFastest <= LOW_SWING_LIMIT + 1f, $"a calm ride's view swung at {calmFastest:F1} deg/s");
+        }
+
+        //The fastest the ride's view turns, degrees a second, from `from` to `until` on the wall clock (the seconds it was chosen
+        //for), about a frame at a time
+        private static float ViewSwing(GridRide ride, float from, float until)
+        {
+            float fastest = 0f, was = 0f;
+            int count = Math.Max((int)MathF.Round((until - from) / FRAME), 1);
+            float step = (until - from) / count;
+            for (int f = 0; f <= count; f++)
+            {
+                ride.Pose(from + f * step, out Vector3 lens, out Vector3 look);
+                float yaw = MathF.Atan2(look.Z - lens.Z, look.X - lens.X);
+                if (f > 0) fastest = MathF.Max(fastest, MathF.Abs(MathHelper.ToDegrees(MathHelper.WrapAngle(yaw - was))) / step);
+                was = yaw;
+            }
+
+            return fastest;
+        }
+
         [Fact]
         public void A_solid_where_the_ride_would_go_is_kept_off()
         {
