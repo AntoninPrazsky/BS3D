@@ -135,7 +135,9 @@ namespace BS3D.Tests
 
         /// <summary>
         /// Every other ground still begins its fade by the far field's 600, whatever haze distance it states: the icesheet's
-        /// teal line (a fade begun at 900, where its haze had made the ground wholly <c>HorizonColor</c>) stays fixed.
+        /// teal line (a fade begun at 900, where its haze had made the ground wholly <c>HorizonColor</c>) stays fixed. The
+        /// volcano's land is the one other ground that lifts the cap, through <c>FarField.Begin</c> itself
+        /// (<c>VolcanoFarHazeTests.OnlyTheOutbackAndTheVolcanoLiftTheCap</c>).
         /// </summary>
         [Fact]
         public void OtherGroundsStillFadeBy600()
