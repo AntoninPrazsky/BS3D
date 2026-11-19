@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-19 — #1165 lesní obloha bez fialové — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: kopule 15 (les) přepočtena vzorcem nad výškou vrcholu (jako 6/14/21) z fialového soumraku na modrošedý: skoro neutrální pruh u obzoru, modrošedé nebe, břidlicový zenit. Spodní pětina drží starou tyrkysovou bit po bitu (`HorizonColor` světel beze změny), zenit drží jas (lineární 0,044 proti 0,043), víko zatažené oblohy je tmavě modrošedé místo indigového. Předlohy ze Z-Image, klein a FLUX.3 (prompty bez barvy) kreslí šedomodré víko, žádnou fialovou. `SkyDome` čte paletu staticky (`DrawnLinearOf`, `RigColoursOf`), nové `ForestSkyTests`; tři ze čtyř padají na staré kopuli.
+- ⚠ Statické pole v jedné partial třídě se může inicializovat dřív než `GEOMETRY` v druhé: Y kopule se čte přímo z `GEOMETRY`.
+- Otevřené: verdict-eye; nezachyceno v pohybu, na Low/Medium/Ultra ani Potato; teplý pruh u obzoru z předloh vynechán vědomě.
+
 ## 2026-11-19 — #1145 kupy bez rovné hrany, pole kup všech velikostí — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: rovná svislá hrana kup zmizela — march končí na elipsoidu čepice zvětšeném o okraj (`CLOUD_MARGIN` 0,45 R), push billows dozní před ním, krabice obepíná okraj (detektor řezu: louka 55/80 snímků → 0, hory 10/80 → 0). `CloudVolumes.Place` je dvouprůchodová mřížka: velikosti zešikmené k malým, protažení po větru, 30 % velkých kup jsou věže nakloněné po směru pohybu (−Wind), ulice podle pomalého pole, shluky s otevřeným nebem mezi nimi, místo podle sousedů 5×5 (překryv ≤ 15 %). Broken: stopa kup do 1500 jednotek 57 % → ~28 %.
