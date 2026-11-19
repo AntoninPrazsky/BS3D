@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-19 — #1167 Mars jako planina, méně kráterů — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: Mars má hustotu kráterů planiny. Šance na kráter v menších oktávách 0,82/0,70/0,64 → 0,20/0,14/0,10 (49, 18,6 a 7,2 jednotky), velké krátery (129 a `BigCraters`) beze změny, jak chtěl majitel v #638. Mísy 22,0 % → 9,5 % plochy, valy 56,4 % → 24,3 % (test `MarsCraterCoverageTests` počítá z hodů shaderu). Mýtina už nekreslí světlé prstence polních kráterů (`ejecta *= ramp`). Kamenné kupy mají měkkou masku (`smoothstep(0.1, 0.9)`), takže už nestojí jako ploché tmavé disky s ostrou hranou a koleje roveru přes ně doznívají.
+- ⚠ Po proředění kráterů se nejviditelnějšími kruhy staly kupy: jejich maska se zapínala mezi 1,2 a 1,1 poloměru.
+- Otevřené: verdict-eye (krátery, měkké kupy, které jdou za rámec issue a jdou vrátit samostatně); malé krátery pixelové oktávy na mýtině zůstaly záměrně; cena na GPU neměřena.
+
 ## 2026-11-19 — #1145 kupy bez rovné hrany, pole kup všech velikostí — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: rovná svislá hrana kup zmizela — march končí na elipsoidu čepice zvětšeném o okraj (`CLOUD_MARGIN` 0,45 R), push billows dozní před ním, krabice obepíná okraj (detektor řezu: louka 55/80 snímků → 0, hory 10/80 → 0). `CloudVolumes.Place` je dvouprůchodová mřížka: velikosti zešikmené k malým, protažení po větru, 30 % velkých kup jsou věže nakloněné po směru pohybu (−Wind), ulice podle pomalého pole, shluky s otevřeným nebem mezi nimi, místo podle sousedů 5×5 (překryv ≤ 15 %). Broken: stopa kup do 1500 jednotek 57 % → ~28 %.
