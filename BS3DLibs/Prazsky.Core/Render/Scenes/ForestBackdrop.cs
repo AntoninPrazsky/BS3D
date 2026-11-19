@@ -54,6 +54,17 @@ namespace Prazsky.Core.Render
         //What the wood wears on High and Ultra (#962): the broadleaves in leaf and the ferns, through the plant material
         private ForestDressing _dressing;
 
+        //The lamps round the island (#1166): where they stand, planned once off the planting, and their light this frame on
+        //the floor, the bank and the plants (the island and the wood take it through SceneLights, off the same layout)
+        private readonly ForestLampLayout _lamps;
+        private readonly Vector3[] _lightPosition = new Vector3[SceneLights.MaxLights];
+        private readonly Vector3[] _lightColour = new Vector3[SceneLights.MaxLights];
+        private readonly float[] _lightRange = new float[SceneLights.MaxLights];
+        private readonly EffectParameter _sceneLightPosition, _sceneLightColour, _sceneLightRange, _sceneLightCount;
+
+        //And the wind turbine on the hills that powers them, drawn after the far stand
+        private ForestTurbine _turbine;
+
         private const int FOREST_GRID_N = 220;
         private const float FOREST_EXTENT = 1200f;
 
@@ -84,6 +95,13 @@ namespace Prazsky.Core.Render
             _farStand = new ForestFarStand(services.GraphicsDevice, _forestEffect, config, _planting);
             _dressing = new ForestDressing(services.GraphicsDevice, config, _planting, ForestScatterRenderer.DEFAULT_SEED + Services.SeedOffset);
             _dressingDrawn = _dressing.Buckets;
+
+            _lamps = ForestLampLayout.Plan(config, _planting);
+            _sceneLightPosition = _forestEffect.Parameters["SceneLightPosition"];
+            _sceneLightColour = _forestEffect.Parameters["SceneLightColor"];
+            _sceneLightRange = _forestEffect.Parameters["SceneLightRange"];
+            _sceneLightCount = _forestEffect.Parameters["SceneLightCount"];
+            _turbine = new ForestTurbine(services.GraphicsDevice, _forestEffect, config);
 
             _plants = new PlantPass(services.GraphicsDevice, content);
             _berm = new IslandBermPlanting(services.GraphicsDevice, (x, z) => TerrainMirror.Forest(x, z, _forestConfig),
@@ -126,6 +144,10 @@ namespace Prazsky.Core.Render
         /// <summary>Where the wood stands: the hosts' <see cref="ForestScatterRenderer"/> draws this planting, so what this
         /// backdrop dresses it with on High and Ultra hangs on the trees that are drawn (#962).</summary>
         public ForestScatter Planting => _planting;
+
+        /// <summary>Where the lamps round the island stand (#1166), planned off <see cref="Planting"/>: what the hosts' lamps
+        /// are drawn from and what <see cref="SceneLights"/> lights the island with.</summary>
+        public ForestLampLayout Lamps => _lamps;
 
         /// <inheritdoc/>
         public override SceneKind Kind => SceneKind.Forest;
@@ -186,6 +208,19 @@ namespace Prazsky.Core.Render
             Vector3 murk = Murk(frame, _forestConfig);
             _murk.SetValue(murk);
 
+            //The lamps' light on the floor and the bank (#1166) and on what stands on them through the plant material, on the
+            //clock SceneLights lights the island on, so the pool under a pole and the light on the stone are one light
+            int lights = (_layers & ForestLayer.Lamps) != 0
+                ? _lamps.Lights(frame.Time, _lightPosition, _lightColour, _lightRange, SceneLights.MaxLights) : 0;
+            if (lights > 0)
+            {
+                _sceneLightPosition.SetValue(_lightPosition);
+                _sceneLightColour.SetValue(_lightColour);
+                _sceneLightRange.SetValue(_lightRange);
+            }
+            _sceneLightCount.SetValue(lights);
+            _plants.SetSceneLights(_lightPosition, _lightColour, _lightRange, lights);
+
             _forestPass.DrawsGrid = (_layers & ForestLayer.Floor) != 0;
             _forestPass.DrawsFarRing = (_layers & ForestLayer.FarRing) != 0;
             if ((_layers & (ForestLayer.Floor | ForestLayer.FarRing | ForestLayer.Bank)) != 0)
@@ -193,6 +228,10 @@ namespace Prazsky.Core.Render
 
             //The wood on the hills (#962), after the floor so the depth test turns away every tree a nearer hill hides
             if (Services.FineMeshes && (_layers & ForestLayer.FarStand) != 0) _farStand?.Draw(frame.Camera);
+
+            //The turbine on its hill (#1166), after the floor and the stand round its foot, in their light and their haze. Every
+            //tier: it is what says where the lamps' power comes from
+            if ((_layers & ForestLayer.Turbine) != 0) _turbine?.Draw(frame.Time);
 
             //The plant material in the weather the rest of the wood stands in (#1121): under the overcast lid the floor, the far
             //stand and the hosts' trees take about half the sun (CloudSunlight), and drawn in full sun the broadleaves in leaf
@@ -270,6 +309,8 @@ namespace Prazsky.Core.Render
             _farStand = null;
             _dressing?.Dispose();
             _dressing = null;
+            _turbine?.Dispose();
+            _turbine = null;
         }
 
         /// <inheritdoc/>

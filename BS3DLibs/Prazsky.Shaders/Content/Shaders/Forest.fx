@@ -172,6 +172,31 @@ float3 ForestSkyBehind(float directionY)
     return lerp(sky, CloudShadowColor, deck * smoothstep(0.0, CloudHorizonFade, directionY));
 }
 
+//THE LAMPS ROUND THE ISLAND (#1166): the old lamps on their wooden poles are real point lights, and the floor under each
+//pole, the bank the island sits in and the ground between them take their light here, as the island, the cluster, the gun
+//and the trees take it through the shared instanced effect (Lighting.fxh's AddSceneLights, the same falloff) and the bank's
+//stones and ferns through the plant material. ForestBackdrop states them every frame off ForestLampLayout, the one copy
+//SceneLights reads too, so the pool on the ground and the light on the stone are one light. Lambert only: the floor is matte.
+//The same slots and names as the instanced effect's, MAX_SCENE_LIGHTS matching SceneLights.MaxLights.
+#define MAX_SCENE_LIGHTS 8
+float3 SceneLightPosition[MAX_SCENE_LIGHTS];
+float3 SceneLightColor[MAX_SCENE_LIGHTS];
+float SceneLightRange[MAX_SCENE_LIGHTS];
+int SceneLightCount;
+
+float3 ForestLampLight(float3 worldPosition, float3 normal)
+{
+    float3 light = float3(0.0, 0.0, 0.0);
+    ARRAY_LOOP(i, SceneLightCount, MAX_SCENE_LIGHTS)
+    {
+        float3 toL = SceneLightPosition[i] - worldPosition;
+        float dist = length(toL);
+        float atten = saturate(1.0 - dist / SceneLightRange[i]);
+        light += SceneLightColor[i] * (saturate(dot(normal, toL / max(dist, 1e-4))) * atten * atten);
+    }
+    return light;
+}
+
 float3 ForestHaze(float3 color, float3 worldPosition)
 {
     float3 toPoint = worldPosition - CameraPosition;
@@ -441,7 +466,8 @@ float4 ForestFloorAt(float3 worldPosition, float3 baseNormal, bool detail)
     float ndotl = saturate(dot(normal, SunDirection));
     float3 skyAmbient = lerp(HorizonColor, ZenithColor, saturate(normal.y * 0.5 + 0.5));
 
-    float3 color = floor * (skyAmbient * AmbientStrength + SunColor * ndotl * sunlight * treeShadow);
+    float3 color = floor * (skyAmbient * AmbientStrength + SunColor * ndotl * sunlight * treeShadow
+        + ForestLampLight(worldPosition, normal));
 
     //Horizon haze in two stages (ForestHaze above), shared with the far stand on the hills
     return float4(ForestHaze(color, worldPosition), 1.0);
@@ -659,6 +685,66 @@ technique ForestStand
     {
         VertexShader = compile VS_SHADERMODEL StandVS();
         PixelShader = compile PS_SHADERMODEL StandPS();
+    }
+};
+
+//--- The wind turbine (#1166) ---------------------------------------------------------------------------------
+
+//The white turbine on the hills that powers the lamps (ForestTurbine, ForestTurbineLayout): three parts, each one draw with
+//its own world matrix (the rotor's turned on the scene's clock), lit as the far stand round its foot is and receding in the
+//same haze, so it stands on its ridge in the same air. The aviation light is black but for its glow, added after the haze
+//at half the haze's reach: a red light pierces the murk a white tower recedes into.
+float4x4 TurbineWorld;
+float3 TurbineAlbedo;
+float3 TurbineGlow;
+
+//The turbine stands in the open on a hill, not in a clearing the wood shades: the dome's whole hemisphere fills it
+static const float TURBINE_AMBIENT = 0.9;
+
+struct TurbineVertexInput
+{
+    float4 Position : POSITION0;
+    float3 Normal : NORMAL0;
+    float2 Unused : TEXCOORD0;
+};
+
+struct TurbineVertexOutput
+{
+    float4 Position : SV_POSITION;
+    float3 WorldPosition : TEXCOORD0;
+    float3 Normal : TEXCOORD1;
+};
+
+TurbineVertexOutput TurbineVS(TurbineVertexInput input)
+{
+    TurbineVertexOutput output;
+
+    float4 world = mul(input.Position, TurbineWorld);
+    output.WorldPosition = world.xyz;
+    output.Normal = mul(input.Normal, (float3x3)TurbineWorld);
+    output.Position = mul(mul(world, View), Projection);
+
+    return output;
+}
+
+float4 TurbinePS(TurbineVertexOutput input) : COLOR
+{
+    float3 normal = normalize(input.Normal);
+    float ndotl = saturate(dot(normal, SunDirection));
+    float sunlight = CloudSunlight(input.WorldPosition, SunDirection);
+    float3 sky = lerp(HorizonColor, ZenithColor, saturate(normal.y * 0.5 + 0.5));
+    float3 color = TurbineAlbedo * (sky * TURBINE_AMBIENT + SunColor * ndotl * sunlight);
+
+    float haze = saturate(distance(input.WorldPosition, CameraPosition) / HorizonHazeDistance);
+    return float4(ForestHaze(color, input.WorldPosition) + TurbineGlow * (1.0 - 0.5 * haze), 1.0);
+}
+
+technique ForestTurbine
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL TurbineVS();
+        PixelShader = compile PS_SHADERMODEL TurbinePS();
     }
 };
 

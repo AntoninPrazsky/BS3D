@@ -353,6 +353,9 @@ namespace Testbed
         //The forest's handful of firefly-like blinking lights (#487), planted over the same floor.
         private ForestFireflies _forestFireflies;
 
+        //The forest's old lamps on their poles round the island (#1166), off the backdrop's layout
+        private ForestLamps _forestLamps;
+
         //The clouds as volumes on High and Ultra (#989), over the deck
         private CloudVolumes _cloudVolumes;
 
@@ -956,6 +959,8 @@ namespace Testbed
                 (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY,
                 seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
 
+            _forestLamps = new ForestLamps(GraphicsDevice, _instancingEffect, _sceneRenderer.ForestLamps, SCENE_AMBIENT_INTENSITY);
+
             _cloudVolumes = new CloudVolumes(GraphicsDevice, Content);
 
             //No trunnion height goes in: the gun stands on the island's dished stone, so its height is the
@@ -1103,6 +1108,8 @@ namespace Testbed
             //a foreach over an interface-typed collection would box an enumerator per call.
             if (_forestScatter != null)
                 foreach (InstancedModelRenderer renderer in _forestScatter.Renderers) _skyLitRenderers.Add(renderer);
+            if (_forestLamps != null)
+                foreach (InstancedModelRenderer renderer in _forestLamps.Renderers) _skyLitRenderers.Add(renderer);
             if (_auroraScatter != null)
                 foreach (InstancedModelRenderer renderer in _auroraScatter.Renderers) _skyLitRenderers.Add(renderer);
 
@@ -1635,6 +1642,7 @@ namespace Testbed
                     case "forest":
                         _sceneRenderer.ForestLayers = TestOptions.ParseForestLayers(pin.Value);
                         if (_forestScatter != null) _forestScatter.Layers = _sceneRenderer.ForestLayers;
+                        if (_forestLamps != null) _forestLamps.Shown = (_sceneRenderer.ForestLayers & ForestLayer.Lamps) != 0;
                         break;
 
                     //Mars's layers (#1102): "mars=all/-moons"; "-bake" draws the exact ground where the baked one would be
@@ -2038,6 +2046,7 @@ namespace Testbed
             _forestScatter?.Dispose();
             _auroraScatter?.Dispose();
             _forestFireflies?.Dispose();
+            _forestLamps?.Dispose();
             _cloudVolumes?.Dispose();
             _rooftops?.Dispose();
             _streets?.Dispose();

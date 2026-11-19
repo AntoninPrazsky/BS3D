@@ -175,6 +175,10 @@ namespace MapEditor
         //The forest's handful of firefly-like blinking lights (#487), planted over the same floor.
         private ForestFireflies _forestFireflies;
 
+        //The forest's old lamps on their poles round the island (#1166), off the backdrop's layout. The editor builds no
+        //SceneLights, so their bulbs glow and the ground under them takes their light (the backdrop's own), the balls not
+        private ForestLamps _forestLamps;
+
         //A map or level dropped or opened is parsed off the render thread, and everything it changes is
         //applied on the main thread in Update — see ApplyPendingLoad. A level's scene/sky/city application
         //touches GPU resources (Content.Load, buffer rebuilds, a new City); a plain map used to be read
@@ -493,6 +497,8 @@ namespace MapEditor
                 (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY,
                 seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
 
+            _forestLamps = new ForestLamps(GraphicsDevice, _instancingEffect, _sceneRenderer.ForestLamps, SCENE_AMBIENT_INTENSITY);
+
             ApplySkyLighting();
 
             _pipeline.EnsureTarget();
@@ -639,6 +645,7 @@ namespace MapEditor
             //directly, for the reason BallRenderSet.Renderers gives above.
             foreach (InstancedModelRenderer renderer in _forestScatter.Renderers) _rig.ApplyTo(renderer);
             foreach (InstancedModelRenderer renderer in _auroraScatter.Renderers) _rig.ApplyTo(renderer);
+            foreach (InstancedModelRenderer renderer in _forestLamps.Renderers) _rig.ApplyTo(renderer);
 
             //And the wood's own pigments, which the rig above cannot reach — see ForestScatterRenderer.
             //ShiftTowardsSky (#108). This is the executable the symptom is quickest to see in: B cycles the
@@ -1033,6 +1040,9 @@ namespace MapEditor
             //flashes on
             if (_scene == SceneKind.Forest) _forestFireflies?.Draw(Camera3D, frame.Time);
 
+            //The old lamps round where the island stands in the game (#1166)
+            if (_scene == SceneKind.Forest) _forestLamps?.Draw(Camera3D, frame.Time);
+
             if (_scene == SceneKind.Aurora)
             {
                 //Re-tinted here rather than in ApplySkyLighting (see there), on the scene's own tint: constant since
@@ -1137,6 +1147,7 @@ namespace MapEditor
             _forestScatter?.Dispose();
             _auroraScatter?.Dispose();
             _forestFireflies?.Dispose();
+            _forestLamps?.Dispose();
             //The dome's two buffers and its owned BasicEffect (the editor's only dome draw path)
             _sky?.Dispose();
             _unitBox?.Dispose();

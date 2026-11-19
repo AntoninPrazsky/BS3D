@@ -47,12 +47,17 @@ namespace BS3D
 
         /// <summary>
         /// How far the open ground round the island reaches in the scene up now (#1039): the city's clearing, the nearest
-        /// tower's footprint (<see cref="City.OpenRadius"/>; the Potato path's own city on that path), and infinite in every
-        /// other scene. The front end's orbit keeps its lens inside it.
+        /// tower's footprint (<see cref="City.OpenRadius"/>; the Potato path's own city on that path); the forest's lamps
+        /// (#1166, <see cref="ForestLampLayout.OpenGroundRadius"/>, the nearest a pole's shade reaches, wherever the planting put
+        /// the poles), where the desktop draws them; and infinite in every other scene. The front end's orbit keeps its lens
+        /// inside it.
         /// </summary>
-        internal float OpenGroundRadius => _scene is SceneKind.City or SceneKind.NeonCity
-            ? _city?.OpenRadius ?? _potatoBackdrop?.OpenRadius ?? float.PositiveInfinity
-            : float.PositiveInfinity;
+        internal float OpenGroundRadius => _scene switch
+        {
+            SceneKind.City or SceneKind.NeonCity => _city?.OpenRadius ?? _potatoBackdrop?.OpenRadius ?? float.PositiveInfinity,
+            SceneKind.Forest when _forestLamps != null => ForestLampLayout.OpenGroundRadius,
+            _ => float.PositiveInfinity,
+        };
 
         //How many scenes there are, and what each is called, are SceneRenderer's since #75:
         //SceneRenderer.SceneCount and SceneRenderer.SceneName, both in the declared order of SceneKind, so the
@@ -211,6 +216,10 @@ namespace BS3D
 
         //The forest's handful of firefly-like blinking lights (#487), planted over the same floor.
         private ForestFireflies _forestFireflies;
+
+        //The forest's old lamps on their poles round the island (#1166): drawn from the backdrop's layout, lit by their own
+        //light through SceneLights. Null on the Potato path, which has no forest
+        private ForestLamps _forestLamps;
 
         //The clouds as volumes on High and Ultra (#989), over the deck. Null on the Potato path, which has no deck to stand on.
         private CloudVolumes _cloudVolumes;
@@ -398,6 +407,8 @@ namespace BS3D
                     (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY,
                     seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
 
+                _forestLamps = new ForestLamps(GraphicsDevice, _instancingEffect, _sceneRenderer.ForestLamps, SCENE_AMBIENT_INTENSITY);
+
                 //Not where the device has no 3D textures (#1059, the phone): the sky keeps its deck, as below the tier that shows them
                 if (GraphicsSupport.VolumeTextures(GraphicsDevice)) _cloudVolumes = new CloudVolumes(GraphicsDevice, Content);
             }
@@ -495,6 +506,10 @@ namespace BS3D
             //builds no wood at all.
             if (_forestScatter != null)
                 foreach (InstancedModelRenderer renderer in _forestScatter.Renderers) yield return renderer;
+
+            //The forest's lamps (#1166), likewise: their poles and ironwork stand in the light the wood stands in
+            if (_forestLamps != null)
+                foreach (InstancedModelRenderer renderer in _forestLamps.Renderers) yield return renderer;
 
             //The aurora's own wood, present only in that scene but always built - same reasoning, same
             //unconditional dereference, the same construction-order guarantee, the same Potato exception.
@@ -1137,6 +1152,9 @@ namespace BS3D
             //campfire blink and flicker on.
             if (_scene == SceneKind.Forest && SceneryShown) _forestFireflies?.Draw(_camera, _wallClock);
 
+            //The old lamps on their poles round the island (#1166), their bulbs on the clock SceneLights lit them on above
+            if (_scene == SceneKind.Forest && SceneryShown) _forestLamps?.Draw(_camera, _wallClock);
+
             //THE SKY, BEHIND THE OPAQUE SCENE (#1104): the dome and the heaps over it, depth-read at the far plane, so every
             //pixel the ground, the wood, the city and the island's laid depth already own is turned away before Sky.fx, one
             //of the dearest programs in the frame, runs. No pixel moves: everything drawn since the clear is opaque and
@@ -1282,6 +1300,7 @@ namespace BS3D
 
             //Scenery only where it is drawn (#808): the wood and the towers stay out of the map with the Scenery row off
             if (_scene == SceneKind.Forest && SceneryShown) _forestScatter?.DrawShadow(shadowViewProjection, _sceneRenderer.FineMeshes, _camera);
+            if (_scene == SceneKind.Forest && SceneryShown) _forestLamps?.DrawShadow(shadowViewProjection);
 
             //The aurora's wood under its Moon (#963): the spruces' long shadows across the snow
             if (_scene == SceneKind.Aurora && SceneryShown) _auroraScatter?.DrawShadow(shadowViewProjection, _sceneRenderer.FineMeshes, _camera);

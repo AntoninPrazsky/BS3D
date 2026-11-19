@@ -70,8 +70,10 @@ namespace BS3D.Effects
             public readonly bool Broadleaf = broadleaf;
         }
 
-        /// <summary>The prologue for the forest on screen, or null when there is no wood.</summary>
-        public static IntroShot[] Build(ForestScatterRenderer wood, ForestSceneConfig forest, float fieldOfView, Random random)
+        /// <summary>The prologue for the forest on screen, or null when there is no wood. <paramref name="lamps"/>, the lamps round
+        /// the island (#1166), and the wind turbine on the hills are columns too, so no lens flies through a pole or a blade.</summary>
+        public static IntroShot[] Build(ForestScatterRenderer wood, ForestSceneConfig forest, float fieldOfView, Random random,
+            ForestLampLayout lamps = null)
         {
             if (wood?.Scatter == null || forest == null) return null;
 
@@ -102,6 +104,15 @@ namespace BS3D.Effects
             Columns(ground, scatter.Logs, forest.Logs.Radius * 3f, forest.Logs.Length * 0.6f);
             Columns(ground, scatter.Rocks, forest.Rocks.Radius * 2f, forest.Rocks.Radius * 1.3f);
             Columns(ground, scatter.Stumps, 2f, 1.5f);
+
+            //The lamps' poles, each as wide as its arm reaches (#1166), and the turbine as wide as its rotor
+            if (lamps != null)
+                foreach (ForestLampLayout.Lamp lamp in lamps.Lamps)
+                    ground.Add(lamp.Foot, lamp.Foot + Vector3.Up * ForestLampLayout.POLE_LENGTH,
+                        ForestLampLayout.ARM_REACH + ForestLampLayout.SHADE_RADIUS);
+            Matrix turbine = ForestTurbineLayout.World(forest);
+            ground.Add(turbine.Translation, Vector3.Transform(ForestTurbineLayout.HUB + Vector3.Up * ForestTurbineLayout.ROTOR_RADIUS, turbine),
+                ForestTurbineLayout.ROTOR_RADIUS + MathF.Abs(ForestTurbineLayout.HUB.Z) + MARGIN);
 
             IntroShot establishing = ground.Establishing("the forest", FOREST_FROM, FOREST_TO, FOREST_ABOVE_FROM, FOREST_ABOVE_TO,
                 FOREST_SECONDS, fieldOfView * 1.1f, random, TRIES, MARGIN);

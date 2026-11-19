@@ -28,7 +28,10 @@ namespace Prazsky.Core.Render
         private readonly EffectTechnique _technique, _stoneTechnique, _barkReliefTechnique, _strawTechnique, _fullTechnique, _shadowTechnique;
         private readonly EffectParameter _view, _projection, _camera, _sunDirection, _sunColor, _zenith, _horizon,
             _diffuse, _diffuseDry, _dapple, _bark, _leaves, _addedLight, _haze, _hazeColor, _cloudGain, _shadowViewProjection, _footEarth,
-            _stone, _straw, _barkRelief;
+            _stone, _straw, _barkRelief, _lightPosition, _lightColour, _lightRange, _lightCount;
+
+        //The scene's point lights this pass's draws take (#1166, SetSceneLights): none unless its backdrop states them
+        private int _sceneLights;
 
         public PlantPass(GraphicsDevice device, ContentManager content)
         {
@@ -61,6 +64,25 @@ namespace Prazsky.Core.Render
             _strawTechnique = Effect.Techniques["AcaciaStraw"];
             _fullTechnique = Effect.Techniques["AcaciaFull"];
             _shadowTechnique = Effect.Techniques["ShadowCaster"];
+            _lightPosition = Effect.Parameters["SceneLightPosition"];
+            _lightColour = Effect.Parameters["SceneLightColor"];
+            _lightRange = Effect.Parameters["SceneLightRange"];
+            _lightCount = Effect.Parameters["SceneLightCount"];
+        }
+
+        /// <summary>
+        /// The scene's point lights this pass's draws take from now on (#1166: the forest's lamps on the bank's stones, its ferns
+        /// and its broadleaves), the first <paramref name="count"/> of the arrays, at most <see cref="SceneLights.MaxLights"/>; a
+        /// count of 0 takes them off. The effect is shared, so every draw states this pass's count and puts 0 back after it: a
+        /// scene that never states lights (every other, and the savanna's own draw) never finds another's.
+        /// </summary>
+        public void SetSceneLights(Vector3[] position, Vector3[] colour, float[] range, int count)
+        {
+            _sceneLights = System.Math.Clamp(count, 0, SceneLights.MaxLights);
+            if (_sceneLights == 0) return;
+            _lightPosition?.SetValue(position);
+            _lightColour?.SetValue(colour);
+            _lightRange?.SetValue(range);
         }
 
         /// <summary>
@@ -122,6 +144,9 @@ namespace Prazsky.Core.Render
             _hazeColor.SetValue(hazeColor);
             _addedLight.SetValue(Vector3.Zero);
 
+            //This pass's lamps, or none (#1166)
+            _lightCount?.SetValue(_sceneLights);
+
             //No deck unless asked for (the effect is shared, so a deck one draw states would stay for the next)
             _cloudGain.SetValue(0f);
             if (clouds) frame.ApplyClouds?.Invoke(Effect);
@@ -175,6 +200,7 @@ namespace Prazsky.Core.Render
             //technique the effect holds
             Effect.CurrentTechnique = _technique;
             _addedLight.SetValue(Vector3.Zero);
+            _lightCount?.SetValue(0);
             _leaves.SetValue(0f);
             _stone.SetValue(0f);
             _straw.SetValue(0f);

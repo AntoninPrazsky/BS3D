@@ -15,8 +15,8 @@ namespace Prazsky.Core.Render
     /// <para>
     /// Some scenes carry lights of their own: the volcano's crater and its travelling flow fronts, the
     /// savanna's campfire, the neon city's ring of magenta and cyan, space's planetshine, the Moon's
-    /// earthshine and the big top's footlights. The others push a count of zero once and then cost nothing — see the early-out in
-    /// <see cref="Apply"/>.
+    /// earthshine, the big top's footlights, the cavern's crystal clusters and the forest's lamps round the island
+    /// (#1166). The others push a count of zero once and then cost nothing — see the early-out in <see cref="Apply"/>.
     /// </para>
     /// <para>
     /// <b>The savanna grass shader's copy is deliberately not this one.</b>
@@ -134,7 +134,7 @@ namespace Prazsky.Core.Render
         /// (#795), which has none: then the volcano's lamps come from <see cref="Volcano"/>, the neon ring from
         /// <paramref name="neonLook"/> as always, the cavern's clusters from the Potato backdrop
         /// (<see cref="BackdropLamps"/>, #1044), and the other scenes whose lights only a backdrop knows (the campfires,
-        /// the big top, the planetshine, the earthshine, the lightning) push none.</param>
+        /// the big top, the planetshine, the earthshine, the lightning, the forest's lamps) push none.</param>
         /// <param name="neonLook">The neon city's ring (count, range, radius, height, colours), read only when
         /// <paramref name="scene"/> is <see cref="SceneKind.NeonCity"/>. Passed by reference, never copied.</param>
         /// <param name="wallClock">Must be the same clock the caller feeds <see cref="SceneFrame.Time"/>, or
@@ -145,7 +145,7 @@ namespace Prazsky.Core.Render
             int count = 0;
 
             //The guards below are mutually exclusive by construction — a scene is the volcano, or the savanna, or
-            //the neon city, or space, or the Moon, or the storm, or the big top, or the cavern (each TryGet returns
+            //the neon city, or space, or the Moon, or the storm, or the big top, or the forest, or the cavern (each TryGet returns
             //false for every kind but its own), and no SceneKind satisfies two of them. So this order is an order
             //and not a precedence: do not read it as one, and do not write a further branch that relies on being
             //tested last. The storm's own branch is additionally self-gating in TIME as well as in kind —
@@ -240,6 +240,12 @@ namespace Prazsky.Core.Render
             else if (scene == SceneKind.NeonCity)
             {
                 count = BuildNeonRing(neonLook);
+            }
+            else if (scene == SceneKind.Forest)
+            {
+                //The forest's old lamps on their wooden poles round the island (#1166), on the clock their bulbs glow on, so the
+                //old lamp's stutter dims its glass and its light together. Fewer than MaxLights, so a blast's flash finds a slot
+                count = sceneRenderer.ForestLampLights(wallClock, _lightPosition, _lightColor, _lightRange, MaxLights - 1);
             }
             else if (scene == SceneKind.Cavern)
             {
