@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-19 — #1164 tmavší vzdálená pásma sopky — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: hory sopky stojí tmavší než noční obloha, každé další pásmo o odstín světlejší. Opar země 0,55 → 0,32 barvy horizontu (`LAND_HAZE_SKY`), poslední prolnutí do oblohy začíná až na 900 místo 600 (`VolcanoBackdrop.FarFadeStartLatest`, druhá výjimka ze stropu 600 vedle outbacku) a nad obzorem končí v obloze i s mrakovou palubou (`VolcanoFadeToSky`, vzorec #1121). Testy `VolcanoFarHazeTests`.
+- ⚠ Prolnutí do `FarSky` (kupole bez paluby) dělá ze vzdálených hřebenů pod mraky světlé siluety; ostatní scény to mají dál (chce vlastní issue).
+- ⚠ Hranice 0,6 oblohy platí jen do ~1 050 jednotek; dál ji poslední prolnutí (#551) nedovolí. Pásmo vpravo od kužele v herním pohledu (1 148+) se teď spíš rozpouští do paluby.
+- Otevřené: verdict-eye; pohyb, nižší a Ultra tier, telefon a cena snímku neměřeny.
+
 ## 2026-11-18 — #1153 Scény, Jukebox, About a žebříčky přes šířku telefonu — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: na zvětšeném UI (`UiScale > 1`) a obrazovce aspoň 1,7:1 (`WideMenuLayout.MIN_ASPECT`) mají Scene (mřížka 7×3 dlaždic), Jukebox (tři sloupce), About (levý sloupec + text) a High Scores (dva sloupce po pěti úrovních) široké rozložení; monitor beze změny. `FOCUS_PROMPT_MIN_SHARE` 0,4 → 0,45. Testy `WideMenuLayoutTests`.
