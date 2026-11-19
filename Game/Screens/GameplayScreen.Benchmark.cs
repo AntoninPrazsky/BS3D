@@ -160,6 +160,11 @@ namespace BS3D.Screens
                 _demoOrphaned = _run.Score.OrphanedBalls;
                 _demoDestroyed = _run.Score.DestroyedBalls;
                 Console.WriteLine("[bench] action: the gun fires by itself");
+                //Where the barrel rests as the hand takes it, in aim='s spelling: a scripted hand that eases from here onto a
+                //shot the benchmark found starts where the game left the barrel (the trailer, #1178)
+                if (Game.Capturing)
+                    Console.WriteLine(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                        $"[bench] rest at {WallClock:0.###} s: aim={WallClock:0.###}:{MathHelper.ToDegrees(_cannon.Elevation):0.###}:{MathHelper.ToDegrees(_cannon.Traverse):0.###}"));
                 return;
             }
 
