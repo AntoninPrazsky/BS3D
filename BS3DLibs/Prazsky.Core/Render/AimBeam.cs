@@ -39,11 +39,19 @@ namespace Prazsky.Core.Render
     /// <para>
     /// <b>The glow is laid as overlapping chords, not as one quad per leg</b>, and that is forced by the same
     /// fades. A piece fades in and out over its quarter ends, so pieces laid end to end leave a dark notch at every
-    /// join, and pieces only widened (the first cut of this: the dashes themselves, broadening) are seen nearly end
-    /// on from the overview, which foreshortens a short wide piece into a bar across the beam: the cone came out
-    /// as the rungs of a ladder. Chords <see cref="GLOW_CHUNK"/> long, a third of one apart, add up to a light
-    /// that holds within ±3 % along their run (<see cref="GLOW_OVERLAP"/>), follow a bent flight chord by chord,
-    /// and ease out by themselves where they stop, past the touch.
+    /// join, and a short wide piece (a dash, widened) is seen nearly end on from the overview, which foreshortens it
+    /// into a bar across the beam: a cone of widened dashes reads as the rungs of a ladder. Chords
+    /// <see cref="GLOW_CHUNK"/> long, a third of one apart, add up to a light that holds within ±3 % along their run
+    /// (<see cref="GLOW_OVERLAP"/>), follow a bent flight chord by chord, and ease out by themselves where they stop,
+    /// past the touch.
+    /// </para>
+    /// <para>
+    /// <b>Past the touch the glow is laid square to the lens, not along the flight</b> (<see cref="OVERRUN"/>), which
+    /// is what keeps the ghost inside the patch from the overview. Each piece turns about its own axis to face the
+    /// camera, so the patch is a flat ribbon, and a ghost standing off the line towards the lens or away from it
+    /// shows on screen along the beam's own screen direction, past the touch. Along the flight that run is
+    /// foreshortened to a sliver from a lens that sees the beam nearly end on, and hidden behind the ball hit; square
+    /// to the lens it shows at its full length from every view, and side on it is the flight's own direction.
     /// </para>
     /// <para>
     /// <b>The widths are pushed per draw, and they have to be.</b> <see cref="LaunchSmears"/> set them once in
@@ -51,13 +59,14 @@ namespace Prazsky.Core.Render
     /// (<c>BestPractices.md</c> §1 names those two parameters as its own example). That stopped being true the
     /// moment a second component shared the effect: the two want different widths, an <c>Effect</c>'s parameter
     /// values are the effect's and not the caller's, and whichever constructor ran last would otherwise decide
-    /// how both look. Here they are set per piece, since every piece of a cone has its own two.
+    /// how both look. Here every draw sends its first piece's two, and each later piece's where they differ from the
+    /// last, since every piece of a cone has its own.
     /// </para>
     /// <para>
     /// <b>The layout is a pure function</b> (<see cref="Lay"/>), apart from the draw, so what the cone promises
     /// can be asked of it without a graphics device: <c>AimBeamTests</c> holds the near end to the old line, the
-    /// cone to one width at one distance however the flight is cut into legs, and the patch over every ghost the
-    /// measured aims put beside the touch.
+    /// cone to one width at one distance however the flight is cut into legs, and the patch on screen over the
+    /// ghosts the measured aims put beside the touch, seen from the Game's overview and from lenses all round the beam.
     /// </para>
     /// </remarks>
     public sealed class AimBeam : IDisposable
@@ -119,10 +128,11 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// A hard cap on dashes per beam, so a caller handing over an absurd length cannot turn one frame into
-        /// thousands of draws. At <see cref="SPACING"/> this is ~70 world units, well past anything the gun can
-        /// see across the field.
+        /// thousands of draws. At <see cref="SPACING"/> this is ~140 world units: past the longest flight the Game
+        /// hands over, a stepped one (a gravity well's, a crate's) that reaches nothing and runs out its flight budget
+        /// a hundred units on, so such a beam is laid whole and its open fade on its last leg is never the part cut off.
         /// </summary>
-        private const int MAX_DASHES = 64;
+        private const int MAX_DASHES = 128;
 
         /// <summary>
         /// Below this the beam is not drawn at all — an eased fade that has all but reached zero is a row of
@@ -138,7 +148,7 @@ namespace Prazsky.Core.Render
         /// gravity, then <c>ShotPlacement.TrySolveAgainstBall</c>), the ghost's centre stood off the line through
         /// the touch by 0.45 at the median, 0.61 at the 95th percentile, 0.64 at the 99th and 0.67 at the most
         /// (along the line it stood 0.34 short of the touch at the median, from 0.68 short to 0.38 past).
-        /// <c>AimBeamTests</c> re-measures it and holds the patch over those ghosts.
+        /// <c>AimBeamTests</c> re-measures it and holds the patch over those ghosts on screen.
         /// <para>
         /// It is a little over a ball's width across, which is the region the owner asked for: the shot ends
         /// "somewhere in here", and the lattice decides where. The callers pass it where the shot snaps into a
@@ -184,9 +194,9 @@ namespace Prazsky.Core.Render
         /// light: as bright as the line, the patch would be a broad smear over the very cells it is there to show.
         /// Set by looking, as <see cref="WIDTH"/> was, between the two ends an additive glow has: over the moon's black
         /// sky this is a clear soft patch some two balls across (the bloom spreads it past its tenth-light edge), over
-        /// the meadow's white and yellow balls in daylight a faint haze, which at 0.3 was barely there.
+        /// the meadow's white and yellow balls in daylight a faint haze.
         /// </summary>
-        private const float GLOW_LIGHT = 0.45f;
+        internal const float GLOW_LIGHT = 0.45f;
 
         /// <summary>
         /// Length of one chord of the glow, in world units. Short enough that the glow eases out past the touch over
@@ -210,10 +220,15 @@ namespace Prazsky.Core.Render
         internal const float GLOW_OVERLAP = GLOW_LAYERS * 24f / 35f;
 
         /// <summary>
-        /// How far past the touch the glow runs before its chords stop, in world units. The ghost stands up to 0.68
-        /// short of the touch and up to 0.38 past it (<see cref="LANDING_SPREAD"/>), and the glow eases out over its
-        /// last chord, so this keeps a ghost even that far past the touch in nine tenths of the glow's light. Mostly
-        /// behind the ball hit, which hides it by depth: the patch lies over the cluster's face, not through it.
+        /// How far past the touch the glow runs before its chords stop, in world units, <b>square to the lens</b>
+        /// (<see cref="FacingLens"/>): in the direction the flight carries on in on screen, with none of it into the
+        /// screen. A ghost standing off the line towards the lens or away from it, up to <see cref="LANDING_SPREAD"/>,
+        /// shows on screen beside the touch along the beam's screen direction, and from the overview, which sees the
+        /// beam ten-odd degrees off end on, a run along the flight would show there at a fifth of its length and lie
+        /// behind the ball hit. Square to the lens it shows at its full length from any view, in front of that ball;
+        /// side on it is the flight's own direction, and covers a ghost standing past the touch (up to 0.38). The glow
+        /// eases out over its last chord, so a ghost <see cref="LANDING_SPREAD"/> past the touch on screen keeps about
+        /// half the glow's light.
         /// </summary>
         private const float OVERRUN = 1.2f;
 
@@ -302,7 +317,8 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Draws the beam along <paramref name="path"/>, from its first point (the muzzle) to its last.
         /// </summary>
-        /// <param name="camera">The frame's camera; the pieces turn to face it.</param>
+        /// <param name="camera">The frame's camera; the pieces turn to face it, and the glow past the touch is laid
+        /// square to it (<see cref="OVERRUN"/>).</param>
         /// <param name="path">The flight, the muzzle first and the far end last: two points for a straight shot, the
         /// knots of the curve for one bent by a gravity well or banked off a crate. The dashes, the cone and the
         /// open fade are laid along the whole of it, so the knots do not show.</param>
@@ -315,8 +331,9 @@ namespace Prazsky.Core.Render
         /// fades the dashes out along the last leg instead of ending them at a point. It draws no cone.</param>
         /// <param name="spread">How far to the side of the far end the shot may come to rest: <see cref="LANDING_SPREAD"/>
         /// where it snaps into a lattice cell beside the ball it touches, opening the beam into a cone and a patch
-        /// over that region; zero (or anything up to the line's own width) for a plain line, as a cutter, which
-        /// strikes the very ball the beam ends on, wants.</param>
+        /// over that region; zero for a plain line, as a cutter, which strikes the very ball the beam ends on, wants
+        /// (and so is anything up to <see cref="WIDTH"/> × <see cref="TENTH_LIGHT_ACROSS"/>, whose far width,
+        /// <see cref="FarWidth"/>, is the line's own).</param>
         /// <param name="opacity">Scales the whole beam. The Game hands over the inverse of its precise-aim blend:
         /// leaning in over the barrel the lens looks <i>along</i> the bore, so the beam foreshortens into a stack of
         /// dashes piled over the very cell it is pointing at — and it has nothing to add there, because a crosshair
@@ -327,7 +344,7 @@ namespace Prazsky.Core.Render
         {
             if (opacity <= MIN_OPACITY) return;
 
-            int count = Lay(path, phase, openEnded, spread, _pieces, _glowGain);
+            int count = Lay(path, phase, openEnded, spread, camera.Position, _pieces, _glowGain);
             if (count == 0) return;
 
             Vector3 linear = ColorSpace.SrgbToLinear(srgbTint);
@@ -350,6 +367,9 @@ namespace Prazsky.Core.Render
             _device.SetVertexBuffer(_vertexBuffer);
             _device.Indices = _indexBuffer;
 
+            //The widths last sent. NaN equals nothing, so every Draw sends its first piece's
+            float tailWidth = float.NaN, headWidth = float.NaN;
+
             for (int i = 0; i < count; i++)
             {
                 ref readonly Piece piece = ref _pieces[i];
@@ -357,10 +377,11 @@ namespace Prazsky.Core.Render
                 _tailParam.SetValue(piece.Tail);
                 _headParam.SetValue(piece.Head);
 
-                //Per piece and not per construction -- see the remarks: the effect is shared with LaunchSmears and
-                //LineSparks, which want widths of their own, and every piece of a cone has its own two
-                _tailWidthParam.SetValue(piece.TailWidth);
-                _headWidthParam.SetValue(piece.HeadWidth);
+                //Per draw and not per construction -- see the remarks: the effect is shared with LaunchSmears and
+                //LineSparks, which want widths of their own. Within this loop nothing else draws through it, so a
+                //width is sent only when it changes: a plain dash's are the line's, every piece of a cone has its own
+                if (piece.TailWidth != tailWidth) _tailWidthParam.SetValue(tailWidth = piece.TailWidth);
+                if (piece.HeadWidth != headWidth) _headWidthParam.SetValue(headWidth = piece.HeadWidth);
                 _alphaParam.SetValue(piece.Alpha * opacity);
 
                 _pass.Apply();
@@ -388,9 +409,15 @@ namespace Prazsky.Core.Render
         /// through a knot; and the cone, so a beam bent by a well opens once over its whole length rather than once
         /// per leg. A dash that a knot cuts is two pieces, each with the widths at its own two ends, which makes the
         /// two halves one continuous slice of the line.
+        /// <para>
+        /// <b>The flight's far direction is its last leg with a length</b> (<see cref="LastLeg"/>): a stepped flight can
+        /// put a knot within a thousandth of its end, and a last leg of nothing has no direction for the glow to run on
+        /// past the touch in, nor a length for the open fade to run over.
+        /// </para>
         /// </remarks>
-        internal static int Lay(ReadOnlySpan<Vector3> path, float phase, bool openEnded, float spread, Span<Piece> pieces,
-            float glowGain = 1f)
+        /// <param name="viewer">Where the camera is: the glow past the touch is laid square to its view (<see cref="OVERRUN"/>).</param>
+        internal static int Lay(ReadOnlySpan<Vector3> path, float phase, bool openEnded, float spread, Vector3 viewer,
+            Span<Piece> pieces, float glowGain = 1f)
         {
             if (path.Length < 2 || pieces.Length == 0) return 0;
 
@@ -402,10 +429,38 @@ namespace Prazsky.Core.Render
             float farWidth = openEnded ? WIDTH : FarWidth(spread);
             bool cone = farWidth > WIDTH;
 
-            int count = LayDashes(path, total, phase, openEnded, cone, pieces);
-            if (cone) count = LayGlow(path, total, farWidth, glowGain, pieces, count);
+            int lastLeg = LastLeg(path);
+
+            int count = LayDashes(path, total, lastLeg, phase, openEnded, cone, pieces);
+            if (cone) count = LayGlow(path, total, lastLeg, farWidth, viewer, glowGain, pieces, count);
 
             return count;
+        }
+
+        /// <summary>The last leg of <paramref name="path"/> longer than a thousandth, or the first leg when none is.</summary>
+        private static int LastLeg(ReadOnlySpan<Vector3> path)
+        {
+            for (int leg = path.Length - 2; leg > 0; leg--)
+                if (Vector3.Distance(path[leg], path[leg + 1]) > Constants.THOUSANDTH) return leg;
+
+            return 0;
+        }
+
+        /// <summary>
+        /// <paramref name="direction"/> turned square to the view ray <paramref name="view"/>: its part across the
+        /// view, made unit, which is the way it runs on screen at its full length. Unchanged when it has no such part
+        /// (a lens looking exactly along it) or there is no view to speak of.
+        /// </summary>
+        internal static Vector3 FacingLens(Vector3 direction, Vector3 view)
+        {
+            float viewLength = view.Length();
+            if (viewLength <= Constants.THOUSANDTH) return direction;
+
+            Vector3 along = view / viewLength;
+            Vector3 across = direction - along * Vector3.Dot(direction, along);
+            float acrossLength = across.Length();
+
+            return acrossLength > Constants.THOUSANDTH ? across / acrossLength : direction;
         }
 
         /// <summary>
@@ -413,13 +468,14 @@ namespace Prazsky.Core.Render
         /// nothing, and on a cone the hand-over to the glow (<see cref="GLOW_FROM"/>), by which the dashes widen a
         /// little and fade out by the touch.
         /// </summary>
-        private static int LayDashes(ReadOnlySpan<Vector3> path, float total, float phase, bool openEnded, bool cone,
-            Span<Piece> pieces)
+        private static int LayDashes(ReadOnlySpan<Vector3> path, float total, int finalLeg, float phase, bool openEnded,
+            bool cone, Span<Piece> pieces)
         {
             //The open fade runs over the last leg, as it did when each leg was drawn on its own: a bank shot that
             //reaches nothing keeps its first leg whole and dies away after the bounce
-            float lastLeg = Vector3.Distance(path[^2], path[^1]);
-            float lastLegStart = total - lastLeg;
+            float lastLegStart = 0f;
+            for (int i = 0; i < finalLeg; i++) lastLegStart += Vector3.Distance(path[i], path[i + 1]);
+            float lastLeg = Vector3.Distance(path[finalLeg], path[finalLeg + 1]);
 
             float dashLength = SPACING * DASH_FRACTION;
             float minDash = SPACING * MIN_DASH_FRACTION;
@@ -503,11 +559,15 @@ namespace Prazsky.Core.Render
         /// from where the hand-over begins to <see cref="OVERRUN"/> past the touch, each as wide as the cone where its
         /// ends are and as bright as the hand-over has risen to at its middle. Static: the dashes crawl, the patch stays.
         /// </summary>
-        private static int LayGlow(ReadOnlySpan<Vector3> path, float total, float farWidth, float gain, Span<Piece> pieces,
-            int count)
+        private static int LayGlow(ReadOnlySpan<Vector3> path, float total, int finalLeg, float farWidth, Vector3 viewer,
+            float gain, Span<Piece> pieces, int count)
         {
             float from = GLOW_FROM * total;
             float end = total + OVERRUN;
+
+            //Past the touch the run turns square to the lens (OVERRUN): the far leg's direction with none of it into the screen
+            Vector3 touch = path[^1];
+            Vector3 overrun = FacingLens(Vector3.Normalize(path[finalLeg + 1] - path[finalLeg]), touch - viewer);
 
             //Where the cone is fully open: the near edge of the landing region, so the whole of it is at the far width
             float open = MathF.Max(total - REGION_BEHIND, Constants.THOUSANDTH);
@@ -526,7 +586,7 @@ namespace Prazsky.Core.Render
                 float light = GLOW_LIGHT * gain * HandOver(middle / total) * dim;
                 if (light <= Constants.THOUSANDTH * Constants.THOUSANDTH) continue;
 
-                pieces[count++] = new Piece(PointAt(path, tail), PointAt(path, head),
+                pieces[count++] = new Piece(GlowPoint(path, total, overrun, tail), GlowPoint(path, total, overrun, head),
                     ConeWidth(tail / open, farWidth), ConeWidth(head / open, farWidth), MathF.Sqrt(light));
             }
 
@@ -556,25 +616,25 @@ namespace Prazsky.Core.Render
             return t * t * (3f - 2f * t);
         }
 
-        //A point at a distance along the flight, on the leg that covers it. Past the last leg's end it carries on along
-        //that leg's line (Lerp extrapolates), which is where the glow's overrun runs; before the muzzle it is the muzzle
+        //A point at a distance along the flight, on the leg that covers it; a leg of nothing is its one point
         private static Vector3 PointOnLeg(ReadOnlySpan<Vector3> path, int leg, float legStart, float legLength, float distance) =>
             legLength > Constants.THOUSANDTH
                 ? Vector3.Lerp(path[leg], path[leg + 1], (distance - legStart) / legLength)
                 : path[leg];
 
-        //PointOnLeg for any distance, the leg found by walking from the muzzle: a glow is a couple of dozen chords over a
-        //flight of a few legs (a few dozen where a well bends it), so the walk is cheaper than any cursor kept for it
-        private static Vector3 PointAt(ReadOnlySpan<Vector3> path, float distance)
+        //A point of the glow's run: on the flight up to the touch, the leg found by walking from the muzzle (a glow is a
+        //couple of dozen chords over a flight of a few legs, a few dozen where a well bends it, so the walk is cheaper than
+        //any cursor kept for it), and past the touch along `overrun`, square to the lens. Before the muzzle it is the muzzle
+        private static Vector3 GlowPoint(ReadOnlySpan<Vector3> path, float total, Vector3 overrun, float distance)
         {
             if (distance <= 0f) return path[0];
+            if (distance >= total) return path[^1] + overrun * (distance - total);
 
             float legStart = 0f;
             for (int leg = 0; leg + 1 < path.Length; leg++)
             {
                 float legLength = Vector3.Distance(path[leg], path[leg + 1]);
-                if (distance <= legStart + legLength || leg + 2 == path.Length)
-                    return PointOnLeg(path, leg, legStart, legLength, distance);
+                if (distance <= legStart + legLength) return PointOnLeg(path, leg, legStart, legLength, distance);
 
                 legStart += legLength;
             }

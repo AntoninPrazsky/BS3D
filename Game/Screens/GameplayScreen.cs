@@ -1251,7 +1251,7 @@ namespace BS3D.Screens
         private bool _cutterRefused;
 
         /// <summary>
-        /// The dashed line of light out of the muzzle, and the two ends it is drawn between. It exists for the
+        /// The dashed line of light out of the muzzle, drawn along the flight a shot fired now would take. It exists for the
         /// <b>overview</b>, where there is no crosshair and the barrel's foreshortened angle was the only clue to
         /// where the gun pointed — and it is what carries the refusal to that mode, since a red beam ending on the
         /// ball it cannot stick to says what the reddened crosshair says in precise aim.
