@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-19 — #1178 trailer v4 a v5 — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: Game `maxdetail` (`RenderDetail`: smrky aurory do 1000, blízké koruny, střechy, kuličky), trailer v4 a v5 (54,6 s, `Videos\BS3D trailer\bs3d-trailer-v5-master.mp4`). `trailer-cut.py`: `hands`, postupná slova, syntetizované údery/švihnutí, čistý limiter, `--stems`.
+- Majitel (v3, v4): úvod akcí bez loga, jeden celkový záběr světa, ruce hráče místo automatu, přílet a přesné míření na začátku akce, karta nezhasne, údery dunivější a čistší.
+- ⚠ `capturedemo` má vlastní kameru vedle děla: klip s HUD nikdy s ním. Výstřely automatu (`[bench] shot at`) přehrané rukama dají stejnou hru; ruka čeká, až hra hlaveň předá (Ziggurat 26,1, Fish 15,5). Měkká saturace zkreslovala údery.
+- Otevřené: verdikt na v5; montáž natočená před #1165/#1167; 87 GB 4K klipů v `%TEMP%`.
+
 ## 2026-11-19 — #1167 Mars jako planina, méně kráterů — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: Mars má hustotu kráterů planiny. Šance na kráter v menších oktávách 0,82/0,70/0,64 → 0,20/0,14/0,10 (49, 18,6 a 7,2 jednotky), velké krátery (129 a `BigCraters`) beze změny, jak chtěl majitel v #638. Mísy 22,0 % → 9,5 % plochy, valy 56,4 % → 24,3 % (test `MarsCraterCoverageTests` počítá z hodů shaderu). Mýtina už nekreslí světlé prstence polních kráterů (`ejecta *= ramp`). Kamenné kupy mají měkkou masku (`smoothstep(0.1, 0.9)`), takže už nestojí jako ploché tmavé disky s ostrou hranou a koleje roveru přes ně doznívají.
