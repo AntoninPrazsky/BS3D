@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-19 — #1155 silnější lana a větší navijáky stropu — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno (`CeilingRigging.cs`): buben 0,44/0,33, šířka 0,84 (téměř kulička), 6 závitů; lano r 0,055 (bylo 0,035), stoupání závitů aspoň průměr lana. Zdálky drží lano aspoň 1,5 px v bodě nejbližším objektivu (`CableInstance`, čistá funkce s testem přes skutečnou projekci); tenké lano je vlastní 12boká tyč zploštělá do hloubky, takže má jeden tón (dřív v dlouhém záběru tečkovaná čára, světlá/tmavá po sloupcích pixelů).
+- ⚠ Kulaté stínování na 1,5 px střídá světlou a tmavou polovinu, jak čára přechází sloupce pixelů: tenkou tyč zploštit, ne zesvětlit.
+- Otevřené: verdict-eye (velikost; alternativa r 0,07 ve scratchpadu `issue-1155/alt-cable-0.07`). Přes sklo zůstávají lana rozbitá na krátké barevné tahy (lom #541) — možná „zubatý artefakt“, chtělo by vlastní změnu skla.
+
 ## 2026-11-19 — #1157 #1156 savana: nic nestojí v kameni, let „grass home“ pod korunami — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: každý kámen savany se kontroluje proti sázeným věcem (`PlantVolumes.StoneClearance` proti `RockMesh.Off`); pláň ho bere jako třetí odpověď místa (pořadí kostek beze změny), treeline se vytlačí z kamenů, trs na břehu odkročí. `SavannaStoneTests`: 0 z 200 285 věcí v kameni. Pohnulo se 397 hmot treeline, 252 trsů na břehu, 1 akácie.
