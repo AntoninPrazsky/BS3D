@@ -39,7 +39,8 @@ namespace BS3D.Effects
         /// <summary>What a choice of cycle and side keeps the ride off, the strictest first.</summary>
         internal enum Keep
         {
-            /// <summary>Everything the class doc names, the frame never swinging faster than <see cref="MAX_SWING_DEGREES"/>.</summary>
+            /// <summary>Everything the class doc names, the frame never swinging faster than the choice's limit
+            /// (<see cref="MAX_SWING_DEGREES"/> unless a test asks for a lower one).</summary>
             Calm,
 
             /// <summary>Everything the class doc names, however fast the frame swings.</summary>
@@ -93,7 +94,8 @@ namespace BS3D.Effects
 
         //The fastest a calm ride's frame swings round its cycle, degrees a second (Keep.Calm). A cycle turns at most every two
         //nodes (#1162), so three right angles the same way swing it at about 69 at most and every ride is calm; this binds again
-        //if the cycles turn closer (at successive nodes, three right angles swung it at up to about 100). ⚠ Averaged over 1.2 s
+        //if the cycles turn closer (at successive nodes, three right angles swung it at up to about 100), so GridRideTests holds
+        //the filter at a limit two right angles do reach, where it refuses what a clear ride takes. ⚠ Averaged over 1.2 s
         //either side, one right angle swung at 75 a second and a U-turn at 123 (150 averaged as vectors, see Heading), and
         //refusing every U-turn left two reels in five without a ride
         internal const float MAX_SWING_DEGREES = 80f;
@@ -144,13 +146,14 @@ namespace BS3D.Effects
         /// <summary>
         /// A ride beside whichever cycle, on whichever side, keeps off what <paramref name="keep"/> names from
         /// <paramref name="from"/> to <paramref name="until"/> on the wall clock, the shot playing its first
-        /// <paramref name="seconds"/>; null when none does.
+        /// <paramref name="seconds"/>; null when none does. A calm choice swings the frame no faster than
+        /// <paramref name="swingDegrees"/> a second.
         /// </summary>
         internal static GridRide Plan(LightCycleRuns runs, float floorY, IReadOnlyList<GridSolid> solids, GridRing? ring,
-            float from, float until, float seconds, Keep keep = Keep.Calm)
+            float from, float until, float seconds, Keep keep = Keep.Calm, float swingDegrees = MAX_SWING_DEGREES)
         {
             var ride = new GridRide(runs, floorY, solids, ring);
-            return ride.Choose(from, until, seconds, keep) ? ride : null;
+            return ride.Choose(from, until, seconds, keep, swingDegrees: swingDegrees) ? ride : null;
         }
 
         /// <summary>
@@ -158,16 +161,18 @@ namespace BS3D.Effects
         /// <paramref name="seconds"/>: of the candidates that keep off what <paramref name="keep"/> names through all of it, the
         /// one that looks most squarely in towards the arena, with a turn more than the first costing
         /// <see cref="EXTRA_TURN_COST"/>; with <paramref name="stay"/>, the cycle and side already chosen or none, for a shot on
-        /// screen, where another is a cut. False, and the choice left as it was, when none does.
+        /// screen, where another is a cut. False, and the choice left as it was, when none does. A calm choice swings the frame no
+        /// faster than <paramref name="swingDegrees"/> a second.
         /// </summary>
-        internal bool Choose(float from, float until, float seconds, Keep keep = Keep.Calm, bool stay = false)
+        internal bool Choose(float from, float until, float seconds, Keep keep = Keep.Calm, bool stay = false,
+            float swingDegrees = MAX_SWING_DEGREES)
         {
             bool strict = keep != Keep.Safe;
             Array.Fill(_clear, !stay);
             if (stay) _clear[Cycle * SIDES + (Side > 0f ? 0 : 1)] = true;
             Array.Clear(_inward);
             int samples = 0;
-            float maxSwing = MathHelper.ToRadians(MAX_SWING_DEGREES);
+            float maxSwing = MathHelper.ToRadians(swingDegrees);
 
             //How often each cycle turns while the shot plays: once a cycle, for both its sides
             for (int cycle = 0; cycle < LightCycleRuns.COUNT; cycle++) _turns[cycle] = Turns(cycle, from, from + seconds);
@@ -262,8 +267,10 @@ namespace BS3D.Effects
         /// swung over twice the reach, at most 90 / <see cref="REACH_SECONDS"/> degrees a second.
         /// <para>
         /// ⚠ The angle, not the heading vector: averaged as vectors, the two headings either side of a U-turn (two right angles
-        /// the same way a node apart) cancel, the average shrinks to the short leg between them and swings round it at up to 150
-        /// degrees a second, where the angle sweeps its 180 at the rate of its two turns' weights.
+        /// the same way) cancel, the average shrinks to the short leg between them and swings round it, the faster the shorter
+        /// the leg, where the angle sweeps its 180 at the rate of its two turns' weights: over this reach, two nodes apart (as
+        /// close as a cycle turns them, #1162) the vectors swing at up to 75 degrees a second and the angle at 62, a node apart
+        /// at 166 and 72.
         /// </para>
         /// </summary>
         internal Vector2 Heading(int cycle, float time)
