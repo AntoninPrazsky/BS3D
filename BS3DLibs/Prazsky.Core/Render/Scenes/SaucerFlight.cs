@@ -19,6 +19,11 @@ namespace Prazsky.Core.Render
     /// <see cref="SaucerPass"/> turns the loop on to bring it there at the moment the shot is laid round, takes it off the loop
     /// for the crossing and eases it back after. Without a pass the loop is a pure function of the wall clock.
     /// </para>
+    /// <para>
+    /// <b>Two hulls by tier.</b> Low and Medium draw <see cref="SaucerMesh"/>'s hull with the bulbs painted on it; High and
+    /// Ultra (<see cref="SceneRenderer.FineMeshes"/>, #1173) draw <see cref="SaucerFineMesh"/>'s hull with its seams, rim,
+    /// belly ring and legs, and its bulbs. Both draw the coarse dome with its antenna and its painted crew.
+    /// </para>
     /// </summary>
     internal sealed class SaucerFlight : IDisposable
     {
@@ -42,9 +47,13 @@ namespace Prazsky.Core.Render
         private readonly GraphicsDevice _graphicsDevice;
         private readonly Effect _effect;
         private readonly EffectTechnique _hullTechnique, _domeTechnique;
+        private readonly EffectTechnique _hullFineTechnique, _bulbTechnique;
         private readonly EffectParameter _world, _view, _projection, _cameraPosition, _time, _sunDirection, _sunColor;
         private readonly EffectParameter _skyAmbient, _groundAmbient;
         private readonly SaucerMesh _mesh;
+
+        //High and Ultra's parts, by SaucerFineMesh.Part
+        private readonly SaucerFineMesh[] _fine;
 
         public SaucerFlight(GraphicsDevice graphicsDevice, ContentManager content)
         {
@@ -52,6 +61,8 @@ namespace Prazsky.Core.Render
             _effect = content.Load<Effect>("Shaders/Saucer");
             _hullTechnique = _effect.Techniques["SaucerHull"];
             _domeTechnique = _effect.Techniques["SaucerDome"];
+            _hullFineTechnique = _effect.Techniques["SaucerHullFine"];
+            _bulbTechnique = _effect.Techniques["SaucerBulb"];
             _world = _effect.Parameters["World"];
             _view = _effect.Parameters["View"];
             _projection = _effect.Parameters["Projection"];
@@ -67,8 +78,13 @@ namespace Prazsky.Core.Render
             _effect.Parameters["UnderY"].SetValue(SaucerMesh.UNDER_Y);
             _effect.Parameters["DomeSpan"].SetValue(new Vector2(SaucerMesh.DOME_BASE, SaucerMesh.DOME_HEIGHT));
             _effect.Parameters["TopRing"].SetValue(SaucerMesh.TOP_RING);
+            _effect.Parameters["PanelGrooves"].SetValue(SaucerFineMesh.Grooves);
+            _effect.Parameters["Panels"].SetValue((float)SaucerFineMesh.PANELS);
 
             _mesh = new SaucerMesh(graphicsDevice);
+            var parts = Enum.GetValues<SaucerFineMesh.Part>();
+            _fine = new SaucerFineMesh[parts.Length];
+            foreach (SaucerFineMesh.Part part in parts) _fine[(int)part] = new SaucerFineMesh(graphicsDevice, part);
         }
 
         /// <summary>The loop's angle about the station at <paramref name="time"/>, radians, turned on by <paramref name="shift"/>.</summary>
@@ -109,8 +125,10 @@ namespace Prazsky.Core.Render
         public void Cue(in SaucerPass pass) => _pass = pass;
 
         /// <summary>Draws the craft, opaque and writing depth, lit by the scene's own rig (<paramref name="lighting"/>, the
-        /// config's, which a level may replace). Leaves the depth and blend states as it found them.</summary>
-        public void Draw(in SceneFrame frame, SpaceLightingConfig lighting)
+        /// config's, which a level may replace): <paramref name="fine"/> High and Ultra's hull and bulbs
+        /// (<see cref="SaucerFineMesh"/>), else Low and Medium's hull; the coarse dome either way.
+        /// Leaves the depth, blend and rasterizer states as it found them.</summary>
+        public void Draw(in SceneFrame frame, SpaceLightingConfig lighting, bool fine)
         {
             _skyAmbient.SetValue(lighting.SkyAmbient.ToVector3());
             _groundAmbient.SetValue(lighting.GroundAmbient.ToVector3());
@@ -129,7 +147,12 @@ namespace Prazsky.Core.Render
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
 
-            DrawMesh(_mesh.Hull, _hullTechnique);
+            if (fine)
+            {
+                DrawMesh(_fine[(int)SaucerFineMesh.Part.Hull], _hullFineTechnique);
+                DrawMesh(_fine[(int)SaucerFineMesh.Part.Bulbs], _bulbTechnique);
+            }
+            else DrawMesh(_mesh.Hull, _hullTechnique);
             DrawMesh(_mesh.Dome, _domeTechnique);
 
             _graphicsDevice.BlendState = blend;
@@ -137,7 +160,7 @@ namespace Prazsky.Core.Render
             _graphicsDevice.RasterizerState = rasterizer;
         }
 
-        private void DrawMesh(LatheMesh mesh, EffectTechnique technique)
+        private void DrawMesh(IProceduralMesh mesh, EffectTechnique technique)
         {
             _graphicsDevice.SetVertexBuffer(mesh.VertexBuffer);
             _graphicsDevice.Indices = mesh.IndexBuffer;
@@ -149,6 +172,7 @@ namespace Prazsky.Core.Render
         public void Dispose()
         {
             _mesh?.Dispose();
+            if (_fine != null) foreach (SaucerFineMesh part in _fine) part?.Dispose();
         }
     }
 }

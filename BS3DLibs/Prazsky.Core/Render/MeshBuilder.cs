@@ -239,6 +239,78 @@ namespace Prazsky.Core.Render
             }
         }
 
+        /// <summary>
+        /// A surface of revolution about the local Y axis, laid into this mesh through <paramref name="placement"/>: the
+        /// saucer's bulbs, sockets and legs (#1173), small solids that share one buffer with others of their
+        /// material. The profile follows <see cref="LatheMesh"/>'s rule: in order along the surface, the outward normal the
+        /// profile's tangent turned a quarter left in the (radius, y) plane, so a profile that starts on the axis at the top,
+        /// runs out and down and back in to the axis at the bottom is a shut solid facing out. A <see cref="LathePoint.Crease"/>
+        /// keeps the two spans' normals apart; elsewhere they are smoothed. <paramref name="placement"/> may scale unevenly
+        /// (an ellipsoid from a sphere's profile): the normals go through its inverse transpose. Every vertex carries
+        /// <paramref name="texCoord"/>, which a shader may read as the part the solid is. No radial irregularity.
+        /// </summary>
+        public void AddLathe(IReadOnlyList<LathePoint> profile, int segments, Matrix placement, Vector2 texCoord)
+        {
+            int rings = profile.Count, spans = rings - 1;
+            Matrix normalMatrix = Matrix.Transpose(Matrix.Invert(placement));
+
+            //Each span's normal in the (radius, y) plane, then each ring's either side of it (apart only at a crease)
+            var spanNormal = new Vector2[spans];
+            for (int s = 0; s < spans; s++)
+            {
+                Vector2 tangent = new(profile[s + 1].Radius - profile[s].Radius, profile[s + 1].Y - profile[s].Y);
+                spanNormal[s] = tangent.LengthSquared() > 1e-12f ? Vector2.Normalize(new Vector2(-tangent.Y, tangent.X)) : Vector2.UnitY;
+            }
+
+            var below = new Vector2[rings];   //what a ring shows the span before it
+            var above = new Vector2[rings];   //and the span after it
+            for (int k = 0; k < rings; k++)
+            {
+                Vector2 before = spanNormal[Math.Max(0, k - 1)], after = spanNormal[Math.Min(spans - 1, k)];
+                if (profile[k].Crease || k == 0 || k == rings - 1)
+                {
+                    below[k] = before;
+                    above[k] = after;
+                }
+                else
+                {
+                    Vector2 mean = before + after;
+                    below[k] = above[k] = mean.LengthSquared() > 1e-12f ? Vector2.Normalize(mean) : after;
+                }
+            }
+
+            for (int s = 0; s < spans; s++)
+            {
+                LathePoint low = profile[s], high = profile[s + 1];
+                if (low.Radius == high.Radius && low.Y == high.Y) continue;
+
+                for (int i = 0; i < segments; i++)
+                {
+                    float a0 = i / (float)segments * MathHelper.TwoPi, a1 = (i + 1) / (float)segments * MathHelper.TwoPi;
+                    (Vector3 p00, Vector3 n00) = Revolve(low, above[s], a0);
+                    (Vector3 p10, Vector3 n10) = Revolve(low, above[s], a1);
+                    (Vector3 p11, Vector3 n11) = Revolve(high, below[s + 1], a1);
+                    (Vector3 p01, Vector3 n01) = Revolve(high, below[s + 1], a0);
+
+                    //The span's own normal swung to the facet's middle decides the winding, as the trophy's body does
+                    float mid = (a0 + a1) * 0.5f;
+                    Vector3 face = Vector3.TransformNormal(new Vector3(spanNormal[s].X * MathF.Cos(mid), spanNormal[s].Y,
+                        spanNormal[s].X * MathF.Sin(mid)), normalMatrix);
+
+                    if (low.Radius <= 0f) AddTriangle(p01, p11, p00, n01, n11, n00, texCoord, texCoord, texCoord, face);
+                    else if (high.Radius <= 0f) AddTriangle(p00, p10, p01, n00, n10, n01, texCoord, texCoord, texCoord, face);
+                    else AddQuad(p00, p10, p11, p01, n00, n10, n11, n01, texCoord, texCoord, texCoord, texCoord, face);
+                }
+            }
+
+            (Vector3, Vector3) Revolve(LathePoint point, Vector2 normal, float angle)
+            {
+                (float sin, float cos) = MathF.SinCos(angle);
+                Vector3 position = Vector3.Transform(new Vector3(point.Radius * cos, point.Y, point.Radius * sin), placement);
+                return (position, Vector3.TransformNormal(new Vector3(normal.X * cos, normal.Y, normal.X * sin), normalMatrix));
+            }
+        }
+
         //One flat triangle, shaded by its own geometric normal turned to the side `outward` says is out
         private void AddFacet(Vector3 a, Vector3 b, Vector3 c, Vector3 outward)
         {

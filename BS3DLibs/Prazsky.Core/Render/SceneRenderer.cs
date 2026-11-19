@@ -448,7 +448,7 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Whether the scenes draw their <b>finer meshes</b> (#758): High and Ultra's, where Low and Medium draw the coarser
-        /// mesh of the same thing off the same instances. Eleven things today: the savanna acacias' wood — the fork grown as one
+        /// mesh of the same thing off the same instances. Twelve things today: the savanna acacias' wood — the fork grown as one
         /// surface out of a swollen, lobed crotch rather than tubes poking out of the trunk's cut end
         /// (<see cref="AcaciaMesh.FineWood"/>, <see cref="ScatterBucket.FineMeshes"/>, #758) — the meadow's old trees' wood
         /// grown the same way, the limbs coming out through the crotch's side (<see cref="MeadowTreeMesh.FineWood"/>, #889,
@@ -467,7 +467,9 @@ namespace Prazsky.Core.Render
         /// lathes — and the outback's formations near the arena (#967): a polar disc of 160 segments by 80 rings under each,
         /// where Low and Medium lay the far ones' 96 by 40 (<see cref="OutbackRockDiscs"/>) — and the desert's beetles and scorpions (#1110):
         /// segmented shells, jointed legs, pincers and a keeled tail (<see cref="CritterMesh.FineBeetle"/>,
-        /// <see cref="CritterMesh.FineScorpion"/>) where Low and Medium keep the ellipsoids and tubes. The spruces belong to the hosts' own <see cref="ForestScatterRenderer"/>s, which take this flag at every draw.
+        /// <see cref="CritterMesh.FineScorpion"/>) where Low and Medium keep the ellipsoids and tubes — and the space saucer
+        /// (#1173): a hull with seams, sockets, a belly ring and legs, and glass bulbs (<see cref="SaucerFineMesh"/>), where Low
+        /// and Medium keep a lathe with the bulbs painted on. The spruces belong to the hosts' own <see cref="ForestScatterRenderer"/>s, which take this flag at every draw.
         /// <para>
         /// A switch of its own rather than a step of <see cref="SceneDetail"/>, because that one is Low's alone (#298) and
         /// this one is Medium's too: Medium is the weak machine's rung. A plain flag for <see cref="SupersampleFactor"/>'s

@@ -228,7 +228,7 @@ namespace Prazsky.Core.Render
             _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
 
             //The saucer over the sky, writing depth so the station stands in front of it (#955)
-            if (!firstHalf) _saucer.Draw(frame, _spaceConfig.Lighting);
+            if (!firstHalf) _saucer.Draw(frame, _spaceConfig.Lighting, Services.FineMeshes);
 
             //Put back what the rest of the opaque scene wants. The depth state especially: left at None, the
             //island would not occlude the cluster and the whole frame would draw in submission order.
@@ -259,7 +259,7 @@ namespace Prazsky.Core.Render
             _spaceBaseTexture.SetValue((Texture2D)null);
             _graphicsDevice.Textures[0] = null;
 
-            _saucer.Draw(frame, _spaceConfig.Lighting);
+            _saucer.Draw(frame, _spaceConfig.Lighting, Services.FineMeshes);
             return true;
         }
 
