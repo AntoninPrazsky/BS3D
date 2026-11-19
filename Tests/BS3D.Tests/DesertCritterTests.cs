@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Prazsky.Core.Render;
 using Xunit;
@@ -93,6 +94,69 @@ namespace BS3D.Tests
                 _output.WriteLine($"{what}: walks {walked:F2} units, {walked / size:F1} of its lengths, in {walk:F1} s");
                 Assert.InRange(walked / size, 1.5f, 6f);
             }
+        }
+
+        /// <summary>
+        /// A beetle's prints are laid, not dragged (#1186): from one frame to the next every print is where a print already lay,
+        /// fading no faster than the beetle walks, except the newest, just laid behind it at nearly full strength; and a print
+        /// that goes has faded to almost nothing first. Every roaming beetle and the intro's featured one, over their cycles.
+        /// </summary>
+        [Fact]
+        public void A_beetles_prints_stay_where_they_were_laid()
+        {
+            const float STEP = 1f / 60f;
+            var cue = new Vector2(40f, 10f);
+            int held = 0, laid = 0, dropped = 0;
+            var last = new List<(Vector2 At, float Fade)>();
+            var now = new List<(Vector2 At, float Fade)>();
+            for (int i = -1; i < DesertCritters.Count; i++)
+            {
+                if (i >= 0 && DesertCritters.IsScorpion(i)) continue;
+                last.Clear();
+                Vector2 start = new(float.NaN);
+                for (float t = 0f; t < 120f; t += STEP)
+                {
+                    DesertCritters.Pose pose;
+                    bool up = i < 0
+                        ? DesertCritters.TryFeaturePose(cue, 0.7f, 3f, t, Ground, out pose, scorpion: false)
+                        : DesertCritters.TryPose(i, t, Ground, out pose);
+                    if (!up || pose.Start != start) { last.Clear(); start = up ? pose.Start : new(float.NaN); }
+                    if (!up) continue;
+
+                    now.Clear();
+                    for (int k = 1; DesertCritters.TrailPrint(pose, DesertCritters.BEETLE_SIZE, k, out Vector2 at, out float fade); k++)
+                    {
+                        Assert.InRange(fade, 0f, 1f);
+                        now.Add((at, fade));
+                    }
+                    if (last.Count > 0)
+                    {
+                        for (int k = 0; k < now.Count; k++)
+                        {
+                            int was = last.FindIndex(p => Vector2.Distance(p.At, now[k].At) < 1e-4f);
+                            if (was >= 0)
+                            {
+                                Assert.True(now[k].Fade <= last[was].Fade + 1e-5f, $"beetle {i}: a print grew darker at {t:0.00} s");
+                                held++;
+                            }
+                            else
+                            {
+                                Assert.True(k == 0 && now[k].Fade > 0.9f, $"beetle {i}: print {k + 1} at {t:0.00} s lies where no print lay a frame before");
+                                laid++;
+                            }
+                        }
+                        foreach (var p in last)
+                            if (!now.Exists(q => Vector2.Distance(p.At, q.At) < 1e-4f))
+                            {
+                                Assert.True(p.Fade < 0.1f, $"beetle {i}: a print at {p.Fade:0.00} vanished at {t:0.00} s");
+                                dropped++;
+                            }
+                    }
+                    (last, now) = (now, last);
+                }
+            }
+            _output.WriteLine($"prints held {held}, laid {laid}, dropped {dropped}");
+            Assert.True(held > 1000 && laid > 50 && dropped > 20, $"too little walking to judge: held {held}, laid {laid}, dropped {dropped}");
         }
 
         /// <summary>Not a check: where a beetle has walked furthest within its first walk after 6 s, for a capture's camera.</summary>
