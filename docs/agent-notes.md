@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-19 — #1173 #1174 detailní talíř a posádka za sklem — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: na High/Ultra je vesmírný talíř `SaucerFineMesh` (pět sítí): trup s 16 radiálními švy, drážkami, límcem, lemem, prstencem kolem zapuštěné tyrkysové čočky a třemi nohami (#1173); 40 skleněných žárovek nad objímkami; anténa zvlášť; kabina se třemi modely posádky kolem konzole a skutečná skleněná kopule kreslená až po neprůhledné scéně (`SaucerFlight.DrawGlass` z `DrawOverlays`, #1174). 34 248 trojúhelníků, +0,03 ms; Low/Medium beze změny (2 208).
+- ⚠ Hash odstínu panelů kreslil švy, kde geometrie žádné nemá (lem, límec): trup teď značí pruhy, které švy opravdu řežou.
+- Otevřené: #1173 #1174 verdict-eye (záře žárovek, síla skla, velikost posádky, nohy); sklo kreslené přes stropní desku je nelomené (vědomý kompromis); na telefonu nezkoušeno.
+
 ## 2026-11-19 — #1183 #1182 #1185 nápověda a psaní na telefonu, hvězdy podle pravidel v2 — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: #1182 Cancel v systémovém dialogu telefonu už nezavře Napsat autorovi (`PhoneTyping`, `MenuPage.TypingDialogEscapes`), pole poznámky roste do volné výšky. #1185 Help > CAMPAIGN popisuje hvězdy jako pravidla v2 (rychlost se počítá, čtyři chtějí čisté dohrání hluboko pod par). #1183 na telefonu: každá záložka Help se vejde na X300 (rámeček 1 156 px), ODD BALLS jako mřížka karet s panelem vybrané, Settings > CONTROLS začíná dotykem, Benchmark mluví o telefonu a dotyk ho opravdu zastaví.
