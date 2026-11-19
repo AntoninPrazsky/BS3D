@@ -21,6 +21,9 @@ layout: base.njk
 {%- if '<figure class="compare"' in content %}
     <script type="module" src="/js/compare.js"></script>
 {%- endif %}
+{%- if '<figure class="tiers"' in content %}
+    <script type="module" src="/js/tiers.js"></script>
+{%- endif %}
 {%- if '<video class="clip"' in content %}
     <script type="module" src="/js/clips.js"></script>
 {%- endif %}

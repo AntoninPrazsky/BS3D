@@ -64,6 +64,13 @@ namespace BS3D
         private const float POTATO_BALL_LOD_BIAS = 2f;
 
         /// <summary>
+        /// <see cref="Prazsky.BS3D.BallRenderSet.LodBias"/> under <c>maxdetail</c> (#1178): a budget a thousand times finer
+        /// than the authored one, so every ball the lens can see is drawn with the finest sphere and none changes mesh as a
+        /// tour's lens flies in.
+        /// </summary>
+        private const float MAX_DETAIL_BALL_LOD_BIAS = 0.001f;
+
+        /// <summary>
         /// The width of the balls' rims on the Potato path, in pixels of the target (#804), when the command line names
         /// none: 1, the exact coverage of a pixel by an edge. On, because the owner asked for the port's edges not to be
         /// blocky and the Pi measured what it costs: +0.3 to +0.8 ms a frame at 720p and +0.5 to +1.2 at native, the

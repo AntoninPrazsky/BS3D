@@ -515,7 +515,10 @@ namespace Prazsky.Core.Render
 
         /// <summary>Whether a spruce standing at <paramref name="at"/> is within <see cref="FINE_NEAR_RADIUS"/> of the arena's
         /// axis, where it wears High and Ultra's near crown from every lens and in every pass.</summary>
-        internal static bool InArenaReach(Vector3 at) => at.X * at.X + at.Z * at.Z < FINE_NEAR_RADIUS * FINE_NEAR_RADIUS;
+        /// <remarks>Every spruce under <see cref="RenderDetail.Maximum"/> (the trailer, #1178), so every one wears the near
+        /// crown in both passes and none changes as a lens flies past.</remarks>
+        internal static bool InArenaReach(Vector3 at) =>
+            RenderDetail.Maximum || at.X * at.X + at.Z * at.Z < FINE_NEAR_RADIUS * FINE_NEAR_RADIUS;
 
         /// <summary>Whether a spruce standing at <paramref name="at"/> that the camera sees wears High and Ultra's near crown
         /// from <paramref name="lens"/>: within <see cref="FINE_NEAR_RADIUS"/> of the arena's axis, where every host keeps its

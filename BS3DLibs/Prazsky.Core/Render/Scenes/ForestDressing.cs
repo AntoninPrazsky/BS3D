@@ -88,7 +88,10 @@ namespace Prazsky.Core.Render
                     ForestScatterRenderer.BroadleafFigures(trees, variant);
                 MeadowTreeMesh tree = Own(MeadowTreeMesh.ForestInLeaf(device, trunkRadius, trunkHeight, crownRadius, crownHeight, variant.Seed));
 
-                ForestScatterRenderer.SplitByDistance(new[] { planting.FineBroadleaves[v] }, ForestScatterRenderer.FINE_NEAR_RADIUS,
+                //Every broadleaf dressed as a near one under RenderDetail.Maximum (the trailer, #1178): a lens flying out
+                //never meets the line where the dressing changes
+                ForestScatterRenderer.SplitByDistance(new[] { planting.FineBroadleaves[v] },
+                    RenderDetail.Maximum ? float.MaxValue : ForestScatterRenderer.FINE_NEAR_RADIUS,
                     out ModelInstance[][] near, out ModelInstance[][] far);
                 List<ModelInstance> nearAt = Dressed(near[0], ground, seed), farAt = Dressed(far[0], ground, seed);
 

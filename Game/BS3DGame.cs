@@ -863,6 +863,13 @@ namespace BS3D
             //"mute" held over the master and "nograin" over the grain as flags and never stored — see EffectiveSettings
             _effective = new EffectiveSettings(_settings, launch.Mute, launch.NoGrain);
 
+            //"maxdetail" (#1178): before any scene is built, since a wood's dressing is split by distance when it is
+            if (launch.MaxDetail)
+            {
+                RenderDetail.EngageMaximum();
+                Console.WriteLine("[detail] maxdetail: every distance rule draws its finest (spruces, crowns, roofs, balls)");
+            }
+
             //Seeded BEFORE SetScene rather than applied after it, which is the opposite of what sky= does and
             //deliberately so: the scenes that state a dome of their own must still replace it, and every
             //other scene keeps it. An out-of-range dome from a hand-edited file is simply not applied.
@@ -1600,7 +1607,8 @@ namespace BS3D
             _balls = new BallRenderSet(GraphicsDevice, _instancingEffect, ripples: true)
             {
                 //Coarser meshes on the Potato path (#789), where a ball's vertices were a sixth of a heavy level's frame
-                LodBias = PotatoPath ? POTATO_BALL_LOD_BIAS : 1f,
+                //and the finest sphere for every ball under maxdetail (#1178), whatever its distance
+                LodBias = PotatoPath ? POTATO_BALL_LOD_BIAS : RenderDetail.Maximum ? MAX_DETAIL_BALL_LOD_BIAS : 1f,
 
                 //The balls' rims (#804), the Potato path's anti-aliasing: a width asked for on the command line, or the
                 //build's own. Nothing on the desktop path, whose target is multisampled or supersampled.

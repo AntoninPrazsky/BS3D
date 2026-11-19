@@ -218,6 +218,13 @@ namespace BS3D.Screens
             _demoSettledFor = settled ? _demoSettledFor + elapsed : 0f;
             if (_demoSettledFor < DEMO_DWELL || _demo.Age < _demoNextFire) return;
 
+            //Each shot's aim, in the spelling of the scripted aim= (degrees, on the scripted clock): a shot the benchmark's gun found,
+            //one that completes a group, can be fired again by a scripted hand with precise aim held, which the demo's own lens
+            //does not lean for (the trailer's player shot, #1178). Only in a capture run, whose frames nobody times: the benchmark
+            //measures this very loop, and console I/O stays off a measured path (BestPractices.md)
+            if (Game.Capturing)
+                Console.WriteLine(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                    $"[bench] shot at {WallClock:0.###} s: aim={WallClock:0.###}:{MathHelper.ToDegrees(e):0.###}:{MathHelper.ToDegrees(t):0.###}"));
             Shoot();
             _demoHoldUntil = _demoNextFire = _demo.Age + (_demoCutterLoaded ? DEMO_AFTER_CUT : DEMO_HOLD);
             _demoCutterLoaded = false;

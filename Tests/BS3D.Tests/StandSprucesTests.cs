@@ -179,7 +179,7 @@ namespace BS3D.Tests
                     for (int v = 0; v < stand.Feet.Length; v++)
                     {
                         int within = 0;
-                        foreach (Vector2 foot in stand.Feet[v]) if (StandSpruces.Swaps(foot.X, foot.Y, lens)) within++;
+                        foreach (Vector2 foot in stand.Feet[v]) if (StandSpruces.Swaps(foot.X, foot.Y, lens, stand.Radius)) within++;
                         Assert.True(within <= stand.MostTaken[v], $"from {lens}, {within} spruces of variant {v} are within the swap, room for {stand.MostTaken[v]}");
                         most[v] = Math.Max(most[v], within);
                         all += within;
@@ -223,8 +223,8 @@ namespace BS3D.Tests
             Assert.Contains("float kept = step(StandSwapRadius * StandSwapRadius, dot(fromLens, fromLens));", source);
             Assert.Contains("* (instance.Place.w * onGround * kept)", source);
 
-            Assert.True(StandSpruces.Swaps(10f, 0f, new Vector3(10f + StandSpruces.SWAP_RADIUS * 0.999f, 5f, 0f)));
-            Assert.False(StandSpruces.Swaps(10f, 0f, new Vector3(10f + StandSpruces.SWAP_RADIUS, 5f, 0f)));
+            Assert.True(StandSpruces.Swaps(10f, 0f, new Vector3(10f + StandSpruces.SWAP_RADIUS * 0.999f, 5f, 0f), StandSpruces.SWAP_RADIUS));
+            Assert.False(StandSpruces.Swaps(10f, 0f, new Vector3(10f + StandSpruces.SWAP_RADIUS, 5f, 0f), StandSpruces.SWAP_RADIUS));
         }
 
         private static string RepoRoot()
