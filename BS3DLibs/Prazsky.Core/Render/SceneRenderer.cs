@@ -18,14 +18,16 @@ namespace Prazsky.Core.Render
 
     /// <summary>
     /// The aurora's separately drawn layers, for <see cref="SceneRenderer.AuroraLayers"/> (#1027): the fine and the coarse
-    /// snow grid, the collars, the far stand's near and far rings, the sky, the planted wood (drawn by the host, which asks)
-    /// and the falling snow.
+    /// snow grid, the collars, the far stand's near and far rings, the sky, the planted wood (drawn by the host, which asks),
+    /// the falling snow, and the near ring's spires the lens comes near drawn as the wood's spruces on High and Ultra (#1163,
+    /// <see cref="StandSpruces"/>; out, they are drawn as spires).
     /// </summary>
     [System.Flags]
     public enum AuroraLayer
     {
         None = 0, FineGrid = 1, CoarseGrid = 2, Collars = 4, NearStand = 8, FarStand = 16, Sky = 32, Wood = 64, Snow = 128,
-        All = FineGrid | CoarseGrid | Collars | NearStand | FarStand | Sky | Wood | Snow
+        StandSpruces = 256,
+        All = FineGrid | CoarseGrid | Collars | NearStand | FarStand | Sky | Wood | Snow | StandSpruces
     }
 
     /// <summary>
@@ -2198,14 +2200,25 @@ namespace Prazsky.Core.Render
                 return false;
             }
 
+            (centre, yMin, yMax) = ShadowBox(camera.Position, camera.Target, extent, groundY, below, above);
+            return true;
+        }
+
+        /// <summary>
+        /// The sun's box <see cref="TryShadowFit"/> lays for a lens at <paramref name="at"/> looking at
+        /// <paramref name="target"/>, over a ground a backdrop states (<see cref="Backdrop.TryShadowFit"/>): the square's
+        /// centre, <paramref name="extent"/> wide, and the box's bottom and top. Device-free, so a test lays the map a host does.
+        /// </summary>
+        internal static (Vector3 Centre, float YMin, float YMax) ShadowBox(Vector3 at, Vector3 target, float extent,
+            float groundY, float below, float above)
+        {
             //Centred AHEAD of the lens, not on it (#662): a square round the camera spent half its texels on what is
             //behind it, and the owner saw the beach's palms stop casting a little way into the picture at every
             //tier. Moved forward along the view by SHADOW_LOOK_AHEAD of the square, scaled by how level the lens
             //looks, so a camera looking straight down keeps it centred under it; the texels are the same, so the
             //shadows reach further for nothing. The light's window is still snapped to whole texels in Fit, so a
             //turning camera slides the window by whole texels and nothing crawls.
-            Vector3 at = camera.Position;
-            Vector3 look = camera.Target - at;
+            Vector3 look = target - at;
             float lookLength = look.Length();
             Vector2 ahead = new(look.X, look.Z);
             float level = ahead.Length();
@@ -2213,10 +2226,7 @@ namespace Prazsky.Core.Render
                 ahead *= SHADOW_LOOK_AHEAD * extent * (level / lookLength) / level;
             else
                 ahead = Vector2.Zero;
-            centre = new Vector3(at.X + ahead.X, groundY, at.Z + ahead.Y);
-            yMin = groundY - below - SHADOW_FIT_MARGIN;
-            yMax = ShadowBoxTop(groundY, above);
-            return true;
+            return (new Vector3(at.X + ahead.X, groundY, at.Z + ahead.Y), groundY - below - SHADOW_FIT_MARGIN, ShadowBoxTop(groundY, above));
         }
 
         /// <summary>

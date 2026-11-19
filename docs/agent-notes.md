@@ -20,6 +20,19 @@ Pravidla:
 
 ---
 
+## 2026-11-19 — #1164 tmavší vzdálená pásma sopky — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: hory sopky stojí tmavší než noční obloha, každé další pásmo o odstín světlejší. Opar země 0,55 → 0,32 barvy horizontu (`LAND_HAZE_SKY`), poslední prolnutí do oblohy začíná až na 900 místo 600 (`VolcanoBackdrop.FarFadeStartLatest`, druhá výjimka ze stropu 600 vedle outbacku) a nad obzorem končí v obloze i s mrakovou palubou (`VolcanoFadeToSky`, vzorec #1121). Testy `VolcanoFarHazeTests`.
+- ⚠ Prolnutí do `FarSky` (kupole bez paluby) dělá ze vzdálených hřebenů pod mraky světlé siluety; ostatní scény to mají dál (chce vlastní issue).
+- ⚠ Hranice 0,6 oblohy platí jen do ~1 050 jednotek; dál ji poslední prolnutí (#551) nedovolí. Pásmo vpravo od kužele v herním pohledu (1 148+) se teď spíš rozpouští do paluby.
+- Otevřené: verdict-eye; pohyb, nižší a Ultra tier, telefon a cena snímku neměřeny.
+
+## 2026-11-19 — #1163 smrky polární záře podle vzdálenosti — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: „obrácené trychtýře“ v úvodu (záběr *wood*, High/Ultra) byly špice vzdáleného porostu (`AuroraStandMesh`), ne smrky. Na High/Ultra se špice blíž než 200 jednotek od objektivu stáhne v `StandVS` do bodu a na jejím místě se kreslí smrk z výsadby (`StandSpruces`, stejný test na stejných floatech). Blízká koruna smrků teď sleduje objektiv každý snímek (90 od objektivu / 110 od arény); měsíční stín bere frustum kamery, takže hra nemění žádnou korunu v žádném průchodu. Smrky porostu nevrhají stín. Číselník `aurora=all/-standspruces`.
+- ⚠ Stínový průchod přepínal koruny (a stíny) mimo záběr, když se dělo otáčelo; test chodil jen kamerový průchod.
+- Otevřené: verdict-eye; pohyb (přeskoky při 200 a 90) nikdo neviděl; poloměr 200 vs. 150 (cena ~0,4–0,5 ms) a stíny porostu jsou na majiteli.
+
 ## 2026-11-19 — #1158 #1159 #1160 #1161 #1175 poznámky k záběrům úvodů kapitol — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: poušť — kamery brouka a štíra 1,6× dál po téže ose (štír jako nakreslený ~0,22–0,23 šířky 16:9, brouk 0,18); hory — vrchol mířen 16 pod apex, kamera na místě, špička ~0,66 nahoru, skála 53–55 %; jeskyně — pořadí chodba, šachta, krystaly, spodek (losuje se ve starém pořadí, seedy beze změny); grid — jízda 13 napříč (dál v buňce mřížky nejde), cyklus 0,27 šířky; vesmír — talíř 20 u/s místo 28, záběr 5,5 s, úvod 15,5 s.

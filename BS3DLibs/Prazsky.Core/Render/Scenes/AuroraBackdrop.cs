@@ -49,6 +49,11 @@ namespace Prazsky.Core.Render
         private readonly VertexBuffer _standInstances, _standFarInstances;
         private readonly StandSectors _standSectors, _standFarSectors;
 
+        //The near ring's spires as the wood's spruces (#1163), and how near the lens StandVS puts a near-ring spire to a point
+        //for its spruce to stand in its place: StandSpruces.SwapRadiusFor the tier, 0 (none) for the far ring
+        private readonly StandSpruces _standSpruces;
+        private readonly EffectParameter _standSwapRadius;
+
         //Each ring's instances lie sorted by sector of bearing round the arena's axis, and only the sectors the lens can see
         //are drawn (#1027): the rings close round the clearing, about 3 million triangles, and a lens sees a fifth of them.
         //On the reference APU at Low the two rings cost 5 ms drawn whole
@@ -147,8 +152,16 @@ namespace Prazsky.Core.Render
             _standMesh = new AuroraStandMesh(_graphicsDevice, config.FarStand);
             _standFarMesh = new AuroraStandMesh(_graphicsDevice, config.FarStand, tiers: 2, sides: 8);
             HashSet<(int, int)> taken = TakenCells(_planting);
-            (_standInstances, _standSectors) = PlantStand(_graphicsDevice, config, config.FarStand.InnerRadius, config.FarStand.NearRadius, config.FarStand.Count, 0, taken);
-            (_standFarInstances, _standFarSectors) = PlantStand(_graphicsDevice, config, config.FarStand.NearRadius, config.FarStand.OuterRadius, config.FarStand.FarCount, 1, taken);
+            (_standInstances, _standSectors) = PlantStand(_graphicsDevice, config, config.FarStand.InnerRadius, config.FarStand.NearRadius, config.FarStand.Count, 0, taken,
+                out StandInstance[] nearRing);
+            (_standFarInstances, _standFarSectors) = PlantStand(_graphicsDevice, config, config.FarStand.NearRadius, config.FarStand.OuterRadius, config.FarStand.FarCount, 1, taken,
+                out _);
+
+            //The near ring's spires as the wood's spruces, for the hosts' renderer to draw where the lens comes near (#1163):
+            //handed over with the planting, which every host builds its renderer of after this
+            _standSpruces = StandSprucesOf(nearRing, config);
+            _planting.Stand = _standSpruces;
+            _standSwapRadius = _effect.Parameters["StandSwapRadius"];
 
             _collar = _effect.Techniques["AuroraCollar"];
             _collarReduced = _effect.Techniques["AuroraCollarReduced"];
@@ -390,10 +403,13 @@ namespace Prazsky.Core.Render
             }
 
             //The far stand, its spires wound clockwise from outside like every procedural mesh: the near ring's four tiers,
-            //then the two of the ring past it
+            //then the two of the ring past it. On High and Ultra a near-ring spire the lens is within the swap of is put to a
+            //point, and the hosts' wood draws its spruce there (#1163, StandSpruces); the far ring is never within it
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
             _standFrustum.Matrix = frame.Camera.View * frame.Camera.Projection;
+            _standSwapRadius.SetValue(_standSpruces.SwapRadiusFor(Services.FineMeshes));
             if ((Layers & AuroraLayer.NearStand) != 0) DrawStand(_standMesh, _standInstances, _standSectors);
+            _standSwapRadius.SetValue(0f);
             if ((Layers & AuroraLayer.FarStand) != 0) DrawStand(_standFarMesh, _standFarInstances, _standFarSectors);
 
             //Then the sky, depth-READ at the far plane: every pixel the ground or the stand owns is rejected before it runs
@@ -458,8 +474,20 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// The layers drawn (#1027): a measurement dial (<see cref="SceneRenderer.AuroraLayers"/>, the Testbed's <c>aurora=</c>),
         /// <see cref="AuroraLayer.All"/> for every other caller. Each layer is drawn or not on the next frame; nothing carries.
+        /// <see cref="AuroraLayer.StandSpruces"/> is handed to the planting's <see cref="StandSpruces.Enabled"/>, which the hosts'
+        /// wood reads, so a spire and its spruce switch together.
         /// </summary>
-        public AuroraLayer Layers { get; set; } = AuroraLayer.All;
+        public AuroraLayer Layers
+        {
+            get => _layers;
+            set
+            {
+                _layers = value;
+                _standSpruces.Enabled = (value & AuroraLayer.StandSpruces) != 0;
+            }
+        }
+
+        private AuroraLayer _layers = AuroraLayer.All;
 
         /// <inheritdoc/>
         public override void OnDetailChanged(float sceneDetail) => _sceneDetail = sceneDetail;
@@ -553,7 +581,7 @@ namespace Prazsky.Core.Render
         #region The far stand
 
         /// <summary>A far spruce's instance: its foot and scale, then its yaw's sine and cosine, its height's stretch and its needles' tint.</summary>
-        private readonly struct StandInstance : IVertexType
+        internal readonly struct StandInstance : IVertexType
         {
             public readonly Vector4 Place;
             public readonly Vector4 Look;
@@ -577,7 +605,7 @@ namespace Prazsky.Core.Render
 
         //The cells a planted spruce or snag stands in: the far stand fills the hills round the planted wood's groves and
         //never stands a spire inside one
-        private static HashSet<(int, int)> TakenCells(ForestScatter planting)
+        internal static HashSet<(int, int)> TakenCells(ForestScatter planting)
         {
             var taken = new HashSet<(int, int)>();
             void Take(ModelInstance[][] buckets)
@@ -596,7 +624,18 @@ namespace Prazsky.Core.Render
         }
 
         private static (VertexBuffer, StandSectors) PlantStand(GraphicsDevice device, AuroraSceneConfig config, float innerRadius, float outerRadius, int count, int ring,
-            HashSet<(int, int)> taken)
+            HashSet<(int, int)> taken, out StandInstance[] planted)
+        {
+            (planted, StandSectors sectors) = PlantStandInstances(config, innerRadius, outerRadius, count, ring, taken);
+            var buffer = new VertexBuffer(device, StandInstance.Declaration, Math.Max(planted.Length, 1), BufferUsage.WriteOnly);
+            if (planted.Length > 0) buffer.SetData(planted);
+            return (buffer, sectors);
+        }
+
+        /// <summary>A ring of the far stand as <see cref="PlantStand"/> plants it, device-free: its spires sorted by sector and
+        /// the sectors' runs and boxes.</summary>
+        internal static (StandInstance[], StandSectors) PlantStandInstances(AuroraSceneConfig config, float innerRadius, float outerRadius,
+            int count, int ring, HashSet<(int, int)> taken)
         {
             AuroraFarStandConfig stand = config.FarStand;
             var rng = new Random(stand.Seed + ring);
@@ -631,7 +670,7 @@ namespace Prazsky.Core.Render
                 float yaw = (float)rng.NextDouble() * MathHelper.TwoPi;
                 float stretch = 0.85f + 0.35f * (float)rng.NextDouble();
                 float tint = 0.8f + 0.4f * (float)rng.NextDouble();
-                float y = TerrainMirror.AuroraBase(x, z, config) - 0.4f * scale;
+                float y = TerrainMirror.AuroraBase(x, z, config) - STAND_SINK * scale;
 
                 planted.Add(new StandInstance(new Vector4(x, y, z, scale), new Vector4(MathF.Sin(yaw), MathF.Cos(yaw), stretch, tint)));
             }
@@ -660,10 +699,29 @@ namespace Prazsky.Core.Render
                     : new BoundingBox(Vector3.Min(sectors.Bounds[s].Min, low), Vector3.Max(sectors.Bounds[s].Max, high));
             }
 
-            var buffer = new VertexBuffer(device, StandInstance.Declaration, Math.Max(planted.Count, 1), BufferUsage.WriteOnly);
-            if (planted.Count > 0) buffer.SetData(planted.ToArray());
-            return (buffer, sectors);
+            return (planted.ToArray(), sectors);
         }
+
+        /// <summary>
+        /// The near ring's spires as the planted wood's spruces (#1163): what the hosts' wood draws in place of a spire the lens
+        /// comes within <see cref="StandSpruces.SWAP_RADIUS"/> of on High and Ultra. The far ring needs none: it starts at
+        /// <see cref="AuroraFarStandConfig.NearRadius"/>, further from every lens a host lays than the swap reaches, and is
+        /// drawn with no swap (<see cref="Draw"/>).
+        /// </summary>
+        internal static StandSpruces StandSprucesOf(StandInstance[] nearRing, AuroraSceneConfig config)
+        {
+            var places = new Vector4[nearRing.Length];
+            var looks = new Vector4[nearRing.Length];
+            for (int i = 0; i < nearRing.Length; i++)
+            {
+                places[i] = nearRing[i].Place;
+                looks[i] = nearRing[i].Look;
+            }
+            return new StandSpruces(places, looks, nearRing.Length, config.FarStand.Height, STAND_SINK, config.Terrain.Trees);
+        }
+
+        //How far a spire's foot is sunk under the snow, as a share of its scale: the stem's foot stays under the drifts
+        private const float STAND_SINK = 0.4f;
 
         //The tallest a spire is stretched (the instance's Look.z, drawn from 0.85 + 0.35 x [0, 1) above)
         private const float STAND_STRETCH_MAX = 1.2f;
@@ -673,7 +731,7 @@ namespace Prazsky.Core.Render
 
         /// <summary>A ring's instances by sector of bearing: where each sector's run starts in the buffer, how long it is, and a
         /// box round its spires (#1027).</summary>
-        private sealed class StandSectors
+        internal sealed class StandSectors
         {
             public readonly int[] Start = new int[STAND_SECTORS];
             public readonly int[] Count = new int[STAND_SECTORS];

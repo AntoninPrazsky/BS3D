@@ -232,9 +232,9 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// How far from the arena's axis a spruce wears the finer of High and Ultra's two crowns (<see cref="TreeMesh.FineCrown"/>,
-        /// #733); past it the lighter one (<see cref="TreeMesh.FineCrownFar"/>), unless it stands within <see cref="FOCUS_RADIUS"/>
-        /// of the focus (#1120, <see cref="WearsNearCrown"/>). Every host keeps its play and menu cameras on or near the island,
-        /// so there a tree out here is never large on the screen, and most of a wood of eight hundred stands out here. The broadleaves
+        /// #733); past it the lighter one (<see cref="TreeMesh.FineCrownFar"/>), unless it stands within <see cref="NEAR_LENS_RADIUS"/>
+        /// of the lens (#1163, <see cref="WearsNearCrown"/>). Every host keeps its play camera on or near the island, so there a
+        /// tree out here is never large on the screen, and most of a wood of eight hundred stands out here. The broadleaves
         /// in leaf split by it alone (<see cref="ForestDressing"/>, a static planting).
         /// </summary>
         public const float FINE_NEAR_RADIUS = 110f;
@@ -437,7 +437,13 @@ namespace Prazsky.Core.Render
         /// <b>Only what the lens can see is drawn</b> (#1099): every instance is tested against the camera's frustum by its
         /// variant's bounds and the rest are not sent, which no pixel can tell (the wood is planted all round the clearing and
         /// a host's lens looks across a part of it), and the spruces and broadleaves are drawn nearest the lens first
-        /// (<see cref="ForestPasses.Pass"/>).
+        /// (<see cref="ForestPasses.CameraPass"/>).
+        /// </para>
+        /// <para>
+        /// <b>A spruce's detail follows its distance from the lens, frame by frame</b> (#1163): on High and Ultra the near crown
+        /// within <see cref="NEAR_LENS_RADIUS"/> of it (and within <see cref="FINE_NEAR_RADIUS"/> of the arena), the far crown past
+        /// it, and where the planting carries a far stand (<see cref="ForestScatter.Stand"/>, the aurora's) its spires within
+        /// <see cref="StandSpruces.SWAP_RADIUS"/> of the lens are drawn here as spruces, the backdrop leaving them out.
         /// </para>
         /// <para>
         /// Allocation-free: plain indexed loops into arrays made at build, and the tints were encoded at build time. An
@@ -445,14 +451,14 @@ namespace Prazsky.Core.Render
         /// </para>
         /// </summary>
         /// <param name="camera">This frame's camera, for the view and projection each draw needs, the frustum the wood is
-        /// culled by and the lens the focus follows across cuts (<see cref="ForestPasses.Pass"/>).</param>
+        /// culled by and the lens the near crowns and the far stand's spruces stand round (<see cref="ForestPasses.CameraPass"/>).</param>
         /// <param name="fineMeshes">Whether the spruces wear High and Ultra's crown (#733, <see cref="TreeMesh.FineCrown"/>
         /// over <see cref="TreeMesh.FineShade"/> round <see cref="TreeMesh.FineStem"/>, and <see cref="TreeMesh.FineSnow"/>
         /// where the config lays snow on the crowns) or Low and Medium's lathe: the caller's <c>SceneRenderer.FineMeshes</c>,
         /// read per draw, so a tier change rebuilds nothing.</param>
         public void Draw(ICamera camera, bool fineMeshes)
         {
-            _passes.Pass(camera.View * camera.Projection, camera.Position, fineMeshes, nearestFirst: true);
+            _passes.CameraPass(camera.View * camera.Projection, camera.Position, fineMeshes);
 
             if ((Layers & ForestLayer.Spruces) != 0)
             {
@@ -498,39 +504,28 @@ namespace Prazsky.Core.Render
         public ForestLayer Layers { get; set; } = ForestLayer.All;
 
         /// <summary>
-        /// How far round the focus (<see cref="NextFocus"/>) a spruce wears the near crown as well as within
-        /// <see cref="FINE_NEAR_RADIUS"/> of the arena (#1120): a chapter intro's lens flies 100 to 200 units out, where every
-        /// tree wore the far crown, and its shots stood the far crown's few wide plates on a pole a dozen units from the lens.
-        /// The forest's shots fly 8 to 40 units from where they began, so the trees beside the lens wear the near crown at the
-        /// end of each. The aurora's <i>wood</i> is a straight run of 70 (<c>AuroraIntroShots.WOOD_RUN</c>): at its end the
-        /// trees beside the lens are still inside, but those the lens looks at 20 to 40 units ahead can stand past the reach
-        /// and wear the far crown, as every tree out there did before the focus.
+        /// How near the lens (horizontally) a spruce the camera sees wears the near crown on High and Ultra, wherever the lens
+        /// is and frame by frame (#1163), as well as within <see cref="FINE_NEAR_RADIUS"/> of the arena: a chapter intro's lens
+        /// flies 100 to 200 units out, where every tree past the arena's reach would wear the far crown beside the lens. A tree
+        /// the camera does not see casts by the arena's reach alone (<see cref="ForestPasses.SunPass"/>), so no shadow follows
+        /// the lens from off the screen. The play camera stands within about 50 of the axis and looks in, so every tree it sees
+        /// this near it is inside the arena's reach already, and a gun walked round the island swaps no crown in either pass.
         /// </summary>
-        public const float FOCUS_RADIUS = 90f;
+        public const float NEAR_LENS_RADIUS = 90f;
 
-        /// <summary>
-        /// How far the lens must move between two passes for the move to be a cut (#1120): the focus jumps to the lens there
-        /// and nowhere else, so no tree changes its crown during a flight or an orbit, only across a cut, where nothing on the
-        /// screen is the frame before. A flight moves a unit a frame at the most, even at 15 frames a second.
-        /// </summary>
-        public const float CUT_JUMP = 8f;
+        /// <summary>Whether a spruce standing at <paramref name="at"/> is within <see cref="FINE_NEAR_RADIUS"/> of the arena's
+        /// axis, where it wears High and Ultra's near crown from every lens and in every pass.</summary>
+        internal static bool InArenaReach(Vector3 at) => at.X * at.X + at.Z * at.Z < FINE_NEAR_RADIUS * FINE_NEAR_RADIUS;
 
-        /// <summary>
-        /// The focus after a pass from <paramref name="lens"/>, given whether there was one, where it was and the lens of the
-        /// pass before: the lens itself on the first pass and on a cut (a jump of more than <see cref="CUT_JUMP"/>), where it
-        /// was otherwise. <see cref="ForestPasses.Pass"/> moves it before every pass, the camera's and the sun's alike.
-        /// </summary>
-        internal static Vector3 NextFocus(bool focused, Vector3 focus, Vector3 lastLens, Vector3 lens) =>
-            !focused || Vector3.DistanceSquared(lens, lastLens) > CUT_JUMP * CUT_JUMP ? lens : focus;
-
-        /// <summary>Whether a spruce standing at <paramref name="at"/> wears High and Ultra's near crown: within
-        /// <see cref="FINE_NEAR_RADIUS"/> of the arena's axis, where every host keeps its camera, or within
-        /// <see cref="FOCUS_RADIUS"/> of the focus (#1120).</summary>
-        internal static bool WearsNearCrown(Vector3 at, Vector3 focus)
+        /// <summary>Whether a spruce standing at <paramref name="at"/> that the camera sees wears High and Ultra's near crown
+        /// from <paramref name="lens"/>: within <see cref="FINE_NEAR_RADIUS"/> of the arena's axis, where every host keeps its
+        /// play camera, or within <see cref="NEAR_LENS_RADIUS"/> of the lens (#1163). One the camera does not see wears it only
+        /// in the arena's reach (<see cref="ForestPasses.SunPass"/>).</summary>
+        internal static bool WearsNearCrown(Vector3 at, Vector3 lens)
         {
-            if (at.X * at.X + at.Z * at.Z < FINE_NEAR_RADIUS * FINE_NEAR_RADIUS) return true;
-            float dx = at.X - focus.X, dz = at.Z - focus.Z;
-            return dx * dx + dz * dz < FOCUS_RADIUS * FOCUS_RADIUS;
+            if (InArenaReach(at)) return true;
+            float dx = at.X - lens.X, dz = at.Z - lens.Z;
+            return dx * dx + dz * dz < NEAR_LENS_RADIUS * NEAR_LENS_RADIUS;
         }
 
         /// <summary>
@@ -557,16 +552,17 @@ namespace Prazsky.Core.Render
         /// <c>SunShadowMap.ViewProjection</c>.</param>
         /// <param name="fineMeshes">Which spruce crown casts: the one <see cref="Draw"/> draws, or the lathe's skirts would
         /// shade the boughs inside them (#733).</param>
-        /// <param name="lens">This frame's camera position, which <see cref="Draw"/> is about to be called from: the near
-        /// crowns stand round its focus too (<see cref="ForestPasses.Pass"/>), and a tree must cast the crown it is drawn in.</param>
-        public void DrawShadow(Matrix shadowViewProjection, bool fineMeshes, Vector3 lens)
+        /// <param name="camera">This frame's camera, which <see cref="Draw"/> is about to be called with: a tree it sees casts
+        /// the crown it is drawn in, and one it does not see casts by the arena's reach alone (<see cref="ForestPasses.SunPass"/>).</param>
+        public void DrawShadow(Matrix shadowViewProjection, bool fineMeshes, ICamera camera)
         {
             if ((Layers & ForestLayer.WoodShadow) == 0) return;
 
             //The map's own box is the frustum (#1099): a tree whose bounds miss it writes no texel, however near the lens. The
             //sun at the forest's 11 degrees throws a crown's shadow a hundred units, so the box is the test, never the lens's.
-            //Unsorted, in the planting's order: the map is depth alone, with no shading for the nearest-first order to save
-            _passes.Pass(shadowViewProjection, lens, fineMeshes, nearestFirst: false);
+            //Unsorted, in the planting's order: the map is depth alone, with no shading for the nearest-first order to save. And
+            //without the far stand's spruces (#1163), which cast nothing, as the spires they stand in for never did
+            _passes.SunPass(shadowViewProjection, camera.View * camera.Projection, camera.Position, fineMeshes);
 
             if ((Layers & ForestLayer.Spruces) != 0)
             {
@@ -946,8 +942,8 @@ namespace Prazsky.Core.Render
             if (_coniferMeshes != null) EncodeAllTints();
         }
 
-        //What each pass draws (#1099): the focus the near crowns stand round (#1120), and of every kind the instances its
-        //frustum meets, in arrays made at build
+        //What each pass draws (#1099): of every kind the instances its frustum meets, the spruces split by their distance from
+        //the lens (#1163) with the far stand's spruces the lens is within the swap of among them, in arrays made at build
         private ForestPasses _passes;
 
         /// <summary>Whether a mesh whose bounds at scale 1 are <paramref name="local"/>, placed by <paramref name="world"/> (a
