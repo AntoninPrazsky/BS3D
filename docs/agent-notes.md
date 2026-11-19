@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-19 — #1183 #1182 #1185 nápověda a psaní na telefonu, hvězdy podle pravidel v2 — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: #1182 Cancel v systémovém dialogu telefonu už nezavře Napsat autorovi (`PhoneTyping`, `MenuPage.TypingDialogEscapes`), pole poznámky roste do volné výšky. #1185 Help > CAMPAIGN popisuje hvězdy jako pravidla v2 (rychlost se počítá, čtyři chtějí čisté dohrání hluboko pod par). #1183 na telefonu: každá záložka Help se vejde na X300 (rámeček 1 156 px), ODD BALLS jako mřížka karet s panelem vybrané, Settings > CONTROLS začíná dotykem, Benchmark mluví o telefonu a dotyk ho opravdu zastaví.
+- ⚠ Celá invertovaná karta schová skleněnou kouli; invertuje se jen pruh jména.
+- Otevřené: #1183 verdict-eye (vzhled karet, vypuštěné glyfy myši a klávesnice); nic neběželo na skutečném X300 ani v GameAndroid.
+
 ## 2026-11-19 — #1164 tmavší vzdálená pásma sopky — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: hory sopky stojí tmavší než noční obloha, každé další pásmo o odstín světlejší. Opar země 0,55 → 0,32 barvy horizontu (`LAND_HAZE_SKY`), poslední prolnutí do oblohy začíná až na 900 místo 600 (`VolcanoBackdrop.FarFadeStartLatest`, druhá výjimka ze stropu 600 vedle outbacku) a nad obzorem končí v obloze i s mrakovou palubou (`VolcanoFadeToSky`, vzorec #1121). Testy `VolcanoFarHazeTests`.
