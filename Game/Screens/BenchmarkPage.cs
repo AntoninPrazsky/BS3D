@@ -136,6 +136,10 @@ namespace BS3D.Screens
 
         private bool Running => _phase is Phase.Settling or Phase.Touring or Phase.Play or Phase.Swarm or Phase.Physics;
 
+        //A phone, or the desktop's emulation of one (the phone layout, inches=): the page calls the machine a phone and a tap
+        //what stops a run (#1183, BenchmarkConsent)
+        private bool PhoneWords => BS3DGame.OnPhone || PhoneLayout;
+
         internal override bool StandsAside => Running;
 
         internal override Button NavArrival => _firstEntry;
@@ -181,10 +185,6 @@ namespace BS3D.Screens
             column.Widgets.Add(BackButton());
             return ScreenRoot(Plate(column));
         }
-
-        //A phone, or the desktop's emulation of one (the phone layout, inches=): the page calls the machine a phone and a tap
-        //what stops a run (#1183, BenchmarkConsent)
-        private bool PhoneWords => BS3DGame.OnPhone || PhoneLayout;
 
         //Whether the tree was built with a level kept for Continue, which it warns of, and as the refusal
         private bool _builtWithKeptSession, _builtRefused;
