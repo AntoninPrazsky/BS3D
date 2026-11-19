@@ -101,8 +101,8 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// The log as slabs at scale 1 in its own space (#1157): one at every <see cref="BODY_STEP"/> of its root's radius along
         /// its spine, through the bend, as thick as the log is there and from its underside to its top. Its broken stubs are left
-        /// out: they rise off its top, thinner than half of it. The offsets are the log's own, along +X; a planter turns them by
-        /// the log's yaw (<see cref="PlantVolumes.Turned"/>).
+        /// out: they rise off its top, thinner than half of it. The offsets are the log's own, along +X, turned with it by the
+        /// world it is planted at.
         /// </summary>
         internal static Slab[] Body(float length, float radius, int seed)
         {

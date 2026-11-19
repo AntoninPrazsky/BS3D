@@ -822,10 +822,11 @@ namespace Prazsky.Core.Render
                 //
                 //And since #1157, clear of the rocks standing so far, for a thing planted after them: stoneClearance says how far the
                 //thing standing at a site would clear them (StoneClear over the frame it will be planted in), the third answer, and
-                //a site in a rock is refused as one in a neighbour is. Every die of such a thing is rolled before its site, in the
-                //order it always was, so asking moves no plant whose site was clear.
+                //a site in a rock is refused as one in a neighbour is. It is asked only of a site a stone could reach, stoneReach
+                //being how far the thing reaches from it (NearAStone): working out the frame is the dear part. Every die of such
+                //a thing is rolled before its site, in the order it always was, so asking moves no plant whose site was clear.
                 (float x, float z) Place(float halfWidth, float minR, float maxR, float clusterShare, float spread,
-                    Slab[] slabs = null, float scale = 1f, float sink = 0f, Func<float, float, float> stoneClearance = null)
+                    Slab[] slabs = null, float scale = 1f, float sink = 0f, Func<float, float, float> stoneClearance = null, float stoneReach = 0f)
                 {
                     Random site = new(seed * 397 + sitesPlaced++);
 
@@ -841,7 +842,7 @@ namespace Prazsky.Core.Render
                         //crowns as well as of their footprints (#653). Only a thing that has slabs asks the second question.
                         if (slabs != null)
                             clearance = MathF.Min(clearance, PlantVolumes.Clearance(cx, cz, Stand(cx, cz) - sink, scale, slabs, placedVolumes));
-                        if (stoneClearance != null && stones.Count > 0)
+                        if (stoneClearance != null && PlantVolumes.NearAStone(cx, cz, stoneReach, stones))
                             clearance = MathF.Min(clearance, stoneClearance(cx, cz));
 
                         //⚠ The STEM, not the crown: the trodden ground is tested at the one point the thing
@@ -1029,7 +1030,7 @@ namespace Prazsky.Core.Render
                     Slab[] body = baobabs[variant].Volume;
                     float foot = baobabs[variant].BaseRadius * s;
                     (float x, float z) = Place(dr.BaobabHeight * 0.45f * s, ac.MinRadius + 30f, ac.MaxRadius, 0f, 0f, body, s,
-                        stoneClearance: (cx, cz) => StoneClear(PlantWorld(cx, cz, s, lean, 0f, foot, yaw, leanDir), body));
+                        stoneClearance: (cx, cz) => StoneClear(PlantWorld(cx, cz, s, lean, 0f, foot, yaw, leanDir), body), stoneReach: PlantVolumes.BodyReach(body) * s);
                     ModelInstance planted = Planted(PlantWorld(x, z, s, lean, 0f, foot, yaw, leanDir), x, z, dryness, jitter);
                     baobabInstances[variant].Add(planted);
                     BoundingSphere whole = BoundingSphere.CreateMerged(baobabs[variant].Wood.BoundingSphere, baobabs[variant].Foliage.BoundingSphere);
@@ -1055,6 +1056,9 @@ namespace Prazsky.Core.Render
                         (float yaw, float leanDir) = Turn();
                         palms[p] = (MathF.Cos(a) * d, MathF.Sin(a) * d, s, palm, lean, dryness, jitter, yaw, leanDir);
                     }
+                    float clumpReach = 0f;
+                    foreach (var palm in palms)
+                        clumpReach = MathF.Max(clumpReach, new Vector2(palm.Dx, palm.Dz).Length() + PlantVolumes.BodyReach(doums[palm.Palm].Volume) * palm.S);
                     Matrix PalmWorld(int p, float cx, float cz) => PlantWorld(cx + palms[p].Dx, cz + palms[p].Dz, palms[p].S, palms[p].Lean, 0f,
                         doums[palms[p].Palm].BaseRadius * palms[p].S, palms[p].Yaw, palms[p].LeanDir);
                     float ClumpClear(float cx, float cz)
@@ -1065,7 +1069,7 @@ namespace Prazsky.Core.Render
                     }
 
                     (float x, float z) = Place(dr.DoumPalmHeight * 0.5f, ac.MinRadius + 10f, ac.MaxRadius, 0.5f, ac.ClusterSpread,
-                        new Slab[] { new(0f, dr.DoumPalmHeight * 1.05f, dr.DoumPalmHeight * 0.45f) }, stoneClearance: ClumpClear);
+                        new Slab[] { new(0f, dr.DoumPalmHeight * 1.05f, dr.DoumPalmHeight * 0.45f) }, stoneClearance: ClumpClear, stoneReach: clumpReach);
                     for (int p = 0; p < clump; p++, i++)
                         doumInstances[palms[p].Palm].Add(Planted(PalmWorld(p, x, z), x + palms[p].Dx, z + palms[p].Dz, palms[p].Dryness, palms[p].Jitter));
                 }
@@ -1094,7 +1098,7 @@ namespace Prazsky.Core.Render
                     float logDry = 0.5f * (float)rng.NextDouble(), jitter = Jitter();
                     (float yaw, _) = Turn();
                     (float x, float z) = Place(dr.LogLength * 0.5f * s, ac.MinRadius, ac.MaxRadius, 0.5f, ac.ClusterSpread,
-                        stoneClearance: (cx, cz) => StoneClear(LogWorld(cx, cz, s, logs[log], yaw), logBody[log]));
+                        stoneClearance: (cx, cz) => StoneClear(LogWorld(cx, cz, s, logs[log], yaw), logBody[log]), stoneReach: PlantVolumes.BodyReach(logBody[log]) * s);
                     logInstances[log].Add(Planted(LogWorld(x, z, s, logs[log], yaw), x, z, logDry, jitter));
                 }
 
@@ -1107,7 +1111,7 @@ namespace Prazsky.Core.Render
                     float lean = 0.1f * (float)rng.NextDouble(), dryness = (float)rng.NextDouble(), jitter = Jitter();
                     (float yaw, float leanDir) = Turn();
                     (float x, float z) = Place(dr.TuftSize * s, dr.TuftMinRadius, dr.TuftMaxRadius, 0.3f, ac.ClusterSpread,
-                        stoneClearance: (cx, cz) => StoneClear(PlantWorld(cx, cz, s, lean, 0f, 0f, yaw, leanDir), tuftBody[tuft]));
+                        stoneClearance: (cx, cz) => StoneClear(PlantWorld(cx, cz, s, lean, 0f, 0f, yaw, leanDir), tuftBody[tuft]), stoneReach: PlantVolumes.BodyReach(tuftBody[tuft]) * s);
                     tuftInstances[tuft].Add(Planted(PlantWorld(x, z, s, lean, 0f, 0f, yaw, leanDir), x, z, dryness, jitter));
                 }
             }
@@ -1183,8 +1187,9 @@ namespace Prazsky.Core.Render
             //them. Its band starts inside the plain's outer edge, so a kopje or a lone boulder can stand where it lands (#1157): a
             //mass or a tree whose body would stand in one is pushed straight out from the arena, the band's way, until it clears
             //the stone. Its spacing among the masses is asked where it was rolled, so a pushed one moves no other.
-            (float X, float Z) OutOfTheRocks(float x, float z, Func<float, float, Matrix> worldAt, Slab[] body)
+            (float X, float Z) OutOfTheRocks(float x, float z, float scale, Func<float, float, Matrix> worldAt, Slab[] body)
             {
+                if (!PlantVolumes.NearAStone(x, z, PlantVolumes.BodyReach(body) * scale, stones)) return (x, z);
                 float from = MathF.Sqrt(x * x + z * z), ux = x / from, uz = z / from;
                 for (int step = 1; step <= TREELINE_PUSH_STEPS && StoneClear(worldAt(x, z), body) < 0f; step++)
                 {
@@ -1215,7 +1220,7 @@ namespace Prazsky.Core.Render
                 float dryness = 0.5f * (float)rng.NextDouble(), jitter = Jitter();
                 (float yaw, float leanDir) = Turn();
                 float sink = dr.TreelineSize * s * 0.2f;
-                (x, z) = OutOfTheRocks(x, z, (px, pz) => PlantWorld(px, pz, s, 0f, sink, 0f, yaw, leanDir), treelineBody[mass]);
+                (x, z) = OutOfTheRocks(x, z, s, (px, pz) => PlantWorld(px, pz, s, 0f, sink, 0f, yaw, leanDir), treelineBody[mass]);
                 treelineInstances[mass].Add(Planted(PlantWorld(x, z, s, 0f, sink, 0f, yaw, leanDir), x, z, dryness, jitter));
             }
             for (int i = 0; i < dr.TreelineTreeCount; i++)
@@ -1226,7 +1231,7 @@ namespace Prazsky.Core.Render
                 int tree = rng.Next(MATURE);
                 float dryness = (float)rng.NextDouble(), jitter = Jitter();
                 (float yaw, float leanDir) = Turn();
-                (float x, float z) = OutOfTheRocks(MathF.Cos(a) * r, MathF.Sin(a) * r, (px, pz) => PlantWorld(px, pz, s, 0f, 0f, 0f, yaw, leanDir), trees[tree].Volume);
+                (float x, float z) = OutOfTheRocks(MathF.Cos(a) * r, MathF.Sin(a) * r, s, (px, pz) => PlantWorld(px, pz, s, 0f, 0f, 0f, yaw, leanDir), trees[tree].Volume);
                 treeInstances[tree].Add(Planted(PlantWorld(x, z, s, 0f, 0f, 0f, yaw, leanDir), x, z, dryness, jitter));
             }
 

@@ -44,23 +44,6 @@ namespace Prazsky.Core.Render
         /// </summary>
         public const float TOLERANCE = 0.15f;
 
-        /// <summary>
-        /// <paramref name="slabs"/> with their offsets turned by <paramref name="yaw"/>, as <c>Matrix.CreateRotationY</c> turns a point
-        /// (#1157): a thing whose slabs stand off its pivot along its own axes (a fallen log along +X) is asked where it will lie,
-        /// once the yaw it will be planted at is known. The heights and the radii are unchanged.
-        /// </summary>
-        public static Slab[] Turned(Slab[] slabs, float yaw)
-        {
-            float cos = MathF.Cos(yaw), sin = MathF.Sin(yaw);
-            var turned = new Slab[slabs.Length];
-            for (int i = 0; i < slabs.Length; i++)
-            {
-                Slab s = slabs[i];
-                turned[i] = new Slab(s.Bottom, s.Top, s.Radius, s.OffsetX * cos + s.OffsetZ * sin, -s.OffsetX * sin + s.OffsetZ * cos);
-            }
-            return turned;
-        }
-
         /// <summary>A rock as it stands (#1157): its mesh, where it is, and the world into its own space.</summary>
         internal readonly struct Stone
         {
@@ -118,6 +101,31 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
+        /// How far from its pivot, in plan, anything of a body of slabs can stand at scale 1, however it is turned and leaned
+        /// (#1157): each slab's offset and radius, and its height, which a lean carries sideways at the most.
+        /// </summary>
+        internal static float BodyReach(Slab[] body)
+        {
+            float reach = 0f;
+            foreach (Slab slab in body)
+                reach = MathF.Max(reach, new Vector2(slab.OffsetX, slab.OffsetZ).Length() + slab.Radius + MathF.Max(MathF.Abs(slab.Top), MathF.Abs(slab.Bottom)));
+            return reach;
+        }
+
+        /// <summary>Whether any of <paramref name="stones"/> could reach a thing that reaches <paramref name="reach"/> from
+        /// (<paramref name="x"/>, <paramref name="z"/>) in plan: what is asked before a thing's frame is worked out for
+        /// <see cref="StoneClearance"/>, since most of the plain stands nowhere near a rock.</summary>
+        internal static bool NearAStone(float x, float z, float reach, IReadOnlyList<Stone> stones)
+        {
+            foreach (Stone stone in stones)
+            {
+                float apart = reach + stone.Reach, dx = x - stone.At.X, dz = z - stone.At.Y;
+                if (dx * dx + dz * dz <= apart * apart) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
         /// How far a thing made of <paramref name="body"/> (slabs at scale 1 in its own space, planted by
         /// <paramref name="world"/>) clears the nearest of <paramref name="stones"/>, in world units (#1157): positive is room,
         /// negative how deep the two stand in each other past <see cref="TOLERANCE"/> of the slab's radius. Asked both ways
@@ -134,10 +142,7 @@ namespace Prazsky.Core.Render
 
             float scale = new Vector3(world.M11, world.M12, world.M13).Length();
             Vector2 at = new(world.M41, world.M43);
-            float reach = 0f;
-            foreach (Slab slab in body)
-                reach = MathF.Max(reach, new Vector2(slab.OffsetX, slab.OffsetZ).Length() + slab.Radius + MathF.Max(MathF.Abs(slab.Top), MathF.Abs(slab.Bottom)));
-            reach *= scale;
+            float reach = BodyReach(body) * scale;
 
             Matrix toBody = default;
             bool inverted = false;
@@ -149,11 +154,12 @@ namespace Prazsky.Core.Render
 
                 //The body's points against the rock's surface
                 if (points.Count == 0) BodyPoints(body, points);
+                //(The ground is asked last, of a point that would lower the answer: it is the dearest question here)
                 foreach (Vector3 local in points)
                 {
                     Vector3 p = Vector3.Transform(local, world);
-                    if (p.Y < ground(p.X, p.Z)) continue;
-                    clearance = MathF.Min(clearance, stone.Rock.Off(Vector3.Transform(p, stone.ToRock)) * stone.Scale);
+                    float off = stone.Rock.Off(Vector3.Transform(p, stone.ToRock)) * stone.Scale;
+                    if (off < clearance && p.Y >= ground(p.X, p.Z)) clearance = off;
                 }
 
                 //And the rock's points against the slabs
@@ -161,14 +167,13 @@ namespace Prazsky.Core.Render
                 foreach (Vector3 local in stone.Rock.SurfacePoints)
                 {
                     Vector3 p = Vector3.Transform(local, stone.World);
-                    if (p.Y < ground(p.X, p.Z)) continue;
                     Vector3 q = Vector3.Transform(p, toBody);
                     foreach (Slab slab in body)
                     {
                         if (q.Y < slab.Bottom || q.Y > slab.Top) continue;
                         float across = new Vector2(q.X - slab.OffsetX, q.Z - slab.OffsetZ).Length();
                         float inside = slab.Radius * (1f - TOLERANCE) - across;
-                        if (inside > 0f) clearance = MathF.Min(clearance, -inside * scale);
+                        if (inside > 0f && -inside * scale < clearance && p.Y >= ground(p.X, p.Z)) clearance = -inside * scale;
                     }
                 }
             }
