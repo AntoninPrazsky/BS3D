@@ -20,6 +20,11 @@ Pravidla:
 
 ---
 
+## 2026-11-19 — #1186 Stopy brouka zůstávají v písku — desktop (RDT-PC), Claude Code
+
+- Hotovo: stopy brouka v poušti leží na celých násobcích rozestupu podél jeho cesty (`DesertCritters.TrailPrint`), takže zůstanou, kde je brouk nechal, a blednou podle toho, kolik od nich ušel. Dřív byly pevně za broukem a celá stopa jezdila s ním. Test přes všechny brouky drží, že žádná stopa se nepohne; se starým umístěním padá.
+- Otevřené: verdikt okem (#1186); snímky před/po nepořízeny (limit).
+
 ## 2026-11-19 — #1144 konec zaměřovacího paprsku jako oblast dopadu — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: kde se rána zacvakne do mřížky, paprsek končí měkkou září (kužel), ne bodem. Šíře `AimBeam.LANDING_SPREAD` 0,65 změřená na 478 mířeních (99. percentil odchylky ducha 0,64). Prvních 55 % letu zůstává stará čárkovaná čára (test). Řezač a paprsek, který nic netrefí, beze změny. `Draw` bere celou dráhu letu; na Potato `POTATO_GLOW_GAIN` 0,25. Přesah za dotykem leží kolmo k objektivu: z přehledu je duch uvnitř skvrny v 471 ze 478.
