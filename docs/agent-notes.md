@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-19 — #1157 #1156 savana: nic nestojí v kameni, let „grass home“ pod korunami — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: každý kámen savany se kontroluje proti sázeným věcem (`PlantVolumes.StoneClearance` proti `RockMesh.Off`); pláň ho bere jako třetí odpověď místa (pořadí kostek beze změny), treeline se vytlačí z kamenů, trs na břehu odkročí. `SavannaStoneTests`: 0 z 200 285 věcí v kameni. Pohnulo se 397 hmot treeline, 252 trsů na břehu, 1 akácie.
+- Let „grass home“ plánuje po průchodech koule → deštníky → koruny spuštěné o 2 → obrysy; pod korunou 4 ze 400 sestavení, nejméně 4,67 pod listím (dřív 8 ze 400 v 3,0).
+- ⚠ Starý test místa neznal kameny vůbec: fallback na zápornou vůli se nikdy nespustil, chyba byla v otázce, ne v nouzi.
+- Otevřené: #1156 verdict-eye (pohyb nikdo neviděl, majitelův seed neznámý); #1157 uzavřen důkazem.
+
 ## 2026-11-18 — #1153 Scény, Jukebox, About a žebříčky přes šířku telefonu — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: na zvětšeném UI (`UiScale > 1`) a obrazovce aspoň 1,7:1 (`WideMenuLayout.MIN_ASPECT`) mají Scene (mřížka 7×3 dlaždic), Jukebox (tři sloupce), About (levý sloupec + text) a High Scores (dva sloupce po pěti úrovních) široké rozložení; monitor beze změny. `FOCUS_PROMPT_MIN_SHARE` 0,4 → 0,45. Testy `WideMenuLayoutTests`.
