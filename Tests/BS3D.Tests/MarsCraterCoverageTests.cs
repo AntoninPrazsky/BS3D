@@ -83,7 +83,9 @@ namespace BS3D.Tests
 
         /// <summary>
         /// A crater the clearing flattens keeps no pale rim either: <c>MarsHeight</c> multiplies the field's ejecta by the same
-        /// ramp as its height, so no flat ring is painted on the clearing round the island.
+        /// ramp as its height, after <c>CraterField</c> has written it, so no flat ring of the field's octaves is painted on the
+        /// clearing round the island. (The pixel's own octave, <c>SmallCraterLayer</c>, is not the field's: its relief is not
+        /// flattened there, and its rims stay with it.)
         /// </summary>
         [Fact]
         public void TheClearingPaintsNoRims()
@@ -93,9 +95,64 @@ namespace BS3D.Tests
             Assert.True(body.Success, "Mars.fx has no MarsHeight");
 
             string text = body.Groups["body"].Value;
-            Assert.Matches(@"CraterField\(\s*p\s*,\s*ejecta\s*\)", text);
-            Assert.Matches(@"ejecta\s*\*=\s*ramp\s*;", text);
+            Match field = Regex.Match(text, @"CraterField\(\s*p\s*,\s*ejecta\s*\)");
+            Match ramped = Regex.Match(text, @"ejecta\s*\*=\s*ramp\s*;");
+            Assert.True(field.Success, "MarsHeight takes no ejecta from CraterField");
+            Assert.True(ramped.Success, "MarsHeight does not ramp the field's ejecta");
+            Assert.True(ramped.Index > field.Index, "MarsHeight ramps the ejecta before CraterField overwrites it");
             Assert.Matches(@"CraterAmplitude\s*\*\s*ramp\s*\*\s*field", text);
+        }
+
+        /// <summary>
+        /// The stone mounds' mask fades in as the mound rises rather than drawing it as a flat disc with a hard rim, which read as
+        /// one more crater once the craters were thinned: along a radius of the mound's main body (<c>RockLayer</c> with no rib,
+        /// as both of <c>MarsHeight</c>'s lattices call it, and away from its lobe) the mask is about a fifth at 1.1 radii, two
+        /// fifths at the talus apron's top (1.0) and whole only from 0.7 to 0.8 radii in, whichever crest the mound rolled - the
+        /// figures <c>docs/scenes/mars.md</c> and <c>MarsGroundFields</c> quote. Every figure is read out of <c>Mars.fx</c>.
+        /// </summary>
+        [Fact]
+        public void TheStoneMoundsFadeInAsTheyRise()
+        {
+            string code = Code();
+            Match mask = Regex.Match(code, @"rockMask\s*=\s*smoothstep\(\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*rockShape\s*\)");
+            Match talus = Regex.Match(code, @"#define\s+TALUS_REACH\s+([0-9.]+)");
+            Match apronLine = Regex.Match(code, @"apron\s*=\s*smoothstep\(\s*TALUS_REACH\s*,\s*([0-9.]+)\s*,\s*min\(\s*d1\s*,\s*d2\s*\)\s*\)");
+            Match shapeLine = Regex.Match(code, @"shape\s*=\s*saturate\(\s*body\s*\+\s*apron\s*\*\s*([0-9.]+)\s*\)");
+            Match crestLine = Regex.Match(code, @"crest\s*=\s*lerp\(\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*rollA\.y\s*\)");
+            Match bodyLine = Regex.Match(code, @"body\s*=\s*max\(\s*smoothstep\(\s*([0-9.]+)\s*,\s*crest\s*,\s*ribbed\s*\)");
+            foreach (Match match in new[] { mask, talus, apronLine, shapeLine, crestLine, bodyLine })
+                Assert.True(match.Success, "Mars.fx's stone mound is no longer shaped the way this test reads it");
+
+            float maskFrom = Number(mask, 1), maskTo = Number(mask, 2);
+            float talusReach = Number(talus, 1), apronTop = Number(apronLine, 1), apronShare = Number(shapeLine, 1);
+            float bodyFoot = Number(bodyLine, 1);
+
+            float Mask(float d, float crest)
+            {
+                float body = SmoothStep(bodyFoot, crest, d);
+                float apron = SmoothStep(talusReach, apronTop, d);
+                return SmoothStep(maskFrom, maskTo, Math.Clamp(body + apron * apronShare, 0f, 1f));
+            }
+
+            foreach (float crest in new[] { Number(crestLine, 1), Number(crestLine, 2) })
+            {
+                Assert.InRange(Mask(1.1f, crest), 0.15f, 0.25f);
+                Assert.InRange(Mask(1.0f, crest), 0.35f, 0.45f);
+
+                //Where it turns whole: walked inward in hundredths of a radius
+                float whole = 1.0f;
+                while (whole > 0f && Mask(whole, crest) < 0.999f) whole -= 0.01f;
+                Assert.InRange(whole, 0.65f, 0.82f);
+            }
+        }
+
+        private static float Number(Match match, int group) => float.Parse(match.Groups[group].Value, CultureInfo.InvariantCulture);
+
+        //HLSL's smoothstep, edges in either order
+        private static float SmoothStep(float edge0, float edge1, float x)
+        {
+            float t = Math.Clamp((x - edge0) / (edge1 - edge0), 0f, 1f);
+            return t * t * (3f - 2f * t);
         }
 
         //Every CraterLayer call of Mars.fx: four octaves, one to each of Craters.fxh's four turns, the pixel octave among them

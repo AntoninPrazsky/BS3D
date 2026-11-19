@@ -6,15 +6,16 @@
 //
 //Two draws of one frame (the ground's techniques beside MarsTerrain: its reduced program, the bank's two, their depth
 //twins, and on DirectX the bake and the ground that reads it, THE BAKE below):
-//  - MarsTerrain: the crater field lifted VERBATIM from Moon.fx (CraterLayer/TurnCrater/CraterField/
-//    MareBase - the last two shared with it through Craters.fxh since #581 - are generic height-field math with nothing Moon-specific in them - only the constants that
-//    tune it and the colour it is coloured by are this scene's own), retextured rust/ochre instead of
+//  - MarsTerrain: the crater field derived from Moon.fx's (CraterLayer and CraterField here, TurnCrater and MareBase
+//    shared with it through Craters.fxh since #581), generic height-field math with nothing Moon-specific in it, but
+//    with Mars's own chance of a crater per octave (a plain's, not the Moon's highland: HOW MANY CRATERS below, #1167)
+//    and none of the Moon's shadow terms (#579), retextured rust/ochre instead of
 //    grey, on the outback's plumbing instead of the Moon's: an ordinary sun-and-dome light rig, the shared
 //    cloud shadow (Clouds.fxh), and a two-stage haze fade to the dome's own horizon colour (the outback's until #967) -
 //    NOT the Moon's curvature-and-highland-belt, which exists purely because the Moon has no air to fade
 //    into. There is no highland belt here; the ordinary haze closes the horizon the way the desert's and
-//    the outback's does. Standing on it: two lattices of boulders and pebbles, the outback's RockLayer
-//    lifted VERBATIM too and retuned from a skyline of monoliths to the litter of stones a rover
+//    the outback's does. Standing on it: two lattices of boulders and pebbles, derived from the outback's RockLayer
+//    (no longer its twin, #579) and retuned from a skyline of monoliths to the litter of stones a rover
 //    photograph shows, dark volcanic basalt rather than more of the ground's own rust.
 //  - MarsMoons: Phobos and Deimos, two small analytic potatoes (ray-ellipsoid bodies with craters, #744)
 //    composited over the dome and the terrain - space's full-screen-quad machinery (the shared corner quad,
@@ -241,7 +242,8 @@ float CraterField(float2 p, out float ejecta)
 }
 
 //The Moon's fourth, small-crater detail octave: the pixel's own (MarsGroundFields, MarsGroundBaked), normal-only - at this
-//scale a crater is shading, not silhouette - and the one octave the clearing does not flatten
+//scale a crater is shading, not silhouette - and the one octave the clearing does not flatten: a small crater there is
+//shaded as one, so its pale rim (MarsGroundFields' smallEjecta) stays with it
 float SmallCraterLayer(float2 p, out float ejecta)
 {
     return CraterLayer(TurnCrater(p, CRATER_TURN_3) * (1.0 / SMALL_CRATER_PERIOD), 133.7, SMALL_CRATER_CHANCE, ejecta);
