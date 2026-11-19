@@ -11,8 +11,9 @@ namespace Prazsky.Core.Render
     /// curvature. Mars keeps a (thin) atmosphere, so it is an ordinary <see cref="SceneRenderer.IsSolidTerrainScene"/>
     /// backdrop — ground drawn through the same terrain machinery every atmospheric sibling uses, under an
     /// ordinary dome — and only its crater field (<c>Mars.fx</c>'s <c>CraterLayer</c>/<c>CraterField</c>) is
-    /// ported from the Moon, because that part of it is generic height-field math with nothing Moon-specific
-    /// in it. The sixteenth scene.
+    /// derived from the Moon's, because that part of it is generic height-field math with nothing Moon-specific
+    /// in it; how many craters it cuts is Mars's own ("How many craters" in <c>docs/scenes/mars.md</c>). The
+    /// sixteenth scene.
     /// </para>
     /// <para>
     /// The sky above it is a nineteenth <see cref="SkyDome"/> palette rather than a new code path: none of
@@ -22,8 +23,8 @@ namespace Prazsky.Core.Render
     /// nineteenth palette (and its own sun direction, #220) is all it takes.
     /// </para>
     /// <para>
-    /// The plain carries its own scattered stone field — the outback's <c>RockLayer</c> lattice ported
-    /// verbatim, retuned from a skyline of monoliths to the litter of boulders and pebbles real rover
+    /// The plain carries its own scattered stone field — derived from the outback's <c>RockLayer</c> lattice
+    /// (no longer its twin), retuned from a skyline of monoliths to the litter of boulders and pebbles real rover
     /// photographs show, dark volcanic basalt against the rust rather than more of the ground's own colour
     /// (<see cref="MarsSurfaceConfig.BoulderColorDeep"/>). One real gap remains, and it does not block a
     /// shippable scene: a foreground dust-haze/dust-devil overlay (<c>Spray.fx</c>'s or the volcano's ash's
@@ -67,8 +68,9 @@ namespace Prazsky.Core.Render
 
     /// <summary>
     /// The cratered plain: flat in a clearing at the island's foot, rising into layered craters with
-    /// distance — the Moon's own field (<c>CraterLayer</c>/<c>CraterField</c>/<c>MareBase</c>, ported
-    /// verbatim into <c>Mars.fx</c>), retextured and re-tuned rather than reshaped. Unlike the Moon there
+    /// distance — derived from the Moon's field (<c>CraterLayer</c>/<c>CraterField</c> in <c>Mars.fx</c>,
+    /// <c>MareBase</c> shared through <c>Craters.fxh</c>), with Mars's own chance of a crater per octave ("How many
+    /// craters" in <c>docs/scenes/mars.md</c>), retextured and re-tuned rather than reshaped. Unlike the Moon there
     /// is no highland belt and no planetary curvature: Mars keeps its air, so <c>Mars.fx</c> closes the
     /// horizon the ordinary way, with the haze in <see cref="MarsAirConfig"/>, rather than with geometry.
     /// </summary>
@@ -78,7 +80,8 @@ namespace Prazsky.Core.Render
         /// other terrain scene's ground sits at.</summary>
         public float LevelY { get; set; } = -13.5f;
 
-        /// <summary>Radius of the flat clearing the island stands in; no crater's rim reaches inside it.</summary>
+        /// <summary>Radius of the flat clearing the island stands in; no crater of the field cuts into it or leaves
+        /// a rim there. The pixel's small craters, shading only, are the one octave it keeps.</summary>
         public float ClearingRadius { get; set; } = 90f;
 
         /// <summary>Transition band over which the flat clearing rises into cratered ground.</summary>
@@ -98,7 +101,7 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// How far apart the boulders' lattice cells sit, and how many of them carry one — the outback's
-        /// own single-cell-lattice trick (<c>RockLayer</c>, ported verbatim into <c>Mars.fx</c>), retuned
+        /// own single-cell-lattice trick (<c>RockLayer</c>, derived from it in <c>Mars.fx</c>), retuned
         /// for a scattered stone field rather than a skyline of monoliths: rover photographs of the real
         /// surface are not a few tall formations but ground littered with rock at every scale, so this tier
         /// is denser and far shorter than the outback's own.

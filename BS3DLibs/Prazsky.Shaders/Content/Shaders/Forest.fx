@@ -133,15 +133,15 @@ static const float FOREST_SHADOW_STRENGTH_MAX = 0.80;
 //
 //⚠ THE SKY IS THE ONE DRAWN BEHIND THE POINT (#1121), FarSkyAt along its own direction, the colour FarFadeToSky ends at too,
 //never the light rig's HorizonColor. That one is the average of the bottom fifth of the dome's capture, nearly all of it
-//below the skyline where no one sees it, and under the forest's own dome 15 it is a teal (linear 0.055, 0.282, 0.315) while
-//the sky drawn over the ridges is a violet (0.217, 0.092, 0.438): hazed to it, the far spires came out azure and brighter
-//than the purple sky behind them, cut-outs on every ridge. HorizonColor stands in only for a host that hands no drawn dome
-//over (FarFade off).
+//below the skyline where no one sees it, and under the forest's own dome 15 it is a teal (linear 0.055, 0.282, 0.315) that
+//no part of the sky drawn over the ridges has (a pale blue-grey, 0.134, 0.145, 0.182, #1165): hazed to it, the far spires
+//came out azure and brighter than the sky behind them, cut-outs on every ridge. HorizonColor stands in only for a host
+//that hands no drawn dome over (FarFade off).
 //
 //⚠ FarSky IS THE DOME WITHOUT THE CLOUD DECK, and the forest's overcast lid closes over the dome from the skyline up (Sky.fx's
 //coverage, smoothstep(0, CloudHorizonFade, direction.y)): over the ridges the play camera looks at, a few degrees up, the
 //sky drawn is mostly lid, under half as bright as FarSky. Hazed towards FarSky alone the farthest spires come out lighter
-//than the sky round them, lavender cut-outs on the ridges. So the sky stage takes the lid in (ForestSkyBehind, below).
+//than the sky round them, pale cut-outs on the ridges. So the sky stage takes the lid in (ForestSkyBehind, below).
 //
 //FOREST_SKY_REACH stops short of the sky on purpose: by the haze distance a tree has gone under half the way to it, and the
 //last ridges stand darker than the sky behind them, as every #1121 reference draws them.

@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using Prazsky.Core;
 using Prazsky.Core.Render;
 using Prazsky.Core.Tools;
 using System;
@@ -9,7 +10,7 @@ using Xunit;
 namespace BS3D.Tests
 {
     /// <summary>
-    /// The forest's twilight grade (#1121). The far spires went azure against a violet sky because the haze carried them to the
+    /// The forest's twilight grade (#1121). The far spires went azure against the sky because the haze carried them to the
     /// light rig's HorizonColor, the average of the bottom fifth of the dome's capture and under the forest's dome 15 a teal
     /// that no part of the drawn sky has; and the broadleaf crowns read lighter than anything else in the wood. What can be
     /// held without a frame: the haze's last stage is the sky drawn behind the point, the overcast lid closed over the dome as
@@ -19,10 +20,12 @@ namespace BS3D.Tests
     /// </summary>
     public class ForestGradeTests
     {
-        //Dome 15 as SkyDome draws it at direction.y 0, and the rig's horizon for that dome, in linear radiance: the violet the
-        //ridges stand against and the teal that is drawn nowhere above the skyline
-        private static readonly Vector3 DrawnHorizon = new(0.217f, 0.092f, 0.438f);
-        private static readonly Vector3 RigHorizon = new(0.055f, 0.282f, 0.315f);
+        //The forest's dome as SkyDome draws it at direction.y 0, its zenith, and the rig's horizon for that dome, in linear
+        //radiance: the pale blue-grey the ridges stand against (#1165) and the teal that is drawn nowhere above the skyline
+        private static readonly int Dome = SkyDome.SceneDefault(SceneKind.Forest);
+        private static readonly Vector3 DrawnHorizon = SkyDome.DrawnLinearOf(Dome, 0f);
+        private static readonly Vector3 Zenith = ColorSpace.SrgbToLinear(SkyDome.RigColoursOf(Dome).Zenith);
+        private static readonly Vector3 RigHorizon = ColorSpace.SrgbToLinear(SkyDome.RigColoursOf(Dome).Horizon);
 
         //A FarSky table whose every slot is another colour, the slot level with the horizon holding the one given, so a murk
         //read off any other slot comes out another colour
@@ -31,7 +34,7 @@ namespace BS3D.Tests
             var farSky = new Vector3[SkyLightRig.FAR_SKY_STEPS];
             for (int i = 0; i < farSky.Length; i++) farSky[i] = new Vector3(0.05f * (i + 1), 0.30f - 0.03f * i, 0.10f + 0.04f * i);
             farSky[HorizonSlot()] = drawnHorizon;
-            return new SceneFrame(null, Vector3.UnitY, new Vector3(0.082f, 0.012f, 0.229f), rigHorizon, Vector3.One, 0f, null, farSky);
+            return new SceneFrame(null, Vector3.UnitY, Zenith, rigHorizon, Vector3.One, 0f, null, farSky);
         }
 
         //The slot whose direction is level with the horizon, found off the table's own spacing and not off the constant the
@@ -68,7 +71,7 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void TheMurkIsADarkerShadeOfTheVioletSkyNotTheTeal()
+        public void TheMurkIsADarkerCoolerShadeOfTheSky()
         {
             Vector3 murk = ForestBackdrop.Murk(Frame(DrawnHorizon, RigHorizon), new ForestSceneConfig());
 
@@ -76,9 +79,10 @@ namespace BS3D.Tests
             Assert.True(ColorSpace.Luminance(murk) < 0.5f * ColorSpace.Luminance(DrawnHorizon),
                 $"the murk {murk} is not much darker than the sky {DrawnHorizon}");
 
-            //Blue over green, as the violet is: the teal's green over its blue is what the far spires wore
-            Assert.True(murk.Z > 2f * murk.Y, $"the murk {murk} is not the violet sky's blue");
-            Assert.True(murk.X > 0.5f * murk.Y, $"the murk {murk} has lost the violet's red and gone teal");
+            //A slate blue, blue over green over red, and cooler than the sky at the horizon: the air on a short path to a hill
+            //scatters blue, and the far ridges of every reference are slate (a neutral shade would leave it warmer than the sky)
+            Assert.True(murk.Z > murk.Y && murk.Y > murk.X, $"the murk {murk} is not a slate blue");
+            Assert.True(murk.Z / murk.X > DrawnHorizon.Z / DrawnHorizon.X, $"the murk {murk} is not cooler than the sky {DrawnHorizon}");
         }
 
         [Fact]

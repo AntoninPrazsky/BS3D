@@ -4,7 +4,7 @@ Part of [The scenes](../scenes.md).
 
 The Windows XP *Bliss* hill: vivid green rolling to a crisp horizon, a flat flowering clearing where the arena stands, rolling up into hills. `SceneKind.Meadow`, `scene=meadow`, sixth in the NumPad2 cycle.
 
-**It brings its own dome, 1** (`SkyDome.SceneDefault`, #1019), the clear sunny blue every level of its chapter names, so the scene picker, the menu after another chapter, the benchmark's tour and the Testbed's `scene=meadow` all show it under that sky unless `sky=` says otherwise. ⚠ Kept the dome that was up, it took the forest's late twilight (15) into the benchmark's Meadow tour and the menu after a forest level, which the owner read as a purple meadow ("very positive and bright... the sky should be azure").
+**It brings its own dome, 1** (`SkyDome.SceneDefault`, #1019), the clear sunny blue every level of its chapter names, so the scene picker, the menu after another chapter, the benchmark's tour and the Testbed's `scene=meadow` all show it under that sky unless `sky=` says otherwise. ⚠ Kept the dome that was up, it took the forest's late twilight (15) into the benchmark's Meadow tour and the menu after a forest level, a dusk over the meadow the owner wants "very positive and bright... the sky should be azure".
 
 ## What it is made of
 
