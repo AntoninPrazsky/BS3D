@@ -95,55 +95,25 @@ namespace BS3D.Screens
 
         protected override Widget BuildTree()
         {
+            _railPlate = null;
+            _builtTall = Tall;
+            if (UsesTheWidth) return BuildBesideTheRail();
+
             VerticalStackPanel column = MenuColumn();
             column.Widgets.Add(ScreenHeading(RankingCopy.TITLE.ToUpperInvariant()));
-
-            //The period, two entries side by side, the one up inverted as a chosen tab is (#1003), as on High Scores
-            HorizontalStackPanel periods = new() { Spacing = Scaled(20), HorizontalAlignment = HorizontalAlignment.Center };
-            _monthButton = MenuButton("This month", () => SetPeriod(false), out _monthLabel);
-            _allTimeButton = MenuButton("All time", () => SetPeriod(true), out _allTimeLabel);
-            _monthButton.Width = _allTimeButton.Width = Scaled(PERIOD_BUTTON_WIDTH);
-            periods.Widgets.Add(_monthButton);
-            periods.Widgets.Add(_allTimeButton);
-            column.Widgets.Add(periods);
+            column.Widgets.Add(BuildPeriods(Scaled(PERIOD_BUTTON_WIDTH)));
 
             //The podium's place: nothing of its own to draw, only the area the 3D podium is fitted to
-            _podiumArea = new Widget
-            {
-                Width = Scaled(PODIUM_WIDTH),
-                Height = Scaled(PODIUM_HEIGHT),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
-            };
+            _podiumArea = PodiumArea(PODIUM_WIDTH);
 
-            VerticalStackPanel board = new() { Spacing = Scaled(14), HorizontalAlignment = HorizontalAlignment.Center };
-            _table = new RankingView(FontBody, FontSmall, Game.MenuFontPromptSmall, Scaled, ROWS, Scaled(TABLE_WIDTH));
-            board.Widgets.Add(_table.Root);
+            VerticalStackPanel board = BuildBoard(Scaled(TABLE_WIDTH));
 
-            _status = new Label
-            {
-                Font = FontSmall,
-                TextColor = BS3DGame.MENU_TEXT_BODY,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Wrap = true,
-                Width = Scaled(TABLE_WIDTH),
-            };
-            board.Widgets.Add(_status);
-
-            HorizontalStackPanel pager = new() { Spacing = Scaled(PAGER_BUTTON_GAP), HorizontalAlignment = HorizontalAlignment.Center };
-            _previous = MenuButton("Previous", () => Page(-1));
-            _next = MenuButton("Next", () => Page(+1));
-            _previous.Width = _next.Width = Scaled(PAGER_BUTTON_WIDTH);
-            pager.Widgets.Add(PageTurnUnder(_previous, PromptGlyph.PAD_LB, PromptGlyph.KEY_LEFT));
-            pager.Widgets.Add(PageTurnUnder(_next, PromptGlyph.PAD_RB, PromptGlyph.KEY_RIGHT));
-            board.Widgets.Add(pager);
-
-            //The door to opting in, shown only while there is nothing to show without it
-            _settingsButton = MenuButton("Settings", Game.OpenSettings);
+            //The door to opting in, shown only while there is nothing to show without it. A touch target on an enlarged
+            //interface too square for the rail, as the periods and the pager are (#1181), so the page is one size throughout
+            _settingsButton = PhoneTarget(MenuButton("Settings", Game.OpenSettings));
             board.Widgets.Add(_settingsButton);
 
             //Side by side on a wide screen, stacked on a tall one (decision 5)
-            _builtTall = Tall;
             if (_builtTall)
             {
                 VerticalStackPanel stage = new() { Spacing = Scaled(STAGE_GAP / 2), HorizontalAlignment = HorizontalAlignment.Center };
@@ -159,8 +129,135 @@ namespace BS3D.Screens
                 column.Widgets.Add(stage);
             }
 
-            column.Widgets.Add(BackButton());
+            column.Widgets.Add(PhoneTarget(BackButton()));
             return ScreenRoot(Plate(column));
+        }
+
+        //The phone's page (#1181, #1184), in design units: the rail's width, the podium's area and the table's width, and the
+        //gap between each two of the three, so the plate takes about nine tenths of the X300 Ultra's width at the menus' scale
+        private const int PHONE_RAIL_WIDTH = 860;
+        private const int PHONE_PODIUM_WIDTH = 860;
+        private const int PHONE_TABLE_WIDTH = 1160;
+        private const int PHONE_GAP = 100;
+
+        //The rail page's plate, whose width the page needs; null off the phone's layout
+        private Panel _railPlate;
+
+        /// <summary>
+        /// The rail page's plate, laid out unbounded (#1184): the rail, the podium and the table side by side are wider than a
+        /// stacked page, so on a screen narrower than the X300 Ultra's 2.2:1 <c>FitPage</c> brings the page down to fit them.
+        /// </summary>
+        internal override int RequiredWidth => _railPlate != null ? UnboundedWidth(_railPlate) : 0;
+
+        /// <summary>
+        /// The phone's page (#1181, #1184): the heading and the periods down a rail with Settings and Back at its foot, the podium
+        /// beside it and the table right of the podium with its pager under it, every entry a touch target tall
+        /// (<see cref="MenuPage.PhoneTarget"/>). Stacked as on a monitor, the page was drawn small enough to fit a phone's height:
+        /// the table had about 730 px for its five fields, the plate half the width, and Previous, Next and Back were 4.7 mm.
+        /// <para>
+        /// One grid row, the rail's two ends in its first cell, the podium in the second and the board in the third, added in
+        /// the walk's order: the periods, the pager, then Settings and Back, as on a monitor.
+        /// </para>
+        /// </summary>
+        private Widget BuildBesideTheRail()
+        {
+            int railWidth = Scaled(PHONE_RAIL_WIDTH);
+            int gap = Scaled(PAGER_BUTTON_GAP);
+
+            VerticalStackPanel top = MenuColumn();
+            top.VerticalAlignment = VerticalAlignment.Top;
+            top.Widgets.Add(ScreenHeading(RankingCopy.TITLE.ToUpperInvariant()));
+            top.Widgets.Add(BuildPeriods((railWidth - gap) / 2));
+
+            _podiumArea = PodiumArea(PHONE_PODIUM_WIDTH);
+            VerticalStackPanel board = BuildBoard(Scaled(PHONE_TABLE_WIDTH));
+            board.VerticalAlignment = VerticalAlignment.Center;
+
+            //The door to opting in, shown only while there is nothing to show without it; Back under it at the rail's foot
+            _settingsButton = PhoneTarget(MenuButton("Settings", Game.OpenSettings));
+            Button back = PhoneTarget(BackButton());
+            _settingsButton.Width = back.Width = railWidth;
+            VerticalStackPanel ways = MenuColumn();
+            ways.VerticalAlignment = VerticalAlignment.Bottom;
+            ways.Widgets.Add(_settingsButton);
+            ways.Widgets.Add(back);
+
+            Grid grid = new() { ColumnSpacing = Scaled(PHONE_GAP) };
+            grid.ColumnsProportions.Add(new Proportion(ProportionType.Pixels, railWidth));
+            grid.ColumnsProportions.Add(new Proportion(ProportionType.Auto));
+            grid.ColumnsProportions.Add(new Proportion(ProportionType.Auto));
+            grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
+
+            Grid.SetColumn(top, 0);
+            grid.Widgets.Add(top);
+            Grid.SetColumn(_podiumArea, 1);
+            grid.Widgets.Add(_podiumArea);
+            Grid.SetColumn(board, 2);
+            grid.Widgets.Add(board);
+            Grid.SetColumn(ways, 0);
+            grid.Widgets.Add(ways);
+
+            //The board is the tallest column; the rail's two ends stand at its top and foot and never meet under it
+            Point huge = new(int.MaxValue / 2, int.MaxValue / 2);
+            board.MinHeight = top.Measure(huge).Y + ways.Spacing + ways.Measure(huge).Y;
+
+            _railPlate = Plate(grid);
+            return ScreenRoot(_railPlate);
+        }
+
+        /// <summary>
+        /// The period, two entries side by side, each <paramref name="width"/> pixels wide, the one up inverted as a chosen tab
+        /// is (#1003), as on High Scores. Touch targets on the phone (#1181).
+        /// </summary>
+        private Widget BuildPeriods(int width)
+        {
+            HorizontalStackPanel periods = new() { Spacing = Scaled(PAGER_BUTTON_GAP), HorizontalAlignment = HorizontalAlignment.Center };
+            _monthButton = PhoneTarget(MenuButton("This month", () => SetPeriod(false), out _monthLabel));
+            _allTimeButton = PhoneTarget(MenuButton("All time", () => SetPeriod(true), out _allTimeLabel));
+            _monthButton.Width = _allTimeButton.Width = width;
+            periods.Widgets.Add(_monthButton);
+            periods.Widgets.Add(_allTimeButton);
+            return periods;
+        }
+
+        /// <summary>The podium's place, <paramref name="designWidth"/> wide: nothing of its own to draw, only the area the 3D podium is fitted to.</summary>
+        private Widget PodiumArea(int designWidth) => new()
+        {
+            Width = Scaled(designWidth),
+            Height = Scaled(PODIUM_HEIGHT),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+
+        /// <summary>
+        /// The table <paramref name="width"/> pixels wide, the line under it that says why it is empty or which ranks it shows,
+        /// and the pager under that, whose Previous and Next are touch targets on the phone (#1181).
+        /// </summary>
+        private VerticalStackPanel BuildBoard(int width)
+        {
+            VerticalStackPanel board = new() { Spacing = Scaled(14), HorizontalAlignment = HorizontalAlignment.Center };
+            _table = new RankingView(FontBody, FontSmall, Game.MenuFontPromptSmall, Scaled, ROWS, width);
+            board.Widgets.Add(_table.Root);
+
+            _status = new Label
+            {
+                Font = FontSmall,
+                TextColor = BS3DGame.MENU_TEXT_BODY,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Wrap = true,
+                Width = width,
+            };
+            board.Widgets.Add(_status);
+
+            HorizontalStackPanel pager = new() { Spacing = Scaled(PAGER_BUTTON_GAP), HorizontalAlignment = HorizontalAlignment.Center };
+            _previous = PhoneTarget(MenuButton("Previous", () => Page(-1)));
+            _next = PhoneTarget(MenuButton("Next", () => Page(+1)));
+            _previous.Width = _next.Width = Scaled(PAGER_BUTTON_WIDTH);
+            pager.Widgets.Add(PageTurnUnder(_previous, PromptGlyph.PAD_LB, PromptGlyph.KEY_LEFT));
+            pager.Widgets.Add(PageTurnUnder(_next, PromptGlyph.PAD_RB, PromptGlyph.KEY_RIGHT));
+            board.Widgets.Add(pager);
+
+            return board;
         }
 
         public override void Update(GameTime gameTime)

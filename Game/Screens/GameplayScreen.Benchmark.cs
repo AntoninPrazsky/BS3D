@@ -1,6 +1,7 @@
 using BS3D.Effects;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
+using Microsoft.Xna.Framework.Input.Touch;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.BS3D.Physics;
@@ -22,8 +23,8 @@ namespace BS3D.Screens
     /// player's hand would (the owner: "it should stay there and aim smoothly, as if a player controlled it"): the barrel
     /// glides to its mark, holds still on it, fires along it and stays a moment before it moves on. The mark is where the aim's
     /// own solver says a shot would hit a ball of the loaded colour with neighbours of that colour, so the shot completes a
-    /// group and it falls; two cuts on the way. Keys and the pad's buttons end the benchmark rather than pause or skip; a lost
-    /// focus pauses nothing.
+    /// group and it falls; two cuts on the way. Keys and the pad's buttons end the benchmark rather than pause or skip, and on
+    /// a phone a tap; a lost focus pauses nothing.
     /// </para>
     /// </summary>
     internal sealed partial class GameplayScreen
@@ -51,6 +52,9 @@ namespace BS3D.Screens
 
         private readonly BenchmarkDemo _demo = new();
         private bool _benchmarkNext;
+
+        //Whether a finger was down last frame, for StepBenchmarkInput's tap (BenchmarkConsent.TapStops); true at a run's build
+        private bool _benchmarkFingerDown;
         private Random _demoRandom;
         private float _demoNextFire, _demoHoldUntil, _demoSettledFor;
         private float _demoElevationRate, _demoTraverseRate;
@@ -87,6 +91,7 @@ namespace BS3D.Screens
         internal void BuildBenchmarkLevel(int index)
         {
             _benchmarkNext = true;
+            _benchmarkFingerDown = true;
             try
             {
                 BuildLevel(index);
@@ -99,19 +104,23 @@ namespace BS3D.Screens
 
         /// <summary>
         /// A benchmark run's input: the keys and buttons that would skip or pause end the benchmark instead, once the window
-        /// has the focus. Not the mouse: a click is how a window is brought forward, and one that lands on the benchmark's
-        /// window while someone works beside it must not end two minutes of measuring. True when it ended (the frame stops,
-        /// as a pause's does).
+        /// has the focus, and on a phone a finger landing (<see cref="BenchmarkConsent.TapStops"/>: the page says a tap stops
+        /// a run, and the skip hint says so over the play). Not the mouse: a click is how a window is brought forward, and one
+        /// that lands on the benchmark's window while someone works beside it must not end two minutes of measuring. True
+        /// when it ended (the frame stops, as a pause's does).
         /// </summary>
         private bool StepBenchmarkInput()
         {
             Game.IsMouseVisible = true;
+
+            //Read every frame, before the gate, so a finger put down while input was refused does not land once it is not
+            bool tapped = BenchmarkConsent.TapStops(BS3DGame.OnPhone, TouchPanel.GetState().Count > 0, ref _benchmarkFingerDown);
             if (!Game.IsActive || !Game.EdgeInputAllowed) return false;
 
             KeyboardState keyboard = Keyboard.GetState();
             GamePadState pad = GamePad.GetState(PlayerIndex.One);
             bool pressed = Game.IsKeyEdge(keyboard, Keys.Escape) || Game.IsKeyEdge(keyboard, Keys.Space) || Game.IsKeyEdge(keyboard, Keys.Enter)
-                || Edge(pad, Buttons.A) || Edge(pad, Buttons.B) || Edge(pad, Buttons.Back) || Edge(pad, Buttons.Start);
+                || Edge(pad, Buttons.A) || Edge(pad, Buttons.B) || Edge(pad, Buttons.Back) || Edge(pad, Buttons.Start) || tapped;
             //The window's own keys, as in play
             if (Game.IsKeyEdge(keyboard, Keys.F12)) Game.RequestScreenshot();
             if (Game.IsKeyEdge(keyboard, Keys.F11)) Game.ToggleFullscreen();

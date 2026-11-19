@@ -116,6 +116,8 @@
     <Compile Include="..\..\Game\Screens\PickerCopy.cs" />
     <!--What a press on the picker's tile does for each hand, and which level its side panel speaks for (#1152)-->
     <Compile Include="..\..\Game\Screens\PickerTap.cs" />
+    <!--Which hand the menus' prompts start drawn for: a phone's is a finger's (#1181)-->
+    <Compile Include="..\..\Game\Screens\MenuHand.cs" />
     <!--What Top Players says (#827): strings only, held to the same rules-->
     <Compile Include="..\..\Game\Screens\RankingCopy.cs" />
     <!--The online boards' row (#934): the name's column, a name cut to it and how wide a board may be on a wide display - arithmetic over
@@ -139,6 +141,8 @@
         sentence for every kind a player can meet and to those rules.-->
     <Compile Include="..\..\Game\Screens\OddBallCopy.cs" />
     <Compile Include="..\..\Game\Screens\FieldTail.cs" />
+    <!--A phone's typing dialog stepped (#1182): what an OK and a Cancel do to the page, with the dialog behind functions handed in.-->
+    <Compile Include="..\..\Game\Screens\PhoneTyping.cs" />
     <!--A checkbox's tick (#816): which part of each row of pixels two round-ended strokes cover, no device.-->
     <Compile Include="..\..\Game\Screens\CheckTick.cs" />
     <!--The aim ghost's beat (#831): its size as a pure function of the wall clock, no device.-->

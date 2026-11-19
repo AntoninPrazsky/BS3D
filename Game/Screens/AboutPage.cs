@@ -49,6 +49,9 @@ namespace BS3D.Screens
         private const float ARROW_OF_CAP = 1.2f;
         private const int ARROW_GAP = 20;
 
+        //An arrow's square in design units: on the phone a touch target's (#1181), 9 mm where ARROW_SIZE's are 6.9
+        private int ArrowUnits => PhoneLayout ? PHONE_TARGET : ARROW_SIZE;
+
         //Between the page's name and the "2 of 5" under it: ArrowWithShoulder's own gap between an arrow and its shoulder,
         //so the counter stands level with the two shoulders
         private const int COUNTER_GAP = 10;
@@ -123,7 +126,7 @@ namespace BS3D.Screens
             //Added in this order, and that IS the walk's order: the arrows, the page's own entries, Back
             column.Widgets.Add(BuildPager(frame.Width.GetValueOrDefault()));
             column.Widgets.Add(frame);
-            column.Widgets.Add(BackButton());
+            column.Widgets.Add(PhoneTarget(BackButton()));
 
             //An enlarged interface too square for the rail (UsesTheWidth) drags the pages' text rather than draw the whole
             //page smaller (#1052); a monitor's page fits as built and its body never scrolls
@@ -169,7 +172,7 @@ namespace BS3D.Screens
             top.Widgets.Add(ScreenHeading("ABOUT"));
             top.Widgets.Add(BuildPager(railWidth));
 
-            Button back = BackButton();
+            Button back = PhoneTarget(BackButton());
             back.VerticalAlignment = VerticalAlignment.Bottom;
 
             Point huge = new(int.MaxValue / 2, int.MaxValue / 2);
@@ -255,13 +258,13 @@ namespace BS3D.Screens
             //Aligned to the top, so the name stands level with the arrows' slabs and the counter level with the shoulders
             VerticalStackPanel name = new()
             {
-                Width = Math.Max(0, width - 2 * (Scaled(ARROW_SIZE) + Scaled(ARROW_GAP))),
+                Width = Math.Max(0, width - 2 * (Scaled(ArrowUnits) + Scaled(ARROW_GAP))),
                 Spacing = Scaled(COUNTER_GAP),
                 VerticalAlignment = VerticalAlignment.Top,
             };
 
             //A label given a width of its own draws its text from the left, so each is centred in a block of the width
-            Panel title = new() { Height = Scaled(ARROW_SIZE) };
+            Panel title = new() { Height = Scaled(ArrowUnits) };
             title.Widgets.Add(new Label
             {
                 Text = PAGES[_page].Title,
@@ -303,7 +306,7 @@ namespace BS3D.Screens
             int height = (int)MathF.Round(CapHeightOf(FontHeading) * ARROW_OF_CAP);
             MediaGlyph triangle = new(symbol, height, height) { Tint = enabled ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_DIM };
 
-            Button arrow = Game.MenuTile(triangle, () => Turn(direction), ARROW_SIZE, ARROW_SIZE);
+            Button arrow = Game.MenuTile(triangle, () => Turn(direction), ArrowUnits, ArrowUnits);
             arrow.DisabledBackground = BS3DGame.MENU_BUTTON_BRUSH;
             arrow.Enabled = enabled;
 
@@ -489,11 +492,11 @@ namespace BS3D.Screens
             _playGlyph = ButtonGlyph(MediaGlyph.Symbol.Play);
             _play = MenuButton(_playGlyph, () => Game.Jukebox?.PlayPause());
             _play.Width = Scaled(PLAYER_BUTTON_WIDTH);
-            controls.Widgets.Add(_play);
+            controls.Widgets.Add(PhoneTarget(_play));
 
             _next = MenuButton(ButtonGlyph(MediaGlyph.Symbol.Next), () => Game.Jukebox?.Next());
             _next.Width = Scaled(PLAYER_BUTTON_WIDTH);
-            controls.Widgets.Add(_next);
+            controls.Widgets.Add(PhoneTarget(_next));
 
             body.Widgets.Add(controls);
         }

@@ -259,8 +259,9 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Where the plain's last fade into the drawn sky begins (<c>FarField.fxh</c>), and the plants' haze distance. The far
-        /// field begins the fade by <see cref="FarField.FAR_FADE_START_LATEST"/> for every other ground, because a haze that
-        /// has made its ground another colour by then draws a line of that colour at the skyline. Under
+        /// field begins the fade by <see cref="FarField.FAR_FADE_START_LATEST"/> for every other ground but the volcano's land
+        /// (whose air is the drawn horizon itself, darker: <see cref="VolcanoBackdrop.FarFadeStartLatest"/>, #1164), because a
+        /// haze that has made its ground another colour by then draws a line of that colour at the skyline. Under
         /// <see cref="HazeDistance"/> the plain here is still 0.85 its own colour at 1 000, so the last few hundred units,
         /// squeezed into the skyline's pixel or two, show its own edge, and its pass lifts the cap to this
         /// (<see cref="TerrainPass.FarFadeStartLatest"/>; <c>OutbackAirTests</c> hold the plain at most a sixth air there).

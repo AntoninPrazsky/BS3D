@@ -136,6 +136,10 @@ namespace BS3D.Screens
 
         private bool Running => _phase is Phase.Settling or Phase.Touring or Phase.Play or Phase.Swarm or Phase.Physics;
 
+        //A phone, or the desktop's emulation of one (the phone layout, inches=): the page calls the machine a phone and a tap
+        //what stops a run (#1183, BenchmarkConsent)
+        private bool PhoneWords => BS3DGame.OnPhone || PhoneLayout;
+
         internal override bool StandsAside => Running;
 
         internal override Button NavArrival => _firstEntry;
@@ -153,12 +157,10 @@ namespace BS3D.Screens
             if (_phase == Phase.Done && _measured > 0) AddResults(column);
             else
             {
-                column.Widgets.Add(Paragraph(string.Create(CultureInfo.InvariantCulture,
-                    $"Flies through {TOURS} of the most demanding scenes at your quality ({Game.QualityLabel}), with the frame rate unlocked, then plays the biggest level: the city's opening flight to the cannon, and the cannon firing by itself. Then a storm of balls grows until your computer can no longer draw it at 60 FPS. It measures every frame, then times the physics. About two and a half minutes. The skip key stops it."),
-                    ProseMeasure));
+                column.Widgets.Add(Paragraph(BenchmarkConsent.Intro(TOURS, Game.QualityLabel, PhoneWords), ProseMeasure));
                 if (!Game.SceneryShown && !BS3DGame.PotatoPath)
                     column.Widgets.Add(Paragraph("The scenery is off in your settings: the benchmark shows it, so that it has something to measure.", ProseMeasure));
-                column.Widgets.Add(Paragraph(BenchmarkConsent.SENT_NOTE, ProseMeasure));
+                column.Widgets.Add(Paragraph(BenchmarkConsent.SentNote(PhoneWords), ProseMeasure));
             }
 
             //Read as the tree is built, and the tree built again whenever it changes (Refresh): a level kept for Continue can be
@@ -172,7 +174,7 @@ namespace BS3D.Screens
                 _firstEntry = MenuButton("Settings", Game.OpenSettings);
                 column.Widgets.Add(_firstEntry);
                 column.Widgets.Add(BackButton());
-                return ScreenRoot(Plate(column));
+                return Laid(column);
             }
 
             if (_builtWithKeptSession)
@@ -181,8 +183,25 @@ namespace BS3D.Screens
             _firstEntry = MenuButton(_phase == Phase.Done ? "Run again" : "Start", () => StartNow());
             column.Widgets.Add(_firstEntry);
             column.Widgets.Add(BackButton());
-            return ScreenRoot(Plate(column));
+            return Laid(column);
         }
+
+        //The phone's plate with the entries beside the reading (#1184), whose width the page needs; null for one column
+        private Panel _besidePlate;
+
+        /// <summary>
+        /// The page's plate: one column on a monitor; on a phone held landscape (#1184, <c>UsesTheWidth</c>) the reading on the
+        /// left and Start and Back on the right (<see cref="MenuPage.EntriesBesideReading"/>), each a touch target tall, so the
+        /// prose keeps the plate's height and nothing stands under it.
+        /// </summary>
+        private Widget Laid(VerticalStackPanel column)
+        {
+            _besidePlate = UsesTheWidth ? Plate(EntriesBesideReading(column)) : null;
+            return ScreenRoot(_besidePlate ?? Plate(column));
+        }
+
+        /// <summary>The reading and the entries side by side are wider than a stacked page (#1184): <c>FitPage</c> fits them to a narrower screen.</summary>
+        internal override int RequiredWidth => _besidePlate != null ? UnboundedWidth(_besidePlate) : 0;
 
         //Whether the tree was built with a level kept for Continue, which it warns of, and as the refusal
         private bool _builtWithKeptSession, _builtRefused;
@@ -211,7 +230,7 @@ namespace BS3D.Screens
         private string DeliveryText() => _delivery switch
         {
             null => "Sending the result to the author…",
-            BenchmarkDelivery.Sent => "Sent to the author with your computer's specification. Thank you!",
+            BenchmarkDelivery.Sent => BenchmarkConsent.Sent(PhoneWords),
             BenchmarkDelivery.Kept => "Not sent yet: the author's server did not answer. It goes the next time the game starts with online scores on.",
             BenchmarkDelivery.Refused => "The author's server did not take the result.",
             _ => "Not sent: this build of the game sends results nowhere.",

@@ -228,7 +228,7 @@ namespace Prazsky.Core.Render
             _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
 
             //The saucer over the sky, writing depth so the station stands in front of it (#955)
-            if (!firstHalf) _saucer.Draw(frame, _spaceConfig.Lighting);
+            if (!firstHalf) _saucer.Draw(frame, _spaceConfig.Lighting, Services.FineMeshes);
 
             //Put back what the rest of the opaque scene wants. The depth state especially: left at None, the
             //island would not occlude the cluster and the whole frame would draw in submission order.
@@ -259,9 +259,16 @@ namespace Prazsky.Core.Render
             _spaceBaseTexture.SetValue((Texture2D)null);
             _graphicsDevice.Textures[0] = null;
 
-            _saucer.Draw(frame, _spaceConfig.Lighting);
+            _saucer.Draw(frame, _spaceConfig.Lighting, Services.FineMeshes);
             return true;
         }
+
+        /// <summary>High and Ultra's saucer's dome of glass (#1174), after the opaque scene so the crew and whatever stands
+        /// beyond the craft show through it. An overlay rather than a grounded thing (<see cref="Backdrop.DrawGrounded"/>), so the
+        /// cluster and the gun the intro's pass crosses in front of show through it; seen through the ceiling's plate it is
+        /// therefore laid unbent over a hull the plate bends, accepted at the dome's size there: see
+        /// <see cref="SaucerFlight.DrawGlass"/>.</summary>
+        public override void DrawOverlays(in SceneFrame frame) => _saucer.DrawGlass();
 
         /// <inheritdoc/>
         public override bool TryGetLightRig(float wallClock, out SceneLightRig rig)

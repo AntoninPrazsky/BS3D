@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework;
 using Prazsky.Core.Render;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -51,14 +52,14 @@ namespace BS3D.Tests
         //Scene seeds where the trees' spheres close every way in to the Gallery's pose (none of 20 rolls is clear held by them;
         //found over random scene seeds), so the flights home there are the ones held by the trees' outlines: the sweep takes
         //them too, on the gun's bearing (GUN_BEARING of BEARINGS), so every test of the flight holds those flights as well
-        private static readonly int[] ClosedBySpheres = { 918399, 132414, 199155, 904411 };
+        internal static readonly int[] ClosedBySpheres = { 918399, 132414, 199155, 904411 };
         private const int GUN_BEARING = 3;
 
         //How much of the sweep must get a flight home: the rest fall back to the old reel and its tour leg. All 156 do
         //(measured); the share leaves a little room for bearings no savanna level opens on, where a campfire's hearth and the
-        //groves round the pose may leave no way in at a lens this low. A pose that stands in a campfire's clearance itself is
-        //never landed on and is not counted (no game lens stands there: on the gun's bearing the nearest fire is 7.1 off the
-        //line the lens stands on).
+        //groves round the pose may leave no way in at a lens this low. On the gun's bearing, where every savanna level opens,
+        //every pose must land. A pose that stands in a campfire's clearance itself is never landed on and is not counted (no
+        //game lens stands there: on the gun's bearing the nearest fire is 7.1 off the line the lens stands on).
         private const float MIN_BUILT_SHARE = 0.95f;
 
         //The ride: the meadow's limits (MeadowLandingTests) for the view's turn and pitch, the bank and the landing, and the
@@ -179,32 +180,106 @@ namespace BS3D.Tests
                 return sweep;
             });
 
-        [Fact]
-        public void A_flight_home_is_found_for_every_levels_own_pose_at_any_scene_seed()
+        //The plains of the SCENE_SEEDS scene seeds, planted once for the tests that fly over every one, here and in
+        //SavannaTourShotsTests (32 MB held; nothing in a plain changes once planted, so the two classes may read one at once)
+        internal static readonly Lazy<(int Layout, Plain Plain)[]> LevelPlains = new(() =>
         {
             var draw = new Random(SCENE_SEED_DRAW);
-            int built = 0, counted = 0;
+            var plains = new (int, Plain)[SCENE_SEEDS];
             for (int k = 0; k < SCENE_SEEDS; k++)
             {
                 int layout = draw.Next();
-                Plain plain = Plant(layout);
+                plains[k] = (layout, Plant(layout));
+            }
+            return plains;
+        });
+
+        [Fact]
+        public void A_flight_home_is_found_for_every_levels_own_pose_at_any_scene_seed()
+        {
+            int built = 0, counted = 0, underCrowns = 0;
+            float leastAir = float.MaxValue;
+            for (int k = 0; k < SCENE_SEEDS; k++)
+            {
+                (int layout, Plain plain) = LevelPlains.Value[k];
                 foreach ((Vector3 position, Vector3 target) in LevelPoses)
                 {
                     counted++;
-                    if (SavannaLanding.Build(plain.Land, position, target, FieldOfView, new Random(k)) != null) built++;
-                    else _output.WriteLine($"none: sceneseed={layout}, {position.Z} out");
+                    IntroShot shot = SavannaLanding.Build(plain.Land, position, target, FieldOfView, new Random(k));
+                    if (shot == null)
+                    {
+                        _output.WriteLine($"none: sceneseed={layout}, {position.Z} out");
+                        continue;
+                    }
+                    built++;
+
+                    //And under a crown (#1156) only where neither the trees' spheres nor their umbrellas leave a way in, and with
+                    //the air the third way, the crowns hung, asks under its leaves
+                    float air = UnderTheCrowns(plain.Land, shot, position);
+                    if (float.IsPositiveInfinity(air)) continue;
+                    underCrowns++;
+                    leastAir = MathF.Min(leastAir, air);
+                    var roll = new Random(k);
+                    Assert.Null(SavannaLanding.Build(plain.Land, position, target, FieldOfView, roll, SavannaLanding.TreesHeldBy.Spheres));
+                    Assert.Null(SavannaLanding.Build(plain.Land, position, target, FieldOfView, roll, SavannaLanding.TreesHeldBy.Umbrellas));
+                    _output.WriteLine($"under a crown: sceneseed={layout}, {position.Z} out, {air:F2} under its leaves");
                 }
             }
 
-            _output.WriteLine($"a flight home for {built} of {counted} level poses");
+            _output.WriteLine($"a flight home for {built} of {counted} level poses, {underCrowns} of them under a crown"
+                + (underCrowns > 0 ? $", at least {leastAir:F2} under its leaves" : ""));
             Assert.Equal(counted, built);
         }
+
+        /// <summary>
+        /// How much air a flight home keeps under the leaves where it passes under a tree's crown (#1156): the least distance off a
+        /// tree's own outline of the points that stand inside its umbrella (<see cref="PlantProfile.Hung"/> to the ground), of a
+        /// tree the pose itself does not stand under; positive infinity where it never passes under one. Asserts the rule the
+        /// first three passes lay a flight by (a flight only the last, the outlines alone, lays may come nearer and fails it):
+        /// every point keeps <see cref="SavannaLanding.TREE_AIR"/>, less the spline's half unit, off every tree's outline with
+        /// the crown hung <see cref="SavannaLanding.UNDER_CROWN_AIR"/> down, or no nearer than the pose does; and
+        /// <see cref="AIR_UNDER_A_CROWN"/> under the leaves where it passes under a crown.
+        /// </summary>
+        internal static float UnderTheCrowns(SavannaLand land, IntroShot shot, Vector3 pose)
+        {
+            var hung = new List<(PlantOutline Outline, PlantOutline Hung, PlantOutline Umbrella, float PoseHung, bool PoseUnder)>();
+            foreach (PlantOutline tree in land.TreeOutlines)
+            {
+                PlantOutline low = tree.Hung(SavannaLanding.UNDER_CROWN_AIR), umbrella = tree.Hung(float.PositiveInfinity);
+                hung.Add((tree, low, umbrella, low.Off(pose, SavannaLanding.TREE_AIR), umbrella.Off(pose, 1f) < 0f));
+            }
+
+            float air = float.PositiveInfinity;
+            for (int i = 0; i <= POSES; i++)
+            {
+                shot.Pose(i / (float)POSES, out Vector3 p, out _);
+                foreach (var tree in hung)
+                {
+                    if (p.X < tree.Umbrella.Bounds.Min.X - 4f || p.X > tree.Umbrella.Bounds.Max.X + 4f
+                        || p.Z < tree.Umbrella.Bounds.Min.Z - 4f || p.Z > tree.Umbrella.Bounds.Max.Z + 4f) continue;
+
+                    float off = tree.Hung.Off(p, SavannaLanding.TREE_AIR);
+                    Assert.True(off >= MathF.Min(SavannaLanding.TREE_AIR, tree.PoseHung - 0.5f) - 0.5f, $"{off:F2} off a tree at {tree.Outline.Root}");
+                    //⚠ Inside the stack, Off reads no deeper than its band's half-height: the sign says under the crown, not how far
+                    if (!tree.PoseUnder && tree.Umbrella.Off(p, 1f) < 0f) air = MathF.Min(air, tree.Outline.Off(p, 20f));
+                }
+            }
+            Assert.True(air >= AIR_UNDER_A_CROWN, $"{air:F2} under a crown's leaves");
+            return air;
+        }
+
+        //The least air a flight home keeps under a crown's leaves where it has to pass under one (#1156): the rule's hang
+        //(SavannaLanding.UNDER_CROWN_AIR of the tree mesh's own units, 1.6 in the world at the smallest a tree is planted, 0.8
+        //times its mesh) and its TREE_AIR, 4.6 in all, less the spline's half unit; measured 4.67 at the least at the levels'
+        //own poses, and held by the outline alone, as the lens was before, 3.0
+        private const float AIR_UNDER_A_CROWN = 4f;
 
         [Fact]
         public void Where_the_trees_spheres_close_every_way_in_their_outlines_open_one()
         {
             //Held by their spheres the trees leave these plantings no way in to the Gallery's pose; held by their own outlines
-            //they do, and the flight keeps TREE_AIR off every tree, less the spline's half unit
+            //they do, and the flight keeps TREE_AIR off every tree, less the spline's half unit, and under a crown (#1156) only
+            //where the trees' umbrellas close every way in too
             float nearest = float.MaxValue;
             foreach (int layout in ClosedBySpheres)
             {
@@ -214,6 +289,12 @@ namespace BS3D.Tests
                     Assert.Null(SavannaLanding.Build(land, GamePosition, GameTarget, FieldOfView, new Random(roll), SavannaLanding.TreesHeldBy.Spheres));
                     IntroShot shot = SavannaLanding.Build(land, GamePosition, GameTarget, FieldOfView, new Random(roll));
                     Assert.NotNull(shot);
+                    if (!float.IsPositiveInfinity(UnderTheCrowns(land, shot, GamePosition)))
+                    {
+                        var again = new Random(roll);
+                        SavannaLanding.Build(land, GamePosition, GameTarget, FieldOfView, again, SavannaLanding.TreesHeldBy.Spheres);
+                        Assert.Null(SavannaLanding.Build(land, GamePosition, GameTarget, FieldOfView, again, SavannaLanding.TreesHeldBy.Umbrellas));
+                    }
 
                     for (int i = 0; i <= POSES; i++)
                     {
@@ -231,11 +312,15 @@ namespace BS3D.Tests
             _output.WriteLine($"the nearest a tree's outline {nearest:F2}");
         }
 
+        //The menu's crane, as near as 15 out over the island: a pose no flight home is laid into (see the test below that says so)
+        internal static readonly Vector3 Crane = new(0f, -2f, 15f);
+
         [Fact]
         public void A_flight_home_is_found_for_most_poses_round_the_arena()
         {
             int built = 0, counted = 0, beside = 0;
-            foreach (var (_, bearing, radius, plain, shot) in Sweep.Value)
+            var missedOnTheGunsBearing = new List<string>();
+            foreach (var (layout, bearing, radius, plain, shot) in Sweep.Value)
             {
                 if (BesideAFire(plain, Pose(bearing, radius)))
                 {
@@ -246,11 +331,16 @@ namespace BS3D.Tests
 
                 counted++;
                 if (shot != null) built++;
-                else _output.WriteLine($"none: bearing {bearing * 30}, radius {radius}");
+                else
+                {
+                    _output.WriteLine($"none: layout {layout}, bearing {bearing * 30}, radius {radius}");
+                    if (bearing == GUN_BEARING) missedOnTheGunsBearing.Add($"layout {layout}, radius {radius}");
+                }
             }
 
             _output.WriteLine($"a flight home for {built} of {counted} poses ({beside} beside a fire)");
             Assert.True(built >= MIN_BUILT_SHARE * counted, $"a flight home for {built} of {counted} poses");
+            Assert.True(missedOnTheGunsBearing.Count == 0, $"no flight home on the gun's bearing: {string.Join("; ", missedOnTheGunsBearing)}");
         }
 
         [Fact]
@@ -626,7 +716,7 @@ namespace BS3D.Tests
             //The menu's crane stands as near as 15 out, over the island: no flight from the plain reaches it without crossing the
             //arena, so the savanna plays its reel and the tour's last leg there; nor onto a pose in a campfire's flame
             Plain plain = Planted(1);
-            Assert.Null(Home(plain, new Vector3(0f, -2f, 15f), 1));
+            Assert.Null(Home(plain, Crane, 1));
             Vector3 fire = plain.Land.Fires[0];
             Assert.Null(Home(plain, new Vector3(fire.X, GamePosition.Y, fire.Z) * new Vector3(1.05f, 1f, 1.05f), 1));
             Assert.NotNull(Home(plain, GamePosition, 1));

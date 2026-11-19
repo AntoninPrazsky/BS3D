@@ -29,7 +29,7 @@ namespace BS3D.Screens
     /// exactly whether that is a scene or a game.
     /// </para>
     /// </summary>
-    internal abstract class MenuPage : Screen, IFrameBlurSource
+    internal abstract partial class MenuPage : Screen, IFrameBlurSource
     {
         protected readonly BS3DGame Game;
 
@@ -306,7 +306,8 @@ namespace BS3D.Screens
         /// Whether this page has taken the keyboard to type into (#548) — the settings page while a nickname is
         /// being typed. While it has, the host's menu frame reads no key of its own: no Escape back, no arrow walk,
         /// no Enter activation — a Space, an arrow or a letter is the page's, and it arrives through
-        /// <see cref="OnTextInput"/>. The pad's A and B still come, through <see cref="TypingButtons"/>.
+        /// <see cref="OnTextInput"/>. The pad's A and B still come, through <see cref="TypingButtons"/>, and on Android the
+        /// system's back gesture as B.
         /// </summary>
         internal virtual bool CapturesKeyboard => false;
 
@@ -318,7 +319,7 @@ namespace BS3D.Screens
 
         /// <summary>
         /// What a phone's text dialog asks while this page has the keyboard (#1052): its title, a line under it, and the text
-        /// it opens on (what is typed so far). <c>BS3DGame.StepPhoneTyping</c> hands the answer to <see cref="TakeTypedText"/>.
+        /// it opens on (what is typed so far). <see cref="PhoneTyping"/> hands the answer to <see cref="TakeTypedText"/>.
         /// </summary>
         internal virtual (string Title, string Description, string Text) TypingDialog => ("", "", "");
 
@@ -338,10 +339,21 @@ namespace BS3D.Screens
         /// </summary>
         internal virtual bool TypingDialogEnters => true;
 
+        /// <summary>
+        /// Whether the dialog's Cancel is the page's Esc (#1182): on the nickname plate it dismisses the plate and on the
+        /// Settings row it keeps the name there was, which is what a cancel means there; the note's Esc leaves the page, so
+        /// there a cancel leaves the page and its text as they were before the dialog opened (<see cref="PhoneTyping"/>), and
+        /// the page's own Back, the pad's B or the system's back gesture leaves it.
+        /// </summary>
+        internal virtual bool TypingDialogEscapes => true;
+
         /// <summary>The widget the typed text shows in (#1052): a finger on it opens the phone's text dialog again.</summary>
         internal virtual Widget TypingField => null;
 
-        /// <summary>The pad's A (<paramref name="keep"/>) and B (<paramref name="drop"/>) while the page is typing (#548).</summary>
+        /// <summary>
+        /// The pad's A (<paramref name="keep"/>) and B (<paramref name="drop"/>) while the page is typing (#548); on Android the
+        /// system's back gesture is B.
+        /// </summary>
         internal virtual void TypingButtons(bool keep, bool drop) { }
 
         /// <summary>
@@ -568,11 +580,6 @@ namespace BS3D.Screens
         //FontStashSharp sizes a font by
         private const float ANTON_CAP_OF_LINE = 1760f / (2409f + 674f);
 
-        //The two faces' ascents as fractions of their lines, off their own tables (Inter: ascent 1984 + descent 494): where
-        //each face's baseline stands under the top of its line, for a label of one face beside a line of the other
-        private const float ANTON_ASCENT_OF_LINE = 2409f / (2409f + 674f);
-        private const float INTER_ASCENT_OF_LINE = 1984f / (1984f + 494f);
-
         protected Button FrontEndEntry(string text, Action onClick) => Game.FrontEndEntry(text, onClick);
 
         protected Button FrontEndEntry(string text, Action onClick, out Label label) =>
@@ -592,9 +599,57 @@ namespace BS3D.Screens
         /// <summary>
         /// The height of a touch target on the phone layout (#1151), in design units: 9 mm on the X300 Ultra at the menus'
         /// fit there (a unit is 0.044 mm at the front end's 1.33×), the size a fingertip hits without looking twice. A
-        /// Settings row and its − and + are this tall.
+        /// Settings row and its − and + are this tall, and every button handed to <see cref="PhoneTarget"/>.
         /// </summary>
         protected const int PHONE_TARGET = 206;
+
+        /// <summary>
+        /// <paramref name="button"/> made a touch target on the phone layout (#1181): <see cref="PHONE_TARGET"/> tall, about
+        /// 9 mm on the X300 Ultra at the menus' fit, where a menu entry is about 6.3 mm; nothing on a monitor, whose entries
+        /// keep their height. A button with a margin keeps it out of the height (Myra counts a margin inside an explicit
+        /// height). The host's <c>[touch]</c> line says what every target on a page came out at in millimetres.
+        /// </summary>
+        protected Button PhoneTarget(Button button)
+        {
+            if (PhoneLayout) button.Height = Scaled(PHONE_TARGET) + button.Margin.Top + button.Margin.Bottom;
+            return button;
+        }
+
+        /// <summary>
+        /// A page of reading with its entries beside it rather than under it (#1184, the phone layout): every button
+        /// <paramref name="column"/> holds is taken out of it, in its order, and stood in a column of its own right of the
+        /// reading, each a touch target tall (<see cref="PhoneTarget"/>), the last at the foot. The reading keeps the column's
+        /// whole height, so a page that used to stack its prose over its entries is half as tall. The entries stay in the
+        /// order they were added after the reading, so the pad's walk is the one a stacked page has. The Benchmark page.
+        /// </summary>
+        protected HorizontalStackPanel EntriesBesideReading(VerticalStackPanel column)
+        {
+            VerticalStackPanel entries = MenuColumn();
+            entries.VerticalAlignment = VerticalAlignment.Bottom;
+
+            //One at a time, not by Clear: Myra detaches a removed child through a copy of the list that is current only while
+            //no change is pending (JukeboxPage.FillTracks)
+            for (int i = 0; i < column.Widgets.Count;)
+            {
+                if (column.Widgets[i] is Button entry)
+                {
+                    column.Widgets.RemoveAt(i);
+                    entries.Widgets.Add(PhoneTarget(entry));
+                }
+                else i++;
+            }
+
+            column.VerticalAlignment = VerticalAlignment.Top;
+            HorizontalStackPanel row = new()
+            {
+                Spacing = Scaled(WideMenuLayout.RAIL_GAP),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            row.Widgets.Add(column);
+            row.Widgets.Add(entries);
+            return row;
+        }
 
         //The phone layout's plate (#1151): narrower insets than a monitor's, because the height is what a phone runs out of
         //and the rail and the reading fill the width
@@ -646,7 +701,13 @@ namespace BS3D.Screens
         /// The height the content beside a rail may take, in pixels at the layout in force (#1151): <see cref="RAIL_ROOM"/>
         /// of the screen's less the plate's insets, so a page that keeps to it is not brought down.
         /// </summary>
-        protected int RailContentHeight => (int)(Game.GraphicsDevice.Viewport.Height * RAIL_ROOM) - 2 * Scaled(RAIL_PLATE_PADDING_Y);
+        protected int RailContentHeight => PhoneRoomHeight - 2 * Scaled(RAIL_PLATE_PADDING_Y);
+
+        /// <summary>
+        /// The height a page on the phone layout may take whole, plate and all, in pixels (#1182): <see cref="RAIL_ROOM"/> of
+        /// the screen's, so a page that keeps to it is not brought down. What the note page's field grows into.
+        /// </summary>
+        protected int PhoneRoomHeight => (int)(Game.GraphicsDevice.Viewport.Height * RAIL_ROOM);
 
         /// <summary>
         /// The share of the screen's width and height a rail page takes (#1151): nearly all of it, the owner's "it is
@@ -790,33 +851,36 @@ namespace BS3D.Screens
             Prose(text, width, BS3DGame.MENU_TEXT_DIM, Game.ProseLeading, new Thickness(0, 0, 0, ParagraphGap));
 
         /// <summary>
-        /// A list of labelled facts (#1034), such as the online privacy list: each label in the display face's capitals at
-        /// the rows' size, flush right in a column as wide as the widest label, and what it says set as prose in the column
-        /// beside it, which takes the rest of <paramref name="width"/>. The owner's verdict on the run-in lead-ins it
-        /// replaced (#996) was Help's: a heading too small for its text, sitting oddly at the left, and a list short of the
-        /// page's width. A column of labels adds no line, as a heading on a line of its own would, and the 45 to 75
-        /// characters rule holds for the text's column, not the whole width. Each label stands on its text's first baseline.
+        /// A list of labelled facts (#1034), such as the online privacy list: each label in the text's own face, its bold
+        /// cut, at the text's size and as written (#1154), flush right in a column as wide as the widest label, and what it
+        /// says set as prose in the column beside it, which takes the rest of <paramref name="width"/>. The owner's verdict
+        /// on the run-in lead-ins it replaced (#996) was Help's: a heading too small for its text, sitting oddly at the left,
+        /// and a list short of the page's width; and on the display face's big capitals that followed, that the labels
+        /// belong to the text beside them, in its face, only bold (#1154). A column of labels adds no line, as a heading on
+        /// a line of its own would, and the 45 to 75 characters rule holds for the text's column, not the whole width.
+        /// <para>
+        /// Each label stands on its text's first baseline with nothing moved: Inter's regular and bold cuts share their
+        /// vertical tables (ascent 1984, descent 494 of 2048 units, no line gap), so at one size their lines are the same
+        /// height with the baseline at the same depth, and both stand at the top of their row. <c>FactListTests</c> holds
+        /// the two faces to that; a label face of other metrics would need the text dropped by the ascents' difference.
+        /// </para>
         /// </summary>
         /// <param name="color">The text's grey: <see cref="BS3DGame.MENU_TEXT_DIM"/> for an aside. The labels are the loud white.</param>
         protected Grid FactList(IReadOnlyList<(string Label, string Text)> facts, int width, Color color)
         {
             int gap = Scaled(FACT_COLUMN_GAP);
 
-            //Measured as drawn: plain capitals, no commands, so the face's own measure is the label's width
+            //Measured as drawn: plain words, no commands, so the face's own measure is the label's width
             int labelWidth = 0;
             foreach ((string label, _) in facts)
-                labelWidth = Math.Max(labelWidth, (int)MathF.Ceiling(FontBody.MeasureString(label.ToUpperInvariant()).X));
+                labelWidth = Math.Max(labelWidth, (int)MathF.Ceiling(FontStrong.MeasureString(label).X));
 
             int textWidth = width - labelWidth - gap;
-
-            //The text dropped by the difference of the two faces' ascents, so its first line's baseline is the label's
-            int drop = Math.Max(0, (int)MathF.Round(FontBody.LineHeight * ANTON_ASCENT_OF_LINE
-                - FontSmall.LineHeight * INTER_ASCENT_OF_LINE));
 
             Grid list = new()
             {
                 ColumnSpacing = gap,
-                RowSpacing = Scaled(FACT_ROW_GAP),
+                RowSpacing = ProseLeading + Scaled(FACT_SET_OFF),
                 Width = width,
                 HorizontalAlignment = HorizontalAlignment.Left,
                 VerticalAlignment = VerticalAlignment.Top,
@@ -830,8 +894,8 @@ namespace BS3D.Screens
 
                 Label label = new()
                 {
-                    Text = facts[i].Label.ToUpperInvariant(),
-                    Font = FontBody,
+                    Text = facts[i].Label,
+                    Font = FontStrong,
                     TextColor = BS3DGame.MENU_TEXT,
                     HorizontalAlignment = HorizontalAlignment.Right,
                     VerticalAlignment = VerticalAlignment.Top,
@@ -839,7 +903,7 @@ namespace BS3D.Screens
                 Grid.SetRow(label, i);
                 list.Widgets.Add(label);
 
-                Label text = Prose(facts[i].Text, textWidth, color, ProseLeading, new Thickness(0, drop, 0, 0));
+                Label text = Prose(facts[i].Text, textWidth, color, ProseLeading, new Thickness(0, 0, 0, 0));
                 text.VerticalAlignment = VerticalAlignment.Top;
                 Grid.SetColumn(text, 1);
                 Grid.SetRow(text, i);
@@ -852,10 +916,13 @@ namespace BS3D.Screens
         //Between a fact list's labels and its text, in design units: Help's gap after a control's name (#997)
         private const int FACT_COLUMN_GAP = 40;
 
-        //Between two facts, in design units: with the text's drop to the label's baseline, a third of a prose line more
-        //than the leading, so a fact of several lines reads as ended before the next label. Settings' ONLINE is the tallest
-        //page, and twice this (24) left its plate 7 px inside a 1600x900 window
-        private const int FACT_ROW_GAP = 12;
+        //What sets one fact off from the next on top of the prose leading, in design units, so a fact of several lines
+        //reads as ended before the next label: about a quarter of the small face's line. Every fact's first baseline
+        //stands a line and the leading and this under the last baseline before it, one pitch whatever the facts' lengths.
+        //It is the gap the display-face labels' drop (#1034) gave a fact after one of several lines; a fact after a
+        //one-line fact stood a little lower then, under the taller label. Settings' ONLINE is the tallest page: twelve
+        //more between facts, #1034's first try, left its plate 7 px inside a 1600x900 window
+        private const int FACT_SET_OFF = 16;
 
         /// <summary>
         /// The prose label <see cref="Paragraph(string, int)"/> and <see cref="Aside"/> are made of, for a page that places it otherwise:
@@ -995,6 +1062,9 @@ namespace BS3D.Screens
         /// </summary>
         protected SpriteFontBase FontSection => Game.MenuFontSection;
         protected SpriteFontBase FontSmall => Game.MenuFontSmall;
+
+        /// <summary>The small face's bold cut, for a label set beside prose in the prose's own face (<see cref="FactList"/>, #1154).</summary>
+        protected SpriteFontBase FontStrong => Game.MenuFontStrong;
         protected SpriteFontBase FontTitle => Game.MenuFontTitle;
         protected SpriteFontBase FontStars => Game.MenuFontStars;
 

@@ -20,6 +20,69 @@ Pravidla:
 
 ---
 
+## 2026-11-19 — #1173 #1174 detailní talíř a posádka za sklem — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: na High/Ultra je vesmírný talíř `SaucerFineMesh` (pět sítí): trup s 16 radiálními švy, drážkami, límcem, lemem, prstencem kolem zapuštěné tyrkysové čočky a třemi nohami (#1173); 40 skleněných žárovek nad objímkami; anténa zvlášť; kabina se třemi modely posádky kolem konzole a skutečná skleněná kopule kreslená až po neprůhledné scéně (`SaucerFlight.DrawGlass` z `DrawOverlays`, #1174). 34 248 trojúhelníků, +0,03 ms; Low/Medium beze změny (2 208).
+- ⚠ Hash odstínu panelů kreslil švy, kde geometrie žádné nemá (lem, límec): trup teď značí pruhy, které švy opravdu řežou.
+- Otevřené: #1173 #1174 verdict-eye (záře žárovek, síla skla, velikost posádky, nohy); sklo kreslené přes stropní desku je nelomené (vědomý kompromis); na telefonu nezkoušeno.
+
+## 2026-11-19 — #1183 #1182 #1185 nápověda a psaní na telefonu, hvězdy podle pravidel v2 — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: #1182 Cancel v systémovém dialogu telefonu už nezavře Napsat autorovi (`PhoneTyping`, `MenuPage.TypingDialogEscapes`), pole poznámky roste do volné výšky. #1185 Help > CAMPAIGN popisuje hvězdy jako pravidla v2 (rychlost se počítá, čtyři chtějí čisté dohrání hluboko pod par). #1183 na telefonu: každá záložka Help se vejde na X300 (rámeček 1 156 px), ODD BALLS jako mřížka karet s panelem vybrané, Settings > CONTROLS začíná dotykem, Benchmark mluví o telefonu a dotyk ho opravdu zastaví.
+- ⚠ Celá invertovaná karta schová skleněnou kouli; invertuje se jen pruh jména.
+- Otevřené: #1183 verdict-eye (vzhled karet, vypuštěné glyfy myši a klávesnice); nic neběželo na skutečném X300 ani v GameAndroid.
+
+## 2026-11-19 — #1181 #1184 dotykové cíle telefonu a využití stran — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: na telefonu (UiScale > 1) mají zbylá tlačítka ~9 mm (`MenuPage.PhoneTarget`; pauza, Quit confirm vedle sebe, Top Players, výsledek, poznámka, Jukebox, About, benchmark), HUD tlačítko pauzy 9,1 mm jen na zvětšeném rozhraní, menu telefonu startují v prstovém režimu (`MenuHand.StartsOnTouch`), řádek `[touch]` v logu měří každou stránku. Pauza ve dvou sloupcích vedle karty levelu (`MenuPage.LevelCard`, sdílená s výběrem levelů), Top Players s lištou, benchmark text vlevo a tlačítka vpravo, upozornění na kvalitu vpravo dole. Monitor beze změny.
+- ⚠ Vyjmutí upozornění ze sloupce hlavního menu zvětšilo stránky o 1,5 % a záložka ONLINE v Nastavení se přestala vejít; sloupec si drží jeho mezeru jako horní okraj.
+- ⚠ Karta pauzy na vestavěném levelu (bez sady levelů) padala na null; opraveno.
+- Otevřené: #1184 verdict-eye; na skutečném telefonu nezkoušeno, 16:9 telefon dává 7,5 mm.
+
+## 2026-11-19 — #1155 silnější lana a větší navijáky stropu — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno (`CeilingRigging.cs`): buben 0,44/0,33, šířka 0,84 (téměř kulička), 6 závitů; lano r 0,055 (bylo 0,035), stoupání závitů aspoň průměr lana. Zdálky drží lano aspoň 1,5 px v bodě nejbližším objektivu (`CableInstance`, čistá funkce s testem přes skutečnou projekci); tenké lano je vlastní 12boká tyč zploštělá do hloubky, takže má jeden tón (dřív v dlouhém záběru tečkovaná čára, světlá/tmavá po sloupcích pixelů).
+- ⚠ Kulaté stínování na 1,5 px střídá světlou a tmavou polovinu, jak čára přechází sloupce pixelů: tenkou tyč zploštit, ne zesvětlit.
+- Otevřené: verdict-eye (velikost; alternativa r 0,07 ve scratchpadu `issue-1155/alt-cable-0.07`). Přes sklo zůstávají lana rozbitá na krátké barevné tahy (lom #541) — možná „zubatý artefakt“, chtělo by vlastní změnu skla.
+
+## 2026-11-19 — #1157 #1156 savana: nic nestojí v kameni, let „grass home“ pod korunami — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: každý kámen savany se kontroluje proti sázeným věcem (`PlantVolumes.StoneClearance` proti `RockMesh.Off`); pláň ho bere jako třetí odpověď místa (pořadí kostek beze změny), treeline se vytlačí z kamenů, trs na břehu odkročí. `SavannaStoneTests`: 0 z 200 285 věcí v kameni. Pohnulo se 397 hmot treeline, 252 trsů na břehu, 1 akácie.
+- Let „grass home“ plánuje po průchodech koule → deštníky → koruny spuštěné o 2 → obrysy; pod korunou 4 ze 400 sestavení, nejméně 4,67 pod listím (dřív 8 ze 400 v 3,0).
+- ⚠ Starý test místa neznal kameny vůbec: fallback na zápornou vůli se nikdy nespustil, chyba byla v otázce, ne v nouzi.
+- Otevřené: #1156 verdict-eye (pohyb nikdo neviděl, majitelův seed neznámý); #1157 uzavřen důkazem.
+
+## 2026-11-19 — #1154 popisky soukromí písmem textu — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: `MenuPage.FactList` (About > Privacy i Settings > ONLINE) sází popisky v Inter Bold velikostí textu (`MENU_FONT_SMALL`), jak jsou zapsané (Sent, Where, …), bez vynucených verzálek; dál bílé a zarovnané vpravo. Inter Bold už byl načtený za `MenuPage.Strong`, jen je vystavený jako `MenuFontStrong`/`FontStrong`. Regular a Bold mají shodné svislé metriky, takže pokles účaří (`ANTON_ASCENT_OF_LINE`) zmizel; rozestup faktů je teď všude stejný (86 jednotek). Settings > ONLINE je o 6 px na stranu nižší, na telefonu se Added there vejde na řádek. Testy `FactListTests`.
+- ⚠ Starý rozestup byl „stejný“ jen za víceřádkovým faktem; za jednořádkovým stál fakt o 6 jednotek níž pod vyšším Antonem.
+- Otevřené: verdict-eye; skutečný telefon a GL nezkoušeny. Možná šedé popisky jako text (rozhodne majitel).
+
+## 2026-11-19 — #1162 cykly gridu zatáčejí méně — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: jezdec po zatáčce jede rovně aspoň `MIN_RUN` (2) segmenty, pak rovně v 0,75 uzlů (dřív 0,6); směr zatáčky volí bit hashe. Průměrný rovný úsek 3,9 segmentu (2,6 s, dřív 2,1 / 1,4 s), nejkratší 2. Úvodní jízda gridu má záběr ve 120 ze 120 sestav; znovu se volí, když plán nedosáhne konce záběru.
+- ⚠ Pravidlo jen ve výběru nestačí: okraj prstence nebo krychle vynutily dvě zatáčky uzel po sobě (12 % úseků, 21 obratů). Nejkratší úsek musí držet i `LightCycles.Lattice` (živost kroku podle délky úseku).
+- Otevřené: verdict-eye; pohyb nikdo neviděl (nejsou teď moc rovné?). Jízda v úvodu teď často zatáčku neukáže (88 zatáček ve 120 jízdách, dřív 173); worktree `BS3D-1162-before` se snímky „před“ zůstává.
+
+## 2026-11-19 — #1164 tmavší vzdálená pásma sopky — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: hory sopky stojí tmavší než noční obloha, každé další pásmo o odstín světlejší. Opar země 0,55 → 0,32 barvy horizontu (`LAND_HAZE_SKY`), poslední prolnutí do oblohy začíná až na 900 místo 600 (`VolcanoBackdrop.FarFadeStartLatest`, druhá výjimka ze stropu 600 vedle outbacku) a nad obzorem končí v obloze i s mrakovou palubou (`VolcanoFadeToSky`, vzorec #1121). Testy `VolcanoFarHazeTests`.
+- ⚠ Prolnutí do `FarSky` (kupole bez paluby) dělá ze vzdálených hřebenů pod mraky světlé siluety; ostatní scény to mají dál (chce vlastní issue).
+- ⚠ Hranice 0,6 oblohy platí jen do ~1 050 jednotek; dál ji poslední prolnutí (#551) nedovolí. Pásmo vpravo od kužele v herním pohledu (1 148+) se teď spíš rozpouští do paluby.
+- Otevřené: verdict-eye; pohyb, nižší a Ultra tier, telefon a cena snímku neměřeny.
+
+## 2026-11-19 — #1163 smrky polární záře podle vzdálenosti — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: „obrácené trychtýře“ v úvodu (záběr *wood*, High/Ultra) byly špice vzdáleného porostu (`AuroraStandMesh`), ne smrky. Na High/Ultra se špice blíž než 200 jednotek od objektivu stáhne v `StandVS` do bodu a na jejím místě se kreslí smrk z výsadby (`StandSpruces`, stejný test na stejných floatech). Blízká koruna smrků teď sleduje objektiv každý snímek (90 od objektivu / 110 od arény); měsíční stín bere frustum kamery, takže hra nemění žádnou korunu v žádném průchodu. Smrky porostu nevrhají stín. Číselník `aurora=all/-standspruces`.
+- ⚠ Stínový průchod přepínal koruny (a stíny) mimo záběr, když se dělo otáčelo; test chodil jen kamerový průchod.
+- Otevřené: verdict-eye; pohyb (přeskoky při 200 a 90) nikdo neviděl; poloměr 200 vs. 150 (cena ~0,4–0,5 ms) a stíny porostu jsou na majiteli.
+
+## 2026-11-19 — #1158 #1159 #1160 #1161 #1175 poznámky k záběrům úvodů kapitol — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: poušť — kamery brouka a štíra 1,6× dál po téže ose (štír jako nakreslený ~0,22–0,23 šířky 16:9, brouk 0,18); hory — vrchol mířen 16 pod apex, kamera na místě, špička ~0,66 nahoru, skála 53–55 %; jeskyně — pořadí chodba, šachta, krystaly, spodek (losuje se ve starém pořadí, seedy beze změny); grid — jízda 13 napříč (dál v buňce mřížky nejde), cyklus 0,27 šířky; vesmír — talíř 20 u/s místo 28, záběr 5,5 s, úvod 15,5 s.
+- ⚠ Vrchol hory vzorkovaný po 6 jednotkách leží 6 pod skutečnou špičkou; test promítal vzorek a pustil špičku nad mez. Měř, co se kreslí (`DesertCritters.World` a nejvyšší bod v okolí).
+- Otevřené: verdict-eye u všech pěti; v pohybu nikdo neviděl, štír stále ~čtvrtina šířky (pětina by chtěla stání ~6,1), rychlost talíře zvolena bez majitele.
+
 ## 2026-11-18 — #1178 trailer v1 — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: `Tools/trailer/trailer.json` (57 s: logo, 21 WORLDS, 6 průletů, 140 LEVELS, zlom shoegaze → trance, rychlá hra, speciální kuličky, Cut, bomby, dohrání Cannonball, závěrečná karta s webem). Master 4K60 v `Videos\BS3D trailer\bs3d-trailer-v1-master.mp4` (411 MB). Nástroj nahrává jen použité úseky (ořez okna, 0 pixelů rozdíl ověřeno).

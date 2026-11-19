@@ -113,7 +113,10 @@ namespace BS3D.Screens
 
                 Visible = false,
             };
-            column.Widgets.Add(_qualityNotice);
+
+            //Not on the phone (#1184), where the entries take the screen's height and the notice above them stood over the FPS
+            //line in the top left corner: it stands over the version tag there instead (below)
+            if (!PhoneLayout) column.Widgets.Add(_qualityNotice);
 
             //THE FIRST ENTRY IS THE ONE A PLAYER WANTS (#607): New Game on a fresh save, straight into level 1
             //and its tutorial, and Continue once there is anything to continue — a session standing, or a save
@@ -139,8 +142,25 @@ namespace BS3D.Screens
 
             //The build's name, bottom-right — after the column, so it is nowhere in the pad's walk (a label is no entry,
             //and this one stays a footnote to it)
-            return ScreenRoot(column, VersionTag());
+            Label tag = VersionTag();
+            if (!PhoneLayout) return ScreenRoot(column, tag);
+
+            //The phone's notice (#1184): in the bottom right corner over the version tag, its right edge on the tag's. The
+            //entries' column fills the phone's height, so above it the notice stood in the top left corner over the FPS line.
+            //⚠ The column keeps the height the hidden notice gave it, one spacing (a hidden child still costs a stack its
+            //spacing), as a top margin: the front end's fit is found by fitting this page and every page on the phone starts
+            //from it, so without it every page was laid out 1.5 % larger and Settings' tallest tab no longer fit at it
+            Thickness inset = column.Margin;
+            column.Margin = new Thickness(inset.Left, inset.Top + column.Spacing, inset.Right, inset.Bottom);
+            _qualityNotice.HorizontalAlignment = HorizontalAlignment.Right;
+            _qualityNotice.VerticalAlignment = VerticalAlignment.Bottom;
+            int tagHeight = tag.Measure(new Microsoft.Xna.Framework.Point(int.MaxValue / 2, int.MaxValue / 2)).Y;
+            _qualityNotice.Margin = new Thickness(0, 0, Scaled(FRONT_INSET), tagHeight + Scaled(NOTICE_GAP));
+            return ScreenRoot(column, _qualityNotice, tag);
         }
+
+        //Between the phone's quality notice and the version tag under it, in design units
+        private const int NOTICE_GAP = 24;
 
         internal override void Refresh()
         {

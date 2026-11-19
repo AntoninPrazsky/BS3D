@@ -39,7 +39,8 @@ namespace BS3D.Effects
         /// <summary>What a choice of cycle and side keeps the ride off, the strictest first.</summary>
         internal enum Keep
         {
-            /// <summary>Everything the class doc names, the frame never swinging faster than <see cref="MAX_SWING_DEGREES"/>.</summary>
+            /// <summary>Everything the class doc names, the frame never swinging faster than the choice's limit
+            /// (<see cref="MAX_SWING_DEGREES"/> unless a test asks for a lower one).</summary>
             Calm,
 
             /// <summary>Everything the class doc names, however fast the frame swings.</summary>
@@ -53,23 +54,29 @@ namespace BS3D.Effects
         //Where the lens stands in the frame turned to the cycle: this far across from the cycle's middle, this far ahead of it
         //and this high over the floor (over the walls' 2.6 and the cycle's 2.5); and what it looks at, this far behind the
         //middle and this high, so the whole cycle stands near the middle of the frame, at any aspect from 4:3, with its wall
-        //running back from it. ⚠ 1.5 behind put the front wheel at 0.94 of a 4:3 frame's half-width
-        internal const float SIDE = 9f;
-        internal const float AHEAD = 1.5f;
-        internal const float HEIGHT = 3.4f;
+        //running back from it. ⚠ 1.5 behind put the front wheel at 0.94 of a 4:3 frame's half-width.
+        //Far enough off that the cycle spans about a quarter of a 16:9 frame's width (#1161, the owner: "the motorcycles do not
+        //have much detail, so we should not show them needlessly close"; GridRideTests holds the span). ⚠ The lattice's lines
+        //are LightCycles.LATTICE apart and a wall on one keeps the lens WALL_CLEARANCE off it, so a lens farther across than
+        //LATTICE less WALL_CLEARANCE stands within WALL_CLEARANCE of the next line and is refused wherever a wall runs along it:
+        //SIDE is the farthest across that keeps the lens in the cycle's own cell. The farther off, the faster the lens swings
+        //round the cycle through a turn (GridRideTests bounds its speed by SIDE); the view's own turn does not change with it
+        internal const float SIDE = 13f;
+        internal const float AHEAD = 2.4f;
+        internal const float HEIGHT = 4.4f;
         internal const float LOOK_BEHIND = 0.5f;
         internal const float LOOK_HEIGHT = 1.2f;
 
         //How many seconds of the cycle's run either side the heading the lens turns to is averaged over: the swing round one node
         //takes twice this and turns at most 90 / REACH_SECONDS degrees a second (37.5) at its middle; a U-turn, two right angles
-        //the same way a node apart, at up to 71. ⚠ Both sides together, with the longest stretch a choice is made over, stay
-        //inside the run a rider keeps (LightCycleRuns.KEPT_SECONDS): past it, the first frame posed after a choice would make the
-        //cycle's run again from its start
+        //the same way as close as a cycle turns them (two nodes apart, #1162), at up to 62. ⚠ Both sides together, with the
+        //longest stretch a choice is made over, stay inside the run a rider keeps (LightCycleRuns.KEPT_SECONDS): past it, the
+        //first frame posed after a choice would make the cycle's run again from its start
         internal const float REACH_SECONDS = 2.4f;
 
         //What the lens keeps off, through the seconds the shot plays in: any wall seen from above; any other cycle's middle; any
         //solid or the ring (the cycles ride inside the solids' ring, but a cube near its inner edge reaches in among them, and
-        //the lens rides 9 aside of its cycle); and the cycle it films keeps its own body off any solid. Every run keeps further
+        //the lens rides SIDE aside of its cycle); and the cycle it films keeps its own body off any solid. Every run keeps further
         //off the solids it was made among (LightCycles.SOLID_CLEARANCE, #1136), so that last binds only on a solid handed to
         //the ride and not to its runs
         internal const float WALL_CLEARANCE = 3f;
@@ -85,10 +92,12 @@ namespace BS3D.Effects
         //Nearer the axis than this the lens would be over the island; the cycles keep 56 off it, so it never binds
         private const float ISLAND_CLEARANCE = ArenaIsland.RADIUS + 6f;
 
-        //The fastest a calm ride's frame swings round its cycle, degrees a second (Keep.Calm): a cycle that turns three right
-        //angles within a few nodes (circling at the edge of its ring) swings it faster than a U-turn's 71, at up to about 100.
-        //⚠ Averaged over 1.2 s either side, one right angle swung at 75 a second and a U-turn at 123 (150 averaged as vectors,
-        //see Heading), and refusing every U-turn left two reels in five without a ride
+        //The fastest a calm ride's frame swings round its cycle, degrees a second (Keep.Calm). A cycle turns at most every two
+        //nodes (#1162), so three right angles the same way swing it at about 69 at most and every ride is calm; this binds again
+        //if the cycles turn closer (at successive nodes, three right angles swung it at up to about 100), so GridRideTests holds
+        //the filter at a limit two right angles do reach, where it refuses what a clear ride takes. ⚠ Averaged over 1.2 s
+        //either side, one right angle swung at 75 a second and a U-turn at 123 (150 averaged as vectors, see Heading), and
+        //refusing every U-turn left two reels in five without a ride
         internal const float MAX_SWING_DEGREES = 80f;
 
         //How finely the seconds are tested
@@ -137,13 +146,14 @@ namespace BS3D.Effects
         /// <summary>
         /// A ride beside whichever cycle, on whichever side, keeps off what <paramref name="keep"/> names from
         /// <paramref name="from"/> to <paramref name="until"/> on the wall clock, the shot playing its first
-        /// <paramref name="seconds"/>; null when none does.
+        /// <paramref name="seconds"/>; null when none does. A calm choice swings the frame no faster than
+        /// <paramref name="swingDegrees"/> a second.
         /// </summary>
         internal static GridRide Plan(LightCycleRuns runs, float floorY, IReadOnlyList<GridSolid> solids, GridRing? ring,
-            float from, float until, float seconds, Keep keep = Keep.Calm)
+            float from, float until, float seconds, Keep keep = Keep.Calm, float swingDegrees = MAX_SWING_DEGREES)
         {
             var ride = new GridRide(runs, floorY, solids, ring);
-            return ride.Choose(from, until, seconds, keep) ? ride : null;
+            return ride.Choose(from, until, seconds, keep, swingDegrees: swingDegrees) ? ride : null;
         }
 
         /// <summary>
@@ -151,16 +161,18 @@ namespace BS3D.Effects
         /// <paramref name="seconds"/>: of the candidates that keep off what <paramref name="keep"/> names through all of it, the
         /// one that looks most squarely in towards the arena, with a turn more than the first costing
         /// <see cref="EXTRA_TURN_COST"/>; with <paramref name="stay"/>, the cycle and side already chosen or none, for a shot on
-        /// screen, where another is a cut. False, and the choice left as it was, when none does.
+        /// screen, where another is a cut. False, and the choice left as it was, when none does. A calm choice swings the frame no
+        /// faster than <paramref name="swingDegrees"/> a second.
         /// </summary>
-        internal bool Choose(float from, float until, float seconds, Keep keep = Keep.Calm, bool stay = false)
+        internal bool Choose(float from, float until, float seconds, Keep keep = Keep.Calm, bool stay = false,
+            float swingDegrees = MAX_SWING_DEGREES)
         {
             bool strict = keep != Keep.Safe;
             Array.Fill(_clear, !stay);
             if (stay) _clear[Cycle * SIDES + (Side > 0f ? 0 : 1)] = true;
             Array.Clear(_inward);
             int samples = 0;
-            float maxSwing = MathHelper.ToRadians(MAX_SWING_DEGREES);
+            float maxSwing = MathHelper.ToRadians(swingDegrees);
 
             //How often each cycle turns while the shot plays: once a cycle, for both its sides
             for (int cycle = 0; cycle < LightCycleRuns.COUNT; cycle++) _turns[cycle] = Turns(cycle, from, from + seconds);
@@ -255,8 +267,10 @@ namespace BS3D.Effects
         /// swung over twice the reach, at most 90 / <see cref="REACH_SECONDS"/> degrees a second.
         /// <para>
         /// ⚠ The angle, not the heading vector: averaged as vectors, the two headings either side of a U-turn (two right angles
-        /// the same way a node apart) cancel, the average shrinks to the short leg between them and swings round it at up to 150
-        /// degrees a second, where the angle sweeps its 180 at the rate of its two turns' weights.
+        /// the same way) cancel, the average shrinks to the short leg between them and swings round it, the faster the shorter
+        /// the leg, where the angle sweeps its 180 at the rate of its two turns' weights: over this reach, two nodes apart (as
+        /// close as a cycle turns them, #1162) the vectors swing at up to 75 degrees a second and the angle at 62, a node apart
+        /// at 166 and 72.
         /// </para>
         /// </summary>
         internal Vector2 Heading(int cycle, float time)

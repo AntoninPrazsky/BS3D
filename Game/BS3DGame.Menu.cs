@@ -208,7 +208,8 @@ namespace BS3D
 
         //The two faces a paragraph may switch to inside its own line (#996), at the small face's size so a line keeps its
         //height: the display face for a lead-in, the reading face's bold cut for a strong word. Reached by name through
-        //FontStashSharp's rich-text command (ResolveProseFont), never set on a label
+        //FontStashSharp's rich-text command (ResolveProseFont); the bold cut is also set on a label of its own, a fact
+        //list's label (MenuFontStrong, #1154)
         private SpriteFontBase _menuFontLead, _menuFontStrong;
 
         /// <summary>The names a paragraph's copy switches face by (<c>/f[lead]</c>, <c>/f[strong]</c>, #996): see <see cref="ResolveProseFont"/>.</summary>
@@ -514,13 +515,93 @@ namespace BS3D
                     //The command line's height first (inches=, #1073): a phone's on a monitor shows the phone's layout
                     float inches = _screenInches;
                     if (inches > 0f || Platform.DisplayRefresh.TryGetPhysicalHeightInches(out inches))
+                    {
                         _uiScale = Math.Clamp(UI_REFERENCE_HEIGHT_INCHES / inches, 1f, UI_SCALE_MAX);
+                        _uiInches = inches;
+                    }
                     Console.WriteLine(_uiScale > 1f
                         ? $"[ui] the screen is {inches:0.0} in tall: the interface is drawn at {_uiScale:0.00}x"
                         : "[ui] the interface is drawn at its design size");
                 }
 
                 return _uiScale;
+            }
+        }
+
+        //The screen's physical height the interface was sized for (UiScale), 0 where none is known
+        private float _uiInches;
+
+        //The tree the [touch] line was last written for (ReportTouchTargets)
+        private Widget _touchReportedFor;
+
+        /// <summary>
+        /// The <c>[touch]</c> line (#1181): on an enlarged interface (a phone, or the desktop's <c>inches=</c> emulation of one),
+        /// once a page's tree has been laid out, every button on it a finger can press, by its words, with its height in
+        /// millimetres on the screen the interface is sized for, and the least of them. What makes "every target is about
+        /// 9 mm" a measurement rather than a design figure: it is the height Myra laid the slab out at, after the page's fit.
+        /// Once per tree put up, never per frame; nothing on a monitor, whose physical height is not known.
+        /// </summary>
+        private void ReportTouchTargets(MenuPage page)
+        {
+            Widget root = _desktop.Root;
+            if (_uiInches <= 0f || UiScale <= 1f || root == null || ReferenceEquals(root, _touchReportedFor)) return;
+            _touchReportedFor = root;
+
+            float millimetresPerPixel = _uiInches * 25.4f / GraphicsDevice.Viewport.Height;
+            System.Text.StringBuilder line = new();
+            float least = float.MaxValue;
+            string leastName = null;
+            int count = 0;
+
+            void Walk(Widget widget)
+            {
+                if (widget == null || !widget.Visible) return;
+
+                if (widget is Button button)
+                {
+                    string name = TargetName(button.Content) ?? "button";
+                    //The slab as drawn: the bounds less the margin, which Myra counts inside an explicit height (the menu's
+                    //buttons have no border)
+                    float mm = (button.Bounds.Height - button.Margin.Top - button.Margin.Bottom) * millimetresPerPixel;
+                    line.Append(count++ == 0 ? " " : ", ").Append(name).Append(' ')
+                        .Append(mm.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)).Append(" mm");
+                    if (mm < least)
+                    {
+                        least = mm;
+                        leastName = name;
+                    }
+                    return;
+                }
+
+                if (widget is ScrollViewer scroller) Walk(scroller.Content);
+                else if (widget is IContainer container)
+                    foreach (Widget child in container.Widgets) Walk(child);
+            }
+
+            Walk(root);
+            if (count == 0) return;
+
+            Console.WriteLine($"[touch] {page.GetType().Name} at {(UiScale * page.LayoutFit).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)}x,"
+                + $" {count} targets:{line}; the least {least.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)} mm ({leastName})");
+        }
+
+        /// <summary>What a target says, for the <c>[touch]</c> line: its first words, or the media symbol it draws; null for neither.</summary>
+        private static string TargetName(Widget widget)
+        {
+            switch (widget)
+            {
+                case Label { Text: { Length: > 0 } text }:
+                    //A label's own line breaks would break the log's line
+                    return text.Replace('\n', ' ');
+                //Bracketed, so About's page arrow (the Back triangle) is not read as the page's Back
+                case Screens.MediaGlyph glyph:
+                    return "[" + glyph.Shape + "]";
+                case IContainer container:
+                    foreach (Widget child in container.Widgets)
+                        if (child.Visible && TargetName(child) is string name) return name;
+                    return null;
+                default:
+                    return null;
             }
         }
 
@@ -830,54 +911,23 @@ namespace BS3D
         /// </summary>
         internal static bool OnPhone => OperatingSystem.IsAndroid();
 
-        //The page a phone's text dialog was opened for, and the dialog's answer while it is up (#1052)
-        private MenuPage _typingDialogFor;
-        private System.Threading.Tasks.Task<string> _typingDialog;
+        //A phone's typing (#1052): the system's text dialog, behind the seam its step is tested through (#1182)
+        private Screens.PhoneTyping _phoneTyping;
 
         /// <summary>
-        /// A phone's typing (#1052): the window sends no characters on Android, and Myra's text box opens no soft keyboard,
-        /// so a page that takes the keyboard (the nickname plate, the Settings nickname row, the note) gets the system's own
-        /// text dialog (<c>KeyboardInput.Show</c>), opening on what is typed so far. Its answer takes the field's place in one
-        /// edit (<c>MenuPage.TakeTypedText</c>, #1141), then comes the page's Enter where OK means it (<c>TypingDialogEnters</c>);
-        /// a cancel is the page's Esc. Asked once per page until the page stops taking the keyboard or a finger lands on its
-        /// field again, so a name the page refuses is not asked for in a loop.
+        /// A phone's typing (#1052): a page that takes the keyboard gets the system's own text dialog
+        /// (<c>KeyboardInput.Show</c>), opening on what is typed so far. What its answer and its cancel do to the page, and when
+        /// it is asked again, is <see cref="Screens.PhoneTyping"/>'s: a cancel is the page's Esc only where the page says so
+        /// (<c>MenuPage.TypingDialogEscapes</c>), so on the note it leaves the page and its text as they were (#1182).
         /// </summary>
         private void StepPhoneTyping()
         {
             if (!OnPhone) return;
 
-            MenuPage page = _screens.Active as MenuPage;
-
-            if (_typingDialog != null)
-            {
-                if (!_typingDialog.IsCompleted) return;
-
-                string text = _typingDialog.Status == System.Threading.Tasks.TaskStatus.RanToCompletion ? _typingDialog.Result : null;
-                _typingDialog = null;
-
-                if (page == null || page != _typingDialogFor || !page.CapturesKeyboard) return;
-
-                if (text == null)
-                {
-                    page.OnTextInput('\x1b');
-                    return;
-                }
-
-                page.TakeTypedText(text);
-                if (page.TypingDialogEnters) page.OnTextInput('\r');
-                return;
-            }
-
-            //Another page, or a finger on the field again, asks afresh: not a finger anywhere, which on the note is its Send
-            if (page == null || !page.CapturesKeyboard || page != _typingDialogFor || TouchOnTypingField(page))
-                _typingDialogFor = null;
-
-            if (page == null || !page.CapturesKeyboard || _typingDialogFor == page
-                || Microsoft.Xna.Framework.Input.KeyboardInput.IsVisible) return;
-
-            _typingDialogFor = page;
-            (string title, string description, string current) = page.TypingDialog;
-            _typingDialog = Microsoft.Xna.Framework.Input.KeyboardInput.Show(title, description, current);
+            _phoneTyping ??= new Screens.PhoneTyping(
+                (title, description, text) => Microsoft.Xna.Framework.Input.KeyboardInput.Show(title, description, text),
+                () => Microsoft.Xna.Framework.Input.KeyboardInput.IsVisible, page => TouchOnTypingField((MenuPage)page));
+            _phoneTyping.Step(_screens.Active as MenuPage);
         }
 
         /// <summary>Whether a finger is down on the page's typing field (#1052).</summary>
@@ -1175,15 +1225,31 @@ namespace BS3D
         /// </summary>
         internal SpriteFontBase MenuFontPromptSmall => _menuFontPromptSmall;
         internal SpriteFontBase MenuFontSmall => _menuFontSmall;
+
+        /// <summary>
+        /// The reading face's bold cut at the small face's size: what a strong word switches to inside a line
+        /// (<see cref="PROSE_FONT_STRONG"/>), and a fact list's labels beside their prose (<c>MenuPage.FactList</c>, #1154).
+        /// </summary>
+        internal SpriteFontBase MenuFontStrong => _menuFontStrong;
         internal SpriteFontBase MenuFontHeading => _menuFontHeading;
         internal SpriteFontBase MenuFontSection => _menuFontSection;
         internal SpriteFontBase MenuFontTitle => _menuFontTitle;
         internal SpriteFontBase MenuFontStars => _menuFontStars;
         internal SpriteFontBase MenuFontTile => _menuFontTile;
 
+        /// <summary>The display face at the small face's size, a lead-in's (#996): Help's odd-ball cards name their ball in it (#1183).</summary>
+        internal SpriteFontBase MenuFontLead => _menuFontLead;
+
         //What the pages ask the game about itself. Read-only: a page shows state and asks for an action, and
         //nothing here lets it write one directly.
         internal bool HasSession => _gameplayScreen != null && _gameplayScreen.IsBuilt;
+
+        /// <summary>The level the session standing plays (0-based), for the pause's level card (#1184); read only with a session.</summary>
+        internal int SessionLevel => _gameplayScreen.LevelIndex;
+
+        /// <summary>The session's attempt so far, for the pause's level card (#1184): see <see cref="GameplayScreen.RunSoFar"/>.</summary>
+        internal (int? BallsLeft, int Score, int LevelBalls) SessionRun => _gameplayScreen.RunSoFar;
+
         internal bool IsFullscreen => _fullscreen;
         internal int SupersampleFactor => _supersampleFactor;
         internal float Exposure => _exposure;
@@ -1302,8 +1368,25 @@ namespace BS3D
                 fieldOfView, random);
 
         internal int LevelCount => _levelSet?.Count ?? 0;
-        internal string LevelDisplayName(int index) => _levelSet.DisplayName(index);
-        internal string LevelRulesText(int index) => _levelSet.DescribeRules(index);
+
+        /// <summary>
+        /// What the level a game plays without a set is called (<see cref="LoadLevelSet"/>: no set could be read, and the
+        /// built-in pyramid plays), wherever a level's name is written: the run log, the result page, the pause's card (#1184).
+        /// </summary>
+        internal const string BUILT_IN_LEVEL_NAME = "the built-in level";
+
+        /// <summary>
+        /// Whether <paramref name="index"/> is an entry of the set: false with no set and for an index outside it, which is
+        /// the built-in level's case. The reads below are total on it, so a page showing the level being played never has to
+        /// ask first.
+        /// </summary>
+        internal bool LevelInSet(int index) => _levelSet != null && index >= 0 && index < _levelSet.Count;
+
+        /// <summary>The entry's name, or <see cref="BUILT_IN_LEVEL_NAME"/> off the set.</summary>
+        internal string LevelDisplayName(int index) => LevelInSet(index) ? _levelSet.DisplayName(index) : BUILT_IN_LEVEL_NAME;
+
+        /// <summary>The entry's rules as <c>LevelSet.DescribeRules</c> words them, or nothing off the set.</summary>
+        internal string LevelRulesText(int index) => LevelInSet(index) ? _levelSet.DescribeRules(index) : string.Empty;
 
         /// <summary>All the stars collected across the campaign — the currency unlocks are weighed in.</summary>
         internal int TotalStars => _progress?.TotalStars ?? 0;
@@ -3065,7 +3148,8 @@ namespace BS3D
         /// Back button and the plate's padding — in the same 2160p design units everything else here uses.</param>
         /// <param name="clearEdges">Whether the clear band is kept whether or not the content is cut: a page whose
         /// scrollers stand in one frame (Help's six tabs, #729) keeps it on all of them, or a tab that fits would start its
-        /// text a band higher than one that scrolls.</param>
+        /// text a band higher than one that scrolls. Help on the phone layout then keeps the top band alone, setting the
+        /// margin itself (<c>HelpPage.BuildRailTree</c>, #1183).</param>
         internal ScrollViewer MenuScroll(Widget content, int reservedDesignUnits, bool clearEdges = false, bool mustFit = false)
         {
             //Floored, so a window too short for the reserve gives a usable scroller rather than a zero-height
@@ -3421,13 +3505,18 @@ namespace BS3D
             bool backedOut = false;
 
             //A page typing into itself has the keyboard (#548): no key of the menu's own is read, only the pad's A
-            //and B are handed over, and the snapshots below still advance so nothing fires on the way out
+            //and B are handed over, and the snapshots below still advance so nothing fires on the way out. On Android the
+            //system's back gesture (the pad's Back, #1052) is B here as on every other page, so the note, which keeps the
+            //keyboard after its text dialog's Cancel (#1182), is left on it with its draft kept. Not while the dialog is up:
+            //the gesture there is the dialog's own cancel
             if (_screens.Active is MenuPage { CapturesKeyboard: true } typing)
             {
                 if (EdgeInputAllowed)
                 {
                     bool keep = pad.IsButtonDown(Buttons.A) && !_previousPad.IsButtonDown(Buttons.A);
-                    bool drop = pad.IsButtonDown(Buttons.B) && !_previousPad.IsButtonDown(Buttons.B);
+                    bool drop = (pad.IsButtonDown(Buttons.B) && !_previousPad.IsButtonDown(Buttons.B))
+                        || (OperatingSystem.IsAndroid() && IsPadEdge(pad, Buttons.Back)
+                            && !Microsoft.Xna.Framework.Input.KeyboardInput.IsVisible);
 
                     //The same two words as everywhere else in the menus (#800)
                     if (keep) _audioDirector.Rumble.UiAccept();

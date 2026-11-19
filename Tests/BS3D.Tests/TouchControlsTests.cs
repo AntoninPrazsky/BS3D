@@ -141,6 +141,71 @@ namespace BS3D.Tests
             Assert.False(controls.Fire);
         }
 
+        //The X300 Ultra's landscape height (WideMenuLayout's figure), in millimetres
+        private const float X300_HEIGHT_MM = WideMenuLayout.X300_HEIGHT_INCHES * 25.4f;
+
+        /// <summary>
+        /// The pause button is a finger's target on the X300 Ultra (#1181): at least <see cref="WideMenuLayout.TOUCH_TARGET_MM"/>
+        /// across on the enlarged interface, where the design's size is 6.4 mm. Its size is a share of the screen's height, so
+        /// the same share is the same millimetres on any phone of the X300's height whatever its pixels.
+        /// </summary>
+        [Fact]
+        public void ThePauseButtonIsNineMillimetresAcrossOnTheX300Ultra()
+        {
+            float across = 2f * TouchControls.PauseRadius(enlarged: true) * X300_HEIGHT_MM;
+            Assert.True(across >= WideMenuLayout.TOUCH_TARGET_MM, $"The pause button is {across:0.0} mm across on the X300 Ultra.");
+
+            //The disc as drawn on the 3168 x 1440 screen: its edge PAUSE_EDGE_GAP in from the corner both ways
+            Vector2 centre = TouchControls.PauseCentre(H, enlarged: true);
+            Assert.Equal(centre.X, centre.Y);
+            Assert.Equal((TouchControls.PAUSE_RADIUS_PHONE + TouchControls.PAUSE_EDGE_GAP) * H, centre.X, 2);
+        }
+
+        /// <summary>
+        /// On the enlarged interface the pause button keeps to the top left corner (#1181, #1051's scheme): it takes a touch
+        /// inside the disc it draws and not past it, and the disc ends within a sixth of the screen's height of the top and left
+        /// edges, so a thumb anywhere else on the left half (the touchpad by default, the firing side with the sides swapped) is
+        /// that side's. Held where the catch would grow: the design size's reach (<see cref="TouchControls.BUTTON_REACH"/>)
+        /// would put the larger button's catch 2 mm further into the side under it.
+        /// </summary>
+        [Fact]
+        public void ThePauseButtonTakesOnlyTheTouchesOnItsDiscInTheCorner()
+        {
+            Vector2 centre = TouchControls.PauseCentre(H, enlarged: true);
+            float radius = TouchControls.PAUSE_RADIUS_PHONE * H;
+
+            Assert.True(TouchControls.OnPause(centre, H, enlarged: true));
+            Assert.True(TouchControls.OnPause(centre + new Vector2(radius - 1f, 0f), H, enlarged: true));
+            Assert.False(TouchControls.OnPause(centre + new Vector2(radius + 2f, 0f), H, enlarged: true));
+            Assert.False(TouchControls.OnPause(centre + new Vector2(0f, radius + 2f), H, enlarged: true));
+
+            float reach = (centre.X + radius) / H;
+            Assert.True(reach <= 1f / 6f, $"The pause button reaches {reach:0.000} of the height from the corner.");
+
+            //A thumb on the left half's middle, and one just below the corner's reach, are not on it
+            Assert.False(TouchControls.OnPause(AIM, H, enlarged: true));
+            Assert.False(TouchControls.OnPause(new Vector2(centre.X, H / 6f + 2f), H, enlarged: true));
+        }
+
+        /// <summary>
+        /// A screen whose interface is drawn at the design's size (a monitor's or a laptop's touch screen) keeps the pause
+        /// button it had (#1181 asked for nothing to change there): <see cref="TouchControls.PAUSE_RADIUS_DESIGN"/> round, in the
+        /// same corner, taking a touch <see cref="TouchControls.BUTTON_REACH"/> past its edge as the precise-aim toggle does.
+        /// </summary>
+        [Fact]
+        public void AScreenAtTheDesignsSizeKeepsItsPauseButton()
+        {
+            Assert.Equal(0.045f, TouchControls.PauseRadius(enlarged: false));
+
+            Vector2 centre = TouchControls.PauseCentre(H, enlarged: false);
+            Assert.Equal((0.045f + TouchControls.PAUSE_EDGE_GAP) * H, centre.X, 2);
+            Assert.Equal(centre.X, centre.Y);
+
+            float radius = 0.045f * H;
+            Assert.True(TouchControls.OnPause(centre + new Vector2(radius * 1.25f, 0f), H, enlarged: false));
+            Assert.False(TouchControls.OnPause(centre + new Vector2(radius * 1.35f, 0f), H, enlarged: false));
+        }
+
         [Fact]
         public void SwappingTheSidesSwapsThem()
         {

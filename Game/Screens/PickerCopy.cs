@@ -1,3 +1,4 @@
+using Prazsky.BS3D.Scoring;
 using System.Globalization;
 
 namespace BS3D.Screens
@@ -110,6 +111,28 @@ namespace BS3D.Screens
         /// <summary>The side panel's prose for a level its price shuts (#1152): the price against what the player holds, each tied to its star.</summary>
         internal static string PanelPrice(int price, int have) =>
             $"Unlocks at {N(price)}{SpaceWrap.TIE}{STAR}. You have {N(have)}{SpaceWrap.TIE}{STAR}.";
+
+        /// <summary>
+        /// The pause's level card on the phone (#1184), under the card's rules: the balls the attempt has left, as the HUD
+        /// counts them ("30 balls left"); empty on a level without a budget, whose rules already say "unlimited shots".
+        /// </summary>
+        internal static string CardBallsLeft(int? left) =>
+            left is int n ? (n == 1 ? "1 ball left" : $"{N(n)} balls left") : string.Empty;
+
+        /// <summary>The pause's level card (#1184): the attempt's score so far, as the result page says a score.</summary>
+        internal static string CardScore(int score) => $"Score {ScoreText.Of(score)}";
+
+        /// <summary>
+        /// The pause's level card (#1184): what the next star above the player's best on this level costs, the score
+        /// <see cref="StarRating.Rate"/> first gives it (<see cref="StarRating.LeastScoreFor"/>), so the price is the rating's
+        /// own; that the first star is a clear on a level not cleared yet; that there is no star left on one with all of them;
+        /// and nothing for a level with no balls to price a star by.
+        /// </summary>
+        internal static string CardNextStar(int bestStars, int levelBalls) =>
+            levelBalls <= 0 ? string.Empty
+            : bestStars >= StarRating.MAX ? "Every star earned"
+            : bestStars <= 0 ? "A clear earns the first star"
+            : $"Next star at {ScoreText.Of(StarRating.LeastScoreFor(bestStars + 1, levelBalls))}";
 
         /// <summary>The side panel's names of the two boards, left of the player's place and the #1 on each (#1152).</summary>
         internal const string PANEL_MONTH = "This month", PANEL_ALL_TIME = "All time";

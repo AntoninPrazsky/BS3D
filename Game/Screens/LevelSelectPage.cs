@@ -186,7 +186,7 @@ namespace BS3D.Screens
 
         //Between the band and the panel, and between the panel's lines, in design units
         private const int PANEL_GAP = 48;
-        private const int PANEL_LINE_GAP = 14;
+        private const int PANEL_LINE_GAP = LevelCard.LINE_GAP;
 
         //Between the panel's two boards, and under them to the status row: more than between a board's own two lines, so
         //each reads as a pair under its name
@@ -323,8 +323,8 @@ namespace BS3D.Screens
         private bool _selectedUnlocked;
         private int _markedSlot = -1;
 
-        //The panel's widgets, written by WritePanel
-        private Label _panelCaption, _panelName, _panelStarsEarned, _panelStarsRest, _panelBest, _panelRules;
+        //The panel's level card (its caption, name, stars, best and rules) and Play, written by WritePanel
+        private LevelCard _card;
         private Button _playButton;
         private Label _playLabel;
 
@@ -622,53 +622,10 @@ namespace BS3D.Screens
             grid.RowsProportions.Add(new Proportion(ProportionType.Fill));
             grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
 
-            VerticalStackPanel info = new() { Spacing = Scaled(PANEL_LINE_GAP), Width = width };
-
-            //Which level of the set it is, and opposite it the campaign's star total, which the band gives up on this layout
-            Grid caption = new() { Width = width };
-            caption.ColumnsProportions.Add(new Proportion(ProportionType.Fill));
-            caption.ColumnsProportions.Add(new Proportion(ProportionType.Auto));
-            _panelCaption = new Label { Font = FontSmall, TextColor = BS3DGame.MENU_TEXT_DIM };
-            caption.Widgets.Add(_panelCaption);
-            _totalStars.Margin = new Myra.Graphics2D.Thickness(0);
-            _totalStars.HorizontalAlignment = HorizontalAlignment.Right;
-            Grid.SetColumn(_totalStars, 1);
-            caption.Widgets.Add(_totalStars);
-            info.Widgets.Add(caption);
-
-            //The heading face, cut with the one-character ellipsis where a name would not fit (none of the shipped ones)
-            _panelName = new Label
-            {
-                Font = FontHeading,
-                TextColor = BS3DGame.MENU_TEXT,
-                Width = width,
-                AutoEllipsisMethod = FontStashSharp.RichText.AutoEllipsisMethod.Character,
-                AutoEllipsisString = "…",
-            };
-            info.Widgets.Add(_panelName);
-
-            //The result page's rating face: the earned run in the tier's colour and the rest hollow (#139)
-            HorizontalStackPanel stars = new();
-            _panelStarsEarned = new Label { Font = FontStars, TextColor = BS3DGame.MENU_TEXT_DIM };
-            _panelStarsRest = new Label { Font = FontStars, TextColor = BS3DGame.STAR_EMPTY };
-            stars.Widgets.Add(_panelStarsEarned);
-            stars.Widgets.Add(_panelStarsRest);
-            info.Widgets.Add(stars);
-
-            _panelBest = new Label { Font = FontBody, TextColor = BS3DGame.MENU_TEXT_BODY };
-            info.Widgets.Add(_panelBest);
-
-            //The rules, one to a line, or the lock as prose (WritePanel)
-            _panelRules = new Label
-            {
-                Font = FontSmall,
-                TextColor = BS3DGame.MENU_TEXT_BODY,
-                Width = width,
-                Wrap = true,
-                VerticalSpacing = ProseLeading,
-                Margin = ScaledThickness(0, PANEL_LINE_GAP, 0, 0),
-            };
-            info.Widgets.Add(_panelRules);
+            //Which level of the set it is with the campaign's star total opposite (which the band gives up on this layout), its
+            //name, stars, best and rules (or its lock, WritePanel): the card the pause stands beside its entries on the phone too
+            _card = new LevelCard(this, width, _totalStars);
+            VerticalStackPanel info = _card.Root;
 
             if (Game.Online.Enabled) info.Widgets.Add(BuildPanelPlaces(width));
 
@@ -846,24 +803,9 @@ namespace BS3D.Screens
 
             int level = _selected;
             bool open = _selectedUnlocked;
-            int stars = open ? Game.LevelStars(level) : 0;
 
-            _panelCaption.Text = PickerCopy.PanelCaption(level + 1);
-            _panelName.Text = Game.LevelDisplayName(level).ToUpperInvariant();
-
-            _panelStarsEarned.Text = StarsEarned(stars);
-            _panelStarsEarned.TextColor = BS3DGame.StarTierColor(stars);
-            _panelStarsRest.Text = StarsRemaining(stars);
-
-            int best = stars > 0 ? Game.LevelBestScore(level) : 0;
-            _panelBest.Text = !open ? PickerCopy.PANEL_LOCKED
-                : stars > 0 ? (best > 0 ? PickerCopy.PanelBest(best) : PickerCopy.PANEL_OLD_RULES)
-                : Game.LevelSkipped(level) ? PickerCopy.TILE_SKIPPED
-                : PickerCopy.PANEL_NOT_CLEARED;
-            _panelBest.TextColor = open && stars > 0 ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_DIM;
-
-            //The rules one to a line, as a list rather than the detail line's sentence; a lock's arithmetic as prose
-            SetProse(_panelRules, open ? PickerCopy.PanelRules(Game.LevelRulesText(level))
+            //A lock's arithmetic as prose where an open level's rules stand
+            _card.Show(level, open, open ? null
                 : Game.IsLevelBeyondReach(level)
                     ? PickerCopy.PanelSequence(Game.FirstUnfinishedLevel + 1, Game.LevelDisplayName(Game.FirstUnfinishedLevel))
                     : PickerCopy.PanelPrice(Game.LevelMinStars(level), Game.TotalStars));

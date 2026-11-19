@@ -163,7 +163,7 @@ namespace BS3D.Screens
             BuildPlayer(columns);
 
             column.Widgets.Add(columns);
-            if (!ThreeColumns) column.Widgets.Add(BackButton());
+            if (!ThreeColumns) column.Widgets.Add(PhoneTarget(BackButton()));
 
             Panel plate = Plate(column);
             _threeColumnPlate = ThreeColumns ? plate : null;
@@ -193,6 +193,8 @@ namespace BS3D.Screens
                 int group = g;
                 Button button = MenuButton(ChapterContent(_groups[g].Name, out Label label, out MediaGlyph mark), () => _pendingGroup = group);
                 button.Width = ListWidth;
+                //A touch target tall on the phone (#1181), as every row, button and Back on the page
+                PhoneTarget(button);
                 _groupButtons.Add(button);
                 _groupLabels.Add(label);
                 _groupMarks.Add(mark);
@@ -297,16 +299,16 @@ namespace BS3D.Screens
 
             Button previous = MenuButton(ButtonGlyph(MediaGlyph.Symbol.Previous), () => Game.Recordings?.Previous());
             previous.Width = buttonWidth;
-            controls.Widgets.Add(previous);
+            controls.Widgets.Add(PhoneTarget(previous));
 
             _playGlyph = ButtonGlyph(MediaGlyph.Symbol.Play);
             Button play = MenuButton(_playGlyph, () => Game.Recordings?.PlayPause());
             play.Width = buttonWidth;
-            controls.Widgets.Add(play);
+            controls.Widgets.Add(PhoneTarget(play));
 
             Button next = MenuButton(ButtonGlyph(MediaGlyph.Symbol.Next), () => Game.Recordings?.Next());
             next.Width = buttonWidth;
-            controls.Widgets.Add(next);
+            controls.Widgets.Add(PhoneTarget(next));
 
             right.Widgets.Add(controls);
 
@@ -319,7 +321,7 @@ namespace BS3D.Screens
             //The phone's player (#1153): the visualizer, the line and the buttons in the middle of the column and Back at its
             //foot, level with the lists' last rows. Added after the buttons, so the pad walks to it last as it did under them.
             //Stretched to the row's height, which the lists set
-            Button back = BackButton();
+            Button back = PhoneTarget(BackButton());
             back.Width = width;
             back.VerticalAlignment = VerticalAlignment.Bottom;
 
@@ -359,6 +361,7 @@ namespace BS3D.Screens
                 int index = group.First + i;
                 Button button = MenuButton(player.Tracks[index].Title, () => Game.Recordings?.PlayAt(index), out Label label);
                 button.Width = ListWidth;
+                PhoneTarget(button);
                 _trackButtons.Add(button);
                 _trackLabels.Add(label);
                 _tracks.Widgets.Add(button);

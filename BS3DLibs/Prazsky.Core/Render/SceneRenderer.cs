@@ -18,14 +18,16 @@ namespace Prazsky.Core.Render
 
     /// <summary>
     /// The aurora's separately drawn layers, for <see cref="SceneRenderer.AuroraLayers"/> (#1027): the fine and the coarse
-    /// snow grid, the collars, the far stand's near and far rings, the sky, the planted wood (drawn by the host, which asks)
-    /// and the falling snow.
+    /// snow grid, the collars, the far stand's near and far rings, the sky, the planted wood (drawn by the host, which asks),
+    /// the falling snow, and the near ring's spires the lens comes near drawn as the wood's spruces on High and Ultra (#1163,
+    /// <see cref="StandSpruces"/>; out, they are drawn as spires).
     /// </summary>
     [System.Flags]
     public enum AuroraLayer
     {
         None = 0, FineGrid = 1, CoarseGrid = 2, Collars = 4, NearStand = 8, FarStand = 16, Sky = 32, Wood = 64, Snow = 128,
-        All = FineGrid | CoarseGrid | Collars | NearStand | FarStand | Sky | Wood | Snow
+        StandSpruces = 256,
+        All = FineGrid | CoarseGrid | Collars | NearStand | FarStand | Sky | Wood | Snow | StandSpruces
     }
 
     /// <summary>
@@ -446,7 +448,7 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Whether the scenes draw their <b>finer meshes</b> (#758): High and Ultra's, where Low and Medium draw the coarser
-        /// mesh of the same thing off the same instances. Eleven things today: the savanna acacias' wood — the fork grown as one
+        /// mesh of the same thing off the same instances. Twelve things today: the savanna acacias' wood — the fork grown as one
         /// surface out of a swollen, lobed crotch rather than tubes poking out of the trunk's cut end
         /// (<see cref="AcaciaMesh.FineWood"/>, <see cref="ScatterBucket.FineMeshes"/>, #758) — the meadow's old trees' wood
         /// grown the same way, the limbs coming out through the crotch's side (<see cref="MeadowTreeMesh.FineWood"/>, #889,
@@ -465,7 +467,9 @@ namespace Prazsky.Core.Render
         /// lathes — and the outback's formations near the arena (#967): a polar disc of 160 segments by 80 rings under each,
         /// where Low and Medium lay the far ones' 96 by 40 (<see cref="OutbackRockDiscs"/>) — and the desert's beetles and scorpions (#1110):
         /// segmented shells, jointed legs, pincers and a keeled tail (<see cref="CritterMesh.FineBeetle"/>,
-        /// <see cref="CritterMesh.FineScorpion"/>) where Low and Medium keep the ellipsoids and tubes. The spruces belong to the hosts' own <see cref="ForestScatterRenderer"/>s, which take this flag at every draw.
+        /// <see cref="CritterMesh.FineScorpion"/>) where Low and Medium keep the ellipsoids and tubes — and the space saucer
+        /// (#1173, #1174): a hull with seams, sockets, a belly ring and legs, glass bulbs, and its crew as models behind real
+        /// glass (<see cref="SaucerFineMesh"/>), where Low and Medium keep two lathes with the bulbs and the crew painted on. The spruces belong to the hosts' own <see cref="ForestScatterRenderer"/>s, which take this flag at every draw.
         /// <para>
         /// A switch of its own rather than a step of <see cref="SceneDetail"/>, because that one is Low's alone (#298) and
         /// this one is Medium's too: Medium is the weak machine's rung. A plain flag for <see cref="SupersampleFactor"/>'s
@@ -473,8 +477,8 @@ namespace Prazsky.Core.Render
         /// the Testbed and the map editor want. Costed in "The fork, grown for High and Ultra (#758)" and "The bush (#883)" in
         /// docs/scenes/savanna-trees.md, in "Two woods (#889)" and "The shrubs (#890)" in docs/scenes/meadow.md, in "The spruces on High and Ultra"
         /// in docs/scenes/aurora.md, in "High and Ultra's range" in docs/scenes/mountains.md, in "High and Ultra's rocks" in docs/scenes/moon.md, in
-        /// "One height field, two kinds of mesh" in docs/scenes/outback.md, in "High and Ultra's wood" in docs/scenes/forest.md and in
-        /// "The beetles and scorpions (#966)" in docs/scenes/desert.md.
+        /// "One height field, two kinds of mesh" in docs/scenes/outback.md, in "High and Ultra's wood" in docs/scenes/forest.md, in
+        /// "The beetles and scorpions (#966)" in docs/scenes/desert.md and in "The saucer (#955)" in docs/scenes/space.md.
         /// </para>
         /// </summary>
         public bool FineMeshes
@@ -1891,7 +1895,8 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Draws the foreground weather that belongs after the opaque scene and the cluster — the backdrop's
         /// <see cref="Backdrop.DrawOverlays"/>: falling snow in the mountains and the aurora, blown spray and
-        /// spindrift over the sea, drifting ash in the volcano, the fires' flames and sparks on the savanna.
+        /// spindrift over the sea, drifting ash in the volcano — and on High and Ultra space's saucer's dome of glass
+        /// (#1174, <see cref="SaucerFlight.DrawGlass"/>, which says why it is here and what that costs).
         /// Alpha-blended and depth-read (the terrain/water and the cluster occlude the particles behind them)
         /// but writing no depth. A no-op for every other scene.
         /// <para>
@@ -2198,14 +2203,25 @@ namespace Prazsky.Core.Render
                 return false;
             }
 
+            (centre, yMin, yMax) = ShadowBox(camera.Position, camera.Target, extent, groundY, below, above);
+            return true;
+        }
+
+        /// <summary>
+        /// The sun's box <see cref="TryShadowFit"/> lays for a lens at <paramref name="at"/> looking at
+        /// <paramref name="target"/>, over a ground a backdrop states (<see cref="Backdrop.TryShadowFit"/>): the square's
+        /// centre, <paramref name="extent"/> wide, and the box's bottom and top. Device-free, so a test lays the map a host does.
+        /// </summary>
+        internal static (Vector3 Centre, float YMin, float YMax) ShadowBox(Vector3 at, Vector3 target, float extent,
+            float groundY, float below, float above)
+        {
             //Centred AHEAD of the lens, not on it (#662): a square round the camera spent half its texels on what is
             //behind it, and the owner saw the beach's palms stop casting a little way into the picture at every
             //tier. Moved forward along the view by SHADOW_LOOK_AHEAD of the square, scaled by how level the lens
             //looks, so a camera looking straight down keeps it centred under it; the texels are the same, so the
             //shadows reach further for nothing. The light's window is still snapped to whole texels in Fit, so a
             //turning camera slides the window by whole texels and nothing crawls.
-            Vector3 at = camera.Position;
-            Vector3 look = camera.Target - at;
+            Vector3 look = target - at;
             float lookLength = look.Length();
             Vector2 ahead = new(look.X, look.Z);
             float level = ahead.Length();
@@ -2213,10 +2229,7 @@ namespace Prazsky.Core.Render
                 ahead *= SHADOW_LOOK_AHEAD * extent * (level / lookLength) / level;
             else
                 ahead = Vector2.Zero;
-            centre = new Vector3(at.X + ahead.X, groundY, at.Z + ahead.Y);
-            yMin = groundY - below - SHADOW_FIT_MARGIN;
-            yMax = ShadowBoxTop(groundY, above);
-            return true;
+            return (new Vector3(at.X + ahead.X, groundY, at.Z + ahead.Y), groundY - below - SHADOW_FIT_MARGIN, ShadowBoxTop(groundY, above));
         }
 
         /// <summary>

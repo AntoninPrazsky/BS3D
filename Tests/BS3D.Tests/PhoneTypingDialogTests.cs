@@ -13,9 +13,9 @@ namespace BS3D.Tests
     /// 2000 backspaces to clear the field and then each character, every key a refresh of the page, which on the note
     /// re-laid the field and re-wrapped its hint over a draft of up to 1000 characters. Now the page takes the whole text
     /// as one edit and refreshes once (<c>MenuPage.TakeTypedText</c>). What a field may then hold is held here, through the
-    /// two device-free editors the pages share, against what the old keystrokes made of the same answer; that
-    /// <c>StepPhoneTyping</c> hands the answer over in one call is held on its source, the rule seen to fire on the loop it
-    /// replaced.
+    /// two device-free editors the pages share, against what the old keystrokes made of the same answer; that the phone's
+    /// typing step (<c>PhoneTyping</c>, #1182) hands the answer over in one call is held on its source, the rule seen to fire
+    /// on the loop it replaced, and stepped in <c>PhoneTypingStepTests</c>.
     /// </summary>
     public class PhoneTypingDialogTests
     {
@@ -97,7 +97,7 @@ namespace BS3D.Tests
         [Fact]
         public void The_dialogs_answer_is_handed_to_the_page_in_one_call()
         {
-            string menu = File.ReadAllText(Path.Combine(FindUnderRepository("Game"), "BS3DGame.Menu.cs"));
+            string menu = File.ReadAllText(Path.Combine(FindUnderRepository(Path.Combine("Game", "Screens")), "PhoneTyping.cs"));
 
             Assert.DoesNotMatch(KeyByKey, menu);
             Assert.Contains("page.TakeTypedText(text);", menu, StringComparison.Ordinal);

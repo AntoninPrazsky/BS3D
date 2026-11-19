@@ -52,8 +52,14 @@ namespace BS3D.Effects
     /// the pose (30 of 800 builds at the levels' own poses over 400 scene seeds, and the game rolls a new one every launch): a
     /// grove's spheres stand over the pose's back, or its sides, all the way up. Where they do, the search is run again with
     /// every tree held by its own outline instead (<see cref="SavannaScatter.TreeOutlines"/>, a stack of upright discs as
-    /// wide as its meshes reach at each height) and kept <see cref="TREE_AIR"/> off it, which opens the grass under the crowns
-    /// and between the trunks (<see cref="TreesHeldBy"/>); all 800 land. Null only for a pose inside the island's radius (the
+    /// wide as its meshes reach at each height) carried down to the ground under its crown (<see cref="PlantOutline.Hung"/>,
+    /// an umbrella) and kept <see cref="TREE_AIR"/> off it, which opens the grass between the trees' crowns and never under
+    /// one; where even that leaves no way in, with each crown and its boughs hung only <see cref="UNDER_CROWN_AIR"/> down,
+    /// so the lens passes under a crown with that and <see cref="TREE_AIR"/> of air under the leaves; and last, where the
+    /// rolls left after those find no way in either, by the outlines as they are (<see cref="TreesHeldBy"/>): all 800 land,
+    /// none of them by the last pass. ⚠ Held by the outline alone (#1156), the lens ran in under the crowns, between the
+    /// trunks and 3 under the boughs, in 8 of 400 builds at the levels' own poses over 200 scene seeds, about one launch in
+    /// fifty, and the owner read it as the camera flying through a tree. Null only for a pose inside the island's radius (the
     /// menu's crane) or one that is not clear itself (beside a fire), or where nothing clears even so, and the savanna then
     /// plays the reel it had before, the tour's arrival leg included.
     /// </para>
@@ -156,9 +162,18 @@ namespace BS3D.Effects
         private const float POSE_SLACK = 0.5f;
         internal const float FIRE_MARGIN = 1.5f;
 
-        //Held by its own outline (TreesHeldBy.Outlines), a tree is kept this far off what its meshes draw: farther than a
-        //solid's MARGIN, for a lens passing under a crown of leaf sprays or beside a trunk at the cruise
+        //Held by its own outline (TreesHeldBy.Umbrellas, HungCrowns and Outlines), a tree is kept this far off what its meshes
+        //draw and off the air hung under its crown (PlantOutline.Hung): farther than a solid's MARGIN, for a lens passing beside
+        //a crown of leaf sprays at the cruise
         internal const float TREE_AIR = 3f;
+
+        //Where no way in clears the trees' umbrellas, how far each crown and its boughs are hung down (TreesHeldBy.HungCrowns):
+        //the lens passes under a crown with this and TREE_AIR of air under its leaves. ⚠ In the tree mesh's own units, as
+        //PlantProfile.Hung's bands are: a tree is planted at 0.8 to 1.8 times its mesh, so 1.6 to 3.6 in the world. The groves
+        //closest round a pose leave nothing more: hung 3 down, one of the four scene seeds whose spheres close every way in
+        //(SavannaLandingTests' ClosedBySpheres) had no way in held so, and 5 down, two more of 200 scene seeds at the levels' own
+        //poses, which would have left those to the outlines alone and their 3 under the leaves
+        internal const float UNDER_CROWN_AIR = 2f;
         private const float ARRIVAL_SLACK = 0.5f;
 
         //The bank round the island (IslandBerm) and what is planted on it, its grass against the wall and its stones at its
@@ -192,20 +207,25 @@ namespace BS3D.Effects
             LookDistance: 30f, LookSmoothSeconds: 0.3f, LookLandSeconds: 1.8f, LookInward: 0.5f, RollPerTurn: 0.1f,
             MaxRollDegrees: 8f, RollSmoothSeconds: 0.25f, Points: 200);
 
-        /// <summary>How the trees are held (see the class's note): by the spheres round their meshes, as everything else
-        /// planted is, or by their own outlines.</summary>
-        internal enum TreesHeldBy { Spheres, Outlines }
+        /// <summary>How the trees are held (see the class's note), in the order the passes are tried: by the spheres round their
+        /// meshes, as everything else planted is; by their own outlines carried down to the ground under their crowns (#1156), so
+        /// the lens never passes under a crown; by their outlines with the crowns hung only <see cref="UNDER_CROWN_AIR"/> down;
+        /// or by their outlines as they are.</summary>
+        internal enum TreesHeldBy { Spheres, Umbrellas, HungCrowns, Outlines }
 
         /// <summary>
         /// The grass home over <paramref name="land"/>, landing on <paramref name="endPosition"/> looking at
         /// <paramref name="endTarget"/> with the game's <paramref name="fieldOfView"/>: the trees held by their spheres, or
-        /// where those leave no way in, by their outlines; null when no rolled route is clear either way.
+        /// where those leave no way in, by their umbrellas, and where those leave none either, by their outlines with the crowns
+        /// hung a little down, and last by their outlines alone; null when no rolled route is clear any way.
         /// </summary>
         /// <param name="cutFrom">The last pose of the shot before it (its lens and what it looks at), whose cut the start must
         /// move or turn enough from; null for none.</param>
         public static IntroShot Build(SavannaLand land, Vector3 endPosition, Vector3 endTarget, float fieldOfView, Random random,
             (Vector3 Position, Vector3 Target)? cutFrom = null) =>
             Build(land, endPosition, endTarget, fieldOfView, random, TreesHeldBy.Spheres, cutFrom)
+            ?? Build(land, endPosition, endTarget, fieldOfView, random, TreesHeldBy.Umbrellas, cutFrom)
+            ?? Build(land, endPosition, endTarget, fieldOfView, random, TreesHeldBy.HungCrowns, cutFrom)
             ?? Build(land, endPosition, endTarget, fieldOfView, random, TreesHeldBy.Outlines, cutFrom);
 
         /// <summary>The grass home with the trees held one way only.</summary>
@@ -541,7 +561,7 @@ namespace BS3D.Effects
                 _keepOut = IntroLanding.KeepOutFor(pose, IntroGround.ARENA_KEEP_OUT + MARGIN, ARRIVAL_SLACK);
                 _bankFloor = pose.Y - BANK_SLACK;
 
-                foreach (PlantFigure solid in trees == TreesHeldBy.Outlines ? land.SolidsBesideTrees : land.Solids)
+                foreach (PlantFigure solid in trees != TreesHeldBy.Spheres ? land.SolidsBesideTrees : land.Solids)
                 {
                     //The bank round the island and what is planted on it: held as the arena is, see BANK_REACH
                     if (IsBank(solid)) continue;
@@ -554,12 +574,19 @@ namespace BS3D.Effects
                     _need.Add(MathF.Min(MARGIN, Off(solid, pose) - POSE_SLACK));
                 }
 
-                if (trees != TreesHeldBy.Outlines) return;
-
-                //The trees by their outlines, each kept TREE_AIR off, or where the pose stands nearer one, no nearer than the
-                //pose less POSE_SLACK
-                foreach (PlantOutline tree in land.TreeOutlines)
+                if (trees == TreesHeldBy.Spheres) return;
+                float hung = trees switch
                 {
+                    TreesHeldBy.Umbrellas => float.PositiveInfinity,
+                    TreesHeldBy.HungCrowns => UNDER_CROWN_AIR,
+                    _ => 0f,
+                };
+
+                //The trees by their outlines with the crowns hung down (#1156), or in the last pass as they are, each kept
+                //TREE_AIR off, or where the pose stands nearer one, no nearer than the pose less POSE_SLACK
+                foreach (PlantOutline outline in land.TreeOutlines)
+                {
+                    PlantOutline tree = outline.Hung(hung);
                     File(~_trees.Count, tree.Bounds.Min.X - TREE_AIR, tree.Bounds.Max.X + TREE_AIR,
                         tree.Bounds.Min.Z - TREE_AIR, tree.Bounds.Max.Z + TREE_AIR);
                     _trees.Add(tree);

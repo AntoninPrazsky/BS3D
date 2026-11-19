@@ -682,43 +682,54 @@ namespace BS3D.Screens
         private Grid BuildControlsPage()
         {
             Grid grid = NewGroupGrid();
+            int row = 0;
+
+            //The touch screen's rows first on a phone (#1183), as Help's CONTROLS puts the Touch paragraph first there (#1151):
+            //they are the rows a finger plays by, and the mouse's and the pad's are for a pad plugged into the phone. Elsewhere
+            //they stay last, where a touch screen answers beside a mouse and keys. Added first, so the pad's walk goes down
+            //the page in the order it reads
+            bool touchFirst = PhoneOnly && Game.TouchScreenPresent;
+            if (touchFirst) AddTouchRows(grid, ref row);
 
             //The aim dial (#384) — neither a look nor a sound, which is why CONTROLS exists. The pad's own rate is a
             //separate quantity that may earn a row of its own (see MouseAim.PAD_RATE), and this is where it would go.
-            AddRow(grid, 0, "Sensitivity", Game.CycleSensitivity, out _sensitivityValue,
+            AddRow(grid, row++, "Sensitivity", Game.CycleSensitivity, out _sensitivityValue,
                 stepper: new Stepper(Game.CanStepSensitivity, Game.StepSensitivity));
 
             //The lean's own dial (#497): a second rung over the first, read as precise aim blends in. The same
             //ladder and the same percentages, so the two rows read as one family; 100 % is #384's feel.
-            AddRow(grid, 1, "Aim sensitivity", Game.CycleAimSensitivity, out _aimSensitivityValue,
+            AddRow(grid, row++, "Aim sensitivity", Game.CycleAimSensitivity, out _aimSensitivityValue,
                 stepper: new Stepper(Game.CanStepAimSensitivity, Game.StepAimSensitivity));
 
             //The pad's motors (#378), on the volume rows' quarter-step-with-off ladder. It stood among them in the
             //columns as "how hard the game hits back"; on pages it is with the pad's other row, which is where a
             //player with a pad in hand looks for vibration.
-            AddRow(grid, 2, "Rumble", Game.CycleRumbleStrength, out _rumbleValue,
+            AddRow(grid, row++, "Rumble", Game.CycleRumbleStrength, out _rumbleValue,
                 stepper: new Stepper(d => RowStep.CanStepGain(Game.RumbleStrength, d), Game.StepRumbleStrength));
 
             //The keyboard's lights (#987): with the hands, like the pad's motors, because a backlit keyboard is the other thing in
             //them that answers the game. The reason beside it says when Windows lists no keyboard to light. Not on a phone
             //(#1052), which has no keyboard to light, nor in its emulation (#1151)
-            int row = 3;
             if (!PhoneOnly) AddCheckRow(grid, row++, "Keyboard lights", Game.ToggleKeyboardLighting, out _keyboardLightsCheck);
 
             //How the right button and the left trigger lean in (#1054): a press that stays, the owner's ask, or a hold
             AddRow(grid, row++, "Precise aim", Game.TogglePreciseAimMode, out _preciseModeValue);
 
-            //The touch screen's (#1051): how far a finger's drag turns the gun, and the two sides swapped for a player who
-            //aims with the other thumb (#1050). Only where a touch screen answers (or the "touch" argument stands in for one,
-            //BS3DGame.TouchScreenPresent): a row with nothing to touch is a dead row
-            if (Game.TouchScreenPresent)
-            {
-                AddRow(grid, row++, "Touch sensitivity", Game.CycleTouchSensitivity, out _touchSensitivityValue,
-                    stepper: new Stepper(Game.CanStepTouchSensitivity, Game.StepTouchSensitivity));
-                AddCheckRow(grid, row, "Aim on the right", Game.ToggleTouchSides, out _touchSidesCheck);
-            }
+            if (Game.TouchScreenPresent && !touchFirst) AddTouchRows(grid, ref row);
 
             return grid;
+        }
+
+        /// <summary>
+        /// The touch screen's two rows (#1051): how far a finger's drag turns the gun, and the two sides swapped for a player
+        /// who aims with the other thumb (#1050). Only where a touch screen answers (or the "touch" argument stands in for one,
+        /// <see cref="BS3DGame.TouchScreenPresent"/>): a row with nothing to touch is a dead row.
+        /// </summary>
+        private void AddTouchRows(Grid grid, ref int row)
+        {
+            AddRow(grid, row++, "Touch sensitivity", Game.CycleTouchSensitivity, out _touchSensitivityValue,
+                stepper: new Stepper(Game.CanStepTouchSensitivity, Game.StepTouchSensitivity));
+            AddCheckRow(grid, row++, "Aim on the right", Game.ToggleTouchSides, out _touchSidesCheck);
         }
 
         /// <summary>
