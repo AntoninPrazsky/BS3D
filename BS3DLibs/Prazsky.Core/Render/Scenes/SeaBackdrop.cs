@@ -256,9 +256,10 @@ namespace Prazsky.Core.Render
 
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
 
-            //The oil platforms, after the water (which writes no depth) and cut by their own shader at its line (#969), and the
-            //lighthouse and the two vessels through the same shader, the vessels where their clock has them (#1125)
-            _rigs.Draw(frame, _seaConfig.LevelY);
+            //The oil platforms, after the water (which writes no depth) and cut by their own shader at its line (#969), each in its
+            //finer mesh where the tier draws finer meshes and the lens is near it (#1169), and the lighthouse and the two vessels
+            //through the same shader, the vessels where their clock has them (#1125)
+            _rigs.Draw(frame, _seaConfig.LevelY, Services.FineMeshes);
             _traffic.Draw(frame, _seaConfig.LevelY);
 
             //The school (#760), with the lens under the water and only then: from above, the surface hides it, and in

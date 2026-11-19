@@ -71,17 +71,21 @@ namespace BS3D.Tests
             return (near, far);
         }
 
-        //Every corner of every box of both platforms
+        //Every corner of every part's box of both platforms, coarser and finer
         private static List<Vector3> RigCorners()
         {
             var corners = new List<Vector3>();
-            void Collect(Matrix world, Vector3 half, Vector3 color, float kind)
+            void Collect(RigPart part)
             {
+                Vector3 half = part.Half;
                 for (int i = 0; i < 8; i++)
-                    corners.Add(Vector3.Transform(new Vector3((i & 1) == 0 ? -half.X : half.X, (i & 2) == 0 ? -half.Y : half.Y, (i & 4) == 0 ? -half.Z : half.Z), world));
+                    corners.Add(Vector3.Transform(new Vector3((i & 1) == 0 ? -half.X : half.X, (i & 2) == 0 ? -half.Y : half.Y, (i & 4) == 0 ? -half.Z : half.Z), part.World));
             }
-            OilRigs.Parts(OilRigLayout.Near(Sea.LevelY), Collect);
-            OilRigs.Parts(OilRigLayout.Far(Sea.LevelY), Collect);
+            foreach (bool fine in new[] { false, true })
+            {
+                OilRigs.Parts(OilRigLayout.Near(Sea.LevelY), fine, Collect);
+                OilRigs.Parts(OilRigLayout.Far(Sea.LevelY), fine, Collect);
+            }
             return corners;
         }
 

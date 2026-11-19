@@ -79,7 +79,7 @@ namespace BS3D.Tests
             //SINK_FROM
             string rigs = Scenes("OilRigs.cs");
             Assert.Contains("effect.Parameters[\"SinkScale\"].SetValue(SeaTrafficLayout.SINK_SCALE);", Body(rigs, "internal static Effect LoadEffect("));
-            Assert.Contains("_sinkFrom.SetValue(SeaTrafficLayout.NO_SINK);", Body(rigs, "public void Draw(in SceneFrame frame, float waterY)"));
+            Assert.Contains("_sinkFrom.SetValue(SeaTrafficLayout.NO_SINK);", Body(rigs, "public void Draw(in SceneFrame frame, float waterY, bool fineMeshes)"));
 
             string traffic = Scenes("SeaTraffic.cs");
             Assert.Contains("_sinkFrom.SetValue(sinkFrom);", Body(traffic, "private void DrawPart("));

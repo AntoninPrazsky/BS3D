@@ -9,7 +9,7 @@ namespace BS3D.Tests
 {
     /// <summary>
     /// The sea's prologue (#1124, the owner: "in the intro the camera does not deal with the oil platforms"), held over the real
-    /// builder on the shipped config and the rigs' own boxes (<see cref="OilRigs.Parts"/>, the ones the mesh is built from): the
+    /// builder on the shipped config and the rigs' own parts, coarser and finer (<see cref="OilRigs.Parts"/>, the ones the meshes are built from): the
     /// four shots in their order and the prologue's length, every cut a different picture, every lens over the water (the depths
     /// under it), the run at the rig clear of both rigs' legs, decks, derrick and booms at every point, no faster than a low
     /// run may fly, the rig in frame from the waterline to the derrick's top through the whole run, the derrick's top in sight
@@ -199,9 +199,11 @@ namespace BS3D.Tests
         {
             var sea = new SeaSceneConfig();
             var boxes = new List<(Matrix World, Vector3 Half)>();
-            void Collect(Matrix world, Vector3 half, Vector3 color, float kind) => boxes.Add((world, half));
-            OilRigs.Parts(OilRigLayout.Near(sea.LevelY), Collect);
-            OilRigs.Parts(OilRigLayout.Far(sea.LevelY), Collect);
+            foreach (bool fine in new[] { false, true })
+            {
+                OilRigs.Parts(OilRigLayout.Near(sea.LevelY), fine, part => boxes.Add((part.World, part.Half)));
+                OilRigs.Parts(OilRigLayout.Far(sea.LevelY), fine, part => boxes.Add((part.World, part.Half)));
+            }
 
             for (int seed = 1; seed <= ROLLS; seed++)
             {
@@ -266,18 +268,21 @@ namespace BS3D.Tests
         {
             //The deck and the modules on it hide the derrick's foot from the waterline, and all of it from under the deck's edge,
             //where the run first ended; and the flare's boom, which points out over the water, hid it from a lens on its line.
-            //Over the last fifth of the run the derrick from DERRICK_SEEN of the way up to its top is in sight.
+            //Over the last fifth of the run the derrick from DERRICK_SEEN of the way up to its top is in sight, past the coarser
+            //rig's parts and the finer's (its railings, the crane's lattice and the tanks on the upper deck among them).
             var sea = new SeaSceneConfig();
             OilRig near = OilRigLayout.Near(sea.LevelY);
-            var occluders = new List<(Matrix World, Vector3 Half)>();
-            Vector3 axis = near.ToWorld(new Vector3(OilRigLayout.DERRICK_AXIS.X, 0f, OilRigLayout.DERRICK_AXIS.Y));
-            OilRigs.Parts(near, (world, half, color, kind) =>
+            foreach (bool fine in new[] { false, true })
             {
-                //The derrick's own boxes stand on its axis over its foot and are what is being looked at
-                Vector3 centre = world.Translation;
-                if (new Vector2(centre.X - axis.X, centre.Z - axis.Z).Length() > 0.5f || centre.Y < near.DerrickFoot.Y) occluders.Add((world, half));
-            });
+                //The derrick's own parts are what is being looked at
+                var occluders = new List<(Matrix World, Vector3 Half)>();
+                OilRigs.Parts(near, fine, part => { if (part.Piece != RigPiece.Derrick) occluders.Add((part.World, part.Half)); });
+                DerrickInSight(near, occluders, fine ? "finer" : "coarser");
+            }
+        }
 
+        private static void DerrickInSight(OilRig near, List<(Matrix World, Vector3 Half)> occluders, string mesh)
+        {
             for (int seed = 1; seed <= ROLLS; seed++)
             {
                 IntroShot rig = Rig(Shots(seed, Sun(13f, 135f), out _));
@@ -288,7 +293,7 @@ namespace BS3D.Tests
                     {
                         float share = MathHelper.Lerp(DERRICK_SEEN, 1f, k / 10f);
                         Assert.True(Seen(lens, Vector3.Lerp(near.DerrickFoot, near.DerrickTop, share), occluders),
-                            $"seed {seed}: at {i}/{POSES} the derrick {share:P0} of the way up is hidden from the lens at {lens}");
+                            $"{mesh} mesh, seed {seed}: at {i}/{POSES} the derrick {share:P0} of the way up is hidden from the lens at {lens}");
                     }
                 }
             }

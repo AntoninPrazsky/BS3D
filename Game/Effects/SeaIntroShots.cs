@@ -100,8 +100,8 @@ namespace BS3D.Effects
         //The rig (#1124): a straight run low over the water in at the nearer platform from the open sea beyond it, coming in
         //this many degrees round from the line through the rig to the arena, either way, from this far off the rig's axis to
         //this far, where the rig stands this many degrees off the run's heading: the run passes it by rather than flying at
-        //it, and with the rig still ahead of abeam at the end the nearest it comes to the axis is RIG_TO, where the legs'
-        //outer corners stand some 36 off it (OilRig.JacketReach). The run is turned off the line one way and passes the rig
+        //it, and with the rig still ahead of abeam at the end the nearest it comes to the axis is RIG_TO, where nothing low on
+        //the jacket stands more than 37.5 off it (OilRig.JacketReach). The run is turned off the line one way and passes the rig
         //on the other hand, so the island stands on the horizon beside the rig at the start (6 to 18 degrees off it, at the
         //jacket's edge on the steepest approach) and drifts away from it, out of the frame, as the rig grows. In from beyond and
         //not out from the arena's side: looking out, the open sea behind the rig would end some 700 past it, where the far ring

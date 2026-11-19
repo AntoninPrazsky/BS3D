@@ -448,7 +448,7 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Whether the scenes draw their <b>finer meshes</b> (#758): High and Ultra's, where Low and Medium draw the coarser
-        /// mesh of the same thing off the same instances. Twelve things today: the savanna acacias' wood — the fork grown as one
+        /// mesh of the same thing off the same instances. Thirteen things today: the savanna acacias' wood — the fork grown as one
         /// surface out of a swollen, lobed crotch rather than tubes poking out of the trunk's cut end
         /// (<see cref="AcaciaMesh.FineWood"/>, <see cref="ScatterBucket.FineMeshes"/>, #758) — the meadow's old trees' wood
         /// grown the same way, the limbs coming out through the crotch's side (<see cref="MeadowTreeMesh.FineWood"/>, #889,
@@ -469,7 +469,10 @@ namespace Prazsky.Core.Render
         /// segmented shells, jointed legs, pincers and a keeled tail (<see cref="CritterMesh.FineBeetle"/>,
         /// <see cref="CritterMesh.FineScorpion"/>) where Low and Medium keep the ellipsoids and tubes — and the space saucer
         /// (#1173, #1174): a hull with seams, sockets, a belly ring and legs, glass bulbs, and its crew as models behind real
-        /// glass (<see cref="SaucerFineMesh"/>), where Low and Medium keep two lathes with the bulbs and the crew painted on. The spruces belong to the hosts' own <see cref="ForestScatterRenderer"/>s, which take this flag at every draw.
+        /// glass (<see cref="SaucerFineMesh"/>), where Low and Medium keep two lathes with the bulbs and the crew painted on — and the
+        /// sea's oil platforms (#1169): within <c>OilRigs.FINE_REACH</c> of the lens, the chapter intro's run, a jacket of round
+        /// tubes, railings, stairs, lifeboats, a real lattice derrick, a crane's lattice boom and a marked helideck where Low and
+        /// Medium, and every tier farther out, keep 47 boxes. The spruces belong to the hosts' own <see cref="ForestScatterRenderer"/>s, which take this flag at every draw.
         /// <para>
         /// A switch of its own rather than a step of <see cref="SceneDetail"/>, because that one is Low's alone (#298) and
         /// this one is Medium's too: Medium is the weak machine's rung. A plain flag for <see cref="SupersampleFactor"/>'s
@@ -478,7 +481,8 @@ namespace Prazsky.Core.Render
         /// docs/scenes/savanna-trees.md, in "Two woods (#889)" and "The shrubs (#890)" in docs/scenes/meadow.md, in "The spruces on High and Ultra"
         /// in docs/scenes/aurora.md, in "High and Ultra's range" in docs/scenes/mountains.md, in "High and Ultra's rocks" in docs/scenes/moon.md, in
         /// "One height field, two kinds of mesh" in docs/scenes/outback.md, in "High and Ultra's wood" in docs/scenes/forest.md, in
-        /// "The beetles and scorpions (#966)" in docs/scenes/desert.md and in "The saucer (#955)" in docs/scenes/space.md.
+        /// "The beetles and scorpions (#966)" in docs/scenes/desert.md, in "The saucer (#955)" in docs/scenes/space.md and in
+        /// "Costs a change must compare against" in docs/scenes/sea.md.
         /// </para>
         /// </summary>
         public bool FineMeshes
