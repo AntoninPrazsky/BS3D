@@ -445,6 +445,19 @@ namespace Prazsky.Core.Render
         /// </summary>
         internal Dictionary<IProceduralMesh, (string Kind, Slab[] Body)> Bodies { get; } = new(ReferenceEqualityComparer.Instance);
 
+        /// <summary>
+        /// Every site the last sweep settled for at negative clearance (#1157): where none of a thing's proposals stood clear, the
+        /// plain keeps the least crowded one, and this says how far each of the three answers fell short there (see
+        /// <see cref="CrowdedSite"/>). What a test holds the plain's crowding against.
+        /// </summary>
+        internal List<CrowdedSite> Crowded { get; } = new();
+
+        /// <summary>A site settled for at negative clearance, and its three answers there: the spacing footprints'
+        /// (<see cref="ScatterSpacing.Clearance"/>), the volumes' (<see cref="PlantVolumes.Clearance"/>; positive infinity for a
+        /// thing with no slabs) and the rocks' (<see cref="PlantVolumes.StoneClearance"/>; positive infinity where the thing does
+        /// not ask or no stone is near).</summary>
+        internal readonly record struct CrowdedSite(float X, float Z, float HalfWidth, float Footprint, float Volume, float Stone);
+
         /// <param name="device">The device the meshes and instance buffers live on; null plants the very same plain with
         /// nothing uploaded, every mesh its lists and bounds alone: what a test reads the planting's figures off without a
         /// device (the chapter intro's landing over the plain, #1108). Nothing so planted can be drawn.</param>
@@ -805,6 +818,7 @@ namespace Prazsky.Core.Render
                 standing.AddRange(reserved);
                 placedVolumes.Clear();
                 stones.Clear();
+                Crowded.Clear();
 
                 for (int m = 0; m < treeInstances.Length; m++) treeInstances[m].Clear();
                 Clear(bushInstances); Clear(scrubInstances); Clear(tuftInstances); Clear(moundInstances);
@@ -832,18 +846,22 @@ namespace Prazsky.Core.Render
 
                     float x = 0f, z = 0f;
                     float bestClearance = float.NegativeInfinity;
+                    float bestFoot = 0f, bestVolume = 0f, bestStone = 0f;
                     bool bestOnPath = true;     //nothing is chosen yet, and anything at all beats that
                     for (int attempt = 0; attempt < SAVANNA_TRIES; attempt++)
                     {
                         (float cx, float cz) = Propose(site, minR, maxR, clusterShare, spread);
-                        float clearance = ScatterSpacing.Clearance(cx, cz, halfWidth, standing);
+                        float foot = ScatterSpacing.Clearance(cx, cz, halfWidth, standing);
 
                         //And the volumes: the worse of the two answers, so a site has to be clear of its neighbours' trunks and
                         //crowns as well as of their footprints (#653). Only a thing that has slabs asks the second question.
-                        if (slabs != null)
-                            clearance = MathF.Min(clearance, PlantVolumes.Clearance(cx, cz, Stand(cx, cz) - sink, scale, slabs, placedVolumes));
-                        if (stoneClearance != null && PlantVolumes.NearAStone(cx, cz, stoneReach, stones))
-                            clearance = MathF.Min(clearance, stoneClearance(cx, cz));
+                        float volume = slabs != null
+                            ? PlantVolumes.Clearance(cx, cz, Stand(cx, cz) - sink, scale, slabs, placedVolumes)
+                            : float.PositiveInfinity;
+                        float stone = stoneClearance != null && PlantVolumes.NearAStone(cx, cz, stoneReach, stones)
+                            ? stoneClearance(cx, cz)
+                            : float.PositiveInfinity;
+                        float clearance = MathF.Min(foot, MathF.Min(volume, stone));
 
                         //⚠ The STEM, not the crown: the trodden ground is tested at the one point the thing
                         //actually stands on, and deliberately not over the spacing footprint, which is the
@@ -869,11 +887,13 @@ namespace Prazsky.Core.Render
                         {
                             bestOnPath = onPath;
                             bestClearance = clearance;
+                            (bestFoot, bestVolume, bestStone) = (foot, volume, stone);
                             x = cx;
                             z = cz;
                         }
                         if (clearance >= 0f && !onPath) break;
                     }
+                    if (bestClearance < 0f) Crowded.Add(new CrowdedSite(x, z, halfWidth, bestFoot, bestVolume, bestStone));
                     standing.Add(new ScatterSpacing.Footprint(x, z, halfWidth));
                     if (slabs != null)
                     {

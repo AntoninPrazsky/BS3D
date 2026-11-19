@@ -71,6 +71,33 @@ namespace BS3D.Tests
         }
 
         [Fact]
+        public void No_plant_settles_for_a_site_in_a_rock_or_a_neighbours_volume()
+        {
+            //Every site the plain settled for at negative clearance (SavannaScatter.Crowded, the last sweep's), at sceneseed 0 to
+            //CROWDED_SEEDS - 1: none stands in a rock or in a neighbour's volume. The footprints alone may overlap, a spacing
+            //radius over another's, and are reported (measured: one, a tree at sceneseed=140, 1.16 into a neighbour's)
+            int footprintsOnly = 0;
+            for (int layout = 0; layout < CROWDED_SEEDS; layout++)
+            {
+                SavannaScatter scatter = Plant(layout, out _);
+                foreach (SavannaScatter.CrowdedSite site in scatter.Crowded)
+                {
+                    string where = $"sceneseed={layout}: a site at ({site.X:0.0}, {site.Z:0.0}), a footprint {site.HalfWidth:0.0} round, its answers "
+                        + $"{site.Footprint:0.00} (footprints), {site.Volume:0.00} (volumes), {site.Stone:0.00} (rocks)";
+                    _output.WriteLine(where);
+                    Assert.True(site.Volume >= 0f, where);
+                    Assert.True(site.Stone >= 0f, where);
+                    footprintsOnly++;
+                }
+            }
+
+            _output.WriteLine($"{footprintsOnly} sites settled for over the footprints alone, at sceneseed 0 to {CROWDED_SEEDS - 1}");
+        }
+
+        //#1157's range: sceneseed 0 to 199
+        private const int CROWDED_SEEDS = 200;
+
+        [Fact]
         public void A_rock_reads_its_own_surface()
         {
             //At the scatter's own sizes: a kopje's rocks (the shipped KopjeRockSize 8, 0.75 to 0.99 of it) and their phases

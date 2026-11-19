@@ -42,20 +42,25 @@ namespace Prazsky.Core.Render
             foreach (float r in radius) Widest = MathF.Max(Widest, r);
         }
 
-        private PlantProfile _hung;
-        private float _hungDepth = float.NaN;
+        //The last stack hung and its depth, as one reference, so a reader on another thread never pairs one depth with another
+        //depth's stack
+        private sealed record HungStack(float Depth, PlantProfile Profile);
+        private HungStack _hung;
 
         /// <summary>
         /// The same stack with every band as wide as the widest within <paramref name="depth"/> over it (#1156): the crown's and
         /// the boughs' reach hung down that far under them, so the air just under the boughs and the leaves is part of the tree.
         /// What a lens flying low among the trees is kept off where it may pass under a crown only with that much air between it
         /// and the leaves: held by the outline alone, it ran in under the crowns, between the trunks and just under the boughs,
-        /// and read as flying through the tree. Positive infinity carries every band down to the ground, the tree as an
-        /// umbrella. The last one asked for is kept.
+        /// and read as flying through the tree. ⚠ <paramref name="depth"/> is in the mesh's own units, as the bands are: an
+        /// instance planted at a scale hangs that many times as far in the world. Positive infinity carries every band down to
+        /// the ground, the tree as an umbrella; zero or less is the stack itself. The last one asked for is kept.
         /// </summary>
         public PlantProfile Hung(float depth)
         {
-            if (_hung != null && _hungDepth == depth) return _hung;
+            if (depth <= 0f) return this;
+            HungStack last = _hung;
+            if (last != null && last.Depth == depth) return last.Profile;
             int reach = float.IsPositiveInfinity(depth) ? _radius.Length : (int)MathF.Ceiling(depth / BAND);
             var radius = new float[_radius.Length];
             for (int i = 0; i < radius.Length; i++)
@@ -63,8 +68,9 @@ namespace Prazsky.Core.Render
                 radius[i] = _radius[i];
                 for (int j = i + 1; j <= Math.Min(i + reach, radius.Length - 1); j++) radius[i] = MathF.Max(radius[i], _radius[j]);
             }
-            _hungDepth = depth;
-            return _hung = new PlantProfile(Bottom, radius);
+            var hung = new PlantProfile(Bottom, radius);
+            _hung = new HungStack(depth, hung);
+            return hung;
         }
 
         /// <summary>
@@ -195,8 +201,9 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>The same instance held by its profile <see cref="PlantProfile.Hung"/> <paramref name="depth"/> down (#1156): the
-        /// air that far under its crown and its boughs is part of it.</summary>
-        public PlantOutline Hung(float depth) => new(Profile.Hung(depth), World);
+        /// air that far under its crown and its boughs is part of it. ⚠ The depth is the mesh's, <see cref="Scale"/> times it in
+        /// the world; zero or less is this outline.</summary>
+        public PlantOutline Hung(float depth) => depth <= 0f ? this : new(Profile.Hung(depth), World);
 
         /// <summary>
         /// How far <paramref name="p"/> stands off the instance (zero or less inside its outline), or <paramref name="within"/>
