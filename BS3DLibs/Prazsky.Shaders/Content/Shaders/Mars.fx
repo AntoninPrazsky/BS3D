@@ -219,9 +219,9 @@ static const float TRACK_DARKEN = 0.25;
 //everything, Mars does not have so many". A Martian plain is a few big craters on open regolith, the small ones scattered.
 //So the big octave keeps the Moon's chance (#638 asked for MORE big craters, and BigCraters stands on top of it) and the
 //smaller three are thinned to about a fifth: the bowls cover 9.5 % of the plain, rims to 1.6 radii 24 %, and the three
-//smaller octaves 3.2 % of it where they covered 15.7 (each octave's share is its chance x pi x CraterLayer's mean squared
-//radius, 0.0232 of a cell; MarsCraterCoverageTests holds it on the rolls themselves).
-static const float CRATER_CHANCE_0 = 0.86;   //129-unit cells: craters 15-27 units across the rim, one in 140 x 140 units
+//smaller octaves 3.2 % of it where they covered 15.8 (each octave's share is its chance x pi x CraterLayer's mean squared
+//radius, 0.0232 of a cell; MarsCraterCoverageTests measures it on the rolls themselves).
+static const float CRATER_CHANCE_0 = 0.86;   //129-unit cells: a rim radius of 15-27 units, one crater in 140 x 140 units
 static const float CRATER_CHANCE_1 = 0.20;   //49-unit cells: 6-10, one in 110 x 110
 static const float CRATER_CHANCE_2 = 0.14;   //18.6-unit cells: 2.2-3.9, one in 50 x 50
 static const float SMALL_CRATER_CHANCE = 0.10;   //the pixel octave's 7.2-unit cells (SmallCraterLayer): 0.9-1.5, one in 23 x 23
@@ -686,8 +686,12 @@ MarsGround MarsGroundFields(float3 worldPosition, float3 meshNormal, bool onBank
     float relief = baking ? 0.0 : Fbm2BandLimited(worldPosition.xz * 1.7, 3, footprint * 1.7);
 
     //The rock's own face, height-folded (Outback's rule: a field of XZ alone is constant down a vertical
-    //flank, and a boulder is mostly flank). Only blended in where the stone field actually stands.
-    float rockMask = smoothstep(0.03, 0.30, rockShape);
+    //flank, and a boulder is mostly flank). Only blended in where the stone field actually stands, and faded in over the
+    //mound's foot as the mound rises (#1167): a mask that went from nothing to whole between 1.2 and 1.1 radii (RockLayer's
+    //d1) drew every mound as a flat disc of dimmer, rougher ground with a hard rim - discs over about a fifth of the plain
+    //past the clearing, which read as more craters once the craters were thinned, and cut the rover's ruts at their edge.
+    //Now it is a fifth at 1.1 radii, two fifths at the apron's top (1.0) and whole from 0.7 to 0.8 in.
+    float rockMask = smoothstep(0.1, 0.9, rockShape);
     float rockSurface = Fbm2BandLimited(worldPosition.xz * 0.42 + worldPosition.y * 0.24, 3, footprint * 0.42);
 
     //The rover's tracks (#745, RoverTracks.fxh): pressed into the regolith, never over a rock or the island's bank. The
