@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-19 — #1169 #1170 plošiny bez blikání, maják a lodě blíž — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: #1169 blikání plošin opraveno geometrií, bez depth bias (spodní moduly už nekončí v rovinách horní paluby, lampy, heliport a nohy odsazené). Na High/Ultra se plošina blíž než 300 kreslí jemnou sítí (10 492 trojúhelníků: kulaté nohy, příhradová věž, jeřáb, flérka, osmiboký heliport s nápisy v Rig.fx, záchranné čluny); hrubá síť má 624 trojúhelníků. Cena: +1,3 ms v nejbližším záběru úvodu (3840x1600). #1170: maják na 400, jachta 450, loď 520 (rychlost 10); Sea.fx tlumí jen posun hladiny mezi 260 a 360, světlo vody beze změny.
+- ⚠ Dosah jemné sítě je pravidlo hloubky, ne ceny: mezery 0,3 drží jen do ~500; `maxdetail` ho proto nemění (jinak by z herního pohledu blikala okna).
+- Otevřené: verdict-eye obou; pohyb lodí a absence blikání nesledovány okem, telefon a notebook neměřeny, čluny zespodu působí jako nádrže.
+
 ## 2026-11-19 — #1208 blog „The aliens only come out on High“, posuvník úrovní — desktop (RDT-PC), Claude Code
 
 - Hotovo: článek `Web/src/blog/the-aliens-only-come-out-on-high.md` (pět úrovní detailu, čtyři posuvníky), nová figura `figure.tiers` (`js/tiers.js`, CSS v `site.css`, popis v `docs/website.md`), snímky z capture módu ve 4K (`wind=0`, bez zrna), 30 obrázků, 3,39 MB.
