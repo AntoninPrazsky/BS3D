@@ -311,6 +311,57 @@ namespace BS3D.Tests
         }
 
         /// <summary>
+        /// GamePi's <c>PotatoOutput.fxh</c> <c>ToDisplay</c>, for one channel: exposure, Narkowicz's ACES fit, the sRGB
+        /// curve. The Potato <c>ShotTrail.fx</c> adds this of each piece's light, where the desktop curves the sum.
+        /// </summary>
+        private static float ToDisplay(float radiance)
+        {
+            float x = radiance * 1.1f;
+            float aces = Math.Clamp(x * (2.51f * x + 0.03f) / (x * (2.43f * x + 0.59f) + 0.14f), 0f, 1f);
+            return aces <= 0.0031308f ? aces * 12.92f : 1.055f * MathF.Pow(aces, 1f / 2.4f) - 0.055f;
+        }
+
+        /// <summary>
+        /// <b>On the Potato path the glow's body is the desktop's</b>, over a black backdrop: the Potato effect curves each
+        /// piece's light by itself and adds the results, so the glow's overlapping chords would come out far brighter
+        /// than the desktop's curved sum, and <see cref="AimBeam.POTATO_GLOW_GAIN"/> takes that back. Reckoned in display
+        /// values for a channel of one at the beam's radiance boost (3.5), level with the median ghost and a fifth of a
+        /// ball off the axis; held within a tenth. The same reckoning at the desktop's own light shows what the gain is for.
+        /// </summary>
+        [Fact]
+        public void OnThePotatoPathTheGlowsBodyIsTheDesktops()
+        {
+            const float radiance = 3.5f;
+            XVector3[] path = [Muzzle, Touch];
+            XVector3 side = XVector3.Normalize(XVector3.Cross(Touch - Muzzle, XVector3.UnitX));
+
+            float Desktop(XVector3 at) => ToDisplay(radiance * LightAt(Lay(path, 0f, false, AimBeam.LANDING_SPREAD), at));
+
+            float Potato(XVector3 at, float gain)
+            {
+                AimBeam.Piece[] pieces = new AimBeam.Piece[AimBeam.MAX_PIECES];
+                int count = AimBeam.Lay(path, 0f, false, AimBeam.LANDING_SPREAD, pieces, gain);
+
+                float sum = 0f;
+                for (int i = 0; i < count; i++) sum += ToDisplay(radiance * Light(pieces[i], at));
+                return sum;
+            }
+
+            //Level with the median ghost, 0.34 short of the touch
+            XVector3 Off(float distance) => Touch - XVector3.Normalize(Touch - Muzzle) * 0.34f + side * distance;
+
+            foreach (float off in new[] { 0f, 0.2f, 0.45f, 0.65f })
+                output.WriteLine($"{off:0.00} off the axis: desktop {Desktop(Off(off)):0.00}, Potato at the desktop's light " +
+                    $"{Potato(Off(off), 1f):0.00}, at POTATO_GLOW_GAIN {Potato(Off(off), AimBeam.POTATO_GLOW_GAIN):0.00} (over 1 clips)");
+
+            float desktop = Desktop(Off(0.2f)), potato = Potato(Off(0.2f), AimBeam.POTATO_GLOW_GAIN), ungained = Potato(Off(0.2f), 1f);
+            Assert.True(MathF.Abs(potato - desktop) <= 0.1f * desktop,
+                $"the Potato glow's body is {potato:0.000} where the desktop's is {desktop:0.000}");
+            Assert.True(ungained > 1.3f * desktop,
+                $"at the desktop's light the Potato glow's body is {ungained:0.000} against {desktop:0.000}: the gain has nothing to take back");
+        }
+
+        /// <summary>
         /// The glow's chords add up to the light asked for: the overlap the dimming assumes (<see cref="AimBeam.GLOW_OVERLAP"/>)
         /// is the shader's fade summed at that spacing, reckoned here along a long straight run, and it holds within a few
         /// per cent along it, which is what keeps the patch from banding.

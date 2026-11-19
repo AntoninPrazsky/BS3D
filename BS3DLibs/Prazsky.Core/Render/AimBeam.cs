@@ -228,6 +228,24 @@ namespace Prazsky.Core.Render
         private const int MAX_GLOW_CHUNKS = 48;
 
         /// <summary>
+        /// The glow's light on the Potato path, against the desktop's: what the Game hands the constructor there.
+        /// <para>
+        /// <b>Potato curves every additive layer by itself</b> (GamePi's <c>PotatoOutput.fxh</c>: it has no linear target
+        /// to sum the light in first, so its <c>ShotTrail.fx</c> adds <c>ToDisplay(light)</c> in display space), and the
+        /// display curve is steepest at the bottom. A single dash comes out exactly as on the desktop over a black
+        /// backdrop; the glow's three overlapping chords do not, since three curved thirds add up to far more than the
+        /// curved whole. At the desktop's light the patch was a white-hot flare over the meadow and a saturated blob
+        /// over the moon. No one gain gives the desktop's whole profile back, because the curve bends the bright core and
+        /// the dim edges in opposite directions: this one puts the glow's body (a fifth of a ball off the axis, level with
+        /// the median ghost) on the desktop's display value over black, which <c>AimBeamTests</c> reckons with the curve
+        /// and holds within a tenth; the axis itself clips a little (1.19 against 0.95 for a channel of one), and a ghost's
+        /// median offset gets about 0.45 of display where the desktop gives 0.75, so the Potato patch reads a little
+        /// smaller.
+        /// </para>
+        /// </summary>
+        public const float POTATO_GLOW_GAIN = 0.25f;
+
+        /// <summary>
         /// Pieces a beam can be laid as: a dash a knot of a bent flight cuts is two, and the rare one that two knots
         /// cut is three, and the glow's chords are never more than <see cref="MAX_GLOW_CHUNKS"/>.
         /// </summary>
@@ -251,15 +269,20 @@ namespace Prazsky.Core.Render
         //The frame's layout, reused: laid into, drawn from, never reallocated
         private readonly Piece[] _pieces = new Piece[MAX_PIECES];
 
+        private readonly float _glowGain;
+
         private VertexBuffer _vertexBuffer;
         private IndexBuffer _indexBuffer;
 
         /// <param name="shotTrailEffect">The compiled <c>Shaders/ShotTrail.fx</c>, the same instance
         /// <see cref="LaunchSmears"/> is given. Handed in and never disposed here — the caller's content
         /// manager owns its lifetime.</param>
-        public AimBeam(GraphicsDevice device, Effect shotTrailEffect)
+        /// <param name="glowGain">Scales the glow's light: 1 on the desktop, <see cref="POTATO_GLOW_GAIN"/> on the
+        /// Potato path, whose effect curves each additive layer by itself.</param>
+        public AimBeam(GraphicsDevice device, Effect shotTrailEffect, float glowGain = 1f)
         {
             _device = device;
+            _glowGain = glowGain;
 
             _viewParam = shotTrailEffect.Parameters["View"];
             _projectionParam = shotTrailEffect.Parameters["Projection"];
@@ -304,7 +327,7 @@ namespace Prazsky.Core.Render
         {
             if (opacity <= MIN_OPACITY) return;
 
-            int count = Lay(path, phase, openEnded, spread, _pieces);
+            int count = Lay(path, phase, openEnded, spread, _pieces, _glowGain);
             if (count == 0) return;
 
             Vector3 linear = ColorSpace.SrgbToLinear(srgbTint);
@@ -366,7 +389,8 @@ namespace Prazsky.Core.Render
         /// per leg. A dash that a knot cuts is two pieces, each with the widths at its own two ends, which makes the
         /// two halves one continuous slice of the line.
         /// </remarks>
-        internal static int Lay(ReadOnlySpan<Vector3> path, float phase, bool openEnded, float spread, Span<Piece> pieces)
+        internal static int Lay(ReadOnlySpan<Vector3> path, float phase, bool openEnded, float spread, Span<Piece> pieces,
+            float glowGain = 1f)
         {
             if (path.Length < 2 || pieces.Length == 0) return 0;
 
@@ -379,7 +403,7 @@ namespace Prazsky.Core.Render
             bool cone = farWidth > WIDTH;
 
             int count = LayDashes(path, total, phase, openEnded, cone, pieces);
-            if (cone) count = LayGlow(path, total, farWidth, pieces, count);
+            if (cone) count = LayGlow(path, total, farWidth, glowGain, pieces, count);
 
             return count;
         }
@@ -479,7 +503,8 @@ namespace Prazsky.Core.Render
         /// from where the hand-over begins to <see cref="OVERRUN"/> past the touch, each as wide as the cone where its
         /// ends are and as bright as the hand-over has risen to at its middle. Static: the dashes crawl, the patch stays.
         /// </summary>
-        private static int LayGlow(ReadOnlySpan<Vector3> path, float total, float farWidth, Span<Piece> pieces, int count)
+        private static int LayGlow(ReadOnlySpan<Vector3> path, float total, float farWidth, float gain, Span<Piece> pieces,
+            int count)
         {
             float from = GLOW_FROM * total;
             float end = total + OVERRUN;
@@ -498,7 +523,7 @@ namespace Prazsky.Core.Render
                 float head = tail + GLOW_CHUNK;
                 float middle = MathF.Max(tail, from) * Constants.HALF + head * Constants.HALF;
 
-                float light = GLOW_LIGHT * HandOver(middle / total) * dim;
+                float light = GLOW_LIGHT * gain * HandOver(middle / total) * dim;
                 if (light <= Constants.THOUSANDTH * Constants.THOUSANDTH) continue;
 
                 pieces[count++] = new Piece(PointAt(path, tail), PointAt(path, head),
