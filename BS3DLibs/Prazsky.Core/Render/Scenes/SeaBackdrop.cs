@@ -52,7 +52,8 @@ namespace Prazsky.Core.Render
         private readonly FishSchool _fish;
         private readonly SeaLightShafts _shafts;
 
-        //The oil platforms far out where the swell is flat (#969), and the lighthouse, the container ship and the yacht (#1125)
+        //The oil platforms far out where the swell is flat (#969), and the lighthouse, the container ship and the yacht nearer in,
+        //where the surface stands still (#1125, #1170)
         private readonly OilRigs _rigs;
         private readonly SeaTraffic _traffic;
 
@@ -171,6 +172,8 @@ namespace Prazsky.Core.Render
             _seaEffect.Parameters["WaveFadeStart"].SetValue(_seaConfig.WaveFadeStart);
             _seaEffect.Parameters["WaveFadeEnd"].SetValue(_seaConfig.WaveFadeEnd);
             _seaEffect.Parameters["CalmFrom"].SetValue(_seaConfig.CalmFrom);
+            _seaEffect.Parameters["StillFrom"].SetValue(_seaConfig.StillFrom);
+            _seaEffect.Parameters["StillAt"].SetValue(_seaConfig.StillAt);
             _seaEffect.Parameters["ChopAmplitude"].SetValue(_seaConfig.ChopAmplitude);
             _seaEffect.Parameters["ChopFrequency"].SetValue(_seaConfig.ChopFrequency);
             _seaEffect.Parameters["ChopSpeed"].SetValue(_seaConfig.ChopSpeed);

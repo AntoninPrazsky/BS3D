@@ -90,6 +90,32 @@ namespace BS3D.Tests
         }
 
         [Fact]
+        public void TheSurfaceStandsStillPastStillAtAndOnlyItsHeightDoes()
+        {
+            //What the lighthouse and the vessels stand in (#1170, SeaTrafficTests.AllOfItStandsWhereTheSurfaceStandsStillWhoeverLooks):
+            //Sea.fx's vertex program scales the swell's displacement by the ramp from StillFrom to StillAt off the arena, after
+            //the swell is summed and before the vertex is placed, and scales nothing else, so the light the pixel shader reads
+            //(the rest position's fade, the long waves' normal, the crest) is the camera's alone; the sea pushes both distances.
+            //Seen to fire with the ramp taken out, with it moved onto OceanSurface's amplitude, and with SeaBackdrop setting no
+            //StillAt.
+            string vs = Body(Code("BS3DLibs", "Prazsky.Shaders", "Content", "Shaders", "Sea.fx"), "SeaVertexOutput SeaVS(");
+
+            Match swell = Regex.Match(vs, @"OceanSurface\( ?restXZ, ampScale \* \( ?1\.0 - calm ?\) \* shore, disp, slope, fold, crest ?\);");
+            Assert.True(swell.Success, "SeaVS sums the swell at another amplitude than the camera's fade, the island's calm and the shore");
+            Match still = Regex.Match(vs, @"if \( ?StillAt > 0\.0 ?\) disp \*= saturate\( ?\( ?StillAt - length\( ?restXZ ?\) ?\) / max\( ?StillAt - StillFrom, 1\.0 ?\) ?\);");
+            Assert.True(still.Success, "SeaVS does not still the displacement from StillFrom to StillAt off the arena");
+            Match placed = Regex.Match(vs, @"float3 worldPosition = float3\( ?restXZ\.x \+ disp\.x, SeaLevelY \+ disp\.y, restXZ\.y \+ disp\.z ?\);");
+            Assert.True(placed.Success && swell.Index < still.Index && still.Index < placed.Index,
+                "SeaVS does not still the displacement between summing the swell and placing the vertex");
+            Assert.Contains("output.Rest = float3(restXZ, ampScale * (1.0 - calm) * shore);", vs);
+            Assert.DoesNotMatch(@"StillAt[^;]*(slope|crest|ampScale)", vs);
+
+            string apply = Body(Scenes("SeaBackdrop.cs"), "private void ApplySeaParameters(");
+            Assert.Contains("_seaEffect.Parameters[\"StillFrom\"].SetValue(_seaConfig.StillFrom);", apply);
+            Assert.Contains("_seaEffect.Parameters[\"StillAt\"].SetValue(_seaConfig.StillAt);", apply);
+        }
+
+        [Fact]
         public void SelectingTheSeaStartsTheVesselsPassageAgain()
         {
             //SceneRenderer.Prepare is how the Game says it selected a scene; the sea hands it to its traffic, whose draws read

@@ -13,8 +13,8 @@ namespace BS3D.Effects
     /// waves), the glint the sun lays across it, the island, and far out where the water is calm the two platforms
     /// (<see cref="OilRigLayout"/>), a lighthouse on a rock of its own, and a container ship and a yacht on their lanes
     /// (<see cref="SeaTrafficLayout"/>, #1125). No shot is aimed at the lighthouse or the vessels, and the run at the rig is
-    /// held off them: what the rolls happen to point at frames the lighthouse in about three rolls in four and a vessel in
-    /// five in six (<c>SeaTrafficTests</c>, the vessels' clock starting with the prologue).
+    /// held off them: what the rolls happen to point at frames the lighthouse and a vessel in every roll, the ship in about
+    /// four in five (<c>SeaTrafficTests</c>, the vessels' clock starting with the prologue).
     /// <para>
     /// <b>It opened on the island from far out and high, and the owner threw that shot out (#652):</b> "the high,
     /// distant view where the island is small in the middle doesn't work — an empty, boring view". One rock and a
@@ -34,9 +34,9 @@ namespace BS3D.Effects
     /// </para>
     /// <para>
     /// <b>No shot looked at the platforms (#1124, the owner: "in the intro the camera does not deal with the oil
-    /// platforms").</b> The nearer stands 820 out, past the water's calm, and cannot come nearer: its legs are cut at a
-    /// flat waterline. So the lens goes out to it: a cut may put the lens anywhere, and the run starts already
-    /// <see cref="RIG_FROM"/> off the rig, beyond it, coming in over the open sea with the island on the horizon beside
+    /// platforms").</b> The nearer stands 820 out, where the water is calm all round it, its light as well as its heave
+    /// (<see cref="SeaSceneConfig.CalmFrom"/>). So the lens goes out to it: a cut may put the lens anywhere, and the run
+    /// starts already <see cref="RIG_FROM"/> off the rig, beyond it, coming in over the open sea with the island on the horizon beside
     /// it, the rig growing until it towers over the lens. It plays between the depths and the climb, so a low run over
     /// the water is never next to another (the island's flank is one, the climb starts as one): the depths cut to it from
     /// under the water, and its last look, up at the deck with the derrick over it, cuts to the climb's first, level over

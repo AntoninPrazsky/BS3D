@@ -12,19 +12,25 @@ namespace Prazsky.Core.Render
     /// platforms; the references (<c>C:\Users\panrd\AI\sd\out\1125-zimage</c>, <c>1125-klein</c>, <c>1125-flux3</c>) put a
     /// container ship on the horizon, a yacht nearer and a lighthouse on a low rock beside the platforms.
     /// <para>
-    /// <b>The lighthouse</b> stands <see cref="LIGHTHOUSE_DISTANCE"/> out on <see cref="LIGHTHOUSE_BEARING"/>, about 16 degrees
-    /// right of the cluster in the play view the Game and the Testbed open on (the lens on +Z looking towards -Z), in front of
-    /// the farther platform and a little left of it, where the water is flat whoever looks
-    /// (<c>SeaSceneConfig.WaveFadeEnd</c>, 780).
+    /// <b>All three stand about half as far out as the platforms</b> (#1170, the owner: the ships and the lighthouse "should also
+    /// be closer to the island where the game is played"), where the surface stands still whoever looks
+    /// (<c>SeaSceneConfig.StillAt</c>, 360): the swell's light plays on there, its heave does not, so a hull cut at a flat
+    /// waterline neither stands over a trough nor before a crest.
     /// </para>
     /// <para>
-    /// <b>The vessels sail two straight, parallel lanes</b>, each nearest the arena on <see cref="LANE_BEARING"/> (right of the
-    /// farther platform), the yacht's <see cref="YACHT_LANE"/> out and the ship's <see cref="SHIP_LANE"/>: both cross the
-    /// opening play view from far on its left to its right edge, the yacht beyond the lighthouse and the ship beyond the yacht,
-    /// both in front of the farther platform. ⚠ <b>Not circles round the arena</b>: the chapter intro's run at the nearer
-    /// platform flies a lens low over the water anywhere from 730 to 1070 out round its bearing (<c>SeaIntroShots</c>), and a
-    /// ring there puts a hull through the lens whenever the clock has a vessel at that bearing. The lanes stand off the
-    /// platform's side of the sea altogether (<c>SeaTrafficTests</c> hold every intro lens off them).
+    /// <b>The lighthouse</b> stands <see cref="LIGHTHOUSE_DISTANCE"/> out on <see cref="LIGHTHOUSE_BEARING"/>, about 16 degrees
+    /// right of the cluster in the play view the Game and the Testbed open on (the lens on +Z looking towards -Z), in front of
+    /// the farther platform and a little left of it.
+    /// </para>
+    /// <para>
+    /// <b>The vessels sail two straight, parallel lanes</b> straight across the opening play view, each nearest the arena on
+    /// <see cref="LANE_BEARING"/> (straight ahead of it, behind the cluster), the yacht's <see cref="YACHT_LANE"/> out and the
+    /// ship's <see cref="SHIP_LANE"/>: the yacht just beyond the lighthouse and the ship beyond the yacht, both in front of both
+    /// platforms. ⚠ <b>Not oblique, as they were 880 and 1010 out</b> (nearest on a bearing of -1.0, right of the farther
+    /// platform): a lane that near on that bearing runs through the nearer platform. Square to the opening view they pass the
+    /// nearer platform on its arena side, some 160 off its jacket, and the chapter intro's run at it, which flies a lens low over
+    /// the water anywhere from 730 to 1070 out round its bearing (<c>SeaIntroShots</c>), 230 off any of its lenses
+    /// (<c>SeaTrafficTests</c> hold both).
     /// </para>
     /// <para>
     /// <b>A lane is <see cref="LANE_HALF_LENGTH"/> either way of its nearest point</b>, and a vessel at its end wraps round to
@@ -39,8 +45,8 @@ namespace Prazsky.Core.Render
     /// <see cref="YACHT_START"/>), and the Game sets that zero whenever it selects the sea (<see cref="SeaTrafficClock"/>): no
     /// shipped level plays on the sea, so a player comes to it through the Scene list minutes into a session, and on the
     /// seconds since launch the vessels would be anywhere on their lanes by then. The first minutes after the selection put
-    /// both in the opening view, the ship passing behind the lighthouse at about 30 s and the yacht at about 65. After that
-    /// each comes round once a lane: <see cref="SHIP_SPEED"/> (about twelve knots) and <see cref="YACHT_SPEED"/> (about five)
+    /// both in the opening view, the ship passing behind the lighthouse at about 19 s and the yacht at about 71. After that
+    /// each comes round once a lane: <see cref="SHIP_SPEED"/> (about ten knots) and <see cref="YACHT_SPEED"/> (about five)
     /// at two units a metre.
     /// </para>
     /// <para>
@@ -51,28 +57,31 @@ namespace Prazsky.Core.Render
     /// </summary>
     public static class SeaTrafficLayout
     {
-        /// <summary>The bearing both lanes are nearest the arena on (from +X towards +Z, as <c>OilRigLayout</c> counts).</summary>
-        public const float LANE_BEARING = -1.0f;
+        /// <summary>The bearing both lanes are nearest the arena on (from +X towards +Z, as <c>OilRigLayout</c> counts): straight
+        /// ahead of the opening play view, so the lanes run square across it.</summary>
+        public const float LANE_BEARING = -MathHelper.PiOver2;
 
         /// <summary>How far out the yacht's lane and the ship's pass the arena at their nearest.</summary>
-        public const float YACHT_LANE = 880f, SHIP_LANE = 1010f;
+        public const float YACHT_LANE = 450f, SHIP_LANE = 520f;
 
         /// <summary>How far either way of its nearest point a lane runs before a vessel wraps round to its other end.</summary>
-        public const float LANE_HALF_LENGTH = 3000f;
+        public const float LANE_HALF_LENGTH = 3200f;
 
-        /// <summary>The vessels' speeds, units a second: the ship's about twelve knots and the yacht's about five.</summary>
-        public const float SHIP_SPEED = 12f, YACHT_SPEED = 5f;
+        /// <summary>The vessels' speeds, units a second: the ship's about ten knots and the yacht's about five. Whole numbers, so
+        /// both lanes come round together (<c>SeaTrafficTests</c> count the time either is in the opening view over that).</summary>
+        public const float SHIP_SPEED = 10f, YACHT_SPEED = 5f;
 
         //Where on its lane each is at the clock's zero (along LaneAlong from the nearest point): the ship at the opening view's
-        //right edge, coming left, and the yacht just left of its middle, going right
-        private const float SHIP_START = 48f, YACHT_START = -596f;
+        //right edge, coming left, and the yacht left of its middle, going right
+        private const float SHIP_START = 300f, YACHT_START = -250f;
 
         /// <summary>
         /// The lighthouse: its bearing, how far out it stands and its turn about the vertical. ⚠ Not nearer the frame's middle:
-        /// from a bearing of -1.33 in, a ball of the tallest levels (Balloon) hangs over its lantern in the focused play view,
-        /// and from -1.36 in the gun's wheel stands before its rock.
+        /// 400 out, from a bearing of -1.31 in a ball of the tallest levels (Balloon) hangs over its lantern in the focused play
+        /// view, and from -1.35 in the gun's wheel stands before its rock. The limits move with the distance: the nearer, the
+        /// taller the tower stands over the horizon (<c>SeaTrafficTests</c> hold it in every level's play view).
         /// </summary>
-        public const float LIGHTHOUSE_BEARING = -1.30f, LIGHTHOUSE_DISTANCE = 850f, LIGHTHOUSE_TURN = 0.4f;
+        public const float LIGHTHOUSE_BEARING = -1.30f, LIGHTHOUSE_DISTANCE = 400f, LIGHTHOUSE_TURN = 0.4f;
 
         /// <summary>
         /// How far from the lens a vessel's part begins to sink under the horizon (<c>Rig.fx</c>), and how slowly: the drop is
