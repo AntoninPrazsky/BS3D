@@ -256,7 +256,8 @@ namespace BS3D.Tests
         [Fact]
         public void The_cycle_is_whole_in_the_frame_throughout()
         {
-            float widest = 0f, tallest = 0f;
+            float widest = 0f, tallest = 0f, spanMost = 0f, spanSum = 0f;
+            int spans = 0;
             for (int b = 0; b < BUILDS; b++)
             {
                 foreach (float late in LATENESS)
@@ -274,6 +275,7 @@ namespace BS3D.Tests
                         foreach (float aspect in ASPECTS)
                         {
                             Matrix viewProjection = view * Matrix.CreatePerspectiveFieldOfView(frame.FieldOfView, aspect, 0.1f, 2000f);
+                            float left = float.MaxValue, right = float.MinValue;
                             foreach (float along in new[] { -LightCycleRuns.BODY_REACH, LightCycleRuns.BODY_REACH })
                             {
                                 foreach (float up in new[] { 0f, LightCycleRuns.BODY_HEIGHT })
@@ -284,17 +286,33 @@ namespace BS3D.Tests
                                     float x = MathF.Abs(clip.X / clip.W), y = MathF.Abs(clip.Y / clip.W);
                                     if (aspect == 4f / 3f) widest = MathF.Max(widest, x);
                                     tallest = MathF.Max(tallest, y);
+                                    left = MathF.Min(left, clip.X / clip.W);
+                                    right = MathF.Max(right, clip.X / clip.W);
                                     Assert.True(x < 0.9f && y < 0.9f,
                                         $"built at {BuildTime(b)}: the cycle's corner at ({x:F2}, {y:F2}) of the frame at {aspect:F2}");
                                 }
                             }
+
+                            //How much of a 16:9 frame's width the cycle spans, nose to tail
+                            if (aspect != 16f / 9f) continue;
+                            float span = (right - left) * 0.5f;
+                            spanMost = MathF.Max(spanMost, span);
+                            spanSum += span;
+                            spans++;
                         }
                     }
                 }
             }
 
-            _output.WriteLine($"the cycle's corners at most {widest:F2} of a 4:3 frame's half-width, {tallest:F2} of its half-height");
+            _output.WriteLine($"the cycle's corners at most {widest:F2} of a 4:3 frame's half-width, {tallest:F2} of its half-height; "
+                + $"it spans {spanSum / spans:F2} of a 16:9 frame's width on average, {spanMost:F2} at most");
+            Assert.True(spanMost <= CYCLE_SPAN_MOST, $"the cycle spans up to {spanMost:F2} of a 16:9 frame's width");
+            Assert.True(spanSum / spans <= CYCLE_SPAN_MEAN, $"the cycle spans {spanSum / spans:F2} of a 16:9 frame's width on average");
         }
+
+        //The most of a 16:9 frame's width the filmed cycle spans nose to tail at any frame of a ride, and on average (#1161, the
+        //owner: "the motorcycles do not have much detail, so we should not show them needlessly close")
+        private const float CYCLE_SPAN_MOST = 0.36f, CYCLE_SPAN_MEAN = 0.3f;
 
         [Fact]
         public void A_turn_is_ridden_not_snapped()

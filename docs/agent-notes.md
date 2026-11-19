@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-19 — #1158 #1159 #1160 #1161 #1175 poznámky k záběrům úvodů kapitol — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: poušť — kamery brouka a štíra 1,6× dál po téže ose (štír jako nakreslený ~0,22–0,23 šířky 16:9, brouk 0,18); hory — vrchol mířen 16 pod apex, kamera na místě, špička ~0,66 nahoru, skála 53–55 %; jeskyně — pořadí chodba, šachta, krystaly, spodek (losuje se ve starém pořadí, seedy beze změny); grid — jízda 13 napříč (dál v buňce mřížky nejde), cyklus 0,27 šířky; vesmír — talíř 20 u/s místo 28, záběr 5,5 s, úvod 15,5 s.
+- ⚠ Vrchol hory vzorkovaný po 6 jednotkách leží 6 pod skutečnou špičkou; test promítal vzorek a pustil špičku nad mez. Měř, co se kreslí (`DesertCritters.World` a nejvyšší bod v okolí).
+- Otevřené: verdict-eye u všech pěti; v pohybu nikdo neviděl, štír stále ~čtvrtina šířky (pětina by chtěla stání ~6,1), rychlost talíře zvolena bez majitele.
+
 ## 2026-11-18 — #1178 trailer v1 — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: `Tools/trailer/trailer.json` (57 s: logo, 21 WORLDS, 6 průletů, 140 LEVELS, zlom shoegaze → trance, rychlá hra, speciální kuličky, Cut, bomby, dohrání Cannonball, závěrečná karta s webem). Master 4K60 v `Videos\BS3D trailer\bs3d-trailer-v1-master.mp4` (411 MB). Nástroj nahrává jen použité úseky (ořez okna, 0 pixelů rozdíl ověřeno).

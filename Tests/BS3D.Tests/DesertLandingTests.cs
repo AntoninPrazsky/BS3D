@@ -148,7 +148,8 @@ namespace BS3D.Tests
                 shot.Pose(0f, out Vector3 first, out Vector3 look);
                 float sand = TerrainMirror.Desert(first.X, first.Z, Desert);
                 Assert.InRange(first.Y - sand, DesertLanding.LENS_ABOVE - 0.05f, DesertLanding.LENS_ABOVE + 0.05f);
-                Assert.InRange(Vector2.Distance(new Vector2(first.X, first.Z), walk.Start), 2f, 5f);
+                //Beside the burrow, the close view's stand off it (the burrow is half the walk aside of the walk's middle)
+                Assert.InRange(Vector2.Distance(new Vector2(first.X, first.Z), walk.Start), DesertLanding.STAND - 1.4f, DesertLanding.STAND + 1.6f);
 
                 //Its foot and its back (a scorpion's height over it) in frame from the shot's first frame until the look lets go
                 for (float seconds = 0f; seconds <= DesertLanding.Lift; seconds += 0.05f)
