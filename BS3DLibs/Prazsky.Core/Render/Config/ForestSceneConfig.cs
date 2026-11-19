@@ -14,10 +14,10 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Under a canopy the sky is a lid and not a view. It was a broken deck until #961, and a broken deck is
-        /// the brightest thing in a dark wood whatever dome it hangs under (its lit side takes the sun's light
-        /// and no dome is darker than that: the upper sky's mean was 89 under dome 15 and 90 under dome 13), which
-        /// is what the owner meant by "the sky is too bright". The overcast lid is 55, and the ground under it is
-        /// lit evenly instead of being swept by cloud shadows.
+        /// the brightest thing in a dark wood whatever dome it hangs under (its lit side takes the sun's light: the
+        /// upper sky's mean at the Testbed's play camera is 115 under dome 15 and 149 under dome 13, "The sky and the
+        /// fireflies" in docs/scenes/forest.md), which is what the owner meant by "the sky is too bright". The overcast
+        /// lid is 54, and the ground under it is lit evenly instead of being swept by cloud shadows.
         /// </summary>
         public ForestSceneConfig()
         {
@@ -128,7 +128,7 @@ namespace Prazsky.Core.Render
         /// haze of the plant material standing on them: the sky drawn at the horizon, greyed to <see cref="MurkSaturation"/>
         /// of its own colour and multiplied by this. Darker than that sky, so a ridge stays a ridge, and cooler, because the air
         /// on a short path to a hill scatters blue where the horizon's long path has reddened (every #1121 reference draws the
-        /// far ridges slate blue under a violet sky). It used to be made of the light rig's horizon colour, whose teal under the
+        /// far ridges slate blue). It used to be made of the light rig's horizon colour, whose teal under the
         /// forest's dome is a colour no part of this sky is drawn in.
         /// </summary>
         public Rgb MurkShade { get; set; } = new(0.20f, 0.30f, 0.40f);

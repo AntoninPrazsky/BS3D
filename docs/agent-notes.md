@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-19 — #1165 lesní obloha bez fialové — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: kopule 15 (les) přepočtena vzorcem nad výškou vrcholu (jako 6/14/21) z fialového soumraku na modrošedý: skoro neutrální pruh u obzoru, modrošedé nebe, břidlicový zenit. Spodní pětina drží starou tyrkysovou bit po bitu (`HorizonColor` světel beze změny), zenit drží jas (lineární 0,044 proti 0,043), víko zatažené oblohy je tmavě modrošedé místo indigového. Předlohy ze Z-Image, klein a FLUX.3 (prompty bez barvy) kreslí šedomodré víko, žádnou fialovou. `SkyDome` čte paletu staticky (`DrawnLinearOf`, `RigColoursOf`), nové `ForestSkyTests`; tři ze čtyř padají na staré kopuli.
+- ⚠ Statické pole v jedné partial třídě se může inicializovat dřív než `GEOMETRY` v druhé: Y kopule se čte přímo z `GEOMETRY`.
+- Otevřené: verdict-eye; nezachyceno v pohybu, na Low/Medium/Ultra ani Potato; teplý pruh u obzoru z předloh vynechán vědomě.
+
 ## 2026-11-19 — #1208 blog „The aliens only come out on High“, posuvník úrovní — desktop (RDT-PC), Claude Code
 
 - Hotovo: článek `Web/src/blog/the-aliens-only-come-out-on-high.md` (pět úrovní detailu, čtyři posuvníky), nová figura `figure.tiers` (`js/tiers.js`, CSS v `site.css`, popis v `docs/website.md`), snímky z capture módu ve 4K (`wind=0`, bez zrna), 30 obrázků, 3,39 MB.

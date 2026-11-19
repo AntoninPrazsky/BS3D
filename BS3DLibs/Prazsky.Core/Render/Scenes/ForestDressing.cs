@@ -37,8 +37,10 @@ namespace Prazsky.Core.Render
         /// <summary>How many triangles the dressing draws a frame, at the tiers that draw it.</summary>
         public long Triangles { get; }
 
-        //The broadleaves' bark (linear): a beech's grey taken warm, because the plant material lights it with the dusk dome's
-        //violet and teal at full strength and a neutral grey came out lavender beside the spruces' brown trunks
+        //The broadleaves' bark (linear): a beech's grey taken warm, because the plant material lights a trunk with the mean of
+        //the dome's zenith and horizon colours and a sun tinted by the horizon, at full strength, and the forest's dusk dome
+        //rigs a teal horizon: by that sum a neutral grey trunk is shown teal (hue 184 in the lid's half sun, 196 in shade)
+        //beside the spruces' brown trunks
         private static readonly Vector3 BARK = new(0.075f, 0.058f, 0.042f);
 
         //The leaves against the config's foliage colour, which Low and Medium's solid crowns are drawn in
