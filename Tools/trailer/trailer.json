@@ -1,76 +1,732 @@
-// The trailer, v2 (#1178): Tools/trailer-cut.py Tools/trailer/trailer.json
-// The owner's verdict on v1 (2026-11-19): the 2D logo fades in from black, then through white into the worlds' fly-throughs,
-// longer, the whole at least 90 s; the fly-through comes in behind the gun, a moment of calm, then the shooting starts; the
-// camera alternates in play (the game's view, the side, the firing gun from outside, from above, from below), the balls down the
-// funnel more than once, seen from under a glass one; a thinner, more modern face; music generated to the script.
-// The music (Tools/trailer/music/trailer-v2.json) has ~40 s of calm and its drop on a beat at 52.35 s: the first shot is laid on it.
-// Every play "in" was found at 60 frames a second (the size does not matter, the rate does); a play clip's counts from 2 s.
+// The trailer, v3 (#1178): Tools/trailer-cut.py Tools/trailer/trailer.json
+// The owner's verdict on v2 (2026-11-19): at most 70 s; the desert first, under "21 WORLDS"; no hay bales, no Dream; the big top
+// before the hand-over, which leads straight into the shooting; the player's own view and precise aim; the laser net and its
+// projectors before the first game; every trailer shot moving (a still lens only in the player's view, with the HUD); the new saucer;
+// the grid without a turning cycle; his favourite scenes first; desert-style music for the slow part; a friendly "still in
+// development" at the end with the address set lower; and a last shot of one game while every world swaps behind it.
+// Every play "in" was found at 60 frames a second (the size does not matter, the rate does). Camera paths count from a clip's
+// window start, a quarter second before its "in" (Tools/trailer/paths).
 {
   "format": "bs3d-trailer",
-  "name": "bs3d-trailer-v2",
+  "name": "bs3d-trailer-v3",
   "size": "3840x2160",
   "fps": 60,
-  "font": { "file": "Tools/trailer/fonts/Montserrat-wght.ttf", "weight": 300 },
+  "font": {
+    "file": "Tools/trailer/fonts/Montserrat-wght.ttf",
+    "weight": 300
+  },
   "tracking": 0.16,
-  "film": { "quality": "Ultra", "hud": true, "noGrain": true, "audio": true },
+  "film": {
+    "quality": "Ultra",
+    "hud": true,
+    "noGrain": true,
+    "audio": true
+  },
   "segments": [
-    // The 2D logo out of black, held until the white takes it
-    { "name": "logo", "card": { "logo": true, "logoWidth": 0.46, "logoY": 0.5, "fadeIn": 1.8, "fadeOut": 0.01, "push": 0.025 }, "length": 4.6 },
-
-    // The worlds: the chapters' opening fly-throughs, long and slow, dissolved into each other
-    { "name": "tour-meadow", "capture": { "level": "Pennant", "from": 0 }, "in": 3.4, "length": 6.0, "transition": "white", "transitionSeconds": 1.2, "sound": null },
-    { "name": "tour-desert", "capture": { "level": "Rope", "from": 0 }, "in": 3.6, "length": 6.0, "transition": "dissolve", "transitionSeconds": 0.9, "sound": null },
-    { "name": "tour-aurora", "capture": { "level": "Fish", "from": 0 }, "in": 0.4, "length": 6.0, "transition": "dissolve", "transitionSeconds": 0.9, "sound": null },
-    { "name": "tour-dream", "capture": { "level": "Trefoil", "from": 0 }, "in": 7.0, "length": 6.0, "transition": "dissolve", "transitionSeconds": 0.9, "sound": null },
-    { "name": "tour-bigtop", "capture": { "level": "Tightrope", "from": 0 }, "in": 1.0, "length": 6.0, "transition": "dissolve", "transitionSeconds": 0.9, "sound": null },
-    { "name": "tour-space", "capture": { "level": "Comet", "from": 0 }, "in": 5.0, "length": 6.0, "transition": "dissolve", "transitionSeconds": 0.9, "sound": null },
-    { "name": "tour-neon", "capture": { "level": "Ziggurat", "from": 0 }, "in": 4.0, "length": 6.0, "transition": "dissolve", "transitionSeconds": 0.9, "sound": null },
-    { "name": "tour-grid", "capture": { "level": "Menger", "from": 0 }, "in": 3.0, "length": 6.0, "transition": "dissolve", "transitionSeconds": 0.9, "sound": null },
-
-    // The hand-over: the volcano's tour comes in behind the gun, the HUD rises, the calm, and its first shot lands on the drop
-    // (Breach's first shot is 12.22 s into a window from 10 s: 7.22 s after this clip's in)
-    { "name": "landing", "capture": { "level": "Breach", "from": 10, "demo": true }, "in": 5.27, "length": 9.0, "transition": "dissolve", "transitionSeconds": 0.9, "sound": 0 },
-
-    // Play, the camera alternating: the game's view with its HUD, then views from outside it with none
-    { "name": "play-meadow", "capture": { "level": "Cannonball", "from": 2, "demo": true }, "in": 0.6, "length": 2.8, "sound": 0 },
-    { "name": "side-city", "capture": { "level": "Girandole", "from": 2, "demo": true, "hud": false, "camPos": "-7,-6,19", "camTarget": "0,-5.5,12", "fov": 50 }, "in": 2.8, "length": 2.1, "sound": 0 },
-    { "name": "play-neon", "capture": { "level": "Reel", "from": 2, "demo": true }, "in": 1.7, "length": 2.1, "sound": 0 },
-    { "name": "below-neon", "capture": { "level": "Reel", "from": 2, "demo": true, "hud": false, "camPos": "4,-34,6", "camTarget": "0,-8,0", "fov": 50 }, "in": 2.2, "length": 2.8, "sound": 0 },
-    { "name": "play-grid", "capture": { "level": "Sierpinski", "from": 2, "demo": true }, "in": 1.2, "length": 2.1, "sound": 0 },
-    { "name": "above-dream", "capture": { "level": "Anvil", "from": 2, "demo": true, "hud": false, "camPos": "12,10,34", "camTarget": "0,-4,6", "fov": 50 }, "in": 1.1, "length": 2.1, "sound": 0 },
-    { "name": "play-city", "capture": { "level": "Girandole", "from": 2, "demo": true }, "in": 4.2, "length": 2.1, "sound": 0 },
-    { "name": "funnel-city", "capture": { "level": "Girandole", "from": 2, "demo": true, "hud": false, "camPos": "0,6,9", "camTarget": "0,-12,0", "fov": 50 }, "in": 6.1, "length": 2.1, "sound": 0 },
-    { "name": "play-dream", "capture": { "level": "Anvil", "from": 2, "demo": true }, "in": 2.5, "length": 2.1, "sound": 0 },
-    { "name": "below-dream", "capture": { "level": "Anvil", "from": 2, "demo": true, "hud": false, "camPos": "4,-34,6", "camTarget": "0,-8,0", "fov": 50 }, "in": 6.0, "length": 2.8, "sound": 0 },
-
-    // The special balls and the Cut
-    { "name": "special-glass", "capture": { "level": "Umbrella", "from": 2, "demo": true }, "in": 5.8, "length": 2.1, "sound": 0 },
-    { "name": "special-buckshot", "capture": { "level": "Juggler", "from": 2, "demo": true }, "in": 5.7, "length": 2.1, "sound": 0 },
-    { "name": "special-bombs", "capture": { "level": "Paroxysm", "from": 2, "demo": true }, "in": 13.4, "length": 2.1, "sound": 0 },
-    { "name": "special-bombs-big", "capture": { "level": "Vent", "from": 2, "demo": true }, "in": 5.8, "length": 2.8, "sound": 2, "duck": 4 },
-    { "name": "bombs-above", "capture": { "level": "Vent", "from": 2, "demo": true, "hud": false, "camPos": "12,10,34", "camTarget": "0,-4,6", "fov": 50 }, "in": 6.0, "length": 2.1, "sound": 0 },
-
-    // The clear: the last balls down the drain, the volley of the unused ones under the fireworks
-    { "name": "clear-drain", "capture": { "level": "Cannonball", "from": 2, "demo": true }, "in": 19.0, "length": 2.8, "sound": 0 },
-    { "name": "clear-volley", "capture": { "level": "Cannonball", "from": 2, "demo": true }, "in": 23.3, "length": 2.8, "sound": 0 },
-
-    { "name": "end", "card": { "logo": true, "logoWidth": 0.4, "logoY": 0.38, "fadeIn": 0.8, "fadeOut": 1.2,
-        "lines": [["FREE  ·  140 LEVELS  ·  21 WORLDS", 0.8], ["WINDOWS  ·  ANDROID  ·  RASPBERRY PI 5", 0.6], ["bs3d.winphonew.eu", 0.92]],
-        "textY": 0.78, "push": 0.025 },
-      "length": 4.6, "transition": "dip", "transitionSeconds": 0.6 }
+    {
+      "name": "logo",
+      "card": {
+        "logo": true,
+        "logoWidth": 0.46,
+        "logoY": 0.5,
+        "fadeIn": 1.5,
+        "fadeOut": 0.01,
+        "push": 0.025
+      },
+      "length": 3.0
+    },
+    {
+      "name": "tour-desert",
+      "capture": {
+        "level": "Rope",
+        "from": 0
+      },
+      "in": 3.6,
+      "length": 2.6,
+      "transition": "white",
+      "transitionSeconds": 1.0,
+      "sound": null
+    },
+    {
+      "name": "tour-meadow",
+      "capture": {
+        "level": "Pennant",
+        "from": 0
+      },
+      "in": 8.6,
+      "length": 2.6,
+      "transition": "dissolve",
+      "transitionSeconds": 0.6,
+      "sound": null
+    },
+    {
+      "name": "tour-aurora",
+      "capture": {
+        "level": "Fish",
+        "from": 0
+      },
+      "in": 0.4,
+      "length": 2.6,
+      "transition": "dissolve",
+      "transitionSeconds": 0.6,
+      "sound": null
+    },
+    {
+      "name": "tour-rocks",
+      "capture": {
+        "level": "Column",
+        "from": 0
+      },
+      "in": 5.0,
+      "length": 2.6,
+      "transition": "dissolve",
+      "transitionSeconds": 0.6,
+      "sound": null
+    },
+    {
+      "name": "tour-cave",
+      "capture": {
+        "level": "Onion",
+        "from": 0
+      },
+      "in": 10.0,
+      "length": 2.6,
+      "transition": "dissolve",
+      "transitionSeconds": 0.6,
+      "sound": null
+    },
+    {
+      "name": "tour-space",
+      "capture": {
+        "level": "Comet",
+        "from": 0
+      },
+      "in": 1.8,
+      "length": 2.6,
+      "transition": "dissolve",
+      "transitionSeconds": 0.6,
+      "sound": null
+    },
+    {
+      "name": "tour-grid",
+      "capture": {
+        "level": "Menger",
+        "from": 0
+      },
+      "in": 8.6,
+      "length": 2.6,
+      "transition": "dissolve",
+      "transitionSeconds": 0.6,
+      "sound": null
+    },
+    {
+      "name": "tour-bigtop",
+      "capture": {
+        "level": "Tightrope",
+        "from": 0
+      },
+      "in": 1.4,
+      "length": 2.6,
+      "transition": "dissolve",
+      "transitionSeconds": 0.6,
+      "sound": null
+    },
+    {
+      "name": "landing",
+      "capture": {
+        "level": "Ziggurat",
+        "from": 10,
+        "demo": true
+      },
+      "in": 12.0,
+      "length": 3.4,
+      "transition": "dissolve",
+      "transitionSeconds": 0.6,
+      "sound": 0,
+      "snap": false
+    },
+    {
+      "name": "projector",
+      "capture": {
+        "level": "Ziggurat",
+        "from": 10,
+        "demo": true,
+        "hud": false,
+        "camPath": "Tools/trailer/paths/projector.json"
+      },
+      "in": 15.4,
+      "length": 1.95,
+      "sound": 0,
+      "snap": false
+    },
+    {
+      "name": "first-shot",
+      "capture": {
+        "level": "Ziggurat",
+        "from": 10,
+        "demo": true
+      },
+      "in": 17.35,
+      "length": 2.2,
+      "sound": 0,
+      "snap": false
+    },
+    {
+      "name": "precise-aim",
+      "capture": {
+        "level": "Reel",
+        "from": 1.5,
+        "aim": true,
+        "gameArgs": "rmb=2.5:7 fire=4.2,5.8"
+      },
+      "in": 0.9,
+      "length": 3.0,
+      "sound": 0
+    },
+    {
+      "name": "side-city",
+      "capture": {
+        "level": "Girandole",
+        "from": 2,
+        "demo": true,
+        "hud": false,
+        "camPath": "Tools/trailer/paths/side.json"
+      },
+      "in": 2.8,
+      "length": 1.9,
+      "sound": 0
+    },
+    {
+      "name": "play-cave",
+      "capture": {
+        "level": "Spark",
+        "from": 2,
+        "demo": true
+      },
+      "in": 2.3,
+      "length": 2.0,
+      "sound": 0
+    },
+    {
+      "name": "below-cave",
+      "capture": {
+        "level": "Spark",
+        "from": 2,
+        "demo": true,
+        "hud": false,
+        "camPath": "Tools/trailer/paths/below.json"
+      },
+      "in": 3.8,
+      "length": 2.2,
+      "sound": 0
+    },
+    {
+      "name": "play-meadow",
+      "capture": {
+        "level": "Cannonball",
+        "from": 2,
+        "demo": true
+      },
+      "in": 0.6,
+      "length": 2.2,
+      "sound": 0
+    },
+    {
+      "name": "above-bigtop",
+      "capture": {
+        "level": "Juggler",
+        "from": 2,
+        "demo": true,
+        "hud": false,
+        "camPath": "Tools/trailer/paths/above.json"
+      },
+      "in": 5.8,
+      "length": 2.0,
+      "sound": 0
+    },
+    {
+      "name": "special-glass",
+      "capture": {
+        "level": "Umbrella",
+        "from": 2,
+        "demo": true
+      },
+      "in": 5.8,
+      "length": 1.9,
+      "sound": 0
+    },
+    {
+      "name": "special-bombs",
+      "capture": {
+        "level": "Vent",
+        "from": 2,
+        "demo": true
+      },
+      "in": 5.8,
+      "length": 2.4,
+      "sound": 2,
+      "duck": 4
+    },
+    {
+      "name": "clear-drain",
+      "capture": {
+        "level": "Cannonball",
+        "from": 2,
+        "demo": true
+      },
+      "in": 19.0,
+      "length": 2.2,
+      "sound": 0
+    },
+    {
+      "name": "worlds-00-desert",
+      "capture": {
+        "levelFile": "Game/Levels/One.json",
+        "scene": "desert",
+        "from": 3.8,
+        "demo": true,
+        "hud": false,
+        "camPath": "Tools/trailer/paths/orbit.json",
+        "gameArgs": "wind=0 skiptakeover=1"
+      },
+      "in": 0.2,
+      "length": 0.25,
+      "trim": false,
+      "snap": false,
+      "sound": 0
+    },
+    {
+      "name": "worlds-01-meadow",
+      "capture": {
+        "levelFile": "Game/Levels/One.json",
+        "scene": "meadow",
+        "from": 3.8,
+        "demo": true,
+        "hud": false,
+        "camPath": "Tools/trailer/paths/orbit.json",
+        "gameArgs": "wind=0 skiptakeover=1"
+      },
+      "in": 0.45,
+      "length": 0.25,
+      "trim": false,
+      "snap": false,
+      "sound": 0
+    },
+    {
+      "name": "worlds-02-aurora",
+      "capture": {
+        "levelFile": "Game/Levels/One.json",
+        "scene": "aurora",
+        "from": 3.8,
+        "demo": true,
+        "hud": false,
+        "camPath": "Tools/trailer/paths/orbit.json",
+        "gameArgs": "wind=0 skiptakeover=1"
+      },
+      "in": 0.7,
+      "length": 0.25,
+      "trim": false,
+      "snap": false,
+      "sound": 0
+    },
+    {
+      "name": "worlds-03-mountain",
+      "capture": {
+        "levelFile": "Game/Levels/One.json",
+        "scene": "mountain",
+        "from": 3.8,
+        "demo": true,
+        "hud": false,
+        "camPath": "Tools/trailer/paths/orbit.json",
+        "gameArgs": "wind=0 skiptakeover=1"
+      },
+      "in": 0.95,
+      "length": 0.25,
+      "trim": false,
+      "snap": false,
+      "sound": 0
+    },
+    {
+      "name": "worlds-04-cavern",
+      "capture": {
+        "levelFile": "Game/Levels/One.json",
+        "scene": "cavern",
+        "from": 3.8,
+        "demo": true,
+        "hud": false,
+        "camPath": "Tools/trailer/paths/orbit.json",
+        "gameArgs": "wind=0 skiptakeover=1"
+      },
+      "in": 1.2,
+      "length": 0.25,
+      "trim": false,
+      "snap": false,
+      "sound": 0
+    },
+    {
+      "name": "worlds-05-circus",
+      "capture": {
+        "levelFile": "Game/Levels/One.json",
+        "scene": "circus",
+        "from": 3.8,
+        "demo": true,
+        "hud": false,
+        "camPath": "Tools/trailer/paths/orbit.json",
+        "gameArgs": "wind=0 skiptakeover=1"
+      },
+      "in": 1.45,
+      "length": 0.25,
+      "trim": false,
+      "snap": false,
+      "sound": 0
+    },
+    {
+      "name": "worlds-06-neon",
+      "capture": {
+        "levelFile": "Game/Levels/One.json",
+        "scene": "neon",
+        "from": 3.8,
+        "demo": true,
+        "hud": false,
+        "camPath": "Tools/trailer/paths/orbit.json",
+        "gameArgs": "wind=0 skiptakeover=1"
+      },
+      "in": 1.7,
+      "length": 0.25,
+      "trim": false,
+      "snap": false,
+      "sound": 0
+    },
+    {
+      "name": "worlds-07-grid",
+      "capture": {
+        "levelFile": "Game/Levels/One.json",
+        "scene": "grid",
+        "from": 3.8,
+        "demo": true,
+        "hud": false,
+        "camPath": "Tools/trailer/paths/orbit.json",
+        "gameArgs": "wind=0 skiptakeover=1"
+      },
+      "in": 1.95,
+      "length": 0.25,
+      "trim": false,
+      "snap": false,
+      "sound": 0
+    },
+    {
+      "name": "worlds-08-space",
+      "capture": {
+        "levelFile": "Game/Levels/One.json",
+        "scene": "space",
+        "from": 3.8,
+        "demo": true,
+        "hud": false,
+        "camPath": "Tools/trailer/paths/orbit.json",
+        "gameArgs": "wind=0 skiptakeover=1"
+      },
+      "in": 2.2,
+      "length": 0.25,
+      "trim": false,
+      "snap": false,
+      "sound": 0
+    },
+    {
+      "name": "worlds-09-sea",
+      "capture": {
+        "levelFile": "Game/Levels/One.json",
+        "scene": "sea",
+        "from": 3.8,
+        "demo": true,
+        "hud": false,
+        "camPath": "Tools/trailer/paths/orbit.json",
+        "gameArgs": "wind=0 skiptakeover=1"
+      },
+      "in": 2.45,
+      "length": 0.25,
+      "trim": false,
+      "snap": false,
+      "sound": 0
+    },
+    {
+      "name": "worlds-10-city",
+      "capture": {
+        "levelFile": "Game/Levels/One.json",
+        "scene": "city",
+        "from": 3.8,
+        "demo": true,
+        "hud": false,
+        "camPath": "Tools/trailer/paths/orbit.json",
+        "gameArgs": "wind=0 skiptakeover=1"
+      },
+      "in": 2.7,
+      "length": 0.25,
+      "trim": false,
+      "snap": false,
+      "sound": 0
+    },
+    {
+      "name": "worlds-11-volcano",
+      "capture": {
+        "levelFile": "Game/Levels/One.json",
+        "scene": "volcano",
+        "from": 3.8,
+        "demo": true,
+        "hud": false,
+        "camPath": "Tools/trailer/paths/orbit.json",
+        "gameArgs": "wind=0 skiptakeover=1"
+      },
+      "in": 2.95,
+      "length": 0.25,
+      "trim": false,
+      "snap": false,
+      "sound": 0
+    },
+    {
+      "name": "worlds-12-savanna",
+      "capture": {
+        "levelFile": "Game/Levels/One.json",
+        "scene": "savanna",
+        "from": 3.8,
+        "demo": true,
+        "hud": false,
+        "camPath": "Tools/trailer/paths/orbit.json",
+        "gameArgs": "wind=0 skiptakeover=1"
+      },
+      "in": 3.2,
+      "length": 0.25,
+      "trim": false,
+      "snap": false,
+      "sound": 0
+    },
+    {
+      "name": "worlds-13-moon",
+      "capture": {
+        "levelFile": "Game/Levels/One.json",
+        "scene": "moon",
+        "from": 3.8,
+        "demo": true,
+        "hud": false,
+        "camPath": "Tools/trailer/paths/orbit.json",
+        "gameArgs": "wind=0 skiptakeover=1"
+      },
+      "in": 3.45,
+      "length": 0.25,
+      "trim": false,
+      "snap": false,
+      "sound": 0
+    },
+    {
+      "name": "worlds-14-forest",
+      "capture": {
+        "levelFile": "Game/Levels/One.json",
+        "scene": "forest",
+        "from": 3.8,
+        "demo": true,
+        "hud": false,
+        "camPath": "Tools/trailer/paths/orbit.json",
+        "gameArgs": "wind=0 skiptakeover=1"
+      },
+      "in": 3.7,
+      "length": 0.25,
+      "trim": false,
+      "snap": false,
+      "sound": 0
+    },
+    {
+      "name": "worlds-15-outback",
+      "capture": {
+        "levelFile": "Game/Levels/One.json",
+        "scene": "outback",
+        "from": 3.8,
+        "demo": true,
+        "hud": false,
+        "camPath": "Tools/trailer/paths/orbit.json",
+        "gameArgs": "wind=0 skiptakeover=1"
+      },
+      "in": 3.95,
+      "length": 0.25,
+      "trim": false,
+      "snap": false,
+      "sound": 0
+    },
+    {
+      "name": "worlds-16-tropical",
+      "capture": {
+        "levelFile": "Game/Levels/One.json",
+        "scene": "tropical",
+        "from": 3.8,
+        "demo": true,
+        "hud": false,
+        "camPath": "Tools/trailer/paths/orbit.json",
+        "gameArgs": "wind=0 skiptakeover=1"
+      },
+      "in": 4.2,
+      "length": 0.25,
+      "trim": false,
+      "snap": false,
+      "sound": 0
+    },
+    {
+      "name": "worlds-17-mars",
+      "capture": {
+        "levelFile": "Game/Levels/One.json",
+        "scene": "mars",
+        "from": 3.8,
+        "demo": true,
+        "hud": false,
+        "camPath": "Tools/trailer/paths/orbit.json",
+        "gameArgs": "wind=0 skiptakeover=1"
+      },
+      "in": 4.45,
+      "length": 0.25,
+      "trim": false,
+      "snap": false,
+      "sound": 0
+    },
+    {
+      "name": "worlds-18-storm",
+      "capture": {
+        "levelFile": "Game/Levels/One.json",
+        "scene": "storm",
+        "from": 3.8,
+        "demo": true,
+        "hud": false,
+        "camPath": "Tools/trailer/paths/orbit.json",
+        "gameArgs": "wind=0 skiptakeover=1"
+      },
+      "in": 4.7,
+      "length": 0.25,
+      "trim": false,
+      "snap": false,
+      "sound": 0
+    },
+    {
+      "name": "worlds-19-polar",
+      "capture": {
+        "levelFile": "Game/Levels/One.json",
+        "scene": "polar",
+        "from": 3.8,
+        "demo": true,
+        "hud": false,
+        "camPath": "Tools/trailer/paths/orbit.json",
+        "gameArgs": "wind=0 skiptakeover=1"
+      },
+      "in": 4.95,
+      "length": 0.25,
+      "trim": false,
+      "snap": false,
+      "sound": 0
+    },
+    {
+      "name": "end",
+      "card": {
+        "logo": true,
+        "logoWidth": 0.4,
+        "logoY": 0.33,
+        "fadeIn": 0.8,
+        "fadeOut": 1.0,
+        "push": 0.02,
+        "lines": [
+          [
+            "STILL IN DEVELOPMENT, ALREADY PLAYABLE",
+            0.66
+          ],
+          [
+            "TRY THE FIRST PUBLIC VERSIONS, FREE",
+            0.5
+          ],
+          [
+            "WINDOWS  ·  ANDROID  ·  RASPBERRY PI 5",
+            0.42
+          ]
+        ],
+        "textY": 0.68,
+        "footer": [
+          [
+            "bs3d.winphonew.eu",
+            0.9
+          ]
+        ],
+        "footerY": 0.88
+      },
+      "length": 5.0,
+      "transition": "dip",
+      "transitionSeconds": 0.6,
+      "snap": false
+    }
   ],
   "cards": [
-    { "lines": [["21 WORLDS", 1.5]], "at": "segment:tour-meadow", "offset": 1.4, "length": 3.6, "y": 0.5, "band": 0.3, "fadeIn": 0.9, "fadeOut": 0.9, "push": 0.04 },
-    { "lines": [["140 LEVELS", 1.5]], "at": "segment:landing", "offset": 1.0, "length": 3.2, "y": 0.42, "band": 0.3, "fadeIn": 0.8, "fadeOut": 0.8, "push": 0.04 },
-    { "lines": [["SHOOT.  MATCH.  BRING IT DOWN.", 0.95]], "at": "segment:play-neon", "offset": 0.1, "length": 2.0, "y": 0.5, "band": 0.4, "tracking": 0.12 },
-    { "lines": [["SPECIAL BALLS", 1.2]], "at": "segment:special-glass", "offset": 0.1, "length": 1.6, "y": 0.5, "band": 0.4 }
+    {
+      "lines": [
+        [
+          "21 WORLDS",
+          1.5
+        ]
+      ],
+      "at": "segment:tour-desert",
+      "offset": 0.5,
+      "length": 2.4,
+      "y": 0.5,
+      "band": 0.3,
+      "fadeIn": 0.7,
+      "fadeOut": 0.7,
+      "push": 0.04
+    },
+    {
+      "lines": [
+        [
+          "140 LEVELS",
+          1.5
+        ]
+      ],
+      "at": "segment:landing",
+      "offset": 0.6,
+      "length": 2.4,
+      "y": 0.42,
+      "band": 0.3,
+      "fadeIn": 0.6,
+      "fadeOut": 0.6,
+      "push": 0.04
+    },
+    {
+      "lines": [
+        [
+          "SHOOT.  MATCH.  BRING IT DOWN.",
+          0.95
+        ]
+      ],
+      "at": "segment:play-cave",
+      "offset": 0.1,
+      "length": 1.9,
+      "y": 0.5,
+      "band": 0.4,
+      "tracking": 0.12
+    }
   ],
   "music": [
-    { "file": "Tools/trailer/music/trailer-v2.ogg", "from": 0.0, "at": 0.0, "gain": 0, "bpm": 85.714, "downbeat": 52.35, "loop": false }
+    {
+      "file": "Tools/trailer/music/trailer-v3-intro.ogg",
+      "from": 0.0,
+      "at": 0.0,
+      "gain": 0,
+      "loop": false
+    },
+    {
+      "file": "Tools/trailer/music/trailer-v3-action.ogg",
+      "from": 39.5,
+      "at": "segment:first-shot",
+      "gain": 0,
+      "loop": false,
+      "bpm": 111.1,
+      "downbeat": 39.5
+    }
   ],
   "snap": true,
-  "snapFrom": 53.0,
-  "mix": { "music": -16.0, "game": -20.0 },
-  "endFade": 2.0,
-  "endFadeVideo": 1.2
+  "mix": {
+    "music": -16.0,
+    "game": -20.0
+  },
+  "endFade": 1.5,
+  "endFadeVideo": 1.0
 }

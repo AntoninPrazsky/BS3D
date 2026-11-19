@@ -1,0 +1,27 @@
+{
+  "files": ["trailer-v3-intro.ogg", "trailer-v3-action.ogg"],
+  "created": "2026-11-19",
+  "issue": 1178,
+  "purpose": "The trailer v3's music: the owner's verdict on v2 (2026-11-19) asked for the slow opening part with the scenes to have music generated in the style of the desert's (the ember family: guitar-led rock with a tune). The calm part and the action part are two renders, joined at the switch on the first shot.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan - C:\\Users\\panrd\\AI\\generate-music.ps1 -NoCotCaption, no loop cut",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "intro": {
+    "file": "trailer-v3-intro.ogg",
+    "seed": 1178043,
+    "caption": "Slow, calm and spacious cinematic desert instrumental with a clear melody: a clean, reverb-drenched twangy electric guitar plays a lonely, beautiful melody over soft airy pads and a deep warm bass drone, no drums at all, no percussion, gentle and atmospheric like a sunrise over the dunes, swelling a little in its last seconds with a tremolo guitar. Wide stereo mix, spacious reverb, modern polished production, no vocals",
+    "negative": "vocals, singing, voice, choir, drums, percussion, drum beat, snare, hi-hat, audience applause, crowd noise, live recording, childish, cute, toy piano, music box, boomy sub bass, harsh noise, distorted guitar, electronic dance beat, fade out",
+    "lyrics": "[Intro - clean guitar melody] [Verse - clean guitar melody] [Outro - tremolo swell], each [Instrumental]",
+    "duration": 32, "bpm": 111, "keyscale": "E minor", "inference_steps": 8,
+    "chosen": "Of three renders (041-043), the calmest by measurement: RMS -21.1 dBFS in its first 25 s (041 -15.0, 042 -13.9, the action's body -13.3) and no regular beat (onset autocorrelation 0.15 against 0.44-0.52), so no drums."
+  },
+  "action": {
+    "file": "trailer-v3-action.ogg",
+    "seed": 1178021,
+    "caption": "Cinematic desert rock instrumental for a video game trailer, guitar-led with a clear melody. It opens slow, warm and spacious for about twenty-five seconds: a clean, reverb-drenched twangy electric guitar plays a lonely, beautiful melody over soft airy pads and a deep warm bass note, no drums; then a short build-up with rising tremolo guitar and a snare roll; then a big drop into energetic, driving desert rock with punchy rock drums, a thick groovy bass, overdriven guitar riffs and a soaring catchy lead guitar hook, building to a triumphant peak; it ends on a big final chord with a short ring-out. Wide stereo mix with guitars panned left and right, spacious reverb, modern polished production, no vocals",
+    "negative": "vocals, singing, voice, choir, audience applause, crowd noise, live recording, childish, cute, toy piano, music box, drum solo, boomy sub bass, harsh noise, metal growl, electronic dance beat, dubstep, fade out, abrupt cut",
+    "duration": 72, "bpm": 112, "keyscale": "E minor", "inference_steps": 8,
+    "used": "From its drop (the energy's jump at 39.50 s, +27 dB over 6 s) to its ring-out (above -40 dBFS until 68.55 s). Its tempo measured 111.1 BPM."
+  },
+  "rounds": "Four single-piece renders asking for a ~25 s calm intro (021-024, 72 s) and four asking more strongly (031-034, 66 s): none kept a calm intro longer than ~8 s. A piece calm from start to end (the intro, 32 s) keeps it, so the part with the scenes and the action are two renders in one key and tempo.",
+  "masters": "C:\\Users\\panrd\\AI\\output\\trailer-1178\\trailer-11780*.wav (outside the repository)"
+}

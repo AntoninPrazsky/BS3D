@@ -141,6 +141,23 @@ $py = 'C:\Users\panrd\AI\ComfyUI\venv\Scripts\python.exe'
   - `music`: tracks of `Game/Music` by name, or a path in the repository (a track made for the trailer, `Tools/trailer/music/`), each `from` an offset into the recording and `at` a time on the timeline, or `"segment:<name>"` for where a segment begins. **With two, the second's `at` is the switch** (the owner's v1 brief: never a change of music at every cut). The first stops dead there over 40 ms; `onBeat` moves the second's offset to the nearest beat of its recording, so it comes in on one. The game's recordings are loops and are looped to length; `"loop": false` (a piece with an ending) is followed by silence instead.
   - `snap`: the cuts after the switch, or after `snapFrom` seconds, move to the last track's nearest beat within 0.3 s, by lengthening or shortening the segment before them; `snapFrom` holds a moment before it in place (v2's first shot, laid on the music's drop). A track's beats are measured from its own recording (spectral-flux onsets, the autocorrelation's tempo between 80 and 180 BPM, the phase with the most onset on it): `nebula-trance` reads 133.3 BPM, `nebula-shoegaze` 105.3. A track whose onsets lock onto the wrong subdivision states its grid: `bpm`, and `downbeat` (seconds into the recording).
   - `mix`: the music's and the game's RMS where they sound, in dBFS (−16 and −22 by default).
+- **The trailer v3** (`Tools/trailer/trailer.json`, #1178, the owner's verdict on v2):
+  - 42 segments, 57.07 s, at most 70 as he asked;
+  - the logo, through white into eight tours (desert first), the neon city's own tour landing behind the gun, a laser housing and the net, the first shot on the music's switch, precise aim, play with the lenses alternating, then 20 worlds in 5 s behind one game, and the end card;
+  - at 3840x2160 the run filmed its 40 clips and cut them in 30 min: 3424 frames, 502 MB, 70.4 Mb/s, the sound at −4.0 dBFS decoded;
+  - the clips' frames are 75 GB in `%TEMP%`, the last shot's twenty untrimmed windows the bulk.
+- **More of the edit** (v3):
+  - `"trim": false` keeps a clip's window at its `from`;
+  - `"snap": false` keeps a segment's start, and so the length of the one before it;
+  - a card's `footer` with `footerY` is a second block of text at a height of its own (the end card's address, set lower at the owner's ask);
+  - a capture's `levelFile` with `scene` films a copy of that level with its scene replaced (`%TEMP%\bs3d-trailer-levels`, through `web-capture.ps1 -LevelFile`).
+- **Every trailer shot moves** (the owner on v2): a still lens only in the player's view, with the HUD. The stated lenses are camera paths in `Tools/trailer/paths/` (`side`, `below`, `above`, `funnel`, `projector`, `orbit`), counting from the clip's window start, a quarter of a second before its `in`.
+- **The laser housings** stand on the drain's glass on the bearings of the net's corners (the diagonals on a square net), their pins about 12.9 from the axis at y −9.7. The rim is at −9.7 (`ArenaIsland.TOP_Y` less `DISH_DEPTH`), the mouth's radius 14, and the net's plane 1.7 above the rim. The `projector` path stands just outside the near-left housing, (−11.6, −8.0, 11.9) looking at (−9.1, −9.6, 9.1), as it turns from rest to its corner. It then rises to (−10.8, −6.4, 10.8) to see the net as a grid: seen from its own plane it is a red line. On a chapter's first level the reveal follows the tour's hand-over (Ziggurat: the housing turns at game time 25.4-26.0, the net is lit 26.2-27.0, the first shot is at 27.37).
+- **Precise aim as the player sees it**: `rmb=` with scripted `fire=` and no `capturedemo` (Reel from 1.5 s with `rmb=2.5:7 fire=4.2,5.8`: the lens leans in behind the barrel by 2.9 s). Under `capturedemo` the benchmark's lens holds the camera and `rmb=` leans nothing.
+- **The last shot: one game while every world swaps behind it** (the owner's idea, v3).
+  - The meadow's Cannonball map (`Game/Levels/One.json`) is filmed once per scene from copies that differ only in `"scene"`, with `wind=0 skiptakeover=1`, all with the same `orbit` path, `"trim": false` and `"snap": false`.
+  - The cut takes 15 frames of each in turn, so the game and the orbit run on through the cuts.
+  - ⚠ **Measured: with the wind off, the scene changes nothing of the game.** Meadow, neon and space had every shot, landing and release at the same millisecond; the slices of the 1080p v3 preview agree likewise. A level file loads as level 1, a chapter's first, so its tour plays unless `skiptakeover` skips it.
 - **The camera alternates by stated lenses** (the owner on v1: the game's view, the side, the firing gun from outside, from above, from below; the balls down the funnel more than once). A clip with `camPos`, `camTarget` and `fov` films the same play from there, with `"hud": false`: the HUD belongs to the game's view only. These held for every level tried, since the gun stands at about (0, −6.7, 17.5) and the cluster at the origin:
   - **side**, the firing gun close up: (−7, −6, 19) to (0, −5.5, 12);
   - **above**, the island from behind and above: (12, 10, 34) to (0, −4, 6);
@@ -173,6 +190,10 @@ $py = 'C:\Users\panrd\AI\ComfyUI\venv\Scripts\python.exe'
   - ACE-Step through `C:\Users\panrd\AI\generate-music.ps1`, the Clowns brief's production words (`docs/game-feedback/music-generation.md`), with the script's shape in the caption and the lyrics' section tags. The request and the rounds are in `Tools/trailer/music/trailer-v2.json`.
   - **The model does not keep a section's length unless the caption names it.** With one `[Intro]` tag, none of three renders had more than 15 s of calm. With "a long … ambient intro lasting about forty seconds" and three intro tags, one of three did: about 40 s of calm, a climb, and the drop on a beat at 52.35 s.
   - It also missed the asked 128 BPM: its onsets repeat at 171.4 BPM. The edit states that grid (`bpm` 85.714, `downbeat` 52.35) and lays the tour's first shot on the drop.
+  - **v3: the slow part's music in the desert's style** (the owner on v2; the ember family's guitar-led rock with a tune).
+    - Eight single-piece renders asked for a calm intro of about 25 s and none kept more than about 8 s at 65-72 s. So the trailer has two renders in one key and tempo (E minor, ~111 BPM), joined at the switch on the first shot (`Tools/trailer/music/trailer-v3.json`).
+    - The intro is a piece calm from start to end: of three, the one 8 dB under the action's body and with no regular beat (onset autocorrelation 0.15 against 0.44-0.52).
+    - The action is a desert-rock render from its drop (39.5 s, +27 dB) to its ring-out.
   - **Cut the trailer to the music, not the music to the trailer**: measure the render's drop (the biggest 6 s rise of its 300 Hz–4 kHz energy, then the beat nearest it), then move the clip whose first shot must land there.
 
 ## The blog (#928)
