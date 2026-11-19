@@ -19,9 +19,6 @@ namespace BS3D.Screens
         /// <summary>Its centre's height down the screen, between the score above and the magazine and chips below.</summary>
         internal const float TOUCH_PRECISE_Y = 0.42f;
 
-        /// <summary>How much further than its drawn edge the precise-aim button takes a touch, as a share of its radius.</summary>
-        private const float TOUCH_BUTTON_REACH = 1.3f;
-
         //The fingers' reading of the frame
         private readonly TouchControls _touch = new();
         private Func<Vector2, TouchControls.Button> _touchButtonAt;
@@ -42,7 +39,6 @@ namespace BS3D.Screens
                 + (aimOnRight ? Platform.DisplayRefresh.CutoutLeft : Platform.DisplayRefresh.CutoutRight);
             return new Vector2(aimOnRight ? inset : width - inset, height * TOUCH_PRECISE_Y);
         }
-
 
         /// <summary>
         /// Reads this frame's touches, once, as play (or adopts them, on the first frame back), and notes the screen as the
@@ -79,10 +75,11 @@ namespace BS3D.Screens
             int height = viewport.Height;
 
             if (Vector2.Distance(point, TouchPreciseCentre(viewport.Width, height, Game.TouchAimOnRight))
-                <= TOUCH_PRECISE_RADIUS * TOUCH_BUTTON_REACH * height)
+                <= TOUCH_PRECISE_RADIUS * TouchControls.BUTTON_REACH * height)
                 return TouchControls.Button.PreciseAim;
 
-            if (TouchControls.OnPause(point, height))
+            //The phone's larger pause button on the enlarged interface (#1181), a monitor's touch screen's as it was
+            if (TouchControls.OnPause(point, height, Game.UiScale > 1f))
                 return TouchControls.Button.Pause;
 
             //The chips where the HUD drew them last frame, each only while its power-up is on offer
@@ -122,10 +119,11 @@ namespace BS3D.Screens
             if (!_tutorial.OnTouch || !IsActive) return;
 
             Viewport viewport = GraphicsDevice.Viewport;
+            bool enlarged = Game.UiScale > 1f;
             _hud.DrawTouchControls(_touch,
                 TouchPreciseCentre(viewport.Width, viewport.Height, Game.TouchAimOnRight), TOUCH_PRECISE_RADIUS * viewport.Height,
                 _lean.Toggled,
-                TouchControls.PauseCentre(viewport.Height), TouchControls.PAUSE_RADIUS * viewport.Height);
+                TouchControls.PauseCentre(viewport.Height, enlarged), TouchControls.PauseRadius(enlarged) * viewport.Height);
         }
     }
 }

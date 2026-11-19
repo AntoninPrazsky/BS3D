@@ -1579,9 +1579,8 @@ namespace BS3D.Screens
                 + (cleared ? $", {stars} star(s){(newBest ? ", new best" : "")}, {Game.TotalStars} total" : ""));
         }
 
-        /// <summary>What to call the level at <paramref name="index"/>, set or no set.</summary>
-        private string LevelName(int index) =>
-            Game.LevelSet != null && index >= 0 && index < Game.LevelSet.Count ? Game.LevelSet.DisplayName(index) : "the built-in level";
+        /// <summary>What to call the level at <paramref name="index"/>, set or no set (<see cref="BS3DGame.BUILT_IN_LEVEL_NAME"/>).</summary>
+        private string LevelName(int index) => Game.LevelDisplayName(index);
 
         /// <summary>
         /// The ball budget the entry at <paramref name="index"/> grants, or null for unlimited — which is what

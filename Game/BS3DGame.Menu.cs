@@ -1389,8 +1389,25 @@ namespace BS3D
                 fieldOfView, random);
 
         internal int LevelCount => _levelSet?.Count ?? 0;
-        internal string LevelDisplayName(int index) => _levelSet.DisplayName(index);
-        internal string LevelRulesText(int index) => _levelSet.DescribeRules(index);
+
+        /// <summary>
+        /// What the level a game plays without a set is called (<see cref="LoadLevelSet"/>: no set could be read, and the
+        /// built-in pyramid plays), wherever a level's name is written: the run log, the result page, the pause's card (#1184).
+        /// </summary>
+        internal const string BUILT_IN_LEVEL_NAME = "the built-in level";
+
+        /// <summary>
+        /// Whether <paramref name="index"/> is an entry of the set: false with no set and for an index outside it, which is
+        /// the built-in level's case. The reads below are total on it, so a page showing the level being played never has to
+        /// ask first.
+        /// </summary>
+        internal bool LevelInSet(int index) => _levelSet != null && index >= 0 && index < _levelSet.Count;
+
+        /// <summary>The entry's name, or <see cref="BUILT_IN_LEVEL_NAME"/> off the set.</summary>
+        internal string LevelDisplayName(int index) => LevelInSet(index) ? _levelSet.DisplayName(index) : BUILT_IN_LEVEL_NAME;
+
+        /// <summary>The entry's rules as <c>LevelSet.DescribeRules</c> words them, or nothing off the set.</summary>
+        internal string LevelRulesText(int index) => LevelInSet(index) ? _levelSet.DescribeRules(index) : string.Empty;
 
         /// <summary>All the stars collected across the campaign — the currency unlocks are weighed in.</summary>
         internal int TotalStars => _progress?.TotalStars ?? 0;

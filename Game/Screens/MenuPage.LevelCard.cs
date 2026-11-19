@@ -20,6 +20,10 @@ namespace BS3D.Screens
             private readonly MenuPage _page;
             private readonly Label _caption, _name, _starsEarned, _starsRest, _best, _rules;
 
+            //The caption's row and the stars' run, hidden with the best and the rules for the built-in level (Show)
+            private readonly Grid _captionRow;
+            private readonly HorizontalStackPanel _stars;
+
             /// <param name="page">The page the card stands on: its faces, its scale and its game.</param>
             /// <param name="width">The card's width in pixels at the layout in force.</param>
             /// <param name="captionBeside">What stands opposite the caption, flush right (the picker's star total), or null.</param>
@@ -29,19 +33,19 @@ namespace BS3D.Screens
                 Root = new VerticalStackPanel { Spacing = page.Scaled(LINE_GAP), Width = width };
 
                 //Which level of the set it is, and opposite it whatever the page puts there
-                Grid caption = new() { Width = width };
-                caption.ColumnsProportions.Add(new Proportion(ProportionType.Fill));
-                caption.ColumnsProportions.Add(new Proportion(ProportionType.Auto));
+                _captionRow = new Grid { Width = width };
+                _captionRow.ColumnsProportions.Add(new Proportion(ProportionType.Fill));
+                _captionRow.ColumnsProportions.Add(new Proportion(ProportionType.Auto));
                 _caption = new Label { Font = page.FontSmall, TextColor = BS3DGame.MENU_TEXT_DIM };
-                caption.Widgets.Add(_caption);
+                _captionRow.Widgets.Add(_caption);
                 if (captionBeside != null)
                 {
                     captionBeside.Margin = new Myra.Graphics2D.Thickness(0);
                     captionBeside.HorizontalAlignment = HorizontalAlignment.Right;
                     Grid.SetColumn(captionBeside, 1);
-                    caption.Widgets.Add(captionBeside);
+                    _captionRow.Widgets.Add(captionBeside);
                 }
-                Root.Widgets.Add(caption);
+                Root.Widgets.Add(_captionRow);
 
                 //The heading face, cut with the one-character ellipsis where a name would not fit (none of the shipped ones)
                 _name = new Label
@@ -55,12 +59,12 @@ namespace BS3D.Screens
                 Root.Widgets.Add(_name);
 
                 //The result page's rating face: the earned run in the tier's colour and the rest hollow (#139)
-                HorizontalStackPanel stars = new();
+                _stars = new HorizontalStackPanel();
                 _starsEarned = new Label { Font = page.FontStars, TextColor = BS3DGame.MENU_TEXT_DIM };
                 _starsRest = new Label { Font = page.FontStars, TextColor = BS3DGame.STAR_EMPTY };
-                stars.Widgets.Add(_starsEarned);
-                stars.Widgets.Add(_starsRest);
-                Root.Widgets.Add(stars);
+                _stars.Widgets.Add(_starsEarned);
+                _stars.Widgets.Add(_starsRest);
+                Root.Widgets.Add(_stars);
 
                 _best = new Label { Font = page.FontBody, TextColor = BS3DGame.MENU_TEXT_BODY };
                 Root.Widgets.Add(_best);
@@ -84,15 +88,20 @@ namespace BS3D.Screens
             /// <summary>
             /// Writes level <paramref name="level"/> (0-based) onto the card: open, with its stars, its best and its rules; or
             /// locked (<paramref name="open"/> false), with what keeps it shut, which the page words (<paramref name="lockProse"/>).
-            /// On a change of level, never per frame.
+            /// A level outside the set (the built-in one a game without a readable set plays, which the pause shows) has its
+            /// name and nothing else: no place in a set to number, no record and no rules. On a change of level, never per frame.
             /// </summary>
             internal void Show(int level, bool open, string lockProse = null)
             {
                 BS3DGame game = _page.Game;
-                int stars = open ? game.LevelStars(level) : 0;
-
-                _caption.Text = PickerCopy.PanelCaption(level + 1);
                 _name.Text = game.LevelDisplayName(level).ToUpperInvariant();
+
+                bool inSet = game.LevelInSet(level);
+                _captionRow.Visible = _stars.Visible = _best.Visible = _rules.Visible = inSet;
+                if (!inSet) return;
+
+                int stars = open ? game.LevelStars(level) : 0;
+                _caption.Text = PickerCopy.PanelCaption(level + 1);
 
                 _starsEarned.Text = StarsEarned(stars);
                 _starsEarned.TextColor = BS3DGame.StarTierColor(stars);

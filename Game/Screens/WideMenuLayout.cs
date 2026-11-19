@@ -1,18 +1,19 @@
 namespace BS3D.Screens
 {
     /// <summary>
-    /// The figures and the arithmetic the phone's layouts of four pages are built from (#1153): the Scene page as a grid of
-    /// tiles, the Jukebox in three columns, About and High Scores with a rail of their switches beside what they show. A
-    /// phone held landscape is about 2.2 times as wide as it is tall, and the owner's ruling (2026-11-18) is to use the sides
+    /// The figures and the arithmetic the phone's layouts of the pages that use the screen's width are built from (#1153): the
+    /// Scene page as a grid of tiles, the Jukebox in three columns, About and High Scores with a rail of their switches beside
+    /// what they show; and the pause beside its level card, Top Players beside its rail and the benchmark's entries beside its
+    /// reading (#1184), which state their widths the same way (<c>WideMenuLayoutTests</c>' list of the pages). A phone held landscape is about 2.2 times as wide as it is tall, and the owner's ruling (2026-11-18) is to use the sides
     /// rather than scroll: "It is widescreen, so we can use the space at the sides too - better to use it than to have
     /// frequent scrolling." Every one of these layouts is the enlarged interface's (<c>BS3DGame.UiScale</c> over 1) on a screen
     /// at least <see cref="MIN_ASPECT"/> wide, so a monitor's pages stay as they were.
     /// <para>
     /// <b>Each is wider than a stacked page</b>, which <c>BS3DGame.MENU_MIN_DESIGN_WIDTH</c> (2600 units) holds and these do
-    /// not: the Scene grid with its plate is 3448 units, and the other three about 2800 to 3200 (About's with the version tag
-    /// beside it more). So each states the width it needs
+    /// not: the Scene grid with its plate is 3448 units, and #1153's other three about 2800 to 3200 (About's with the version
+    /// tag beside it more). So each states the width it needs
     /// (<c>MenuPage.RequiredWidth</c>) and <c>BS3DGame.FitPage</c> brings it inside the screen as it does a height. On the X300
-    /// Ultra (2.2:1) all four fit at the menus' scale; on a narrower phone those that do not are drawn smaller instead.
+    /// Ultra (2.2:1) every one fits at the menus' scale; on a narrower phone those that do not are drawn smaller instead.
     /// </para>
     /// <para>
     /// Plain arithmetic and design units, kept out of the pages so a test can hold the figures to what they promise (a

@@ -108,8 +108,9 @@ namespace BS3D.Screens
 
             VerticalStackPanel board = BuildBoard(Scaled(TABLE_WIDTH));
 
-            //The door to opting in, shown only while there is nothing to show without it
-            _settingsButton = MenuButton("Settings", Game.OpenSettings);
+            //The door to opting in, shown only while there is nothing to show without it. A touch target on an enlarged
+            //interface too square for the rail, as the periods and the pager are (#1181), so the page is one size throughout
+            _settingsButton = PhoneTarget(MenuButton("Settings", Game.OpenSettings));
             board.Widgets.Add(_settingsButton);
 
             //Side by side on a wide screen, stacked on a tall one (decision 5)
@@ -128,7 +129,7 @@ namespace BS3D.Screens
                 column.Widgets.Add(stage);
             }
 
-            column.Widgets.Add(BackButton());
+            column.Widgets.Add(PhoneTarget(BackButton()));
             return ScreenRoot(Plate(column));
         }
 
