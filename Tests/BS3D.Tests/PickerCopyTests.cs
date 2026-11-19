@@ -1,5 +1,6 @@
 using BS3D.Screens;
 using Prazsky.BS3D.Levels;
+using Prazsky.BS3D.Scoring;
 using System.Collections.Generic;
 using System.IO;
 using Xunit;
@@ -39,7 +40,15 @@ namespace BS3D.Tests
                 yield return PickerCopy.PanelRules(set.DescribeRules(i));
                 yield return PickerCopy.PanelSequence(i + 2, next);
                 yield return PickerCopy.PanelPrice(2 * i + 1, i);
+
+                //The pause's card on the phone (#1184)
+                yield return PickerCopy.CardBallsLeft(i);
+                yield return PickerCopy.CardScore(1000 * i + 7);
+                for (int stars = 0; stars <= StarRating.MAX; stars++)
+                    yield return PickerCopy.CardNextStar(stars, 20 + i);
             }
+
+            yield return PickerCopy.CardBallsLeft(null);
 
             yield return PickerCopy.PANEL_NOT_CLEARED;
             yield return PickerCopy.PANEL_OLD_RULES;
@@ -118,6 +127,41 @@ namespace BS3D.Tests
             Assert.Equal("Unlocks at 12 ★. You have 9 ★.", PickerCopy.PanelPrice(12, 9));
             Assert.Equal("One level at a time; next is 8 ‘Saturn’.", PickerCopy.PanelSequence(8, "Saturn"));
         }
+
+        /// <summary>
+        /// The pause's card (#1184) prices the next star above the player's best as the rating does: the score it names earns
+        /// that star and a point less does not, on every shipped level's ball count. A price re-derived from the floors' own
+        /// arithmetic would be a point off where <see cref="StarRating.Rate"/>'s float comparison rounds the other way.
+        /// </summary>
+        [Fact]
+        public void The_cards_next_star_is_the_least_score_the_rating_gives_it()
+        {
+            foreach (int balls in new[] { 1, 7, 38, 140, 385, 1000 })
+                for (int best = 1; best < StarRating.MAX; best++)
+                {
+                    string line = PickerCopy.CardNextStar(best, balls);
+                    Assert.StartsWith("Next star at ", line);
+
+                    int price = int.Parse(line["Next star at ".Length..].Replace(" ", string.Empty), System.Globalization.CultureInfo.InvariantCulture);
+                    Assert.Equal(best + 1, StarRating.Rate(price, balls));
+                    Assert.Equal(best, StarRating.Rate(price - 1, balls));
+                }
+        }
+
+        [Theory]
+        [InlineData(0, 38, "A clear earns the first star")]
+        [InlineData(4, 38, "Every star earned")]
+        [InlineData(2, 0, "")]
+        public void The_card_says_what_no_price_can(int best, int balls, string expected) =>
+            Assert.Equal(expected, PickerCopy.CardNextStar(best, balls));
+
+        [Theory]
+        [InlineData(30, "30 balls left")]
+        [InlineData(1, "1 ball left")]
+        [InlineData(0, "0 balls left")]
+        [InlineData(null, "")]
+        public void The_card_counts_the_balls_left_as_the_HUD_does(int? left, string expected) =>
+            Assert.Equal(expected, PickerCopy.CardBallsLeft(left));
 
         [Theory]
         [InlineData(4, 41, false, "You #4 of 41")]

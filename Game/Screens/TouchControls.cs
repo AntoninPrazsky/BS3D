@@ -40,6 +40,52 @@ namespace BS3D.Screens
         /// </summary>
         internal const float AIM_RADIANS_PER_HEIGHT = 2.1f;
 
+        /// <summary>How much further than its drawn edge a button takes a touch, as a share of its radius: the precise-aim
+        /// toggle's catch, and the pause button's on a screen drawn at the design's size.</summary>
+        internal const float BUTTON_REACH = 1.3f;
+
+        /// <summary>
+        /// The pause button's radius on a screen whose interface is drawn at the design's size (a monitor's or a laptop's touch
+        /// screen, <c>BS3DGame.UiScale</c> 1), in screen heights: there a share of the height is already well over a finger's
+        /// width.
+        /// </summary>
+        internal const float PAUSE_RADIUS_DESIGN = 0.045f;
+
+        /// <summary>
+        /// The pause button's radius on the enlarged interface (a phone, <c>BS3DGame.UiScale</c> over 1), in screen heights
+        /// (#1181): 9 mm across on the X300 Ultra, whose landscape height is 2.8 inches, the size a fingertip hits without
+        /// looking twice; <see cref="PAUSE_RADIUS_DESIGN"/> was 6.4 mm there.
+        /// </summary>
+        internal const float PAUSE_RADIUS_PHONE = 0.064f;
+
+        /// <summary>Between the pause button's drawn edge and the screen's top and left edges, in screen heights: clear of a rounded corner.</summary>
+        internal const float PAUSE_EDGE_GAP = 0.035f;
+
+        /// <summary>The pause button's drawn radius, in screen heights: the phone's on an enlarged interface, the design's elsewhere.</summary>
+        internal static float PauseRadius(bool enlarged) => enlarged ? PAUSE_RADIUS_PHONE : PAUSE_RADIUS_DESIGN;
+
+        /// <summary>
+        /// The pause button's centre (#1051), its edge <see cref="PAUSE_EDGE_GAP"/> in from the top and left: the top left
+        /// corner, under nothing the HUD draws there in play. It stays there whichever side aims, so it stands over the aiming
+        /// side with the default arrangement and over the firing side with Settings' <i>Aim on the right</i>.
+        /// </summary>
+        internal static Vector2 PauseCentre(int height, bool enlarged)
+        {
+            float inset = height * (PauseRadius(enlarged) + PAUSE_EDGE_GAP);
+            return new Vector2(inset, inset);
+        }
+
+        /// <summary>
+        /// Whether a touch at <paramref name="point"/> lands on the pause button. At the design's size it reaches
+        /// <see cref="BUTTON_REACH"/> past the drawn disc, as the precise-aim toggle does. On the enlarged interface it takes
+        /// only the disc it draws (#1181): at 9 mm the disc is a finger's target as drawn, and a catch past it would take more of
+        /// the top left corner from the side under it, the touchpad's drags with the default arrangement and the firing side's
+        /// taps with the sides swapped (#1051).
+        /// </summary>
+        internal static bool OnPause(Vector2 point, int height, bool enlarged) =>
+            Vector2.Distance(point, PauseCentre(height, enlarged))
+            <= (enlarged ? PAUSE_RADIUS_PHONE : PAUSE_RADIUS_DESIGN * BUTTON_REACH) * height;
+
         /// <summary>PromptFont's pointing hand: a tap, on a tutorial card and on a power-up chip a finger presses.</summary>
         internal const string TAP_GLYPH = "👆";
 

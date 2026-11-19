@@ -215,7 +215,7 @@ namespace BS3D.Screens
             {
                 column.Widgets.Add(ScreenHeading("THANK YOU"));
                 column.Widgets.Add(_status = BodyLabel(string.Empty, BS3DGame.MENU_TEXT_BODY, ColumnWidth));
-                column.Widgets.Add(_back = BackButton());
+                column.Widgets.Add(_back = PhoneTarget(BackButton()));
                 return ScreenRoot(Plate(column));
             }
 
@@ -259,8 +259,9 @@ namespace BS3D.Screens
             hintLines[hands.Count] = NoteHint.NOTHING_WRITTEN;
             _hint.Height = ProseHeight(_hint, hintLines);
             left.Widgets.Add(_hint);
-            left.Widgets.Add(_send = MenuButton("Send", Send));
-            left.Widgets.Add(_back = BackButton());
+            //Each a touch target tall on the phone (#1181)
+            left.Widgets.Add(_send = PhoneTarget(MenuButton("Send", Send)));
+            left.Widgets.Add(_back = PhoneTarget(BackButton()));
             row.Widgets.Add(left);
 
             VerticalStackPanel right = new() { Spacing = Scaled(GAP), VerticalAlignment = VerticalAlignment.Top };
@@ -277,7 +278,7 @@ namespace BS3D.Screens
                 //A checkbox since #816: the tick says whether it goes, where two sentences took turns on the button
                 Button toggle = CheckBox("Send the picture", ToggleAttach, out _attachCheck, out _);
                 toggle.Width = width;
-                right.Widgets.Add(toggle);
+                right.Widgets.Add(PhoneTarget(toggle));
             }
             else right.Widgets.Add(BodyLabel("No picture: the frame could not be read.", BS3DGame.MENU_TEXT_DIM, Scaled(PICTURE_WIDTH)));
             row.Widgets.Add(right);

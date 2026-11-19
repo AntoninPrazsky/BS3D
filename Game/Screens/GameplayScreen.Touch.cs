@@ -19,12 +19,6 @@ namespace BS3D.Screens
         /// <summary>Its centre's height down the screen, between the score above and the magazine and chips below.</summary>
         internal const float TOUCH_PRECISE_Y = 0.42f;
 
-        /// <summary>The pause button's radius, in screen heights: smaller, in a corner, where a thumb does not rest.</summary>
-        internal const float TOUCH_PAUSE_RADIUS = 0.045f;
-
-        /// <summary>How much further than its drawn edge a button takes a touch, as a share of its radius.</summary>
-        private const float TOUCH_BUTTON_REACH = 1.3f;
-
         //The fingers' reading of the frame
         private readonly TouchControls _touch = new();
         private Func<Vector2, TouchControls.Button> _touchButtonAt;
@@ -44,13 +38,6 @@ namespace BS3D.Screens
             float inset = height * (TOUCH_PRECISE_RADIUS + 0.05f)
                 + (aimOnRight ? Platform.DisplayRefresh.CutoutLeft : Platform.DisplayRefresh.CutoutRight);
             return new Vector2(aimOnRight ? inset : width - inset, height * TOUCH_PRECISE_Y);
-        }
-
-        /// <summary>The pause button: the top left corner, under nothing the HUD draws there in play.</summary>
-        internal static Vector2 TouchPauseCentre(int width, int height)
-        {
-            float inset = height * (TOUCH_PAUSE_RADIUS + 0.035f);
-            return new Vector2(inset, inset);
         }
 
         /// <summary>
@@ -88,10 +75,11 @@ namespace BS3D.Screens
             int height = viewport.Height;
 
             if (Vector2.Distance(point, TouchPreciseCentre(viewport.Width, height, Game.TouchAimOnRight))
-                <= TOUCH_PRECISE_RADIUS * TOUCH_BUTTON_REACH * height)
+                <= TOUCH_PRECISE_RADIUS * TouchControls.BUTTON_REACH * height)
                 return TouchControls.Button.PreciseAim;
 
-            if (Vector2.Distance(point, TouchPauseCentre(viewport.Width, height)) <= TOUCH_PAUSE_RADIUS * TOUCH_BUTTON_REACH * height)
+            //The phone's larger pause button on the enlarged interface (#1181), a monitor's touch screen's as it was
+            if (TouchControls.OnPause(point, height, Game.UiScale > 1f))
                 return TouchControls.Button.Pause;
 
             //The chips where the HUD drew them last frame, each only while its power-up is on offer
@@ -131,10 +119,11 @@ namespace BS3D.Screens
             if (!_tutorial.OnTouch || !IsActive) return;
 
             Viewport viewport = GraphicsDevice.Viewport;
+            bool enlarged = Game.UiScale > 1f;
             _hud.DrawTouchControls(_touch,
                 TouchPreciseCentre(viewport.Width, viewport.Height, Game.TouchAimOnRight), TOUCH_PRECISE_RADIUS * viewport.Height,
                 _lean.Toggled,
-                TouchPauseCentre(viewport.Width, viewport.Height), TOUCH_PAUSE_RADIUS * viewport.Height);
+                TouchControls.PauseCentre(viewport.Height, enlarged), TouchControls.PauseRadius(enlarged) * viewport.Height);
         }
     }
 }

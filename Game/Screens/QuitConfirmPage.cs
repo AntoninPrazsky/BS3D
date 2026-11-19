@@ -28,6 +28,11 @@ namespace BS3D.Screens
         private Button _cancel;
         private Label _loss;
 
+        //Cancel and Quit side by side on the phone (#1181), in design units: each wide enough for Cancel's word clear of the
+        //key drawn at its slab's left edge for a pad or a keyboard, and between them a menu column's own spacing
+        private const int PAIR_WIDTH = 600;
+        private const int PAIR_GAP = 26;
+
         public QuitConfirmPage(BS3DGame game) : base(game) { }
 
         internal override Button NavArrival => _cancel;
@@ -57,8 +62,23 @@ namespace BS3D.Screens
 
             //B and Escape on it (#799), the stack's back, which here is Cancel
             _cancel = BackButton("Cancel", Cancel);
-            column.Widgets.Add(_cancel);
-            column.Widgets.Add(MenuButton("Quit", Quit));
+            Button quit = MenuButton("Quit", Quit);
+
+            if (PhoneLayout)
+            {
+                //Side by side on the phone (#1181), each a touch target tall: stacked at a finger's height the two would be a
+                //tall dialog for one question. Cancel on the left, first in the walk as it is first in the column
+                HorizontalStackPanel pair = new() { Spacing = Scaled(PAIR_GAP), HorizontalAlignment = HorizontalAlignment.Center };
+                _cancel.Width = quit.Width = Scaled(PAIR_WIDTH);
+                pair.Widgets.Add(PhoneTarget(_cancel));
+                pair.Widgets.Add(PhoneTarget(quit));
+                column.Widgets.Add(pair);
+            }
+            else
+            {
+                column.Widgets.Add(_cancel);
+                column.Widgets.Add(quit);
+            }
 
             //On a plate, because over the main menu nothing dims the turning scene behind it (the pause's scrim only
             //darkens a stopped game), and a dialog should read as one whichever page opened it

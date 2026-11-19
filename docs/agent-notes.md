@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-19 — #1181 #1184 dotykové cíle telefonu a využití stran — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: na telefonu (UiScale > 1) mají zbylá tlačítka ~9 mm (`MenuPage.PhoneTarget`; pauza, Quit confirm vedle sebe, Top Players, výsledek, poznámka, Jukebox, About, benchmark), HUD tlačítko pauzy 9,1 mm jen na zvětšeném rozhraní, menu telefonu startují v prstovém režimu (`MenuHand.StartsOnTouch`), řádek `[touch]` v logu měří každou stránku. Pauza ve dvou sloupcích vedle karty levelu (`MenuPage.LevelCard`, sdílená s výběrem levelů), Top Players s lištou, benchmark text vlevo a tlačítka vpravo, upozornění na kvalitu vpravo dole. Monitor beze změny.
+- ⚠ Vyjmutí upozornění ze sloupce hlavního menu zvětšilo stránky o 1,5 % a záložka ONLINE v Nastavení se přestala vejít; sloupec si drží jeho mezeru jako horní okraj.
+- ⚠ Karta pauzy na vestavěném levelu (bez sady levelů) padala na null; opraveno.
+- Otevřené: #1184 verdict-eye; na skutečném telefonu nezkoušeno, 16:9 telefon dává 7,5 mm.
+
 ## 2026-11-19 — #1155 silnější lana a větší navijáky stropu — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno (`CeilingRigging.cs`): buben 0,44/0,33, šířka 0,84 (téměř kulička), 6 závitů; lano r 0,055 (bylo 0,035), stoupání závitů aspoň průměr lana. Zdálky drží lano aspoň 1,5 px v bodě nejbližším objektivu (`CableInstance`, čistá funkce s testem přes skutečnou projekci); tenké lano je vlastní 12boká tyč zploštělá do hloubky, takže má jeden tón (dřív v dlouhém záběru tečkovaná čára, světlá/tmavá po sloupcích pixelů).
