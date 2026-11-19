@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-19 — #1144 konec zaměřovacího paprsku jako oblast dopadu — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: kde se rána zacvakne do mřížky, paprsek končí měkkou září (kužel), ne bodem. Šíře `AimBeam.LANDING_SPREAD` 0,65 změřená na 478 mířeních (99. percentil odchylky ducha 0,64). Prvních 55 % letu zůstává stará čárkovaná čára (test). Řezač a paprsek, který nic netrefí, beze změny. `Draw` bere celou dráhu letu; na Potato `POTATO_GLOW_GAIN` 0,25. Přesah za dotykem leží kolmo k objektivu: z přehledu je duch uvnitř skvrny v 471 ze 478.
+- ⚠ Rozšířené čárky z přehledu vypadají jako příčky žebříku a kusy kladené za sebou mají tmavé zářezy ve spojích; záře je proto ze tří překrývajících se tětiv. Test „duch uvnitř“ počítaný kolem paprsku jako trubice je slepý k pohledu skoro zepředu, počítat na obrazovce.
+- Otevřené: verdict-eye (jas a velikost záře, pohyb); cena snímku neměřena; neběželo na telefonu ani Pi.
+
 ## 2026-11-19 — #1178 trailer v2 — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: trailer v2 (98,95 s, `Videos\BS3D trailer\bs3d-trailer-v2-master.mp4`): logo z černé, přes bílou do 8 průletů po 6 s, dolet sopky za dělo, první výstřel na drop hudby, střídání herního pohledu s kamerami z boku, shora, do trychtýře a zespoda přes sklo, Montserrat 300, hudba z ACE-Step na míru (`Tools/trailer/music`).

@@ -1251,7 +1251,7 @@ namespace BS3D.Screens
         private bool _cutterRefused;
 
         /// <summary>
-        /// The dashed line of light out of the muzzle, and the two ends it is drawn between. It exists for the
+        /// The dashed line of light out of the muzzle, drawn along the flight a shot fired now would take. It exists for the
         /// <b>overview</b>, where there is no crosshair and the barrel's foreshortened angle was the only clue to
         /// where the gun pointed — and it is what carries the refusal to that mode, since a red beam ending on the
         /// ball it cannot stick to says what the reddened crosshair says in precise aim.
@@ -1367,8 +1367,10 @@ namespace BS3D.Screens
 
             //The aim beam borrows the SAME effect instance — it is the same billboard between two world points,
             //and a short segment of it comes out as a dash for free. Sharing it is why both components now push
-            //the trail's two widths per draw instead of once; see AimBeam's remarks.
-            _aimBeam = new AimBeam(GraphicsDevice, Game.Content.Load<Effect>("Shaders/ShotTrail"));
+            //the trail's two widths per draw instead of once; see AimBeam's remarks. On the Potato path its glow is
+            //dimmed, since that effect curves each of the glow's overlapping layers by itself (#1144)
+            _aimBeam = new AimBeam(GraphicsDevice, Game.Content.Load<Effect>("Shaders/ShotTrail"),
+                BS3DGame.PotatoPath ? AimBeam.POTATO_GLOW_GAIN : 1f);
 
             //Its OWN effect and not the trail's, unlike the two above: this billboard is placed from a centre
             //and the view basis rather than from two world points, so there is no quad to share and no widths
