@@ -29,7 +29,7 @@ namespace BS3D.Screens
     /// exactly whether that is a scene or a game.
     /// </para>
     /// </summary>
-    internal abstract class MenuPage : Screen, IFrameBlurSource, PhoneTyping.IPage
+    internal abstract partial class MenuPage : Screen, IFrameBlurSource
     {
         protected readonly BS3DGame Game;
 
@@ -348,14 +348,6 @@ namespace BS3D.Screens
 
         /// <summary>The widget the typed text shows in (#1052): a finger on it opens the phone's text dialog again.</summary>
         internal virtual Widget TypingField => null;
-
-        //What the phone's typing step asks of the page (PhoneTyping, #1182): the members above, by their own names
-        bool PhoneTyping.IPage.CapturesKeyboard => CapturesKeyboard;
-        (string Title, string Description, string Text) PhoneTyping.IPage.TypingDialog => TypingDialog;
-        void PhoneTyping.IPage.TakeTypedText(string text) => TakeTypedText(text);
-        bool PhoneTyping.IPage.TypingDialogEnters => TypingDialogEnters;
-        bool PhoneTyping.IPage.TypingDialogEscapes => TypingDialogEscapes;
-        void PhoneTyping.IPage.OnTextInput(char character) => OnTextInput(character);
 
         /// <summary>The pad's A (<paramref name="keep"/>) and B (<paramref name="drop"/>) while the page is typing (#548).</summary>
         internal virtual void TypingButtons(bool keep, bool drop) { }
