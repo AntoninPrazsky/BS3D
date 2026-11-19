@@ -276,6 +276,28 @@ namespace Prazsky.Core.Render
             return true;
         }
 
+        /// <summary>
+        /// The <paramref name="k"/>-th newest print of a beetle's trail (1 the newest; false once the trail has no more): where
+        /// it lies on the sand (x, z) and how much of <see cref="PRINT_ALPHA"/> it still has. ⚠ A PRINT IS LAID, NOT DRAGGED
+        /// (#1186): the prints lie at whole multiples of the spacing along this cycle's path, so each stays where the beetle
+        /// left it from the moment it passes the spot until it fades. They were once placed a fixed distance behind where the
+        /// beetle was, and the whole trail slid along with it. A print's side follows its own place along the path, not its
+        /// rank behind the beetle (a rank changes with every new print, and the sides would swap each time), and its fade its
+        /// age, how far the beetle has walked since: nothing at <see cref="TRAIL_PRINTS"/> spacings, the moment it is dropped.
+        /// </summary>
+        internal static bool TrailPrint(in Pose pose, float size, int k, out Vector2 at, out float fade)
+        {
+            float step = PRINT_SPACING * size;
+            int index = (int)MathF.Floor(pose.Walked / step) - (k - 1);
+            if (index <= 0 || k > TRAIL_PRINTS) { at = default; fade = 0f; return false; }
+            float along = index * step;
+            Vector2 on = Arc(pose.Start, pose.Heading, pose.Turn, along, out float yaw);
+            float side = (index & 1) == 0 ? PRINT_SIDE * size : -PRINT_SIDE * size;
+            at = new Vector2(on.X + MathF.Cos(yaw) * side, on.Y - MathF.Sin(yaw) * side);
+            fade = 1f - (pose.Walked - along) / (TRAIL_PRINTS * step);
+            return true;
+        }
+
         //Along an arc of curvature `turn` (radians a unit) from `start` heading `heading` (radians from +Z towards +X)
         private static Vector2 Arc(Vector2 start, float heading, float turn, float distance, out float yaw)
         {
@@ -322,16 +344,11 @@ namespace Prazsky.Core.Render
                 _instanceData[kind][counts[kind]++] = new ModelInstance(World(pose, scorpion), new Vector4(pose.Gait, i * 0.137f, kind, 0f));
 
                 //A beetle's trail of prints behind it, along the way it walked, fading with age
-                if (!scorpion && pose.Walked > 0f)
+                if (!scorpion)
                     for (int k = 1; k <= TRAIL_PRINTS && discs < MAX_DISCS; k++)
                     {
-                        float back = pose.Walked - k * PRINT_SPACING * size;
-                        if (back <= 0f) break;
-                        Vector2 at = Arc(pose.Start, pose.Heading, pose.Turn, back, out float yawAt);
-                        float side = (k & 1) == 0 ? 1f : -1f;
-                        var print = new Vector3(at.X + MathF.Cos(yawAt) * side * PRINT_SIDE * size, 0f, at.Y - MathF.Sin(yawAt) * side * PRINT_SIDE * size);
-                        print.Y = _ground(print.X, print.Z);
-                        FlatDisc(ref discs, print, size * PRINT_RADIUS, new Color(0f, 0f, 0f, PRINT_ALPHA) * (1f - k / (float)(TRAIL_PRINTS + 1)));
+                        if (!TrailPrint(pose, size, k, out Vector2 at, out float fade)) break;
+                        FlatDisc(ref discs, new Vector3(at.X, _ground(at.X, at.Y), at.Y), size * PRINT_RADIUS, new Color(0f, 0f, 0f, PRINT_ALPHA) * fade);
                     }
 
                 //Its shadow while it stands on the sand: a soft ellipse along its body, cast off it away from the sun by the
