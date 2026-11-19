@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-19 — #1178 trailer v3 — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: trailer v3 (57 s, `Videos\BS3D trailer\bs3d-trailer-v3-master.mp4`): poušť jako první, dolet neonu za dělo, projektor a síť zblízka, první výstřel na zlomu hudby, přesné míření, pohybující se kamery (`Tools/trailer/paths`), na závěr 20 světů za 5 s kolem jedné hry, přátelská věta o vývoji. Hudba: klidný pouštní úvod a pouštní rock od dropu, dva rendery ACE-Step.
+- majitel (verdikt v2): max 70 s, poušť první, bez sena a Dreamu, šapitó před doletem, pohled hráče a přesné míření, laserová síť, kamera vždy v pohybu, talíř, grid bez zatáčení, oblíbené scény, pouštní hudba, „ve vývoji“, adresa níž, montáž světů.
+- ⚠ S `wind=0 skiptakeover=1` hraje level ve všech scénách stejnou hru (stejné události na ms). Pod `capturedemo` `rmb=` nic nenakloní. Klidný úvod 25 s v jednom renderu ACE-Step nedal ani v osmi pokusech.
+- Otevřené: verdikt na v3; 75 GB 4K záběrů v `%TEMP%`.
+
 ## 2026-11-19 — #1186 Stopy brouka zůstávají v písku — desktop (RDT-PC), Claude Code
 
 - Hotovo: stopy brouka v poušti leží na celých násobcích rozestupu podél jeho cesty (`DesertCritters.TrailPrint`), takže zůstanou, kde je brouk nechal, a blednou podle toho, kolik od nich ušel. Dřív byly pevně za broukem a celá stopa jezdila s ním. Test přes všechny brouky drží, že žádná stopa se nepohne; se starým umístěním padá.
