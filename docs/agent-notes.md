@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-19 — #1155 silnější lana a větší navijáky stropu — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno (`CeilingRigging.cs`): buben 0,44/0,33, šířka 0,84 (téměř kulička), 6 závitů; lano r 0,055 (bylo 0,035), stoupání závitů aspoň průměr lana. Zdálky drží lano aspoň 1,5 px v bodě nejbližším objektivu (`CableInstance`, čistá funkce s testem přes skutečnou projekci); tenké lano je vlastní 12boká tyč zploštělá do hloubky, takže má jeden tón (dřív v dlouhém záběru tečkovaná čára, světlá/tmavá po sloupcích pixelů).
+- ⚠ Kulaté stínování na 1,5 px střídá světlou a tmavou polovinu, jak čára přechází sloupce pixelů: tenkou tyč zploštit, ne zesvětlit.
+- Otevřené: verdict-eye (velikost; alternativa r 0,07 ve scratchpadu `issue-1155/alt-cable-0.07`). Přes sklo zůstávají lana rozbitá na krátké barevné tahy (lom #541) — možná „zubatý artefakt“, chtělo by vlastní změnu skla.
+
 ## 2026-11-19 — #1158 #1159 #1160 #1161 #1175 poznámky k záběrům úvodů kapitol — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: poušť — kamery brouka a štíra 1,6× dál po téže ose (štír jako nakreslený ~0,22–0,23 šířky 16:9, brouk 0,18); hory — vrchol mířen 16 pod apex, kamera na místě, špička ~0,66 nahoru, skála 53–55 %; jeskyně — pořadí chodba, šachta, krystaly, spodek (losuje se ve starém pořadí, seedy beze změny); grid — jízda 13 napříč (dál v buňce mřížky nejde), cyklus 0,27 šířky; vesmír — talíř 20 u/s místo 28, záběr 5,5 s, úvod 15,5 s.
