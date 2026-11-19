@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-19 — #1145 kupy bez rovné hrany, pole kup všech velikostí — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: rovná svislá hrana kup zmizela — march končí na elipsoidu čepice zvětšeném o okraj (`CLOUD_MARGIN` 0,45 R), push billows dozní před ním, krabice obepíná okraj (detektor řezu: louka 55/80 snímků → 0, hory 10/80 → 0). `CloudVolumes.Place` je dvouprůchodová mřížka: velikosti zešikmené k malým, protažení po větru, 30 % velkých kup jsou věže nakloněné po směru pohybu (−Wind), ulice podle pomalého pole, shluky s otevřeným nebem mezi nimi, místo podle sousedů 5×5 (překryv ≤ 15 %). Broken: stopa kup do 1500 jednotek 57 % → ~28 %.
+- ⚠ Překryv 0,4 dělal nad hlavou sloupy kouře (složení od nejvzdálenější); hrana jako podíl poloměru změkčila velké kupy.
+- Otevřené: verdict-eye (pohyb, ulice, zda Broken není moc řídké); GPU cena +0,3 ms změřena před shluky; Place 0,5–0,6 ms CPU (Broken).
+
 ## 2026-11-19 — #1183 #1182 #1185 nápověda a psaní na telefonu, hvězdy podle pravidel v2 — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: #1182 Cancel v systémovém dialogu telefonu už nezavře Napsat autorovi (`PhoneTyping`, `MenuPage.TypingDialogEscapes`), pole poznámky roste do volné výšky. #1185 Help > CAMPAIGN popisuje hvězdy jako pravidla v2 (rychlost se počítá, čtyři chtějí čisté dohrání hluboko pod par). #1183 na telefonu: každá záložka Help se vejde na X300 (rámeček 1 156 px), ODD BALLS jako mřížka karet s panelem vybrané, Settings > CONTROLS začíná dotykem, Benchmark mluví o telefonu a dotyk ho opravdu zastaví.
