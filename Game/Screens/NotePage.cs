@@ -34,7 +34,8 @@ namespace BS3D.Screens
     /// does; Shift+Enter or Ctrl+Enter starts a new line. Esc goes back, and the draft waits for the next time the page
     /// opens in this run. A pad cannot type; its A sends and its B goes back. A phone types through its own dialog, which
     /// opens with the page and again on a finger on the field (<see cref="PhoneTyping"/>): its OK only puts the text in the
-    /// field, and its Cancel leaves the page and the text as they were (#1182); only the page's Back leaves it. On the phone
+    /// field, and its Cancel leaves the page and the text as they were (#1182); its Back or the system's back gesture leaves it
+    /// with the draft kept. On the phone
     /// the field is as tall as the page leaves room for (<see cref="FieldLines"/>).
     /// </para>
     /// <para>
@@ -399,7 +400,8 @@ namespace BS3D.Screens
         internal override bool TypingDialogEnters => false;
 
         //A cancel in the phone's dialog keeps the page and the draft as they were (#1182): Esc leaves the page, and a cancel
-        //that did threw the page away under a player who only wanted to read it or think again about a word. Back leaves it
+        //that did threw the page away under a player who only wanted to read it or think again about a word. Back leaves it, and
+        //so does the back gesture (the host hands it over as B)
         internal override bool TypingDialogEscapes => false;
 
         internal override Widget TypingField => _field;

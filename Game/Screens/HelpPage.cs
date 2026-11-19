@@ -25,7 +25,9 @@ namespace BS3D.Screens
     /// key does what" is what a player opens Help for, and until #857 it was the last of six pages walked with Previous
     /// and Next (#427, #738), five presses away, with nothing saying what the other pages were. The tabs are not in the
     /// pad's walk, as Settings' are not; Back is the one entry, so the cursor arrives on it, and a pad player turns the
-    /// tabs on the shoulders and scrolls on the right stick.
+    /// tabs on the shoulders and scrolls on the right stick. The phone's ODD BALLS is the exception (#1183): its cards are
+    /// entries too and the pad's D-pad and left stick walk them (<see cref="PadWalksGrid"/>), so the tabs turn there on the
+    /// shoulders, the arrow keys and the wheel.
     /// </para>
     /// <para>
     /// <b>Each topic's body scrolls</b> (#606): the owner's 3840×1600 cut the Scoring page off top and bottom with
@@ -1000,6 +1002,14 @@ namespace BS3D.Screens
 
         /// <summary>The phone's odd-ball cards are walked by the pad in the direction pressed (#1183), as the Scene grid is.</summary>
         internal override bool PadWalksGrid => _ballCards != null && _tab == TAB_BALLS;
+
+        /// <summary>
+        /// On the phone's odd-ball cards, the chosen card (#1183's review): a turn to that tab reads the entries again
+        /// (<see cref="ShowTab"/>), and the host lands the cursor on the arrival entry before it puts it back where it stood.
+        /// Landing on the first card chose it under the cursor's way back, so a pad player who turned away on the shoulders
+        /// and back found the panel on the first card.
+        /// </summary>
+        internal override Button NavArrival => _ballCards != null && _tab == TAB_BALLS ? _ballCards[_ballChosen] : null;
 
         private static Widget Spanning(Widget block)
         {

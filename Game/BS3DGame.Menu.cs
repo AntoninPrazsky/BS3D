@@ -3037,7 +3037,8 @@ namespace BS3D
         /// Back button and the plate's padding — in the same 2160p design units everything else here uses.</param>
         /// <param name="clearEdges">Whether the clear band is kept whether or not the content is cut: a page whose
         /// scrollers stand in one frame (Help's six tabs, #729) keeps it on all of them, or a tab that fits would start its
-        /// text a band higher than one that scrolls.</param>
+        /// text a band higher than one that scrolls. Help on the phone layout then keeps the top band alone, setting the
+        /// margin itself (<c>HelpPage.BuildRailTree</c>, #1183).</param>
         internal ScrollViewer MenuScroll(Widget content, int reservedDesignUnits, bool clearEdges = false, bool mustFit = false)
         {
             //Floored, so a window too short for the reserve gives a usable scroller rather than a zero-height
@@ -3393,13 +3394,18 @@ namespace BS3D
             bool backedOut = false;
 
             //A page typing into itself has the keyboard (#548): no key of the menu's own is read, only the pad's A
-            //and B are handed over, and the snapshots below still advance so nothing fires on the way out
+            //and B are handed over, and the snapshots below still advance so nothing fires on the way out. On Android the
+            //system's back gesture (the pad's Back, #1052) is B here as on every other page, so the note, which keeps the
+            //keyboard after its text dialog's Cancel (#1182), is left on it with its draft kept. Not while the dialog is up:
+            //the gesture there is the dialog's own cancel
             if (_screens.Active is MenuPage { CapturesKeyboard: true } typing)
             {
                 if (EdgeInputAllowed)
                 {
                     bool keep = pad.IsButtonDown(Buttons.A) && !_previousPad.IsButtonDown(Buttons.A);
-                    bool drop = pad.IsButtonDown(Buttons.B) && !_previousPad.IsButtonDown(Buttons.B);
+                    bool drop = (pad.IsButtonDown(Buttons.B) && !_previousPad.IsButtonDown(Buttons.B))
+                        || (OperatingSystem.IsAndroid() && IsPadEdge(pad, Buttons.Back)
+                            && !Microsoft.Xna.Framework.Input.KeyboardInput.IsVisible);
 
                     //The same two words as everywhere else in the menus (#800)
                     if (keep) _audioDirector.Rumble.UiAccept();

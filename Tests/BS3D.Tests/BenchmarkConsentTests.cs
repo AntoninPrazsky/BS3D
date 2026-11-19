@@ -65,5 +65,34 @@ namespace BS3D.Tests
             Assert.Contains("computer’s specification", BenchmarkConsent.SentNote(phone: false), StringComparison.Ordinal);
             Assert.DoesNotContain("phone", BenchmarkConsent.SentNote(phone: false), StringComparison.Ordinal);
         }
+
+        //The tap the phone's copy promises is read over the play too, where the gameplay screen has the input (#1183's review)
+        [Fact]
+        public void On_a_phone_a_finger_landing_stops_the_run_once()
+        {
+            bool wasDown = false;
+            Assert.True(BenchmarkConsent.TapStops(phone: true, fingerDown: true, ref wasDown));
+            Assert.False(BenchmarkConsent.TapStops(phone: true, fingerDown: true, ref wasDown));
+            Assert.False(BenchmarkConsent.TapStops(phone: true, fingerDown: false, ref wasDown));
+            Assert.True(BenchmarkConsent.TapStops(phone: true, fingerDown: true, ref wasDown));
+        }
+
+        [Fact]
+        public void A_finger_already_down_when_the_run_starts_is_no_tap()
+        {
+            //A run starts the carry true (GameplayScreen.BuildBenchmarkLevel)
+            bool wasDown = true;
+            Assert.False(BenchmarkConsent.TapStops(phone: true, fingerDown: true, ref wasDown));
+            Assert.False(BenchmarkConsent.TapStops(phone: true, fingerDown: false, ref wasDown));
+            Assert.True(BenchmarkConsent.TapStops(phone: true, fingerDown: true, ref wasDown));
+        }
+
+        [Fact]
+        public void Off_a_phone_a_touch_never_stops_the_run()
+        {
+            bool wasDown = false;
+            Assert.False(BenchmarkConsent.TapStops(phone: false, fingerDown: true, ref wasDown));
+            Assert.True(wasDown);
+        }
     }
 }

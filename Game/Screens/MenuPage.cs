@@ -306,7 +306,8 @@ namespace BS3D.Screens
         /// Whether this page has taken the keyboard to type into (#548) — the settings page while a nickname is
         /// being typed. While it has, the host's menu frame reads no key of its own: no Escape back, no arrow walk,
         /// no Enter activation — a Space, an arrow or a letter is the page's, and it arrives through
-        /// <see cref="OnTextInput"/>. The pad's A and B still come, through <see cref="TypingButtons"/>.
+        /// <see cref="OnTextInput"/>. The pad's A and B still come, through <see cref="TypingButtons"/>, and on Android the
+        /// system's back gesture as B.
         /// </summary>
         internal virtual bool CapturesKeyboard => false;
 
@@ -342,14 +343,17 @@ namespace BS3D.Screens
         /// Whether the dialog's Cancel is the page's Esc (#1182): on the nickname plate it dismisses the plate and on the
         /// Settings row it keeps the name there was, which is what a cancel means there; the note's Esc leaves the page, so
         /// there a cancel leaves the page and its text as they were before the dialog opened (<see cref="PhoneTyping"/>), and
-        /// only the page's own Back leaves it.
+        /// the page's own Back, the pad's B or the system's back gesture leaves it.
         /// </summary>
         internal virtual bool TypingDialogEscapes => true;
 
         /// <summary>The widget the typed text shows in (#1052): a finger on it opens the phone's text dialog again.</summary>
         internal virtual Widget TypingField => null;
 
-        /// <summary>The pad's A (<paramref name="keep"/>) and B (<paramref name="drop"/>) while the page is typing (#548).</summary>
+        /// <summary>
+        /// The pad's A (<paramref name="keep"/>) and B (<paramref name="drop"/>) while the page is typing (#548); on Android the
+        /// system's back gesture is B.
+        /// </summary>
         internal virtual void TypingButtons(bool keep, bool drop) { }
 
         /// <summary>

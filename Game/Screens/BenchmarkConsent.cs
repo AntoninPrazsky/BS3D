@@ -15,7 +15,8 @@ namespace BS3D.Screens
     /// <para>
     /// <b>A phone is called a phone</b> (#1183): the page said "your computer" and "the skip key" on a phone, where there is
     /// neither, so every sentence that names the machine or the key that stops a run takes <c>phone</c>, which the page sets
-    /// on a phone and in the desktop's emulation of one (the phone layout, <c>inches=</c>), where a tap is what stops a run.
+    /// on a phone and in the desktop's emulation of one (the phone layout, <c>inches=</c>), where a tap is what stops a run:
+    /// the page's own while it stands aside, and the gameplay screen's over the play (<see cref="TapStops"/>).
     /// </para>
     /// </summary>
     internal static class BenchmarkConsent
@@ -36,6 +37,19 @@ namespace BS3D.Screens
         /// </summary>
         internal static string Intro(int tours, string quality, bool phone) => FormattableString.Invariant(
             $"Flies through {tours} of the most demanding scenes at your quality ({quality}), with the frame rate unlocked, then plays the biggest level: the city’s opening flight to the cannon, and the cannon firing by itself. Then a storm of balls grows until your {Machine(phone)} can no longer draw it at 60 FPS. It measures every frame, then times the physics. About two and a half minutes. {(phone ? "A tap stops it." : "The skip key stops it.")}");
+
+        /// <summary>
+        /// Whether a finger stops a run this frame (#1183): one landing, on a phone, where the page and the skip hint say a
+        /// tap does and no window is brought forward by it; never off a phone, where a touch screen's tap is the click
+        /// <c>GameplayScreen.StepBenchmarkInput</c> refuses. <paramref name="wasDown"/> carries the last frame's fingers, and
+        /// a run starts it <c>true</c>, so a finger still down from the page is no landing.
+        /// </summary>
+        internal static bool TapStops(bool phone, bool fingerDown, ref bool wasDown)
+        {
+            bool landed = fingerDown && !wasDown;
+            wasDown = fingerDown;
+            return phone && landed;
+        }
 
         /// <summary>What the page says before a run about what leaves the machine.</summary>
         internal static string SentNote(bool phone) => phone
