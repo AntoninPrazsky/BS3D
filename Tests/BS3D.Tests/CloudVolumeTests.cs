@@ -132,7 +132,7 @@ namespace BS3D.Tests
             var c = new Vector3(l.X, l.Y - waistY, l.Z);
             var axes = new Vector3(1f, capY, 1f);
             float k0 = (c / axes).Length(), k1 = MathF.Max((c / (axes * axes)).Length(), 1e-6f);
-            float e = new Vector3(l.X, MathF.Max(c.Y, 0f) * (1f + margin) / (capY + margin), l.Z).Length() / (1f + margin);
+            float e = new Vector3(l.X, c.Y * (1f + margin) / (capY + margin), l.Z).Length() / (1f + margin);
             float inside = h < waistAt ? MathHelper.Lerp(baseWidth, 1f, h / waistAt) - new Vector2(l.X, l.Z).Length() : -k0 * (k0 - 1f) / k1;
             return (inside, e);
         }
@@ -166,8 +166,8 @@ namespace BS3D.Tests
 
         /// <summary>
         /// A straight vertical edge on a heap's flank (#1145): the march stopped where the density could still be solid, so
-        /// in the phases a billow rolled out to it the heap was cut off there by a wall. Now the march is bounded by the
-        /// outline grown by a margin, and the billows' push fades out before that bound, so in a heap of any height nothing
+        /// in the phases a billow rolled out to it the heap was cut off there by a wall. Now the march is bounded by the cap's
+        /// ellipsoid grown by a margin, and the billows' push fades out before that bound, so in a heap of any height nothing
         /// its noise can do leaves density on a face the march stops at (held against the baked noise's own extreme: a
         /// trilinear sample never exceeds a texel). Seen to fire: the push unfaded stands on the bound, and the bound before,
         /// a cylinder 1.12 radii round the axis inside a box whose sides stood at 1, left the billows solid at both.
@@ -195,14 +195,16 @@ namespace BS3D.Tests
             float before = 0.6f * noiseMax + 0.25f * noiseMax;
             Assert.True(1f - 1.12f + before > 0f && 1f - 1f + before > 0f, "the bound before #1145 held its billows: the check cannot tell a cut");
 
-            //Every face the march stops at is the margin's, in the heap's own measure: the push's fade, the bound's measure,
-            //the box, the cylinder and the cap; and the billows are the magnitude the push above was taken from
+            //Every face the march stops at is the margin's, in the heap's own measure: the push's fade, the bound's measure (the
+            //cap's ellipsoid grown by the margin, holding the base too), the box, the ellipsoid and the slab it is cut by; and
+            //the billows are the magnitude the push above was taken from
             string source = SourceText;
             Assert.Contains("float push = 1.0 - smoothstep(CLOUD_PUSH_FADE_FROM, 1.0, e);", source);
-            Assert.Contains("e = length(float3(l.x, max(c.y, 0.0) * (1.0 + CLOUD_MARGIN) / (capY + CLOUD_MARGIN), l.z)) / (1.0 + CLOUD_MARGIN);", source);
+            Assert.Contains("e = length(float3(l.x, c.y * (1.0 + CLOUD_MARGIN) / (capY + CLOUD_MARGIN), l.z)) / (1.0 + CLOUD_MARGIN);", source);
             Assert.Contains("float3 l = input.Position.xyz * float3(1.0 + CLOUD_MARGIN, aspect + CLOUD_MARGIN, 1.0 + CLOUD_MARGIN);", source);
             Assert.Contains("float reach = 1.0 + CLOUD_MARGIN;", source);
             Assert.Contains("capY = (1.0 - CLOUD_WAIST) * aspect + CLOUD_MARGIN;", source);
+            Assert.Contains("float ya = -o.y / dy, yc = (waistY + capY - o.y) / dy;", source);
             Assert.Contains("float billow = lerp(n, abs(n) * 2.0 - CLOUD_PUFF_BIAS * saturate(1.0 - inside * 3.0), smoothstep(CLOUD_PUFF_FROM, CLOUD_PUFF_TO, h));", source);
         }
 

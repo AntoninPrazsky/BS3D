@@ -63,13 +63,15 @@ static const float CLOUD_BILLOW_PUSH = 0.8;
 static const float CLOUD_PUFF_BIAS = 0.35;
 static const float CLOUD_PUFF_FROM = 0.35, CLOUD_PUFF_TO = 0.7;
 static const float CLOUD_RIM_PUSH = 0.25;
-//THE MARGIN (#1145): how far past its outline a heap may stand, in radii. The march is bounded by the outline grown by
-//it - a cylinder round the axis up to the waist, the cap's ellipsoid over it, the box round both, CloudVolumePS - and the
-//billows' push fades out across the last of it (from CLOUD_PUSH_FADE_FROM of the way out, HeapInside's `e`), so the
-//density is zero on every face the march stops at, whatever the noise does there. ⚠ Cut at the march's bound instead (a
-//cylinder 1.12 radii round the axis, the box's sides at 1), a billow rolling out to it was solid there: a straight
-//vertical edge on a heap's flank, in the phases a lobe stood at it, and seen near a world axis the box's own sides cut
-//every heap at its waist.
+//THE MARGIN (#1145): how far past its outline a heap may stand, in radii. The march is bounded by the cap's ellipsoid
+//grown by it (centred on the waist, so it holds the base too, with more than the margin to spare) above the base plane,
+//the box round it, CloudVolumePS - and the billows' push fades out across the last of it (from CLOUD_PUSH_FADE_FROM of the
+//way out, HeapInside's `e`), so the density is zero on every face the march stops at, whatever the noise does there. The
+//bound is curved everywhere, so a billow the fade does press flat is pressed into a curve, not a wall. ⚠ Cut at the march's
+//bound instead (a cylinder 1.12 radii round the axis, the box's sides at 1), a billow rolling out to it was solid there: a
+//straight vertical edge on a heap's flank, in the phases a lobe stood at it, and seen near a world axis the box's own
+//sides cut every heap at its waist. A cylinder below the waist, faded towards, pressed the strongest billows into short
+//vertical faces too.
 static const float CLOUD_MARGIN = 0.45;
 static const float CLOUD_PUSH_FADE_FROM = 0.9;
 
@@ -153,7 +155,7 @@ CloudVertexOutput CloudVolumeVS(CloudVertexInput input)
 //measure (l, HeapLocal): from the flat base out to its waist, then rounding in to the top, a cap of the radius across and
 //the rest of the height up (iq's first-order estimate of the distance to an ellipsoid: exact on it, near enough off it).
 //h is how high up the heap the point stands (0 at the base, 1 at the top of the outline), e how far out towards the
-//margin's bound (1 on it: the cylinder below the waist, the cap's ellipsoid grown by CLOUD_MARGIN above)
+//margin's bound (1 on it: the cap's ellipsoid grown by CLOUD_MARGIN, which holds the base as well)
 float HeapInside(float3 l, float aspect, out float h, out float e)
 {
     float waistY = CLOUD_WAIST * aspect, capY = (1.0 - CLOUD_WAIST) * aspect;
@@ -163,7 +165,7 @@ float HeapInside(float3 l, float aspect, out float h, out float e)
     float3 axes = float3(1.0, capY, 1.0);
     float k0 = length(c / axes), k1 = max(length(c / (axes * axes)), 1e-6);
     bool below = h < CLOUD_WAIST;
-    e = length(float3(l.x, max(c.y, 0.0) * (1.0 + CLOUD_MARGIN) / (capY + CLOUD_MARGIN), l.z)) / (1.0 + CLOUD_MARGIN);
+    e = length(float3(l.x, c.y * (1.0 + CLOUD_MARGIN) / (capY + CLOUD_MARGIN), l.z)) / (1.0 + CLOUD_MARGIN);
     return below ? waist - length(l.xz) : -k0 * (k0 - 1.0) / k1;
 }
 
@@ -213,10 +215,8 @@ float4 CloudVolumePS(CloudVertexOutput input) : COLOR
     float edge = CLOUD_EDGE / radius;
 
     float3 rd = normalize(input.WorldPosition - CameraPosition);
-    //The ray in the heap's own measure (HeapLocal), where the margin's bound (CLOUD_MARGIN) is: a cylinder round the axis
-    //from the base up to the waist, and above it the cap's ellipsoid, both grown by the margin. It is marched from where it
-    //first enters either to where it last leaves; the box's corners are outside both, and a sample there would only find
-    //nothing
+    //The ray in the heap's own measure (HeapLocal), where the margin's bound (CLOUD_MARGIN) is: the cap's ellipsoid grown
+    //by the margin, above the base plane. The box's corners are outside it, and a sample there would only find nothing
     float aspect = shape.x / radius;
     float3 o = HeapLocal(CameraPosition, cloud, form, aspect);
     float3 d = HeapLocalDirection(rd, cloud, form, aspect);
@@ -224,28 +224,16 @@ float4 CloudVolumePS(CloudVertexOutput input) : COLOR
     float reach = 1.0 + CLOUD_MARGIN;
     float waistY = CLOUD_WAIST * aspect, capY = (1.0 - CLOUD_WAIST) * aspect + CLOUD_MARGIN;
 
-    float a = max(dot(d.xz, d.xz), 1e-12);
-    float b = dot(o.xz, d.xz);
-    float disc = b * b - a * (dot(o.xz, o.xz) - reach * reach);
-    float root = sqrt(max(disc, 0.0));
-    float ya = -o.y / dy, yb = (waistY - o.y) / dy;
-    float c0 = max((-b - root) / a, min(ya, yb));
-    float c1 = min((-b + root) / a, max(ya, yb));
-    bool cylinder = disc >= 0.0 && c1 > c0;
-
     float squash = reach / capY;
     float3 oe = float3(o.x, (o.y - waistY) * squash, o.z);
     float3 de = float3(d.x, d.y * squash, d.z);
     float ea = max(dot(de, de), 1e-12), eb = dot(oe, de);
     float ed = eb * eb - ea * (dot(oe, oe) - reach * reach);
+    clip(ed);
     float eroot = sqrt(max(ed, 0.0));
-    float yc = (waistY + capY - o.y) / dy;
-    float e0 = max((-eb - eroot) / ea, min(ya, yc));
-    float e1 = min((-eb + eroot) / ea, max(ya, yc));
-    bool ellipsoid = ed >= 0.0 && e1 > e0;
-
-    float t0 = max(min(cylinder ? c0 : 1e30, ellipsoid ? e0 : 1e30), 0.0);
-    float t1 = max(cylinder ? c1 : -1e30, ellipsoid ? e1 : -1e30);
+    float ya = -o.y / dy, yc = (waistY + capY - o.y) / dy;
+    float t0 = max(max((-eb - eroot) / ea, min(ya, yc)), 0.0);
+    float t1 = min((-eb + eroot) / ea, max(ya, yc));
     clip(t1 - t0);
     float3 sunLocal = HeapLocalDirection(SunDirection, cloud, form, aspect);
 
