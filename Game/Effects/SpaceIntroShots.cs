@@ -47,7 +47,7 @@ namespace BS3D.Effects
         private const float SAUCER_OFFSET_DEGREES = 20f;
         private const float SAUCER_TOWARDS_PLANET = 0.52f;
         private const float SAUCER_FOV_DEGREES = 47f;
-        internal const float SAUCER_SECONDS = 4.2f;
+        internal const float SAUCER_SECONDS = 5.5f;
 
         //The craft, cued while the shot is on screen (SceneRenderer.CueSpaceSaucer) to cross the frame: its middle this far from
         //the lens, along a line this many degrees under the look and this many towards the planet's side of the frame, this far
@@ -57,10 +57,13 @@ namespace BS3D.Effects
         //Turned this far, the widest frame the game is played at (2.4:1) cuts the run about as long before the moment as after
         //it on either roll, and a narrower one, which only crops the sides, cuts it shorter at both ends: the craft comes in
         //after most of a second of stillness and is gone a fifth of a second before the cut (SpaceIntroShotsTests holds them).
+        //The moment and the shot's length go with the run's pace (SaucerPass.SPEED, #1175): at it the craft is in the widest
+        //frame for 2.23 s either side of its moment, so the moment is that and most of a second into the shot, and the cut that
+        //and a fifth of a second after it.
         internal const float PASS_DISTANCE = 34f;
         private const float PASS_DROP_DEGREES = 9f;
         private const float PASS_ASIDE_DEGREES = 18f;
-        internal const float PASS_AT_SECONDS = 2.4f;
+        internal const float PASS_AT_SECONDS = 3.05f;
 
         //The drain from under the island: a crane up from this far under the funnel's hole to this far, this far
         //out from the axis, the look on the funnel's middle — the glass, the gold beads and the machined underside
