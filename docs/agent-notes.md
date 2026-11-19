@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-19 — #1167 Mars jako planina, méně kráterů — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: Mars má hustotu kráterů planiny. Šance na kráter v menších oktávách 0,82/0,70/0,64 → 0,20/0,14/0,10 (49, 18,6 a 7,2 jednotky), velké krátery (129 a `BigCraters`) beze změny, jak chtěl majitel v #638. Mísy 22,0 % → 9,5 % plochy, valy 56,4 % → 24,3 % (test `MarsCraterCoverageTests` počítá z hodů shaderu). Mýtina už nekreslí světlé prstence polních kráterů (`ejecta *= ramp`). Kamenné kupy mají měkkou masku (`smoothstep(0.1, 0.9)`), takže už nestojí jako ploché tmavé disky s ostrou hranou a koleje roveru přes ně doznívají.
+- ⚠ Po proředění kráterů se nejviditelnějšími kruhy staly kupy: jejich maska se zapínala mezi 1,2 a 1,1 poloměru.
+- Otevřené: verdict-eye (krátery, měkké kupy, které jdou za rámec issue a jdou vrátit samostatně); malé krátery pixelové oktávy na mýtině zůstaly záměrně; cena na GPU neměřena.
+
 ## 2026-11-19 — #1165 lesní obloha bez fialové — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: kopule 15 (les) přepočtena vzorcem nad výškou vrcholu (jako 6/14/21) z fialového soumraku na modrošedý: skoro neutrální pruh u obzoru, modrošedé nebe, břidlicový zenit. Spodní pětina drží starou tyrkysovou bit po bitu (`HorizonColor` světel beze změny), zenit drží jas (lineární 0,044 proti 0,043), víko zatažené oblohy je tmavě modrošedé místo indigového. Předlohy ze Z-Image, klein a FLUX.3 (prompty bez barvy) kreslí šedomodré víko, žádnou fialovou. `SkyDome` čte paletu staticky (`DrawnLinearOf`, `RigColoursOf`), nové `ForestSkyTests`; tři ze čtyř padají na staré kopuli.
