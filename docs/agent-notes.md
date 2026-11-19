@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-19 — #1168 moaré na polárním sněhu — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: hřeben vodorovných pruhů na pláni za palubou dělala normála sastrugi, ne třpyt (třpyt vypnutý = bitově stejný snímek). `Sastrugi` v `Polar.fx` blednou podle podílu vlastní buňky šumu na pixel (`length(fwidth(w))`): celé do 1/48, pryč při 1/16; jemná oktáva na své frekvenci. Každá oktáva bledne k vlastnímu průměru (`SASTRUGI_FINE_MEAN` 0,86, `SASTRUGI_RIDGES_MEAN` 0,78), ne k 0,5, jinak sníh tmavne. Pruhy 22,9/26,7 → 0,93/0,80 (podlaha bez sastrugi 0,95/0,79); +14 instrukcí. Testy `PolarSastrugiSourceTests`.
+- ⚠ Skript přes bash heredoc ztratil zpětná lomítka: 12 běhů s prázdným `userdata=` zapsalo do profilu majitele (Smiley starts 1 → 13 i v Outboxu, dva crash soubory). Neopraveno; `repair_profile.py` čeká na souhlas majitele. Skripty psát přes Write.
+- Otevřené: verdict-eye (zda vzdálená pláň není moc čistá, pohyb, telefon).
+
 ## 2026-11-19 — #1178 trailer v4 a v5 — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: Game `maxdetail` (`RenderDetail`: smrky aurory do 1000, blízké koruny, střechy, kuličky), trailer v4 a v5 (54,6 s, `Videos\BS3D trailer\bs3d-trailer-v5-master.mp4`). `trailer-cut.py`: `hands`, postupná slova, syntetizované údery/švihnutí, čistý limiter, `--stems`.

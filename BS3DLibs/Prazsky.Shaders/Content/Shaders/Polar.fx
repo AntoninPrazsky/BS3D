@@ -336,21 +336,55 @@ PolarVertexOutput PolarVS(PolarVertexInput input)
 //
 //Returns 0..1 and it is a HEIGHT in spirit - the normal comes off it through PerturbNormalFromHeight and the
 //tone darkens in its troughs, which is what makes the field read on the faces the low sun is not raking.
-//Band-limited on the standard rule, and it fades towards 0.5 (flat snow) rather than towards zero, so losing
-//the ridges does not also darken the distance.
-float Sastrugi(float2 p, float footprint)
-{
-    float f = DriftFrequency;
-    float resolvable = saturate(1.0 - 2.0 * f * footprint);
+//Each octave fades towards its own mean, so the snow keeps its tone where the ridges go. ⚠ Not towards 0.5, which
+//looks like the middle and is about the field's third percentile: the plain beyond the deck, all of it inside the
+//fade, came out a ninth darker than the carved snow in front of it (the tone factor in PolarSurface).
+//
+//⚠ BAND-LIMITED IN THE FIELD'S OWN CELLS, AND LONG BEFORE NYQUIST (#1168). Faded on the standard rule (to nothing
+//at half a cell a pixel, on the world footprint) the plain the play view looks across, all of it beyond the deck and
+//seen at a grazing angle, photographed as a comb of fine horizontal stripes with ladders along the blue ice's rim:
+//the owner's "almost a moire". Three things put the limit that far in:
+//  - the normal comes from ddx/ddy, which are taken once per 2x2 quad, so a slope is seen only over two pixels;
+//  - `1 - |n|` puts a crest at every zero crossing (about one a cell along any line), a knife edge between a lit
+//    face and a shaded one, so the field's finest detail is far finer than its cell;
+//  - under this scene's low sun N.L swings hard with any tilt, so a crest the fade has only half taken still draws
+//    a whole lit-and-shaded stripe.
+//So a cell is whole while a pixel spans SASTRUGI_WHOLE_CELLS of it and gone at SASTRUGI_GONE_CELLS, sixteen pixels a
+//cell, the figures measured on the play view (docs/scenes/polar.md). The span is taken in the stretched wind-space
+//domain itself (its fwidth), so a pixel looking along the wind, down the ridges' long axis, keeps them further out than
+//one looking across it, as the play view does. Each octave fades on its own frequency, towards its own mean.
+static const float SASTRUGI_FINE_SCALE = 2.7;
 
-    float2 w = WindSpace(p) * float2(1.0 / DriftStretch, 1.0) * f;
+//The mean of the fine octave, `1 - |GradientNoise2|`, and of the two octaves' ridges together (below), each sampled
+//numerically (PolarSastrugiSourceTests holds both against the noise's C# twin)
+static const float SASTRUGI_FINE_MEAN = 0.86;
+static const float SASTRUGI_RIDGES_MEAN = 0.78;
+
+static const float SASTRUGI_WHOLE_CELLS = 1.0 / 48.0;
+static const float SASTRUGI_GONE_CELLS = 1.0 / 16.0;
+
+//How much of an octave a pixel can show, from the share of the octave's noise cell it spans
+float SastrugiResolvable(float cellsPerPixel)
+{
+    return 1.0 - smoothstep(SASTRUGI_WHOLE_CELLS, SASTRUGI_GONE_CELLS, cellsPerPixel);
+}
+
+float Sastrugi(float2 p)
+{
+    float2 w = WindSpace(p) * float2(1.0 / DriftStretch, 1.0) * DriftFrequency;
+
+    //The share of a coarse cell one pixel spans. Outside any branch: PolarSurface takes the sastrugi once a pixel,
+    //unconditionally, so the quad's derivatives are defined
+    float cells = length(fwidth(w));
 
     float coarse = 1.0 - abs(GradientNoise2(w));
-    float fine = 1.0 - abs(GradientNoise2(w * 2.7 + 11.7));
+    float fine = 1.0 - abs(GradientNoise2(w * SASTRUGI_FINE_SCALE + 11.7));
+
+    fine = lerp(SASTRUGI_FINE_MEAN, fine, SastrugiResolvable(cells * SASTRUGI_FINE_SCALE));
 
     float ridges = saturate(coarse * coarse * 0.72 + fine * 0.28);
 
-    return lerp(0.5, ridges, resolvable);
+    return lerp(SASTRUGI_RIDGES_MEAN, ridges, SastrugiResolvable(cells));
 }
 
 //THE CUTS (#1097): the island's hole and the far ring's inner square. A program that may discard writes its depth after
@@ -393,7 +427,7 @@ float4 PolarSurface(PolarVertexOutput input)
     //the same shape of waste as the ridge the crevasses used to re-sample (see CrevasseField).
     float blueIce = BlueIce(worldPosition.xz);
 
-    float sastrugi = lerp(Sastrugi(worldPosition.xz, footprint), 0.5, blueIce);
+    float sastrugi = lerp(Sastrugi(worldPosition.xz), 0.5, blueIce);
     float3 normal = PerturbNormalFromHeight(baseNormal, worldPosition, sastrugi * DriftAmplitude);
 
     float3 towardsEye = normalize(CameraPosition - worldPosition);
