@@ -17,6 +17,17 @@ The eighteenth `SceneKind` (#222): a flat white expanse carved into sastrugi by 
 - **It reads as a crack** only when narrow, with walls the sun can shade, a dark throat (`CrevasseDarkening`), transmission peaking **on the walls** and the walls' Fresnel held back (a steep face at a grazing angle mirrors the horizon). Wide and shallow it is a welt.
 - **Judge it in `BS3D.exe`**, not the Testbed's F10 camera, which stands low enough behind the gun that the island hides the plain.
 - **The sparkle** (one hash per fine cell) is faded out well before cells reach pixel size, or it crawls (the desert's grain rule).
+- ⚠ **The sastrugi fade on the share of a noise cell a pixel spans, and are gone by sixteen pixels a cell**, four to eight times nearer than the noise's own Nyquist. Faded on the standard rule the plain beyond the deck, which the play view sees at a grazing angle, was a comb of horizontal stripes (#1168). See [the band limit](#the-sastrugis-band-limit).
+
+## The sastrugi's band limit
+
+The sastrugi are a normal perturbation (`Sastrugi` in `Polar.fx`), two octaves of `1 - |noise|` in a domain stretched along the wind. **Each octave is whole while a pixel spans `SASTRUGI_WHOLE_CELLS` (a 48th) of its noise cell and gone at `SASTRUGI_GONE_CELLS` (a 16th)**, the span taken as `length(fwidth(...))` of that stretched domain, so the ridges last further out down their long axis than across it. The fine octave fades on its own frequency, towards its mean. `PolarSastrugiSourceTests` holds the three.
+
+- **Why so far in**: the normal is taken from `ddx`/`ddy`, once per 2x2 quad; `1 - |n|` makes every crest a knife edge between a lit face and a shaded one; and under the 13 degree sun N·L swings hard with any tilt, so a crest the fade has only half taken still draws a whole stripe.
+- **The symptom of a laxer limit**: the plain the play view looks across, all of it beyond the deck and 6 units under the lens, drawn as fine horizontal stripes with ladders along the blue ice's rim: the owner's "almost a moire". It is the sastrugi's **normal**: with it held flat the stripes go, with the sparkle off nothing changes (from the play lens the sparkle is faded out everywhere the plain shows).
+- **The measure**: the mean absolute second difference down the rows of a crop of that plain, in 8-bit luma (a copy of Smiley with `"scene": "polar"` through `levelfile=`, `sceneseed=0 seed=7`, Ultra, at 14 s). With no sastrugi at all it is 0.95 at 1920x1080 and 0.79 at 3840x1581. On the standard rule, to nothing at half a cell of the world footprint: 22.9 and 26.7. Linear to nothing at an eighth of a cell of the stretched domain: 1.1 and 3.2 (the comb's residue at 3840); at a twelfth: 0.95 and 0.88. This smoothstep: 0.95 and 0.79. On Medium (no supersampling) 5.4 becomes 0.99, the floor.
+- **What it costs the near snow**: the intro's low lenses over the ice (the ridge truck and the camp, at 7.0 and 10.0 s) keep their near ridges and soften the mid-distance carving: a mean difference of 3.6 and 4.0 levels over the frames' lower halves against the standard rule's, where the linear twelfth moved them 4.5 and 5.0.
+- **Cost**: 14 instructions on the ground's pixel program of about 1,900 (one `fwidth` of the domain and two smoothsteps).
 
 ## The dome is the biggest dial
 
