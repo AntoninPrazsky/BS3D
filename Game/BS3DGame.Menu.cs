@@ -514,13 +514,93 @@ namespace BS3D
                     //The command line's height first (inches=, #1073): a phone's on a monitor shows the phone's layout
                     float inches = _screenInches;
                     if (inches > 0f || Platform.DisplayRefresh.TryGetPhysicalHeightInches(out inches))
+                    {
                         _uiScale = Math.Clamp(UI_REFERENCE_HEIGHT_INCHES / inches, 1f, UI_SCALE_MAX);
+                        _uiInches = inches;
+                    }
                     Console.WriteLine(_uiScale > 1f
                         ? $"[ui] the screen is {inches:0.0} in tall: the interface is drawn at {_uiScale:0.00}x"
                         : "[ui] the interface is drawn at its design size");
                 }
 
                 return _uiScale;
+            }
+        }
+
+        //The screen's physical height the interface was sized for (UiScale), 0 where none is known
+        private float _uiInches;
+
+        //The tree the [touch] line was last written for (ReportTouchTargets)
+        private Widget _touchReportedFor;
+
+        /// <summary>
+        /// The <c>[touch]</c> line (#1181): on an enlarged interface (a phone, or the desktop's <c>inches=</c> emulation of one),
+        /// once a page's tree has been laid out, every button on it a finger can press, by its words, with its height in
+        /// millimetres on the screen the interface is sized for, and the least of them. What makes "every target is about
+        /// 9 mm" a measurement rather than a design figure: it is the height Myra laid the slab out at, after the page's fit.
+        /// Once per tree put up, never per frame; nothing on a monitor, whose physical height is not known.
+        /// </summary>
+        private void ReportTouchTargets(MenuPage page)
+        {
+            Widget root = _desktop.Root;
+            if (_uiInches <= 0f || UiScale <= 1f || root == null || ReferenceEquals(root, _touchReportedFor)) return;
+            _touchReportedFor = root;
+
+            float millimetresPerPixel = _uiInches * 25.4f / GraphicsDevice.Viewport.Height;
+            System.Text.StringBuilder line = new();
+            float least = float.MaxValue;
+            string leastName = null;
+            int count = 0;
+
+            void Walk(Widget widget)
+            {
+                if (widget == null || !widget.Visible) return;
+
+                if (widget is Button button)
+                {
+                    string name = TargetName(button.Content) ?? "button";
+                    //The slab as drawn: the bounds less the margin, which Myra counts inside an explicit height (the menu's
+                    //buttons have no border)
+                    float mm = (button.Bounds.Height - button.Margin.Top - button.Margin.Bottom) * millimetresPerPixel;
+                    line.Append(count++ == 0 ? " " : ", ").Append(name).Append(' ')
+                        .Append(mm.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)).Append(" mm");
+                    if (mm < least)
+                    {
+                        least = mm;
+                        leastName = name;
+                    }
+                    return;
+                }
+
+                if (widget is ScrollViewer scroller) Walk(scroller.Content);
+                else if (widget is IContainer container)
+                    foreach (Widget child in container.Widgets) Walk(child);
+            }
+
+            Walk(root);
+            if (count == 0) return;
+
+            Console.WriteLine($"[touch] {page.GetType().Name} at {(UiScale * page.LayoutFit).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)}x,"
+                + $" {count} targets:{line}; the least {least.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)} mm ({leastName})");
+        }
+
+        /// <summary>What a target says, for the <c>[touch]</c> line: its first words, or the media symbol it draws; null for neither.</summary>
+        private static string TargetName(Widget widget)
+        {
+            switch (widget)
+            {
+                case Label { Text: { Length: > 0 } text }:
+                    //A label's own line breaks would break the log's line
+                    return text.Replace('\n', ' ');
+                //Bracketed, so About's page arrow (the Back triangle) is not read as the page's Back
+                case Screens.MediaGlyph glyph:
+                    return "[" + glyph.Shape + "]";
+                case IContainer container:
+                    foreach (Widget child in container.Widgets)
+                        if (child.Visible && TargetName(child) is string name) return name;
+                    return null;
+                default:
+                    return null;
             }
         }
 

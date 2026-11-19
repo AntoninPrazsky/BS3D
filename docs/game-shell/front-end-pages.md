@@ -70,8 +70,9 @@ A centred column is right for a panel that has the frame's attention and wrong f
 The game's one "are you sure" page, and it reverses #383's "no confirm dialog" for Quit alone (a player's note asked that the game always ask). Both Quit entries push `QuitConfirmPage` ("QUIT BS3D?", Cancel, Quit) over the page that opened them. Its Quit is the one `Game.Exit` call in the game.
 
 - **Cancel is first and is the page's `NavArrival`**, so the key or pad button that opened the page, pressed again without reading, cancels. Escape and the pad's B are the stack's own back.
+- **On the phone layout Cancel and Quit stand side by side** (#1181), Cancel on the left, each `PHONE_TARGET` tall: 9.1 mm in the desktop's `inches=2.8` emulation, where stacked they were the menu's 6.3 mm. A phone's menus start drawn for a finger (`MenuHand.StartsOnTouch`), so Cancel wears no Esc keycap before the first touch.
 - "This run will not be kept." stands under the heading only when `HasSession` (a level being played, or one kept for Continue): a session lives only in memory, and a warning shown when nothing is lost is one nobody reads.
-- It sits on a plate, because over the front end nothing dims the scene behind it. The plate does not reach where the pause's Quit stood (at 1600×900 it ends at row 599 and that Quit spans rows 646–695), so a double click on the pause's Quit lands on nothing.
+- It sits on a plate, because over the front end nothing dims the scene behind it. The plate does not reach where the pause's Quit stood (at 1600×900 it ends at row 599 and that Quit spans rows 646–695), so a double click on the pause's Quit lands on nothing. ⚠ **The phone's pause keeps the same guard by standing Quit at the foot of its second column** (`PausePage.BuildBesideTheCard`): level with the third row, it was under the confirm's Quit beside Cancel.
 - Left alone on purpose: Restart (two entries clear of Resume already), and the window's close button and Alt+F4 (the operating system's gestures).
 - `quitconfirm=` drives it: "The command line" in `docs/game-shell.md`.
 

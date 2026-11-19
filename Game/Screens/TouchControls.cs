@@ -40,6 +40,34 @@ namespace BS3D.Screens
         /// </summary>
         internal const float AIM_RADIANS_PER_HEIGHT = 2.1f;
 
+        /// <summary>
+        /// The pause button's radius, in screen heights (#1181): 9 mm across on the X300 Ultra, whose landscape height is 2.8
+        /// inches, the size a fingertip hits without looking twice (it was 6.4 mm, 0.045). In the top left corner of the
+        /// aiming side, where a thumb working the touchpad does not rest.
+        /// </summary>
+        internal const float PAUSE_RADIUS = 0.064f;
+
+        /// <summary>Between the pause button's drawn edge and the screen's top and left edges, in screen heights: clear of a rounded corner.</summary>
+        internal const float PAUSE_EDGE_GAP = 0.035f;
+
+        /// <summary>
+        /// The pause button's centre (#1051), its edge <see cref="PAUSE_EDGE_GAP"/> in from the top and left: the corner, under
+        /// nothing the HUD draws there in play.
+        /// </summary>
+        internal static Vector2 PauseCentre(int height)
+        {
+            float inset = height * (PAUSE_RADIUS + PAUSE_EDGE_GAP);
+            return new Vector2(inset, inset);
+        }
+
+        /// <summary>
+        /// Whether a touch at <paramref name="point"/> lands on the pause button: inside its drawn disc and no further (#1181).
+        /// At 9 mm the disc is a finger's target as drawn, and a catch past it, as the precise-aim button has, would take a
+        /// thumb aiming near the corner of the aiming side (#1051), which is the touchpad's.
+        /// </summary>
+        internal static bool OnPause(Vector2 point, int height) =>
+            Vector2.Distance(point, PauseCentre(height)) <= PAUSE_RADIUS * height;
+
         /// <summary>PromptFont's pointing hand: a tap, on a tutorial card and on a power-up chip a finger presses.</summary>
         internal const string TAP_GLYPH = "👆";
 

@@ -29,7 +29,7 @@ namespace BS3D.Screens
     /// exactly whether that is a scene or a game.
     /// </para>
     /// </summary>
-    internal abstract class MenuPage : Screen, IFrameBlurSource
+    internal abstract partial class MenuPage : Screen, IFrameBlurSource
     {
         protected readonly BS3DGame Game;
 
@@ -591,10 +591,58 @@ namespace BS3D.Screens
 
         /// <summary>
         /// The height of a touch target on the phone layout (#1151), in design units: 9 mm on the X300 Ultra at the menus'
-        /// fit there (a unit is 0.044 mm at the front end's 1.33×), the size a fingertip hits without looking twice. A
-        /// Settings row and its − and + are this tall.
+        /// fit there (a unit is 0.044 mm at the front end's 1.35× in the desktop's emulation), the size a fingertip hits
+        /// without looking twice. A Settings row and its − and + are this tall, and every button handed to <see cref="PhoneTarget"/>.
         /// </summary>
         protected const int PHONE_TARGET = 206;
+
+        /// <summary>
+        /// <paramref name="button"/> made a touch target on the phone layout (#1181): <see cref="PHONE_TARGET"/> tall, about
+        /// 9 mm on the X300 Ultra at the menus' fit, where a menu entry is about 6.3 mm; nothing on a monitor, whose entries
+        /// keep their height. A button with a margin keeps it out of the height (Myra counts a margin inside an explicit
+        /// height). The host's <c>[touch]</c> line says what every target on a page came out at in millimetres.
+        /// </summary>
+        protected Button PhoneTarget(Button button)
+        {
+            if (PhoneLayout) button.Height = Scaled(PHONE_TARGET) + button.Margin.Top + button.Margin.Bottom;
+            return button;
+        }
+
+        /// <summary>
+        /// A page of reading with its entries beside it rather than under it (#1184, the phone layout): every button
+        /// <paramref name="column"/> holds is taken out of it, in its order, and stood in a column of its own right of the
+        /// reading, each a touch target tall (<see cref="PhoneTarget"/>), the last at the foot. The reading keeps the column's
+        /// whole height, so a page that used to stack its prose over its entries is half as tall. The entries stay in the
+        /// order they were added after the reading, so the pad's walk is the one a stacked page has. The Benchmark page.
+        /// </summary>
+        protected HorizontalStackPanel EntriesBesideReading(VerticalStackPanel column)
+        {
+            VerticalStackPanel entries = MenuColumn();
+            entries.VerticalAlignment = VerticalAlignment.Bottom;
+
+            //One at a time, not by Clear: Myra detaches a removed child through a copy of the list that is current only while
+            //no change is pending (JukeboxPage.FillTracks)
+            for (int i = 0; i < column.Widgets.Count;)
+            {
+                if (column.Widgets[i] is Button entry)
+                {
+                    column.Widgets.RemoveAt(i);
+                    entries.Widgets.Add(PhoneTarget(entry));
+                }
+                else i++;
+            }
+
+            column.VerticalAlignment = VerticalAlignment.Top;
+            HorizontalStackPanel row = new()
+            {
+                Spacing = Scaled(WideMenuLayout.RAIL_GAP),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            row.Widgets.Add(column);
+            row.Widgets.Add(entries);
+            return row;
+        }
 
         //The phone layout's plate (#1151): narrower insets than a monitor's, because the height is what a phone runs out of
         //and the rail and the reading fill the width

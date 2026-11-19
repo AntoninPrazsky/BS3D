@@ -141,6 +141,51 @@ namespace BS3D.Tests
             Assert.False(controls.Fire);
         }
 
+        //The X300 Ultra's landscape height (WideMenuLayout's figure), in millimetres
+        private const float X300_HEIGHT_MM = WideMenuLayout.X300_HEIGHT_INCHES * 25.4f;
+
+        /// <summary>
+        /// The pause button is a finger's target on the X300 Ultra (#1181): at least <see cref="WideMenuLayout.TOUCH_TARGET_MM"/>
+        /// across, where it was 6.4 mm. Its size is a share of the screen's height, so the same share is the same millimetres on
+        /// any phone of the X300's height whatever its pixels.
+        /// </summary>
+        [Fact]
+        public void ThePauseButtonIsNineMillimetresAcrossOnTheX300Ultra()
+        {
+            float across = 2f * TouchControls.PAUSE_RADIUS * X300_HEIGHT_MM;
+            Assert.True(across >= WideMenuLayout.TOUCH_TARGET_MM, $"The pause button is {across:0.0} mm across on the X300 Ultra.");
+
+            //The disc as drawn on the 3168 x 1440 screen: its edge PAUSE_EDGE_GAP in from the corner both ways
+            Vector2 centre = TouchControls.PauseCentre(H);
+            Assert.Equal(centre.X, centre.Y);
+            Assert.Equal((TouchControls.PAUSE_RADIUS + TouchControls.PAUSE_EDGE_GAP) * H, centre.X, 2);
+        }
+
+        /// <summary>
+        /// The pause button stays in the aiming side's corner (#1181, #1051's scheme): it takes a touch inside the disc it draws
+        /// and not past it, and the disc ends within a sixth of the screen's height of the top and left edges, so a thumb aiming
+        /// anywhere else on the left half aims. Held where the catch would grow: the precise-aim button's third past its edge
+        /// would put the pause's reach 2 mm further into the touchpad.
+        /// </summary>
+        [Fact]
+        public void ThePauseButtonTakesOnlyTheTouchesOnItsDiscInTheCorner()
+        {
+            Vector2 centre = TouchControls.PauseCentre(H);
+            float radius = TouchControls.PAUSE_RADIUS * H;
+
+            Assert.True(TouchControls.OnPause(centre, H));
+            Assert.True(TouchControls.OnPause(centre + new Vector2(radius - 1f, 0f), H));
+            Assert.False(TouchControls.OnPause(centre + new Vector2(radius + 2f, 0f), H));
+            Assert.False(TouchControls.OnPause(centre + new Vector2(0f, radius + 2f), H));
+
+            float reach = (centre.X + radius) / H;
+            Assert.True(reach <= 1f / 6f, $"The pause button reaches {reach:0.000} of the height into the aiming side.");
+
+            //A thumb on the aiming side's middle, and one just below the corner's reach, aim
+            Assert.False(TouchControls.OnPause(AIM, H));
+            Assert.False(TouchControls.OnPause(new Vector2(centre.X, H / 6f + 2f), H));
+        }
+
         [Fact]
         public void SwappingTheSidesSwapsThem()
         {

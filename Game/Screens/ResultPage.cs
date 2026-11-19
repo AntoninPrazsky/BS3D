@@ -1139,6 +1139,10 @@ namespace BS3D.Screens
 
             actions.Widgets.Add(MenuButton("Main Menu", Game.EndSessionAndReturnToMainMenu));
 
+            //On the phone's split page each a touch target tall (#1181): the column beside the verdict has the height for them
+            foreach (Widget widget in actions.Widgets)
+                if (widget is Button way) PhoneTarget(way);
+
             //The online boards (#547), BESIDE the column rather than in it: the column is the ending's own and stands
             //close to its height budget, while the width either side of it is empty at every landscape aspect — at 4:3
             //each side still holds about 940 design units, and the plate is BOARD_WIDTH of them.
