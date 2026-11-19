@@ -17,7 +17,7 @@ The eighteenth `SceneKind` (#222): a flat white expanse carved into sastrugi by 
 - **It reads as a crack** only when narrow, with walls the sun can shade, a dark throat (`CrevasseDarkening`), transmission peaking **on the walls** and the walls' Fresnel held back (a steep face at a grazing angle mirrors the horizon). Wide and shallow it is a welt.
 - **Judge it in `BS3D.exe`**, not the Testbed's F10 camera, which stands low enough behind the gun that the island hides the plain.
 - **The sparkle** (one hash per fine cell) is faded out well before cells reach pixel size, or it crawls (the desert's grain rule).
-- ⚠ **The sastrugi fade on the share of a noise cell a pixel spans, and are gone by sixteen pixels a cell**, four to eight times nearer than the noise's own Nyquist. Faded on the standard rule the plain beyond the deck, which the play view sees at a grazing angle, was a comb of horizontal stripes (#1168). See [the band limit](#the-sastrugis-band-limit).
+- ⚠ **The sastrugi fade on the share of a noise cell a pixel spans, and are gone by sixteen pixels a cell**, eight times nearer than the noise's own Nyquist (half a cell a pixel). Faded on the standard rule the plain beyond the deck, which the play view sees at a grazing angle, was a comb of horizontal stripes (#1168). See [the band limit](#the-sastrugis-band-limit).
 
 ## The sastrugi's band limit
 
