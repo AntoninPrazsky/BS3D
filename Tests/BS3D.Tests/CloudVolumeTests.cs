@@ -340,6 +340,35 @@ namespace BS3D.Tests
             }
         }
 
+        /// <summary>
+        /// The layer's far plane stands BOX_REACH past the reach, so no heap's box may stand farther than that from its centre,
+        /// or its front faces past the plane are clipped in a straight line: the box's corners (CloudVolumeVS: the margin
+        /// round the outline, stretched along the axis and leaned) in every sky that stands heaps and while a broken sky
+        /// fades into an overcast, whose cells are the biggest. Seen to fire: the far plane before the spread, 500 past the
+        /// reach, is passed.
+        /// </summary>
+        [Fact]
+        public void NoBoxStandsPastTheLayersFarPlane()
+        {
+            float margin = Constant("CLOUD_MARGIN"), farthest = 0f;
+            foreach (CloudField clouds in new[] { Sky(WeatherPreset.Scattered, 300f), Sky(WeatherPreset.Broken, 300f), Sky(WeatherPreset.Broken, 1200f) })
+                for (int step = 0; step <= 4; step++)
+                {
+                    if (step > 0) { clouds.SetWeather(WeatherPreset.Overcast); clouds.Step(1.5f * step); }
+                    (CloudVolumes.Heap[] heaps, int count) = Place(new Vector3(0f, -4f, 30f), clouds);
+                    for (int i = 0; i < count; i++)
+                    {
+                        float radius = heaps[i].Cloud.W, aspect = heaps[i].Shape.X / radius;
+                        Vector4 form = heaps[i].Form;
+                        float along = ((1f + margin) * form.Z + form.W * (aspect + margin) / aspect) * radius;
+                        float across = (1f + margin) * radius, up = (aspect + margin) * radius;
+                        farthest = MathF.Max(farthest, MathF.Sqrt(along * along + across * across + up * up));
+                    }
+                }
+            Assert.True(farthest <= CloudVolumes.BOX_REACH, $"a box stands {farthest:0} from its heap's centre");
+            Assert.True(farthest > 500f, $"the farthest box corner, {farthest:0}, was inside the far plane before the spread: the check cannot tell");
+        }
+
         [Fact]
         public void ALidOfASkyStandsNoHeaps()
         {

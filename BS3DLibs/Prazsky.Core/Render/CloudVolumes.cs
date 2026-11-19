@@ -31,6 +31,10 @@ namespace Prazsky.Core.Render
         //FarProjection) and where they dissolve into the sky
         private const float CELL_SHARE = 0.5f;
         private const float REACH = 4000f, FADE_NEAR = 2600f, FADE_FAR = 3900f;
+        //How far a heap's box can stand from its centre: the biggest radius a weather's cells allow (SIZE_BIG on a street's
+        //crest, the cells of a broken sky fading into an overcast), stretched, leaned and grown by the shader's margin, up to
+        //about 800 (CloudVolumeTests). The layer's far plane stands this far past the reach, so no box's front face is clipped by it
+        internal const float BOX_REACH = 1000f;
         private const int MAX_HEAPS = 900;
 
         //A heap stands where the cover is at least COVER_MIN, fading in over COVER_FADE; from there to COVER_FULL the patch
@@ -203,7 +207,7 @@ namespace Prazsky.Core.Render
 
             ReadSky(skyEffect);
             _view.SetValue(camera.View);
-            _projection.SetValue(FarProjection(camera.Projection, REACH + 500f));
+            _projection.SetValue(FarProjection(camera.Projection, REACH + BOX_REACH));
             _cameraPosition.SetValue(camera.Position);
             _sunDirection.SetValue(_skySunDirection.GetValueVector3());
             _sunColor.SetValue(_skySunColor.GetValueVector3());
