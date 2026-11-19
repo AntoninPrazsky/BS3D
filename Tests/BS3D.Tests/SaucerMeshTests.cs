@@ -10,9 +10,9 @@ using Xunit.Abstractions;
 namespace BS3D.Tests
 {
     /// <summary>
-    /// The flying saucer's two hulls (#1173), with no device: Low and Medium's two lathes as #955 built them, and High and Ultra's
-    /// parts (<see cref="SaucerFineMesh"/>), which must spend more triangles, stand where the shader's rings put their light and
-    /// be shut solids wound clockwise seen from outside.
+    /// The flying saucer's two crafts (#1173, #1174), with no device: Low and Medium's two lathes as #955 built them, and High and
+    /// Ultra's parts (<see cref="SaucerFineMesh"/>), which must spend more triangles, stand where the shader's rings put their
+    /// light, keep the crew inside the glass and be shut solids wound clockwise seen from outside.
     /// </summary>
     public class SaucerMeshTests
     {
@@ -55,7 +55,7 @@ namespace BS3D.Tests
                 total += triangles;
             }
             _output.WriteLine($"in all {total}");
-            Assert.True(total > 4 * 2208, $"the fine hull has {total} triangles");
+            Assert.True(total > 4 * 2208, $"the fine craft has {total} triangles");
         }
 
         /// <summary>Every part is shut: under back-face culling an open edge shows the inside of the craft through its wall.</summary>
@@ -89,6 +89,60 @@ namespace BS3D.Tests
                 if (Vector3.Dot(Vector3.Normalize(geometric), Vector3.Normalize(normal)) > 0.25f) wrong++;
             }
             Assert.True(wrong == 0, $"{part}: {wrong} of {indices.Count / 3} triangles wound against their normals");
+        }
+
+        /// <summary>
+        /// The crew stand inside the glass with room above their heads and beside them (#1174), on the cabin's floor: a figure
+        /// through the glass would draw over the dome's mirror and be cut by its rim. And the whole cabin is under the glass.
+        /// </summary>
+        [Fact]
+        public void TheCrewAndTheCabinStandInsideTheGlass()
+        {
+            //A figure keeps clear of the glass; the cabin's floor runs out to the glass's foot
+            const float FIGURE_MARGIN = 0.05f, CABIN_MARGIN = 0.01f;
+            var (vertices, _) = Part(SaucerFineMesh.Part.Crew);
+            int figures = 0;
+            foreach (VertexPositionNormalTexture v in vertices)
+            {
+                if (v.Position.Y <= SaucerMesh.DOME_BASE + 0.02f) continue;   //the floor's underside, in the hull's plate
+                bool figure = v.TextureCoordinate.X == SaucerFineMesh.SKIN || v.TextureCoordinate.X == SaucerFineMesh.EYE;
+                float margin = figure ? FIGURE_MARGIN : CABIN_MARGIN;
+                float r = new Vector2(v.Position.X, v.Position.Z).Length();
+                Assert.True(r < SaucerMesh.DOME_RADIUS - margin && v.Position.Y < SaucerFineMesh.GlassY(r) - margin,
+                    $"a vertex of the cabin at {v.Position} (material {v.TextureCoordinate.X}) is not under the glass");
+                if (v.TextureCoordinate.X == SaucerFineMesh.SKIN) figures++;
+            }
+            Assert.True(figures > 0);
+
+            //Standing on the floor: the lowest point of the skin at the floor's height
+            float lowest = vertices.Where(v => v.TextureCoordinate.X == SaucerFineMesh.SKIN).Min(v => v.Position.Y);
+            Assert.InRange(lowest, SaucerFineMesh.FLOOR_Y - 0.02f, SaucerFineMesh.FLOOR_Y + 0.02f);
+        }
+
+        /// <summary>
+        /// Three figures, one at each of the bearings the shader paints Low and Medium's crew at, each with two eyes on the side of
+        /// its head that faces out of the dome.
+        /// </summary>
+        [Fact]
+        public void TheCrewStandWhereTheyArePaintedLookingOut()
+        {
+            var (vertices, _) = Part(SaucerFineMesh.Part.Crew);
+            foreach (float bearing in SaucerFineMesh.CREW_BEARINGS)
+            {
+                var outward = new Vector2(MathF.Cos(bearing), MathF.Sin(bearing));
+                bool Near(Vector3 p) => Vector2.Dot(new Vector2(p.X, p.Z), outward) > SaucerFineMesh.CREW_RADIUS * 0.5f
+                    && MathF.Abs(Vector2.Dot(new Vector2(p.X, p.Z), new Vector2(-outward.Y, outward.X))) < 0.6f;
+
+                Vector3[] skin = vertices.Where(v => v.TextureCoordinate.X == SaucerFineMesh.SKIN && Near(v.Position)).Select(v => v.Position).ToArray();
+                Vector3[] eyes = vertices.Where(v => v.TextureCoordinate.X == SaucerFineMesh.EYE && Near(v.Position)).Select(v => v.Position).ToArray();
+                Assert.True(skin.Length > 0, $"no figure at {MathHelper.ToDegrees(bearing)} degrees");
+                Assert.True(eyes.Length > 0, $"the figure at {MathHelper.ToDegrees(bearing)} degrees has no eyes");
+
+                //The eyes are further out from the dome's axis than the figure's middle: it looks out
+                Vector2 middle = new(skin.Average(p => p.X), skin.Average(p => p.Z));
+                Vector2 gaze = new(eyes.Average(p => p.X), eyes.Average(p => p.Z));
+                Assert.True(Vector2.Dot(gaze - middle, outward) > 0.1f, $"the figure at {MathHelper.ToDegrees(bearing)} degrees looks in");
+            }
         }
 
         /// <summary>
@@ -171,6 +225,22 @@ namespace BS3D.Tests
                 Assert.Contains(low, p => MathF.Abs(MathHelper.WrapAngle(MathF.Atan2(p.Z, p.X) - bearing)) < 0.1f);
             Assert.All(low, p => Assert.Contains(SaucerFineMesh.LEG_BEARINGS,
                 bearing => MathF.Abs(MathHelper.WrapAngle(MathF.Atan2(p.Z, p.X) - bearing)) < 0.1f));
+        }
+
+        /// <summary>
+        /// The antenna is its own opaque mesh, standing on the glass's crown, and the glass has none (#1174): blended with the
+        /// dome it would be see-through too.
+        /// </summary>
+        [Fact]
+        public void TheAntennaStandsOnTheCrownAndTheGlassHasNone()
+        {
+            float crown = SaucerMesh.DOME_BASE + SaucerMesh.DOME_HEIGHT;
+            var (antenna, _) = Part(SaucerFineMesh.Part.Antenna);
+            var (glass, _) = Part(SaucerFineMesh.Part.Glass);
+            Assert.True(antenna.Max(v => v.Position.Y) > crown + 0.9f);
+            Assert.True(antenna.Min(v => v.Position.Y) < crown);
+            Assert.True(glass.Max(v => v.Position.Y) <= crown + 1e-4f, "the glass reaches above its crown");
+            Assert.All(glass, v => Assert.True(new Vector2(v.Position.X, v.Position.Z).Length() <= SaucerMesh.DOME_RADIUS + 1e-4f));
         }
     }
 }

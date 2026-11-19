@@ -241,7 +241,7 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// A surface of revolution about the local Y axis, laid into this mesh through <paramref name="placement"/>: the
-        /// saucer's bulbs, sockets and legs (#1173), small solids that share one buffer with others of their
+        /// saucer's bulbs, legs, antenna and crew (#1173, #1174), small solids that share one buffer with others of their
         /// material. The profile follows <see cref="LatheMesh"/>'s rule: in order along the surface, the outward normal the
         /// profile's tangent turned a quarter left in the (radius, y) plane, so a profile that starts on the axis at the top,
         /// runs out and down and back in to the axis at the bottom is a shut solid facing out. A <see cref="LathePoint.Crease"/>

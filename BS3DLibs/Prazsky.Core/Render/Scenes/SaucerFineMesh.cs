@@ -6,30 +6,40 @@ using System.Collections.Generic;
 namespace Prazsky.Core.Render
 {
     /// <summary>
-    /// High and Ultra's saucer (#1173; <see cref="SceneRenderer.FineMeshes"/>), drawn by <c>SaucerFlight</c> through
-    /// <c>Saucer.fx</c>'s fine techniques where Low and Medium keep <see cref="SaucerMesh"/>'s hull with the bulbs painted on it;
-    /// the dome is the coarse one on every tier. The same craft at the same size in the same frame (<see cref="SaucerMesh"/>'s figures), built of
+    /// High and Ultra's saucer (#1173, #1174; <see cref="SceneRenderer.FineMeshes"/>), drawn by <c>SaucerFlight</c> through
+    /// <c>Saucer.fx</c>'s fine techniques where Low and Medium keep <see cref="SaucerMesh"/>'s two lathes with the bulbs and the
+    /// crew painted on them. The same craft at the same size in the same frame (<see cref="SaucerMesh"/>'s figures), built of
     /// the parts the references (<c>1173-zimage</c>, <c>1173-klein</c>, <c>1173-flux3</c>) draw on a classic chrome saucer, one
     /// mesh a material:
     /// <list type="bullet">
     /// <item><see cref="Part.Hull"/>: the hull lathed finer, a smooth convex top and underside, engraved panel lines (sixteen
     /// radial seams over the top and the underside and a concentric groove on each, <see cref="SEAM_DEPTH"/> deep), a raised
-    /// collar the dome stands in, a raised lip round the top's edge over a rounded rim, the belly's ring standing
+    /// collar the dome's glass stands in, a raised lip round the top's edge over a rounded rim, the belly's ring standing
     /// proud round a recessed glowing lens, a socket for every bulb and three landing legs, each a strut out and down to a
     /// pod. The texture coordinate's X names the material: <see cref="CHROME"/>, <see cref="LENS"/> or <see cref="GUNMETAL"/>.</item>
     /// <item><see cref="Part.Bulbs"/>: the rim's <see cref="RIM_BULBS"/> and the top's <see cref="TOP_BULBS"/> as small glass
     /// spheres standing proud of their sockets, where <c>Saucer.fx</c>'s rings paint them (X 0 the rim's, 1 the top's; Y the
     /// bulb's place round its ring, for the wave of brightness that runs round it).</item>
+    /// <item><see cref="Part.Antenna"/>: split off the dome so it stays opaque under the glass's blend (X 1 the red ball).</item>
+    /// <item><see cref="Part.Crew"/>: the cabin under the glass (its floor, a low amber wall round it, a console in the middle
+    /// and a lamp under the crown) and the crew of three standing round the console looking out, a rounded body, a big head
+    /// and large black almond eyes each, a little different in height and turn; X <see cref="SKIN"/>, <see cref="EYE"/>,
+    /// <see cref="CABIN"/>, <see cref="LAMP"/> or <see cref="CONSOLE"/>.</item>
+    /// <item><see cref="Part.Glass"/>: the dome alone, a shut solid whose foot stands in the collar and whose base lies under
+    /// the hull's plate; drawn transparent after the opaque scene, its inside faces first.</item>
     /// </list>
     /// Every part is a set of shut solids wound clockwise seen from outside (<see cref="MeshBuilder"/> corrects each
     /// triangle against the normal it is meant to show; WindingCheck and <c>SaucerMeshTests</c> hold it).
     /// </summary>
     public sealed class SaucerFineMesh : IProceduralMesh, IDisposable
     {
-        public enum Part { Hull, Bulbs }
+        public enum Part { Hull, Bulbs, Antenna, Crew, Glass }
 
         //The hull's materials (the texture coordinate's X)
         internal const float CHROME = 0f, LENS = 1f, GUNMETAL = 2f;
+
+        //The crew mesh's materials
+        internal const float SKIN = 0f, EYE = 1f, CABIN = 2f, LAMP = 3f, CONSOLE = 4f;
 
         /// <summary>The bulbs round the rim and round the top's ring: <c>Saucer.fx</c>'s RIM_LIGHTS and TOP_LIGHTS, each centred
         /// where its ring's painted bulb is (half a step round from the ring's start), so its halo on the hull is round it.</summary>
@@ -44,8 +54,15 @@ namespace Prazsky.Core.Render
         internal const int PANELS = 16;
         internal const float SEAM_HALF_WIDTH = 0.04f, SEAM_DEPTH = 0.03f;
 
-        //Facets round the hull between two seams and round a small solid
-        private const int PANEL_FACETS = 6, PART_SEGMENTS = 12;
+        //Facets round the hull between two seams, round a small solid and round the glass
+        private const int PANEL_FACETS = 6, PART_SEGMENTS = 12, GLASS_SEGMENTS = 96;
+
+        //The cabin: its floor's height, the crew's three bearings round the axis (where Saucer.fx paints its figures) and
+        //how far out they stand, and the lamp's height under the crown
+        internal const float FLOOR_Y = SaucerMesh.DOME_BASE + 0.07f;
+        internal static readonly float[] CREW_BEARINGS = { MathHelper.ToRadians(30f), MathHelper.ToRadians(150f), MathHelper.ToRadians(270f) };
+        internal const float CREW_RADIUS = 1.05f;
+        internal const float LAMP_Y = SaucerMesh.DOME_BASE + SaucerMesh.DOME_HEIGHT - 0.14f;
 
         //The legs: their bearings (in the middles of panels, so no seam runs into a strut: as near a third of a turn apart as
         //sixteen panels allow), where each strut leaves the hull and where its pod hangs (radius, height)
@@ -74,6 +91,9 @@ namespace Prazsky.Core.Render
             {
                 case Part.Hull: AddHull(b); AddSockets(b); AddLegs(b); break;
                 case Part.Bulbs: AddBulbs(b); break;
+                case Part.Antenna: AddAntenna(b); break;
+                case Part.Crew: AddCabin(b); AddCrew(b); break;
+                case Part.Glass: b.AddLathe(GlassProfile(), GLASS_SEGMENTS, Matrix.Identity, Vector2.Zero); break;
             }
             return b;
         }
@@ -354,6 +374,139 @@ namespace Prazsky.Core.Render
             return (new Vector3(r, TopY(r), 0f), new Vector3(n.X, n.Y, 0f));
         }
 
+        //---- the antenna
+
+        //From the dome's crown (SaucerMesh's DOME_BASE + DOME_HEIGHT): a base cap on the glass, a thin rod with a ring round it
+        //and the red ball at its top, the coarse dome's antenna's height
+        internal const float ANTENNA_TOP = SaucerMesh.DOME_BASE + SaucerMesh.DOME_HEIGHT + 0.98f;
+
+        private static void AddAntenna(MeshBuilder b)
+        {
+            float crown = SaucerMesh.DOME_BASE + SaucerMesh.DOME_HEIGHT;
+            LathePoint[] mast =
+            {
+                new(0f, crown + 0.8f), new(0.032f, crown + 0.79f, crease: true),
+                new(0.032f, crown + 0.42f, crease: true), new(0.055f, crown + 0.41f), new(0.065f, crown + 0.37f), new(0.055f, crown + 0.33f),
+                new(0.032f, crown + 0.32f, crease: true), new(0.032f, crown + 0.12f, crease: true),
+                new(0.1f, crown + 0.1f), new(0.16f, crown + 0.05f), new(0.17f, crown - 0.01f, crease: true), new(0f, crown - 0.04f)
+            };
+            b.AddLathe(mast, PART_SEGMENTS, Matrix.Identity, new Vector2(0f, 0f));
+            float ball = 0.11f;
+            b.AddLathe(Sphere(ball, 8), PART_SEGMENTS, Matrix.CreateTranslation(0f, ANTENNA_TOP - ball, 0f), new Vector2(1f, 0f));
+        }
+
+        //---- the glass
+
+        //The dome alone: from the crown down to its foot in the collar (SaucerMesh's DOME_BASE, DOME_RADIUS), then a short wall
+        //and a disc under the hull's plate, so it is shut and the foot of the glass is never seen
+        internal static LathePoint[] GlassProfile()
+        {
+            const int RINGS = 18;
+            var glass = new LathePoint[RINGS + 3];
+            for (int i = 0; i <= RINGS; i++)
+            {
+                float a = MathHelper.PiOver2 * i / RINGS;
+                glass[i] = new LathePoint(MathF.Sin(a) * SaucerMesh.DOME_RADIUS, SaucerMesh.DOME_BASE + MathF.Cos(a) * SaucerMesh.DOME_HEIGHT,
+                    crease: i == RINGS);
+            }
+            glass[RINGS + 1] = new LathePoint(SaucerMesh.DOME_RADIUS, SaucerMesh.DOME_BASE - 0.04f, crease: true);
+            glass[RINGS + 2] = new LathePoint(0f, SaucerMesh.DOME_BASE - 0.04f);
+            return glass;
+        }
+
+        /// <summary>The glass's height at radius <paramref name="r"/> off the axis: where a crew member's head must stay under.</summary>
+        internal static float GlassY(float r)
+        {
+            float s = MathF.Min(r / SaucerMesh.DOME_RADIUS, 1f);
+            return SaucerMesh.DOME_BASE + MathF.Sqrt(1f - s * s) * SaucerMesh.DOME_HEIGHT;
+        }
+
+        //---- the cabin and the crew
+
+        private static void AddCabin(MeshBuilder b)
+        {
+            //The floor, its underside in the hull's plate
+            b.AddLathe(new LathePoint[] { new(0f, FLOOR_Y), new(2.27f, FLOOR_Y, crease: true), new(2.27f, 0.85f, crease: true), new(0f, 0.85f) },
+                GLASS_SEGMENTS / 2, Matrix.Identity, new Vector2(CABIN, 0f));
+
+            //A low wall round it inside the glass, a ring of square section: the amber the crew stand against
+            b.AddLathe(new LathePoint[]
+            {
+                new(2.0f, 1.18f, crease: true), new(2.22f, 1.18f, crease: true), new(2.22f, FLOOR_Y - 0.02f, crease: true),
+                new(2.0f, FLOOR_Y - 0.02f, crease: true), new(2.0f, 1.18f, crease: true)
+            }, GLASS_SEGMENTS / 2, Matrix.Identity, new Vector2(CABIN, 0f));
+
+            //The console in the middle and its lit top
+            b.AddLathe(new LathePoint[]
+            {
+                new(0f, FLOOR_Y + 0.5f), new(0.24f, FLOOR_Y + 0.5f, crease: true), new(0.3f, FLOOR_Y + 0.44f),
+                new(0.2f, FLOOR_Y + 0.22f), new(0.27f, FLOOR_Y + 0.02f, crease: true), new(0f, FLOOR_Y - 0.03f)
+            }, PART_SEGMENTS * 2, Matrix.Identity, new Vector2(CABIN, 0f));
+            b.AddLathe(Drum(0.2f, FLOOR_Y + 0.48f, FLOOR_Y + 0.53f), PART_SEGMENTS * 2, Matrix.Identity, new Vector2(CONSOLE, 0f));
+
+            //The lamp under the crown, a flattened disc
+            b.AddLathe(Sphere(1f, 8), PART_SEGMENTS * 2, Matrix.CreateScale(0.28f, 0.05f, 0.28f) * Matrix.CreateTranslation(0f, LAMP_Y, 0f),
+                new Vector2(LAMP, 0f));
+        }
+
+        //Each one's height (a share of the first's) and how far it turns from straight out, so the three are not one figure
+        private static readonly float[] CREW_SCALE = { 1.0f, 0.93f, 1.06f };
+        private static readonly float[] CREW_TURN = { 0f, MathHelper.ToRadians(-14f), MathHelper.ToRadians(11f) };
+        private static readonly float[] HEAD_TILT = { MathHelper.ToRadians(6f), MathHelper.ToRadians(-4f), 0f };
+        internal const float CREW_HEIGHT = 1.4f;
+
+        private static void AddCrew(MeshBuilder b)
+        {
+            for (int k = 0; k < CREW_BEARINGS.Length; k++)
+            {
+                //Its own frame (standing at the origin on the floor, facing +Z, CREW_HEIGHT tall) to the craft's: turned so +Z
+                //faces out along its bearing (plus its turn) and stood at CREW_RADIUS on the floor
+                float facing = MathHelper.PiOver2 - CREW_BEARINGS[k] + CREW_TURN[k];
+                Matrix place = Matrix.CreateScale(CREW_SCALE[k] * CREW_HEIGHT / 1.21f) * Matrix.CreateRotationY(facing)
+                    * Matrix.CreateTranslation(MathF.Cos(CREW_BEARINGS[k]) * CREW_RADIUS, FLOOR_Y, MathF.Sin(CREW_BEARINGS[k]) * CREW_RADIUS);
+                AddFigure(b, place, HEAD_TILT[k]);
+            }
+        }
+
+        //One figure, 1.21 tall in its own frame: a body narrow at the waist with sloping shoulders, thin arms, a big head wider
+        //at the brow than at the chin, and two large black almond eyes slanting up at their outer corners
+        private static void AddFigure(MeshBuilder b, Matrix place, float headTilt)
+        {
+            var skin = new Vector2(SKIN, 0f);
+            LathePoint[] body =
+            {
+                new(0f, 0.72f), new(0.06f, 0.715f), new(0.07f, 0.66f), new(0.14f, 0.6f), new(0.16f, 0.53f), new(0.135f, 0.44f),
+                new(0.11f, 0.36f), new(0.13f, 0.24f), new(0.15f, 0.1f), new(0.14f, 0.02f, crease: true), new(0f, 0f)
+            };
+            b.AddLathe(body, PART_SEGMENTS, Matrix.CreateScale(1f, 1f, 0.78f) * place, skin);
+
+            //The arms hang from the shoulders, a little away from the body
+            for (int side = -1; side <= 1; side += 2)
+            {
+                var shoulder = new Vector3(0.145f * side, 0.56f, 0f);
+                var hand = new Vector3(0.2f * side, 0.24f, 0.04f);
+                Vector3 arm = hand - shoulder;
+                b.AddLathe(Capsule(0.032f, arm.Length()), 8, Along(0f, shoulder, Vector3.Normalize(arm)) * place, skin);
+            }
+
+            //The head about the neck, tilted a little
+            Matrix head = Matrix.CreateTranslation(0f, -0.7f, 0f) * Matrix.CreateRotationZ(headTilt) * Matrix.CreateTranslation(0f, 0.7f, 0f) * place;
+            LathePoint[] skull =
+            {
+                new(0f, 1.21f), new(0.12f, 1.195f), new(0.2f, 1.155f), new(0.255f, 1.09f), new(0.275f, 1.0f), new(0.265f, 0.92f),
+                new(0.225f, 0.84f), new(0.16f, 0.77f), new(0.09f, 0.72f), new(0.04f, 0.70f), new(0f, 0.695f)
+            };
+            b.AddLathe(skull, PART_SEGMENTS + 4, Matrix.CreateScale(1f, 1f, 0.9f) * head, skin);
+
+            //The eyes: flattened ellipsoids sunk into the face, turned to follow it and slanting up outwards
+            for (int side = -1; side <= 1; side += 2)
+            {
+                Matrix eye = Matrix.CreateScale(0.1f, 0.052f, 0.035f) * Matrix.CreateRotationZ(side * MathHelper.ToRadians(24f))
+                    * Matrix.CreateRotationY(side * MathHelper.ToRadians(26f)) * Matrix.CreateTranslation(0.105f * side, 0.935f, 0.205f) * head;
+                b.AddLathe(Sphere(1f, 6), PART_SEGMENTS, eye, new Vector2(EYE, 0f));
+            }
+        }
+
         //---- shapes
 
         //A sphere's profile, pole to pole, `rings` spans
@@ -371,6 +524,23 @@ namespace Prazsky.Core.Render
         //A closed drum of `radius` from `from` to `to` along its axis, its rims creased
         private static LathePoint[] Drum(float radius, float from, float to) =>
             new LathePoint[] { new(0f, to), new(radius, to, crease: true), new(radius, from, crease: true), new(0f, from) };
+
+        //A capsule from 0 to `length` along its axis
+        private static LathePoint[] Capsule(float radius, float length)
+        {
+            var points = new List<LathePoint>();
+            for (int i = 0; i <= 4; i++)
+            {
+                float a = MathHelper.PiOver2 * i / 4f;
+                points.Add(new LathePoint(MathF.Sin(a) * radius, length + MathF.Cos(a) * radius));
+            }
+            for (int i = 0; i <= 4; i++)
+            {
+                float a = MathHelper.PiOver2 + MathHelper.PiOver2 * i / 4f;
+                points.Add(new LathePoint(MathF.Sin(a) * radius, MathF.Cos(a) * radius));
+            }
+            return points.ToArray();
+        }
 
         /// <summary>
         /// A solid's placement: its own Y axis laid along <paramref name="axis"/> (given in the frame of bearing 0, +X out

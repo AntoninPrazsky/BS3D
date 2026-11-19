@@ -226,7 +226,8 @@ namespace BS3D.Tools.WindingCheck
             yield return ("MoonPlanting", () => new MoonPlanting(d, (x, z) => 0f, new MoonTerrainConfig(), 8125));
             yield return ("PolarPlanting", () => new PolarPlanting(d, (x, z) => 0f, new Vector2(60f, -60f)));
             yield return ("SaucerMesh", () => new SaucerMesh(d));
-            //High and Ultra's saucer (#1173): the seamed hull with its sockets and legs, and the bulbs
+            //High and Ultra's saucer (#1173, #1174): the seamed hull with its sockets and legs, the bulbs, the antenna, the cabin
+            //with its crew, and the glass
             foreach (SaucerFineMesh.Part part in Enum.GetValues<SaucerFineMesh.Part>())
             {
                 SaucerFineMesh.Part p = part;

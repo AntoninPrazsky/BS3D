@@ -468,8 +468,8 @@ namespace Prazsky.Core.Render
         /// where Low and Medium lay the far ones' 96 by 40 (<see cref="OutbackRockDiscs"/>) — and the desert's beetles and scorpions (#1110):
         /// segmented shells, jointed legs, pincers and a keeled tail (<see cref="CritterMesh.FineBeetle"/>,
         /// <see cref="CritterMesh.FineScorpion"/>) where Low and Medium keep the ellipsoids and tubes — and the space saucer
-        /// (#1173): a hull with seams, sockets, a belly ring and legs, and glass bulbs (<see cref="SaucerFineMesh"/>), where Low
-        /// and Medium keep a lathe with the bulbs painted on. The spruces belong to the hosts' own <see cref="ForestScatterRenderer"/>s, which take this flag at every draw.
+        /// (#1173, #1174): a hull with seams, sockets, a belly ring and legs, glass bulbs, and its crew as models behind real
+        /// glass (<see cref="SaucerFineMesh"/>), where Low and Medium keep two lathes with the bulbs and the crew painted on. The spruces belong to the hosts' own <see cref="ForestScatterRenderer"/>s, which take this flag at every draw.
         /// <para>
         /// A switch of its own rather than a step of <see cref="SceneDetail"/>, because that one is Low's alone (#298) and
         /// this one is Medium's too: Medium is the weak machine's rung. A plain flag for <see cref="SupersampleFactor"/>'s

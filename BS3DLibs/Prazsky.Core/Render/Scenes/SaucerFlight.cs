@@ -20,9 +20,10 @@ namespace Prazsky.Core.Render
     /// for the crossing and eases it back after. Without a pass the loop is a pure function of the wall clock.
     /// </para>
     /// <para>
-    /// <b>Two hulls by tier.</b> Low and Medium draw <see cref="SaucerMesh"/>'s hull with the bulbs painted on it; High and
-    /// Ultra (<see cref="SceneRenderer.FineMeshes"/>, #1173) draw <see cref="SaucerFineMesh"/>'s hull with its seams, rim,
-    /// belly ring and legs, and its bulbs. Both draw the coarse dome with its antenna and its painted crew.
+    /// <b>Two crafts by tier.</b> Low and Medium draw <see cref="SaucerMesh"/>'s two lathes, the bulbs and the crew painted on
+    /// them; High and Ultra (<see cref="SceneRenderer.FineMeshes"/>, #1173, #1174) draw <see cref="SaucerFineMesh"/>'s parts:
+    /// the hull with its seams, rim, belly ring and legs, the bulbs, the antenna and the cabin with its crew opaque here, and
+    /// the dome's glass after the opaque scene (<see cref="DrawGlass"/>), so what stands behind it shows through it.
     /// </para>
     /// </summary>
     internal sealed class SaucerFlight : IDisposable
@@ -47,13 +48,17 @@ namespace Prazsky.Core.Render
         private readonly GraphicsDevice _graphicsDevice;
         private readonly Effect _effect;
         private readonly EffectTechnique _hullTechnique, _domeTechnique;
-        private readonly EffectTechnique _hullFineTechnique, _bulbTechnique;
+        private readonly EffectTechnique _hullFineTechnique, _bulbTechnique, _antennaTechnique, _crewTechnique, _glassTechnique;
         private readonly EffectParameter _world, _view, _projection, _cameraPosition, _time, _sunDirection, _sunColor;
-        private readonly EffectParameter _skyAmbient, _groundAmbient;
+        private readonly EffectParameter _skyAmbient, _groundAmbient, _lampPosition, _glassSide;
         private readonly SaucerMesh _mesh;
 
         //High and Ultra's parts, by SaucerFineMesh.Part
         private readonly SaucerFineMesh[] _fine;
+
+        //What this frame's opaque draw laid, for the glass after the opaque scene: whether it drew the fine craft, and where
+        private bool _drewFine;
+        private Matrix _drawnAt;
 
         public SaucerFlight(GraphicsDevice graphicsDevice, ContentManager content)
         {
@@ -63,6 +68,9 @@ namespace Prazsky.Core.Render
             _domeTechnique = _effect.Techniques["SaucerDome"];
             _hullFineTechnique = _effect.Techniques["SaucerHullFine"];
             _bulbTechnique = _effect.Techniques["SaucerBulb"];
+            _antennaTechnique = _effect.Techniques["SaucerAntenna"];
+            _crewTechnique = _effect.Techniques["SaucerCrew"];
+            _glassTechnique = _effect.Techniques["SaucerGlass"];
             _world = _effect.Parameters["World"];
             _view = _effect.Parameters["View"];
             _projection = _effect.Parameters["Projection"];
@@ -73,6 +81,8 @@ namespace Prazsky.Core.Render
 
             _skyAmbient = _effect.Parameters["SkyAmbient"];
             _groundAmbient = _effect.Parameters["GroundAmbient"];
+            _lampPosition = _effect.Parameters["LampPosition"];
+            _glassSide = _effect.Parameters["GlassSide"];
             _effect.Parameters["RimRadius"].SetValue(SaucerMesh.RIM_RADIUS);
             _effect.Parameters["RimBand"].SetValue(SaucerMesh.RIM_BAND);
             _effect.Parameters["UnderY"].SetValue(SaucerMesh.UNDER_Y);
@@ -125,14 +135,17 @@ namespace Prazsky.Core.Render
         public void Cue(in SaucerPass pass) => _pass = pass;
 
         /// <summary>Draws the craft, opaque and writing depth, lit by the scene's own rig (<paramref name="lighting"/>, the
-        /// config's, which a level may replace): <paramref name="fine"/> High and Ultra's hull and bulbs
-        /// (<see cref="SaucerFineMesh"/>), else Low and Medium's hull; the coarse dome either way.
+        /// config's, which a level may replace): <paramref name="fine"/> High and Ultra's parts (<see cref="SaucerFineMesh"/>)
+        /// without their glass, which <see cref="DrawGlass"/> lays after the opaque scene, else Low and Medium's two lathes.
         /// Leaves the depth, blend and rasterizer states as it found them.</summary>
         public void Draw(in SceneFrame frame, SpaceLightingConfig lighting, bool fine)
         {
             _skyAmbient.SetValue(lighting.SkyAmbient.ToVector3());
             _groundAmbient.SetValue(lighting.GroundAmbient.ToVector3());
-            _world.SetValue(WorldAt(frame.Time, _pass));
+            _drawnAt = WorldAt(frame.Time, _pass);
+            _drewFine = fine;
+            _world.SetValue(_drawnAt);
+            _lampPosition.SetValue(Vector3.Transform(new Vector3(0f, SaucerFineMesh.LAMP_Y, 0f), _drawnAt));
             _view.SetValue(frame.Camera.View);
             _projection.SetValue(frame.Camera.Projection);
             _cameraPosition.SetValue(frame.Camera.Position);
@@ -151,9 +164,46 @@ namespace Prazsky.Core.Render
             {
                 DrawMesh(_fine[(int)SaucerFineMesh.Part.Hull], _hullFineTechnique);
                 DrawMesh(_fine[(int)SaucerFineMesh.Part.Bulbs], _bulbTechnique);
+                DrawMesh(_fine[(int)SaucerFineMesh.Part.Antenna], _antennaTechnique);
+                DrawMesh(_fine[(int)SaucerFineMesh.Part.Crew], _crewTechnique);
             }
-            else DrawMesh(_mesh.Hull, _hullTechnique);
-            DrawMesh(_mesh.Dome, _domeTechnique);
+            else
+            {
+                DrawMesh(_mesh.Hull, _hullTechnique);
+                DrawMesh(_mesh.Dome, _domeTechnique);
+            }
+
+            _graphicsDevice.BlendState = blend;
+            _graphicsDevice.DepthStencilState = depth;
+            _graphicsDevice.RasterizerState = rasterizer;
+        }
+
+        /// <summary>
+        /// High and Ultra's dome of glass (#1174), after the opaque scene and everything that writes depth, so the crew, the
+        /// cabin and whatever stands beyond the craft show through it, and anything nearer the lens covers it: premultiplied,
+        /// reading the depth and writing none, its inside faces (the far side of the dome) first and its outside ones over
+        /// them. Where <see cref="Draw"/> last put the craft, and nothing when that drew Low and Medium's craft, whose dome is
+        /// opaque. Leaves the depth, blend and rasterizer states as it found them.
+        /// </summary>
+        public void DrawGlass()
+        {
+            if (!_drewFine) return;
+            _world.SetValue(_drawnAt);
+
+            BlendState blend = _graphicsDevice.BlendState;
+            DepthStencilState depth = _graphicsDevice.DepthStencilState;
+            RasterizerState rasterizer = _graphicsDevice.RasterizerState;
+            _graphicsDevice.BlendState = BlendState.AlphaBlend;
+            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
+
+            //The faces wound away from the lens are the dome's inside: culling the ones wound towards it leaves them
+            SaucerFineMesh glass = _fine[(int)SaucerFineMesh.Part.Glass];
+            _graphicsDevice.RasterizerState = RasterizerState.CullClockwise;
+            _glassSide.SetValue(-1f);
+            DrawMesh(glass, _glassTechnique);
+            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+            _glassSide.SetValue(1f);
+            DrawMesh(glass, _glassTechnique);
 
             _graphicsDevice.BlendState = blend;
             _graphicsDevice.DepthStencilState = depth;

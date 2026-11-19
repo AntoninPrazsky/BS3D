@@ -263,6 +263,10 @@ namespace Prazsky.Core.Render
             return true;
         }
 
+        /// <summary>High and Ultra's saucer's dome of glass (#1174), after the opaque scene so the crew and whatever stands
+        /// beyond the craft show through it: see <see cref="SaucerFlight.DrawGlass"/>.</summary>
+        public override void DrawOverlays(in SceneFrame frame) => _saucer.DrawGlass();
+
         /// <inheritdoc/>
         public override bool TryGetLightRig(float wallClock, out SceneLightRig rig)
         {
