@@ -20,6 +20,14 @@ Pravidla:
 
 ---
 
+## 2026-11-19 — #1208 blog „The aliens only come out on High“, posuvník úrovní — desktop (RDT-PC), Claude Code
+
+- Hotovo: článek `Web/src/blog/the-aliens-only-come-out-on-high.md` (pět úrovní detailu, čtyři posuvníky), nová figura `figure.tiers` (`js/tiers.js`, CSS v `site.css`, popis v `docs/website.md`), snímky z capture módu ve 4K (`wind=0`, bez zrna), 30 obrázků, 3,39 MB.
+- Max = Ultra + `maxdetail` + `ssaa=3`. `maxdetail` je zatím jen v nesloučené větvi #1178; snímky Max jsou z oddělené kopie s tím patchem. **Web publikovat až po sloučení #1178**, jinak článek popisuje přepínač, který na mainu není.
+- Změřeno: 120 snímků 4K (meadow, herní pohled) Medium 10,1–10,4 s, High 10,8–11,0, Ultra 10,7–11,1, Max 11,7–11,8, včetně ~7 s startu a zápisu PNG (čas natáčení, ne cena snímku na GPU).
+- ⚠ Úvodní průlet aurory je na Low/Medium jiná kamera než na High+: porovnávat jen přes stejnou kameru (herní pohled, still shot talíře).
+- Otevřené: verdict-eye; posuvník na telefonu a dotykovém displeji není ověřen (headless Edge má minimální šířku ~500 px); publikace webu je na majiteli.
+
 ## 2026-11-19 — #1145 kupy bez rovné hrany, pole kup všech velikostí — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: rovná svislá hrana kup zmizela — march končí na elipsoidu čepice zvětšeném o okraj (`CLOUD_MARGIN` 0,45 R), push billows dozní před ním, krabice obepíná okraj (detektor řezu: louka 55/80 snímků → 0, hory 10/80 → 0). `CloudVolumes.Place` je dvouprůchodová mřížka: velikosti zešikmené k malým, protažení po větru, 30 % velkých kup jsou věže nakloněné po směru pohybu (−Wind), ulice podle pomalého pole, shluky s otevřeným nebem mezi nimi, místo podle sousedů 5×5 (překryv ≤ 15 %). Broken: stopa kup do 1500 jednotek 57 % → ~28 %.
