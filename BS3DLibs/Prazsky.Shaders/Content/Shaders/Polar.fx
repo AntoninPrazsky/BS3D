@@ -336,7 +336,9 @@ PolarVertexOutput PolarVS(PolarVertexInput input)
 //
 //Returns 0..1 and it is a HEIGHT in spirit - the normal comes off it through PerturbNormalFromHeight and the
 //tone darkens in its troughs, which is what makes the field read on the faces the low sun is not raking.
-//It fades towards 0.5 (flat snow) rather than towards zero, so losing the ridges does not also darken the distance.
+//Each octave fades towards its own mean, so the snow keeps its tone where the ridges go. ⚠ Not towards 0.5, which
+//looks like the middle and is about the field's third percentile: the plain beyond the deck, all of it inside the
+//fade, came out a ninth darker than the carved snow in front of it (the tone factor in PolarSurface).
 //
 //⚠ BAND-LIMITED IN THE FIELD'S OWN CELLS, AND LONG BEFORE NYQUIST (#1168). Faded on the standard rule (to nothing
 //at half a cell a pixel, on the world footprint) the plain the play view looks across, all of it beyond the deck and
@@ -350,12 +352,13 @@ PolarVertexOutput PolarVS(PolarVertexInput input)
 //So a cell is whole while a pixel spans SASTRUGI_WHOLE_CELLS of it and gone at SASTRUGI_GONE_CELLS, sixteen pixels a
 //cell, the figures measured on the play view (docs/scenes/polar.md). The span is taken in the stretched wind-space
 //domain itself (its fwidth), so a pixel looking along the wind, down the ridges' long axis, keeps them further out than
-//one looking across it, as the play view does. Each octave fades on its own frequency, the fine one towards its own
-//mean so the field keeps its level while it goes.
+//one looking across it, as the play view does. Each octave fades on its own frequency, towards its own mean.
 static const float SASTRUGI_FINE_SCALE = 2.7;
 
-//The mean of `1 - |GradientNoise2|`, sampled numerically over four million points
+//The mean of the fine octave, `1 - |GradientNoise2|`, and of the two octaves' ridges together (below), each sampled
+//numerically (PolarSastrugiSourceTests holds both against the noise's C# twin)
 static const float SASTRUGI_FINE_MEAN = 0.86;
+static const float SASTRUGI_RIDGES_MEAN = 0.78;
 
 static const float SASTRUGI_WHOLE_CELLS = 1.0 / 48.0;
 static const float SASTRUGI_GONE_CELLS = 1.0 / 16.0;
@@ -381,7 +384,7 @@ float Sastrugi(float2 p)
 
     float ridges = saturate(coarse * coarse * 0.72 + fine * 0.28);
 
-    return lerp(0.5, ridges, SastrugiResolvable(cells));
+    return lerp(SASTRUGI_RIDGES_MEAN, ridges, SastrugiResolvable(cells));
 }
 
 //THE CUTS (#1097): the island's hole and the far ring's inner square. A program that may discard writes its depth after
