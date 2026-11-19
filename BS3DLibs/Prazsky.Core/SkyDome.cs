@@ -32,7 +32,7 @@ namespace Prazsky.Core
     public partial class SkyDome : IDisposable
     {
         /// <summary>How many skies there are — the palette table's length, counted 1-based by callers.</summary>
-        public const byte Count = 21;
+        public const byte Count = 22;
 
         //The CAPTURED mesh: what the eighteen .dae models were, and still the authority on what a sky's colours
         //ARE. Nothing is drawn from it since the banding fix - see BuildDrawnDome - but the palette is read off
@@ -453,6 +453,9 @@ namespace Prazsky.Core
         /// rig is derived from, and what a test holds a re-ramped dome's light to.
         /// </summary>
         internal static (Vector3 Zenith, Vector3 Horizon) RigColoursOf(int domeNumber) => Extract(PALETTES[domeNumber - 1]);
+
+        /// <summary>Where a dome's sun stands, elevation and azimuth in degrees (<c>SUNS</c>), without a device.</summary>
+        internal static (float Elevation, float Azimuth) SunOf(int domeNumber) => SUNS[domeNumber - 1];
 
         /// <summary>The ramp read at one world height, between the two entries straddling it.</summary>
         private static Vector3 SampleRamp(Vector3[] ramp, float lowest, float highest, float y)

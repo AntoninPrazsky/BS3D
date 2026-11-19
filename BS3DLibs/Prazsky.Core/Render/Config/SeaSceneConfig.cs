@@ -116,11 +116,17 @@ namespace Prazsky.Core.Render
         /// <summary>Foam colour (linear).</summary>
         public Rgb FoamColor { get; set; } = new(0.97f, 0.98f, 1.0f);
 
-        /// <summary>Strength of the subsurface crest glow when the sun is behind a wave.</summary>
-        public float SssStrength { get; set; } = 0.7f;
+        /// <summary>
+        /// Strength of the subsurface crest glow when the sun is behind a wave. 0.7 until #1171: over the slate water of the
+        /// sea's own dome (22) that laid a turquoise sheet over the whole sunward quarter of the view (hue 177, saturation 0.45
+        /// at the Testbed's low view into the sun), where the references of a dusk sea draw dark water with the light only in
+        /// the thin crests.
+        /// </summary>
+        public float SssStrength { get; set; } = 0.35f;
 
-        /// <summary>Warm green-blue colour light takes coming through the water (linear).</summary>
-        public Rgb SssColor { get; set; } = new(0.15f, 0.55f, 0.50f);
+        /// <summary>Green-blue colour light takes coming through the water (linear): a sea's, bluer than the lagoon's green
+        /// (0.15, 0.55, 0.50 until #1171).</summary>
+        public Rgb SssColor { get; set; } = new(0.12f, 0.42f, 0.46f);
 
         /// <summary>Distance over which the finite water fades into the skyline.</summary>
         public float HorizonHazeDistance { get; set; } = 700f;

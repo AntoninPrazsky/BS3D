@@ -241,6 +241,21 @@
             //warmer, the light the rock glows red-orange in. The string is that function's output; change the look
             //in the formula, never the digits.
             "FCD69AFCD496F2DBBEFCD69AF2DBBEFFC47AFFC47AEFDDC7EFDDC7F0A864F2DBBEFCD69AFCD496F2DBBEFFC47AEFDDC7F2DBBEFCD69AFCD496F2DBBEFFC47AEFDDC7FCD496F2DBBEFCD69AF2DBBEFFC47AEFDDC7FCD496F2DBBEF2DBBE9DBCE15B8BCBA2C0E2A2C0E25B8BCBE5E2DDE5E2DD6393D06393D05B8BCBA2C0E29DBCE15B8BCBA2C0E2E5E2DDE5E2DD6393D05B8BCB9DBCE1A2C0E2E5E2DDE5E2DD5B8BCBA2C0E26393D0A2C0E29DBCE15B8BCBA2C0E25B8BCBE5E2DDE5E2DD6393D0A2C0E29DBCE15B8BCBA2C0E25B8BCBE5E2DDE5E2DDE6E2DBE6E2DBE6E2DBE6E2DBE6E2DB4071BB4375BE4375BE3768B53768B53464B24071BB4375BE3768B54071BB4375BE3768B54071BB4375BE3768B54071BB",
+            //Dome 22 (#1171, the sea): a dusk at sea under broken cloud - a pale, nearly neutral skyline, faintly warm, under a
+            //grey-blue sky and a slate zenith. The sea stood under dome 13, whose saturated blue-violet zenith the water multiplies
+            //and mirrors (the body came out blue 3.7 times the green), and the owner: "the sea and also the sky ... seem to me too
+            //blue ... the sea is actually darker, especially when it is overcast". The references of a real sea at dusk under
+            //broken cloud (three local models, #1171, from a low shore and from a cliff, towards the sun and away from it) all drew
+            //a grey-blue sky (hue 205-228, saturation 0.1-0.15 in the top band), a warm strip only low by the sun, and slate water
+            //(hue 200-220, saturation 0.1-0.3). Generated as dome 15 was (#1165), colour as a function of each captured vertex's
+            //height, t = 0.5 the horizon - (0.000,112,102,92), (0.136,112,102,92), (0.243,132,122,113), (0.41,157,145,134),
+            //(0.59,140,141,146), (0.72,106,115,129), (0.76,100,109,123), (0.86,88,96,110), (0.90,84,92,106), (0.97,78,86,100),
+            //(1.00,75,83,97). The bottom fifth is the light rig's HorizonColor, so it is the SUN's tint (and the ground's bounce and
+            //the far water's haze): a warm grey of dome 13's teal's brightness, which gives the sun back the warmth of the rig's own
+            //radiance where 13's teal turned it green, at the strength it had. The zenith keeps 13's brightness within a tenth
+            //(the light from above on the island and the balls), without its violet. The string is that function's output; change
+            //the look in the formula, never the digits.
+            "70665C70665C847A7170665C847A7170665C70665C897F75897F7570665C847A7170665C70665C847A7170665C897F75847A7170665C70665C847A7170665C897F7570665C847A7170665C847A7170665C897F7570665C847A71847A718B8C92646D7B8C8D928C8D92646D7B9D91869D9186697280697280646D7B8C8D928B8C92646D7B8C8D929D91869D9186697280646D7B8B8C928C8D929D91869D9186646D7B8C8D926972808C8D928B8C92646D7B8C8D92646D7B9D91869D91866972808C8D928B8C92646D7B8C8D92646D7B9D91869D91869C90869C90869C90869C90869C9086545C6A58606E58606E4E56644E56644B5361545C6A58606E4E5664545C6A58606E4E5664545C6A58606E4E5664545C6A",
         };
 
         //Where each sky's sun stands (issue #220's second pass): elevation above the horizon and azimuth from
@@ -291,6 +306,8 @@
                           //   turrets' near flanks are shaded and their crests catch the silver rim
             (21f, -125f), //21 the outback (#967): a gold afternoon sun low enough that the formations throw long
                           //   shadows, off to the left of the opening view so they fall across the plain towards it
+            (13f,  135f), //22 the sea's dusk under broken cloud (#1171): dome 13's sun, where the sea's prologue climbs to it,
+                          //   its glitter path is laid and the platforms, the lighthouse and the vessels were placed against it
         };
     }
 }
