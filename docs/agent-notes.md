@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-19 — #1154 popisky soukromí písmem textu — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: `MenuPage.FactList` (About > Privacy i Settings > ONLINE) sází popisky v Inter Bold velikostí textu (`MENU_FONT_SMALL`), jak jsou zapsané (Sent, Where, …), bez vynucených verzálek; dál bílé a zarovnané vpravo. Inter Bold už byl načtený za `MenuPage.Strong`, jen je vystavený jako `MenuFontStrong`/`FontStrong`. Regular a Bold mají shodné svislé metriky, takže pokles účaří (`ANTON_ASCENT_OF_LINE`) zmizel; rozestup faktů je teď všude stejný (86 jednotek). Settings > ONLINE je o 6 px na stranu nižší, na telefonu se Added there vejde na řádek. Testy `FactListTests`.
+- ⚠ Starý rozestup byl „stejný“ jen za víceřádkovým faktem; za jednořádkovým stál fakt o 6 jednotek níž pod vyšším Antonem.
+- Otevřené: verdict-eye; skutečný telefon a GL nezkoušeny. Možná šedé popisky jako text (rozhodne majitel).
+
 ## 2026-11-19 — #1158 #1159 #1160 #1161 #1175 poznámky k záběrům úvodů kapitol — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: poušť — kamery brouka a štíra 1,6× dál po téže ose (štír jako nakreslený ~0,22–0,23 šířky 16:9, brouk 0,18); hory — vrchol mířen 16 pod apex, kamera na místě, špička ~0,66 nahoru, skála 53–55 %; jeskyně — pořadí chodba, šachta, krystaly, spodek (losuje se ve starém pořadí, seedy beze změny); grid — jízda 13 napříč (dál v buňce mřížky nejde), cyklus 0,27 šířky; vesmír — talíř 20 u/s místo 28, záběr 5,5 s, úvod 15,5 s.
