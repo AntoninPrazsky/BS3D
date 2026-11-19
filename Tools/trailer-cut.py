@@ -149,9 +149,16 @@ def beats(signal):
 
 def music_track(entry, length):
     """A track from its offset, looped (the game's recordings are loops) to cover length seconds of the timeline."""
-    signal = decode_audio(os.path.join(MUSIC, entry["file"]))
+    # A bare name is one of the game's recordings (Game/Music); a path is the repository's (a track made for the trailer)
+    name = entry["file"]
+    path = os.path.join(ROOT, name) if ("/" in name or "\\" in name) and not os.path.isabs(name) else os.path.join(MUSIC, name)
+    signal = decode_audio(path)
     start = int(round(entry.get("from", 0.0) * RATE))
     need = int(math.ceil(length * RATE))
+    if not entry.get("loop", True):
+        # A piece with an ending (a track made for the trailer) is followed by silence, never by its own beginning
+        piece = signal[start:start + need]
+        return signal, np.concatenate([piece, np.zeros((max(0, need - len(piece)), 2), dtype=np.float32)])
     reps = int(math.ceil((start + need) / len(signal))) + 1
     looped = np.concatenate([signal] * reps)
     return signal, looped[start:start + need]
@@ -229,11 +236,25 @@ def tracked_text(draw, font, text, tracking):
     return width
 
 
-def render_lines(lines, size, tracking=0.08, colour=(255, 255, 255), shadow=0.65, line_gap=0.18):
-    """Text lines in Anton, centred, tracked out, white with a soft dark shadow under them for legibility over any picture: an RGBA
-    image cropped to the text and its shadow. Each line is (text, scale) with scale a multiple of `size` pixels."""
+def load_font(spec, pixels):
+    """The edit's type ("font": {"file": <path from the repository>, "weight": <the variable font's wght axis>}), Anton when it
+    names none."""
+    if not spec:
+        return ImageFont.truetype(FONT, pixels)
+    path = spec["file"] if os.path.isabs(spec["file"]) else os.path.join(ROOT, spec["file"])
+    font = ImageFont.truetype(path, pixels)
+    if "weight" in spec:
+        axes = font.get_variation_axes()
+        font.set_variation_by_axes([spec["weight"] if a.get("name") in (b"Weight", "Weight") else a["default"] for a in axes])
+    return font
+
+
+def render_lines(lines, size, tracking=0.08, colour=(255, 255, 255), shadow=0.65, line_gap=0.18, font_spec=None):
+    """Text lines in the edit's type (Anton by default), centred, tracked out, white with a soft dark shadow under them for
+    legibility over any picture: an RGBA image cropped to the text and its shadow. Each line is (text, scale) with scale a
+    multiple of `size` pixels."""
     pad = int(size * 0.5)
-    fonts = [ImageFont.truetype(FONT, max(8, int(size * scale))) for _, scale in lines]
+    fonts = [load_font(font_spec, max(8, int(size * scale))) for _, scale in lines]
     probe = ImageDraw.Draw(Image.new("L", (8, 8)))
     widths = [tracked_text(probe, font, text, tracking) for (text, _), font in zip(lines, fonts)]
     heights = [font.getbbox("HXg")[3] - font.getbbox("HXg")[1] for font in fonts]
@@ -344,6 +365,14 @@ def main():
             entry["at"] = by_name[at.split(":", 1)[1]]["_start"]
         signal, _ = music_track(entry, 1.0)
         bpm, times = beats(signal)
+        # A generated track may miss the tempo it was asked for and the onsets may lock onto a subdivision: "bpm" and "downbeat"
+        # (seconds into the recording, its drop say) state the grid instead
+        if entry.get("bpm"):
+            bpm = float(entry["bpm"])
+            period = 60.0 / bpm
+            anchor = float(entry.get("downbeat", 0.0))
+            first = anchor - math.floor(anchor / period) * period
+            times = np.arange(first, len(signal) / RATE, period)
         if entry.get("onBeat"):
             wanted = entry.get("from", 0.0)
             entry["from"] = float(times[np.argmin(np.abs(times - wanted))])
@@ -358,8 +387,9 @@ def main():
 
     moved = []
     if edit.get("snap") and grids:
-        # Only the cuts after the switch: the switch itself is where the second track was placed
-        moved = snap_to_beats(segments, grids[-1][2], tracks[-1]["at"] + 1e-3)
+        # Only the cuts after the switch (the switch itself is where the second track was placed), or after "snapFrom" seconds
+        # when the edit holds a moment in place before it (a first shot laid on the music's drop, #1178)
+        moved = snap_to_beats(segments, grids[-1][2], max(tracks[-1]["at"], edit.get("snapFrom", 0.0)) + 1e-3)
     total = build_timeline(segments)
     frames_total = int(round(total * fps))
 
@@ -499,12 +529,14 @@ def main():
                 layers.append(("logo", load_logo(int(width * card.get("logoWidth", 0.42))), card.get("logoY", 0.36)))
             if card.get("lines"):
                 lines = [(text, scale) for text, scale in card["lines"]]
-                layers.append(("text", render_lines(lines, 150 * unit, tracking=card.get("tracking", 0.08)), card.get("textY", 0.5)))
+                layers.append(("text", render_lines(lines, 150 * unit, tracking=card.get("tracking", edit.get("tracking", 0.08)),
+                                                    font_spec=edit.get("font")), card.get("textY", 0.5)))
             prepared[segment["name"]] = layers
     overlays = []
     for card in edit.get("cards", []):
         lines = [(text, scale) for text, scale in card["lines"]]
-        overlays.append((card, render_lines(lines, 150 * unit, tracking=card.get("tracking", 0.08))))
+        overlays.append((card, render_lines(lines, 150 * unit, tracking=card.get("tracking", edit.get("tracking", 0.08)),
+                                            font_spec=edit.get("font"))))
 
     # ---- render and encode
     first, last = 0, frames_total
@@ -537,8 +569,10 @@ def main():
                 picture = clip.frame(int(round((segment["_in"] + local) * clip.fps)))
             else:
                 picture = np.zeros((height, width, 3), dtype=np.float32)
+                card = segment["card"]
                 for kind, layer, y in prepared[segment["name"]]:
-                    opacity, scale = card_motion(local, length, push=segment["card"].get("push", 0.05))
+                    opacity, scale = card_motion(local, length, fade_in=card.get("fadeIn", 0.35), fade_out=card.get("fadeOut", 0.3),
+                                                 push=card.get("push", 0.05))
                     composite(picture, layer, width / 2, y * height, scale, opacity)
             if segment["_overlap"] and local < segment["_overlap"]:
                 a = smooth(local / segment["_overlap"])
@@ -546,18 +580,33 @@ def main():
             else:
                 # A copy: the footage keeps its last frame cached, and the cards and dips below draw into this one
                 frame = picture.copy()
-        # Dips to black around a "dip" cut
+        # Dips to black around a "dip" cut, and through white around a "white" one (the owner's fade from the logo into the
+        # worlds, #1178)
         for segment in segments:
-            if segment["_transition"] == "dip":
+            if segment["_transition"] in ("dip", "white"):
                 half = segment.get("transitionSeconds", 0.4) / 2
                 distance = abs(t - segment["_start"])
                 if distance < half:
-                    frame *= smooth(distance / half)
+                    if segment["_transition"] == "dip":
+                        frame *= smooth(distance / half)
+                    else:
+                        w = 1.0 - smooth(distance / half)
+                        frame = frame * (1.0 - w) + 255.0 * w
         for card, layer in overlays:
             local = t - card["at"]
             if 0 <= local < card["length"]:
-                opacity, scale = card_motion(local, card["length"], push=card.get("push", 0.06))
-                composite(frame, layer, card.get("x", 0.5) * width, card.get("y", 0.5) * height, scale, opacity)
+                opacity, scale = card_motion(local, card["length"], fade_in=card.get("fadeIn", 0.35), fade_out=card.get("fadeOut", 0.3),
+                                             push=card.get("push", 0.06))
+                cy = card.get("y", 0.5) * height
+                # A soft dark band behind text over the footage ("band": its darkness): a thin face over a busy frame needs more
+                # than its own shadow to be read
+                if card.get("band", 0.0) > 0:
+                    half = layer.shape[0] * 0.9
+                    rows = np.arange(height, dtype=np.float32)
+                    falloff = np.clip(1.0 - np.abs(rows - cy) / half, 0.0, 1.0)
+                    shade = 1.0 - card["band"] * opacity * (falloff * falloff * (3 - 2 * falloff))
+                    frame *= shade[:, None, None]
+                composite(frame, layer, card.get("x", 0.5) * width, cy, scale, opacity)
         if edit.get("endFadeVideo"):
             remaining = total - t
             if remaining < edit["endFadeVideo"]:

@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-19 — #1178 trailer v2 — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: trailer v2 (98,95 s, `Videos\BS3D trailer\bs3d-trailer-v2-master.mp4`): logo z černé, přes bílou do 8 průletů po 6 s, dolet sopky za dělo, první výstřel na drop hudby, střídání herního pohledu s kamerami z boku, shora, do trychtýře a zespoda přes sklo, Montserrat 300, hudba z ACE-Step na míru (`Tools/trailer/music`).
+- majitel (verdikt v1): bílé prolnutí, delší průlety, ≥ 90 s, dolet za dělo, střídání kamer, tenčí font, hudba generovaná podle scénáře.
+- ⚠ ACE-Step drží délku úvodu, jen když ji caption pojmenuje („about forty seconds“ + tři intro tagy, 1 ze 3 renderů); tempo nedodržel (171,4 místo 128). Stříhej podle změřeného dropu.
+- Otevřené: verdikt na v2; vesmírné průlety natočeny před #1173 (nový talíř), přetočit po další změně scén.
+
 ## 2026-11-19 — #1173 #1174 detailní talíř a posádka za sklem — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: na High/Ultra je vesmírný talíř `SaucerFineMesh` (pět sítí): trup s 16 radiálními švy, drážkami, límcem, lemem, prstencem kolem zapuštěné tyrkysové čočky a třemi nohami (#1173); 40 skleněných žárovek nad objímkami; anténa zvlášť; kabina se třemi modely posádky kolem konzole a skutečná skleněná kopule kreslená až po neprůhledné scéně (`SaucerFlight.DrawGlass` z `DrawOverlays`, #1174). 34 248 trojúhelníků, +0,03 ms; Low/Medium beze změny (2 208).

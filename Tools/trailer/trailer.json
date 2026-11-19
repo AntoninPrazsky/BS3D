@@ -1,68 +1,76 @@
-// The trailer, v1 (#1178): Tools/trailer-cut.py Tools/trailer/trailer.json
-// The owner's brief (2026-11-18): the 2D logo, a few quick cuts of the scenes' fly-throughs, then fast play, then the special balls
-// and the effects; slow and a little boring at first, then taking off; two tracks with one dramatic switch; the game's sound under
-// the music; big cinematic cards; the website's address at the end.
-// Every "in" below was found in an exploratory capture of the same arguments AT 60 FRAMES A SECOND (its sounds.json names the
-// moment; the size does not matter, the rate does): a play clip's "in" counts from its "from", 2 s of game time.
+// The trailer, v2 (#1178): Tools/trailer-cut.py Tools/trailer/trailer.json
+// The owner's verdict on v1 (2026-11-19): the 2D logo fades in from black, then through white into the worlds' fly-throughs,
+// longer, the whole at least 90 s; the fly-through comes in behind the gun, a moment of calm, then the shooting starts; the
+// camera alternates in play (the game's view, the side, the firing gun from outside, from above, from below), the balls down the
+// funnel more than once, seen from under a glass one; a thinner, more modern face; music generated to the script.
+// The music (Tools/trailer/music/trailer-v2.json) has ~40 s of calm and its drop on a beat at 52.35 s: the first shot is laid on it.
+// Every play "in" was found at 60 frames a second (the size does not matter, the rate does); a play clip's counts from 2 s.
 {
   "format": "bs3d-trailer",
-  "name": "bs3d-trailer",
+  "name": "bs3d-trailer-v2",
   "size": "3840x2160",
   "fps": 60,
+  "font": { "file": "Tools/trailer/fonts/Montserrat-wght.ttf", "weight": 300 },
+  "tracking": 0.16,
   "film": { "quality": "Ultra", "hud": true, "noGrain": true, "audio": true },
   "segments": [
-    // The 2D logo, and its hand-over to the menu's 3D wordmark
-    { "name": "logo", "capture": { "level": "Meander", "from": 0, "splash": true, "hud": false }, "in": 0.1, "length": 3.3, "sound": null },
-    { "name": "worlds", "card": { "lines": [["21 WORLDS", 2.6]] }, "length": 1.5, "transition": "dip", "transitionSeconds": 0.5 },
+    // The 2D logo out of black, held until the white takes it
+    { "name": "logo", "card": { "logo": true, "logoWidth": 0.46, "logoY": 0.5, "fadeIn": 1.8, "fadeOut": 0.01, "push": 0.025 }, "length": 4.6 },
 
-    // The worlds: the chapters' opening fly-throughs, slow, dissolved into each other
-    { "name": "tour-meadow", "capture": { "level": "Pennant", "from": 0 }, "in": 4.6, "length": 2.3, "transition": "dip", "transitionSeconds": 0.5, "sound": null },
-    { "name": "tour-desert", "capture": { "level": "Rope", "from": 0 }, "in": 5.2, "length": 2.3, "transition": "dissolve", "transitionSeconds": 0.6, "sound": null },
-    { "name": "tour-aurora", "capture": { "level": "Fish", "from": 0 }, "in": 1.0, "length": 2.3, "transition": "dissolve", "transitionSeconds": 0.6, "sound": null },
-    { "name": "tour-space", "capture": { "level": "Comet", "from": 0 }, "in": 7.0, "length": 2.3, "transition": "dissolve", "transitionSeconds": 0.6, "sound": null },
-    { "name": "tour-neon", "capture": { "level": "Ziggurat", "from": 0 }, "in": 7.0, "length": 2.3, "transition": "dissolve", "transitionSeconds": 0.6, "sound": null },
-    { "name": "tour-volcano", "capture": { "level": "Breach", "from": 0 }, "in": 10.0, "length": 2.8, "transition": "dissolve", "transitionSeconds": 0.6, "sound": null },
-    { "name": "levels", "card": { "lines": [["140 LEVELS", 2.6]] }, "length": 1.3, "transition": "dip", "transitionSeconds": 0.4 },
+    // The worlds: the chapters' opening fly-throughs, long and slow, dissolved into each other
+    { "name": "tour-meadow", "capture": { "level": "Pennant", "from": 0 }, "in": 3.4, "length": 6.0, "transition": "white", "transitionSeconds": 1.2, "sound": null },
+    { "name": "tour-desert", "capture": { "level": "Rope", "from": 0 }, "in": 3.6, "length": 6.0, "transition": "dissolve", "transitionSeconds": 0.9, "sound": null },
+    { "name": "tour-aurora", "capture": { "level": "Fish", "from": 0 }, "in": 0.4, "length": 6.0, "transition": "dissolve", "transitionSeconds": 0.9, "sound": null },
+    { "name": "tour-dream", "capture": { "level": "Trefoil", "from": 0 }, "in": 7.0, "length": 6.0, "transition": "dissolve", "transitionSeconds": 0.9, "sound": null },
+    { "name": "tour-bigtop", "capture": { "level": "Tightrope", "from": 0 }, "in": 1.0, "length": 6.0, "transition": "dissolve", "transitionSeconds": 0.9, "sound": null },
+    { "name": "tour-space", "capture": { "level": "Comet", "from": 0 }, "in": 5.0, "length": 6.0, "transition": "dissolve", "transitionSeconds": 0.9, "sound": null },
+    { "name": "tour-neon", "capture": { "level": "Ziggurat", "from": 0 }, "in": 4.0, "length": 6.0, "transition": "dissolve", "transitionSeconds": 0.9, "sound": null },
+    { "name": "tour-grid", "capture": { "level": "Menger", "from": 0 }, "in": 3.0, "length": 6.0, "transition": "dissolve", "transitionSeconds": 0.9, "sound": null },
 
-    // The switch: the second track comes in on a downbeat with the first shot. Fast play, cut on the beat
-    { "name": "play-meadow", "capture": { "level": "Cannonball", "from": 2, "demo": true }, "in": 0.6, "length": 2.6, "sound": 0 },
-    { "name": "play-neon", "capture": { "level": "Reel", "from": 2, "demo": true }, "in": 1.7, "length": 1.8, "sound": 0 },
-    { "name": "play-grid", "capture": { "level": "Sierpinski", "from": 2, "demo": true }, "in": 1.2, "length": 1.8, "sound": 0 },
-    { "name": "play-city", "capture": { "level": "Girandole", "from": 2, "demo": true }, "in": 4.2, "length": 1.8, "sound": 0 },
-    { "name": "play-volcano", "capture": { "level": "Vent", "from": 2, "demo": true }, "in": 3.2, "length": 1.8, "sound": 0 },
-    { "name": "play-neon-2", "capture": { "level": "Reel", "from": 2, "demo": true }, "in": 9.3, "length": 1.8, "sound": 0 },
-    { "name": "play-city-2", "capture": { "level": "Girandole", "from": 2, "demo": true }, "in": 9.5, "length": 1.8, "sound": 0 },
-    { "name": "play-dream", "capture": { "level": "Anvil", "from": 2, "demo": true }, "in": 2.5, "length": 1.8, "sound": 0 },
+    // The hand-over: the volcano's tour comes in behind the gun, the HUD rises, the calm, and its first shot lands on the drop
+    // (Breach's first shot is 12.22 s into a window from 10 s: 7.22 s after this clip's in)
+    { "name": "landing", "capture": { "level": "Breach", "from": 10, "demo": true }, "in": 5.27, "length": 9.0, "transition": "dissolve", "transitionSeconds": 0.9, "sound": 0 },
+
+    // Play, the camera alternating: the game's view with its HUD, then views from outside it with none
+    { "name": "play-meadow", "capture": { "level": "Cannonball", "from": 2, "demo": true }, "in": 0.6, "length": 2.8, "sound": 0 },
+    { "name": "side-city", "capture": { "level": "Girandole", "from": 2, "demo": true, "hud": false, "camPos": "-7,-6,19", "camTarget": "0,-5.5,12", "fov": 50 }, "in": 2.8, "length": 2.1, "sound": 0 },
+    { "name": "play-neon", "capture": { "level": "Reel", "from": 2, "demo": true }, "in": 1.7, "length": 2.1, "sound": 0 },
+    { "name": "below-neon", "capture": { "level": "Reel", "from": 2, "demo": true, "hud": false, "camPos": "4,-34,6", "camTarget": "0,-8,0", "fov": 50 }, "in": 2.2, "length": 2.8, "sound": 0 },
+    { "name": "play-grid", "capture": { "level": "Sierpinski", "from": 2, "demo": true }, "in": 1.2, "length": 2.1, "sound": 0 },
+    { "name": "above-dream", "capture": { "level": "Anvil", "from": 2, "demo": true, "hud": false, "camPos": "12,10,34", "camTarget": "0,-4,6", "fov": 50 }, "in": 1.1, "length": 2.1, "sound": 0 },
+    { "name": "play-city", "capture": { "level": "Girandole", "from": 2, "demo": true }, "in": 4.2, "length": 2.1, "sound": 0 },
+    { "name": "funnel-city", "capture": { "level": "Girandole", "from": 2, "demo": true, "hud": false, "camPos": "0,6,9", "camTarget": "0,-12,0", "fov": 50 }, "in": 6.1, "length": 2.1, "sound": 0 },
+    { "name": "play-dream", "capture": { "level": "Anvil", "from": 2, "demo": true }, "in": 2.5, "length": 2.1, "sound": 0 },
+    { "name": "below-dream", "capture": { "level": "Anvil", "from": 2, "demo": true, "hud": false, "camPos": "4,-34,6", "camTarget": "0,-8,0", "fov": 50 }, "in": 6.0, "length": 2.8, "sound": 0 },
 
     // The special balls and the Cut
-    { "name": "special-glass", "capture": { "level": "Umbrella", "from": 2, "demo": true }, "in": 5.8, "length": 2.0, "sound": 0 },
-    { "name": "special-buckshot", "capture": { "level": "Juggler", "from": 2, "demo": true }, "in": 5.7, "length": 2.0, "sound": 0 },
-    { "name": "special-stone", "capture": { "level": "Anvil", "from": 2, "demo": true }, "in": 5.8, "length": 1.8, "sound": 0 },
-    { "name": "special-glass-2", "capture": { "level": "Bell", "from": 2, "demo": true }, "in": 6.2, "length": 1.8, "sound": 0 },
-    { "name": "special-buckshot-2", "capture": { "level": "Sandbags", "from": 2, "demo": true }, "in": 5.9, "length": 1.8, "sound": 0 },
-    { "name": "special-bombs", "capture": { "level": "Paroxysm", "from": 2, "demo": true }, "in": 13.4, "length": 1.8, "sound": 0 },
+    { "name": "special-glass", "capture": { "level": "Umbrella", "from": 2, "demo": true }, "in": 5.8, "length": 2.1, "sound": 0 },
+    { "name": "special-buckshot", "capture": { "level": "Juggler", "from": 2, "demo": true }, "in": 5.7, "length": 2.1, "sound": 0 },
+    { "name": "special-bombs", "capture": { "level": "Paroxysm", "from": 2, "demo": true }, "in": 13.4, "length": 2.1, "sound": 0 },
     { "name": "special-bombs-big", "capture": { "level": "Vent", "from": 2, "demo": true }, "in": 5.8, "length": 2.8, "sound": 2, "duck": 4 },
+    { "name": "bombs-above", "capture": { "level": "Vent", "from": 2, "demo": true, "hud": false, "camPos": "12,10,34", "camTarget": "0,-4,6", "fov": 50 }, "in": 6.0, "length": 2.1, "sound": 0 },
 
-    // The clear: the last balls down the drain, then the volley of the unused ones under the fireworks (Cannonball clears at
-    // 19.5 s at 60 frames a second: a moment found at another rate is another game, see docs/website.md)
-    { "name": "clear-drain", "capture": { "level": "Cannonball", "from": 2, "demo": true }, "in": 19.0, "length": 2.4, "sound": 0 },
-    { "name": "clear-volley", "capture": { "level": "Cannonball", "from": 2, "demo": true }, "in": 23.3, "length": 2.7, "sound": 0 },
+    // The clear: the last balls down the drain, the volley of the unused ones under the fireworks
+    { "name": "clear-drain", "capture": { "level": "Cannonball", "from": 2, "demo": true }, "in": 19.0, "length": 2.8, "sound": 0 },
+    { "name": "clear-volley", "capture": { "level": "Cannonball", "from": 2, "demo": true }, "in": 23.3, "length": 2.8, "sound": 0 },
 
-    { "name": "end", "card": { "logo": true, "logoWidth": 0.42, "logoY": 0.37,
-        "lines": [["FREE  ·  140 LEVELS  ·  21 WORLDS", 0.85], ["WINDOWS  ·  ANDROID  ·  RASPBERRY PI 5", 0.62], ["bs3d.winphonew.eu", 0.95]],
-        "textY": 0.77, "push": 0.03 },
-      "length": 6.0, "transition": "dip", "transitionSeconds": 0.6 }
+    { "name": "end", "card": { "logo": true, "logoWidth": 0.4, "logoY": 0.38, "fadeIn": 0.8, "fadeOut": 1.2,
+        "lines": [["FREE  ·  140 LEVELS  ·  21 WORLDS", 0.8], ["WINDOWS  ·  ANDROID  ·  RASPBERRY PI 5", 0.6], ["bs3d.winphonew.eu", 0.92]],
+        "textY": 0.78, "push": 0.025 },
+      "length": 4.6, "transition": "dip", "transitionSeconds": 0.6 }
   ],
   "cards": [
-    { "lines": [["SHOOT.  MATCH.  BRING IT DOWN.", 1.7]], "at": "segment:play-neon", "offset": 0.2, "length": 1.6, "y": 0.5 },
-    { "lines": [["SPECIAL BALLS", 1.9]], "at": "segment:special-glass", "offset": 0.1, "length": 1.4, "y": 0.5 }
+    { "lines": [["21 WORLDS", 1.5]], "at": "segment:tour-meadow", "offset": 1.4, "length": 3.6, "y": 0.5, "band": 0.3, "fadeIn": 0.9, "fadeOut": 0.9, "push": 0.04 },
+    { "lines": [["140 LEVELS", 1.5]], "at": "segment:landing", "offset": 1.0, "length": 3.2, "y": 0.42, "band": 0.3, "fadeIn": 0.8, "fadeOut": 0.8, "push": 0.04 },
+    { "lines": [["SHOOT.  MATCH.  BRING IT DOWN.", 0.95]], "at": "segment:play-neon", "offset": 0.1, "length": 2.0, "y": 0.5, "band": 0.4, "tracking": 0.12 },
+    { "lines": [["SPECIAL BALLS", 1.2]], "at": "segment:special-glass", "offset": 0.1, "length": 1.6, "y": 0.5, "band": 0.4 }
   ],
   "music": [
-    { "file": "nebula-shoegaze.ogg", "from": 35.0, "at": 0.0, "gain": 0 },
-    { "file": "nebula-trance.ogg", "from": 3.0, "onBeat": true, "at": "segment:play-meadow", "gain": 0 }
+    { "file": "Tools/trailer/music/trailer-v2.ogg", "from": 0.0, "at": 0.0, "gain": 0, "bpm": 85.714, "downbeat": 52.35, "loop": false }
   ],
   "snap": true,
+  "snapFrom": 53.0,
   "mix": { "music": -16.0, "game": -20.0 },
-  "endFade": 3.0,
-  "endFadeVideo": 1.0
+  "endFade": 2.0,
+  "endFadeVideo": 1.2
 }

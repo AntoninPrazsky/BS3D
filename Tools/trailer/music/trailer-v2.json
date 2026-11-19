@@ -1,0 +1,25 @@
+{
+  "file": "trailer-v2.ogg",
+  "created": "2026-11-19",
+  "issue": 1178,
+  "purpose": "The trailer v2's own music, generated to its script: the owner's ask of 2026-11-19 (\"let us try how it would sound with audio generated for the trailer, exactly to its script, with the local generative AI\").",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan - C:\\Users\\panrd\\AI\\generate-music.ps1 -NoCotCaption, no loop cut",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "request": {
+    "caption": "Cinematic electronic video game trailer music, instrumental. It opens with a long, slow, calm and dreamy ambient intro lasting about forty seconds, only soft airy synth pads and gentle sparkling arpeggios, no drums and no bass; then a rising build-up with a filtered riser, a snare roll and a moment of near silence; then a big powerful drop into energetic, driving modern electronic music with punchy electronic drums, pulsing synth bass, a bright catchy analog synth lead and wide supersaw chords, building higher to a soaring euphoric peak; it ends on a big final hit with a short reverb tail. Glossy modern production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, no vocals",
+    "negative": "vocals, singing, voice, choir, audience applause, crowd noise, live recording, childish, cute, sugary, toy piano, music box, plucked strings, drum solo, boomy sub bass, distorted bass, dubstep wobble, heavy metal guitar, fade out, abrupt cut",
+    "lyrics": "[Intro - ambient pads] [Intro - ambient pads] [Intro - ambient arpeggios] [Build-up] [Drop] [Chorus] [Breakdown] [Final Chorus] [Outro], each [Instrumental]",
+    "instrumental": true,
+    "use_cot_caption": false,
+    "duration": 100,
+    "bpm": 128,
+    "keyscale": "A minor",
+    "seed": 1178011,
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "post_process": "Ogg Vorbis from the 48 kHz float master through libsndfile, nothing else: no loudness change, no cut (the trailer's cut sets the level).",
+  "rounds": "Round 1 (seeds 1178001-1178003, 96 s, one [Intro] tag): no render had the long calm intro - 001 loud from the start with its last ~10 s silent, 002 a slow climb, 003 a 15 s intro and a drop. Round 2 (this caption naming forty seconds, three intro tags, 100 s): 011 has it; 012 and 013 do not.",
+  "measured": "300 Hz-4 kHz energy: ~40 s calm (12 dB under the body), a climb from ~40 s, the drop on a beat at 52.35 s, full to ~96 s, its tail above -40 dBFS until 97.35 s of 99.44 s. The model did not keep the asked 128 BPM: the body's onsets repeat at 171.4 BPM (0.35 s; 85.7 the half), the grid the trailer cuts on.",
+  "master": "C:\\Users\\panrd\\AI\\output\\trailer-1178\\trailer-1178011.wav (outside the repository; the five other renders beside it)"
+}
