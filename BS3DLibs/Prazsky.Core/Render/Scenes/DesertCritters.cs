@@ -195,6 +195,16 @@ namespace Prazsky.Core.Render
         /// <summary>How long the featured scorpion's (or beetle's) walk lasts.</summary>
         internal static float FeatureWalkSeconds(bool scorpion) => scorpion ? FEATURE_SCORPION_WALK : FEATURE_BEETLE_WALK;
 
+        /// <summary>Where a creature's body (<see cref="CritterMesh"/>, one body length long) is drawn in a pose: scaled to its
+        /// kind's size, its nose tipped by the pitch, turned to its heading and sunk into the sand by its own heights (half its
+        /// size).</summary>
+        internal static Matrix World(in Pose pose, bool scorpion)
+        {
+            float size = scorpion ? SCORPION_SIZE : BEETLE_SIZE;
+            return Matrix.CreateScale(size) * Matrix.CreateRotationX(-pose.Pitch) * Matrix.CreateRotationY(pose.Yaw)
+                * Matrix.CreateTranslation(pose.Position - new Vector3(0f, pose.Sunk * size * 0.5f, 0f));
+        }
+
         /// <summary>A featured creature's pose, on its own short timeline from its cue; false before and after it. It walks at
         /// its kind's pace with the others' stops and starts, straight on along <paramref name="yaw"/>.</summary>
         internal static bool TryFeaturePose(Vector2 at, float yaw, float onset, float time, Func<float, float, float> ground, out Pose pose,
@@ -308,11 +318,8 @@ namespace Prazsky.Core.Render
                 bool scorpion = slot >= 0 ? slot == 1 : IsScorpion(i);
                 float size = scorpion ? SCORPION_SIZE : BEETLE_SIZE;
                 int kind = scorpion ? 1 : 0;
-                float height = size * 0.5f;
 
-                Matrix world = Matrix.CreateScale(size) * Matrix.CreateRotationX(-pose.Pitch) * Matrix.CreateRotationY(pose.Yaw)
-                    * Matrix.CreateTranslation(pose.Position - new Vector3(0f, pose.Sunk * height, 0f));
-                _instanceData[kind][counts[kind]++] = new ModelInstance(world, new Vector4(pose.Gait, i * 0.137f, kind, 0f));
+                _instanceData[kind][counts[kind]++] = new ModelInstance(World(pose, scorpion), new Vector4(pose.Gait, i * 0.137f, kind, 0f));
 
                 //A beetle's trail of prints behind it, along the way it walked, fading with age
                 if (!scorpion && pose.Walked > 0f)

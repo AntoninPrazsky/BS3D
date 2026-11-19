@@ -54,13 +54,12 @@ namespace BS3D.Effects
         //and this high over the floor (over the walls' 2.6 and the cycle's 2.5); and what it looks at, this far behind the
         //middle and this high, so the whole cycle stands near the middle of the frame, at any aspect from 4:3, with its wall
         //running back from it. ⚠ 1.5 behind put the front wheel at 0.94 of a 4:3 frame's half-width.
-        //Far enough off that the cycle spans about a quarter of a 16:9 frame's width (0.27 on average, GridRideTests; #1161, the
-        //owner: "the motorcycles do not have much detail, so we should not show them needlessly close"): 9 across, 1.5 ahead
-        //and 3.4 up it spanned 0.40, and the stand was moved back along the line of sight to the look, so the view's direction
-        //is the same. ⚠ The lattice's lines are LightCycles.LATTICE (16) apart and a wall on one keeps the lens WALL_CLEARANCE
-        //off it, so a lens 13 to 19 across stands within 3 of the next line and is refused wherever a wall runs along it: 13 is
-        //the farthest across that keeps the lens in the cycle's own cell. The farther off, the faster the lens swings round the
-        //cycle through a turn (up to 43 u/s; 37 at 9 across)
+        //Far enough off that the cycle spans about a quarter of a 16:9 frame's width (#1161, the owner: "the motorcycles do not
+        //have much detail, so we should not show them needlessly close"; GridRideTests holds the span). ⚠ The lattice's lines
+        //are LightCycles.LATTICE apart and a wall on one keeps the lens WALL_CLEARANCE off it, so a lens farther across than
+        //LATTICE less WALL_CLEARANCE stands within WALL_CLEARANCE of the next line and is refused wherever a wall runs along it:
+        //SIDE is the farthest across that keeps the lens in the cycle's own cell. The farther off, the faster the lens swings
+        //round the cycle through a turn (GridRideTests bounds its speed by SIDE); the view's own turn does not change with it
         internal const float SIDE = 13f;
         internal const float AHEAD = 2.4f;
         internal const float HEIGHT = 4.4f;
@@ -76,7 +75,7 @@ namespace BS3D.Effects
 
         //What the lens keeps off, through the seconds the shot plays in: any wall seen from above; any other cycle's middle; any
         //solid or the ring (the cycles ride inside the solids' ring, but a cube near its inner edge reaches in among them, and
-        //the lens rides 9 aside of its cycle); and the cycle it films keeps its own body off any solid. Every run keeps further
+        //the lens rides SIDE aside of its cycle); and the cycle it films keeps its own body off any solid. Every run keeps further
         //off the solids it was made among (LightCycles.SOLID_CLEARANCE, #1136), so that last binds only on a solid handed to
         //the ride and not to its runs
         internal const float WALL_CLEARANCE = 3f;

@@ -84,10 +84,9 @@ namespace BS3D.Effects
         //BEETLE_LENS_ABOVE over the sand, dollying with its pace smoothed over BEETLE_SMOOTH either side; the look
         //BEETLE_LOOK_ABOVE over its foot, so it walks in the lower third with the far dunes along the top edge; BEETLE_LENS of
         //the game's lens. The lens looks down on it at about the twenty degrees the references do, so its trail lies open
-        //behind it, and stands back far enough that the beetle fills about a sixth of a 16:9 frame's width (#1158, the owner:
-        //"they are small beetles and the burrowing animation does not look very realistic, so let it be seen less"; 2.2 off its
-        //line it filled a quarter). The three lens figures are one stand moved back along the line of sight to the look, so the
-        //view's direction is the nearer stand's and only the beetle's size in the frame differs.
+        //behind it, and stands back far enough that the beetle as drawn, antennae and legs included, spans under a fifth of a
+        //16:9 frame's width (#1158, the owner: "they are small beetles and the burrowing animation does not look very realistic,
+        //so let it be seen less"; DesertIntroShotsTests holds it).
         internal const float BEETLE_SIDE = 3.5f, BEETLE_AHEAD = 0.8f, BEETLE_LENS_ABOVE = 1.23f, BEETLE_LOOK_ABOVE = 0.35f;
         private const float BEETLE_INNER = 40f, BEETLE_OUTER = 68f;
         internal const float BEETLE_WALKED = 1.2f, BEETLE_SECONDS = 3.6f, BEETLE_LENS = 0.7f;

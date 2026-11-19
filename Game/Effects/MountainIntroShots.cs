@@ -50,17 +50,17 @@ namespace BS3D.Effects
         //SUMMIT_STEP units; the lens turns round it this far out, this far UNDER the summit (the ground only
         //lifts it), so the peak stands over the lens. ⚠ Ten units OVER it, the first cut looked level across a
         //row of crests of one height, and which of them was the summit could not be told.
-        //The look is on the peak's axis SUMMIT_LOOK_UNDER under the apex, not on the apex: looking at the apex itself
-        //tilted the view up 22 degrees and put the apex at the frame's middle, and some 70 % of the frame was sky (#1159, the
-        //owner: "the rock should be what is seen"). This low the view tilts up 6.5 degrees, the apex stands four fifths of the
-        //way up the frame and about 60 % of it is rock (MountainIntroShotsTests); the lens is where it was, so the crests
-        //stand apart as they did.
+        //The look is on the peak's axis SUMMIT_LOOK_UNDER under the highest sample, so the view tilts up only a little and the
+        //rock is what is seen (#1159, the owner: "half of the picture is sky, which is not necessary; the rock should be what is
+        //seen"): the drawn tip, which stands up to a few units over the highest sample and beside it, high in the frame, the
+        //summit whole against the sky over it, and more than half the frame rock (MountainIntroShotsTests holds both).
+        //⚠ Looking at the apex itself tilts the view up 22 degrees and leaves some 70 % of the frame sky.
         private const float SUMMIT_INNER = 170f;
         private const float SUMMIT_OUTER = 420f;
         private const float SUMMIT_STEP = 6f;
         private const float SUMMIT_ORBIT = 70f;
         private const float SUMMIT_UNDER = 28f;
-        internal const float SUMMIT_LOOK_UNDER = 20f;
+        internal const float SUMMIT_LOOK_UNDER = 16f;
         private const float SUMMIT_SWEEP_RADIANS = 0.55f;
         internal const float SUMMIT_CLEARANCE = 10f;
         private const float SUMMIT_SECONDS = 3.2f;

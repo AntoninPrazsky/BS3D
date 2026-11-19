@@ -217,14 +217,16 @@ namespace BS3D.Tests
         /// <summary>
         /// The close shots stand back (#1158, the owner: "in the close-ups of the beetle and the scorpion the camera should be
         /// somewhat farther away. They are small beetles and the burrowing/emerging animation does not look very realistic, so
-        /// let it be seen less"): through its walk across the frame each creature's length (<see cref="DesertCritters"/>' size along its
-        /// heading) spans <see cref="CREATURE_SHARE_MIN"/> to <see cref="CREATURE_SHARE_MAX"/> of a 16:9 frame's width at the
-        /// shot's own lens: the beetle in its shot, the scorpion in the scorpion home until it lifts off and in the scorpion shot
-        /// that stands in where no flight home is clear. From the nearer stands (2.2 off the beetle's line, 3.4 off the
-        /// scorpion's walk) the beetle spanned 0.23-0.24 and the scorpion 0.24-0.30.
+        /// let it be seen less"): through its walk across the frame each creature's body as drawn (every vertex of
+        /// <see cref="CritterMesh"/>'s High and Ultra body, whose extents Low and Medium's share, placed by
+        /// <see cref="DesertCritters.World"/>: the scorpion's pincers and the curl of its tail, the beetle's antennae and its
+        /// legs) spans at most <see cref="BEETLE_SHARE_MAX"/> or <see cref="SCORPION_SHARE_MAX"/> of a 16:9 frame's width at the
+        /// shot's own lens, and at least <see cref="CREATURE_SHARE_MIN"/>: the beetle in its shot, the scorpion in the scorpion
+        /// home until it lifts off and in the scorpion shot that stands in where no flight home is clear. Both maxima fail with
+        /// the lens 2.2 off the beetle's line and 3.4 off the scorpion's walk.
         /// </summary>
         [Fact]
-        public void The_close_shots_stand_back_so_each_creature_spans_about_a_sixth_of_the_frame()
+        public void The_close_shots_stand_back_so_each_creature_is_small_in_the_frame()
         {
             (float Least, float Most) beetle = (float.MaxValue, 0f), home = (float.MaxValue, 0f), scorpion = (float.MaxValue, 0f);
             for (int seed = 1; seed <= ROLLS; seed++)
@@ -232,47 +234,65 @@ namespace BS3D.Tests
                 var cue = new Cue();
                 IntroShot shot = DesertIntroShots.Beetle(cue.Take, Desert, Ground, FieldOfView, new Random(seed));
                 shot.Track(0f);
-                Spans(ref beetle, shot, cue.At, cue.Yaw, cue.Onset, 0f, SceneRenderer.DesertFeatureWalkEnds(scorpion: false) + cue.Onset,
-                    DesertCritters.BEETLE_SIZE, scorpion: false);
+                Spans(ref beetle, shot, cue.At, cue.Yaw, cue.Onset, 0f, SceneRenderer.DesertFeatureWalkEnds(scorpion: false) + cue.Onset, scorpion: false);
 
                 IntroShot flight = DesertLanding.Build(Desert, null, GamePosition, GameTarget, FieldOfView, new Random(seed), out DesertLanding.Walk walk);
                 Spans(ref home, flight, walk.Start, walk.Yaw, DesertLanding.ONSET, DesertLanding.ONSET + SceneRenderer.DESERT_FEATURE_EMERGE_SECONDS,
-                    DesertLanding.Lift, DesertCritters.SCORPION_SIZE, scorpion: true);
+                    DesertLanding.Lift, scorpion: true);
 
                 cue = new Cue();
                 shot = DesertIntroShots.Scorpion(cue.Take, Desert, Ground, FieldOfView, new Random(seed));
                 shot.Track(0f);
                 Spans(ref scorpion, shot, cue.At, cue.Yaw, cue.Onset, DesertIntroShots.SCORPION_ONSET + SceneRenderer.DESERT_FEATURE_EMERGE_SECONDS,
-                    DesertIntroShots.SCORPION_ONSET + SceneRenderer.DesertFeatureWalkEnds(), DesertCritters.SCORPION_SIZE, scorpion: true);
+                    DesertIntroShots.SCORPION_ONSET + SceneRenderer.DesertFeatureWalkEnds(), scorpion: true);
             }
 
             _output.WriteLine(FormattableString.Invariant(
-                $"of a 16:9 frame's width: the beetle {beetle.Least:F2}-{beetle.Most:F2}, the scorpion home's {home.Least:F2}-{home.Most:F2}, the scorpion shot's {scorpion.Least:F2}-{scorpion.Most:F2}"));
-            foreach ((string what, (float least, float most)) in new[] { ("the beetle", beetle), ("the scorpion home's scorpion", home), ("the scorpion", scorpion) })
+                $"of a 16:9 frame's width, as drawn: the beetle {beetle.Least:F2}-{beetle.Most:F2}, the scorpion home's {home.Least:F2}-{home.Most:F2}, the scorpion shot's {scorpion.Least:F2}-{scorpion.Most:F2}"));
+            foreach ((string what, (float least, float most), float max) in new[]
+                { ("the beetle", beetle, BEETLE_SHARE_MAX), ("the scorpion home's scorpion", home, SCORPION_SHARE_MAX), ("the scorpion", scorpion, SCORPION_SHARE_MAX) })
             {
-                Assert.True(most <= CREATURE_SHARE_MAX, $"{what} spans up to {most:F2} of the frame's width");
+                Assert.True(most <= max, $"{what} spans up to {most:F2} of the frame's width");
                 Assert.True(least >= CREATURE_SHARE_MIN, $"{what} spans as little as {least:F2} of the frame's width");
             }
         }
 
-        //A creature's length as a share of a 16:9 frame's width, at most and at least (small but readable, the owner's "somewhat
-        //farther")
-        private const float CREATURE_SHARE_MIN = 0.11f, CREATURE_SHARE_MAX = 0.2f;
+        //A creature's body as drawn, as a share of a 16:9 frame's width: at most these (the owner's "somewhat farther": the
+        //beetle under a fifth, the scorpion about a quarter, its pincers and its tail's curl reaching past its body), and at least
+        //this (small but readable)
+        private const float BEETLE_SHARE_MAX = 0.2f, SCORPION_SHARE_MAX = 0.3f, CREATURE_SHARE_MIN = 0.12f;
+
+        private static readonly Vector3[] BeetleBody = CritterMesh.FineBeetle().Vertices.Select(v => v.Position).ToArray();
+        private static readonly Vector3[] ScorpionBody = CritterMesh.FineScorpion().Vertices.Select(v => v.Position).ToArray();
 
         //The least and the most of the frame's width the creature cued at `at` along `yaw` (its onset `onset` seconds from the
-        //shot's first frame) spans from `from` to `to` seconds into the shot, its length laid along its heading over its foot
+        //shot's first frame) spans from `from` to `to` seconds into the shot: its body's every vertex where the scene draws it,
+        //at rest (the gait's swing of the legs and the tail is left out)
         private static void Spans(ref (float Least, float Most) span, IntroShot shot, Vector2 at, float yaw, float onset, float from, float to,
-            float length, bool scorpion)
+            bool scorpion)
         {
-            var heading = new Vector3(MathF.Sin(yaw), 0f, MathF.Cos(yaw));
+            Vector3[] body = scorpion ? ScorpionBody : BeetleBody;
             for (float seconds = from; seconds <= to; seconds += 0.05f)
             {
                 float t = seconds / shot.Seconds;
                 shot.Pose(t, out Vector3 lens, out Vector3 look);
-                Vector3 foot = SceneRenderer.DesertFeatureAt(at, yaw, seconds - onset, Desert, scorpion);
-                Vector2 nose = DesertLandingTests.Screen(lens, look, foot + heading * (length * 0.5f), shot.FieldOfViewAt(t), 16f / 9f);
-                Vector2 tail = DesertLandingTests.Screen(lens, look, foot - heading * (length * 0.5f), shot.FieldOfViewAt(t), 16f / 9f);
-                float share = MathF.Abs(nose.X - tail.X) * 0.5f;
+                Assert.True(DesertCritters.TryFeaturePose(at, yaw, onset, seconds, Ground, out DesertCritters.Pose pose, scorpion),
+                    $"no {(scorpion ? "scorpion" : "beetle")} {seconds:F2} s into {shot.Name}");
+                Matrix world = DesertCritters.World(pose, scorpion);
+
+                Vector3 forward = Vector3.Normalize(look - lens);
+                Vector3 right = Vector3.Normalize(Vector3.Cross(forward, Vector3.Up));
+                float across = MathF.Tan(shot.FieldOfViewAt(t) * 0.5f) * 16f / 9f;
+                float left = float.MaxValue, rightmost = float.MinValue;
+                foreach (Vector3 vertex in body)
+                {
+                    Vector3 d = Vector3.Transform(vertex, world) - lens;
+                    float x = Vector3.Dot(d, right) / Vector3.Dot(d, forward) / across;
+                    left = MathF.Min(left, x);
+                    rightmost = MathF.Max(rightmost, x);
+                }
+
+                float share = (rightmost - left) * 0.5f;
                 span = (MathF.Min(span.Least, share), MathF.Max(span.Most, share));
             }
         }
