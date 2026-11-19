@@ -329,8 +329,9 @@ namespace BS3D.Screens
 
         private Widget BuildBody(int page)
         {
-            //The odd balls as cards on the phone (#1183): thirteen entries in two columns were three screens
-            if (_phone && page == TAB_BALLS) return BuildBallCards();
+            //The odd balls as cards on the phone (#1183): thirteen entries in two columns were three screens. A screen too narrow
+            //for the cards and their panel gets none (null) and keeps the list
+            if (_phone && page == TAB_BALLS && BuildBallCards() is Widget cards) return cards;
 
             VerticalStackPanel body = MenuColumn();
 
@@ -822,11 +823,6 @@ namespace BS3D.Screens
         /// </summary>
         private Widget BuildBallCards()
         {
-            _ballCards = new Button[BallCount];
-            _ballCardNames = new Label[BallCount];
-            _ballCardStrips = new Panel[BallCount];
-            _ballChosen = Math.Clamp(_ballChosen, 0, BallCount - 1);
-
             FontStashSharp.SpriteFontBase nameFont = Game.MenuFontLead;
             int square = Scaled(BALL_CARD_SQUARE);
             int nameWidth = 0;
@@ -836,9 +832,20 @@ namespace BS3D.Screens
             //MenuTile's own padding (18 x 12 units) inside the card, round the ball and the widest name on its strip
             int cardWidth = Math.Max(square, nameWidth) + 2 * Scaled(BALL_CARD_SIDE);
             int cardHeight = square + Scaled(BALL_CARD_LINE_GAP) + nameFont.LineHeight + 2 * Scaled(BALL_CARD_STRIP_Y) + 2 * Scaled(12);
+
+            //The panel takes what the cards leave of the tab's two columns, at most the prose measure. A screen too narrow for
+            //it at half the measure (a squarer phone drawn larger) keeps the list in two columns, which scrolls
+            int gap = Scaled(WideMenuLayout.TILE_GAP);
+            int gridWidth = BALL_CARD_COLUMNS * cardWidth + (BALL_CARD_COLUMNS - 1) * gap;
+            int panelWidth = Math.Min(ProseMeasure, 2 * _proseWidth - gridWidth);
+            if (panelWidth < ProseMeasure / 2) return null;
+
+            _ballCards = new Button[BallCount];
+            _ballCardNames = new Label[BallCount];
+            _ballCardStrips = new Panel[BallCount];
+            _ballChosen = Math.Clamp(_ballChosen, 0, BallCount - 1);
             _ballCardSize = new Point(cardWidth, cardHeight);
 
-            int gap = Scaled(WideMenuLayout.TILE_GAP);
             Grid cards = new()
             {
                 ColumnSpacing = gap,
@@ -867,14 +874,9 @@ namespace BS3D.Screens
                 if (++column == BALL_CARD_COLUMNS) (row, column) = (row + 1, 0);
             }
 
-            int gridWidth = BALL_CARD_COLUMNS * cardWidth + (BALL_CARD_COLUMNS - 1) * gap;
-
             VerticalStackPanel left = new() { Spacing = ParagraphGap, VerticalAlignment = VerticalAlignment.Top };
             left.Widgets.Add(cards);
             left.Widgets.Add(Aside(POWERUPS_ASIDE, gridWidth));
-
-            //The panel takes what the cards leave of the tab's two columns, at most the prose measure
-            int panelWidth = Math.Min(ProseMeasure, 2 * _proseWidth - gridWidth);
 
             VerticalStackPanel panel = new() { Spacing = 0, VerticalAlignment = VerticalAlignment.Top };
             _ballLead = Aside(BallLead(_ballChosen), panelWidth);
