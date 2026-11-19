@@ -1150,6 +1150,9 @@ namespace BS3D
         internal SpriteFontBase MenuFontStars => _menuFontStars;
         internal SpriteFontBase MenuFontTile => _menuFontTile;
 
+        /// <summary>The display face at the small face's size, a lead-in's (#996): Help's odd-ball cards name their ball in it (#1183).</summary>
+        internal SpriteFontBase MenuFontLead => _menuFontLead;
+
         //What the pages ask the game about itself. Read-only: a page shows state and asks for an action, and
         //nothing here lets it write one directly.
         internal bool HasSession => _gameplayScreen != null && _gameplayScreen.IsBuilt;

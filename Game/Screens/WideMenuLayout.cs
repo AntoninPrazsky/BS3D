@@ -86,6 +86,14 @@ namespace BS3D.Screens
         /// <summary>The High Scores page's columns of rows: a chapter's ten levels in two columns of five.</summary>
         internal const int BOARD_COLUMNS = 2;
 
+        /// <summary>
+        /// Help's ODD BALLS on the phone layout as cards (#1183): five to a row, so the cluster's ten kinds stand in two rows
+        /// and the cannon's two with the dead weight in a third, and the square each card's live ball is drawn in, in design
+        /// units. The square alone is taller than a finger's target (<see cref="TOUCH_TARGET_MM"/>); the card adds its name.
+        /// </summary>
+        internal const int ODD_BALL_COLUMNS = 5;
+        internal const int ODD_BALL_SQUARE = 230;
+
         /// <summary>How many rows <paramref name="count"/> entries take in <paramref name="columns"/> columns.</summary>
         internal static int Rows(int count, int columns) => columns <= 0 ? 0 : (count + columns - 1) / columns;
 
