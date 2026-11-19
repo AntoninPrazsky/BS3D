@@ -54,10 +54,10 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The cable's radius, in world units (a ball is one across), as it is drawn from near: a ninth of a ball across,
-        /// still wire against a pane a dozen balls wide, and three to five pixels wide from the menu's orbit and the result
-        /// page's swing-out at 1080 to 1600 pixels high (#1155: at 0.035 it was two, and seen through the glass's cut it
-        /// broke into a jagged squiggle). Further off, where this would be under <see cref="MIN_CABLE_PIXELS"/> on the
-        /// screen, <see cref="CableRadius"/> draws it wider.
+        /// still wire against a pane a dozen balls wide, and about four pixels wide forty units off on a frame 1080 high
+        /// (the menu's wide orbit, the result page's swing-out; #1155: at 0.035 it was two and a half, and seen through the
+        /// glass's cut it broke into a jagged squiggle). Further off, where this would be under
+        /// <see cref="MIN_CABLE_PIXELS"/> on the screen, <see cref="CableRadius"/> draws it wider.
         /// </summary>
         public const float CABLE_RADIUS = 0.055f;
 
@@ -114,9 +114,27 @@ namespace Prazsky.Core.Render
         //The axle's height over the top face: the flanges clear the glass by a few hundredths
         private const float AXIS_HEIGHT = FLANGE_RADIUS + 0.04f;
 
+        //The cable's round: finer than the axle's, since a lens can come close enough for the cable to be a dozen pixels wide
+        private const int CABLE_SIDES = 12;
+
+        /// <summary>
+        /// How deep a thin cable is drawn along the lens's view, as a share of its radius (#1155; <see cref="CableDepth"/>).
+        /// The width the lens sees is untouched, but the normals of a cross-section this flat face the lens within 15 degrees
+        /// over the middle 70 % of that width, so the cable is one tone across it. Shaded round, it is lit on one half and
+        /// dark on the other, and a line a pixel or two wide drifting across the pixel columns shows the one half, then the
+        /// other: a light and dark stepping all along it.
+        /// </summary>
+        internal const float CABLE_FLAT_DEPTH = 0.25f;
+
+        //Up to how wide on the screen, in pixels, the cable is drawn CABLE_FLAT_DEPTH deep, and from how wide fully round:
+        //under three a half of it is about a pixel and flickers between columns, from six each half holds its own pixels
+        private const float CABLE_FLAT_PIXELS = 3f;
+        private const float CABLE_ROUND_PIXELS = 6f;
+
         private const int CORNERS = 4;
 
         private readonly GraphicsDevice _device;
+        private readonly LatheMesh _cableMesh;
         private readonly LatheMesh _rod;
         private readonly LatheMesh _drumMesh;
         private readonly BoxMesh _blockMesh;
@@ -138,11 +156,12 @@ namespace Prazsky.Core.Render
         public CeilingRigging(GraphicsDevice device, Effect instancingEffect)
         {
             _device = device;
+            _cableMesh = BuildCable(device);
             _rod = BuildRod(device);
             _drumMesh = BuildDrum(device);
             _blockMesh = new BoxMesh(device, BLOCK_WIDTH, AXIS_HEIGHT + BLOCK_CAP, BLOCK_DEPTH);
 
-            _cable = new InstancedModelRenderer(device, _rod, STEEL_COLOR, instancingEffect) { SpecularAmbientStrength = STEEL_SPECULAR_AMBIENT };
+            _cable = new InstancedModelRenderer(device, _cableMesh, STEEL_COLOR, instancingEffect) { SpecularAmbientStrength = STEEL_SPECULAR_AMBIENT };
             _drum = new InstancedModelRenderer(device, _drumMesh, STEEL_COLOR, instancingEffect) { SpecularAmbientStrength = STEEL_SPECULAR_AMBIENT };
             _axle = new InstancedModelRenderer(device, _rod, FRAME_COLOR, instancingEffect) { SpecularAmbientStrength = FRAME_SPECULAR_AMBIENT };
             _block = new InstancedModelRenderer(device, _blockMesh, FRAME_COLOR, instancingEffect) { SpecularAmbientStrength = FRAME_SPECULAR_AMBIENT };
@@ -197,7 +216,7 @@ namespace Prazsky.Core.Render
         /// (the kinematic body's world, the one the plate is drawn from). Nothing before the first <see cref="Fit"/>. Each
         /// cable ends <see cref="CABLE_RISE"/> over the plate, or at <paramref name="scenes"/>' roof over it for
         /// <paramref name="scene"/> (none asked when it is null: the Potato path has no scene renderer), and is drawn
-        /// <see cref="CableRadius"/> thick for this lens on the render target bound now.
+        /// <see cref="CableRadius"/> thick and <see cref="CableDepth"/> deep for this lens on the render target bound now.
         /// </summary>
         public void Draw(ICamera camera, in Matrix plateWorld, BasicEffectParams effectParams, SceneRenderer scenes = null,
             SceneKind scene = default)
@@ -245,15 +264,14 @@ namespace Prazsky.Core.Render
                 float rise = CABLE_RISE;
                 if (scenes != null) rise = MathHelper.Clamp(scenes.RoofAbove(scene, foot.X, foot.Z) - foot.Y, 0f, CABLE_RISE);
 
-                //Its width held where it is nearest the lens: the point of it level with the lens, or its end
+                //Its width held, and its shading flattened, where it is nearest the lens: the point of it level with the lens,
+                //or its end
                 Vector3 nearest = foot;
                 nearest.Y += MathHelper.Clamp(eye.Y - foot.Y, 0f, rise);
-                float radius = CableRadius(Vector3.Distance(eye, nearest), focal, pixels);
-                Matrix cable = Matrix.CreateScale(radius, rise, radius);
-                cable.M41 = foot.X;
-                cable.M42 = foot.Y;
-                cable.M43 = foot.Z;
-                _cables[k] = new ModelInstance(cable, custom);
+                float distance = Vector3.Distance(eye, nearest);
+                float radius = CableRadius(distance, focal, pixels);
+                float depth = focal > 0f ? CableDepth(radius * focal * pixels / distance) : 1f;
+                _cables[k] = new ModelInstance(CableWorld(foot, rise, eye, radius, depth), custom);
             }
 
             _block.Draw(camera, _blocks, _blocks.Length, effectParams);
@@ -263,18 +281,50 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// One unit-radius, unit-tall cylinder for the cable and the axle both, scaled per instance (the cable's radius
-        /// every frame, <see cref="CableRadius"/>): its side normals are radial and its caps' are along the axis, so a scale
-        /// along the axis and an equal one across leave them true. Public, as <see cref="BuildDrum"/> is, for
+        /// How deep the cable is drawn along the lens's view, as a share of its radius, when it is
+        /// <paramref name="pixelsAcross"/> wide on the screen: <see cref="CABLE_FLAT_DEPTH"/> up to
+        /// <c>CABLE_FLAT_PIXELS</c>, round from <c>CABLE_ROUND_PIXELS</c>, eased between. Pure, so a test can hold it.
+        /// </summary>
+        internal static float CableDepth(float pixelsAcross) => MathHelper.Lerp(CABLE_FLAT_DEPTH, 1f,
+            MathHelper.SmoothStep(0f, 1f, MathHelper.Clamp(
+                (pixelsAcross - CABLE_FLAT_PIXELS) / (CABLE_ROUND_PIXELS - CABLE_FLAT_PIXELS), 0f, 1f)));
+
+        /// <summary>
+        /// A cable's world: the rod (<see cref="BuildCable"/>) stood on <paramref name="foot"/>, <paramref name="rise"/> tall
+        /// and <paramref name="radius"/> across the lens's view, turned about its own length so its local X looks at
+        /// <paramref name="eye"/> and drawn <paramref name="depth"/> of its radius deep along that look. The width the lens
+        /// sees is the radius whatever the depth; a shallower section turns the normals the shader takes from this matrix (its
+        /// cofactors, so they stay square to the squashed surface) towards the lens. A proper rotation, so the winding holds.
+        /// </summary>
+        internal static Matrix CableWorld(Vector3 foot, float rise, Vector3 eye, float radius, float depth)
+        {
+            Vector3 facing = new(eye.X - foot.X, 0f, eye.Z - foot.Z);
+            facing = facing.LengthSquared() > 1e-8f ? Vector3.Normalize(facing) : Vector3.UnitX;
+            return AxisFrame(facing * (radius * depth), Vector3.Up * rise, Vector3.Cross(facing, Vector3.Up) * radius, foot);
+        }
+
+        /// <summary>
+        /// The cable: a unit-radius, unit-tall cylinder standing on its foot, rounder than the axle's
+        /// (<see cref="BuildRod"/>), placed by <see cref="CableWorld"/>. Public, as <see cref="BuildRod"/> is, for
         /// <c>Tools/WindingCheck</c>'s catalogue.
         /// </summary>
-        public static LatheMesh BuildRod(GraphicsDevice device) => new(device, new[]
+        public static LatheMesh BuildCable(GraphicsDevice device) => new(device, RodProfile(), CABLE_SIDES);
+
+        /// <summary>
+        /// One unit-radius, unit-tall cylinder for the axle, scaled per instance: its side normals are radial and its caps'
+        /// are along the axis, so a scale along the axis and an equal one across leave them true. Public, as
+        /// <see cref="BuildDrum"/> is, for <c>Tools/WindingCheck</c>'s catalogue.
+        /// </summary>
+        public static LatheMesh BuildRod(GraphicsDevice device) => new(device, RodProfile(), 8);
+
+        //The rod's section, about its own axis from its top down: closed by a flat cap at each end
+        private static LathePoint[] RodProfile() => new[]
         {
             new LathePoint(0f, 1f),
             new LathePoint(1f, 1f, crease: true),
             new LathePoint(1f, 0f, crease: true),
             new LathePoint(0f, 0f),
-        }, 8);
+        };
 
         /// <summary>The drum, wound (<see cref="DrumProfile"/>), its wraps a little uneven so its turn shows.</summary>
         public static LatheMesh BuildDrum(GraphicsDevice device) =>
@@ -346,6 +396,7 @@ namespace Prazsky.Core.Render
         public void Dispose()
         {
             foreach (InstancedModelRenderer renderer in _renderers) renderer.Dispose();
+            _cableMesh.Dispose();
             _rod.Dispose();
             _drumMesh.Dispose();
             _blockMesh.Dispose();

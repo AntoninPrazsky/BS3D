@@ -86,6 +86,63 @@ namespace BS3D.Tests
         }
 
         [Fact]
+        public void A_thin_cable_is_drawn_flat_along_the_look_and_a_wide_one_round()
+        {
+            foreach (float pixels in new[] { 0.5f, 1.5f, 3f })
+                Assert.Equal(CeilingRigging.CABLE_FLAT_DEPTH, CeilingRigging.CableDepth(pixels));
+            foreach (float pixels in new[] { 6f, 12f, 40f })
+                Assert.Equal(1f, CeilingRigging.CableDepth(pixels));
+
+            for (float pixels = 0f, last = 0f; pixels <= 10f; pixels += 0.1f)
+            {
+                float depth = CeilingRigging.CableDepth(pixels);
+                Assert.True(depth >= last, $"the depth falls to {depth} at {pixels:0.#} px");
+                last = depth;
+            }
+        }
+
+        [Fact]
+        public void A_flat_cable_shades_as_one_tone_across_the_width_the_lens_sees()
+        {
+            Vector3 foot = new(7.4f, 8.6f, -7.4f);
+            foreach (Vector3 eye in new[] { new Vector3(-160f, 39f, -70f), new Vector3(30f, -4f, 0f), new Vector3(7.4f, 20f, 30f) })
+            {
+                const float radius = 0.08f;
+                Vector3 facing = Vector3.Normalize(new Vector3(eye.X - foot.X, 0f, eye.Z - foot.Z));
+
+                foreach (float depth in new[] { CeilingRigging.CABLE_FLAT_DEPTH, 1f })
+                {
+                    Matrix world = CeilingRigging.CableWorld(foot, 600f, eye, radius, depth);
+
+                    //What the instancing shader does with a normal (NormalToWorld: the matrix's cofactors), and the width the
+                    //lens sees, which the depth must leave alone
+                    Matrix normals = Matrix.Transpose(Matrix.Invert(world));
+                    Assert.Equal(radius, new Vector3(world.M31, world.M32, world.M33).Length(), 4);
+                    Assert.True(world.Determinant() > 0f, "the cable's world mirrors it, and its winding with it");
+
+                    float worst = 0f;
+                    for (float degrees = -180f; degrees < 180f; degrees += 0.5f)
+                    {
+                        float angle = MathHelper.ToRadians(degrees);
+                        Vector3 radial = new(MathF.Cos(angle), 0f, MathF.Sin(angle));
+                        Vector3 normal = Vector3.Normalize(Vector3.TransformNormal(radial, normals));
+
+                        //Outward all round the squashed section
+                        Assert.True(Vector3.Dot(normal, Vector3.TransformNormal(radial, world)) > 0f,
+                            $"depth {depth}, at {degrees} deg the normal points into the cable");
+
+                        //The middle 70 % of the width the lens sees: where a round rod's normal turns 44 degrees each way
+                        if (radial.X > 0f && MathF.Abs(radial.Z) <= 0.7f)
+                            worst = MathF.Max(worst, MathHelper.ToDegrees(MathF.Acos(MathHelper.Clamp(Vector3.Dot(normal, facing), -1f, 1f))));
+                    }
+
+                    if (depth < 1f) Assert.True(worst <= 15f, $"flat, from {eye} the normal turns {worst:0.#} deg off the lens");
+                    else Assert.True(worst > 40f, $"round, from {eye} the normal turns only {worst:0.#} deg off the lens");
+                }
+            }
+        }
+
+        [Fact]
         public void Every_winch_stands_inside_the_crown_on_every_shipped_footprint()
         {
             //The shipped set's fields run from 11 to 17 cells a side; the Testbed's default is 10
