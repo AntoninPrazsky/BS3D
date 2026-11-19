@@ -8,6 +8,7 @@ using Prazsky.Core.Render;
 using Prazsky.Core.Tools;
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 
 namespace BS3D.Screens
 {
@@ -197,7 +198,8 @@ namespace BS3D.Screens
 
         /// <summary>
         /// Draws the aim beam. Coloured by what the far end means — the loaded ball's own tint where the shot
-        /// sticks, <see cref="PREVIEW_REFUSED"/> where it certainly will not.
+        /// sticks, <see cref="PREVIEW_REFUSED"/> where it certainly will not — and opened at that end into the
+        /// region the shot may snap into (#1144, <see cref="AimBeam.LANDING_SPREAD"/>).
         /// </summary>
         /// <remarks>
         /// This is what gives the <b>overview</b> the refusal signal the crosshair cannot: the crosshair is only
@@ -233,35 +235,24 @@ namespace BS3D.Screens
             //it with a line of light running out above its muzzle reads as a fault rather than as a nap
             opacity *= _dozing.Awake;
 
+            //THE FAR END IS A REGION WHERE THE SHOT SNAPS INTO A CELL (#1144). The beam ends at the touch, and the ghost
+            //stands in the free cell beside the ball touched, up to two thirds of a ball off the line: the cone and the
+            //patch over its end say "somewhere in here", and the ghost inside it is the one. Not on a beam that reaches
+            //nothing, and not for a cutter, which strikes the very ball the beam ends on and has no cell to snap to.
+            //A refusal keeps it, in red: the region it would have landed in has no room.
+            float spread = _previewReachesCluster && !CutterLoaded ? AimBeam.LANDING_SPREAD : 0f;
+
             //THE BEAM FOLLOWS THE FLIGHT (#332), which on a level with no wells is one segment and exactly what
             //it always was. A shot bent by a well reaches a contact the straight line between muzzle and contact
             //does NOT pass through, so a single straight beam would be telling the truth about where the shot
             //ends and lying about the whole middle of it — which is worse than either, and is the shape of
-            //#70's own complaint.
-            //
-            //The dash phase carries the distance already drawn, so the crawl runs continuously along the chain
-            //instead of restarting at every knot: AimBeam places its dashes from `phase * CRAWL` measured along
-            //the segment, so adding the run so far in the same units is what makes the joins invisible.
-            if (_previewPath.Count >= 2)
-            {
-                float travelled = 0f;
+            //#70's own complaint. AimBeam lays the dashes and the cone along the whole chain, so the crawl runs
+            //on through every knot and the cone opens once over the flight rather than once per leg.
+            ReadOnlySpan<Vector3> path = _previewPath.Count >= 2
+                ? CollectionsMarshal.AsSpan(_previewPath)
+                : stackalloc Vector3[] { _previewMuzzle, _previewBeamEnd };
 
-                for (int i = 0; i + 1 < _previewPath.Count; i++)
-                {
-                    bool last = i + 2 == _previewPath.Count;
-
-                    _aimBeam.Draw(Camera, _previewPath[i], _previewPath[i + 1], tint,
-                        WallClock + travelled / AimBeam.CRAWL,
-                        openEnded: last && !_previewReachesCluster, opacity: opacity);
-
-                    travelled += Vector3.Distance(_previewPath[i], _previewPath[i + 1]);
-                }
-
-                return;
-            }
-
-            _aimBeam.Draw(Camera, _previewMuzzle, _previewBeamEnd, tint, WallClock,
-                openEnded: !_previewReachesCluster, opacity: opacity);
+            _aimBeam.Draw(Camera, path, tint, WallClock, openEnded: !_previewReachesCluster, spread: spread, opacity: opacity);
         }
 
         /// <summary>
