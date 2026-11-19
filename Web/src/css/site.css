@@ -315,6 +315,53 @@ h3 { font-size: 1.45rem; }
   .compare.is-live .compare-pane.is-shown { transition: opacity 0.18s ease, visibility 0s; }
 }
 
+/* A tier slider (#1208). Without the script (js/tiers.js) every picture shows, one above the next, each with its tag in the corner
+   and its note under it. With it the figure is .is-live: the panes lie on one another in one grid cell, only the shown one is visible
+   (visibility, so a hidden picture still loads lazily), a stepped slider under the picture picks the pane, the tier names under the
+   slider jump to one, and the notes stand in one grid cell too, so the readout is as tall as the longest and nothing below moves.
+   The slider's thumb is 28 px and the names are placed where the thumb's middle stands at each step */
+.tiers-pane { position: relative; }
+.tiers-pane + .tiers-pane { margin-top: 12px; }
+.tiers-tag {
+  position: absolute; left: 12px; top: 12px; padding: 0.1em 0.75em;
+  font: 600 0.8rem/1.6 var(--body); letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text); background: rgba(13, 1, 24, 0.72); border: 1px solid var(--line); border-radius: 999px;
+}
+.post .tiers-note { margin: 8px auto 0; max-width: var(--measure); color: var(--muted); font-size: 0.9em; }
+.tiers-controls { display: none; }
+.tiers.is-live .tiers-controls { display: block; max-width: 44rem; margin: 14px auto 0; padding-inline: 2.4rem; }
+.tiers.is-live .tiers-frame { display: grid; border-radius: var(--radius); overflow: hidden; cursor: pointer; }
+.tiers.is-live .tiers-pane { grid-area: 1 / 1; margin: 0; visibility: hidden; opacity: 0; }
+.tiers.is-live .tiers-pane.is-shown { visibility: visible; opacity: 1; }
+.tiers-slider { -webkit-appearance: none; appearance: none; display: block; width: 100%; height: 44px; margin: 0; background: transparent; cursor: pointer; }
+.tiers-slider::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: var(--line); }
+.tiers-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; box-sizing: border-box; width: 28px; height: 28px; margin-top: -11px;
+  border-radius: 50%; background: var(--accent); border: 3px solid var(--bg); box-shadow: 0 0 0 1px var(--accent);
+}
+.tiers-slider::-moz-range-track { height: 6px; border-radius: 3px; background: var(--line); }
+.tiers-slider::-moz-range-thumb { box-sizing: border-box; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); border: 3px solid var(--bg); box-shadow: 0 0 0 1px var(--accent); }
+.tiers-slider:focus-visible { outline: 3px solid var(--link); outline-offset: 4px; border-radius: 8px; }
+.tiers-ticks { position: relative; height: 44px; }
+.tiers-ticks button {
+  position: absolute; top: 0; left: calc(14px + (100% - 28px) * var(--i) / var(--last)); transform: translateX(-50%);
+  min-height: 44px; min-width: 44px; padding: 0 4px; cursor: pointer;
+  font: 600 0.85rem var(--body); color: var(--muted); background: none; border: 0;
+}
+.tiers-ticks button:hover { color: var(--text); }
+.tiers-ticks button[aria-pressed="true"] { color: var(--accent); }
+.tiers-notes { display: grid; margin-top: 4px; }
+.tiers-notes .tiers-note { grid-area: 1 / 1; margin: 0; visibility: hidden; max-width: none; text-align: center; }
+.tiers-notes .tiers-note.is-shown { visibility: visible; color: var(--text); }
+@media (max-width: 400px) {
+  .tiers.is-live .tiers-controls { padding-inline: 2rem; }
+  .tiers-ticks button { font-size: 0.78rem; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .tiers.is-live .tiers-pane { transition: opacity 0.1s ease, visibility 0s linear 0.1s; }
+  .tiers.is-live .tiers-pane.is-shown { transition: opacity 0.1s ease, visibility 0s; }
+}
+
 /* A looping clip (#1042) is shown at its own size like a picture drawn for the post, centred and never enlarged. A grid figure
    puts two or three pictures or clips side by side, each with a short label under it, and the caption under them all; on a
    phone it is one column, since a third of a phone is too small to read a picture by */
