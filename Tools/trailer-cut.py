@@ -64,11 +64,28 @@ def parse_size(text):
 
 # ---------------------------------------------------------------- filming
 
+def level_copy(level_file, scene):
+    """A copy of a level file with its scene replaced, in %TEMP%: the last shot plays one level in every scene (#1178). The copy is
+    the original but for the scene's name, so the game played is the same (with wind=0, measured: every event at the same ms)."""
+    source = os.path.join(ROOT, level_file) if not os.path.isabs(level_file) else level_file
+    with open(source, encoding="utf-8") as f:
+        level = json.load(f)
+    level["scene"] = scene
+    folder = os.path.join(os.environ.get("TEMP", "."), "bs3d-trailer-levels")
+    os.makedirs(folder, exist_ok=True)
+    path = os.path.join(folder, "%s-%s.json" % (os.path.splitext(os.path.basename(source))[0], scene))
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(level, f)
+    return path
+
+
 def capture_arguments(capture, film, size):
     """web-capture.ps1's arguments for a clip: the edit's defaults ("film") under the clip's own."""
     merged = dict(film)
     merged.update(capture)
-    args = ["-Level", str(merged["level"]), "-From", str(merged.get("from", 0)), "-Seconds", str(capture["seconds"]),
+    where = (["-LevelFile", level_copy(merged["levelFile"], merged["scene"])] if merged.get("levelFile")
+             else ["-Level", str(merged["level"])])
+    args = where + ["-From", str(merged.get("from", 0)), "-Seconds", str(capture["seconds"]),
             "-Size", size, "-Quality", merged.get("quality", "Ultra"), "-Fps", str(merged.get("fps", 60))]
     for switch, key in (("-Hud", "hud"), ("-NoGrain", "noGrain"), ("-Audio", "audio"), ("-Splash", "splash"),
                         ("-Demo", "demo"), ("-Shake", "shake"), ("-Aim", "aim")):
@@ -178,13 +195,16 @@ def build_timeline(segments):
     return t
 
 
-def snap_to_beats(segments, beat_times, after, tolerance=0.3):
-    """Moves each cut at or after `after` to the nearest beat within tolerance, by lengthening or shortening the segment before it."""
+def snap_to_beats(segments, beat_times, after, tolerance=0.3, until=float("inf")):
+    """Moves each cut after `after` and before `until` to the nearest beat within tolerance, by lengthening or shortening the segment
+    before it. A run of slices that must keep their lengths (one game cut across scenes, #1178) lies past `until`."""
     moved = []
     for index in range(1, len(segments)):
         build_timeline(segments)
         cut = segments[index]["_start"] + segments[index]["_overlap"] * 0.5
-        if cut <= after:
+        # A segment with "snap": false keeps its own start, and so the length of the one before it: the slices of one game cut
+        # across scenes must keep their lengths, or the game's time would jump at a cut (#1178)
+        if cut <= after or cut >= until or segments[index].get("snap") is False or segments[index - 1].get("snap") is False:
             continue
         nearest = beat_times[np.argmin(np.abs(beat_times - cut))]
         delta = nearest - cut
@@ -389,7 +409,11 @@ def main():
     if edit.get("snap") and grids:
         # Only the cuts after the switch (the switch itself is where the second track was placed), or after "snapFrom" seconds
         # when the edit holds a moment in place before it (a first shot laid on the music's drop, #1178)
-        moved = snap_to_beats(segments, grids[-1][2], max(tracks[-1]["at"], edit.get("snapFrom", 0.0)) + 1e-3)
+        until = edit.get("snapUntil")
+        if isinstance(until, str):
+            until = by_name[until.split(":", 1)[1]]["_start"] - 1e-3
+        moved = snap_to_beats(segments, grids[-1][2], max(tracks[-1]["at"], edit.get("snapFrom", 0.0)) + 1e-3,
+                              until=until if until is not None else float("inf"))
     total = build_timeline(segments)
     frames_total = int(round(total * fps))
 
@@ -418,7 +442,9 @@ def main():
         if "capture" in segment:
             capture = segment["capture"]
             start = segment.get("in", 0.0)
-            skip = max(0.0, start - lead)
+            # "trim": false keeps the window at the clip's "from": a camera path counts from the window's start, so the slices of
+            # one orbit filmed in many scenes (the last shot, #1178) must all start their window at the same moment
+            skip = max(0.0, start - lead) if segment.get("trim", True) else 0.0
             capture["from"] = round(capture.get("from", 0.0) + skip, 4)
             segment["_in"] = start - skip
             if "seconds" not in capture:
@@ -531,6 +557,11 @@ def main():
                 lines = [(text, scale) for text, scale in card["lines"]]
                 layers.append(("text", render_lines(lines, 150 * unit, tracking=card.get("tracking", edit.get("tracking", 0.08)),
                                                     font_spec=edit.get("font")), card.get("textY", 0.5)))
+            # A second block at a height of its own: the website's address, set apart from the lines above it (#1178)
+            if card.get("footer"):
+                lines = [(text, scale) for text, scale in card["footer"]]
+                layers.append(("text", render_lines(lines, 150 * unit, tracking=card.get("tracking", edit.get("tracking", 0.08)),
+                                                    font_spec=edit.get("font")), card.get("footerY", 0.88)))
             prepared[segment["name"]] = layers
     overlays = []
     for card in edit.get("cards", []):

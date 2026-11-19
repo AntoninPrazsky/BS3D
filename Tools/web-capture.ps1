@@ -34,6 +34,10 @@
     The level to film, by name or its 1-based place in the set; it brings its own scene. A chapter's first level flies its opening
     tour first (the HUD is off, and a stated camera replaces it, but it takes game time): start -From after it, or film another level.
 
+.PARAMETER LevelFile
+    A level file outside the set (the Game's levelfile=), instead of -Level: the trailer's last shot films one level once per scene
+    from copies that differ only in their "scene" (#1178).
+
 .PARAMETER From
     Seconds of game time to start at. The clock starts when the game does; a level is built on the first frame, and its opening
     (and any tour) takes a few seconds of it. Frames before -From are drawn and not written, so the world is at its place.
@@ -135,6 +139,7 @@
 param(
     [Parameter(Mandatory)][string]$Name,
     [string]$Level = 'Meander',
+    [string]$LevelFile = '',
     [double]$From = 8,
     [double]$Seconds = 5,
     [ValidateRange(15, 240)][int]$Fps = 60,
@@ -170,6 +175,7 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\PathGuard.ps1"
 Assert-SanePath -Name OutDir -Value $OutDir
 Assert-SanePath -Name CamPath -Value $CamPath
+Assert-SanePath -Name LevelFile -Value $LevelFile
 Assert-SanePath -Name Python -Value $Python
 
 if ($Name -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') { throw "-Name '$Name' is a file name: letters, digits, dots, dashes and underscores" }
@@ -251,8 +257,9 @@ New-Item -ItemType Directory -Force $frames | Out-Null
 
 $arguments = @(
     "capture=`"$frames`"", "capturefps=$Fps", "capturefrom=$From", "captureseconds=$Seconds",
-    "windowed", "level=$Level", "userdata=`"$profileDir`"", "quality=$Quality"
+    "windowed", "userdata=`"$profileDir`"", "quality=$Quality"
 )
+if ($LevelFile) { $arguments += "levelfile=`"$((Resolve-Path $LevelFile).Path)`"" } else { $arguments += "level=$Level" }
 if ($Width -gt 0 -and $Height -gt 0) { $arguments += "width=$Width", "height=$Height" }
 if ($Size) { $arguments += "capturesize=$Size" }
 if ($Hud) { $arguments += 'capturehud' }
