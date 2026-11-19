@@ -8,13 +8,15 @@ Run with a Python that has PyAV (its bundled FFmpeg), numpy and Pillow - the one
 
 The edit file (JSON; a line starting with // is a comment) says, in order of the timeline:
   - "segments": each a filmed clip ("capture": the arguments of Tools/web-capture.ps1, in its own spelling) or a card on black
-    ("card"), with "in" (seconds into the clip), "length", the transition into it ("cut", "dissolve", "dip"; "transitionSeconds"),
-    the game's sound under it ("sound": dB, or null for none) and the music ducked under it ("duck": dB);
-  - "cards": text over the footage, at a time on the timeline;
-  - "music": the tracks (Game/Music), each from an offset into its recording and at a time on the timeline: the second track's
-    time is the switch, where the first stops dead and the second comes in on a downbeat;
-  - "snap": whether cuts after the switch land on the second track's beats;
-  - "mix": the music's and the game's levels against each other.
+    ("card"), with "in" (seconds into the clip), "length", the transition into it ("cut", "dissolve", "dip", "white";
+    "transitionSeconds"), the game's sound under it ("sound": dB, or null for none), the music ducked under it ("duck": dB) and
+    the trailer's own sound on its cut ("sfx": "hit", "boom" or "whoosh", made by synth_sfx);
+  - "cards": text over the footage, at a time on the timeline: "lines", or "parts" of one line each shown at its "reveal";
+  - "music": the tracks (Game/Music, or a path in the repository), each from an offset into its recording and at a time on the
+    timeline: each next track's time is a switch, where the one before stops ("switchFade") and the next comes in;
+  - "sfx": more of the trailer's own sounds, each at a stated time;
+  - "snap": whether cuts after the last switch land on the last track's beats;
+  - "mix": the music's, the game's and the trailer's own sounds' levels against each other.
 
 Every clip is filmed by web-capture.ps1 (-NoEncode -KeepFrames) into %TEMP%\\bs3d-web-capture-frames\\trailer-<clip>-<size>, and
 filmed again only when its arguments change (trailer-args.json beside the frames). A capture is deterministic, so a clip found
@@ -31,6 +33,7 @@ import math
 import os
 import subprocess
 import sys
+import wave
 
 import av
 import numpy as np
@@ -87,7 +90,7 @@ def capture_arguments(capture, film, size):
              else ["-Level", str(merged["level"])])
     args = where + ["-From", str(merged.get("from", 0)), "-Seconds", str(capture["seconds"]),
             "-Size", size, "-Quality", merged.get("quality", "Ultra"), "-Fps", str(merged.get("fps", 60))]
-    for switch, key in (("-Hud", "hud"), ("-NoGrain", "noGrain"), ("-Audio", "audio"), ("-Splash", "splash"),
+    for switch, key in (("-Hud", "hud"), ("-NoGrain", "noGrain"), ("-MaxDetail", "maxDetail"), ("-Audio", "audio"), ("-Splash", "splash"),
                         ("-Demo", "demo"), ("-Shake", "shake"), ("-Aim", "aim")):
         if merged.get(key):
             args.append(switch)
@@ -181,6 +184,87 @@ def music_track(entry, length):
     return signal, looped[start:start + need]
 
 
+# ---------------------------------------------------------------- the trailer's own sounds
+
+def _lowpass(x, cutoff):
+    """A one-pole lowpass at `cutoff` Hz."""
+    a = 1.0 - math.exp(-2.0 * math.pi * cutoff / RATE)
+    y = np.empty_like(x)
+    s = 0.0
+    for i in range(len(x)):
+        s += a * (x[i] - s)
+        y[i] = s
+    return y
+
+
+def _peak1(x):
+    return x / (np.max(np.abs(x)) + 1e-12)
+
+
+_SFX = {}
+
+
+def synth_sfx(kind):
+    """The cuts' sounds, made here from sines and filtered noise (#1178), mono, peak 1, and the second of each that marks the
+    cut (a hit's start, a whoosh's crest):
+      - "hit": a trailer hit for a cut in the fast part, a pitch-dropping sub with a body at 140-300 Hz and its harmonics, a
+        drum shell's ring at 400-560 Hz and a dark strike, so a monitor speaker that plays no sub still plays the hit (#726);
+      - "boom": the same, bigger and longer, for a part's first frame (the white flash, out of black);
+      - "whoosh": the last shot's switch of world, a resonant band of noise swept up from 500 Hz to 3.2 kHz into the cut and a
+        short 2.2 kHz tick on it.
+    Warm and without a drive or a hiss above 5 kHz (the owner's sound rulings); deterministic, so a re-cut sounds the same."""
+    if kind in _SFX:
+        return _SFX[kind]
+    rng = np.random.default_rng({"hit": 1178, "boom": 1179, "whoosh": 1180}[kind])
+    if kind in ("hit", "boom"):
+        big = kind == "boom"
+        n = int((2.4 if big else 1.1) * RATE)
+        t = np.arange(n) / RATE
+        attack = 1.0 - np.exp(-t / 0.002)
+        lo, hi = (36.0, 92.0) if big else (46.0, 110.0)
+        sub = np.sin(2 * np.pi * np.cumsum(lo + (hi - lo) * np.exp(-t / 0.06)) / RATE) * np.exp(-t / (0.85 if big else 0.32))
+        lo, hi = (120.0, 260.0) if big else (140.0, 300.0)
+        phase = 2 * np.pi * np.cumsum(lo + (hi - lo) * np.exp(-t / 0.025)) / RATE
+        body = (np.sin(phase) + 0.6 * np.sin(2 * phase) + 0.35 * np.sin(3 * phase)) * np.exp(-t / (0.2 if big else 0.11))
+        #A drum's shell: the hit's identity where a monitor speaker plays it
+        lo, hi = (380.0, 520.0) if big else (400.0, 560.0)
+        shell = np.sin(2 * np.pi * np.cumsum(lo + (hi - lo) * np.exp(-t / 0.03)) / RATE) * np.exp(-t / (0.08 if big else 0.05))
+        strike = _lowpass(rng.standard_normal(n), 2500.0) * np.exp(-t / (0.04 if big else 0.03))
+        tail = _lowpass(_lowpass(rng.standard_normal(n), 300.0), 300.0) * np.exp(-t / (0.9 if big else 0.4)) * (1 - np.exp(-t / 0.05))
+        #Weighted towards the shell and the strike: the cuts land on the music's beats, whose own kick carries the low end, and
+        #measured against the music in 300 Hz-4 kHz a sub-heavy hit sat 14-18 dB under it, lost on a monitor speaker
+        weights = (0.6, 0.7, 1.0, 0.8, 0.25) if big else (0.35, 0.6, 1.0, 0.9, 0.2)
+        x = attack * sum(w * _peak1(part) for w, part in zip(weights, (sub, body, shell, strike, tail)))
+        mark = 0.0
+    elif kind == "whoosh":
+        n = int(0.42 * RATE)
+        crest = 0.24
+        t = np.arange(n) / RATE
+        envelope = np.where(t < crest, np.exp((t - crest) / 0.075), np.exp(-(t - crest) / 0.045))
+        sweep = np.minimum(t / crest, 1.0)
+        centre = 500.0 * (3200.0 / 500.0) ** sweep
+        noise = rng.standard_normal(n)
+        band = np.empty(n)
+        low = mid = 0.0
+        damping = 1.0 / 2.2
+        for i in range(n):
+            f = 2.0 * math.sin(math.pi * centre[i] / RATE)
+            low += f * mid
+            high = noise[i] - low - damping * mid
+            mid += f * high
+            band[i] = mid
+        band = _lowpass(_lowpass(band, 3500.0), 3500.0)
+        zip_tone = np.sin(2 * np.pi * np.cumsum(800.0 * (2400.0 / 800.0) ** sweep) / RATE)
+        after = np.maximum(t - crest, 0.0)
+        tick = np.where(t >= crest, np.sin(2 * np.pi * 2200.0 * after) * np.exp(-after / 0.012) * (1 - np.exp(-after / 0.001)), 0.0)
+        x = envelope * (_peak1(band) + 0.18 * zip_tone) + 0.35 * tick
+        mark = crest
+    else:
+        sys.exit("no sound %r: hit, boom or whoosh" % kind)
+    _SFX[kind] = (_peak1(x).astype(np.float32), mark)
+    return _SFX[kind]
+
+
 # ---------------------------------------------------------------- the timeline
 
 def build_timeline(segments):
@@ -269,10 +353,11 @@ def load_font(spec, pixels):
     return font
 
 
-def render_lines(lines, size, tracking=0.08, colour=(255, 255, 255), shadow=0.65, line_gap=0.18, font_spec=None):
+def render_lines(lines, size, tracking=0.08, colour=(255, 255, 255), shadow=0.65, line_gap=0.18, font_spec=None, only=None):
     """Text lines in the edit's type (Anton by default), centred, tracked out, white with a soft dark shadow under them for
     legibility over any picture: an RGBA image cropped to the text and its shadow. Each line is (text, scale) with scale a
-    multiple of `size` pixels."""
+    multiple of `size` pixels. "only" (first, end) draws just those letters of the first line, laid out where the whole line puts
+    them, on the whole line's canvas: a line revealed word by word is one such layer per word."""
     pad = int(size * 0.5)
     fonts = [load_font(font_spec, max(8, int(size * scale))) for _, scale in lines]
     probe = ImageDraw.Draw(Image.new("L", (8, 8)))
@@ -283,11 +368,12 @@ def render_lines(lines, size, tracking=0.08, colour=(255, 255, 255), shadow=0.65
     alpha = Image.new("L", (width, height), 0)
     draw = ImageDraw.Draw(alpha)
     y = pad
-    for (text, _), font, w, h in zip(lines, fonts, widths, heights):
+    for row, ((text, _), font, w, h) in enumerate(zip(lines, fonts, widths, heights)):
         x = (width - w) / 2
         top = font.getbbox("HXg")[1]
         for i, ch in enumerate(text):
-            draw.text((x, y - top), ch, font=font, fill=255)
+            if only is None or (row == 0 and only[0] <= i < only[1]):
+                draw.text((x, y - top), ch, font=font, fill=255)
             x += draw.textlength(ch, font=font) + tracking * font.size
         y += h + line_gap * size
     glow = alpha.filter(ImageFilter.GaussianBlur(size * 0.12))
@@ -360,6 +446,8 @@ def main():
     parser.add_argument("--dry", action="store_true", help="print the timeline and the beats; film and render nothing")
     parser.add_argument("--refilm", action="store_true", help="film every clip again")
     parser.add_argument("--range", default=None, help="render only from:to seconds of the timeline, for a look")
+    parser.add_argument("--stems", action="store_true",
+                        help="also write the music, the game and the trailer's own sounds as WAVs, each at its level in the mix")
     arguments = parser.parse_args()
 
     edit = load_edit(arguments.edit)
@@ -517,6 +605,41 @@ def main():
             duck = np.minimum(duck, envelope)
     music *= duck[:, None]
 
+    # The trailer's own sounds on the cuts (#1178): a segment's "sfx" ({"sound", "gain", "offset", "pan"}, or a list of them) at
+    # its first frame, the sound's mark (a whoosh's crest) on the cut; the edit's "sfx" list at a stated "at" (seconds, or
+    # "segment:<name>"). Their peak sits at the mix's "sfx" level before the gain
+    effects = np.zeros((samples, 2), dtype=np.float32)
+    sfx_duck = np.ones(samples, dtype=np.float32)
+    placed = []
+    wanted = [(entry, segment["_start"]) for segment in segments
+              for entry in (segment["sfx"] if isinstance(segment.get("sfx"), list) else [segment["sfx"]] if segment.get("sfx") else [])]
+    for entry in edit.get("sfx", []):
+        at = entry["at"]
+        wanted.append((entry, by_name[at.split(":", 1)[1]]["_start"] if isinstance(at, str) else float(at)))
+    for entry, at in wanted:
+        sound, mark = synth_sfx(entry["sound"])
+        when = at + entry.get("offset", 0.0) - mark
+        pan = max(-1.0, min(1.0, entry.get("pan", 0.0)))
+        gains = (math.cos((pan + 1) * math.pi / 4) * math.sqrt(2), math.sin((pan + 1) * math.pi / 4) * math.sqrt(2))
+        level = 10 ** (entry.get("gain", 0.0) / 20.0)
+        a = int(round(when * RATE))
+        lo, hi = max(0, a), min(samples, a + len(sound))
+        if hi > lo:
+            for c in range(2):
+                effects[lo:hi, c] += sound[lo - a:hi - a] * level * gains[c]
+        placed.append({"sound": entry["sound"], "at": round(at + entry.get("offset", 0.0), 3), "gain": entry.get("gain", 0.0)})
+        # "duck": the music dips by that much under the sound's mark for 0.12 s, in over 10 ms and back over 0.25 s, so a hit on a
+        # beat is heard over the beat's own kick in the band a monitor speaker plays (measured: 7-11 dB under it without)
+        if entry.get("duck"):
+            level = 10 ** (-abs(entry["duck"]) / 20.0)
+            centre = when + mark
+            for edge_from, edge_to, value_from, value_to in ((centre - 0.01, centre, 1.0, level), (centre, centre + 0.12, level, level),
+                                                             (centre + 0.12, centre + 0.37, level, 1.0)):
+                b0, b1 = max(0, int(edge_from * RATE)), min(samples, int(edge_to * RATE))
+                if b1 > b0:
+                    ramp = np.linspace(value_from, value_to, b1 - b0, dtype=np.float32)
+                    sfx_duck[b0:b1] = np.minimum(sfx_duck[b0:b1], ramp)
+
     def rms_db(x):
         return 20 * math.log10(math.sqrt(float(np.mean(x.astype(np.float64) ** 2))) + 1e-12)
 
@@ -529,7 +652,19 @@ def main():
     game_level = rms_db(game[np.abs(game).max(axis=1) > 1e-4]) if np.any(game) else -120
     music_gain = 10 ** ((mix_settings.get("music", -16.0) - music_level) / 20.0) if np.any(music) else 0.0
     game_gain = 10 ** ((mix_settings.get("game", -22.0) - game_level) / 20.0) if np.any(game) else 0.0
-    mix = music * music_gain + game * game_gain
+    music *= sfx_duck[:, None]
+    effects_gain = 10 ** (mix_settings.get("sfx", -9.0) / 20.0)
+    mix = music * music_gain + game * game_gain + effects * effects_gain
+    if arguments.stems:
+        # Each stem as it enters the mix (before the knee), to measure what a cut's sound adds over the music in a band
+        for stem_name, stem in (("music", music * music_gain), ("game", game * game_gain), ("sfx", effects * effects_gain)):
+            stem_path = os.path.join(out_dir, "%s-%s.wav" % (out_name, stem_name))
+            with wave.open(stem_path, "wb") as w:
+                w.setnchannels(2)
+                w.setsampwidth(2)
+                w.setframerate(RATE)
+                w.writeframes((np.clip(stem, -1.0, 1.0) * 32767).astype("<i2").tobytes())
+            print("stem", stem_path)
     # A soft knee above -7 dBFS, then a peak at -4 dBFS at most: the AAC encoder overshoots the PCM's peak by 2.6 dB on this
     # material (measured: a mix held at -1 dBFS decoded back at +1.6, one at -3.0 at -0.4), so the headroom is the codec's. The
     # decoded file's own peak is measured and printed at the end
@@ -563,11 +698,23 @@ def main():
                 layers.append(("text", render_lines(lines, 150 * unit, tracking=card.get("tracking", edit.get("tracking", 0.08)),
                                                     font_spec=edit.get("font")), card.get("footerY", 0.88)))
             prepared[segment["name"]] = layers
+    # A card over the footage: its lines, or "parts" of one line each revealed at its own "reveal" second (the words of "SHOOT.
+    # MATCH. BRING IT DOWN." as each happens, #1178), every part laid where the whole line puts it
     overlays = []
     for card in edit.get("cards", []):
-        lines = [(text, scale) for text, scale in card["lines"]]
-        overlays.append((card, render_lines(lines, 150 * unit, tracking=card.get("tracking", edit.get("tracking", 0.08)),
-                                            font_spec=edit.get("font"))))
+        tracking = card.get("tracking", edit.get("tracking", 0.08))
+        if card.get("parts"):
+            gap = card.get("gap", "  ")
+            text = gap.join(card["parts"])
+            layers, first = [], 0
+            for part, reveal in zip(card["parts"], card["reveal"]):
+                layers.append((reveal, render_lines([(text, card.get("scale", 1.0))], 150 * unit, tracking=tracking,
+                                                    font_spec=edit.get("font"), only=(first, first + len(part)))))
+                first += len(part) + len(gap)
+            overlays.append((card, layers))
+        else:
+            lines = [(text, scale) for text, scale in card["lines"]]
+            overlays.append((card, [(0.0, render_lines(lines, 150 * unit, tracking=tracking, font_spec=edit.get("font")))]))
 
     # ---- render and encode
     first, last = 0, frames_total
@@ -623,7 +770,7 @@ def main():
                     else:
                         w = 1.0 - smooth(distance / half)
                         frame = frame * (1.0 - w) + 255.0 * w
-        for card, layer in overlays:
+        for card, layers in overlays:
             local = t - card["at"]
             if 0 <= local < card["length"]:
                 opacity, scale = card_motion(local, card["length"], fade_in=card.get("fadeIn", 0.35), fade_out=card.get("fadeOut", 0.3),
@@ -632,12 +779,14 @@ def main():
                 # A soft dark band behind text over the footage ("band": its darkness): a thin face over a busy frame needs more
                 # than its own shadow to be read
                 if card.get("band", 0.0) > 0:
-                    half = layer.shape[0] * 0.9
+                    half = layers[0][1].shape[0] * 0.9
                     rows = np.arange(height, dtype=np.float32)
                     falloff = np.clip(1.0 - np.abs(rows - cy) / half, 0.0, 1.0)
                     shade = 1.0 - card["band"] * opacity * (falloff * falloff * (3 - 2 * falloff))
                     frame *= shade[:, None, None]
-                composite(frame, layer, card.get("x", 0.5) * width, cy, scale, opacity)
+                for reveal, layer in layers:
+                    shown = smooth((local - reveal) / card.get("partFade", 0.12)) if card.get("parts") else 1.0
+                    composite(frame, layer, card.get("x", 0.5) * width, cy, scale, opacity * shown)
         if edit.get("endFadeVideo"):
             remaining = total - t
             if remaining < edit["endFadeVideo"]:
@@ -680,6 +829,7 @@ def main():
         "seconds": round(total, 3), "frames": frames_total, "levels": levels,
         "music": [{"file": f, "bpm": round(b, 2), "firstBeats": [round(x, 3) for x in g[:8]]} for f, b, g in grids],
         "snapped": [{"segment": n, "from": a, "to": b} for n, a, b in moved],
+        "sfx": placed,
         "segments": [{"name": s["name"], "start": round(s["_start"], 3), "length": round(s["length"], 3), "in": s.get("in", 0.0),
                       "transition": s["_transition"], "overlap": s["_overlap"],
                       "source": footage[s["name"]].folder if "capture" in s else "card"} for s in segments],

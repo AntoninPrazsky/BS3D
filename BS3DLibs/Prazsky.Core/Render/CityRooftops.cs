@@ -660,8 +660,10 @@ namespace Prazsky.Core.Render
             Vector3 eye = camera.Position;
             RooftopConfig roof = _config.Rooftops;
 
-            float clutter2 = roof.ClutterDistance * roof.ClutterDistance;
-            float equipment2 = roof.EquipmentDistance * roof.EquipmentDistance;
+            //Every roof's clutter and equipment from any distance under RenderDetail.Maximum (the trailer, #1178): a landing
+            //flies over the roofs, where a fan or a dish appearing at its distance is a pop
+            float clutter2 = RenderDetail.Maximum ? float.MaxValue : roof.ClutterDistance * roof.ClutterDistance;
+            float equipment2 = RenderDetail.Maximum ? float.MaxValue : roof.EquipmentDistance * roof.EquipmentDistance;
 
             //The beacons flash cluster by cluster (#902): each cluster is its own renderer and so its own tint, read at its
             //Draw, with a period, a phase and a shade of red of its own, so no city's worth of them beats in unison. Each is

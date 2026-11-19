@@ -71,6 +71,11 @@
     The film grain off for the run (the Game's nograin): a noise re-rolled in every pixel of every frame is what a video spends its
     bits on, and the trailer's footage is filmed without it.
 
+.PARAMETER MaxDetail
+    Every distance rule drawn at its finest (the Game's maxdetail, #1178): the aurora's spruces, the woods' near crowns, the roofs'
+    clutter, the balls' finest sphere, from any lens, so nothing pops as a tour flies in. Costs frame time, which a capture does not
+    show. The trailer films with it.
+
 .PARAMETER Splash
     Film the game's 2D logo (the splash, 3.15 s) before anything else (#1179): the trailer opens on it. The level follows after the
     main menu, so a logo clip is -From 0 -Seconds 3.2.
@@ -149,6 +154,7 @@ param(
     [ValidateSet('Low', 'Medium', 'High', 'Ultra')][string]$Quality = 'High',
     [switch]$Hud,
     [switch]$NoGrain,
+    [switch]$MaxDetail,
     [switch]$Splash,
     [switch]$Audio,
     [switch]$Master,
@@ -264,6 +270,7 @@ if ($Width -gt 0 -and $Height -gt 0) { $arguments += "width=$Width", "height=$He
 if ($Size) { $arguments += "capturesize=$Size" }
 if ($Hud) { $arguments += 'capturehud' }
 if ($NoGrain) { $arguments += 'nograin' }
+if ($MaxDetail) { $arguments += 'maxdetail' }
 if ($Splash) { $arguments += 'capturesplash' }
 if ($Audio) { $arguments += 'captureaudio' }
 if ($CamPos -or $CamTarget) {
