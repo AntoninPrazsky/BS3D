@@ -1,5 +1,6 @@
 using BS3D.Effects;
 using Microsoft.Xna.Framework;
+using Prazsky.Core.Camera;
 using Prazsky.Core.Render;
 using System;
 using System.Collections.Generic;
@@ -15,8 +16,8 @@ namespace BS3D.Tests
     /// The sea's oil platforms (#969, #1169), held over the very triangles the two meshes are built of (<see cref="OilRigs.Mesh"/>):
     /// no two faces of different paint in one plane facing one way, which the depth buffer cannot tell apart (the owner saw a
     /// wall flicker); every triangle wound clockwise seen from outside; the finer mesh drawn all through the chapter intro's run
-    /// at the nearer rig and never from a play view; nothing under the deck farther out than the jacket's reach; and the finer
-    /// mesh carrying what the references show.
+    /// at the nearer rig and never from a play view, its reach a depth rule the trailer's maxdetail leaves; nothing under the
+    /// deck farther out than the jacket's reach; and the finer mesh carrying what the references show.
     /// </summary>
     public class OilRigTests
     {
@@ -183,10 +184,12 @@ namespace BS3D.Tests
             //orange's lay in the upper deck's end faces' planes over the 1.5 units they stood into its slab. The coarser mesh is
             //drawn from as far as the farther rig's far corner from the play view, some 1250 out, where a 24-bit depth step at
             //the Game's near plane (0.05) is about 1.9: no pair within COARSE_GAP over any area. The finer is drawn only within
-            //FINE_REACH of a rig's foot, a step of about 0.18 at its far corner: no pair that can be seen within FINE_GAP over
+            //FINE_REACH of a rig's foot, a step of about 0.21 at its far corner: no pair that can be seen within FINE_GAP over
             //more than FINE_SPECK, a few pixels at the intro's run (where members cross, a face of one runs on inside the other
             //and nothing shows). Seen to fire with the lower modules back as they stood (4 pairs on the coarser mesh, 0 apart over
-            //39 and 3 square units: their ends in the upper deck's end planes), and with the windows 0.2 proud (129 on the finer).
+            //39 and 3 square units: their ends in the upper deck's end planes), with the windows 0.2 proud (129 on the finer),
+            //with the coarser lamps' stems painted as the railing (8: a stem's top under its lamp's) and the helideck's foot in
+            //the deck's grey (2).
             foreach ((string name, OilRig rig) in Rigs())
                 foreach ((bool fine, float gap, float speck) in new[] { (false, OilRigs.COARSE_GAP, 1e-3f), (true, OilRigs.FINE_GAP, FINE_SPECK) })
                 {
@@ -225,11 +228,13 @@ namespace BS3D.Tests
         {
             //What #1169 is for: the chapter intro's run passes the nearer rig 250 to 140 off, and the finer mesh must stand there
             //from its first frame to its last; a play view stands 800 and more from either rig and draws both coarse, so play
-            //costs nothing. And the tier decides first: Low and Medium draw the coarser at any distance. Seen to fire with
-            //FINE_REACH at 200.
+            //costs nothing. And the tier decides first: Low and Medium draw the coarser at any distance. A lens over the rig is
+            //held to the reach as one beside it is. Seen to fire with FINE_REACH at 200, and with the reach taken across the
+            //water alone.
             OilRig near = OilRigLayout.Near(Sea.LevelY), far = OilRigLayout.Far(Sea.LevelY);
-            Assert.True(OilRigs.DrawsFine(true, near.Foot + new Vector3(OilRigs.FINE_REACH - 1f, 30f, 0f), near.Foot));
+            Assert.True(OilRigs.DrawsFine(true, near.Foot + new Vector3(OilRigs.FINE_REACH - 1f, 0f, 0f), near.Foot));
             Assert.False(OilRigs.DrawsFine(true, near.Foot + new Vector3(OilRigs.FINE_REACH + 1f, 0f, 0f), near.Foot));
+            Assert.False(OilRigs.DrawsFine(true, near.Foot + new Vector3(30f, OilRigs.FINE_REACH, 0f), near.Foot));
             Assert.False(OilRigs.DrawsFine(false, near.Foot, near.Foot));
 
             float farthest = 0f;
@@ -255,6 +260,52 @@ namespace BS3D.Tests
                         }
             _output.WriteLine(string.Format(CultureInfo.InvariantCulture, "the run's lens stands at most {0:F0} from the nearer rig's foot, a play view's at least {1:F0} from either; fine within {2}",
                 farthest, nearest, OilRigs.FINE_REACH));
+        }
+
+        //A 24-bit depth step at view depth z under the Game's projection (RecoilCamera's planes): two surfaces nearer each
+        //other than this along one ray, the depth buffer may not tell apart
+        private static float DepthStep(float z)
+        {
+            var camera = new RecoilCamera();
+            float n = camera.NearPlane, f = camera.FarPlane;
+            return z * z * (f - n) / (f * n * 16777216f);
+        }
+
+        [Fact]
+        public void TheFinerMeshsReachIsADepthRuleThatHoldsUnderMaxDetail()
+        {
+            //Why the trailer's maxdetail (RenderDetail.Maximum, #1178) does not lift FINE_REACH as it lifts the cost rules: the
+            //finer mesh keeps its faces only FINE_GAP apart. Within the reach no part of a rig stands farther from the lens than
+            //the reach plus the rig's own (three dimensions, as DrawsFine measures), where a depth step is still under FINE_GAP;
+            //from every play view a step at the finer mesh's nearest point, along the view, is over it, so drawn there its
+            //windows, decks and stairs would fight. Seen to fire with FINE_REACH at 450.
+            var near = new List<Vector3>();
+            foreach ((string name, OilRig rig) in Rigs())
+            {
+                List<RigVertex> mesh = OilRigs.Mesh(rig, true);
+                float own = mesh.Max(v => Vector3.Distance(v.Position, rig.Foot));
+                float farthest = OilRigs.FINE_REACH + own;
+                _output.WriteLine(string.Format(CultureInfo.InvariantCulture, "{0}: within the reach no part stands past {1:F0}, a depth step there {2:F3}",
+                    name, farthest, DepthStep(farthest)));
+                Assert.True(DepthStep(farthest) < OilRigs.FINE_GAP, $"{name}: a depth step at the finer mesh's farthest point from a lens within the reach is over FINE_GAP");
+                near.AddRange(mesh.Select(v => v.Position));
+            }
+
+            float least = float.MaxValue;
+            foreach (float aspect in ASPECTS)
+                foreach (string file in Shipped.LevelFiles())
+                    foreach ((_, Vector3 lens, Vector3 target, _) in Open(file, aspect).Poses)
+                    {
+                        Vector3 forward = Vector3.Normalize(target - lens);
+                        foreach (Vector3 v in near)
+                        {
+                            float z = Vector3.Dot(v - lens, forward);
+                            if (z > 0f) least = MathF.Min(least, z);
+                        }
+                    }
+            _output.WriteLine(string.Format(CultureInfo.InvariantCulture, "from a play view the finer mesh stands {0:F0} deep at the nearest, a depth step there {1:F3} against FINE_GAP {2}",
+                least, DepthStep(least), OilRigs.FINE_GAP));
+            Assert.True(DepthStep(least) > OilRigs.FINE_GAP, "a play view stands near enough a rig to draw its finer mesh without its faces fighting");
         }
 
         [Fact]
@@ -287,7 +338,8 @@ namespace BS3D.Tests
         public void TheFinerRigCarriesWhatTheReferencesShow()
         {
             //The references (#1169) read at the intro's 140 to 250: railings round the decks, stairs, pipework, a crane boom of
-            //members, lifeboats, a lattice derrick, a helideck with its net and markings. The coarser mesh keeps the 47 boxes it had.
+            //members, lifeboats, a lattice derrick, a helideck with its net and markings. The coarser mesh is the 47 boxes it had,
+            //a stem under each corner lamp and a foot under the helideck.
             var coarse = new Dictionary<RigPiece, int>();
             var fine = new Dictionary<RigPiece, int>();
             var shapes = new Dictionary<RigShape, int>();
@@ -298,7 +350,7 @@ namespace BS3D.Tests
                 shapes[part.Shape] = shapes.GetValueOrDefault(part.Shape) + 1;
             });
 
-            Assert.Equal(47, coarse.Values.Sum());
+            Assert.Equal(52, coarse.Values.Sum());
             Assert.True(fine.GetValueOrDefault(RigPiece.Railing) >= 100, "the finer rig has no railings to speak of");
             Assert.True(fine.GetValueOrDefault(RigPiece.Stair) >= 50, "the finer rig has no stairs to speak of");
             Assert.True(fine.GetValueOrDefault(RigPiece.Lifeboat) >= 4, "the finer rig has no lifeboats");

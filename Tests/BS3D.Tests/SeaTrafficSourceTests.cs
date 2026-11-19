@@ -90,6 +90,31 @@ namespace BS3D.Tests
         }
 
         [Fact]
+        public void TheRigsAreDrawnFineWhereTheTierAndTheReachSay()
+        {
+            //#1169's finer rigs reach the screen only through this wiring, which no test can run without a device: the sea hands
+            //the tier's FineMeshes to the rigs' draw, which picks each rig's mesh through DrawsFine from the lens, and DrawRig
+            //draws the finer's triangles where it is told to. DrawsFine reads the tier and the distance and nothing else: the
+            //reach is a depth rule the trailer's maxdetail leaves (OilRigTests). Seen to fire with SeaBackdrop passing false, the
+            //nearer rig drawn coarse whatever DrawsFine says, and RenderDetail.Maximum back in DrawsFine.
+            Assert.Contains("_rigs.Draw(frame, _seaConfig.LevelY, Services.FineMeshes);", Scenes("SeaBackdrop.cs"));
+
+            string rigs = Scenes("OilRigs.cs");
+            string draw = Body(rigs, "public void Draw(in SceneFrame frame, float waterY, bool fineMeshes)");
+            Assert.Contains("Vector3 lens = frame.Camera.Position;", draw);
+            Assert.Contains("DrawRig(_nearFrame, DrawsFine(fineMeshes, lens, _nearFoot));", draw);
+            Assert.Contains("DrawRig(_farFrame, DrawsFine(fineMeshes, lens, _farFoot));", draw);
+            Assert.Contains("_graphicsDevice.DrawPrimitives(PrimitiveType.TriangleList, fine ? _fineStart : 0, fine ? _fineTriangles : _coarseTriangles);",
+                Body(rigs, "private void DrawRig("));
+
+            int start = rigs.IndexOf("internal static bool DrawsFine(", StringComparison.Ordinal);
+            Assert.True(start >= 0, "no DrawsFine");
+            string drawsFine = rigs.Substring(start, rigs.IndexOf(';', start) - start);
+            Assert.DoesNotContain("RenderDetail", drawsFine);
+            Assert.Contains("fineMeshes &&", drawsFine);
+        }
+
+        [Fact]
         public void TheSurfaceStandsStillPastStillAtAndOnlyItsHeightDoes()
         {
             //What the lighthouse and the vessels stand in (#1170, SeaTrafficTests.AllOfItStandsWhereTheSurfaceStandsStillWhoeverLooks):

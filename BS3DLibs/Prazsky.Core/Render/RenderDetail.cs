@@ -12,11 +12,12 @@ namespace Prazsky.Core.Render
     /// <item>every planted tree wears the near crown in both passes (<see cref="ForestScatterRenderer.WearsNearCrown"/>);</item>
     /// <item>every broadleaf of a wood is dressed as a near one (<c>ForestDressing</c>);</item>
     /// <item>every city rooftop's clutter and equipment is drawn at any distance (<see cref="CityRooftops"/>);</item>
-    /// <item>the sea's oil platforms wear their finer mesh at any distance (<c>OilRigs.DrawsFine</c>, #1169);</item>
     /// <item>every ball is the finest sphere (the Game's <c>BallRenderSet.LodBias</c>).</item>
     /// </list>
     /// What it leaves: the tier's own choices (a filming run asks for Ultra, which already maxes every one), the frustum
-    /// culls (exact), and the fades that are part of a scene's look (the sea's swell, the clouds, the particles' near fade).
+    /// culls (exact), the fades that are part of a scene's look (the sea's swell, the clouds, the particles' near fade), and
+    /// the sea's oil platforms' reach (<c>OilRigs.DrawsFine</c>, #1169): a depth rule, not a cost one, past which the finer
+    /// mesh's faces would fight.
     /// </para>
     /// Set once, by the Game's <c>maxdetail</c> argument, before any scene is built (the wood's dressing is split when it
     /// is built), and never cleared within a run. Nothing reads it per instance in a hot loop beyond one branch.

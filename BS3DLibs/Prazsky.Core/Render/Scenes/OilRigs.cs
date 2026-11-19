@@ -146,7 +146,8 @@ namespace Prazsky.Core.Render
     /// <para>
     /// <b>Two meshes of one rig</b> (#1169), both in the rig's own frame, each rig drawn with its own <c>World</c>. The coarser,
     /// every tier's: four legs with their bracing, a deck of two levels with its modules, a derrick whose lattice the shader
-    /// paints, a crane, a flare boom with its flame, a helideck and a few steady lamps, 47 boxes. The finer, drawn where
+    /// paints, a crane, a flare boom with its flame, a helideck on its foot and a few steady lamps on their stems, 52 boxes.
+    /// The finer, drawn where
     /// <see cref="SceneRenderer.FineMeshes"/> is on (High and Ultra) and the lens stands within <see cref="FINE_REACH"/> of the
     /// rig: what the references (<c>C:\Users\panrd\AI\sd\out\1169-zimage</c>, <c>1169-klein</c>, <c>1169-flux3</c>) show reading at
     /// the chapter intro's run, 250 to 140 off the nearer one: round legs fouled at the splash zone, a jacket of tubes braced in
@@ -154,14 +155,15 @@ namespace Prazsky.Core.Render
     /// columns and bracing between the decks, windows and doors, railings round both decks, a stair between them, a real lattice
     /// derrick on its drill floor, a crane with a lattice boom, its hook and gantry, a truss flare boom, an eight-sided helideck
     /// on posts with its net, markings and lights, lifeboats on their davits, a pipe rack, tanks and a container. Farther than
-    /// <see cref="FINE_REACH"/> a rig is drawn coarse on every tier: from the play view, 800 and more out, a railing is under a
-    /// pixel, and the coarser is what keeps no two faces within a depth step there.
+    /// <see cref="FINE_REACH"/> a rig is drawn coarse on every tier, under the trailer's <see cref="RenderDetail.Maximum"/> too:
+    /// from the play view, 800 and more out, a railing is under a pixel, and the coarser is what keeps no two faces within a
+    /// depth step there (<see cref="DrawsFine"/>).
     /// </para>
     /// <para>
     /// <b>No two faces of different paint lie in one plane facing one way</b> (<c>OilRigTests</c>): the depth buffer cannot tell
     /// them apart and they fight. On the coarser mesh nothing comes within <see cref="COARSE_GAP"/> of that (a depth step at the
     /// farther rig's far corner from the play view is under 1.9); on the finer, drawn only near, nothing that can be seen within
-    /// <see cref="FINE_GAP"/> over more than a speck (a step at <see cref="FINE_REACH"/> plus the rig's own reach is 0.18). ⚠ The
+    /// <see cref="FINE_GAP"/> over more than a speck (a step at <see cref="FINE_REACH"/> plus the rig's own reach is 0.21). ⚠ The
     /// lower modules stood into the upper deck's slab, their ends in its end faces' planes, white and orange against grey, and
     /// flickered (#1169): they stand under it now and short of its ends.
     /// </para>
@@ -171,9 +173,9 @@ namespace Prazsky.Core.Render
         //Lighter than the water's own haze (700), or a rig a kilometre off is gone
         private const float HAZE = 1700f;
 
-        /// <summary>How near the lens, horizontally, a rig's foot must stand for the rig to be drawn in its finer mesh, where
-        /// the tier draws finer meshes at all: the intro's run passes the nearer within 250, and the play view stands 800 and
-        /// more from either.</summary>
+        /// <summary>How near the lens a rig's foot must stand for the rig to be drawn in its finer mesh, where the tier draws
+        /// finer meshes at all: the intro's run passes the nearer within 250, and the play view stands 800 and more from either.
+        /// Measured in three dimensions, so a lens over the rig is held to it as well (<see cref="DrawsFine"/>).</summary>
         internal const float FINE_REACH = 300f;
 
         /// <summary>The nearest two same-facing faces of different paint may lie to one plane where both can be seen, world
@@ -263,11 +265,12 @@ namespace Prazsky.Core.Render
 
         /// <summary>Whether a rig whose jacket stands on <paramref name="foot"/> is drawn in its finer mesh from
         /// <paramref name="lens"/>: where the tier draws finer meshes (<paramref name="fineMeshes"/>) and within
-        /// <see cref="FINE_REACH"/>, or at any distance under <see cref="RenderDetail.Maximum"/> (a filming run, #1178, which must
-        /// not see a rig change its mesh as a lens flies in).</summary>
+        /// <see cref="FINE_REACH"/>. ⚠ Under <see cref="RenderDetail.Maximum"/> (the trailer's, #1178) too: the reach is a depth
+        /// rule, not a cost one. The finer mesh holds its faces only <see cref="FINE_GAP"/> apart, which a depth step at the
+        /// Game's near plane reaches some 500 from the lens; within the reach no part of the rig stands farther than about 420,
+        /// and from a play view, 800 and more out, the finer rig's windows, decks and stairs would fight.</summary>
         internal static bool DrawsFine(bool fineMeshes, Vector3 lens, Vector3 foot) =>
-            fineMeshes && (RenderDetail.Maximum
-                || Vector2.DistanceSquared(new Vector2(lens.X, lens.Z), new Vector2(foot.X, foot.Z)) < FINE_REACH * FINE_REACH);
+            fineMeshes && Vector3.DistanceSquared(lens, foot) < FINE_REACH * FINE_REACH;
 
         /// <summary>A rig's triangles, the coarser mesh or the finer, wound clockwise seen from outside: in the world for a rig
         /// that stands in it, in its own frame for <see cref="LOCAL"/> (what the buffer holds).</summary>
@@ -291,7 +294,7 @@ namespace Prazsky.Core.Render
             Crane(b, fine);
             Flare(b, fine);
             Helideck(b, fine);
-            Lamps(b);
+            Lamps(b, fine);
             if (!fine) return;
 
             BoatLanding(b);
@@ -490,6 +493,9 @@ namespace Prazsky.Core.Render
         //A door's sill over the floor: its foot more than FINE_GAP over the module's, which stands on the deck
         private const float DOOR_SILL = 0.7f;
 
+        //How far in from the lower deck's corners its railing's corner posts stand, and the coarser rig's lamp stems
+        private const float CORNER_POST_IN = 0.6f;
+
         //How far the helideck's top stands over the upper deck's
         private const float HELIDECK_RISE = 3.8f;
 
@@ -596,9 +602,9 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// The helideck over the upper deck's -Z +X corner; the finer an eight-sided slab marked on its top (<c>Rig.fx</c>'s
-        /// HELIPAD), its net sloping out round the edge, green lights at its corners, beams under it and three posts down to the
-        /// lower deck.
+        /// The helideck over the upper deck's -Z +X corner: the coarser a slab on a foot standing on the upper deck; the finer an
+        /// eight-sided slab marked on its top (<c>Rig.fx</c>'s HELIPAD), its net sloping out round the edge, green lights at its
+        /// corners, beams under it and three posts down to the lower deck.
         /// </summary>
         private static void Helideck(Builder b, bool fine)
         {
@@ -607,6 +613,11 @@ namespace Prazsky.Core.Render
             if (!fine)
             {
                 b.Box(centre, new Vector3(12f, 0.6f, 12f), HELIDECK, PAINTED, RigPiece.Helideck);
+
+                //Its foot on the upper deck, inside where the two overlap (x 14 to 24, z -28 to -12). The pad's red: the foot's
+                //top lies under the pad's by less than COARSE_GAP, and in another paint it would fight it from the play view
+                float padUnder = centre.Y - 0.6f;
+                b.Box(new Vector3(19f, (UPPER_TOP + padUnder) * 0.5f, -20f), new Vector3(4f, (padUnder - UPPER_TOP) * 0.5f, 7f), HELIDECK, PAINTED, RigPiece.Helideck);
                 return;
             }
 
@@ -642,14 +653,22 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// The steady lamps (#401): at the lower deck's corners, over its railing's corner posts, and a beacon standing on the
-        /// derrick's cap. Each top stands more than <see cref="COARSE_GAP"/> over the top it stands over, on either rig.
+        /// The steady lamps (#401): at the lower deck's corners, over a post, and a beacon standing on the derrick's cap. Each
+        /// top stands more than <see cref="COARSE_GAP"/> over the top it stands over, on either rig. ⚠ A lamp's post is the
+        /// railing's corner post on the finer rig and on the coarser a stem of the lamp's own light: a post's top lies under the
+        /// lamp's top by less than <see cref="COARSE_GAP"/>, and in another paint it would fight it from the play view.
         /// </summary>
-        private static void Lamps(Builder b)
+        private static void Lamps(Builder b, bool fine)
         {
+            const float LAMP_HALF = 0.9f, LAMP_MIDDLE = LOWER_TOP + 3f, LAMP_UNDER = LAMP_MIDDLE - LAMP_HALF;
             foreach (float x in new[] { -36f, 36f })
                 foreach (float z in new[] { -32f, 32f })
-                    b.Box(new Vector3(x, LOWER_TOP + 3f, z), new Vector3(0.9f, 0.9f, 0.9f), LAMP, LIGHT, RigPiece.Lamp);
+                {
+                    b.Box(new Vector3(x, LAMP_MIDDLE, z), new Vector3(LAMP_HALF, LAMP_HALF, LAMP_HALF), LAMP, LIGHT, RigPiece.Lamp);
+                    if (!fine)
+                        b.Box(new Vector3(x - MathF.Sign(x) * CORNER_POST_IN, (LOWER_TOP + LAMP_UNDER) * 0.5f, z - MathF.Sign(z) * CORNER_POST_IN),
+                            new Vector3(0.25f, (LAMP_UNDER - LOWER_TOP) * 0.5f, 0.25f), LAMP, LIGHT, RigPiece.Lamp);
+                }
             Vector2 derrick = OilRigLayout.DERRICK_AXIS;
             b.Box(new Vector3(derrick.X, OilRigLayout.DERRICK_TOP_Y + 2f, derrick.Y), new Vector3(0.9f, 2f, 0.9f), LAMP, LIGHT, RigPiece.Derrick);
         }
@@ -688,7 +707,7 @@ namespace Prazsky.Core.Render
         /// lands on the upper and under the helideck.</summary>
         private static void Railings(Builder b)
         {
-            const float L = 35.4f, LZ = 31.4f, UX0 = -35.4f, UX1 = 23.4f, UZ0 = -27.4f, UZ1 = 23.4f;
+            const float L = 36f - CORNER_POST_IN, LZ = 32f - CORNER_POST_IN, UX0 = -35.4f, UX1 = 23.4f, UZ0 = -27.4f, UZ1 = 23.4f;
             b.Railing(new Vector3(-L, LOWER_TOP, LZ), new Vector3(L, LOWER_TOP, LZ));
             b.Railing(new Vector3(-L, LOWER_TOP, -LZ), new Vector3(L, LOWER_TOP, -LZ));
             b.Railing(new Vector3(L, LOWER_TOP, -LZ), new Vector3(L, LOWER_TOP, LZ));

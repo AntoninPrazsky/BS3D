@@ -26,7 +26,7 @@
 //
 //THE AIR. The sea's own horizon colour, lighter than the water's haze, so a rig a kilometre off still stands on the horizon.
 //
-//Drawn in the Game and the Testbed through the shared SceneRenderer (SeaBackdrop), after the water. SM 5.0, no OPENGL.
+//Drawn in the Game and the Testbed through the shared SceneRenderer (SeaBackdrop), after the water. Shader Model 5.0 on DirectX and 3.0 under OPENGL (ShaderTarget.fxh).
 
 #include "ShaderTarget.fxh"
 
@@ -96,13 +96,12 @@ float Band(float x, float a, float b, float aa)
     return smoothstep(a - aa, a + aa, x) * (1.0 - smoothstep(b - aa, b + aa, x));
 }
 
-//A helideck's top at uv (0 to 1 across the eight-sided deck, its corners on the unit circle about the middle): the green deck,
-//a white line round its edge, the yellow touchdown circle, the white H, and a rope net of diamonds over the middle, which
-//fades out where its strands are finer than a pixel rather than shimmer
-float3 HelipadAlbedo(float2 uv)
+//A helideck's top at p (-1 to 1 across the eight-sided deck, its corners on the unit circle about the middle): the green
+//deck, a white line round its edge, the yellow touchdown circle, the white H, and a rope net of diamonds over the middle,
+//which fades out where its strands are finer than a pixel rather than shimmer. aa is p's footprint on the pixel and
+//netWidth the net's, taken by the caller before its branch
+float3 HelipadAlbedo(float2 p, float aa, float netWidth)
 {
-    float2 p = uv * 2.0 - 1.0;
-    float aa = max(fwidth(p.x) + fwidth(p.y), 1e-4);
     float r = length(p);
 
     //The edge: 1 along the octagon's sides, which face the axes and the diagonals
@@ -117,7 +116,7 @@ float3 HelipadAlbedo(float2 uv)
 
     float2 cells = float2(p.x + p.y, p.x - p.y) * NET_CELLS;
     float2 f = abs(frac(cells) - 0.5);
-    float strands = smoothstep(0.40, 0.48, max(f.x, f.y)) * saturate(1.0 - fwidth(cells.x) * 2.5);
+    float strands = smoothstep(0.40, 0.48, max(f.x, f.y)) * saturate(1.0 - netWidth * 2.5);
     albedo = lerp(albedo, NET_DARK, 0.6 * strands * (1.0 - smoothstep(0.78 - aa, 0.78 + aa, r)));
     return albedo;
 }
@@ -131,9 +130,15 @@ float4 RigPS(RigVertexOutput input) : COLOR
     float kind = input.Color.a;
     float3 albedo = input.Color.rgb;
 
-    //A helideck's top draws its markings where its colour carries where on the deck it is (#1169)
-    float isHelipad = step(0.15, kind) * step(kind, 0.35);
-    albedo = lerp(albedo, HelipadAlbedo(input.Color.rg), isHelipad);
+    //A helideck's top draws its markings where its colour carries where on the deck it is (#1169). Only one slab of a finer
+    //rig is a helideck, and every other pixel this effect shades skips them: the kind is one value across a triangle and a
+    //quad is one triangle's, so the branch never parts a quad. Its derivatives are taken before it all the same, which
+    //Shader Model 3.0 asks (X3528, "can't force branch with gradients on non-inputs")
+    float2 deck = input.Color.rg * 2.0 - 1.0;
+    float deckFootprint = max(fwidth(deck.x) + fwidth(deck.y), 1e-4);
+    float netFootprint = fwidth((deck.x + deck.y) * NET_CELLS);
+    [branch] if (kind > 0.15 && kind < 0.35)
+        albedo = HelipadAlbedo(deck, deckFootprint, netFootprint);
 
     //Sailcloth is one sheet: its normal turned to the lens, and the sun behind it partly through it
     float isCloth = step(0.7, kind) * step(kind, 0.9);

@@ -472,7 +472,7 @@ namespace Prazsky.Core.Render
         /// glass (<see cref="SaucerFineMesh"/>), where Low and Medium keep two lathes with the bulbs and the crew painted on — and the
         /// sea's oil platforms (#1169): within <c>OilRigs.FINE_REACH</c> of the lens, the chapter intro's run, a jacket of round
         /// tubes, railings, stairs, lifeboats, a real lattice derrick, a crane's lattice boom and a marked helideck where Low and
-        /// Medium, and every tier farther out, keep 47 boxes. The spruces belong to the hosts' own <see cref="ForestScatterRenderer"/>s, which take this flag at every draw.
+        /// Medium, and every tier farther out, keep 52 boxes. The spruces belong to the hosts' own <see cref="ForestScatterRenderer"/>s, which take this flag at every draw.
         /// <para>
         /// A switch of its own rather than a step of <see cref="SceneDetail"/>, because that one is Low's alone (#298) and
         /// this one is Medium's too: Medium is the weak machine's rung. A plain flag for <see cref="SupersampleFactor"/>'s
