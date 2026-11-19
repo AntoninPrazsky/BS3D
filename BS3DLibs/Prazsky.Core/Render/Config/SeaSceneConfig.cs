@@ -62,6 +62,20 @@ namespace Prazsky.Core.Render
         /// </summary>
         public float CalmFrom { get; set; } = 600f;
 
+        /// <summary>
+        /// Distance from the ARENA at which the swell stops heaving the surface (#1170): from here to <see cref="StillAt"/> its
+        /// displacement fades to nothing whatever the camera's distance, and only its displacement. The lighthouse, the ship and
+        /// the yacht (<c>SeaTrafficLayout</c>) stand past <see cref="StillAt"/>, cut at a flat waterline, so no hull stands
+        /// over a trough or before a crest. Their light (the normal, the crest's foam and colour, the chop) is left to the
+        /// camera's fade: a calm as near as this one that took the light as well, as <see cref="CalmFrom"/> does, would lay
+        /// glass over the play view's far water. See <c>Sea.fx</c>'s <c>StillAt</c>. 0 at <see cref="StillAt"/> turns it off.
+        /// </summary>
+        public float StillFrom { get; set; } = 260f;
+
+        /// <summary>Distance from the arena past which the surface stands still, its swell's light still playing on it
+        /// (<see cref="StillFrom"/>).</summary>
+        public float StillAt { get; set; } = 360f;
+
         /// <summary>Fine per-pixel wind-chop peak height in world units.</summary>
         public float ChopAmplitude { get; set; } = 0.16f;
 

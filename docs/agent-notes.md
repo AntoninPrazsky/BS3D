@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-19 — #1169 #1170 plošiny bez blikání, maják a lodě blíž — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: #1169 blikání plošin opraveno geometrií, bez depth bias (spodní moduly už nekončí v rovinách horní paluby, lampy, heliport a nohy odsazené). Na High/Ultra se plošina blíž než 300 kreslí jemnou sítí (10 492 trojúhelníků: kulaté nohy, příhradová věž, jeřáb, flérka, osmiboký heliport s nápisy v Rig.fx, záchranné čluny); hrubá síť má 624 trojúhelníků. Cena: +1,3 ms v nejbližším záběru úvodu (3840x1600). #1170: maják na 400, jachta 450, loď 520 (rychlost 10); Sea.fx tlumí jen posun hladiny mezi 260 a 360, světlo vody beze změny.
+- ⚠ Dosah jemné sítě je pravidlo hloubky, ne ceny: mezery 0,3 drží jen do ~500; `maxdetail` ho proto nemění (jinak by z herního pohledu blikala okna).
+- Otevřené: verdict-eye obou; pohyb lodí a absence blikání nesledovány okem, telefon a notebook neměřeny, čluny zespodu působí jako nádrže.
+
 ## 2026-11-19 — #1168 moaré na polárním sněhu — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: hřeben vodorovných pruhů na pláni za palubou dělala normála sastrugi, ne třpyt (třpyt vypnutý = bitově stejný snímek). `Sastrugi` v `Polar.fx` blednou podle podílu vlastní buňky šumu na pixel (`length(fwidth(w))`): celé do 1/48, pryč při 1/16; jemná oktáva na své frekvenci. Každá oktáva bledne k vlastnímu průměru (`SASTRUGI_FINE_MEAN` 0,86, `SASTRUGI_RIDGES_MEAN` 0,78), ne k 0,5, jinak sníh tmavne. Pruhy 22,9/26,7 → 0,93/0,80 (podlaha bez sastrugi 0,95/0,79); +14 instrukcí. Testy `PolarSastrugiSourceTests`.

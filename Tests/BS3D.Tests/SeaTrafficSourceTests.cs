@@ -79,7 +79,7 @@ namespace BS3D.Tests
             //SINK_FROM
             string rigs = Scenes("OilRigs.cs");
             Assert.Contains("effect.Parameters[\"SinkScale\"].SetValue(SeaTrafficLayout.SINK_SCALE);", Body(rigs, "internal static Effect LoadEffect("));
-            Assert.Contains("_sinkFrom.SetValue(SeaTrafficLayout.NO_SINK);", Body(rigs, "public void Draw(in SceneFrame frame, float waterY)"));
+            Assert.Contains("_sinkFrom.SetValue(SeaTrafficLayout.NO_SINK);", Body(rigs, "public void Draw(in SceneFrame frame, float waterY, bool fineMeshes)"));
 
             string traffic = Scenes("SeaTraffic.cs");
             Assert.Contains("_sinkFrom.SetValue(sinkFrom);", Body(traffic, "private void DrawPart("));
@@ -87,6 +87,57 @@ namespace BS3D.Tests
             Assert.Matches(@"DrawPart\(_lighthouse, [^;]*, SeaTrafficLayout\.NO_SINK\);", draw);
             Assert.Matches(@"DrawPart\(SeaTrafficLayout\.ShipAt\([^;]*, SeaTrafficLayout\.SINK_FROM\);", draw);
             Assert.Matches(@"DrawPart\(SeaTrafficLayout\.YachtAt\([^;]*, SeaTrafficLayout\.SINK_FROM\);", draw);
+        }
+
+        [Fact]
+        public void TheRigsAreDrawnFineWhereTheTierAndTheReachSay()
+        {
+            //#1169's finer rigs reach the screen only through this wiring, which no test can run without a device: the sea hands
+            //the tier's FineMeshes to the rigs' draw, which picks each rig's mesh through DrawsFine from the lens, and DrawRig
+            //draws the finer's triangles where it is told to. DrawsFine reads the tier and the distance and nothing else: the
+            //reach is a depth rule the trailer's maxdetail leaves (OilRigTests). Seen to fire with SeaBackdrop passing false, the
+            //nearer rig drawn coarse whatever DrawsFine says, and RenderDetail.Maximum back in DrawsFine.
+            Assert.Contains("_rigs.Draw(frame, _seaConfig.LevelY, Services.FineMeshes);", Scenes("SeaBackdrop.cs"));
+
+            string rigs = Scenes("OilRigs.cs");
+            string draw = Body(rigs, "public void Draw(in SceneFrame frame, float waterY, bool fineMeshes)");
+            Assert.Contains("Vector3 lens = frame.Camera.Position;", draw);
+            Assert.Contains("DrawRig(_nearFrame, DrawsFine(fineMeshes, lens, _nearFoot));", draw);
+            Assert.Contains("DrawRig(_farFrame, DrawsFine(fineMeshes, lens, _farFoot));", draw);
+            Assert.Contains("_graphicsDevice.DrawPrimitives(PrimitiveType.TriangleList, fine ? _fineStart : 0, fine ? _fineTriangles : _coarseTriangles);",
+                Body(rigs, "private void DrawRig("));
+
+            int start = rigs.IndexOf("internal static bool DrawsFine(", StringComparison.Ordinal);
+            Assert.True(start >= 0, "no DrawsFine");
+            string drawsFine = rigs.Substring(start, rigs.IndexOf(';', start) - start);
+            Assert.DoesNotContain("RenderDetail", drawsFine);
+            Assert.Contains("fineMeshes &&", drawsFine);
+        }
+
+        [Fact]
+        public void TheSurfaceStandsStillPastStillAtAndOnlyItsHeightDoes()
+        {
+            //What the lighthouse and the vessels stand in (#1170, SeaTrafficTests.AllOfItStandsWhereTheSurfaceStandsStillWhoeverLooks):
+            //Sea.fx's vertex program scales the swell's displacement by the ramp from StillFrom to StillAt off the arena, after
+            //the swell is summed and before the vertex is placed, and scales nothing else, so the light the pixel shader reads
+            //(the rest position's fade, the long waves' normal, the crest) is the camera's alone; the sea pushes both distances.
+            //Seen to fire with the ramp taken out, with it moved onto OceanSurface's amplitude, and with SeaBackdrop setting no
+            //StillAt.
+            string vs = Body(Code("BS3DLibs", "Prazsky.Shaders", "Content", "Shaders", "Sea.fx"), "SeaVertexOutput SeaVS(");
+
+            Match swell = Regex.Match(vs, @"OceanSurface\( ?restXZ, ampScale \* \( ?1\.0 - calm ?\) \* shore, disp, slope, fold, crest ?\);");
+            Assert.True(swell.Success, "SeaVS sums the swell at another amplitude than the camera's fade, the island's calm and the shore");
+            Match still = Regex.Match(vs, @"if \( ?StillAt > 0\.0 ?\) disp \*= saturate\( ?\( ?StillAt - length\( ?restXZ ?\) ?\) / max\( ?StillAt - StillFrom, 1\.0 ?\) ?\);");
+            Assert.True(still.Success, "SeaVS does not still the displacement from StillFrom to StillAt off the arena");
+            Match placed = Regex.Match(vs, @"float3 worldPosition = float3\( ?restXZ\.x \+ disp\.x, SeaLevelY \+ disp\.y, restXZ\.y \+ disp\.z ?\);");
+            Assert.True(placed.Success && swell.Index < still.Index && still.Index < placed.Index,
+                "SeaVS does not still the displacement between summing the swell and placing the vertex");
+            Assert.Contains("output.Rest = float3(restXZ, ampScale * (1.0 - calm) * shore);", vs);
+            Assert.DoesNotMatch(@"StillAt[^;]*(slope|crest|ampScale)", vs);
+
+            string apply = Body(Scenes("SeaBackdrop.cs"), "private void ApplySeaParameters(");
+            Assert.Contains("_seaEffect.Parameters[\"StillFrom\"].SetValue(_seaConfig.StillFrom);", apply);
+            Assert.Contains("_seaEffect.Parameters[\"StillAt\"].SetValue(_seaConfig.StillAt);", apply);
         }
 
         [Fact]

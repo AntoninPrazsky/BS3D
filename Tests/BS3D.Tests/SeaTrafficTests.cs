@@ -14,7 +14,7 @@ namespace BS3D.Tests
     /// <summary>
     /// What stands on the open sea besides the oil platforms (#1125, the owner: the sea is "still quite empty"): the lighthouse on
     /// its rock, the container ship and the yacht (<see cref="SeaTrafficLayout"/>, <see cref="SeaTrafficMeshes"/>), held over the
-    /// very triangles that are drawn: every one wound clockwise seen from outside; all of it where the swell is flat; nothing on
+    /// very triangles that are drawn: every one wound clockwise seen from outside; all of it where the surface stands still; nothing on
     /// the ship out past its hull but the bridge wings; the lanes
     /// clear of both platforms, of the lighthouse and of each other; no lens the chapter intro flies near a lane or the lighthouse;
     /// a vessel under the horizon from every lens before it wraps round; the vessels on their clock alone, which starts again
@@ -41,7 +41,7 @@ namespace BS3D.Tests
         private const float LENS_REACH = 1100f;
 
         //How long a lane each vessel must spend in the opening play view at the least, seconds
-        private const float SHIP_SECONDS = 50f, YACHT_SECONDS = 120f;
+        private const float SHIP_SECONDS = 40f, YACHT_SECONDS = 60f;
 
         private static List<RigVertex> Ship() => SeaTrafficMeshes.ContainerShip();
         private static List<RigVertex> Yacht() => SeaTrafficMeshes.Yacht(SeaTrafficLayout.YachtLeeward(Sea.Wind.ToVector2()));
@@ -71,17 +71,21 @@ namespace BS3D.Tests
             return (near, far);
         }
 
-        //Every corner of every box of both platforms
+        //Every corner of every part's box of both platforms, coarser and finer
         private static List<Vector3> RigCorners()
         {
             var corners = new List<Vector3>();
-            void Collect(Matrix world, Vector3 half, Vector3 color, float kind)
+            void Collect(RigPart part)
             {
+                Vector3 half = part.Half;
                 for (int i = 0; i < 8; i++)
-                    corners.Add(Vector3.Transform(new Vector3((i & 1) == 0 ? -half.X : half.X, (i & 2) == 0 ? -half.Y : half.Y, (i & 4) == 0 ? -half.Z : half.Z), world));
+                    corners.Add(Vector3.Transform(new Vector3((i & 1) == 0 ? -half.X : half.X, (i & 2) == 0 ? -half.Y : half.Y, (i & 4) == 0 ? -half.Z : half.Z), part.World));
             }
-            OilRigs.Parts(OilRigLayout.Near(Sea.LevelY), Collect);
-            OilRigs.Parts(OilRigLayout.Far(Sea.LevelY), Collect);
+            foreach (bool fine in new[] { false, true })
+            {
+                OilRigs.Parts(OilRigLayout.Near(Sea.LevelY), fine, Collect);
+                OilRigs.Parts(OilRigLayout.Far(Sea.LevelY), fine, Collect);
+            }
             return corners;
         }
 
@@ -141,19 +145,24 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void AllOfItStandsWhereTheSwellIsFlatWhoeverLooks()
+        public void AllOfItStandsWhereTheSurfaceStandsStillWhoeverLooks()
         {
-            //Rig.fx cuts everything at a flat waterline, so it has to stand where Sea.fx's calm with the distance from the arena has
-            //the water flat (#1124): past WaveFadeEnd. A vessel's nearest to the arena anywhere on its lane is its lane's nearest
-            //point less its reach across it. Seen to fire with the yacht's lane at 780.
+            //Rig.fx cuts everything at a flat waterline, so it has to stand where Sea.fx's stillness with the distance from the
+            //arena has the surface flat whoever looks (#1170): past StillAt, the ramp before it ending there. A vessel's nearest to
+            //the arena anywhere on its lane is its lane's nearest point less its reach across it. Seen to fire with StillAt at 400.
+            Assert.True(Sea.StillFrom > 0f && Sea.StillFrom < Sea.StillAt, $"the surface stills from {Sea.StillFrom} to {Sea.StillAt} from the arena");
+            float nearestOfAll = float.MaxValue;
             foreach ((string name, List<RigVertex> mesh, float lane, _, _) in Vessels())
             {
                 float nearest = Band(mesh, lane).Near;
-                Assert.True(nearest >= Sea.WaveFadeEnd, $"{name} comes {nearest:F1} near the arena, inside the swell's {Sea.WaveFadeEnd}");
+                nearestOfAll = MathF.Min(nearestOfAll, nearest);
+                Assert.True(nearest >= Sea.StillAt, $"{name} comes {nearest:F1} near the arena, inside the still water's {Sea.StillAt}");
             }
 
             float rock = Placed(Lighthouse(), SeaTrafficLayout.Lighthouse(Sea.LevelY)).Min(p => new Vector2(p.X, p.Z).Length());
-            Assert.True(rock >= Sea.WaveFadeEnd, $"the lighthouse's rock comes {rock:F1} near the arena, inside the swell's {Sea.WaveFadeEnd}");
+            Assert.True(rock >= Sea.StillAt, $"the lighthouse's rock comes {rock:F1} near the arena, inside the still water's {Sea.StillAt}");
+            _output.WriteLine(string.Format(CultureInfo.InvariantCulture, "the rock's nearest vertex stands {0:F1} from the arena, a vessel's {1:F1}; the surface is still past {2}",
+                rock, nearestOfAll, Sea.StillAt));
         }
 
         [Fact]
@@ -251,9 +260,8 @@ namespace BS3D.Tests
         [Fact]
         public void NoLensTheIntroFliesComesNearALaneOrTheLighthouse()
         {
-            //The run at the nearer platform flies low over the water out to some 1070 from the arena (SeaIntroShots), which is why
-            //the lanes are not rings round the arena: a vessel could be anywhere along one when it plays. Seen to fire with the
-            //lanes' bearing at -1.6, the platform's side of the sea.
+            //The run at the nearer platform flies low over the water from some 730 to 1070 from the arena (SeaIntroShots), and a
+            //vessel could be anywhere along its lane when it plays. Seen to fire with the ship's lane at 800, across the run.
             var bands = Vessels().Select(v => (v.Name, Band: Band(v.Mesh, v.Lane))).ToList();
             List<Vector3> rock = Placed(Lighthouse(), SeaTrafficLayout.Lighthouse(Sea.LevelY)).ToList();
             float farthest = 0f;
@@ -368,8 +376,8 @@ namespace BS3D.Tests
         {
             //The play view of every shipped level, played on the sea through the pause's Scene list, in every pose the overview
             //holds: the lantern, the tower's middle and the rock under it in the frame, the gun at rest and every ball the level
-            //opens with off the line to them. Seen to fire with the lighthouse's bearing at -1.37 (the gun's wheel before its rock
-            //on Analemma), and at -1.37 and 860 out before the rock was held (a ball of Balloon over the lantern, focused).
+            //opens with off the line to them. Seen to fire, 400 out, with the lighthouse's bearing at -1.31 (a ball of Balloon over
+            //the lantern, focused) and at -1.35 (the gun's wheel before its rock on Analemma).
             Matrix frame = SeaTrafficLayout.Lighthouse(Sea.LevelY);
             Vector3 lantern = Vector3.Transform(new Vector3(0f, 53f, 0f), frame), middle = Vector3.Transform(new Vector3(0f, 30f, 0f), frame);
             Vector3 rock = Vector3.Transform(new Vector3(0f, 3f, 0f), frame);
@@ -399,7 +407,7 @@ namespace BS3D.Tests
         public void EachVesselCrossesTheOpeningPlayView(float aspect)
         {
             //The first level's opening pose (the lens on +Z looking at the cluster): over a whole lane, each vessel's middle stands in
-            //the frame, out of the gun's way and over the horizon's cut for at least SHIP_SECONDS (57 at 4:3, the narrowest frame)
+            //the frame, out of the gun's way and over the horizon's cut for at least SHIP_SECONDS (46 at 4:3, the narrowest frame)
             //and YACHT_SECONDS, and both are in the frame for at least a third of the first two minutes from their zero, the
             //moment the Game selected the sea (SeaTrafficClock). Seen to fire with the ship's lane bearing at 0.5, behind the lens,
             //and the early minutes with the ship starting 1500 along its lane.
@@ -433,8 +441,10 @@ namespace BS3D.Tests
                     aspect, name, seconds, period, early));
             }
 
-            //Both lanes come round together every 6000 s (500 s and 1200 s a lane)
-            const int COMMON = 6000;
+            //Both lanes come round together every lane's length over the speeds' greatest common divisor in seconds (the speeds are
+            //whole units a second: 10 and 5 come round together every 1280 s, the yacht's own lane)
+            static int Divisor(int a, int b) => b == 0 ? a : Divisor(b, a % b);
+            int COMMON = (int)(2f * SeaTrafficLayout.LANE_HALF_LENGTH) / Divisor((int)SeaTrafficLayout.SHIP_SPEED, (int)SeaTrafficLayout.YACHT_SPEED);
             int either = 0, both = 0;
             for (int t = 0; t < COMMON; t++)
             {
@@ -454,9 +464,11 @@ namespace BS3D.Tests
             //order they play, the vessels' clock starting with the prologue (a pick in the Scene list selects the sea and then
             //flies it; a level on the sea builds, selecting it, and then flies it), at the game's lens and 16:9, geometry only:
             //the lantern, and each vessel's middle over the horizon's cut, in the frame at some pose of some shot over the
-            //water. docs/scenes/sea.md and SeaIntroShots say the lighthouse in about three rolls in four and a vessel in five in
-            //six, so a change to the prologue or the layout that moves either says so here. Seen to fire with the lighthouse's
-            //bearing at -2.6 (523 rolls of the 624) and with the ship starting 1500 along its lane (a vessel in 393).
+            //water. docs/scenes/sea.md and SeaIntroShots say the lighthouse and a vessel in every roll since the three came in to
+            //400-520 (#1170), the ship in about four in five, so a change to the prologue or the layout that moves any of it says
+            //so here. Seen to fire with the lighthouse back at 850 out (475 rolls of the 624) and with both vessels starting 1500
+            //along their lanes (a vessel in 287). Its bearing alone does not move it: turned to 1.57, behind the play view's lens,
+            //the lighthouse 400 out is still in every roll.
             const float ASPECT = 16f / 9f;
             Vector3 lantern = Vector3.Transform(new Vector3(0f, 53f, 0f), SeaTrafficLayout.Lighthouse(Sea.LevelY));
             var heights = Vessels().Select(v => v.Mesh.Max(p => p.Position.Y)).ToArray();
@@ -499,10 +511,10 @@ namespace BS3D.Tests
                 }
 
             _output.WriteLine($"of {rolls} rolls the prologue frames the lighthouse in {lighthouse}, the ship in {ship}, the yacht in {yacht}, a vessel in {any}");
-            Assert.True(lighthouse >= 0.70f * rolls && lighthouse <= 0.80f * rolls,
-                $"the prologue frames the lighthouse in {lighthouse} rolls of {rolls}, not about three in four as the docs say");
-            Assert.True(any >= 0.78f * rolls && any <= 0.88f * rolls,
-                $"the prologue frames a vessel in {any} rolls of {rolls}, not about five in six as the docs say");
+            Assert.True(lighthouse == rolls, $"the prologue frames the lighthouse in {lighthouse} rolls of {rolls}, not in every one as the docs say");
+            Assert.True(any == rolls, $"the prologue frames a vessel in {any} rolls of {rolls}, not in every one as the docs say");
+            Assert.True(ship >= 0.75f * rolls && ship <= 0.88f * rolls,
+                $"the prologue frames the ship in {ship} rolls of {rolls}, not about four in five as the docs say");
         }
     }
 }

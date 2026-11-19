@@ -52,7 +52,8 @@ namespace Prazsky.Core.Render
         private readonly FishSchool _fish;
         private readonly SeaLightShafts _shafts;
 
-        //The oil platforms far out where the swell is flat (#969), and the lighthouse, the container ship and the yacht (#1125)
+        //The oil platforms far out where the swell is flat (#969), and the lighthouse, the container ship and the yacht nearer in,
+        //where the surface stands still (#1125, #1170)
         private readonly OilRigs _rigs;
         private readonly SeaTraffic _traffic;
 
@@ -171,6 +172,8 @@ namespace Prazsky.Core.Render
             _seaEffect.Parameters["WaveFadeStart"].SetValue(_seaConfig.WaveFadeStart);
             _seaEffect.Parameters["WaveFadeEnd"].SetValue(_seaConfig.WaveFadeEnd);
             _seaEffect.Parameters["CalmFrom"].SetValue(_seaConfig.CalmFrom);
+            _seaEffect.Parameters["StillFrom"].SetValue(_seaConfig.StillFrom);
+            _seaEffect.Parameters["StillAt"].SetValue(_seaConfig.StillAt);
             _seaEffect.Parameters["ChopAmplitude"].SetValue(_seaConfig.ChopAmplitude);
             _seaEffect.Parameters["ChopFrequency"].SetValue(_seaConfig.ChopFrequency);
             _seaEffect.Parameters["ChopSpeed"].SetValue(_seaConfig.ChopSpeed);
@@ -253,9 +256,10 @@ namespace Prazsky.Core.Render
 
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
 
-            //The oil platforms, after the water (which writes no depth) and cut by their own shader at its line (#969), and the
-            //lighthouse and the two vessels through the same shader, the vessels where their clock has them (#1125)
-            _rigs.Draw(frame, _seaConfig.LevelY);
+            //The oil platforms, after the water (which writes no depth) and cut by their own shader at its line (#969), each in its
+            //finer mesh where the tier draws finer meshes and the lens is near it (#1169), and the lighthouse and the two vessels
+            //through the same shader, the vessels where their clock has them (#1125)
+            _rigs.Draw(frame, _seaConfig.LevelY, Services.FineMeshes);
             _traffic.Draw(frame, _seaConfig.LevelY);
 
             //The school (#760), with the lens under the water and only then: from above, the surface hides it, and in

@@ -13,8 +13,8 @@ namespace BS3D.Effects
     /// waves), the glint the sun lays across it, the island, and far out where the water is calm the two platforms
     /// (<see cref="OilRigLayout"/>), a lighthouse on a rock of its own, and a container ship and a yacht on their lanes
     /// (<see cref="SeaTrafficLayout"/>, #1125). No shot is aimed at the lighthouse or the vessels, and the run at the rig is
-    /// held off them: what the rolls happen to point at frames the lighthouse in about three rolls in four and a vessel in
-    /// five in six (<c>SeaTrafficTests</c>, the vessels' clock starting with the prologue).
+    /// held off them: what the rolls happen to point at frames the lighthouse and a vessel in every roll, the ship in about
+    /// four in five (<c>SeaTrafficTests</c>, the vessels' clock starting with the prologue).
     /// <para>
     /// <b>It opened on the island from far out and high, and the owner threw that shot out (#652):</b> "the high,
     /// distant view where the island is small in the middle doesn't work — an empty, boring view". One rock and a
@@ -34,9 +34,9 @@ namespace BS3D.Effects
     /// </para>
     /// <para>
     /// <b>No shot looked at the platforms (#1124, the owner: "in the intro the camera does not deal with the oil
-    /// platforms").</b> The nearer stands 820 out, past the water's calm, and cannot come nearer: its legs are cut at a
-    /// flat waterline. So the lens goes out to it: a cut may put the lens anywhere, and the run starts already
-    /// <see cref="RIG_FROM"/> off the rig, beyond it, coming in over the open sea with the island on the horizon beside
+    /// platforms").</b> The nearer stands 820 out, where the water is calm all round it, its light as well as its heave
+    /// (<see cref="SeaSceneConfig.CalmFrom"/>). So the lens goes out to it: a cut may put the lens anywhere, and the run
+    /// starts already <see cref="RIG_FROM"/> off the rig, beyond it, coming in over the open sea with the island on the horizon beside
     /// it, the rig growing until it towers over the lens. It plays between the depths and the climb, so a low run over
     /// the water is never next to another (the island's flank is one, the climb starts as one): the depths cut to it from
     /// under the water, and its last look, up at the deck with the derrick over it, cuts to the climb's first, level over
@@ -100,8 +100,8 @@ namespace BS3D.Effects
         //The rig (#1124): a straight run low over the water in at the nearer platform from the open sea beyond it, coming in
         //this many degrees round from the line through the rig to the arena, either way, from this far off the rig's axis to
         //this far, where the rig stands this many degrees off the run's heading: the run passes it by rather than flying at
-        //it, and with the rig still ahead of abeam at the end the nearest it comes to the axis is RIG_TO, where the legs'
-        //outer corners stand some 36 off it (OilRig.JacketReach). The run is turned off the line one way and passes the rig
+        //it, and with the rig still ahead of abeam at the end the nearest it comes to the axis is RIG_TO, where nothing low on
+        //the jacket stands more than 37.5 off it (OilRig.JacketReach). The run is turned off the line one way and passes the rig
         //on the other hand, so the island stands on the horizon beside the rig at the start (6 to 18 degrees off it, at the
         //jacket's edge on the steepest approach) and drifts away from it, out of the frame, as the rig grows. In from beyond and
         //not out from the arena's side: looking out, the open sea behind the rig would end some 700 past it, where the far ring

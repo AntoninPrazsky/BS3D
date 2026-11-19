@@ -89,6 +89,16 @@ float WaveFadeEnd;
 //WaveFadeEnd a little calmer. 0 keeps the camera's fade alone (the lagoon's clone never sets it).
 float CalmFrom;
 
+//THE SURFACE STANDS STILL NEARER IN (#1170): from StillFrom to StillAt from the ARENA the swell's displacement fades to
+//nothing, whoever looks, and only its displacement. The lighthouse, the ship and the yacht stand past StillAt, cut at a flat
+//waterline (Rig.fx), as near as 400 to 520 from the arena, where a calm of the light as well (CalmFrom's) would lay glass over
+//the far water of the play view: here the normal the shading reads, the crest the body colour and the foam key on and the
+//chop go on as the camera's fade has them, so the water there looks as it did and only stops heaving. The crest is the height
+//over its own spread, so scaling the height afterwards leaves it as it was. 0 at StillAt turns it off (the lagoon's clone
+//never sets it).
+float StillFrom;
+float StillAt;
+
 //Fine wind chop layered on top of the Gerstner geometry in the pixel shader: peak height, ripples per
 //world unit and scroll speed, plus the wind it crawls along (a unit direction in the XZ plane).
 float ChopAmplitude;
@@ -380,6 +390,11 @@ SeaVertexOutput SeaVS(SeaVertexInput input)
     float3 disp, slope;
     float fold, crest;
     OceanSurface(restXZ, ampScale * (1.0 - calm) * shore, disp, slope, fold, crest);
+
+    //Still past StillAt from the arena (#1170): the displacement is linear in every wave's amplitude, so scaling it here is
+    //the swell drawn at that amplitude, its light left as it was
+    if (StillAt > 0.0)
+        disp *= saturate((StillAt - length(restXZ)) / max(StillAt - StillFrom, 1.0));
 
     float3 worldPosition = float3(restXZ.x + disp.x, SeaLevelY + disp.y, restXZ.y + disp.z);
 
