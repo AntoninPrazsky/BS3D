@@ -414,8 +414,12 @@ namespace Prazsky.Core.Render
         /// ranges stand as dark slate against the sky behind them, each a shade paler than the one before, and only the far
         /// field's last fade (<see cref="FarFadeStartLatest"/>, Volcano.fx's VolcanoFadeToSky) takes the farthest into the sky.
         /// At 0.55 a range 900 out was two fifths of the way to the sky's own colour before that fade began, and the owner saw
-        /// the horizon's mountains "very light, lighter the farther they are". <c>VolcanoFarHazeTests</c> holds the near ranges
-        /// under 0.6 of the sky.
+        /// the horizon's mountains "very light, lighter the farther they are". <c>VolcanoFarHazeTests</c> holds a MODEL of the
+        /// shader's arithmetic, against the drawn horizon (<see cref="SceneFrame.FarSky"/> level with the skyline, without the
+        /// deck): in it a range stays under 0.6 of that sky out to about 1 050 from the lens. The model is optimistic for ground
+        /// over the skyline, where the deck darkens the sky round a crest, and on screen the near ranges measure up to 0.65 of
+        /// the sky behind them. Past about 1 100 no air holds a range under 0.6: the last fade, which must be complete by
+        /// <see cref="FarField.FAR_FADE_END"/> (#551), has it half sky by then (<c>docs/scenes/volcano.md</c>).
         /// </summary>
         internal const float LAND_HAZE_SKY = 0.32f;
 

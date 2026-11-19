@@ -13,9 +13,15 @@ namespace BS3D.Tests
     /// land to <c>LandHazeColor</c>, more than half the drawn horizon's own colour; the far field's last fade into the sky began
     /// at 600, so a range 1 000 out was three fifths sky whatever its air was; and that fade ended in the dome without its
     /// cloud deck, brighter than the sky drawn over the ranges' crests. No test can run the pixel shader, so these hold the
-    /// shader's arithmetic as a model (and the source to that arithmetic) and the figures it is run on: the ranges a player
-    /// sees stand darker than the sky behind them, each farther one a shade paler, and the last fade still has the land wholly
-    /// sky by <see cref="FarField.FAR_FADE_END"/>, so its geometry never shows an end (#551). How it looks is the owner's eye.
+    /// shader's arithmetic as a model (and the source to that arithmetic) and the figures it is run on: the near ranges stand
+    /// under 0.6 of the drawn horizon, each farther one a shade paler, and the last fade still has the land wholly sky by
+    /// <see cref="FarField.FAR_FADE_END"/>, so its geometry never shows an end (#551).
+    /// ⚠ The model's sky is the drawn horizon (<c>FarSky</c> level with the skyline) without the deck, which darkens the sky
+    /// round a crest standing over the skyline: it is optimistic there, and it guards the constants, not the ratio on screen
+    /// (measured in <c>docs/scenes/volcano.md</c>: the near ranges up to 0.65). And the bar holds only until the last fade is
+    /// about half done: from the arena much of the skyline stands 1 100-1 480 out (all of it right of the cone in the play view, the
+    /// nearest ridge there about 1 150), where that fade has the land half to wholly sky whatever its air. How it looks is the
+    /// owner's eye.
     /// </summary>
     public class VolcanoFarHazeTests
     {
@@ -35,19 +41,22 @@ namespace BS3D.Tests
         //The text of a source file without its comments, so a word in a note is not taken for code
         private static string CodeOf(string path) => Regex.Replace(File.ReadAllText(path), @"//[^\n]*", string.Empty);
 
-        //The ranges a player sees: they stand 250-650 past the field's edge (VolcanoCountry's RIDGES_FROM and RIDGES_TO), and the
+        //The near ranges: the ranges stand 250-650 past the field's edge (VolcanoCountry's RIDGES_FROM and RIDGES_TO), and the
         //edge stands 270-300 out on the arena's far side and 330-550 on its flanks, so from a lens at the arena the near ranges
-        //stand 520-1 000 off and the far ones beyond, out to where the last fade takes them
+        //stand 520-1 000 off. The far ones, 1 100-1 480 off and much of the skyline from the arena (TerrainMirror.Volcano marched
+        //out from the play, dormant-cone and left-flank lenses), the last fade has half to wholly sky: no air holds them under
+        //0.6, since that fade must be complete by FAR_FADE_END (#551)
         private const float NEAR_RANGES_TO = 1050f;
 
         //A range's own colour as a share of the sky behind it: dark heath and scree (albedo about 0.05) lit by the dusk dome and
         //a sun 9 degrees up; a tenth is a lit face's, generously
         private const float RANGE_OWN = 0.1f;
 
-        //What the land's pixels come to in Volcano.fx (VolcanoSurface), as a share of the drawn sky: the range's own colour
-        //hazed towards the land's air (landAir, a share of the drawn horizon) by HazeStrength * saturate(d / HorizonHazeDistance)^2,
-        //then FarFadeToSky's smoothstep from where FarField.Begin starts it to FAR_FADE_END. The source this mirrors is held
-        //by TheModelIsTheShadersArithmetic.
+        //What the land's pixels come to in Volcano.fx (VolcanoSurface), as a share of the drawn horizon (FarSky at direction.y
+        //0, which is 1 here; the deck VolcanoFadeToSky closes over it is left out): the range's own colour hazed towards the
+        //land's air (landAir, a share of the drawn horizon) by HazeStrength * saturate(d / HorizonHazeDistance)^2, then the last
+        //fade's smoothstep from where FarField.Begin starts it to FAR_FADE_END. The source this mirrors is held by
+        //TheModelIsTheShadersArithmetic.
         private static float RangeOverSky(float distance, VolcanoSceneConfig volcano, float landAir, float fadeStart)
         {
             float haze = Math.Clamp(distance / volcano.HorizonHazeDistance, 0f, 1f);
@@ -61,7 +70,7 @@ namespace BS3D.Tests
             FarField.FadeStart(volcano.HorizonHazeDistance, VolcanoBackdrop.FarFadeStartLatest(volcano));
 
         [Fact]
-        public void TheNearRangesStandWellUnderTheSky()
+        public void TheNearRangesStandUnderTheDrawnHorizon()
         {
             var volcano = new VolcanoSceneConfig();
             float start = FadeStart(volcano);
@@ -69,7 +78,7 @@ namespace BS3D.Tests
             for (float d = 300f; d <= NEAR_RANGES_TO; d += 25f)
             {
                 float share = RangeOverSky(d, volcano, VolcanoBackdrop.LAND_HAZE_SKY, start);
-                Assert.True(share < 0.6f, $"a range {d} out is {share:F2} of the sky behind it");
+                Assert.True(share < 0.6f, $"a range {d} out is {share:F2} of the drawn horizon");
             }
         }
 
