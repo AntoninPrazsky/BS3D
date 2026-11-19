@@ -26,8 +26,10 @@ namespace Prazsky.Core.Render
     {
         private const int POLE_SIDES = 10, PIPE_SIDES = 8, SHADE_SIDES = 18;
 
-        //The shade's frame: its rim's plane, under the arm's end
+        //The shade's frame: its rim's plane, under the arm's end; and its profile's scale
         private static readonly Vector3 SHADE = new(0f, ForestLampLayout.POLE_LENGTH - ForestLampLayout.SHADE_DROP, -ForestLampLayout.ARM_REACH);
+        private const float K = ForestLampLayout.SHADE_SCALE;
+        private static Matrix ShadePlacement => Matrix.CreateScale(K) * Matrix.CreateTranslation(SHADE);
 
         //The shade's enamelled shell, its profile from the axis at the top of the collar round the rim and back in under the
         //lining (LatheMesh's rule: top, outside, underside); and the lining, a thin cone just under the shell's inside
@@ -44,7 +46,14 @@ namespace Prazsky.Core.Render
             new(0.125f, 0.28f, crease: true), new(0f, 0.28f),
         };
 
-        /// <summary>The pole: a tapered round of weathered wood from its sunk foot to its top, flat-topped under the cap.</summary>
+        //The crossarm across the pole's back near its top, and where its two insulators stand on it
+        private const float CROSSARM_DROP = 0.5f, CROSSARM_HALF = 1.2f, CROSSARM_HALF_HEIGHT = 0.09f, CROSSARM_HALF_DEPTH = 0.08f;
+        private const float INSULATOR_X = 0.95f;
+        private static float CrossarmZ => ForestLampLayout.POLE_TOP_RADIUS + CROSSARM_HALF_DEPTH - 0.02f;
+        private static float CrossarmTop => ForestLampLayout.POLE_LENGTH - CROSSARM_DROP + CROSSARM_HALF_HEIGHT;
+
+        /// <summary>The pole: a tapered round of weathered wood from its sunk foot to its top, flat-topped under the cap, and the
+        /// crossarm bolted across its back that once carried the line (the references' old poles all wear one).</summary>
         public static MeshBuilder Wood()
         {
             var wood = new MeshBuilder();
@@ -55,6 +64,8 @@ namespace Prazsky.Core.Render
                 new LathePoint((ForestLampLayout.POLE_TOP_RADIUS + ForestLampLayout.POLE_RADIUS) * 0.5f, L * 0.5f),
                 new LathePoint(ForestLampLayout.POLE_RADIUS, 0f, crease: true), new LathePoint(0f, 0f),
             }, POLE_SIDES, Matrix.Identity, Vector2.Zero);
+            wood.AddBox(new Vector3(0f, L - CROSSARM_DROP, CrossarmZ), new Vector3(CROSSARM_HALF, 0f, 0f),
+                new Vector3(0f, CROSSARM_HALF_HEIGHT, 0f), new Vector3(0f, 0f, CROSSARM_HALF_DEPTH));
             return wood;
         }
 
@@ -75,7 +86,7 @@ namespace Prazsky.Core.Render
             Pipe(iron, 0.06f, new Vector3[]
             {
                 new(0f, L - 1.10f, 0f), new(0f, L - 1.10f, -0.55f), new(0f, L - 0.98f, -1.25f), new(0f, L - 1.02f, -1.85f),
-                new(0f, L - 1.12f, -2.17f), SHADE + new Vector3(0f, 0.52f, 0f), SHADE + new Vector3(0f, 0.40f, 0f),
+                new(0f, L - 1.12f, -2.17f), SHADE + new Vector3(0f, 0.52f * K, 0f), SHADE + new Vector3(0f, 0.40f * K, 0f),
             });
 
             //Its brace, from lower down the pole up under the arm
@@ -97,17 +108,38 @@ namespace Prazsky.Core.Render
             });
             iron.AddBox(new Vector3(0f, 3.0f, Back(3f) + 0.06f), new Vector3(0.13f, 0f, 0f), new Vector3(0f, 0.2f, 0f), new Vector3(0f, 0f, 0.07f));
 
+            //The crossarm's two braces from the pole, and the insulators' pins
+            foreach (float side in new[] { -1f, 1f })
+            {
+                Pipe(iron, 0.025f, new Vector3[]
+                {
+                    new(0f, L - CROSSARM_DROP - 0.75f, CrossarmZ - 0.06f), new(side * 0.7f, L - CROSSARM_DROP - 0.05f, CrossarmZ),
+                });
+                Pipe(iron, 0.025f, new Vector3[] { new(side * INSULATOR_X, CrossarmTop - 0.05f, CrossarmZ), new(side * INSULATOR_X, CrossarmTop + 0.1f, CrossarmZ) });
+            }
+
             //The socket under the shade's crown, and the shell
-            Pipe(iron, 0.07f, new[] { SHADE + new Vector3(0f, 0.32f, 0f), SHADE + new Vector3(0f, 0.20f, 0f) });
-            iron.AddLathe(SHADE_PROFILE, SHADE_SIDES, Matrix.CreateTranslation(SHADE), Vector2.Zero);
+            Pipe(iron, 0.07f, new[] { SHADE + new Vector3(0f, 0.32f * K, 0f), SHADE + new Vector3(0f, 0.20f * K, 0f) });
+            iron.AddLathe(SHADE_PROFILE, SHADE_SIDES, ShadePlacement, Vector2.Zero);
             return iron;
         }
 
-        /// <summary>The shade's white enamel lining, which the bulb lights.</summary>
+        /// <summary>The shade's white enamel lining, which the bulb lights, and the crossarm's two porcelain insulators, of the
+        /// same white glaze.</summary>
         public static MeshBuilder Lining()
         {
             var lining = new MeshBuilder();
-            lining.AddLathe(LINING_PROFILE, SHADE_SIDES, Matrix.CreateTranslation(SHADE), Vector2.Zero);
+            lining.AddLathe(LINING_PROFILE, SHADE_SIDES, ShadePlacement, Vector2.Zero);
+
+            //A pin insulator: two sheds over a waist, its top grooved for a line no longer there
+            LathePoint[] insulator =
+            {
+                new(0f, 0.30f), new(0.05f, 0.30f), new(0.065f, 0.27f, crease: true), new(0.11f, 0.215f), new(0.11f, 0.195f, crease: true),
+                new(0.06f, 0.18f, crease: true), new(0.09f, 0.11f), new(0.09f, 0.095f, crease: true), new(0.045f, 0.08f, crease: true),
+                new(0f, 0.08f),
+            };
+            foreach (float side in new[] { -1f, 1f })
+                lining.AddLathe(insulator, 10, Matrix.CreateTranslation(side * INSULATOR_X, CrossarmTop - 0.08f, CrossarmZ), Vector2.Zero);
             return lining;
         }
 

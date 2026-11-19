@@ -26,9 +26,9 @@ namespace Prazsky.Core.Render
     /// </summary>
     public sealed class ForestLamps : IDisposable
     {
-        //The materials (linear): a pole of old weathered spruce gone grey, dark green enamel on the ironwork's paint, the
-        //lining's white enamel, a little warmer than white with age
-        private static readonly Vector3 WOOD = new(0.085f, 0.072f, 0.058f);
+        //The materials (linear): a pole of old weathered spruce gone silver-grey (every reference's), dark green enamel on the
+        //ironwork's paint, the lining's and the insulators' white glaze, a little warmer than white with age
+        private static readonly Vector3 WOOD = new(0.080f, 0.076f, 0.070f);
         private static readonly Vector3 IRON = new(0.030f, 0.045f, 0.036f);
         private static readonly Vector3 ENAMEL = new(0.62f, 0.58f, 0.50f);
 

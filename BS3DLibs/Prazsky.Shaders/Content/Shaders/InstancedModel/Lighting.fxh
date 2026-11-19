@@ -138,9 +138,9 @@ void AddSceneLights(float3 worldPosition, float3 worldNormal, float3 eyeVector, 
         float dist = length(toLight);
         float3 L = toLight / max(dist, 1e-4);
 
-        //Smooth distance falloff to the light's range (quadratic, so it fades gently and dies at the edge)
-        float atten = saturate(1.0 - dist / SceneLightRange[i]);
-        atten *= atten;
+        //Smooth distance falloff to the light's range (quadratic, so it fades gently and dies at the edge), and nothing
+        //above a shaded lamp's rim (SceneLamp.fxh)
+        float atten = SceneLightFalloff(toLight, dist, SceneLightRange[i]);
 
         diffuse += SceneLightColor[i] * (saturate(dot(worldNormal, L)) * atten);
 

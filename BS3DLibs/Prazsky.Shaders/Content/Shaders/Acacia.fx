@@ -81,6 +81,7 @@ float3 AddedLight;
 //(the instanced effect). The effect is shared by every planted scene and by the savanna's own draw, so whoever states lights
 //takes them back off after its draws (ForestBackdrop, through PlantPass.SetSceneLights); every other draw finds the count 0.
 //The same slots, names and falloff as the instanced effect's.
+#include "SceneLamp.fxh"
 #define MAX_SCENE_LIGHTS 8
 float3 SceneLightPosition[MAX_SCENE_LIGHTS];
 float3 SceneLightColor[MAX_SCENE_LIGHTS];
@@ -615,8 +616,7 @@ float4 AcaciaShade(AcaciaVertexOutput input, bool front, bool stone, bool barkRe
         float dist = length(toL);
         float facing = dot(N, toL / max(dist, 1e-4));
         float lit = lerp(saturate(facing), saturate((facing + LEAF_WRAP) / (1.0 + LEAF_WRAP)), leaf);
-        float atten = saturate(1.0 - dist / SceneLightRange[i]);
-        color += albedo * SceneLightColor[i] * (lit * atten * atten);
+        color += albedo * SceneLightColor[i] * (lit * SceneLightFalloff(toL, dist, SceneLightRange[i]));
     }
 
     //The sun THROUGH the leaves (#610): strongest looking straight towards the sun, yellow-green, and only where

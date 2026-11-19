@@ -174,10 +174,11 @@ float3 ForestSkyBehind(float directionY)
 
 //THE LAMPS ROUND THE ISLAND (#1166): the old lamps on their wooden poles are real point lights, and the floor under each
 //pole, the bank the island sits in and the ground between them take their light here, as the island, the cluster, the gun
-//and the trees take it through the shared instanced effect (Lighting.fxh's AddSceneLights, the same falloff) and the bank's
+//and the trees take it through the shared instanced effect (Lighting.fxh's AddSceneLights, the same falloff, SceneLamp.fxh) and the bank's
 //stones and ferns through the plant material. ForestBackdrop states them every frame off ForestLampLayout, the one copy
 //SceneLights reads too, so the pool on the ground and the light on the stone are one light. Lambert only: the floor is matte.
 //The same slots and names as the instanced effect's, MAX_SCENE_LIGHTS matching SceneLights.MaxLights.
+#include "SceneLamp.fxh"
 #define MAX_SCENE_LIGHTS 8
 float3 SceneLightPosition[MAX_SCENE_LIGHTS];
 float3 SceneLightColor[MAX_SCENE_LIGHTS];
@@ -191,8 +192,7 @@ float3 ForestLampLight(float3 worldPosition, float3 normal)
     {
         float3 toL = SceneLightPosition[i] - worldPosition;
         float dist = length(toL);
-        float atten = saturate(1.0 - dist / SceneLightRange[i]);
-        light += SceneLightColor[i] * (saturate(dot(normal, toL / max(dist, 1e-4))) * atten * atten);
+        light += SceneLightColor[i] * (saturate(dot(normal, toL / max(dist, 1e-4))) * SceneLightFalloff(toL, dist, SceneLightRange[i]));
     }
     return light;
 }

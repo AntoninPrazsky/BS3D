@@ -57,8 +57,9 @@ namespace Prazsky.Core.Render
         /// </summary>
         public const float OpenGroundRadius = RING_RADIUS - RING_GIVE - ARM_REACH - SHADE_RADIUS;
 
-        /// <summary>The pole's length from its foot (sunk <see cref="SINK"/> into the ground) to its top: about 7 m.</summary>
-        public const float POLE_LENGTH = 16f;
+        /// <summary>The pole's length from its foot (sunk <see cref="SINK"/> into the ground) to its top: about 9 m, so the bulbs
+        /// hang over the cluster's lower half and light it from under their shades.</summary>
+        public const float POLE_LENGTH = 19f;
 
         /// <summary>How deep a pole's foot is sunk, before its own <see cref="Lamp.Sink"/>: the floor is lumpy and the ground
         /// sampled at one point, so a foot planted on it would float off the downhill side.</summary>
@@ -73,11 +74,15 @@ namespace Prazsky.Core.Render
         /// <summary>How far below the pole's top the shade's rim hangs.</summary>
         public const float SHADE_DROP = 1.75f;
 
+        /// <summary>How much bigger the shade is built than its profile's own figures (<see cref="ForestLampMeshes"/>): a rim
+        /// <see cref="SHADE_RADIUS"/> across, so the lamp reads as a lamp from across the island.</summary>
+        public const float SHADE_SCALE = 1.2f;
+
         /// <summary>The shade's rim radius.</summary>
-        public const float SHADE_RADIUS = 0.62f;
+        public const float SHADE_RADIUS = 0.64f * SHADE_SCALE;
 
         /// <summary>Where the bulb's middle stands, under the shade's crown (the light's position), in the pole's frame.</summary>
-        public static readonly Vector3 BULB = new(0f, POLE_LENGTH - SHADE_DROP + 0.05f, -ARM_REACH);
+        public static readonly Vector3 BULB = new(0f, POLE_LENGTH - SHADE_DROP + 0.02f, -ARM_REACH);
 
         /// <summary>The bulb's radius.</summary>
         public const float BULB_RADIUS = 0.13f;
@@ -86,14 +91,14 @@ namespace Prazsky.Core.Render
         /// Where a lamp's light has fallen to nothing (<c>saturate(1 - d / range)^2</c>): far enough to reach the island's far
         /// rim from the far side of the ring, so every lamp lights the whole stone and the cluster over it, the nearest rim most.
         /// </summary>
-        public const float RANGE = 92f;
+        public const float RANGE = 64f;
 
         /// <summary>
         /// A lamp's light at full (linear radiance): an old incandescent bulb, about 2700 K, warm against the overcast lid's
         /// blue-grey. Strong enough that the island under five of them reads at night; the pools under the poles and the
         /// stone carry it, the wood round the clearing takes the falloff.
         /// </summary>
-        public static readonly Vector3 COLOUR = new(2.6f, 1.55f, 0.72f);
+        public static readonly Vector3 COLOUR = new(1.9f, 1.2f, 0.62f);
 
         /// <summary>The bulb's glow (linear) at full, times the lamp's own colour over <see cref="COLOUR"/>: far over the glare
         /// threshold, so the bloom makes the halo round a few pixels of filament.</summary>
@@ -229,7 +234,9 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The lamps' lights at <paramref name="time"/>, written into the arrays from slot 0: at most <paramref name="max"/>,
-        /// answered how many. Allocates nothing.
+        /// answered how many. Each range is <see cref="RANGE"/> NEGATED, which every scene-light loop reads as a shaded lamp
+        /// (<c>SceneLamp.fxh</c>): its light goes out only below its shade's rim, so the crowns over a lamp stay dark. Allocates
+        /// nothing.
         /// </summary>
         public int Lights(float time, Vector3[] position, Vector3[] colour, float[] range, int max)
         {
@@ -238,7 +245,8 @@ namespace Prazsky.Core.Render
             {
                 position[i] = _lamps[i].Bulb;
                 colour[i] = LightColour(i, time);
-                range[i] = RANGE;
+                //Negative: a shaded lamp, whose light goes out only under its shade (SceneLamp.fxh)
+                range[i] = -RANGE;
             }
 
             return count;

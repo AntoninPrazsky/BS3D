@@ -254,6 +254,13 @@ namespace Prazsky.Core.Render
             return planted;
         }
 
+        /// <summary>Every far tree's foot and scale (x, y, z, scale), as <see cref="Plant"/> stands them: for the tests.</summary>
+        internal static IEnumerable<Vector4> PlacesOf(ForestSceneConfig config, ForestScatter planting)
+        {
+            foreach (List<StandInstance> draw in Plant(config, planting))
+                foreach (StandInstance tree in draw) yield return tree.Place;
+        }
+
         //The planted wood's cells and their neighbours
         private static void Take(HashSet<(int, int)> taken, ModelInstance[][] buckets)
         {
