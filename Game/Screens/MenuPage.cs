@@ -851,9 +851,11 @@ namespace BS3D.Screens
         private const int FACT_COLUMN_GAP = 40;
 
         //What sets one fact off from the next on top of the prose leading, in design units, so a fact of several lines
-        //reads as ended before the next label: about a quarter of the small face's line, the gap the list had while its
-        //text stood dropped under display-face labels (#1034). Settings' ONLINE is the tallest page: twelve more between
-        //facts, #1034's first try, left its plate 7 px inside a 1600x900 window
+        //reads as ended before the next label: about a quarter of the small face's line. Every fact's first baseline
+        //stands a line and the leading and this under the last baseline before it, one pitch whatever the facts' lengths.
+        //It is the gap the display-face labels' drop (#1034) gave a fact after one of several lines; a fact after a
+        //one-line fact stood a little lower then, under the taller label. Settings' ONLINE is the tallest page: twelve
+        //more between facts, #1034's first try, left its plate 7 px inside a 1600x900 window
         private const int FACT_SET_OFF = 16;
 
         /// <summary>
