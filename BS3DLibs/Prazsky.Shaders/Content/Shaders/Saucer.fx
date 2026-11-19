@@ -12,10 +12,13 @@
 //
 //THE DOME. Opaque, shaded as glass over a warm-lit cabin, with the crew painted on it - three grey figures standing round
 //the middle looking out, a big round head with two black eyes on a narrow body each - so from any side one or two are
-//seen through the glass. At the craft's size a painted crew reads as well as a modelled one, and needs no blending or
-//sorting. ⚠ A dark crew on a dark cabin did not read at all. Over the crown a short antenna with a red tip.
+//seen through the glass. ⚠ A dark crew on a dark cabin did not read at all. Over the crown a short antenna with a red tip.
 //
-//Drawn in the Game and the Testbed through the shared SceneRenderer (SpaceBackdrop), after the sky's quad and writing depth.
+//That is Low and Medium's craft (SaucerMesh, SaucerHull and SaucerDome). High and Ultra's (#1173, #1174) is built of real
+//parts and has the crew as models behind real glass: the techniques after SaucerDome, and their note.
+//
+//Drawn in the Game and the Testbed through the shared SceneRenderer (SpaceBackdrop), after the sky's quad and writing depth;
+//High and Ultra's glass alone later, blended and writing none (SaucerFlight.DrawGlass, from the backdrop's DrawOverlays).
 //Shader Model 5.0, and 3.0 for OpenGL ES (ShaderTarget.fxh).
 
 #include "ShaderTarget.fxh"
@@ -182,6 +185,174 @@ float4 DomePS(SaucerVertexOutput input) : COLOR
     return float4(color, 1.0);
 }
 
+//---- HIGH AND ULTRA'S CRAFT (#1173, #1174; SaucerFineMesh, drawn where SceneRenderer.FineMeshes is on)
+//
+//The parts are geometry here, so nothing above is painted on them: the hull has its seams, its collar, its rim, its belly's
+//ring and lens, its sockets and its legs in the mesh, each vertex naming its material in the texture coordinate's X and
+//whether the radial seams cut its span in its Y; the bulbs
+//are glass spheres in their sockets; the antenna is its own mesh, opaque; the crew stand in a cabin under a dome of real
+//glass, drawn after the opaque scene (SaucerFlight.DrawGlass) with a premultiplied blend and the depth read, its inside
+//faces first: clear where it faces the lens, a mirror at a grazing angle.
+
+float3 LampPosition;     //the cabin's lamp under the crown, in the world
+float GlassSide;         //1 drawing the glass's outside faces, -1 its inside ones (the far side of the dome, seen through)
+float3 PanelGrooves;     //the hull's concentric grooves: two round the top, one round the underside (radii)
+float Panels;            //how many panels the radial seams part the hull into
+
+static const float3 GUNMETAL_COLOR = float3(0.07, 0.075, 0.085);
+static const float LENS_RADIANCE = 0.55;          //the belly's lens, under the glare threshold as the bulbs are
+static const float3 CABIN_LIGHT = float3(1.00, 0.78, 0.56);   //the lamp under the crown, warm but not so warm the crew turn beige
+static const float3 CABIN_WALL = float3(0.60, 0.33, 0.16);    //the cabin's floor and wall, amber
+static const float3 LAMP_GLOW = float3(1.00, 0.80, 0.55) * 0.5;
+static const float GLASS_F0 = 0.08;               //what the glass mirrors facing the lens
+static const float GLASS_HAZE = 0.035;            //the cabin's light in the glass itself, so the dome reads as a lit bubble
+static const float3 BULB_CORE = float3(1.00, 0.93, 0.78) * 0.56;   //a bulb's core, its luminance just under the glare threshold (0.55, #401)
+static const float3 BULB_EDGE = float3(1.00, 0.72, 0.40) * 0.30;   //and its rim, the warm glass round the filament
+
+struct FineVertexOutput
+{
+    float4 Position : SV_POSITION;
+    float3 Normal : TEXCOORD0;
+    float3 World : TEXCOORD1;
+    float3 Local : TEXCOORD2;
+    float2 UV : TEXCOORD3;
+};
+
+FineVertexOutput SaucerFineVS(SaucerVertexInput input)
+{
+    FineVertexOutput output;
+    float4 world = mul(float4(input.Position, 1.0), World);
+    output.World = world.xyz;
+    output.Position = mul(mul(world, View), Projection);
+    output.Normal = mul(input.Normal, (float3x3)World);
+    output.Local = input.Position;
+    output.UV = input.UV;
+    return output;
+}
+
+//A whole number to a roll in [0, 1)
+float Roll(float n)
+{
+    return frac(sin(n * 12.9898) * 43758.5453);
+}
+
+float4 HullFinePS(FineVertexOutput input) : COLOR
+{
+    float3 n = normalize(input.Normal);
+    float3 eye = normalize(CameraPosition - input.World);
+    float3 r = reflect(-eye, n);
+    float radius = length(input.Local.xz);
+    float lens = step(0.5, input.UV.x) * step(input.UV.x, 1.5);
+    float gunmetal = step(1.5, input.UV.x);
+
+    //Each panel of the top's and the underside's slopes (between two radial seams, and the grooves round its own side: the
+    //top's two part the top, the underside's one the underside) a little apart from its neighbours in how brightly it
+    //mirrors and in its tint: plates of one chrome laid by hand do not mirror alike, and a hull of one perfect mirror read as
+    //plastic. Only where the seams cut the span (the texture coordinate's Y 1): the collar, the lip, the rim, the belly's
+    //ring, the sockets and the legs (Y 0) mirror evenly at the rolls' middle, or each would step a shade where no seam is
+    float panel = floor(atan2(input.Local.z, input.Local.x) / TWO_PI * Panels);
+    float under = step(input.Local.y, 0.0);
+    float band = (1.0 - under) * (step(PanelGrooves.x, radius) + step(PanelGrooves.y, radius)) + under * (3.0 + step(PanelGrooves.z, radius));
+    float roll = lerp(0.5, Roll(panel + band * 17.0), input.UV.y);
+    float tint = lerp(0.5, Roll(panel * 3.0 + band), input.UV.y);
+
+    float diffuse = saturate(dot(n, SunDirection));
+    float3 ambient = lerp(GroundAmbient, SkyAmbient, saturate(n.y * 0.5 + 0.5));
+    float fresnel = 0.55 + 0.45 * pow(1.0 - saturate(dot(n, eye)), 4.0);
+    float3 chrome = HULL_COLOR * (SunColor * diffuse * 0.45 + ambient) + Mirror(r) * fresnel * (0.86 + 0.24 * roll)
+        * lerp(float3(1.0, 1.0, 1.0), float3(1.0, 0.97, 0.93), tint);
+    float3 dark = GUNMETAL_COLOR * (SunColor * diffuse + ambient * 2.0) + Mirror(r) * fresnel * 0.3;
+    float3 color = lerp(chrome, dark, gunmetal);
+
+    //The warm light the bulbs throw on the hull round them (the bulbs themselves are BulbPS's)
+    color += BULB_COLOR * 0.12 * (BulbHalo(input.Local, RimRadius, 0.5 * (RimBand.x + RimBand.y), RIM_LIGHTS)
+        + BulbHalo(input.Local, TopRing.x, TopRing.y, TOP_LIGHTS));
+
+    //The belly's glow on the ring round the lens, and the lens itself, brightest at its middle with a little of the room
+    //mirrored in its glass
+    float belly = saturate((UnderY - input.Local.y) / 0.4) * (1.0 - smoothstep(0.0, RimRadius * 0.55, radius));
+    color += BELLY_GLOW * BELLY_RADIANCE * belly;
+    float3 glow = BELLY_GLOW * LENS_RADIANCE * (0.8 + 0.2 * saturate(1.0 - radius / (RimRadius * 0.4))) + Mirror(r) * 0.04;
+    color = lerp(color, glow, lens);
+
+    return float4(color, 1.0);
+}
+
+float4 BulbPS(FineVertexOutput input) : COLOR
+{
+    float3 n = normalize(input.Normal);
+    float3 eye = normalize(CameraPosition - input.World);
+    float facing = saturate(dot(n, eye));
+
+    //The same slow wave of brightness round each ring as the painted bulbs': X names the ring, Y the bulb's place round it
+    float rimWave = 0.65 + 0.35 * sin(input.UV.y * (TWO_PI / RIM_LIGHTS) * 2.0 - Time * 1.6);
+    float topWave = 0.65 + 0.35 * sin(input.UV.y * (TWO_PI / TOP_LIGHTS) * 2.0 + Time * 1.3);
+    float wave = lerp(rimWave, topWave, step(0.5, input.UV.x));
+
+    //A lit glass bulb, its core brightest where the lens looks into it, a faint mirror of the studio's light at its edge;
+    //kept under the glare threshold (#401). ⚠ At the painted bulbs' radiance and swing a sphere among the chrome's bright
+    //streaks read as a dull bead, not a light: the wave swings it less here
+    float3 color = lerp(BULB_EDGE, BULB_CORE, facing * facing) * (0.7 + 0.3 * wave);
+    color += Mirror(reflect(-eye, n)) * 0.12 * pow(1.0 - facing, 3.0);
+    return float4(color, 1.0);
+}
+
+float4 AntennaPS(FineVertexOutput input) : COLOR
+{
+    float3 n = normalize(input.Normal);
+    float3 eye = normalize(CameraPosition - input.World);
+    float3 metal = HULL_COLOR * (SunColor * saturate(dot(n, SunDirection)) * 0.45) + Mirror(reflect(-eye, n)) * 0.6;
+    return float4(lerp(metal, ANTENNA_TIP * 0.45, step(0.5, input.UV.x)), 1.0);
+}
+
+float4 CrewPS(FineVertexOutput input) : COLOR
+{
+    float3 n = normalize(input.Normal);
+    float3 eye = normalize(CameraPosition - input.World);
+    float3 r = reflect(-eye, n);
+    float3 toLamp = LampPosition - input.World;
+    float lampDistance = length(toLamp);
+    toLamp /= lampDistance;
+
+    //The lamp under the crown lights the cabin, wrapped a little round the forms so the side away from it is not black and
+    //falling off across the cabin; the sun through the glass and the scene's rig add a little
+    float lamp = saturate(dot(n, toLamp) * 0.75 + 0.25) / (1.0 + 0.3 * lampDistance * lampDistance);
+    float3 ambient = lerp(GroundAmbient, SkyAmbient, saturate(n.y * 0.5 + 0.5));
+    float3 light = CABIN_LIGHT * lamp * 1.3 + SunColor * saturate(dot(n, SunDirection)) * 0.5 + ambient * 2.0;
+
+    float id = input.UV.x;
+    //The crew: grey-green skin with a soft sheen of the lamp
+    float3 skin = CREW_COLOR * light + CABIN_LIGHT * pow(saturate(dot(r, toLamp)), 16.0) * 0.06;
+    //Their eyes: black and wet, a glint of the lamp and a little of the studio's light
+    float3 eyes = CABIN_LIGHT * pow(saturate(dot(r, toLamp)), 60.0) * 0.5
+        + Mirror(r) * (0.04 + 0.3 * pow(1.0 - saturate(dot(n, eye)), 4.0));
+    //The cabin's floor, wall and console: amber under the lamp, and a little of its own warmth so it reads from any side
+    float3 cabin = CABIN_WALL * light * 0.8 + CABIN_COLOR * 0.25;
+
+    float3 color = id < 0.5 ? skin : id < 1.5 ? eyes : id < 2.5 ? cabin : id < 3.5 ? LAMP_GLOW : BELLY_GLOW * 0.5;
+    return float4(color, 1.0);
+}
+
+float4 GlassPS(FineVertexOutput input) : COLOR
+{
+    //The outside faces with GlassSide 1; the inside ones, the far side of the dome seen through the near, with -1
+    float3 n = normalize(input.Normal) * GlassSide;
+    float3 eye = normalize(CameraPosition - input.World);
+    float facing = saturate(dot(n, eye));
+    float fresnel = GLASS_F0 + (1.0 - GLASS_F0) * pow(1.0 - facing, 5.0);
+
+    //Outside it mirrors the void, the studio's band and the sun, the sun's glint sharp on the smooth glass; inside, the
+    //cabin's warm light
+    float3 r = reflect(-eye, n);
+    float outside = saturate(GlassSide);
+    float3 mirrored = lerp(CABIN_COLOR * 0.8, Mirror(r), outside);
+    float3 glint = SunColor * pow(saturate(dot(r, SunDirection)), 400.0) * 0.5 * outside;
+
+    //Premultiplied: what the glass adds, and how much of what is behind it that takes the place of
+    float3 color = mirrored * fresnel + glint + CABIN_COLOR * GLASS_HAZE;
+    return float4(color, saturate(fresnel + GLASS_HAZE));
+}
+
 technique SaucerHull
 {
     pass P0
@@ -197,5 +368,50 @@ technique SaucerDome
     {
         VertexShader = compile VS_SHADERMODEL SaucerVS();
         PixelShader = compile PS_SHADERMODEL DomePS();
+    }
+};
+
+technique SaucerHullFine
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL SaucerFineVS();
+        PixelShader = compile PS_SHADERMODEL HullFinePS();
+    }
+};
+
+technique SaucerBulb
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL SaucerFineVS();
+        PixelShader = compile PS_SHADERMODEL BulbPS();
+    }
+};
+
+technique SaucerAntenna
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL SaucerFineVS();
+        PixelShader = compile PS_SHADERMODEL AntennaPS();
+    }
+};
+
+technique SaucerCrew
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL SaucerFineVS();
+        PixelShader = compile PS_SHADERMODEL CrewPS();
+    }
+};
+
+technique SaucerGlass
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL SaucerFineVS();
+        PixelShader = compile PS_SHADERMODEL GlassPS();
     }
 };

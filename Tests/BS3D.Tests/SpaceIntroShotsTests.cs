@@ -43,8 +43,12 @@ namespace BS3D.Tests
         private const float STATION_SHARE = 0.6f;
         private const float SKIP_HINT_SHARE = 0.13f;
 
-        //Every vertex of the craft as it is drawn, in its own frame (SaucerMesh's two lathes), and its reach from its middle
-        private static readonly Vector3[] CraftVertices = Vertices(SaucerMesh.HULL).Concat(Vertices(SaucerMesh.DOME)).ToArray();
+        //Every vertex of the craft as it is drawn, in its own frame, on every tier (SaucerMesh's two lathes, and High and Ultra's
+        //parts, whose bulbs stand past the rim and whose legs hang under the belly, #1173), and its reach from its middle
+        private static readonly Vector3[] CraftVertices = Vertices(SaucerMesh.HULL).Concat(Vertices(SaucerMesh.DOME))
+            .Concat(Enum.GetValues<SaucerFineMesh.Part>().SelectMany(part => SaucerFineMesh.Build(part).Geometry.Vertices.Select(v => v.Position)))
+            .Distinct()
+            .ToArray();
         private static readonly float CraftReach = CraftVertices.Max(v => v.Length());
 
         private static IEnumerable<Vector3> Vertices(LathePoint[] profile)
