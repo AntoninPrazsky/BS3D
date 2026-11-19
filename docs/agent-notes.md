@@ -2656,3 +2656,10 @@ Pravidla:
 - ⚠ Dřív se záporný ohyb zavrhl, protože nechá boky kratší než půdorys; teď je to volba majitele. Rozdíl je spočtený z `CornerFor`, ne ze snímku. Nic nenasnímáno.
 - ⚠ Recenzní náhrada u Zapu je chybná: Zap bere všechny koule barvy výstřelu z pole, ne „řetěz“.
 - Otevřené: #941 `verdict-eye` jen pro potvrzení na snímku, pokud ho majitel chce vidět.
+
+## 2026-11-19 — #1187–#1206 poznámky majitele z QA průchodu hrou — desktop (RDT-PC), Claude Code
+- Hotovo: 20 poznámek → 20 issues, jen založeno (nic se nestavělo ani nespouštělo): Meadow průlet #1187 #1188, tráva #1190, lem trychtýře #1193; nastavení #1189; ztracené koule #1191; náraz střely #1192; Amphora #1194; savana #1195; mířící linka #1196; time bonus #1197; kamera po výhře #1198; kov kanonu #1199; hudba #1200; klávesnice #1201; menu #1202; web #1203–#1206. Komentáře: #1107 #1144 #1007 #1033 #1045 #883 #1151 #987 #704 #486 #640 #949 #1023.
+- majitel: rozmazaná záře na konci mířící linky (#1144) se mu nelíbí → #1196; #1144 zůstává otevřené do jeho merge.
+- ⚠ Hudba (#1200): v jeho `last-run.log` rodina `mural` (10 nahrávek) hrála 12×; výběr je čítač rodiny, ne funkce levelu. Box Raspberry Pi na webu (#1206) přetéká už na 1400 px (snímek Edge headless).
+- ⚠ Příčiny #1190 (osa tahů pod kamerou) a #1193 (24bitová hloubka při 170–195 j.) jsou hypotézy z čtení kódu, ne ze snímku.
+- Otevřené: žádné `parked`; #1205 `priority-low`.
