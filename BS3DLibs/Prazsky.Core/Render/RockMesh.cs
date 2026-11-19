@@ -83,6 +83,66 @@ namespace Prazsky.Core.Render
             //not share a silhouette, but not so much the surface self-intersects.
             _lathe = new LatheMesh(graphicsDevice, profile, segments, irregularityAmplitude: radius * 0.34f,
                 irregularityPhase: irregularityPhase);
+
+            //The side's rings as drawn, the wobble in them: the crown's ring down to the arris, what Off reads
+            Vector3[,] rings = LatheMesh.RingPositions(profile, segments, radius * 0.34f, irregularityPhase);
+            _sideY = new float[SIDE_RINGS];
+            _side = new float[SIDE_RINGS, segments];
+            var points = new Vector3[SIDE_RINGS * segments + 1];
+            points[^1] = new Vector3(0f, height, 0f);
+            for (int k = 0; k < SIDE_RINGS; k++)
+            {
+                _sideY[k] = profile[k + 1].Y;
+                for (int s = 0; s < segments; s++)
+                {
+                    _side[k, s] = new Vector2(rings[k + 1, s].X, rings[k + 1, s].Z).Length();
+                    points[k * segments + s] = rings[k + 1, s];
+                }
+            }
+            SurfacePoints = points;
+        }
+
+        //The rings of the side, from the crown's edge (at the full height) down to the arris on the ground, and how far each
+        //reaches from the axis at each facet
+        private const int SIDE_RINGS = 4;
+        private readonly float[] _sideY;
+        private readonly float[,] _side;
+
+        /// <summary>The stone's own vertices, at scale 1 (#1157): every vertex of its side, the wobble in them, and the middle of
+        /// its crown. What a thing wider than the stone is asked about: whether any of them stands inside it.</summary>
+        internal IReadOnlyList<Vector3> SurfacePoints { get; }
+
+        /// <summary>
+        /// How far a point in the stone's own space (scale 1, the flat underside on y = 0) stands outside the stone (#1157):
+        /// positive outside, negative inside, as deep as it lies within the nearer of the side, the flat top and the underside.
+        /// Read off the lathe's own rings, the wobble in them, between the rings by height and between the facets by angle; the
+        /// side's distance is taken across, which on a shoulder is a little more than the true one, so a point just outside a
+        /// sloping shoulder reads a little farther out than it stands. What the savanna plants its grass and its trees clear of.
+        /// </summary>
+        internal float Off(Vector3 local)
+        {
+            float across = MathF.Sqrt(local.X * local.X + local.Z * local.Z);
+            float side = across - SideRadius(MathF.Atan2(local.Z, local.X), MathHelper.Clamp(local.Y, 0f, Height));
+            float over = local.Y > Height ? local.Y - Height : local.Y < 0f ? -local.Y : 0f;
+            if (over > 0f) return side > 0f ? MathF.Sqrt(side * side + over * over) : over;
+            return side > 0f ? side : MathF.Max(side, MathF.Max(local.Y - Height, -local.Y));
+        }
+
+        //How far the side reaches from the axis at a bearing (radians) and a height on 0..Height
+        private float SideRadius(float bearing, float y)
+        {
+            int segments = _side.GetLength(1);
+            float at = bearing / MathHelper.TwoPi * segments;
+            if (at < 0f) at += segments;
+            int s0 = Math.Min((int)at, segments - 1), s1 = (s0 + 1) % segments;
+            float f = at - s0;
+
+            int k = 0;
+            while (k < SIDE_RINGS - 2 && y < _sideY[k + 1]) k++;
+            float t = (_sideY[k] - y) / (_sideY[k] - _sideY[k + 1]);
+            float upper = MathHelper.Lerp(_side[k, s0], _side[k, s1], f);
+            float lower = MathHelper.Lerp(_side[k + 1, s0], _side[k + 1, s1], f);
+            return MathHelper.Lerp(upper, lower, MathHelper.Clamp(t, 0f, 1f));
         }
 
         public void Dispose() => _lathe.Dispose();
