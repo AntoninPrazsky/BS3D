@@ -33,7 +33,10 @@ namespace BS3D.Screens
     /// first frame, the letters the menu's faces draw. <b>Enter sends</b>, which is what a short message box in a game
     /// does; Shift+Enter or Ctrl+Enter starts a new line. Esc goes back, and the draft waits for the next time the page
     /// opens in this run. A pad cannot type; its A sends and its B goes back. A phone types through its own dialog, which
-    /// a finger on the field opens (<c>BS3DGame.StepPhoneTyping</c>), and its OK only puts the text in the field.
+    /// opens with the page and again on a finger on the field (<see cref="PhoneTyping"/>): its OK only puts the text in the
+    /// field, and its Cancel leaves the page and the text as they were (#1182); its Back or the system's back gesture leaves it
+    /// with the draft kept. On the phone
+    /// the field is as tall as the page leaves room for (<see cref="FieldLines"/>).
     /// </para>
     /// <para>
     /// <b>The line under the field speaks to the hand in use</b> (#1149, <see cref="NoteHint"/>): a finger's on a phone
@@ -56,6 +59,13 @@ namespace BS3D.Screens
         /// field that scrolled would be machinery for a few hundred characters.
         /// </summary>
         private const int FIELD_LINES = 6;
+
+        /// <summary>
+        /// The most lines the field grows to on the phone layout (#1182, <see cref="FieldLines"/>): what a phone held landscape
+        /// leaves under the page's sentence is about four lines more, and a taller screen drawn larger (a tablet) is not given a
+        /// field that reads as a page of its own.
+        /// </summary>
+        private const int FIELD_LINES_PHONE_MAX = 12;
 
         /// <summary>The picture's width on the page, in design units: the text column's own.</summary>
         private const int PICTURE_WIDTH = 1000;
@@ -88,6 +98,13 @@ namespace BS3D.Screens
         //has changed since: laid out once per change, never per caret blink
         private string _laid;
         private int _fieldWidth;
+
+        /// <summary>
+        /// The field's lines for the tree that stands: <see cref="FIELD_LINES"/>, or on the phone layout as many more as the page
+        /// has room for (#1182), found when the tree is built and kept with it, so the field's height, and Send under it, does
+        /// not move while a note is typed.
+        /// </summary>
+        private int FieldLines { get; set; } = FIELD_LINES;
 
         private float _caretClock;
         private bool _caretShown = true;
@@ -230,6 +247,7 @@ namespace BS3D.Screens
             //Every line FieldTail hands it is measured to fit, so its own wrap is only a backstop
             _fieldWidth = ColumnWidth - Scaled(FIELD_PADDING_X) * 2;
             _laid = null;
+            FieldLines = FIELD_LINES;
             _field = new Label
             {
                 Font = FontSmall,
@@ -284,7 +302,24 @@ namespace BS3D.Screens
             row.Widgets.Add(right);
 
             column.Widgets.Add(row);
-            return ScreenRoot(Plate(column));
+            Panel plate = Plate(column);
+            if (PhoneLayout) GrowField(plate);
+            return ScreenRoot(plate);
+        }
+
+        /// <summary>
+        /// On the phone layout (#1182) the field takes the height the page leaves: a phone held landscape has room to spare
+        /// under the page's sentence, where six lines of a note read as a slot. Whole lines are added while the page stays
+        /// inside <see cref="MenuPage.PhoneRoomHeight"/>, so it is never brought down for them, up to
+        /// <see cref="FIELD_LINES_PHONE_MAX"/>. Measured with the page's own buttons, so a taller Send or Back takes its
+        /// height from the field rather than from the screen.
+        /// </summary>
+        private void GrowField(Panel plate)
+        {
+            int line = FontSmall.LineHeight;
+            int spare = PhoneRoomHeight - plate.Measure(new Point(Game.GraphicsDevice.Viewport.Width, int.MaxValue / 2)).Y;
+            FieldLines = FIELD_LINES + Math.Clamp(spare / line, 0, FIELD_LINES_PHONE_MAX - FIELD_LINES);
+            _field.Height = line * FieldLines;
         }
 
         //A line of prose under the field or the sent note: its text is written with SetProse, here and whenever it changes,
@@ -349,7 +384,7 @@ namespace BS3D.Screens
             //Counted in measured lines, not characters (#813): the 220-character tail this replaced ran past six lines on
             //a note of short lines or long words, and the line being typed went on below the field. The caret is laid out
             //with the text, so its line is the last one shown, and a blink only takes it off the end.
-            _laid ??= FieldTail.Show(_draft + CARET, _fieldWidth, FIELD_LINES, line => FontSmall.MeasureString(line).X);
+            _laid ??= FieldTail.Show(_draft + CARET, _fieldWidth, FieldLines, line => FontSmall.MeasureString(line).X);
             _field.Text = _caretShown ? _laid : _laid[..^CARET.Length];
         }
 
@@ -364,6 +399,11 @@ namespace BS3D.Screens
             ("Write to the Author", "What you want the author to know", _draft.ToString());
 
         internal override bool TypingDialogEnters => false;
+
+        //A cancel in the phone's dialog keeps the page and the draft as they were (#1182): Esc leaves the page, and a cancel
+        //that did threw the page away under a player who only wanted to read it or think again about a word. Back leaves it, and
+        //so does the back gesture (the host hands it over as B)
+        internal override bool TypingDialogEscapes => false;
 
         internal override Widget TypingField => _field;
 

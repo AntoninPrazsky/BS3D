@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-19 — #1183 #1182 #1185 nápověda a psaní na telefonu, hvězdy podle pravidel v2 — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: #1182 Cancel v systémovém dialogu telefonu už nezavře Napsat autorovi (`PhoneTyping`, `MenuPage.TypingDialogEscapes`), pole poznámky roste do volné výšky. #1185 Help > CAMPAIGN popisuje hvězdy jako pravidla v2 (rychlost se počítá, čtyři chtějí čisté dohrání hluboko pod par). #1183 na telefonu: každá záložka Help se vejde na X300 (rámeček 1 156 px), ODD BALLS jako mřížka karet s panelem vybrané, Settings > CONTROLS začíná dotykem, Benchmark mluví o telefonu a dotyk ho opravdu zastaví.
+- ⚠ Celá invertovaná karta schová skleněnou kouli; invertuje se jen pruh jména.
+- Otevřené: #1183 verdict-eye (vzhled karet, vypuštěné glyfy myši a klávesnice); nic neběželo na skutečném X300 ani v GameAndroid.
+
 ## 2026-11-19 — #1181 #1184 dotykové cíle telefonu a využití stran — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: na telefonu (UiScale > 1) mají zbylá tlačítka ~9 mm (`MenuPage.PhoneTarget`; pauza, Quit confirm vedle sebe, Top Players, výsledek, poznámka, Jukebox, About, benchmark), HUD tlačítko pauzy 9,1 mm jen na zvětšeném rozhraní, menu telefonu startují v prstovém režimu (`MenuHand.StartsOnTouch`), řádek `[touch]` v logu měří každou stránku. Pauza ve dvou sloupcích vedle karty levelu (`MenuPage.LevelCard`, sdílená s výběrem levelů), Top Players s lištou, benchmark text vlevo a tlačítka vpravo, upozornění na kvalitu vpravo dole. Monitor beze změny.

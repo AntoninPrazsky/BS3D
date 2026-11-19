@@ -72,6 +72,24 @@ namespace BS3D.Tests
         {
             AssertFingerTall(WideMenuLayout.SCENE_TILE_HEIGHT, "A scene's tile");
             AssertFingerTall(WideMenuLayout.BOARD_ROW_HEIGHT, "A level's row on High Scores");
+
+            //Help's odd-ball card (#1183) is its ball's square and its name under it: the square alone is held
+            AssertFingerTall(WideMenuLayout.ODD_BALL_SQUARE, "The ball on Help's odd-ball card");
+        }
+
+        /// <summary>
+        /// Help's odd balls on the phone (#1183): the cluster's ten kinds in two rows of five, and the cannon's two with the dead
+        /// weight in one row more, so the three rows fit the X300's height with the panel beside them.
+        /// </summary>
+        [Fact]
+        public void The_odd_balls_stand_in_three_rows_of_five()
+        {
+            int cluster = 0, apart = 1;
+            foreach (OddBallCopy.Entry entry in OddBallCopy.Entries)
+                if (entry.InGun) apart++;
+                else cluster++;
+
+            Assert.Equal(3, WideMenuLayout.Rows(cluster, WideMenuLayout.ODD_BALL_COLUMNS) + WideMenuLayout.Rows(apart, WideMenuLayout.ODD_BALL_COLUMNS));
         }
 
         private static void AssertFingerTall(int designUnits, string what)

@@ -25,7 +25,9 @@ namespace BS3D.Screens
     /// key does what" is what a player opens Help for, and until #857 it was the last of six pages walked with Previous
     /// and Next (#427, #738), five presses away, with nothing saying what the other pages were. The tabs are not in the
     /// pad's walk, as Settings' are not; Back is the one entry, so the cursor arrives on it, and a pad player turns the
-    /// tabs on the shoulders and scrolls on the right stick.
+    /// tabs on the shoulders and scrolls on the right stick. The phone's ODD BALLS is the exception (#1183): its cards are
+    /// entries too and the pad's D-pad and left stick walk them (<see cref="PadWalksGrid"/>), so the tabs turn there on the
+    /// shoulders, the arrow keys and the wheel.
     /// </para>
     /// <para>
     /// <b>Each topic's body scrolls</b> (#606): the owner's 3840×1600 cut the Scoring page off top and bottom with
@@ -166,6 +168,7 @@ namespace BS3D.Screens
             _openOn = null;
             _pendingTab = -1;
             _cycleClock = -1f;
+            _ballChosen = 0;
             InvalidateTree();
         }
 
@@ -173,6 +176,14 @@ namespace BS3D.Screens
         {
             _phone = PhoneLayout;
             _proseWidth = Scaled(TEXT_WIDTH);
+
+            //The phone's odd-ball cards are built with its ODD BALLS tab, and nothing of them stands on a monitor's tree
+            _ballCards = null;
+            _ballCardNames = null;
+            _ballCardStrips = null;
+            _ballLead = _ballName = _ballText = null;
+            _focused = null;
+
             if (_phone) return BuildRailTree();
 
             VerticalStackPanel column = MenuColumn();
@@ -241,7 +252,8 @@ namespace BS3D.Screens
         /// monitor's measure scrolled it (ODD BALLS was six screens). The owner: "It is widescreen, so we can use the space at
         /// the sides too - better to use it than to have frequent scrolling." Every tab still stands in the biggest one's
         /// frame and scrolls in it when it must (<see cref="TwoColumns"/>); the scroll prompt stands at the heading's right,
-        /// where the rail's column has no room for a row of its own.
+        /// where the rail's column has no room for a row of its own. ODD BALLS is a grid of cards beside the chosen one's words
+        /// (<see cref="BuildBallCards"/>, #1183), and on the X300 every tab fits its frame (the run log's <c>[help]</c> line).
         /// </summary>
         private Widget BuildRailTree()
         {
@@ -256,19 +268,36 @@ namespace BS3D.Screens
             _columnGutter = gutter;
 
             //The scroller's bound: the content's height less the heading's line. What it shows unscrolled (what a tab's
-            //columns are balanced against, TwoColumns) is that less its clear bands (#1002)
+            //columns are balanced against, TwoColumns) is that less its clear band (#1002) at the top. Two bands of the
+            //monitor's frame are not kept here (#1183), because the height is what decides whether CONTROLS and BASICS fit
+            //(each ran a block past the fold, and CONTROLS ended mid-sentence there): the heading's own margin, since the
+            //band under it already parts it from the text, and the band at the frame's foot, since what stands under the
+            //text here is the plate's inset and not Back, which the band was there to keep a cut line off
             Label heading = ScreenHeading("HELP");
+            heading.Margin = new Thickness(0);
+            int band = Scaled(BS3DGame.MENU_SCROLL_EDGE_GAP);
             int bound = RailContentHeight - heading.Measure(new Point(int.MaxValue / 2, int.MaxValue / 2)).Y;
-            _frameHeight = bound - 2 * Scaled(BS3DGame.MENU_SCROLL_EDGE_GAP);
+            _frameHeight = bound - band;
 
             Panel pageArea = new() { HorizontalAlignment = HorizontalAlignment.Left };
             Point frame = Point.Zero;
 
+            //Each tab's text against the frame, said once a build (#1183): whether a tab fits the phone or scrolls is the page's
+            //whole question there, and the run log answers it without a picture
+            System.Text.StringBuilder fits = new($"[help] the phone layout's frame shows {_frameHeight} px, columns {_proseWidth} px:");
+
             for (int tab = 0; tab < TAB_NAMES.Length; tab++)
             {
+                Widget body = BuildBody(tab);
+                int tall = body.Measure(new Point(int.MaxValue / 2, int.MaxValue / 2)).Y;
+                fits.Append($" {TAB_NAMES[tab]} {tall}{(tall <= _frameHeight ? "" : " (scrolls)")}");
+                if (tab == TAB_BALLS && _ballCards != null) fits.Append($" (cards {_ballCardSize.X}x{_ballCardSize.Y} px)");
+                if (tab < TAB_NAMES.Length - 1) fits.Append(',');
+
                 //Bounded by what the rail page leaves rather than by a reserve of design units: the plate's insets here are
-                //the rail page's own
-                ScrollViewer scroller = MenuScroll(BuildBody(tab), 0, clearEdges: true);
+                //the rail page's own. The clear band at the top only (above)
+                ScrollViewer scroller = MenuScroll(body, 0, clearEdges: true);
+                scroller.Margin = new Thickness(0, band, 0, 0);
                 scroller.MaxHeight = bound;
                 scroller.HorizontalAlignment = HorizontalAlignment.Left;
                 Point size = scroller.Measure(new Point(int.MaxValue / 2, int.MaxValue / 2));
@@ -283,6 +312,8 @@ namespace BS3D.Screens
                 scroller.MinWidth = frame.X;
                 scroller.MinHeight = frame.Y;
             }
+
+            Console.WriteLine(fits.ToString());
 
             //The heading over the text, and the scroll prompt at the line's right end, where Back's row had it
             Panel top = new() { Width = frame.X, HorizontalAlignment = HorizontalAlignment.Left };
@@ -300,6 +331,10 @@ namespace BS3D.Screens
 
         private Widget BuildBody(int page)
         {
+            //The odd balls as cards on the phone (#1183): thirteen entries in two columns were three screens. A screen too narrow
+            //for the cards and their panel gets none (null) and keeps the list
+            if (_phone && page == TAB_BALLS && BuildBallCards() is Widget cards) return cards;
+
             VerticalStackPanel body = MenuColumn();
 
             //Against the scroller's left edge and its top rather than centred in it (#729, #865): every tab stands in the
@@ -424,9 +459,11 @@ namespace BS3D.Screens
         /// <summary>
         /// Puts a tab up (#857): its scroller shown from the top and the rest hidden, the row painted, and the body the pad
         /// and the keys scroll (<see cref="OnScrollAxis"/>) and the prompt follow it. Nothing is rebuilt and no focus is
-        /// moved: Back is the one entry, so the pad's cursor has nowhere else to be.
+        /// moved: Back is the one entry on every tab but the phone's ODD BALLS, whose cards are entries too (#1183), so a turn
+        /// to or from it on a page that stands asks the host to read the entries again (<paramref name="standing"/>), the
+        /// cursor kept where it was if it is still an entry.
         /// </summary>
-        private void ShowTab(int tab)
+        private void ShowTab(int tab, bool standing = false)
         {
             _tab = Math.Clamp(tab, 0, TAB_NAMES.Length - 1);
             _scrollCarry = 0f;
@@ -437,6 +474,8 @@ namespace BS3D.Screens
             _body = _scrollers[_tab];
             _body.ScrollPosition = Point.Zero;
             _tabRow.Show(_tab);
+
+            if (standing && _ballCards != null && IsActive && IsBuilt) Game.RefreshNavEntries(_focused);
         }
 
         public override void Update(GameTime gameTime)
@@ -447,7 +486,7 @@ namespace BS3D.Screens
             {
                 int tab = _pendingTab;
                 _pendingTab = -1;
-                if (tab != _tab) ShowTab(tab);
+                if (tab != _tab) ShowTab(tab, standing: true);
             }
 
             //The scroll prompt while there is something to scroll: the body is laid out by the frame just drawn, so a tab
@@ -650,7 +689,7 @@ namespace BS3D.Screens
 
             if (IsActive && IsBuilt)
             {
-                if (wanted != _tab) ShowTab(wanted);
+                if (wanted != _tab) ShowTab(wanted, standing: true);
             }
             else _openOn = wanted;
         }
@@ -720,8 +759,7 @@ namespace BS3D.Screens
         {
             //The lines that head a group span both of the phone layout's columns when its entries stand in pairs (#1151,
             //TwoColumns): a group's line over the first of its pair only read as that one entry's
-            column.Widgets.Add(Spanning(Paragraph(
-                "Most balls are ordinary. These are not — the first few you will meet as the campaign goes on.")));
+            column.Widgets.Add(Spanning(Paragraph(BALLS_LEAD)));
 
             //The cluster's kinds, then a line of their own, then the two the cannon holds (#895). Which group a kind is in is
             //the entry's own (OddBallCopy.Entry.InGun) and the table keeps the cluster's first, so the squares stand in the
@@ -734,8 +772,244 @@ namespace BS3D.Screens
             column.Widgets.Add(Spanning(Paragraph(OddBallCopy.DeadLead)));
             column.Widgets.Add(BallRow(out _deadSquare, OddBallCopy.DeadName, OddBallCopy.DeadText));
 
-            column.Widgets.Add(Spanning(Aside("And the power-ups — the Swap, the Brake and the Cut — are on the Controls tab.", ProseWidth)));
+            column.Widgets.Add(Spanning(Aside(POWERUPS_ASIDE, ProseWidth)));
         }
+
+        //The tab's own lines: what stands before the cluster's kinds, and the aside under them all
+        private const string BALLS_LEAD = "Most balls are ordinary. These are not — the first few you will meet as the campaign goes on.";
+        private const string POWERUPS_ASIDE = "And the power-ups — the Swap, the Brake and the Cut — are on the Controls tab.";
+
+        //THE ODD BALLS AS CARDS on the phone layout (#1183): a card a kind, its live ball over its name, in rows of
+        //WideMenuLayout.ODD_BALL_COLUMNS - the cluster's kinds first, then a row of their own for the two the cannon holds and
+        //the dead weight - and beside them a panel with the chosen card's group line, name and words. Thirteen entries with
+        //their words in two columns were about three of the X300's screens; the words of one at a time and every ball at once
+        //fit one. The ball's square (WideMenuLayout.ODD_BALL_SQUARE) is larger than the list's, since a card has the height
+        //for it and the ball is what a player who met a strange one looks for; it alone is a finger's target tall
+        private const int BALL_CARD_COLUMNS = WideMenuLayout.ODD_BALL_COLUMNS;
+        private const int BALL_CARD_SQUARE = WideMenuLayout.ODD_BALL_SQUARE;
+
+        //Inside a card, in design units: the room either side of the widest name, between the ball and its name, and above
+        //and below the name inside its strip
+        private const int BALL_CARD_SIDE = 30;
+        private const int BALL_CARD_LINE_GAP = 6;
+        private const int BALL_CARD_STRIP_Y = 6;
+
+        //The cards, one per OddBallCopy.Entries entry at its index and the dead weight's last, their names and the strips
+        //they stand on, the one chosen (what the panel says), and the panel's three labels. Null on a monitor's layout
+        private Button[] _ballCards;
+        private Label[] _ballCardNames;
+        private Panel[] _ballCardStrips;
+        private Point _ballCardSize;
+        private int _ballChosen;
+        private Label _ballLead, _ballName, _ballText;
+
+        //The entry the pad's cursor stands on (NavFocusChanged), null while the pointer has it
+        private Button _focused;
+
+        //The cards' entries, the table's and then the dead weight's
+        private static int BallCount => OddBallCopy.Entries.Length + 1;
+        private static bool IsDead(int card) => card == OddBallCopy.Entries.Length;
+        private static string BallName(int card) => IsDead(card) ? OddBallCopy.DeadName : OddBallCopy.Entries[card].Name;
+        private static string BallText(int card) => IsDead(card) ? OddBallCopy.DeadText : OddBallCopy.Entries[card].Text;
+
+        //The line over a card's words in the panel: its group's, as the list's lines head the groups
+        private static string BallLead(int card) =>
+            IsDead(card) ? OddBallCopy.DeadLead : OddBallCopy.Entries[card].InGun ? OddBallCopy.GunLead : BALLS_LEAD;
+
+        /// <summary>
+        /// The odd balls on the phone layout (#1183): the cards, the power-ups' aside under them, and the chosen card's panel
+        /// beside them. A card is an entry (a press chooses it, and the pad's cursor on it chooses it, <see cref="NavFocusChanged"/>),
+        /// so the pad walks the grid (<see cref="PadWalksGrid"/>). The chosen card's name stands on the inverted slab a choice
+        /// wears on every page (<see cref="PaintBallCards"/>). The panel's lines are as tall as the tallest each can say, so a
+        /// choice moves nothing.
+        /// </summary>
+        private Widget BuildBallCards()
+        {
+            FontStashSharp.SpriteFontBase nameFont = Game.MenuFontLead;
+            int square = Scaled(BALL_CARD_SQUARE);
+            int nameWidth = 0;
+            for (int card = 0; card < BallCount; card++)
+                nameWidth = Math.Max(nameWidth, (int)MathF.Ceiling(nameFont.MeasureString(BallName(card)).X));
+
+            //MenuTile's own padding (18 x 12 units) inside the card, round the ball and the widest name on its strip
+            int cardWidth = Math.Max(square, nameWidth) + 2 * Scaled(BALL_CARD_SIDE);
+            int cardHeight = square + Scaled(BALL_CARD_LINE_GAP) + nameFont.LineHeight + 2 * Scaled(BALL_CARD_STRIP_Y) + 2 * Scaled(12);
+
+            //The panel takes what the cards leave of the tab's two columns, at most the prose measure. A screen too narrow for
+            //it at half the measure (a squarer phone drawn larger) keeps the list in two columns, which scrolls
+            int gap = Scaled(WideMenuLayout.TILE_GAP);
+            int gridWidth = BALL_CARD_COLUMNS * cardWidth + (BALL_CARD_COLUMNS - 1) * gap;
+            int panelWidth = Math.Min(ProseMeasure, 2 * _proseWidth - gridWidth);
+            if (panelWidth < ProseMeasure / 2) return null;
+
+            _ballCards = new Button[BallCount];
+            _ballCardNames = new Label[BallCount];
+            _ballCardStrips = new Panel[BallCount];
+            _ballChosen = Math.Clamp(_ballChosen, 0, BallCount - 1);
+            _ballCardSize = new Point(cardWidth, cardHeight);
+
+            Grid cards = new()
+            {
+                ColumnSpacing = gap,
+                RowSpacing = gap,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Top,
+            };
+            for (int c = 0; c < BALL_CARD_COLUMNS; c++) cards.ColumnsProportions.Add(new Proportion(ProportionType.Auto));
+
+            //Across and then down, a new row for the cannon's two and the dead weight after the cluster's kinds
+            int row = 0, column = 0;
+            bool second = false;
+            for (int card = 0; card < BallCount; card++)
+            {
+                if (!second && (IsDead(card) || OddBallCopy.Entries[card].InGun))
+                {
+                    second = true;
+                    if (column > 0) (row, column) = (row + 1, 0);
+                }
+
+                Button tile = BallCard(card, cardWidth, cardHeight, square, nameFont);
+                Grid.SetRow(tile, row);
+                Grid.SetColumn(tile, column);
+                cards.Widgets.Add(tile);
+
+                if (++column == BALL_CARD_COLUMNS) (row, column) = (row + 1, 0);
+            }
+
+            VerticalStackPanel left = new() { Spacing = ParagraphGap, VerticalAlignment = VerticalAlignment.Top };
+            left.Widgets.Add(cards);
+            left.Widgets.Add(Aside(POWERUPS_ASIDE, gridWidth));
+
+            VerticalStackPanel panel = new() { Spacing = 0, VerticalAlignment = VerticalAlignment.Top };
+            _ballLead = Aside(BallLead(_ballChosen), panelWidth);
+            _ballLead.Height = ProseHeight(_ballLead, BALLS_LEAD, OddBallCopy.GunLead, OddBallCopy.DeadLead);
+            panel.Widgets.Add(_ballLead);
+
+            _ballName = new Label { Text = BallName(_ballChosen), Font = FontBody, TextColor = BS3DGame.MENU_TEXT };
+            panel.Widgets.Add(_ballName);
+
+            _ballText = Paragraph(BallText(_ballChosen), panelWidth);
+            string[] texts = new string[BallCount];
+            for (int card = 0; card < BallCount; card++) texts[card] = BallText(card);
+            _ballText.Height = ProseHeight(_ballText, texts);
+            panel.Widgets.Add(_ballText);
+
+            Grid page = new()
+            {
+                ColumnSpacing = _columnGutter,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Top,
+            };
+            page.ColumnsProportions.Add(new Proportion(ProportionType.Auto));
+            page.ColumnsProportions.Add(new Proportion(ProportionType.Auto));
+            page.Widgets.Add(left);
+            Grid.SetColumn(panel, 1);
+            page.Widgets.Add(panel);
+
+            PaintBallCards();
+            return page;
+        }
+
+        /// <summary>
+        /// One card (#1183): the kind's square over its name, both centred, the square the one <see cref="DrawForeground"/>
+        /// hangs the live ball in (the table's entry's, or the dead weight's).
+        /// </summary>
+        private Button BallCard(int card, int width, int height, int square, FontStashSharp.SpriteFontBase nameFont)
+        {
+            Panel ball = new() { Width = square, Height = square, HorizontalAlignment = HorizontalAlignment.Center };
+            if (IsDead(card)) _deadSquare = ball;
+            else _ballSquares[card] = ball;
+
+            Label name = new()
+            {
+                Text = BallName(card),
+                Font = nameFont,
+                TextColor = BS3DGame.MENU_TEXT,
+                HorizontalAlignment = HorizontalAlignment.Center,
+            };
+
+            //The name on a strip of the card's width inside its padding: the strip is what a choice inverts (PaintBallCards)
+            Button tile = Game.MenuTile(new Panel(), () => ChooseBall(card), 0, 0);
+            Panel strip = new()
+            {
+                Width = width - tile.Padding.Left - tile.Padding.Right,
+                Padding = new Thickness(0, Scaled(BALL_CARD_STRIP_Y)),
+            };
+            strip.Widgets.Add(name);
+
+            VerticalStackPanel content = new()
+            {
+                Spacing = Scaled(BALL_CARD_LINE_GAP),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            content.Widgets.Add(ball);
+            content.Widgets.Add(strip);
+
+            tile.Content = content;
+            tile.Width = width;
+            tile.Height = height;
+
+            _ballCards[card] = tile;
+            _ballCardNames[card] = name;
+            _ballCardStrips[card] = strip;
+            return tile;
+        }
+
+        /// <summary>A card pressed (#1183): its words in the panel. The cursor stays where it is.</summary>
+        private void ChooseBall(int card)
+        {
+            if (_ballCards == null || card == _ballChosen) return;
+
+            _ballChosen = card;
+            SetProse(_ballLead, BallLead(card));
+            _ballName.Text = BallName(card);
+            SetProse(_ballText, BallText(card));
+            PaintBallCards();
+        }
+
+        /// <summary>
+        /// The chosen card's name on the inverted slab a choice wears on every page, in the dark, and every other name on the
+        /// card's own slab (#1183). The name's strip and not the card: a card is mostly its ball, and with the whole card
+        /// inverted the glass ball vanished into the white (photographed). The card's slab is the host's to paint, the pad's
+        /// cursor's included, so the cursor on the chosen card reads as both.
+        /// </summary>
+        private void PaintBallCards()
+        {
+            if (_ballCards == null) return;
+
+            for (int card = 0; card < _ballCards.Length; card++)
+            {
+                bool chosen = card == _ballChosen;
+                _ballCardStrips[card].Background = chosen ? SELECTED_BRUSH : null;
+                _ballCardNames[card].TextColor = chosen ? SELECTED_TEXT : BS3DGame.MENU_TEXT;
+            }
+        }
+
+        /// <summary>
+        /// The pad's cursor on a card chooses it (#1183): the panel says what the cursor stands on, as the level picker's
+        /// panel does, so a pad player reads the kinds by walking the grid.
+        /// </summary>
+        internal override void NavFocusChanged(Button focused)
+        {
+            _focused = focused;
+            if (_ballCards == null) return;
+
+            int card = focused == null ? -1 : Array.IndexOf(_ballCards, focused);
+            if (card >= 0) ChooseBall(card);
+            PaintBallCards();
+        }
+
+        /// <summary>The phone's odd-ball cards are walked by the pad in the direction pressed (#1183), as the Scene grid is.</summary>
+        internal override bool PadWalksGrid => _ballCards != null && _tab == TAB_BALLS;
+
+        /// <summary>
+        /// On the phone's odd-ball cards, the chosen card (#1183's review): a turn to that tab reads the entries again
+        /// (<see cref="ShowTab"/>), and the host lands the cursor on the arrival entry before it puts it back where it stood.
+        /// Landing on the first card chose it under the cursor's way back, so a pad player who turned away on the shoulders
+        /// and back found the panel on the first card.
+        /// </summary>
+        internal override Button NavArrival => _ballCards != null && _tab == TAB_BALLS ? _ballCards[_ballChosen] : null;
 
         private static Widget Spanning(Widget block)
         {
@@ -789,15 +1063,18 @@ namespace BS3D.Screens
             column.Widgets.Add(Headed("Chapters",
                 $"{Game.LevelCount}\u00A0levels in {Game.BlockCount}\u00A0chapters of ten, each against one backdrop and with a "
                 + "puzzle of its own — towers, things hidden inside other things, mathematics."));
+            //The stars as rules v2 rates them (#1045, #1185): every star past the first is score (StarRating's multiples of the
+            //floor) and the time bonus is the biggest line of it, so four are said as SCORING's tip says them, a clean clear
+            //well inside the par time (about three quarters of par in ScoreSim's casual shots), never by shots alone
             column.Widgets.Add(Headed("Stars",
-                "Every level you clear is rated from one to four stars. One is for clearing it. Two and three are for your "
-                + "score: fewer shots, bigger drops, longer streaks. Four means you cleared it well under the shots it allows."));
+                "Every level you clear earns one to four stars. One is for clearing it, the rest for your score, and the "
+                + "faster the clear, the more it scores. Four need a clean clear well inside the par time."));
             column.Widgets.Add(Headed("Cups",
                 "A cleared level hands you a cup for its stars: bronze for one, silver for two, gold for three and crystal "
                 + "for four."));
             column.Widgets.Add(Headed("Stars open the way",
-                "Later levels ask for a total of stars across everything you have played, so a level you rushed is worth "
-                + "playing again."));
+                "Later levels ask for a total of stars across everything you have played, so a level you scraped through is "
+                + "worth playing again."));
         }
 
         private void BuildCeiling(VerticalStackPanel column)
@@ -831,12 +1108,15 @@ namespace BS3D.Screens
         //chapter it arrives in is LevelSet's own constant, so a moved power-up cannot leave a stale chapter here
         //Precise aim's line as Settings has it (#1054): the table's words are the hold's, and a toggle's replace them
         private const string PRECISE_AIM = "Precise aim";
+
+        //Fire's words, which name a key: not on the phone layout, which has no keys' column (#1183, KeyLine)
+        private const string FIRE_KEY = "Space fires too.";
         private const string PRECISE_AIM_TOGGLE = "Press it to look down the barrel, and again to come back.";
 
         private static readonly (string Keys, string Pad, string Name, string What)[] CONTROLS =
         {
             (MOUSE, PromptGlyph.PAD_RIGHT_STICK, "Aim", ""),
-            (MOUSE_LEFT, PromptGlyph.PAD_RT, "Fire", "Space fires too."),
+            (MOUSE_LEFT, PromptGlyph.PAD_RT, "Fire", FIRE_KEY),
             (MOUSE_RIGHT, PromptGlyph.PAD_LT, PRECISE_AIM, "Hold it to look down the barrel."),
             (KEY_A + KEY_D, PromptGlyph.PAD_LEFT_STICK_SIDEWAYS, "Walk", "Move the gun round the field."),
             (KEY_W + KEY_S, PromptGlyph.PAD_LEFT_STICK_UP_DOWN, "Step", "In and out: closer means a steeper shot."),
@@ -850,8 +1130,8 @@ namespace BS3D.Screens
         {
             //The touch screen's scheme first where a finger is what plays (#1151): on a phone, or where the menus' last input
             //was a touch (the "touch" argument pins it). On a phone it was the last paragraph of the tab, two screens under
-            //nine lines of mouse, keys and pad that a phone player has none of; the keys and the pad follow it, for a pad
-            //plugged into the phone
+            //nine lines of mouse, keys and pad that a phone player has none of; the table follows it for a pad plugged into
+            //the phone, with the pad's column alone on the phone layout (KeyLine, #1183)
             Widget touch = TouchScheme();
             bool touchFirst = touch != null && (BS3DGame.OnPhone || Game.PromptsForTouch);
             if (touchFirst) column.Widgets.Add(touch);
@@ -870,7 +1150,8 @@ namespace BS3D.Screens
             }
 
             foreach ((string keys, string pad, string name, string what) in CONTROLS)
-                column.Widgets.Add(KeyLine(keys, pad, name, name == PRECISE_AIM && Game.PreciseAimToggles ? PRECISE_AIM_TOGGLE : what,
+                column.Widgets.Add(KeyLine(keys, pad, name,
+                    name == PRECISE_AIM && Game.PreciseAimToggles ? PRECISE_AIM_TOGGLE : _phone && what == FIRE_KEY ? "" : what,
                     keyWidth, padWidth, nameWidth));
 
             //Under the table, one line each: when the three power-ups arrive and their price, said once for the three, and the
@@ -927,7 +1208,10 @@ namespace BS3D.Screens
                 Margin = new Thickness(0, 0, 0, Scaled(KEY_LINE_GAP)),
             };
 
-            line.Widgets.Add(GlyphLabel(keys, keyWidth));
+            //The keys' column (the mouse's and the keyboard's) is not on the phone layout (#1183): a phone has neither, as it has
+            //no F keys for More keys' line, and the pad's column is what the table there is for. The words take the width, which
+            //is what lets the tab fit its two columns
+            if (!_phone) line.Widgets.Add(GlyphLabel(keys, keyWidth));
             line.Widgets.Add(GlyphLabel(pad, padWidth));
 
             //On the phone layout (#1151) the name heads its words, as every other tab's headings head theirs: in one of two
@@ -942,7 +1226,7 @@ namespace BS3D.Screens
                 VerticalStackPanel block = new() { Spacing = Scaled(HEADING_GAP), VerticalAlignment = VerticalAlignment.Top };
                 block.Widgets.Add(new Label { Text = name, Font = FontBody, TextColor = BS3DGame.MENU_TEXT });
                 if (what.Length > 0)
-                    block.Widgets.Add(Prose(what, ProseWidth - keyWidth - padWidth - 2 * gap, BS3DGame.MENU_TEXT_BODY, ProseLeading,
+                    block.Widgets.Add(Prose(what, ProseWidth - padWidth - gap, BS3DGame.MENU_TEXT_BODY, ProseLeading,
                         new Thickness(0)));
 
                 line.Widgets.Add(block);

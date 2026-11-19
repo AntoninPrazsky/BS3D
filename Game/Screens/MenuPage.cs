@@ -306,7 +306,8 @@ namespace BS3D.Screens
         /// Whether this page has taken the keyboard to type into (#548) — the settings page while a nickname is
         /// being typed. While it has, the host's menu frame reads no key of its own: no Escape back, no arrow walk,
         /// no Enter activation — a Space, an arrow or a letter is the page's, and it arrives through
-        /// <see cref="OnTextInput"/>. The pad's A and B still come, through <see cref="TypingButtons"/>.
+        /// <see cref="OnTextInput"/>. The pad's A and B still come, through <see cref="TypingButtons"/>, and on Android the
+        /// system's back gesture as B.
         /// </summary>
         internal virtual bool CapturesKeyboard => false;
 
@@ -318,7 +319,7 @@ namespace BS3D.Screens
 
         /// <summary>
         /// What a phone's text dialog asks while this page has the keyboard (#1052): its title, a line under it, and the text
-        /// it opens on (what is typed so far). <c>BS3DGame.StepPhoneTyping</c> hands the answer to <see cref="TakeTypedText"/>.
+        /// it opens on (what is typed so far). <see cref="PhoneTyping"/> hands the answer to <see cref="TakeTypedText"/>.
         /// </summary>
         internal virtual (string Title, string Description, string Text) TypingDialog => ("", "", "");
 
@@ -338,10 +339,21 @@ namespace BS3D.Screens
         /// </summary>
         internal virtual bool TypingDialogEnters => true;
 
+        /// <summary>
+        /// Whether the dialog's Cancel is the page's Esc (#1182): on the nickname plate it dismisses the plate and on the
+        /// Settings row it keeps the name there was, which is what a cancel means there; the note's Esc leaves the page, so
+        /// there a cancel leaves the page and its text as they were before the dialog opened (<see cref="PhoneTyping"/>), and
+        /// the page's own Back, the pad's B or the system's back gesture leaves it.
+        /// </summary>
+        internal virtual bool TypingDialogEscapes => true;
+
         /// <summary>The widget the typed text shows in (#1052): a finger on it opens the phone's text dialog again.</summary>
         internal virtual Widget TypingField => null;
 
-        /// <summary>The pad's A (<paramref name="keep"/>) and B (<paramref name="drop"/>) while the page is typing (#548).</summary>
+        /// <summary>
+        /// The pad's A (<paramref name="keep"/>) and B (<paramref name="drop"/>) while the page is typing (#548); on Android the
+        /// system's back gesture is B.
+        /// </summary>
         internal virtual void TypingButtons(bool keep, bool drop) { }
 
         /// <summary>
@@ -689,7 +701,13 @@ namespace BS3D.Screens
         /// The height the content beside a rail may take, in pixels at the layout in force (#1151): <see cref="RAIL_ROOM"/>
         /// of the screen's less the plate's insets, so a page that keeps to it is not brought down.
         /// </summary>
-        protected int RailContentHeight => (int)(Game.GraphicsDevice.Viewport.Height * RAIL_ROOM) - 2 * Scaled(RAIL_PLATE_PADDING_Y);
+        protected int RailContentHeight => PhoneRoomHeight - 2 * Scaled(RAIL_PLATE_PADDING_Y);
+
+        /// <summary>
+        /// The height a page on the phone layout may take whole, plate and all, in pixels (#1182): <see cref="RAIL_ROOM"/> of
+        /// the screen's, so a page that keeps to it is not brought down. What the note page's field grows into.
+        /// </summary>
+        protected int PhoneRoomHeight => (int)(Game.GraphicsDevice.Viewport.Height * RAIL_ROOM);
 
         /// <summary>
         /// The share of the screen's width and height a rail page takes (#1151): nearly all of it, the owner's "it is
