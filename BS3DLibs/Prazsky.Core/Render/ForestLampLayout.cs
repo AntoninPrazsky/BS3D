@@ -91,14 +91,14 @@ namespace Prazsky.Core.Render
         /// Where a lamp's light has fallen to nothing (<c>saturate(1 - d / range)^2</c>): far enough to reach the island's far
         /// rim from the far side of the ring, so every lamp lights the whole stone and the cluster over it, the nearest rim most.
         /// </summary>
-        public const float RANGE = 64f;
+        public const float RANGE = 60f;
 
         /// <summary>
         /// A lamp's light at full (linear radiance): an old incandescent bulb, about 2700 K, warm against the overcast lid's
         /// blue-grey. Strong enough that the island under five of them reads at night; the pools under the poles and the
         /// stone carry it, the wood round the clearing takes the falloff.
         /// </summary>
-        public static readonly Vector3 COLOUR = new(1.9f, 1.2f, 0.62f);
+        public static readonly Vector3 COLOUR = new(1.5f, 1.08f, 0.70f);
 
         /// <summary>The bulb's glow (linear) at full, times the lamp's own colour over <see cref="COLOUR"/>: far over the glare
         /// threshold, so the bloom makes the halo round a few pixels of filament.</summary>

@@ -75,6 +75,8 @@ namespace BS3D.Tests
                 float ground = TerrainMirror.Forest(lamp.Foot.X, lamp.Foot.Z, Forest);
                 Assert.True(lamp.Foot.Y < ground - 0.4f, $"the pole at {lamp.Foot.X:F1}, {lamp.Foot.Z:F1} stands {lamp.Foot.Y - ground:F2} off the ground");
                 tops.Add(Vector3.Transform(new Vector3(0f, ForestLampLayout.POLE_LENGTH, 0f), lamp.World).Y - ground);
+                _output.WriteLine(string.Format(CultureInfo.InvariantCulture, "foot {0:F1},{1:F1},{2:F1} bulb {3:F1},{4:F1},{5:F1}",
+                    lamp.Foot.X, lamp.Foot.Y, lamp.Foot.Z, lamp.Bulb.X, lamp.Bulb.Y, lamp.Bulb.Z));
             }
             Assert.True(tops.Max() - tops.Min() > 0.5f, "every pole stands to the same height over its ground");
         }
