@@ -13,10 +13,12 @@ namespace Prazsky.Core.Render
     /// mesh a material:
     /// <list type="bullet">
     /// <item><see cref="Part.Hull"/>: the hull lathed finer, a smooth convex top and underside, engraved panel lines (sixteen
-    /// radial seams over the top and the underside and a concentric groove on each, <see cref="SEAM_DEPTH"/> deep), a raised
-    /// collar the dome's glass stands in, a raised lip round the top's edge over a rounded rim, the belly's ring standing
-    /// proud round a recessed glowing lens, a socket for every bulb and three landing legs, each a strut out and down to a
-    /// pod. The texture coordinate's X names the material: <see cref="CHROME"/>, <see cref="LENS"/> or <see cref="GUNMETAL"/>.</item>
+    /// radial seams over the top and the underside, two concentric grooves round the top and one round the underside,
+    /// <see cref="SEAM_DEPTH"/> deep), a raised collar the dome's glass stands in, a raised lip round the top's edge over a
+    /// rounded rim, the belly's ring standing proud round a recessed glowing lens, a socket for every bulb and three landing
+    /// legs, each a strut out and down to a pod. The texture coordinate's X names the material: <see cref="CHROME"/>,
+    /// <see cref="LENS"/> or <see cref="GUNMETAL"/>; its Y is <see cref="SEAM_CUT"/> on the spans the seams cut, whose panels
+    /// the shader rolls a shade apart.</item>
     /// <item><see cref="Part.Bulbs"/>: the rim's <see cref="RIM_BULBS"/> and the top's <see cref="TOP_BULBS"/> as small glass
     /// spheres standing proud of their sockets, where <c>Saucer.fx</c>'s rings paint them (X 0 the rim's, 1 the top's; Y the
     /// bulb's place round its ring, for the wave of brightness that runs round it).</item>
@@ -37,6 +39,10 @@ namespace Prazsky.Core.Render
 
         //The hull's materials (the texture coordinate's X)
         internal const float CHROME = 0f, LENS = 1f, GUNMETAL = 2f;
+
+        //The hull's texture coordinate's Y on a span whose two rings the radial seams both cut, where Saucer.fx rolls each
+        //panel a shade apart; 0 on every other span, the sockets and the legs, which mirror evenly
+        internal const float SEAM_CUT = 1f;
 
         //The crew mesh's materials
         internal const float SKIN = 0f, EYE = 1f, CABIN = 2f, LAMP = 3f, CONSOLE = 4f;
@@ -113,7 +119,7 @@ namespace Prazsky.Core.Render
         //The slope's normal in the (radius, y) plane (up and out) at r
         private static Vector2 TopNormal(float r) => Vector2.Normalize(new Vector2(-(0.05277f - 0.04733f * r), 1f));
 
-        private const float SLOPE_FROM = 2.78f, SLOPE_TO = 6.6f, UNDER_FROM = 6.72f, UNDER_TO = 3.32f;
+        internal const float SLOPE_FROM = 2.78f, SLOPE_TO = 6.6f, UNDER_FROM = 6.72f, UNDER_TO = 3.32f;
         private const float TOP_GROOVE_A = 3.9f, TOP_GROOVE_B = 6.05f, UNDER_GROOVE = 5.38f, GROOVE_HALF = 0.04f;
 
         /// <summary>The concentric grooves' radii, two round the top and one round the underside: <c>Saucer.fx</c>'s
@@ -232,7 +238,7 @@ namespace Prazsky.Core.Render
                 var low = profile[s];
                 var high = profile[s + 1];
                 if (low.R == high.R && low.Y == high.Y) continue;
-                var uv = new Vector2(low.Material, 0f);
+                var uv = new Vector2(low.Material, low.Seam && high.Seam ? SEAM_CUT : 0f);
 
                 for (int p = 0; p < PANELS; p++)
                 {
@@ -359,13 +365,6 @@ namespace Prazsky.Core.Render
         /// <summary>Bulb <paramref name="i"/>'s bearing round a ring of <paramref name="count"/>: the middle of its slot, where
         /// <c>Saucer.fx</c>'s <c>Bulbs</c> and <c>BulbHalo</c> centre it.</summary>
         internal static float BulbBearing(int i, int count) => MathHelper.TwoPi * (i + 0.5f) / count;
-
-        /// <summary>Where a top bulb's middle stands in the craft's frame (#1173): a test's handle on the parts.</summary>
-        internal static Vector3 TopBulbCentre(int i)
-        {
-            (Vector3 at, Vector3 normal) = OnTop(SaucerMesh.TOP_RING.X);
-            return Vector3.Transform(at + normal * TOP_BULB_LIFT, Matrix.CreateRotationY(-BulbBearing(i, TOP_BULBS)));
-        }
 
         //A point of the top's slope at radius r on bearing 0 (+X), and its normal
         private static (Vector3 At, Vector3 Normal) OnTop(float r)

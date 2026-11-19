@@ -25,6 +25,14 @@ namespace BS3D.Tests
 
         private static IEnumerable<SaucerFineMesh.Part> Parts => Enum.GetValues<SaucerFineMesh.Part>();
 
+        //Where Saucer.fx paints and lights things, written out here rather than read off the builder, so where the builder puts
+        //a part is checked against the shader and not against the builder's own formula: RIM_LIGHTS and TOP_LIGHTS, whose
+        //Bulbs and BulbHalo centre bulb i in the middle of its slot, and CREW, whose figure k stands where
+        //frac(angle / 2pi * CREW + 0.25) is a half
+        private const int RIM_LIGHTS = 24, TOP_LIGHTS = 16, CREW = 3;
+        private static float PaintedBulb(int i, int count) => MathHelper.TwoPi * (i + 0.5f) / count;
+        private static float PaintedCrew(int k) => MathHelper.TwoPi * (k + 0.25f) / CREW;
+
         //By number: the part enum is internal to the library, and a public theory cannot take it
         public static TheoryData<int> AllParts()
         {
@@ -127,8 +135,10 @@ namespace BS3D.Tests
         public void TheCrewStandWhereTheyArePaintedLookingOut()
         {
             var (vertices, _) = Part(SaucerFineMesh.Part.Crew);
-            foreach (float bearing in SaucerFineMesh.CREW_BEARINGS)
+            Assert.Equal(CREW, SaucerFineMesh.CREW_BEARINGS.Length);
+            for (int k = 0; k < CREW; k++)
             {
+                float bearing = PaintedCrew(k);
                 var outward = new Vector2(MathF.Cos(bearing), MathF.Sin(bearing));
                 bool Near(Vector3 p) => Vector2.Dot(new Vector2(p.X, p.Z), outward) > SaucerFineMesh.CREW_RADIUS * 0.5f
                     && MathF.Abs(Vector2.Dot(new Vector2(p.X, p.Z), new Vector2(-outward.Y, outward.X))) < 0.6f;
@@ -138,27 +148,31 @@ namespace BS3D.Tests
                 Assert.True(skin.Length > 0, $"no figure at {MathHelper.ToDegrees(bearing)} degrees");
                 Assert.True(eyes.Length > 0, $"the figure at {MathHelper.ToDegrees(bearing)} degrees has no eyes");
 
-                //The eyes are further out from the dome's axis than the figure's middle: it looks out
+                //Its middle on the painted bearing, and its eyes further out from the dome's axis than its middle: it looks out
                 Vector2 middle = new(skin.Average(p => p.X), skin.Average(p => p.Z));
+                Assert.InRange(MathHelper.WrapAngle(MathF.Atan2(middle.Y, middle.X) - bearing), -0.05f, 0.05f);
                 Vector2 gaze = new(eyes.Average(p => p.X), eyes.Average(p => p.Z));
                 Assert.True(Vector2.Dot(gaze - middle, outward) > 0.1f, $"the figure at {MathHelper.ToDegrees(bearing)} degrees looks in");
             }
         }
 
         /// <summary>
-        /// The bulbs stand proud (#1173): every rim bulb reaches past the rim, and past its own socket, and they sit where
-        /// <c>Saucer.fx</c>'s rings throw their halo on the hull (the rim's middle height, the top ring's radius).
+        /// The bulbs stand proud (#1173): every rim bulb reaches past the rim, and past its own socket, and every bulb's middle
+        /// is where <c>Saucer.fx</c>'s rings throw their halo on the hull (the rim's middle height, the top ring's radius, and
+        /// the middle of its slot round its ring), taken from the bulb's own vertices.
         /// </summary>
         [Fact]
         public void TheBulbsStandProudWhereTheShaderLightsThem()
         {
+            Assert.Equal(RIM_LIGHTS, SaucerFineMesh.RIM_BULBS);
+            Assert.Equal(TOP_LIGHTS, SaucerFineMesh.TOP_BULBS);
             var (bulbs, _) = Part(SaucerFineMesh.Part.Bulbs);
             var (hull, _) = Part(SaucerFineMesh.Part.Hull);
             float hullReach = hull.Max(v => new Vector2(v.Position.X, v.Position.Z).Length());
             Assert.InRange(hullReach, SaucerMesh.RIM_RADIUS - 0.01f, SaucerMesh.RIM_RADIUS + 0.05f);
 
             float rimY = 0.5f * (SaucerMesh.RIM_BAND.X + SaucerMesh.RIM_BAND.Y);
-            for (int i = 0; i < SaucerFineMesh.RIM_BULBS; i++)
+            for (int i = 0; i < RIM_LIGHTS; i++)
             {
                 Vector3[] bulb = bulbs.Where(v => v.TextureCoordinate.X == 0f && v.TextureCoordinate.Y == i).Select(v => v.Position).ToArray();
                 Assert.NotEmpty(bulb);
@@ -166,20 +180,58 @@ namespace BS3D.Tests
                 Assert.True(reach > hullReach + 0.1f, $"rim bulb {i} reaches {reach}, the hull {hullReach}");
                 Vector3 centre = new(bulb.Average(p => p.X), bulb.Average(p => p.Y), bulb.Average(p => p.Z));
                 Assert.InRange(centre.Y, rimY - 0.01f, rimY + 0.01f);
-                float bearing = MathF.Atan2(centre.Z, centre.X);
-                Assert.InRange(MathHelper.WrapAngle(bearing - SaucerFineMesh.BulbBearing(i, SaucerFineMesh.RIM_BULBS)), -0.01f, 0.01f);
+                Assert.InRange(MathHelper.WrapAngle(MathF.Atan2(centre.Z, centre.X) - PaintedBulb(i, RIM_LIGHTS)), -0.01f, 0.01f);
             }
 
-            for (int i = 0; i < SaucerFineMesh.TOP_BULBS; i++)
+            for (int i = 0; i < TOP_LIGHTS; i++)
             {
                 Vector3[] bulb = bulbs.Where(v => v.TextureCoordinate.X == 1f && v.TextureCoordinate.Y == i).Select(v => v.Position).ToArray();
                 Assert.NotEmpty(bulb);
-                Vector3 centre = SaucerFineMesh.TopBulbCentre(i);
+                Vector3 centre = new(bulb.Average(p => p.X), bulb.Average(p => p.Y), bulb.Average(p => p.Z));
                 Assert.InRange(new Vector2(centre.X, centre.Z).Length(), SaucerMesh.TOP_RING.X - 0.05f, SaucerMesh.TOP_RING.X + 0.05f);
                 Assert.InRange(centre.Y, SaucerMesh.TOP_RING.Y - 0.06f, SaucerMesh.TOP_RING.Y + 0.12f);
+                Assert.InRange(MathHelper.WrapAngle(MathF.Atan2(centre.Z, centre.X) - PaintedBulb(i, TOP_LIGHTS)), -0.01f, 0.01f);
                 //Its top stands over the slope round it
                 Assert.True(bulb.Max(p => p.Y) > SaucerFineMesh.TopY(SaucerMesh.TOP_RING.X) + 0.12f, $"top bulb {i} does not stand proud");
             }
+        }
+
+        /// <summary>
+        /// The shader rolls a panel a shade apart only where the radial seams cut the hull (#1173): the texture coordinate's Y is
+        /// <see cref="SaucerFineMesh.SEAM_CUT"/> on the top's and the underside's slopes alone, so the lip, the rim, the collar,
+        /// the belly's ring, the sockets and the legs, which no seam crosses, mirror evenly and step no shade where the mesh has
+        /// no edge. And the top's slope lies above the craft's middle plane and the underside's below it, which is how the
+        /// shader tells the top's grooves from the underside's.
+        /// </summary>
+        [Fact]
+        public void PanelsAreRolledOnlyWhereTheSeamsCut()
+        {
+            const float SLACK = 0.05f;
+            var (hull, _) = Part(SaucerFineMesh.Part.Hull);
+            int top = 0, under = 0;
+            foreach (VertexPositionNormalTexture v in hull)
+            {
+                if (v.TextureCoordinate.Y == 0f) continue;
+                Assert.Equal(SaucerFineMesh.SEAM_CUT, v.TextureCoordinate.Y);
+                Assert.Equal(SaucerFineMesh.CHROME, v.TextureCoordinate.X);
+                float r = new Vector2(v.Position.X, v.Position.Z).Length();
+                if (v.Position.Y > 0f)
+                {
+                    Assert.InRange(r, SaucerFineMesh.SLOPE_FROM - SLACK, SaucerFineMesh.SLOPE_TO + SLACK);
+                    top++;
+                }
+                else
+                {
+                    Assert.InRange(r, SaucerFineMesh.UNDER_TO - SLACK, SaucerFineMesh.UNDER_FROM + SLACK);
+                    under++;
+                }
+            }
+            Assert.True(top > 0 && under > 0, $"{top} vertices of the top's panels and {under} of the underside's");
+
+            //The lip and the rim's bullnose, outside both slopes and over the underside's start, all even
+            VertexPositionNormalTexture[] rim = hull.Where(v => new Vector2(v.Position.X, v.Position.Z).Length() > 6.7f && v.Position.Y > -0.3f).ToArray();
+            Assert.NotEmpty(rim);
+            Assert.All(rim, v => Assert.Equal(0f, v.TextureCoordinate.Y));
         }
 
         /// <summary>

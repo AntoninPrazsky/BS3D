@@ -17,7 +17,8 @@
 //That is Low and Medium's craft (SaucerMesh, SaucerHull and SaucerDome). High and Ultra's (#1173, #1174) is built of real
 //parts and has the crew as models behind real glass: the techniques after SaucerDome, and their note.
 //
-//Drawn in the Game and the Testbed through the shared SceneRenderer (SpaceBackdrop), after the sky's quad and writing depth.
+//Drawn in the Game and the Testbed through the shared SceneRenderer (SpaceBackdrop), after the sky's quad and writing depth;
+//High and Ultra's glass alone later, blended and writing none (SaucerFlight.DrawGlass, from the backdrop's DrawOverlays).
 //Shader Model 5.0, and 3.0 for OpenGL ES (ShaderTarget.fxh).
 
 #include "ShaderTarget.fxh"
@@ -187,7 +188,8 @@ float4 DomePS(SaucerVertexOutput input) : COLOR
 //---- HIGH AND ULTRA'S CRAFT (#1173, #1174; SaucerFineMesh, drawn where SceneRenderer.FineMeshes is on)
 //
 //The parts are geometry here, so nothing above is painted on them: the hull has its seams, its collar, its rim, its belly's
-//ring and lens, its sockets and its legs in the mesh, each vertex naming its material in the texture coordinate; the bulbs
+//ring and lens, its sockets and its legs in the mesh, each vertex naming its material in the texture coordinate's X and
+//whether the radial seams cut its span in its Y; the bulbs
 //are glass spheres in their sockets; the antenna is its own mesh, opaque; the crew stand in a cabin under a dome of real
 //glass, drawn after the opaque scene (SaucerFlight.DrawGlass) with a premultiplied blend and the depth read, its inside
 //faces first: clear where it faces the lens, a mirror at a grazing angle.
@@ -243,17 +245,22 @@ float4 HullFinePS(FineVertexOutput input) : COLOR
     float lens = step(0.5, input.UV.x) * step(input.UV.x, 1.5);
     float gunmetal = step(1.5, input.UV.x);
 
-    //Each panel (between two radial seams and two grooves) a little apart from its neighbours in how brightly it mirrors and
-    //in its tint: plates of one chrome laid by hand do not mirror alike, and a hull of one perfect mirror read as plastic
+    //Each panel of the top's and the underside's slopes (between two radial seams, and the grooves round its own side: the
+    //top's two part the top, the underside's one the underside) a little apart from its neighbours in how brightly it
+    //mirrors and in its tint: plates of one chrome laid by hand do not mirror alike, and a hull of one perfect mirror read as
+    //plastic. Only where the seams cut the span (the texture coordinate's Y 1): the collar, the lip, the rim, the belly's
+    //ring, the sockets and the legs (Y 0) mirror evenly at the rolls' middle, or each would step a shade where no seam is
     float panel = floor(atan2(input.Local.z, input.Local.x) / TWO_PI * Panels);
-    float band = step(PanelGrooves.x, radius) + step(PanelGrooves.y, radius) + 3.0 * step(input.Local.y, 0.0) * (1.0 + step(PanelGrooves.z, radius));
-    float roll = Roll(panel + band * 17.0);
+    float under = step(input.Local.y, 0.0);
+    float band = (1.0 - under) * (step(PanelGrooves.x, radius) + step(PanelGrooves.y, radius)) + under * (3.0 + step(PanelGrooves.z, radius));
+    float roll = lerp(0.5, Roll(panel + band * 17.0), input.UV.y);
+    float tint = lerp(0.5, Roll(panel * 3.0 + band), input.UV.y);
 
     float diffuse = saturate(dot(n, SunDirection));
     float3 ambient = lerp(GroundAmbient, SkyAmbient, saturate(n.y * 0.5 + 0.5));
     float fresnel = 0.55 + 0.45 * pow(1.0 - saturate(dot(n, eye)), 4.0);
     float3 chrome = HULL_COLOR * (SunColor * diffuse * 0.45 + ambient) + Mirror(r) * fresnel * (0.86 + 0.24 * roll)
-        * lerp(float3(1.0, 1.0, 1.0), float3(1.0, 0.97, 0.93), Roll(panel * 3.0 + band));
+        * lerp(float3(1.0, 1.0, 1.0), float3(1.0, 0.97, 0.93), tint);
     float3 dark = GUNMETAL_COLOR * (SunColor * diffuse + ambient * 2.0) + Mirror(r) * fresnel * 0.3;
     float3 color = lerp(chrome, dark, gunmetal);
 

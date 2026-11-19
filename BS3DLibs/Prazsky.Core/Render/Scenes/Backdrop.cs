@@ -88,8 +88,8 @@ namespace Prazsky.Core.Render
         /// </summary>
         public virtual void DrawDepth(in SceneFrame frame) { }
 
-        /// <summary>The foreground weather drawn after the cluster (<see cref="SceneRenderer.DrawOverlays"/>);
-        /// nothing by default.</summary>
+        /// <summary>The foreground weather drawn after the cluster, and space's saucer glass on High and Ultra
+        /// (<see cref="SceneRenderer.DrawOverlays"/>); nothing by default.</summary>
         public virtual void DrawOverlays(in SceneFrame frame) { }
 
         /// <summary>The translucent things that stand on the ground rather than around the lens

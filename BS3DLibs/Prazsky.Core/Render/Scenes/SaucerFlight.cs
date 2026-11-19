@@ -180,10 +180,20 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// High and Ultra's dome of glass (#1174), after the opaque scene and everything that writes depth, so the crew, the
-        /// cabin and whatever stands beyond the craft show through it, and anything nearer the lens covers it: premultiplied,
-        /// reading the depth and writing none, its inside faces (the far side of the dome) first and its outside ones over
-        /// them. Where <see cref="Draw"/> last put the craft, and nothing when that drew Low and Medium's craft, whose dome is
-        /// opaque. Leaves the depth, blend and rasterizer states as it found them.
+        /// cabin and whatever stands beyond the craft show through it, and anything nearer the lens that writes depth covers
+        /// it: premultiplied, reading the depth and writing none, its inside faces (the far side of the dome) first and its
+        /// outside ones over them. Where <see cref="Draw"/> last put the craft, and nothing when that drew Low and Medium's
+        /// craft, whose dome is opaque. Leaves the depth, blend and rasterizer states as it found them.
+        /// <para>
+        /// From the backdrop's overlay slot (<see cref="SceneRenderer.DrawOverlays"/>), the last of the scene, for the intro's
+        /// pass: there the craft crosses in front of the station, and what the hosts draw after the setting (the cluster, the
+        /// gun) must show through the glass, not be painted over it. The trade is in play and the menu's orbit: the
+        /// translucent layers that write no depth and stand nearer the lens (the ceiling's pane, the drain's and the gun's
+        /// glass, the aim beam, the smears, the blasts, the fireworks) are drawn before it and lie under it where they cross
+        /// it, and seen through the ceiling's plate the glass is laid unbent over a hull the plate bends (the mismatch
+        /// <see cref="SceneRenderer.DrawGrounded"/> exists to avoid, #641). Accepted, because there the craft is some fifty
+        /// pixels across at 1080p and its dome a third of that.
+        /// </para>
         /// </summary>
         public void DrawGlass()
         {

@@ -477,8 +477,8 @@ namespace Prazsky.Core.Render
         /// the Testbed and the map editor want. Costed in "The fork, grown for High and Ultra (#758)" and "The bush (#883)" in
         /// docs/scenes/savanna-trees.md, in "Two woods (#889)" and "The shrubs (#890)" in docs/scenes/meadow.md, in "The spruces on High and Ultra"
         /// in docs/scenes/aurora.md, in "High and Ultra's range" in docs/scenes/mountains.md, in "High and Ultra's rocks" in docs/scenes/moon.md, in
-        /// "One height field, two kinds of mesh" in docs/scenes/outback.md, in "High and Ultra's wood" in docs/scenes/forest.md and in
-        /// "The beetles and scorpions (#966)" in docs/scenes/desert.md.
+        /// "One height field, two kinds of mesh" in docs/scenes/outback.md, in "High and Ultra's wood" in docs/scenes/forest.md, in
+        /// "The beetles and scorpions (#966)" in docs/scenes/desert.md and in "The saucer (#955)" in docs/scenes/space.md.
         /// </para>
         /// </summary>
         public bool FineMeshes
@@ -1895,7 +1895,8 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Draws the foreground weather that belongs after the opaque scene and the cluster — the backdrop's
         /// <see cref="Backdrop.DrawOverlays"/>: falling snow in the mountains and the aurora, blown spray and
-        /// spindrift over the sea, drifting ash in the volcano, the fires' flames and sparks on the savanna.
+        /// spindrift over the sea, drifting ash in the volcano — and on High and Ultra space's saucer's dome of glass
+        /// (#1174, <see cref="SaucerFlight.DrawGlass"/>, which says why it is here and what that costs).
         /// Alpha-blended and depth-read (the terrain/water and the cluster occlude the particles behind them)
         /// but writing no depth. A no-op for every other scene.
         /// <para>

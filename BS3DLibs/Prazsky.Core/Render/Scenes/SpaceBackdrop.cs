@@ -264,7 +264,10 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>High and Ultra's saucer's dome of glass (#1174), after the opaque scene so the crew and whatever stands
-        /// beyond the craft show through it: see <see cref="SaucerFlight.DrawGlass"/>.</summary>
+        /// beyond the craft show through it. An overlay rather than a grounded thing (<see cref="Backdrop.DrawGrounded"/>), so the
+        /// cluster and the gun the intro's pass crosses in front of show through it; seen through the ceiling's plate it is
+        /// therefore laid unbent over a hull the plate bends, accepted at the dome's size there: see
+        /// <see cref="SaucerFlight.DrawGlass"/>.</summary>
         public override void DrawOverlays(in SceneFrame frame) => _saucer.DrawGlass();
 
         /// <inheritdoc/>
