@@ -54,6 +54,15 @@ namespace BS3D.Screens
 
         protected override Widget BuildTree()
         {
+            //The dev build's row (#876), under everything the player has: nothing at all in a release, where the kinds are none
+            IReadOnlyList<BallKind> debugKinds = DebugKindRow.Kinds(BuildVersion.Release);
+            _nextRound = null;
+            _card = null;
+            _beside = null;
+
+            //On a phone held landscape (#1184), the entries beside the level's card rather than one column over empty sides
+            if (UsesTheWidth && Game.HasSession) return BuildBesideTheCard(debugKinds);
+
             VerticalStackPanel column = MenuColumn();
 
             column.Widgets.Add(ScreenHeading("PAUSED"));
@@ -81,13 +90,115 @@ namespace BS3D.Screens
             //this page that the game should always ask before it quits, and here it throws the run away besides
             column.Widgets.Add(MenuButton("Quit", Game.AskQuit));
 
-            //The dev build's row (#876), under everything the player has: nothing at all in a release, where the kinds are none
-            IReadOnlyList<BallKind> debugKinds = DebugKindRow.Kinds(BuildVersion.Release);
-            _nextRound = null;
             if (debugKinds.Count > 0) column.Widgets.Add(BuildDebugRow(debugKinds));
 
             return ScreenRoot(column);
         }
+
+        #region The phone's pause: the entries beside the level's card (#1181, #1184)
+
+        //Design units: the card's width (the level picker's side panel's, whose card it is), between the two columns of entries,
+        //and above the attempt's lines, which part them from the level's own
+        private const int CARD_WIDTH = 960;
+        private const int ENTRY_COLUMN_GAP = 26;
+        private const int RUN_GAP = 48;
+
+        //The level's card and the attempt's three lines under it, written by Refresh; and the row the entries and the card stand
+        //in, whose width the page needs. Null off the phone's layout
+        private LevelCard _card;
+        private Label _runScore, _runBalls, _runNextStar;
+        private Widget _beside;
+
+        /// <summary>
+        /// The phone's pause (#1181, #1184): the entries in two columns, each a touch target tall (<see cref="MenuPage.PhoneTarget"/>),
+        /// and the level's card beside them: which level it is, the player's stars and best on it, its rules, and the attempt
+        /// so far (its score, the balls it has left and what the next star costs). Stacked, the seven entries stood in one
+        /// column at a quarter of the width, 5.6 mm tall, over a blurred frame with nothing at the sides; at a finger's height
+        /// seven do not fit the phone's.
+        /// <para>
+        /// The columns part the entries as #383 grouped them: the ones that leave the run standing (Resume, Settings, Scene,
+        /// the note) and the ones that leave it (Restart, Main Menu, Quit), so Restart is a column away from Resume rather than
+        /// under it, and the second column stands at the foot of the first, Quit lowest. Added in the list's order, so the pad
+        /// walks them as it walks the stacked column; left and right cross between the columns by the host's row rule (#805).
+        /// The dev build's row stands under the card, clear of the entries.
+        /// </para>
+        /// </summary>
+        private Widget BuildBesideTheCard(IReadOnlyList<BallKind> debugKinds)
+        {
+            VerticalStackPanel entries = MenuColumn();
+            entries.Widgets.Add(ScreenHeading("PAUSED"));
+
+            VerticalStackPanel stay = MenuColumn();
+            stay.VerticalAlignment = VerticalAlignment.Top;
+            stay.Widgets.Add(PhoneTarget(BackButton("Resume", Game.ResumeGame)));
+            stay.Widgets.Add(PhoneTarget(MenuButton("Settings", Game.OpenSettings)));
+            stay.Widgets.Add(PhoneTarget(MenuButton("Scene", Game.OpenSceneSelect)));
+            stay.Widgets.Add(PhoneTarget(Game.NoteEntry("pause")));
+
+            //At the columns' foot, so Quit stands lowest, under where the Quit confirm's pair stands over this page: a double tap
+            //on Quit lands on nothing (the confirm's own guard, #826), where level with the third row it landed on its Quit
+            VerticalStackPanel leave = MenuColumn();
+            leave.VerticalAlignment = VerticalAlignment.Bottom;
+            leave.Widgets.Add(PhoneTarget(MenuButton("Restart", Game.RetryLevel)));
+            leave.Widgets.Add(PhoneTarget(MenuButton("Main Menu", Game.ReturnToMainMenu)));
+            leave.Widgets.Add(PhoneTarget(MenuButton("Quit", Game.AskQuit)));
+
+            HorizontalStackPanel columns = new() { Spacing = Scaled(ENTRY_COLUMN_GAP), HorizontalAlignment = HorizontalAlignment.Center };
+            columns.Widgets.Add(stay);
+            columns.Widgets.Add(leave);
+            entries.Widgets.Add(columns);
+
+            //The level picker's card, and the attempt's lines under it
+            _card = new LevelCard(this, Scaled(CARD_WIDTH));
+            VerticalStackPanel card = _card.Root;
+            _runScore = new Label { Font = FontBody, TextColor = BS3DGame.MENU_TEXT, Margin = ScaledThickness(0, RUN_GAP, 0, 0) };
+            _runBalls = new Label { Font = FontSmall, TextColor = BS3DGame.MENU_TEXT_BODY };
+            _runNextStar = new Label { Font = FontSmall, TextColor = BS3DGame.MENU_TEXT_BODY };
+            card.Widgets.Add(_runScore);
+            card.Widgets.Add(_runBalls);
+            card.Widgets.Add(_runNextStar);
+
+            VerticalStackPanel side = new() { VerticalAlignment = VerticalAlignment.Center };
+            side.Widgets.Add(Plate(card));
+            if (debugKinds.Count > 0) side.Widgets.Add(BuildDebugRow(debugKinds));
+
+            HorizontalStackPanel row = new()
+            {
+                Spacing = Scaled(WideMenuLayout.RAIL_GAP),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            row.Widgets.Add(entries);
+            row.Widgets.Add(side);
+            _beside = row;
+
+            return ScreenRoot(row);
+        }
+
+        /// <summary>
+        /// The entries and the card side by side, laid out unbounded (#1184): wider than a stacked page, so on a screen
+        /// narrower than the X300 Ultra's 2.2:1 <c>FitPage</c> brings the page down to fit it rather than cut the card off.
+        /// </summary>
+        internal override int RequiredWidth => _beside != null ? UnboundedWidth(_beside) : 0;
+
+        //The card for the level the session plays and the attempt as it stands: on every showing (Refresh), since the tree is
+        //kept between levels and a pause is the one time the attempt is looked at here
+        private void WriteCard()
+        {
+            if (_card == null || !Game.HasSession) return;
+
+            int level = Game.SessionLevel;
+            (int? ballsLeft, int score, int levelBalls) = Game.SessionRun;
+
+            _card.Show(level, open: true);
+            _runScore.Text = PickerCopy.CardScore(score);
+            _runBalls.Text = PickerCopy.CardBallsLeft(ballsLeft);
+            _runBalls.Visible = _runBalls.Text.Length > 0;
+            _runNextStar.Text = PickerCopy.CardNextStar(Game.LevelStars(level), levelBalls);
+            _runNextStar.Visible = _runNextStar.Text.Length > 0;
+        }
+
+        #endregion
 
         #region The debug row (#876)
 
@@ -155,10 +266,11 @@ namespace BS3D.Screens
 
         /// <inheritdoc/>
         /// <remarks>Writes the line under the debug row: what the gun's next round is, read off the session each time the page
-        /// comes up and after a press, so it is never a memory of what was clicked.</remarks>
+        /// comes up and after a press, so it is never a memory of what was clicked. On the phone, the level's card too (#1184).</remarks>
         internal override void Refresh()
         {
             if (_nextRound != null) _nextRound.Text = "Next round: " + Game.NextRoundDescription;
+            WriteCard();
         }
 
         #endregion

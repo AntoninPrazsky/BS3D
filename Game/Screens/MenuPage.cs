@@ -591,8 +591,8 @@ namespace BS3D.Screens
 
         /// <summary>
         /// The height of a touch target on the phone layout (#1151), in design units: 9 mm on the X300 Ultra at the menus'
-        /// fit there (a unit is 0.044 mm at the front end's 1.35× in the desktop's emulation), the size a fingertip hits
-        /// without looking twice. A Settings row and its − and + are this tall, and every button handed to <see cref="PhoneTarget"/>.
+        /// fit there (a unit is 0.044 mm at the front end's 1.33×), the size a fingertip hits without looking twice. A
+        /// Settings row and its − and + are this tall, and every button handed to <see cref="PhoneTarget"/>.
         /// </summary>
         protected const int PHONE_TARGET = 206;
 

@@ -17,8 +17,9 @@ namespace BS3D.Tests
     /// the design's own size, the least <c>BS3DGame.FitPage</c> brings a page down to.
     /// <para>
     /// Each layout is wider than a stacked page, and a screen narrower than the X300's 2.2:1 cut their right-hand columns off
-    /// until each stated its width (found by review): that every one of the four pages states it, and builds its layout only
-    /// where <see cref="WideMenuLayout.MIN_ASPECT"/> allows, is held by reading their source, since the pages are Myra trees
+    /// until each stated its width (found by review): that every page with such a layout (the four, and since #1184 the pause,
+    /// Top Players and the benchmark) states it, and builds its layout only where <see cref="WideMenuLayout.MIN_ASPECT"/>
+    /// allows, is held by reading their source, since the pages are Myra trees
     /// no test can construct. How the pages look is the owner's to judge on the phone; the pages at 16:9 and 2:1 are seen in
     /// a Game run (<c>inches=2.8 touch</c> in a 2560x1440 or 2160x1080 window).
     /// </para>
@@ -28,8 +29,12 @@ namespace BS3D.Tests
         //A chapter's levels
         private const int CHAPTER = 10;
 
-        //The four pages with a layout for the screen's width, under Game/Screens
-        private static readonly string[] WIDE_PAGES = { "ScenePage.cs", "JukeboxPage.cs", "AboutPage.cs", "HighScoresPage.cs" };
+        //The pages with a layout for the screen's width, under Game/Screens: #1153's four, and the pause beside its level card,
+        //Top Players beside its rail and the benchmark's entries beside its reading (#1184)
+        private static readonly string[] WIDE_PAGES =
+        {
+            "ScenePage.cs", "JukeboxPage.cs", "AboutPage.cs", "HighScoresPage.cs", "PausePage.cs", "TopPlayersPage.cs", "BenchmarkPage.cs",
+        };
 
         [Fact]
         public void The_scenes_stand_in_three_rows_of_seven()
@@ -169,7 +174,7 @@ namespace BS3D.Tests
 
         private static bool StatesItsWidth(string code) => Regex.IsMatch(code, @"internal\s+override\s+int\s+RequiredWidth\b");
 
-        private static bool AsksForTheWidth(string code) => Regex.IsMatch(code, @"=\s*UsesTheWidth\s*;");
+        private static bool AsksForTheWidth(string code) => Regex.IsMatch(code, @"\bUsesTheWidth\b");
 
         //The grid of the page's columns with the plate's padding either side, in design units
         private static int GridPlateWidth() =>

@@ -1264,6 +1264,13 @@ namespace BS3D
         //What the pages ask the game about itself. Read-only: a page shows state and asks for an action, and
         //nothing here lets it write one directly.
         internal bool HasSession => _gameplayScreen != null && _gameplayScreen.IsBuilt;
+
+        /// <summary>The level the session standing plays (0-based), for the pause's level card (#1184); read only with a session.</summary>
+        internal int SessionLevel => _gameplayScreen.LevelIndex;
+
+        /// <summary>The session's attempt so far, for the pause's level card (#1184): see <see cref="GameplayScreen.RunSoFar"/>.</summary>
+        internal (int? BallsLeft, int Score, int LevelBalls) SessionRun => _gameplayScreen.RunSoFar;
+
         internal bool IsFullscreen => _fullscreen;
         internal int SupersampleFactor => _supersampleFactor;
         internal float Exposure => _exposure;

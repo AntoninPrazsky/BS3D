@@ -273,6 +273,10 @@ namespace BS3D
         //sitting at, or on one we do not own; the result is the [bench] lines and Benchmark.json
         internal bool Benchmark { get; private set; }
 
+        //"benchmark=page" opens the page and leaves it standing, Start unpressed (#1184, testing only): the page a player sees
+        //before a run is otherwise a click away, and with online scores off "benchmark" shows its refusal instead
+        internal bool BenchmarkPageOnly { get; private set; }
+
         //"benchmarkplay" starts the benchmark at its play (#1018), the city's opening and the gun firing, without the tours:
         //testing only, so the play is seen in half a minute; such a run is shown, never saved or sent
         internal bool BenchmarkPlayOnly { get; private set; }
@@ -800,6 +804,7 @@ namespace BS3D
             //bars are only worth a shot while a recording plays, which takes presses nobody is there to make
             Row.Flag("extras", o => o.Extras = true),
             Row.Flag("benchmark", o => o.Benchmark = true),
+            Row.Text("benchmark", (o, v) => o.Benchmark = o.BenchmarkPageOnly = true, v => v == "page"),
             Row.Flag("benchmarkplay", o => o.Benchmark = o.BenchmarkPlayOnly = true),
             Row.Flag("continue", o => o.ContinueGame = true),
             Row.Flag("jukebox", o => o.Jukebox = string.Empty),

@@ -172,7 +172,7 @@ namespace BS3D.Screens
                 _firstEntry = MenuButton("Settings", Game.OpenSettings);
                 column.Widgets.Add(_firstEntry);
                 column.Widgets.Add(BackButton());
-                return ScreenRoot(Plate(column));
+                return Laid(column);
             }
 
             if (_builtWithKeptSession)
@@ -181,8 +181,25 @@ namespace BS3D.Screens
             _firstEntry = MenuButton(_phase == Phase.Done ? "Run again" : "Start", () => StartNow());
             column.Widgets.Add(_firstEntry);
             column.Widgets.Add(BackButton());
-            return ScreenRoot(Plate(column));
+            return Laid(column);
         }
+
+        //The phone's plate with the entries beside the reading (#1184), whose width the page needs; null for one column
+        private Panel _besidePlate;
+
+        /// <summary>
+        /// The page's plate: one column on a monitor; on a phone held landscape (#1184, <c>UsesTheWidth</c>) the reading on the
+        /// left and Start and Back on the right (<see cref="MenuPage.EntriesBesideReading"/>), each a touch target tall, so the
+        /// prose keeps the plate's height and nothing stands under it.
+        /// </summary>
+        private Widget Laid(VerticalStackPanel column)
+        {
+            _besidePlate = UsesTheWidth ? Plate(EntriesBesideReading(column)) : null;
+            return ScreenRoot(_besidePlate ?? Plate(column));
+        }
+
+        /// <summary>The reading and the entries side by side are wider than a stacked page (#1184): <c>FitPage</c> fits them to a narrower screen.</summary>
+        internal override int RequiredWidth => _besidePlate != null ? UnboundedWidth(_besidePlate) : 0;
 
         //Whether the tree was built with a level kept for Continue, which it warns of, and as the refusal
         private bool _builtWithKeptSession, _builtRefused;

@@ -97,6 +97,12 @@ namespace BS3D.Screens
         /// <summary>Which entry of the level set the current session is playing.</summary>
         internal int LevelIndex => _run.Index;
 
+        /// <summary>
+        /// The attempt as the pause's level card on the phone tells it (#1184): the balls left to shoot (null on a level without
+        /// a budget), the score so far, and the balls the level started with, which price its stars (<c>StarRating</c>).
+        /// </summary>
+        internal (int? BallsLeft, int Score, int LevelBalls) RunSoFar => (_run.Score.ShotsRemaining, _run.Score.Score, _run.InitialBallCount);
+
         /// <summary>The board of the attempt standing (#549), or null for the built-in fallback: what a skip is counted on (#709).</summary>
         internal LevelIdentity LevelIdentity => _run.Identity;
 

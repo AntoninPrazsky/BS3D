@@ -169,7 +169,7 @@ namespace BS3D
 
         //Extras and the Jukebox at boot (#704)
         private bool _extras;
-        private bool _benchmark, _benchmarkPlayOnly;
+        private bool _benchmark, _benchmarkPlayOnly, _benchmarkPageOnly;
         private bool _continue;
         private string _jukebox;
 
@@ -264,6 +264,7 @@ namespace BS3D
             _extras = launch.Extras;
             _benchmark = launch.Benchmark;
             _benchmarkPlayOnly = launch.BenchmarkPlayOnly;
+            _benchmarkPageOnly = launch.BenchmarkPageOnly;
             _continue = launch.ContinueGame;
             _jukebox = launch.Jukebox;
             _settings = launch.Settings || launch.SettingsRows != null;
@@ -423,11 +424,11 @@ namespace BS3D
                 _extras = false;
                 game.OpenExtras();
 
-                //The benchmark over Extras, started at once (#988)
+                //The benchmark over Extras, started at once (#988), or only its page (benchmark=page, #1184)
                 if (_benchmark)
                 {
                     _benchmark = false;
-                    game.OpenBenchmark(start: true, playOnly: _benchmarkPlayOnly);
+                    game.OpenBenchmark(start: !_benchmarkPageOnly, playOnly: _benchmarkPlayOnly);
                 }
 
                 if (_jukebox != null)
