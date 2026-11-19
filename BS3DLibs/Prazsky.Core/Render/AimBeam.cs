@@ -182,9 +182,11 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// The glow's light at the touch, against a dash's core at the muzzle. Far wider than a dash, so far less
         /// light: as bright as the line, the patch would be a broad smear over the very cells it is there to show.
-        /// Set by looking, as <see cref="WIDTH"/> was.
+        /// Set by looking, as <see cref="WIDTH"/> was, between the two ends an additive glow has: over the moon's black
+        /// sky this is a clear soft patch some two balls across (the bloom spreads it past its tenth-light edge), over
+        /// the meadow's white and yellow balls in daylight a faint haze, which at 0.3 was barely there.
         /// </summary>
-        private const float GLOW_LIGHT = 0.3f;
+        private const float GLOW_LIGHT = 0.45f;
 
         /// <summary>
         /// Length of one chord of the glow, in world units. Short enough that the glow eases out past the touch over
