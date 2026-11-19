@@ -8,10 +8,10 @@ using Xunit;
 namespace BS3D.Tests
 {
     /// <summary>
-    /// The forest's sky (#1165). The owner: "the sky at the horizon is very purple; in reality it would not be". Its dome drew a
-    /// violet skyline (displayed hue about 275 degrees) under an indigo-violet zenith that the overcast lid is tinted by, where
-    /// every reference of a real dusk over a spruce forest draws a blue-grey lid over a pale, nearly neutral strip at the
-    /// horizon. What can be held without a frame: the dome as it is drawn, through the resolve's exposure and per-channel ACES,
+    /// The forest's sky (#1165). The owner: "the sky at the horizon is very purple ... in reality the sky would not be so very
+    /// purple". Its dome drew a violet skyline (displayed hue about 275 degrees) under an indigo-violet zenith that the overcast
+    /// lid is tinted by, where every reference of a real dusk over a spruce forest draws a cool, nearly neutral grey lid over a
+    /// paler strip at the horizon. What can be held without a frame: the dome as it is drawn, through the resolve's exposure and per-channel ACES,
     /// is blue-grey and quiet from the skyline up through the band the lid closes over, brightest at the skyline; the lid's
     /// tint, the dome's zenith, is blue-grey too; and the light rig keeps the horizon colour the wood was graded under. How it
     /// looks is the owner's eye.
@@ -42,7 +42,7 @@ namespace BS3D.Tests
         [Fact]
         public void NoGaudyBandAtTheSkyline()
         {
-            //Quiet: no saturated colour anywhere in the band (the violet it replaced was shown at 0.43 to 0.66 here; the
+            //Quiet: no saturated colour anywhere in the band (the violet it replaced was shown at 0.43 to 0.73 here; the
             //references' lids at 0.1 to 0.3)...
             for (float y = BAND_LOW; y <= BAND_HIGH + 1e-4f; y += BAND_STEP)
             {

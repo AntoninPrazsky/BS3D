@@ -187,18 +187,18 @@
             "FBDD9CFBDD9CEEDEB9FBDD9CEEDEB9FFCD7EFFCD7EEBDEC1EBDEC1EDB169EEDEB9FBDD9CFBDD9CEEDEB9FFCD7EEBDEC1EEDEB9FBDD9CFBDD9CEEDEB9FFCD7EEBDEC1FBDD9CEEDEB9FBDD9CEEDEB9FFCD7EEBDEC1FBDD9CEEDEB9EEDEB9A8C7E46799D0ACC9E4ACC9E46799D0E1E2D7E1E2D76F9FD46F9FD46799D0ACC9E4A8C7E46799D0ACC9E4E1E2D7E1E2D76F9FD46799D0A8C7E4ACC9E4E1E2D7E1E2D76799D0ACC9E46F9FD4ACC9E4A8C7E46799D0ACC9E46799D0E1E2D7E1E2D76F9FD4ACC9E4A8C7E46799D0ACC9E46799D0E1E2D7E1E2D7E2E2D5E2E2D5E2E2D5E2E2D5E2E2D5497FC24E83C64E83C64074BB4074BB3C70B8497FC24E83C64074BB497FC24E83C64074BB497FC24E83C64074BB497FC2",
             //Dome 15 (#1165, the forest): late twilight under the forest's overcast - a pale, nearly neutral strip at the
             //skyline under a blue-grey sky and a deep slate zenith. It was a painted violet skyline (shown at hue 275,
-            //saturation 0.5) under an indigo-violet zenith that the overcast lid takes its tint from, and the owner found the
-            //forest's horizon "very purple; in reality it would not be". The references of real dusk over a spruce forest
-            //(three local models, #1165) all drew an overcast lid in a cool, nearly neutral grey (saturation 0.1-0.3, hue
-            //210-235 in most) over a paler strip at the horizon, and none a saturated violet. Generated as dome 14 was
-            //(#681), colour as a function of each captured vertex's height, t = 0.5 the horizon - (0.20,90,98,114),
-            //(0.28,92,100,116), (0.41,122,121,126), (0.59,86,94,112), (0.74,62,71,94), (0.88,46,55,82), (0.97,39,47,74),
-            //(1.00,35,43,70) - except the bottom fifth (t <= 0.2), which
-            //is the old palette's own teal, vertex for vertex: it is the light rig's HorizonColor, the sun's tint and the
-            //ground's bounce the wood's twilight grade (#1121) was made under, and no part of it is drawn above the
-            //ground. The zenith keeps the old one's brightness (the light from above, linear luminance 0.044 against
-            //0.043), so the wood, the island and the balls are lit as bright as before and only less violet. The string
-            //is that function's output; change the look in the formula, never the digits.
+            //saturation 0.5) under an indigo-violet zenith that the overcast lid takes its tint from, and the owner: "the sky
+            //at the horizon is very purple ... in reality the sky would not be so very purple". The references of real dusk
+            //over a spruce forest (three local models, #1165) all drew an overcast lid in a cool, nearly neutral grey
+            //(saturation 0.1-0.3, hue 210-235 in most) over a paler strip at the horizon, and none a saturated violet.
+            //Generated as dome 14 was (#681), colour as a function of each captured vertex's height, t = 0.5 the horizon -
+            //(0.20,90,98,114), (0.28,92,100,116), (0.41,122,121,126), (0.59,86,94,112), (0.74,62,71,94), (0.88,46,55,82),
+            //(0.97,39,47,74), (1.00,35,43,70) - except the bottom fifth (t <= 0.2), which is the old palette's own teal,
+            //vertex for vertex: it is the light rig's HorizonColor, the sun's tint and the ground's bounce the wood's
+            //twilight grade (#1121) was made under, and no part of it is drawn above the ground. The zenith keeps the old
+            //one's brightness (the light from above, linear luminance 0.044 against 0.043), so the wood, the island and the
+            //balls are lit as bright as before and only less violet. The string is that function's output; change the look
+            //in the formula, never the digits.
             "428CA0428CA05B6373428CA05B6373449A8E449A8E5C64745C64743F937C5B6373428CA0428CA05B6373449A8E5C64745B6373428CA0428CA05B6373449A8E5C6474428CA05B6373428CA05B6373449A8E5C6474428CA05B63735B6373555D703C455D575F70575F703C455D79787E79787E414A60414A603C455D575F70555D703C455D575F7079787E79787E414A603C455D555D70575F7079787E79787E3C455D575F70414A60575F70555D703C455D575F703C455D79787E79787E414A60575F70555D703C455D575F703C455D79787E79787E79787E79787E79787E79787E79787E2D3550303953303953272F4A272F4A232B462D3550303953272F4A2D3550303953272F4A2D3550303953272F4A2D3550",
             //Dome 16
             "E6C3A1E6C3A1BDC1B8E6C3A1BDC1B8FDAC60FDAC60BDC1B8BDC1B8FD9746BDC1B8E6C3A1E6C3A1BDC1B8FDAC60BDC1B8BDC1B8E6C3A1E6C3A1BDC1B8FDAC60BDC1B8E6C3A1BDC1B8E6C3A1BDC1B8FDAC60BDC1B8E6C3A1BDC1B8BDC1B80115360016360115360115360016361D6EA31D6EA30016360016360016360115360115360016360115361D6EA31D6EA30016360016360115360115361D6EA31D6EA30016360115360016360115360115360016360115360016361D6EA31D6EA30016360115360115360016360115360016361D6EA31D6EA31D6EA31D6EA31D6EA31D6EA31D6EA3010313010313010313000108000108000105010313010313000108010313010313000108010313010313000108010313",

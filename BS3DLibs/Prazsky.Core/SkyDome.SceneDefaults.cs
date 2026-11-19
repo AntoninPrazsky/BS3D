@@ -43,7 +43,7 @@ namespace Prazsky.Core
         //over spruce forest (#1165): a pale, nearly neutral strip at the skyline under a blue-grey sky and a deep
         //slate zenith (its teal skirt lies below the horizon, where only the light rig sees it), the hills going slate
         //blue under it and the broadleaf crowns olive (#1121). ⚠ Not violet: the painted dome it replaced drew a violet
-        //skyline (shown at hue 275), and the owner found the forest's sky "very purple; in reality it would not be".
+        //skyline (shown at hue 275), and the owner: "in reality the sky would not be so very purple".
         private const byte FOREST_DOME = 15;
 
         //The outback (#967) has a dome built for it: 21, a deep blue zenith over a warm white skyline and a gold sun
