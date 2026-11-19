@@ -184,13 +184,18 @@ namespace BS3D.Tests
             Assert.False(File.Exists(later.PathFor(keys[1])), "the least recently used size goes");
         }
 
-        //The read-ahead's work done, on its worker, before anything takes it; a read-ahead that does nothing never gets here
+        //The read-ahead's work done, on its worker, before anything takes it; a read-ahead that does nothing never gets here.
+        //The deadline only catches a read-ahead that never runs, so it is generous: the worker is a thread-pool task, and on
+        //a CI runner with every other test class running beside it the pool once started it more than 10 s late (main
+        //15fe4e62, 2026-11-19), a starved pool and not a slow bake
+        private static readonly TimeSpan READ_AHEAD_DEADLINE = TimeSpan.FromSeconds(120);
+
         private static void WaitUntilReady(PictogramCache cache, PictogramKey key)
         {
             var clock = Stopwatch.StartNew();
             while (!cache.IsReady(key))
             {
-                Assert.True(clock.Elapsed < TimeSpan.FromSeconds(10), "the read-ahead did not read or bake the set it was asked for");
+                Assert.True(clock.Elapsed < READ_AHEAD_DEADLINE, "the read-ahead did not read or bake the set it was asked for");
                 Thread.Sleep(1);
             }
         }
