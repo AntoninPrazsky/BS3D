@@ -84,9 +84,12 @@ namespace Prazsky.Core
         private readonly GraphicsDevice _graphicsDevice;
         private readonly bool _linearVertexColors;
 
-        //The captured vertices. Only their Y is read now - the extraction thresholds are shares of the mesh's
-        //own vertical extent - and only the palette written beside them is what the light rig averages.
-        private readonly Vector3[] _capturedPositions = new Vector3[VERTEX_COUNT];
+        //The height of a captured vertex, the one coordinate read now: the extraction thresholds are shares of the mesh's own
+        //vertical extent, and only the palette written beside it is what the light rig averages. Read straight off the
+        //capture rather than copied per instance, so the colours a dome is drawn and lit in can be read without a device
+        //(the static readers below, which the tests hold a sky's look by); and a method rather than a static array, whose
+        //initializer could run before GEOMETRY's in the other half of this partial class.
+        private static float CapturedY(int vertex) => GEOMETRY[vertex * 6 + 1];
 
         //What is actually drawn, and the CPU copy the ramp is written into on every dome change; both reused, so
         //a change allocates nothing.
@@ -207,9 +210,6 @@ namespace Prazsky.Core
             _graphicsDevice = graphicsDevice;
             _linearVertexColors = linearVertexColors;
 
-            for (int i = 0; i < VERTEX_COUNT; i++)
-                _capturedPositions[i] = new Vector3(GEOMETRY[i * 6], GEOMETRY[i * 6 + 1], GEOMETRY[i * 6 + 2]);
-
             BuildDrawnDome(out ushort[] indices);
 
             _vertexBuffer = new VertexBuffer(graphicsDevice, DomeVertex.Declaration, DRAWN_VERTEX_COUNT, BufferUsage.WriteOnly);
@@ -303,8 +303,12 @@ namespace Prazsky.Core
         /// careful about: what is being smoothed is the AUTHORED gradient, and the authored gradient is what
         /// the .dae files painted in display space.
         /// </para>
+        /// <para>
+        /// Static over the table it fills, so <see cref="DrawnLinearOf"/> can read a dome's drawn colours without a device;
+        /// the instance fills its own reused <see cref="_ramp"/>.
+        /// </para>
         /// </summary>
-        private void BuildRamp(string palette)
+        private static void BuildRamp(string palette, Vector3[] ramp, out float lowest, out float highest)
         {
             //The capture's rings, as (height, first vertex of it). One pass over the 92 entries taking each new
             //Y as it appears, and then SORTED from the zenith down - the capture's vertex order is the content
@@ -318,7 +322,7 @@ namespace Prazsky.Core
 
             for (int i = 0; i < VERTEX_COUNT; i++)
             {
-                float y = _capturedPositions[i].Y;
+                float y = CapturedY(i);
                 bool seen = false;
 
                 for (int r = 0; r < rings; r++)
@@ -363,20 +367,20 @@ namespace Prazsky.Core
 
             //Into the table, linearly between the stops and flat outside the outermost pair - past the top and
             //the bottom stop there is nothing left to interpolate towards.
-            _rampLowest = MathF.Min(stopY[0], stopY[stops - 1]);
-            _rampHighest = MathF.Max(stopY[0], stopY[stops - 1]);
+            lowest = MathF.Min(stopY[0], stopY[stops - 1]);
+            highest = MathF.Max(stopY[0], stopY[stops - 1]);
 
             for (int i = 0; i < RAMP_STEPS; i++)
             {
-                float y = MathHelper.Lerp(_rampLowest, _rampHighest, i / (RAMP_STEPS - 1f));
-                _ramp[i] = SampleStops(stopY, stopColor, stops, y);
+                float y = MathHelper.Lerp(lowest, highest, i / (RAMP_STEPS - 1f));
+                ramp[i] = SampleStops(stopY, stopColor, stops, y);
             }
 
             //Two box passes, which is what rounds the corner linear interpolation leaves at every stop. The
             //window is a fraction of the table rather than a fixed count, so it does not change meaning if the
             //table is ever resized - and it is wide enough to reach across the gap between two stops.
-            BoxBlurRamp(RAMP_STEPS / 12);
-            BoxBlurRamp(RAMP_STEPS / 12);
+            BoxBlurRamp(ramp, RAMP_STEPS / 12);
+            BoxBlurRamp(ramp, RAMP_STEPS / 12);
         }
 
         /// <summary>The palette colour of one captured vertex, as a 0..1 triple.</summary>
@@ -407,9 +411,9 @@ namespace Prazsky.Core
         }
 
         /// <summary>One box pass over the ramp, clamped at both ends so the extremes do not creep inward.</summary>
-        private void BoxBlurRamp(int window)
+        private static void BoxBlurRamp(Vector3[] ramp, int window)
         {
-            Vector3[] source = (Vector3[])_ramp.Clone();
+            Vector3[] source = (Vector3[])ramp.Clone();
 
             for (int i = 0; i < RAMP_STEPS; i++)
             {
@@ -418,7 +422,7 @@ namespace Prazsky.Core
                 for (int k = -window; k <= window; k++)
                     sum += source[Math.Clamp(i + k, 0, RAMP_STEPS - 1)];
 
-                _ramp[i] = sum / (2 * window + 1);
+                ramp[i] = sum / (2 * window + 1);
             }
         }
 
@@ -430,17 +434,35 @@ namespace Prazsky.Core
         /// is yellow under a pink one). This is what a far terrain has to fade into to disappear (#551).
         /// </summary>
         public Vector3 DrawnLinearAt(float directionY) =>
-            Tools.ColorSpace.SrgbToLinear(SampleRamp(directionY * DOME_RADIUS));
+            Tools.ColorSpace.SrgbToLinear(SampleRamp(_ramp, _rampLowest, _rampHighest, directionY * DOME_RADIUS));
+
+        /// <summary>
+        /// <see cref="DrawnLinearAt"/> for any dome, without a device: the ramp built afresh off its palette (an allocation a
+        /// call, so not for a frame). What a test reads a sky's drawn horizon by.
+        /// </summary>
+        internal static Vector3 DrawnLinearOf(int domeNumber, float directionY)
+        {
+            var ramp = new Vector3[RAMP_STEPS];
+            BuildRamp(PALETTES[domeNumber - 1], ramp, out float lowest, out float highest);
+
+            return Tools.ColorSpace.SrgbToLinear(SampleRamp(ramp, lowest, highest, directionY * DOME_RADIUS));
+        }
+
+        /// <summary>
+        /// The <see cref="ZenithColor"/> and <see cref="HorizonColor"/> a dome sets, sRGB, without a device: what the light
+        /// rig is derived from, and what a test holds a re-ramped dome's light to.
+        /// </summary>
+        internal static (Vector3 Zenith, Vector3 Horizon) RigColoursOf(int domeNumber) => Extract(PALETTES[domeNumber - 1]);
 
         /// <summary>The ramp read at one world height, between the two entries straddling it.</summary>
-        private Vector3 SampleRamp(float y)
+        private static Vector3 SampleRamp(Vector3[] ramp, float lowest, float highest, float y)
         {
-            float at = MathHelper.Clamp((y - _rampLowest) / (_rampHighest - _rampLowest), 0f, 1f) * (RAMP_STEPS - 1);
+            float at = MathHelper.Clamp((y - lowest) / (highest - lowest), 0f, 1f) * (RAMP_STEPS - 1);
             int index = (int)at;
 
             return index >= RAMP_STEPS - 1
-                ? _ramp[RAMP_STEPS - 1]
-                : Vector3.Lerp(_ramp[index], _ramp[index + 1], at - index);
+                ? ramp[RAMP_STEPS - 1]
+                : Vector3.Lerp(ramp[index], ramp[index + 1], at - index);
         }
         /// <summary>
         /// Writes the current dome's palette into the vertices and re-uploads the buffer. The palette is
@@ -454,15 +476,52 @@ namespace Prazsky.Core
         {
             string palette = PALETTES[_domeNumber - 1];
 
-            //The extraction the light rig was tuned against, reproduced exactly: thresholds from the mesh's
-            //own vertical extent, colours as byte/255 floats, averaged in vertex order (float accumulation
-            //order matters for bit-equality with the values every recorded look was derived under).
+            (Vector3 zenith, Vector3 horizon) = Extract(palette);
+            ZenithColor = zenith;
+            HorizonColor = horizon;
+
+            //And only now the drawn dome, off a ramp resampled from the very palette the extraction averaged.
+            //The two readings are deliberately separate: the rig wants the colours the .dae files stated, and the
+            //eye wants a gradient with no plate in it, and trying to serve both from one set of vertices is what
+            //put a straight horizontal edge across every sky in the game.
+            BuildRamp(palette, _ramp, out _rampLowest, out _rampHighest);
+
+            for (int i = 0; i < DRAWN_VERTEX_COUNT; i++)
+            {
+                Vector3 colour = SampleRamp(_ramp, _rampLowest, _rampHighest, _vertices[i].Position.Y);
+
+                byte r = (byte)Math.Round(MathHelper.Clamp(colour.X, 0f, 1f) * 255f);
+                byte g = (byte)Math.Round(MathHelper.Clamp(colour.Y, 0f, 1f) * 255f);
+                byte b = (byte)Math.Round(MathHelper.Clamp(colour.Z, 0f, 1f) * 255f);
+
+                //RGB only ever gets encoded - the fourth byte is alpha, a coverage fraction, and stays opaque
+                if (_linearVertexColors)
+                {
+                    r = SrgbToLinearByte(r);
+                    g = SrgbToLinearByte(g);
+                    b = SrgbToLinearByte(b);
+                }
+
+                _vertices[i].Color = new Color(r, g, b, byte.MaxValue);
+            }
+
+            _vertexBuffer.SetData(_vertices);
+        }
+
+        /// <summary>
+        /// The extraction the light rig was tuned against, reproduced exactly: thresholds from the mesh's own vertical
+        /// extent, colours as byte/255 floats, averaged in vertex order (float accumulation order matters for bit-equality
+        /// with the values every recorded look was derived under). The zenith is the average of the vertices in the top
+        /// quarter of the capture, the horizon of those in its bottom fifth, nearly all of it below the skyline.
+        /// </summary>
+        private static (Vector3 Zenith, Vector3 Horizon) Extract(string palette)
+        {
             float minY = float.MaxValue;
             float maxY = float.MinValue;
 
             for (int i = 0; i < VERTEX_COUNT; i++)
             {
-                float y = _capturedPositions[i].Y;
+                float y = CapturedY(i);
                 if (y < minY) minY = y;
                 if (y > maxY) maxY = y;
             }
@@ -483,41 +542,13 @@ namespace Prazsky.Core
                 byte b = HexByte(palette, i * 6 + 4);
 
                 Vector3 color = new(r / 255f, g / 255f, b / 255f);
-                float y = _capturedPositions[i].Y;
+                float y = CapturedY(i);
 
                 if (y >= zenithThreshold) { zenithSum += color; zenithCount++; }
                 if (y <= horizonThreshold) { horizonSum += color; horizonCount++; }
             }
 
-            ZenithColor = zenithSum / zenithCount;
-            HorizonColor = horizonSum / horizonCount;
-
-            //And only now the drawn dome, off a ramp resampled from the very palette the loop above averaged.
-            //The two readings are deliberately separate: the rig wants the colours the .dae files stated, and the
-            //eye wants a gradient with no plate in it, and trying to serve both from one set of vertices is what
-            //put a straight horizontal edge across every sky in the game.
-            BuildRamp(palette);
-
-            for (int i = 0; i < DRAWN_VERTEX_COUNT; i++)
-            {
-                Vector3 colour = SampleRamp(_vertices[i].Position.Y);
-
-                byte r = (byte)Math.Round(MathHelper.Clamp(colour.X, 0f, 1f) * 255f);
-                byte g = (byte)Math.Round(MathHelper.Clamp(colour.Y, 0f, 1f) * 255f);
-                byte b = (byte)Math.Round(MathHelper.Clamp(colour.Z, 0f, 1f) * 255f);
-
-                //RGB only ever gets encoded - the fourth byte is alpha, a coverage fraction, and stays opaque
-                if (_linearVertexColors)
-                {
-                    r = SrgbToLinearByte(r);
-                    g = SrgbToLinearByte(g);
-                    b = SrgbToLinearByte(b);
-                }
-
-                _vertices[i].Color = new Color(r, g, b, byte.MaxValue);
-            }
-
-            _vertexBuffer.SetData(_vertices);
+            return (zenithSum / zenithCount, horizonSum / horizonCount);
         }
 
         /// <summary>

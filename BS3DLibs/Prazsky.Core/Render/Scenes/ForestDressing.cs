@@ -38,7 +38,7 @@ namespace Prazsky.Core.Render
         public long Triangles { get; }
 
         //The broadleaves' bark (linear): a beech's grey taken warm, because the plant material lights it with the dusk dome's
-        //violet and teal at full strength and a neutral grey came out lavender beside the spruces' brown trunks
+        //slate zenith and teal skirt at full strength and a neutral grey takes the sky's cold cast beside the spruces' brown trunks
         private static readonly Vector3 BARK = new(0.075f, 0.058f, 0.042f);
 
         //The leaves against the config's foliage colour, which Low and Medium's solid crowns are drawn in

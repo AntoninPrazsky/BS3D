@@ -39,11 +39,11 @@ namespace Prazsky.Core
         //The forest (#961): a dark wood wants a dusk that sits with it and not a bright sky over it, and the
         //fireflies want the dusk. It entered under whatever dome was up, and the one the Game starts on, 13, is
         //a flat saturated teal that covered half the sky above the black hills. Dome 15 is the late twilight
-        //(sun 11 degrees, so the canopy still throws its shadows): an indigo sky over a violet skyline (its teal
-        //skirt lies below the horizon), the hills going slate blue under it and the broadleaf crowns olive (#1121). Picked off
-        //a sweep of all twenty under the Broken deck at the play camera, among the domes that keep the sun above
-        //the shadow map's floor and are not red or pink. Dome 9, the volcano's blue hour, was the runner-up and
-        //is the quieter one: no bright saturated sky at all, but its hills went the brown of bare earth.
+        //(sun 11 degrees, so the canopy still throws its shadows), drawn for this wood from references of real dusk
+        //over spruce forest (#1165): a pale, nearly neutral strip at the skyline under a blue-grey sky and a deep
+        //slate zenith (its teal skirt lies below the horizon, where only the light rig sees it), the hills going slate
+        //blue under it and the broadleaf crowns olive (#1121). ⚠ Not violet: the painted dome it replaced drew a violet
+        //skyline (shown at hue 275), and the owner found the forest's sky "very purple; in reality it would not be".
         private const byte FOREST_DOME = 15;
 
         //The outback (#967) has a dome built for it: 21, a deep blue zenith over a warm white skyline and a gold sun
