@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-19 — #1144 konec zaměřovacího paprsku jako oblast dopadu — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: kde se rána zacvakne do mřížky, paprsek končí měkkou září (kužel), ne bodem. Šíře `AimBeam.LANDING_SPREAD` 0,65 změřená na 478 mířeních (99. percentil odchylky ducha 0,64). Prvních 55 % letu zůstává stará čárkovaná čára (test). Řezač a paprsek, který nic netrefí, beze změny. `Draw` bere celou dráhu letu; na Potato `POTATO_GLOW_GAIN` 0,25. Přesah za dotykem leží kolmo k objektivu: z přehledu je duch uvnitř skvrny v 471 ze 478.
+- ⚠ Rozšířené čárky z přehledu vypadají jako příčky žebříku a kusy kladené za sebou mají tmavé zářezy ve spojích; záře je proto ze tří překrývajících se tětiv. Test „duch uvnitř“ počítaný kolem paprsku jako trubice je slepý k pohledu skoro zepředu, počítat na obrazovce.
+- Otevřené: verdict-eye (jas a velikost záře, pohyb); cena snímku neměřena; neběželo na telefonu ani Pi.
+
 ## 2026-11-19 — #1183 #1182 #1185 nápověda a psaní na telefonu, hvězdy podle pravidel v2 — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: #1182 Cancel v systémovém dialogu telefonu už nezavře Napsat autorovi (`PhoneTyping`, `MenuPage.TypingDialogEscapes`), pole poznámky roste do volné výšky. #1185 Help > CAMPAIGN popisuje hvězdy jako pravidla v2 (rychlost se počítá, čtyři chtějí čisté dohrání hluboko pod par). #1183 na telefonu: každá záložka Help se vejde na X300 (rámeček 1 156 px), ODD BALLS jako mřížka karet s panelem vybrané, Settings > CONTROLS začíná dotykem, Benchmark mluví o telefonu a dotyk ho opravdu zastaví.
