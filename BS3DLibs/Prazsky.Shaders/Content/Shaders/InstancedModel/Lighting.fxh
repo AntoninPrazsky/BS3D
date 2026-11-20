@@ -149,13 +149,8 @@ void AddSceneLights(float3 worldPosition, float3 worldNormal, float3 eyeVector, 
 
             diffuse += SceneLightColor[i] * (saturate(dot(worldNormal, L)) * atten);
 
-            //A shaded lamp (a negative range, SceneLamp.fxh) lights by its pool and puts no highlight: under its shade the
-            //bulb is a small hot spot a long way off, and its glint cost as much again as its light on every lit pixel
-            [branch] if (SceneLightRange[i] > 0.0)
-            {
-                float dotH = saturate(dot(worldNormal, normalize(L + eyeVector)));
-                specular += SceneLightColor[i] * (pow(dotH, SpecularPower) * atten);
-            }
+            float dotH = saturate(dot(worldNormal, normalize(L + eyeVector)));
+            specular += SceneLightColor[i] * (pow(dotH, SpecularPower) * atten);
         }
     }
 }
