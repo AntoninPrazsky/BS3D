@@ -7,7 +7,7 @@ Losing to the death line is a moment, not a frame (#434): the cluster crosses th
 ## The camera: `LineLossCinematic`
 
 - It is a pose and a blend, not a mode, like its sibling: the camera path composes it with the same `Lerp` and `CameraTakeoverEngaged` counts it, so the gun stops answering through the gate that already exists.
-- On the frame the cluster crosses, the lens is flown to the **crossing point**, the cluster's own lowest ball (the loss walk already has it), over `MOVE_IN` (0.55 s) and held `HOLD` (1.15 s); the ending goes up when the beat ends.
+- On the frame the cluster crosses, the lens is flown to the **crossing point**, the cluster's own lowest ball (the loss walk already has it), over `MOVE_IN` (0.55 s) and held `HOLD` (1.15 s); the ending goes up when the beat ends. `linelosshold=<seconds>` holds it that long instead (`LineLossCinematic.HoldSeconds`, #1178), for a run that films.
 - **The stand is outside the crossing point**, so the shot looks inward across the beam with the island's rim behind it and not the open sky. It is flattened to the horizontal: a stand computed in three dimensions would put the lens under the island whenever the crossing was low, and the line is low.
 - ⚠ **It is not skippable**, where the drop cinematic is. That one runs on a win and a player who wants the next level should not sit through it; this one is under two seconds and is the only answer the game gives to why the level ended.
 

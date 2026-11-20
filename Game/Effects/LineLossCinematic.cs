@@ -73,8 +73,15 @@ namespace BS3D.Effects
 
         public float FieldOfView { get; private set; }
 
+        /// <summary>
+        /// How long the lens holds at the crossing before the ending may be shown: <see cref="HOLD"/>, unless a run that films
+        /// asked for longer with <c>linelosshold=</c> (#1178). The result page comes up when the hold ends, so a clip that wants
+        /// the cut's detail a little longer has nothing but the page to film without it.
+        /// </summary>
+        public float HoldSeconds { get; set; } = HOLD;
+
         /// <summary>Whether the ending it is holding back may now be shown.</summary>
-        public bool HoldExpired => _elapsed >= MOVE_IN + HOLD;
+        public bool HoldExpired => _elapsed >= MOVE_IN + HoldSeconds;
 
         /// <summary>
         /// Takes the camera towards <paramref name="crossing"/> — where the lowest ball met the line.
@@ -147,6 +154,6 @@ namespace BS3D.Effects
 
         public string Describe() =>
             $"crossing at ({_crossing.X:F1}, {_crossing.Y:F1}, {_crossing.Z:F1}), "
-            + $"in {MOVE_IN:F2}s + hold {HOLD:F2}s";
+            + $"in {MOVE_IN:F2}s + hold {HoldSeconds:F2}s";
     }
 }

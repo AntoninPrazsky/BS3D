@@ -306,6 +306,9 @@ def _hall(rng, seconds, decay, cutoff):
 
 _SFX = {}
 
+# How long the burn lasts: from the net touched to the last shot's first frame in the RC cut, through the black between them
+BURN_SECONDS = 2.5
+
 # A struck circular membrane's first twelve modes over its fundamental: a drum's own, inharmonic, timbre
 MEMBRANE = (1.0, 1.593, 2.136, 2.296, 2.653, 2.918, 3.156, 3.501, 3.600, 3.652, 4.060, 4.154)
 # The beater's knock on the head: a few damped partials, the hit's clean edge where a monitor speaker plays it
@@ -394,21 +397,21 @@ def synth_sfx(kind, variant=0):
     elif kind == "burn":
         # The net cutting into the cluster, where a monitor speaker plays it: the game's own cut is a mains hum, nine tenths of it
         # under 300 Hz (docs/game-feedback/line-loss.md). A 100 Hz buzz's harmonics from 300 Hz to 2 kHz, fluttering, under a
-        # crackle of short resonant ticks; it rises over 0.15 s, holds, and dies over the last half second
-        n = int(1.9 * RATE)
+        # crackle of short resonant ticks; it rises over 0.15 s, holds, and dies over the last half second of BURN_SECONDS
+        n = int(BURN_SECONDS * RATE)
         t = np.arange(n) / RATE
         buzz = np.zeros(n)
         for h in range(3, 21):
             buzz += np.sin(2 * np.pi * 100.0 * h * t + rng.uniform(0, 2 * np.pi)) / h ** 0.7
         flutter = 0.72 + 0.28 * np.sin(2 * np.pi * 27.0 * t) * np.sin(2 * np.pi * 3.1 * t + 1.0)
         crackle = np.zeros(n)
-        for _ in range(70):
-            at = int(rng.uniform(0.05, 1.5) * RATE)
+        for _ in range(int(47 * (BURN_SECONDS - 0.4))):
+            at = int(rng.uniform(0.05, BURN_SECONDS - 0.4) * RATE)
             length = int(rng.uniform(0.004, 0.012) * RATE)
             tone = rng.uniform(900.0, 2600.0)
             k = np.arange(min(length, n - at)) / RATE
             crackle[at:at + len(k)] += rng.uniform(0.4, 1.0) * np.sin(2 * np.pi * tone * k) * np.exp(-k / (length / RATE / 3.0))
-        envelope = np.minimum(t / 0.15, 1.0) * np.minimum(np.maximum(1.9 - t, 0.0) / 0.5, 1.0)
+        envelope = np.minimum(t / 0.15, 1.0) * np.minimum(np.maximum(BURN_SECONDS - t, 0.0) / 0.5, 1.0)
         dry = envelope * (_peak1(buzz) * flutter + 0.6 * _peak1(crackle))
         wet = _convolve(dry, _hall(rng, 0.8, 0.25, 3000.0))
         wet *= 0.25 * math.sqrt(float(np.mean(dry ** 2))) / (math.sqrt(float(np.mean(wet ** 2))) + 1e-12)
@@ -805,8 +808,11 @@ def main():
                 f = k / ramp
                 if 0 <= a - ramp + k < samples:
                     envelope[a - ramp + k] = 1 + (level - 1) * f
+            # "duckRelease": how fast the music comes back after the segment (0.15 s by default; 0.02 is at once, on the cut)
+            release = max(1, int(segment.get("duckRelease", 0.15) * RATE))
+            for k in range(release):
                 if 0 <= b + k < samples:
-                    envelope[b + k] = level + (1 - level) * f
+                    envelope[b + k] = level + (1 - level) * (k / release)
             duck = np.minimum(duck, envelope)
     music *= duck[:, None]
 

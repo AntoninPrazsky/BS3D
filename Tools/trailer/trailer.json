@@ -1,4 +1,7 @@
-// The trailer, v8 (#1178): Tools/trailer-cut.py Tools/trailer/trailer.json
+// The trailer, RC (#1178): Tools/trailer-cut.py Tools/trailer/trailer.json
+// The RC is v8 with one change, the owner's on v8 (2026-11-20): the amphora in the net held 0.7 s longer (linelosshold= keeps the
+// result page away), then 0.38 s of black in which the burn rings out over a break in the music, and the last shot on the beat
+// with the music back at once. Two beats longer in all, so the action track's last chord still rings out on the end card.
 // The owner on v7 (2026-11-20), and a review he passed on: the loss at the net must be a real swing under the line (Amphora: a
 // handle shot off, the amphora swinging on the other); the last shot's break-up spread to its end, the last big piece falling into
 // the cut to the logo, and no spare volley at an empty ceiling; the action after the big top at once, on the drums' first beat,
@@ -10,7 +13,7 @@
 // second before its "in".
 {
   "format": "bs3d-trailer",
-  "name": "bs3d-trailer-v8",
+  "name": "bs3d-trailer-rc",
   "size": "3840x2160",
   "fps": 60,
   "font": {
@@ -472,10 +475,10 @@
             3.95
           ]
         },
-        "gameArgs": "capturehudawards lasers nodropcinematic turn=1.1:2.95:left"
+        "gameArgs": "capturehudawards lasers nodropcinematic linelosshold=2.4 turn=1.1:2.95:left"
       },
       "in": 1.82,
-      "length": 4.86,
+      "length": 5.561,
       "sound": 4,
       "duck": 12,
       "duckFrom": 3.33,
@@ -483,9 +486,20 @@
       "sfx": {
         "sound": "burn",
         "gain": 0,
-        "offset": 3.43,
-        "length": 1.43
+        "offset": 3.43
       }
+    },
+    {
+      "name": "black",
+      "card": {
+        "black": true
+      },
+      "length": 0.38,
+      "transition": "dip",
+      "transitionSeconds": 0.4,
+      "duck": 40,
+      "duckRelease": 0.02,
+      "snap": false
     },
     {
       "name": "worlds-00-meadow",
@@ -535,7 +549,9 @@
       "length": 1.08,
       "trim": false,
       "snap": false,
-      "sound": 0
+      "sound": 0,
+      "transition": "dip",
+      "transitionSeconds": 0.3
     },
     {
       "name": "worlds-01-neon",

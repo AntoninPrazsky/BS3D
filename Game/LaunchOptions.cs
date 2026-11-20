@@ -69,6 +69,10 @@ namespace BS3D
         internal int WindowHeight { get; private set; }
         internal float LineLoss { get; private set; }
 
+        //"linelosshold=<seconds>" (#1178): how long the line-loss camera holds at the crossing before the result page comes up,
+        //in place of its own 1.15 s - for a filming run that wants the net's cut a little longer than the page allows. 0: its own
+        internal float LineLossHold { get; private set; }
+
         //Testing only (#95): a multiplier on every scene's wind, or null to leave the table as it is. 0 is still air, which
         //is what a capture compared against the game before the wind needs, and what a measurement of the wind's cost is
         //one half of.
@@ -616,6 +620,8 @@ namespace BS3D
             //descending ceiling and a couple of dozen shots, and the Game takes no synthetic input, so
             //without this the one moment the feature exists for cannot be photographed.
             Row.Float("lineloss", (o, v) => o.LineLoss = v, v => v > 0f),
+            //"linelosshold=<seconds>" holds the line-loss camera at the crossing that long (#1178) - see the property's own note
+            Row.Float("linelosshold", (o, v) => o.LineLossHold = v, v => v > 0f),
 
             //"wind=<scale>" multiplies the cluster's wind in every scene (#95): 0 is still air, 1 the table as shipped,
             //2 twice as hard. A dial for looking at the sway and for measuring what it costs, not a setting.

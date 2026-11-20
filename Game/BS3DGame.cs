@@ -174,6 +174,10 @@ namespace BS3D
         //"nodropcinematic": the Drop camera row held off for this run (LaunchOptions.NoDropCinematic, #1178)
         private readonly bool _launchNoDropCinematic;
 
+        /// <summary>"linelosshold=": how long the line-loss camera holds at the crossing in this run, 0 for its own
+        /// (LaunchOptions.LineLossHold, #1178).</summary>
+        internal float LineLossHold { get; }
+
         //"colourcue=" (#737): the colour cue's switch, ColourCues.DEFAULT (each style its own figure set) unless the command
         //line asked for none or for one set. Read where the ball set is built.
         private readonly int _launchColourCue;
@@ -903,6 +907,7 @@ namespace BS3D
             _renderHeightFromLaunch = launch.RenderHeight.HasValue;
             _launchRims = launch.Rims;
             _launchNoDropCinematic = launch.NoDropCinematic;
+            LineLossHold = launch.LineLossHold;
             _launchBallFlat = launch.BallFlat;
             _launchColourCue = launch.ColourCue;
             _launchSoftUpscale = string.Equals(launch.Upscale, "soft", StringComparison.OrdinalIgnoreCase);

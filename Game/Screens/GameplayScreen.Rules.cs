@@ -1211,6 +1211,9 @@ namespace BS3D.Screens
             //LoseLevel's own gate, so the flight and the loss it holds back cannot come apart
             if (LevelDecided) return;
 
+            //A filming run's own hold at the crossing (linelosshold=, #1178): the result page then waits that long
+            if (Game.LineLossHold > 0f) _lineLoss.HoldSeconds = Game.LineLossHold;
+
             _lineLoss.Begin(crossing, Camera.Position,
                 new Vector3(_cannon.OrbitCenter.X, crossing.Y, _cannon.OrbitCenter.Z), GAME_FOV);
 
