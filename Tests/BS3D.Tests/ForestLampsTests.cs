@@ -302,6 +302,28 @@ namespace BS3D.Tests
         }
 
         [Fact]
+        public void TheBallsTakeTheLampsLightWithoutTheirHighlights()
+        {
+            //The instanced effect's loop gates a slot's highlight on SceneLampHighlight for a shaded lamp alone (every other
+            //light keeps it on every surface), the renderer defaults it to 1 and states it every draw (the shared effect would
+            //carry a 0 over onto the island's stone, whose warm sheen is the lamps' highlight), and the balls' renderers set 0.
+            //Read off the sources, there being no device here. Seen to fire with BallRenderSet's 0 taken out, with the gate on
+            //the range's other sign, and with the renderer's per-draw SetValue taken out
+            string lighting = Source("BS3DLibs", "Prazsky.Shaders", "Content", "Shaders", "InstancedModel", "Lighting.fxh");
+            Assert.Matches(@"float SceneLampHighlight = 1;", lighting);
+            Assert.Matches(@"\[branch\] if \(SceneLightRange\[i\] > 0\.0 \|\| SceneLampHighlight > 0\.0\)\s*\{\s*float dotH", lighting);
+
+            string renderer = Source("BS3DLibs", "Prazsky.Core", "Render", "InstancedModelRenderer.cs");
+            Assert.Matches(@"public float SceneLampHighlight \{ get; set; \} = 1f;", renderer);
+            Assert.Matches(@"_sceneLampHighlightParam\.SetValue\(SceneLampHighlight\);", renderer);
+
+            string balls = Source("BS3DLibs", "Prazsky.BS3D", "BallRenderSet.cs");
+            Assert.Matches(@"_renderers\[lod\] = new InstancedModelRenderer\([^;]*SceneLampHighlight = 0f\s*\};", balls);
+        }
+
+        private static string Source(params string[] path) => File.ReadAllText(Path.Combine(new[] { RepoRoot() }.Concat(path).ToArray()));
+
+        [Fact]
         public void TheOldLampStuttersAndTheOthersOnlyBreathe()
         {
             //Pure functions of the clock: the same value a period on; the old lamp dips deep inside its stutter and nowhere

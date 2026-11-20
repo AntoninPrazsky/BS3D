@@ -27,6 +27,14 @@ float3 SceneLightColor[MAX_SCENE_LIGHTS];
 float SceneLightRange[MAX_SCENE_LIGHTS];
 int SceneLightCount;
 
+//Whether a SHADED lamp (a negative range, SceneLamp.fxh: the forest's old lamps, #1166) puts its highlight on this
+//surface: 1 for everything (InstancedModelRenderer.SceneLampHighlight's default), 0 for the balls (BallRenderSet). Every
+//ball takes all five of the forest's lamps 40 to 55 units off, so their highlights are faint dots no pixel of the play
+//view showed by more than 7 levels of 255, and computing them was a fifth of what the lamps cost on the cluster; the
+//island's stone keeps them, its warm sheen under the lamps is their highlight. Every other scene light keeps its
+//highlight on every surface. A uniform on the slot's own sign, so a draw's pixels take one side.
+float SceneLampHighlight = 1;
+
 //Submerge fade for anything sinking below the sea (only pushed on the sea scene; SeaFadeDepth <= 0 disables
 //it everywhere else). A ball that misses falls past the platform into the water, and the opaque sea surface
 //hides it the instant it crosses - this fades it instead, blending its lit colour toward the deep-water tint
@@ -151,8 +159,12 @@ void AddSceneLights(float3 worldPosition, float3 worldNormal, float3 eyeVector, 
 
                 diffuse += SceneLightColor[i] * (saturate(dot(worldNormal, L)) * atten);
 
-                float dotH = saturate(dot(worldNormal, normalize(L + eyeVector)));
-                specular += SceneLightColor[i] * (pow(dotH, SpecularPower) * atten);
+                //A shaded lamp's highlight only where the surface takes it (SceneLampHighlight)
+                [branch] if (SceneLightRange[i] > 0.0 || SceneLampHighlight > 0.0)
+                {
+                    float dotH = saturate(dot(worldNormal, normalize(L + eyeVector)));
+                    specular += SceneLightColor[i] * (pow(dotH, SpecularPower) * atten);
+                }
             }
         }
     }

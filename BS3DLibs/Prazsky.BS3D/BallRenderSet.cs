@@ -1415,7 +1415,11 @@ namespace Prazsky.BS3D
                     PulseDirection = PULSE_DIRECTION,
                     PulseWavelength = PULSE_WAVELENGTH,
                     RippleStrength = ripples ? RIPPLE_STRENGTH : 0f,
-                    GroundHeight = groundHeight
+                    GroundHeight = groundHeight,
+
+                    //The forest's shaded lamps light the balls without their highlights (#1166): faint dots no pixel
+                    //shows, at a fifth of what the lamps cost on the cluster
+                    SceneLampHighlight = 0f
                 };
 
                 //The rims' strips (#804), on the Potato path alone: its effect is the one that has the technique. A level's
