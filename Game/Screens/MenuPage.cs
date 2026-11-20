@@ -597,6 +597,14 @@ namespace BS3D.Screens
         protected bool PhoneLayout => Game.UiScale > 1f;
 
         /// <summary>
+        /// Whether the page's copy calls the machine a phone (and a tap what stops a run): a phone, or the desktop's emulation of
+        /// one (<see cref="PhoneLayout"/>). The benchmark's page (#1183, <see cref="BenchmarkConsent"/>) and the privacy list
+        /// the About and Settings pages show (<see cref="Online.OnlineScores.PrivacyList"/>) read it, so they never name
+        /// different machines.
+        /// </summary>
+        protected bool PhoneWords => BS3DGame.OnPhone || PhoneLayout;
+
+        /// <summary>
         /// The height of a touch target on the phone layout (#1151), in design units: 9 mm on the X300 Ultra at the menus'
         /// fit there (a unit is 0.044 mm at the front end's 1.33×), the size a fingertip hits without looking twice. A
         /// Settings row and its − and + are this tall, and every button handed to <see cref="PhoneTarget"/>.

@@ -471,7 +471,10 @@ namespace BS3D.Online
         /// them. And the benchmark's result (#988, <see cref="OnlineBenchmarks"/>), which a run started with online scores on
         /// sends, they being its consent (#1041).
         /// </summary>
-        internal static (string Label, string Text)[] PrivacyList(GameSettings settings)
+        /// <param name="settings">The settings, for the server's name.</param>
+        /// <param name="phone">Whether the page calls the machine a phone (<c>MenuPage.PhoneWords</c>): the benchmark's line names
+        /// the specification of the machine it runs on.</param>
+        internal static (string Label, string Text)[] PrivacyList(GameSettings settings, bool phone)
         {
             string host = TryResolveServer(settings, out Uri server, out _, out _) ? server.Authority : "the score server";
 
@@ -485,7 +488,7 @@ namespace BS3D.Online
                 ("Play counts", "Each level’s starts, retries, clears, losses, quits, skips, shots and time go there too, sent and "
                     + "stored without your id or name, so Remove scores cannot find them."),
                 ("Benchmark", "The benchmark (Extras) runs only with online scores on, and a finished one sends its figures and "
-                    + "your computer’s specification there too, without your id or name."),
+                    + (phone ? "your phone’s" : "your computer’s") + " specification there too, without your id or name."),
             };
         }
 
