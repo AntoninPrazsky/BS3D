@@ -171,6 +171,9 @@ namespace BS3D
         private readonly float? _launchRims;
         private readonly bool _launchBallFlat;
 
+        //"nodropcinematic": the Drop camera row held off for this run (LaunchOptions.NoDropCinematic, #1178)
+        private readonly bool _launchNoDropCinematic;
+
         //"colourcue=" (#737): the colour cue's switch, ColourCues.DEFAULT (each style its own figure set) unless the command
         //line asked for none or for one set. Read where the ball set is built.
         private readonly int _launchColourCue;
@@ -899,6 +902,7 @@ namespace BS3D
             _renderHeightChosen = launch.RenderHeight.HasValue || _settings.RenderHeight.HasValue;
             _renderHeightFromLaunch = launch.RenderHeight.HasValue;
             _launchRims = launch.Rims;
+            _launchNoDropCinematic = launch.NoDropCinematic;
             _launchBallFlat = launch.BallFlat;
             _launchColourCue = launch.ColourCue;
             _launchSoftUpscale = string.Equals(launch.Upscale, "soft", StringComparison.OrdinalIgnoreCase);

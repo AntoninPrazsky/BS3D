@@ -69,16 +69,22 @@ def parse_size(text):
 
 # ---------------------------------------------------------------- filming
 
-def level_copy(level_file, scene):
+def level_copy(level_file, scene, keep_levels=None):
     """A copy of a level file with its scene replaced, in %TEMP%: the last shot plays one level in every scene (#1178). The copy is
-    the original but for the scene's name, so the game played is the same (with wind=0, measured: every event at the same ms)."""
+    the original but for the scene's name, so the game played is the same (with wind=0, measured: every event at the same ms).
+    "keepLevels": K keeps only the layout's levels 0 to K, its lowest, hung from the ceiling in place of the whole: a small map
+    cut from a shipped one (an odd K on a field of an even depth keeps the lattice's parity), which a few shots clear."""
     source = os.path.join(ROOT, level_file) if not os.path.isabs(level_file) else level_file
     with open(source, encoding="utf-8") as f:
         level = json.load(f)
     level["scene"] = scene
+    tag = scene
+    if keep_levels is not None:
+        level["map"]["b"] = [[column[:keep_levels + 1] for column in row] for row in level["map"]["b"]]
+        tag += "-k%d" % keep_levels
     folder = os.path.join(os.environ.get("TEMP", "."), "bs3d-trailer-levels")
     os.makedirs(folder, exist_ok=True)
-    path = os.path.join(folder, "%s-%s.json" % (os.path.splitext(os.path.basename(source))[0], scene))
+    path = os.path.join(folder, "%s-%s.json" % (os.path.splitext(os.path.basename(source))[0], tag))
     with open(path, "w", encoding="utf-8") as f:
         json.dump(level, f)
     return path
@@ -120,7 +126,7 @@ def capture_arguments(capture, film, size):
     merged.update(capture)
     if merged.get("hands"):
         merged["gameArgs"] = (merged.get("gameArgs", "") + " " + hands_arguments(merged["hands"])).strip()
-    where = (["-LevelFile", level_copy(merged["levelFile"], merged["scene"])] if merged.get("levelFile")
+    where = (["-LevelFile", level_copy(merged["levelFile"], merged["scene"], merged.get("keepLevels"))] if merged.get("levelFile")
              else ["-Level", str(merged["level"])])
     args = where + ["-From", str(merged.get("from", 0)), "-Seconds", str(capture["seconds"]),
             "-Size", size, "-Quality", merged.get("quality", "Ultra"), "-Fps", str(merged.get("fps", 60))]
@@ -266,20 +272,24 @@ SUB_WEIGHT = 0.6
 KNOCK = ((820.0, 1.0), (1240.0, 0.7), (1870.0, 0.5), (2650.0, 0.3))
 
 
-def synth_sfx(kind):
+def synth_sfx(kind, variant=0):
     """The cuts' sounds, made here (#1178), stereo, peak 1, and the second of each that marks the cut (a hit's start, a whoosh's
     crest):
       - "hit": a cinematic hit for a cut in the fast part: a sub falling from 85 to 30 Hz, a body from 150 to 55 Hz, a big drum's
         membrane at 160 Hz with its own inharmonic modes up to 660 Hz and the beater's knock at 0.8-2.7 kHz, which a monitor
         speaker that plays no sub still plays (#726), and a clean click, all in a dark hall;
       - "boom": the same, deeper, longer and in a bigger hall, for a part's first frame (the white flash, out of black);
-      - "whoosh": the last shot's switch of world, a resonant band of noise swept up from 500 Hz to 3.2 kHz into the cut and a
-        short 2.2 kHz tick on it.
+      - "whoosh": the last shot's switch of world, a resonant band of noise swept up from about 420 Hz to 2.3 kHz into the cut
+        and a short soft tick on it; "variant" shifts the sweep and takes another noise.
     No noise burst and no saturation (the owner on v4: "cleaner, not so low-res"), nothing above about 5 kHz; deterministic, so a
     re-cut sounds the same."""
-    if kind in _SFX:
-        return _SFX[kind]
-    rng = np.random.default_rng({"hit": 1178, "boom": 1179, "whoosh": 1180}[kind])
+    key = (kind, variant)
+    if key in _SFX:
+        return _SFX[key]
+    rng = np.random.default_rng({"hit": 1178, "boom": 1179, "whoosh": 1180}[kind] + 31 * variant)
+    # A whoosh's variant shifts its sweep by up to a tone and a half either way and takes another noise, so a run of them is
+    # no one sound repeated (the owner on v6: softer, lower and varied, under the guitar and the popping)
+    shift = 2.0 ** (((variant * 5) % 7 - 3) / 12.0 * 1.5) if kind == "whoosh" else 1.0
     if kind in ("hit", "boom"):
         big = kind == "boom"
         n = int((3.2 if big else 2.0) * RATE)
@@ -317,7 +327,7 @@ def synth_sfx(kind):
         t = np.arange(n) / RATE
         envelope = np.where(t < crest, np.exp((t - crest) / 0.075), np.exp(-(t - crest) / 0.045))
         sweep = np.minimum(t / crest, 1.0)
-        centre = 500.0 * (3200.0 / 500.0) ** sweep
+        centre = 420.0 * shift * (2300.0 / 420.0) ** sweep
         noise = rng.standard_normal(n)
         band = np.empty(n)
         low = mid = 0.0
@@ -328,11 +338,11 @@ def synth_sfx(kind):
             high = noise[i] - low - damping * mid
             mid += f * high
             band[i] = mid
-        band = _lowpass(_lowpass(band, 3500.0), 3500.0)
-        zip_tone = np.sin(2 * np.pi * np.cumsum(800.0 * (2400.0 / 800.0) ** sweep) / RATE)
+        band = _lowpass(_lowpass(band, 2400.0), 2400.0)
+        zip_tone = np.sin(2 * np.pi * np.cumsum(650.0 * shift * (1700.0 / 650.0) ** sweep) / RATE)
         after = np.maximum(t - crest, 0.0)
-        tick = np.where(t >= crest, np.sin(2 * np.pi * 2200.0 * after) * np.exp(-after / 0.012) * (1 - np.exp(-after / 0.001)), 0.0)
-        dry = envelope * (_peak1(band) + 0.18 * zip_tone) + 0.35 * tick
+        tick = np.where(t >= crest, np.sin(2 * np.pi * 1500.0 * shift * after) * np.exp(-after / 0.012) * (1 - np.exp(-after / 0.001)), 0.0)
+        dry = envelope * (_peak1(band) + 0.14 * zip_tone) + 0.2 * tick
         tail = np.concatenate([dry, np.zeros(int(0.3 * RATE))])
         wet = _convolve(tail, _hall(rng, 0.5, 0.18, 4000.0))
         wet *= 0.25 * math.sqrt(float(np.mean(dry ** 2))) / (math.sqrt(float(np.mean(wet ** 2))) + 1e-12)
@@ -340,8 +350,8 @@ def synth_sfx(kind):
         mark = crest
     else:
         sys.exit("no sound %r: hit, boom or whoosh" % kind)
-    _SFX[kind] = ((x / (np.max(np.abs(x)) + 1e-12)).astype(np.float32), mark)
-    return _SFX[kind]
+    _SFX[key] = ((x / (np.max(np.abs(x)) + 1e-12)).astype(np.float32), mark)
+    return _SFX[key]
 
 
 def limit(mix, ceiling_db=-4.0, lookahead=0.005, release=0.12):
@@ -372,7 +382,7 @@ def build_timeline(segments):
     t = 0.0
     for index, segment in enumerate(segments):
         transition = segment.get("transition", "cut") if index > 0 else "cut"
-        overlap = segment.get("transitionSeconds", 0.5) if transition == "dissolve" else 0.0
+        overlap = segment.get("transitionSeconds", 0.5) if transition in ("dissolve", "bloom") else 0.0
         segment["_transition"] = transition
         segment["_overlap"] = overlap
         segment["_start"] = t - overlap
@@ -454,7 +464,8 @@ def load_font(spec, pixels):
     return font
 
 
-def render_lines(lines, size, tracking=0.08, colour=(255, 255, 255), shadow=0.65, line_gap=0.18, font_spec=None, only=None):
+def render_lines(lines, size, tracking=0.08, colour=(255, 255, 255), shadow=0.65, line_gap=0.18, font_spec=None, only=None,
+                 shadow_spread=0.12):
     """Text lines in the edit's type (Anton by default), centred, tracked out, white with a soft dark shadow under them for
     legibility over any picture: an RGBA image cropped to the text and its shadow. Each line is (text, scale) with scale a
     multiple of `size` pixels. "only" (first, end) draws just those letters of the first line, laid out where the whole line puts
@@ -477,7 +488,13 @@ def render_lines(lines, size, tracking=0.08, colour=(255, 255, 255), shadow=0.65
                 draw.text((x, y - top), ch, font=font, fill=255)
             x += draw.textlength(ch, font=font) + tracking * font.size
         y += h + line_gap * size
-    glow = alpha.filter(ImageFilter.GaussianBlur(size * 0.12))
+    # The shadow: the text blurred over "shadow_spread" of the size, twice over (a wider, denser halo) when it is asked stronger
+    # than its default - thin letters over a busy frame on a phone need it (the owner on v6)
+    glow = alpha.filter(ImageFilter.GaussianBlur(size * shadow_spread))
+    if shadow > 0.7:
+        wide = alpha.filter(ImageFilter.GaussianBlur(size * shadow_spread * 2.2))
+        glow = Image.fromarray(np.clip(np.asarray(glow, dtype=np.float32) + 1.6 * np.asarray(wide, dtype=np.float32), 0, 255)
+                               .astype(np.uint8))
     layer = np.zeros((height, width, 4), dtype=np.float32)
     text_a = np.asarray(alpha, dtype=np.float32) / 255.0
     shadow_a = np.asarray(glow, dtype=np.float32) / 255.0 * shadow
@@ -737,7 +754,7 @@ def main():
         at = entry["at"]
         wanted.append((entry, by_name[at.split(":", 1)[1]]["_start"] if isinstance(at, str) else float(at)))
     for entry, at in wanted:
-        sound, mark = synth_sfx(entry["sound"])
+        sound, mark = synth_sfx(entry["sound"], int(entry.get("variant", 0)))
         when = at + entry.get("offset", 0.0) - mark
         pan = max(-1.0, min(1.0, entry.get("pan", 0.0)))
         gains = (math.cos((pan + 1) * math.pi / 4) * math.sqrt(2), math.sin((pan + 1) * math.pi / 4) * math.sqrt(2))
@@ -810,12 +827,14 @@ def main():
             if card.get("lines"):
                 lines = [(text, scale) for text, scale in card["lines"]]
                 layers.append(("text", render_lines(lines, 150 * unit, tracking=card.get("tracking", edit.get("tracking", 0.08)),
-                                                    font_spec=edit.get("font")), card.get("textY", 0.5)))
+                                                    font_spec=edit.get("font"), shadow=card.get("shadow", edit.get("shadow", 0.65))),
+                               card.get("textY", 0.5)))
             # A second block at a height of its own: the website's address, set apart from the lines above it (#1178)
             if card.get("footer"):
                 lines = [(text, scale) for text, scale in card["footer"]]
                 layers.append(("text", render_lines(lines, 150 * unit, tracking=card.get("tracking", edit.get("tracking", 0.08)),
-                                                    font_spec=edit.get("font")), card.get("footerY", 0.88)))
+                                                    font_spec=edit.get("font"), shadow=card.get("shadow", edit.get("shadow", 0.65))),
+                               card.get("footerY", 0.88)))
             prepared[segment["name"]] = layers
     # A card over the footage: its lines, or "parts" of one line each revealed at its own "reveal" second (the words of "SHOOT.
     # MATCH. BRING IT DOWN." as each happens, #1178), every part laid where the whole line puts it
@@ -828,12 +847,14 @@ def main():
             layers, first = [], 0
             for part, reveal in zip(card["parts"], card["reveal"]):
                 layers.append((reveal, render_lines([(text, card.get("scale", 1.0))], 150 * unit, tracking=tracking,
-                                                    font_spec=edit.get("font"), only=(first, first + len(part)))))
+                                                    font_spec=edit.get("font"), only=(first, first + len(part)),
+                                                    shadow=card.get("shadow", edit.get("shadow", 0.65)))))
                 first += len(part) + len(gap)
             overlays.append((card, layers))
         else:
             lines = [(text, scale) for text, scale in card["lines"]]
-            overlays.append((card, [(0.0, render_lines(lines, 150 * unit, tracking=tracking, font_spec=edit.get("font")))]))
+            overlays.append((card, [(0.0, render_lines(lines, 150 * unit, tracking=tracking, font_spec=edit.get("font"),
+                                                       shadow=card.get("shadow", edit.get("shadow", 0.65))))]))
 
     # ---- render and encode
     first, last = 0, frames_total
@@ -874,6 +895,11 @@ def main():
             if segment["_overlap"] and local < segment["_overlap"]:
                 a = smooth(local / segment["_overlap"])
                 frame = frame * (1 - a) + picture * a
+                # "bloom": a dissolve lifted towards white at its middle by "bloom" (0.35 by default), the soft way from a dark
+                # shot into a bright one (the owner on v6: the white flash after the night city was too sharp)
+                if segment["_transition"] == "bloom":
+                    lift = segment.get("bloom", 0.35) * math.sin(math.pi * local / segment["_overlap"])
+                    frame = frame * (1.0 - lift) + 255.0 * lift
             else:
                 # A copy: the footage keeps its last frame cached, and the cards and dips below draw into this one
                 frame = picture.copy()
