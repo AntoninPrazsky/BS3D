@@ -40,19 +40,25 @@ float SceneLampDepth(float3 lightPosition, float3 toLight)
     return -dot(toLight, axis);
 }
 
+//The cut is behind a branch on the slot's own range in both functions below: the same for every pixel of a draw, so
+//every other scene's lights (the savanna's fires, the neon ring, a blast) skip the shade's arithmetic outright
 float SceneLightFalloff(float3 lightPosition, float3 toLight, float dist, float range)
 {
     float atten = saturate(1.0 - dist / abs(range));
     atten *= atten;
 
     //Positive below the rim, on the open side: lit
-    float below = saturate(SceneLampDepth(lightPosition, toLight) / max(dist, 1e-4) * LAMP_RIM_GAIN + LAMP_RIM_SPILL);
-    return range < 0.0 ? atten * below : atten;
+    [branch] if (range < 0.0)
+        atten *= saturate(SceneLampDepth(lightPosition, toLight) / max(dist, 1e-4) * LAMP_RIM_GAIN + LAMP_RIM_SPILL);
+    return atten;
 }
 
 //Whether SceneLightFalloff is above zero at the point: inside the range, and for a shaded lamp on the open side of the
 //cut, where depth / dist * LAMP_RIM_GAIN + LAMP_RIM_SPILL > 0 (multiplied through by dist)
 bool SceneLightReaches(float3 lightPosition, float3 toLight, float dist, float range)
 {
-    return dist < abs(range) && (range > 0.0 || SceneLampDepth(lightPosition, toLight) * LAMP_RIM_GAIN + dist * LAMP_RIM_SPILL > 0.0);
+    bool reaches = dist < abs(range);
+    [branch] if (range < 0.0)
+        reaches = reaches && SceneLampDepth(lightPosition, toLight) * LAMP_RIM_GAIN + dist * LAMP_RIM_SPILL > 0.0;
+    return reaches;
 }
