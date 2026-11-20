@@ -20,6 +20,15 @@ Pravidla:
 
 ---
 
+## 2026-11-20 — #1178 trailer RC — desktop (RDT-PC), Claude Code
+
+- Hotovo: RC = v8 s jedinou změnou, přechodem u amfory. Detail amfory v laserové síti drží o 0,7 s déle, pak 0,38 s černé a poslední záběr nabíhá na dobu s hudbou naplno. 37 segmentů, 53,44 s; master `bs3d-trailer-rc-master.mp4` ve `Videos\BS3D trailer`.
+- majitel (pokyny k RC): neměnit nic kromě přechodu u amfory; laser má být slyšet přes ztlumenou hudbu a doznít v černé.
+- Nové: `linelosshold=<s>` ve hře (kamera prohry drží déle, výsledková stránka až v 8,3 s), `duckRelease` a `BURN_SECONDS` v `trailer-cut.py`.
+- Změřeno ze stop: hudba −15,5 dBFS před dotykem sítě, −27 pod detailem, −52 v černé, −15 v prvních 0,3 s montáže; pálení −16 a v černé −24.
+- ⚠ Amfora je nejhlouběji v síti do 6,5 s herního času, pak se houpe zpět: delší detail už ukazuje návrat, ne pálení.
+- Otevřené: verdikt majitele (`verdict-eye`); mix je změřený, ne slyšený. Po přijetí smazat ~90 GB snímků v `%TEMP%\bs3d-web-capture-frames`.
+
 ## 2026-11-20 — #1166 lesní lampy na sloupech a větrná elektrárna — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: pět starých lamp na dřevěných sloupech kolem lesního ostrova (poloměr 49, úvodní pohled mezi dvěma), stínítka nakloněná 25° k ostrovu; každá žárovka je skutečné bodové světlo (záporný dosah = jen pod stínítkem) v instancovaném efektu, Forest.fx i rostlinách. Jedna bliká. Na kopcích bílá větrná elektrárna (446) s točícím se rotorem a červeným W-rot světlem, vše funkcí hodin sceny. Smyčky přeskakují slot mimo dosah (SceneLightReaches): savana o 0,39 ms rychlejší. Cena: hra 10,54 -> 11,41 ms, menu 10,81 -> 11,97.
