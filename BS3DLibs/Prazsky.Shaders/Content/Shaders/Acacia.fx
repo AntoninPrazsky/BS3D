@@ -76,6 +76,18 @@ float3 HazeColor;
 //their own.
 float3 AddedLight;
 
+//Scene point lights over the sun and the dome (#1166): the forest's lamps on their poles, which light the bank's stones and
+//ferns round the island and the broadleaves near the clearing as they light the floor under them (Forest.fx) and the island
+//(the instanced effect). The effect is shared by every planted scene and by the savanna's own draw, so whoever states lights
+//takes them back off after its draws (ForestBackdrop, through PlantPass.SetSceneLights); every other draw finds the count 0.
+//The same slots, names and falloff as the instanced effect's.
+#include "SceneLamp.fxh"
+#define MAX_SCENE_LIGHTS 8
+float3 SceneLightPosition[MAX_SCENE_LIGHTS];
+float3 SceneLightColor[MAX_SCENE_LIGHTS];
+float SceneLightRange[MAX_SCENE_LIGHTS];
+int SceneLightCount;
+
 //The leaf mottle's world-space frequency and its mean (a canopy is dappled foliage, not a flat green mass).
 static const float DAPPLE_FREQUENCY = 0.55;
 static const float DAPPLE_MEAN = 0.86;
@@ -596,6 +608,23 @@ float4 AcaciaShade(AcaciaVertexOutput input, bool front, bool stone, bool barkRe
     shadow *= CloudSunlight(input.WorldPosition, SunDirection);
 
     float3 color = albedo * (ambient + SunColor * (ndotl * shadow));
+
+    //The scene's lamps (#1166), wrapped round a leaf as the sun is
+    ARRAY_LOOP(i, SceneLightCount, MAX_SCENE_LIGHTS)
+    {
+        float3 toL = SceneLightPosition[i] - input.WorldPosition;
+        float dist = length(toL);
+        [branch] if (dist < abs(SceneLightRange[i]))
+        {
+            float atten = SceneLightFalloff(SceneLightPosition[i], toL, dist, SceneLightRange[i]);
+            [branch] if (atten > 0.0)
+            {
+                float facing = dot(N, toL / max(dist, 1e-4));
+                float lit = lerp(saturate(facing), saturate((facing + LEAF_WRAP) / (1.0 + LEAF_WRAP)), leaf);
+                color += albedo * SceneLightColor[i] * (lit * atten);
+            }
+        }
+    }
 
     //The sun THROUGH the leaves (#610): strongest looking straight towards the sun, yellow-green, and only where
     //the sun reaches the leaf - the shadow map is the upper layers shading the lower ones

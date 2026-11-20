@@ -61,15 +61,17 @@ namespace Prazsky.Core.Render
     /// Ultra's dressing (the broadleaves' wood, their twigs, their leaf cards, the ferns), the bank's stones; and the host's wood
     /// (<see cref="ForestScatterRenderer.Layers"/>, which the host sets from the same value): the spruces, the needles on the near
     /// crowns (off draws those crowns' plain program), the rocks, stumps and dead wood, and what the host's wood and the dressing
-    /// cast into the sun's map.
+    /// cast into the sun's map; and the lamps round the island (#1166: the host's <see cref="ForestLamps"/>, their lights on
+    /// everything) and the wind turbine on the hills.
     /// </summary>
     [System.Flags]
     public enum ForestLayer
     {
         None = 0, Floor = 1, FarStand = 2, Broadleaves = 4, Twigs = 8, Leaves = 16, Ferns = 32, Stones = 64,
         Spruces = 128, Needles = 256, Deadwood = 512, WoodShadow = 1024, LeafShadow = 2048, FarRing = 4096, Bank = 8192,
+        Lamps = 16384, Turbine = 32768,
         All = Floor | FarStand | Broadleaves | Twigs | Leaves | Ferns | Stones | Spruces | Needles | Deadwood | WoodShadow | LeafShadow
-            | FarRing | Bank
+            | FarRing | Bank | Lamps | Turbine
     }
 
     /// <summary>
@@ -2379,6 +2381,19 @@ namespace Prazsky.Core.Render
         /// draws (its <c>planting</c> argument), so the leaves hang on the trees that are drawn.
         /// </summary>
         public ForestScatter ForestPlanting => _forest.Planting;
+
+        /// <summary>
+        /// Where the daytime forest's lamps stand round the island (#1166), planned off <see cref="ForestPlanting"/>: every host's
+        /// <see cref="ForestLamps"/> draws them from it, and <see cref="ForestLampLights"/> lights the island with them.
+        /// </summary>
+        public ForestLampLayout ForestLamps => _forest.Lamps;
+
+        /// <summary>
+        /// The forest's lamps' lights at <paramref name="time"/> (<see cref="ForestLampLayout.Lights"/>), at most
+        /// <paramref name="max"/>, none while the <see cref="ForestLayers"/> dial has <see cref="ForestLayer.Lamps"/> off.
+        /// </summary>
+        public int ForestLampLights(float time, Vector3[] position, Vector3[] colour, float[] range, int max) =>
+            (_forest.Layers & ForestLayer.Lamps) != 0 ? _forest.Lamps.Lights(time, position, colour, range, max) : 0;
 
         /// <summary>
         /// The aurora's snow as drawn at a world point, the drifts round the planting included (<c>Aurora.fx</c>'s

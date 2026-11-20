@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-20 — #1166 lesní lampy na sloupech a větrná elektrárna — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: pět starých lamp na dřevěných sloupech kolem lesního ostrova (poloměr 49, úvodní pohled mezi dvěma), stínítka nakloněná 25° k ostrovu; každá žárovka je skutečné bodové světlo (záporný dosah = jen pod stínítkem) v instancovaném efektu, Forest.fx i rostlinách. Jedna bliká. Na kopcích bílá větrná elektrárna (446) s točícím se rotorem a červeným W-rot světlem, vše funkcí hodin sceny. Smyčky přeskakují slot mimo dosah (SceneLightReaches): savana o 0,39 ms rychlejší. Cena: hra 10,54 -> 11,41 ms, menu 10,81 -> 11,97.
+- ⚠ Bez zvýraznění lamp je kámen ostrova zase studený; jeho teplý lesk je právě ten highlight. Kde sloup nemá místo, kácí se okolní stromy (ForestScatter.Fell).
+- Otevřené: verdict-eye; nejdražší vteřina menu nad lesem 13,3-13,4 ms = přesně limit #1103 (rovná stínítka by vrátila ~12,8, ale bez světla na shluku). Rotor, maják a blikání v pohybu neviděny.
+
 ## 2026-11-20 — #1221–#1224 poznámky majitele k lesu — desktop (RDT-PC), Claude Code
 
 - Hotovo: 2 odstavce poznámek → 4 issues, jen založeno: drobné listnaté stromky mezi smrky #1221, kmeny v barvě jehličí #1222, ploché kužely a kopule místo dalekých stromů na Ultra #1223, paty stromů a objektů bez přechodu k zemi #1224; všechny `priority-low` (les nemá kapitolu). Komentáře u #962 #1099 #983 #1166.

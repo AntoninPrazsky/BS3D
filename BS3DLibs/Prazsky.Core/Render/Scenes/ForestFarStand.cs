@@ -185,7 +185,7 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Where the stand stands, by draw: a jittered grid over the ring from <see cref="ForestFarStandConfig.InnerRadius"/> out,
         /// a finer one inside <see cref="ForestFarStandConfig.NearRadius"/>; open where a broad field says glade, never in a cell
-        /// the planted wood stands in, spruce or broadleaf by a field a grove or two across, planted a little sunk on the floor
+        /// the planted wood stands in nor on the wind turbine's pad (<see cref="ForestTurbineLayout.PAD_RADIUS"/>), spruce or broadleaf by a field a grove or two across, planted a little sunk on the floor
         /// <c>Forest.fx</c> draws, and sorted nearest the arena first so the depth test turns away what the near ones hide.
         /// </summary>
         private static List<StandInstance>[] Plant(ForestSceneConfig config, ForestScatter planting)
@@ -201,6 +201,10 @@ namespace Prazsky.Core.Render
 
             var rng = new Random(stand.Seed);
             var planted = new List<StandInstance>[2 * CROWNS];
+
+            //The wind turbine's pad (#1166): its tower stands on open ground, not through a crown
+            Vector2 turbine = ForestTurbineLayout.FootXZ;
+            const float PAD2 = ForestTurbineLayout.PAD_RADIUS * ForestTurbineLayout.PAD_RADIUS;
             for (int k = 0; k < planted.Length; k++) planted[k] = new List<StandInstance>();
 
             void Ring(float inner, float outer, float spacing, bool near)
@@ -219,6 +223,7 @@ namespace Prazsky.Core.Render
                         float x = (gx + 0.1f + 0.8f * jx) * spacing, z = (gz + 0.1f + 0.8f * jz) * spacing;
                         float r2 = x * x + z * z;
                         if (r2 < inner2 || r2 >= outer2) continue;
+                        if (Vector2.DistanceSquared(new Vector2(x, z), turbine) < PAD2) continue;
 
                         //Glades and rides: open ground where a broad field is low
                         float glade = 0.5f + 0.8f * ShaderMath.Noise(new Vector2(x * 0.013f + 17.3f, z * 0.013f + 41.9f));
@@ -247,6 +252,13 @@ namespace Prazsky.Core.Render
             foreach (List<StandInstance> list in planted)
                 list.Sort((p, q) => (p.Place.X * p.Place.X + p.Place.Z * p.Place.Z).CompareTo(q.Place.X * q.Place.X + q.Place.Z * q.Place.Z));
             return planted;
+        }
+
+        /// <summary>Every far tree's foot and scale (x, y, z, scale), as <see cref="Plant"/> stands them: for the tests.</summary>
+        internal static IEnumerable<Vector4> PlacesOf(ForestSceneConfig config, ForestScatter planting)
+        {
+            foreach (List<StandInstance> draw in Plant(config, planting))
+                foreach (StandInstance tree in draw) yield return tree.Place;
         }
 
         //The planted wood's cells and their neighbours

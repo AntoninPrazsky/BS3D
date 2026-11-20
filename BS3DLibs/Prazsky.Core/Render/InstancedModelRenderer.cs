@@ -233,6 +233,7 @@ namespace Prazsky.Core.Render
         private EffectParameter _twoSidedNormalsParam;
         private EffectParameter _specularAlphaWeightParam;
         private EffectParameter _dirLightStrengthParam;
+        private EffectParameter _sceneLampHighlightParam;
         private EffectParameter _emissiveStrengthParam;
         private EffectParameter _translucencyStrengthParam;
         private EffectParameter _pulseTimeParam;
@@ -757,6 +758,15 @@ namespace Prazsky.Core.Render
         /// sit on top of the rig in the shader, and a cave's own glow still reaches a pane under a dark sky.
         /// </summary>
         public float DirLightStrength { get; set; } = 1f;
+
+        /// <summary>
+        /// Whether a shaded scene lamp (a negative range: the forest's old lamps on their poles, #1166) puts its highlight
+        /// on this renderer's surface, 1 by default; every other light of <see cref="SceneLights"/> puts its highlight on
+        /// every surface whatever this says. 0 on the balls (<c>BallRenderSet</c>), where the five lamps' highlights are
+        /// faint dots no pixel shows and their cost is not (<c>SceneLampHighlight</c> in <c>Lighting.fxh</c>). The desktop
+        /// path's; the Potato path has no shaded lamps.
+        /// </summary>
+        public float SceneLampHighlight { get; set; } = 1f;
 
         /// <summary>
         /// The frame behind this surface, when the surface is a slab of glass that bends it (#541): a copy of the
@@ -1374,6 +1384,7 @@ namespace Prazsky.Core.Render
             _twoSidedNormalsParam = _effect.Parameters["TwoSidedNormals"];
             _specularAlphaWeightParam = _effect.Parameters["SpecularAlphaWeight"];
             _dirLightStrengthParam = _effect.Parameters["DirLightStrength"];
+            _sceneLampHighlightParam = _effect.Parameters["SceneLampHighlight"];
             _emissiveTintParam = _effect.Parameters["EmissiveTint"];
             _surfaceReliefFrequencyParam = _effect.Parameters["SurfaceReliefFrequency"];
             _patternPrimaryColorParam = _effect.Parameters["PatternPrimaryColor"];
@@ -1895,6 +1906,10 @@ namespace Prazsky.Core.Render
             //Unconditionally, for Metalness's reason again: the one renderer that dims this is the ceiling
             //glass, and its figure left standing would put the rest of the scene under the same dark sky
             _dirLightStrengthParam.SetValue(DirLightStrength);
+
+            //Unconditionally, for Metalness's reason: the balls turn it off, and a 0 left standing would take the forest
+            //lamps' sheen off the island drawn after them
+            _sceneLampHighlightParam.SetValue(SceneLampHighlight);
 
             for (int i = 0; i < _parts.Length; i++)
             {

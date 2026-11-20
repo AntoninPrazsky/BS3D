@@ -228,6 +228,9 @@ namespace Testbed
                 //campfire blink and flicker on — off pause, on with the game.
                 if (_scene == SceneKind.Forest) _forestFireflies?.Draw(_camera, SceneClock);
 
+                //The old lamps on their poles round the island (#1166), their bulbs on the clock SceneLights lit them on
+                if (_scene == SceneKind.Forest) _forestLamps?.Draw(_camera, SceneClock);
+
                 //THE SKY, BEHIND THE OPAQUE SCENE (#1104), as the Game's BeginSceneDraw draws it: the dome and the heaps,
                 //depth-read at the far plane, so every pixel the ground, the wood, the city and the island's laid depth
                 //already own is turned away before Sky.fx runs. No pixel moves (SkyPass has the argument; skyorder=first
@@ -390,6 +393,7 @@ namespace Testbed
             //island is, which is why it casts from here and not from inside the renderer. The aurora's casts under
             //its Moon (#963).
             if (_scene == SceneKind.Forest) _forestScatter?.DrawShadow(shadowViewProjection, _sceneRenderer.FineMeshes, _camera);
+            if (_scene == SceneKind.Forest) _forestLamps?.DrawShadow(shadowViewProjection);
             if (_scene == SceneKind.Aurora) _auroraScatter?.DrawShadow(shadowViewProjection, _sceneRenderer.FineMeshes, _camera);
 
             //And the city's towers (#471). ⚠ ALL of them rather than City.Visible, which is culled to the
