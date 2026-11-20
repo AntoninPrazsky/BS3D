@@ -69,11 +69,51 @@ def parse_size(text):
 
 # ---------------------------------------------------------------- filming
 
-def level_copy(level_file, scene, keep_levels=None):
+def drop_small_groups(level_map, least):
+    """Removes from a map's layout every group of one colour smaller than `least` balls, and returns how many balls went. A group
+    is the balls of one type joined through the lattice's neighbours: four on a ball's own level and four on each level next to
+    it, which on an odd level of the field (shifted half a cell) are the cells x..x+1, z..z+1 and on an even one x-1..x, z-1..z.
+    A lone ball of its colour takes two shots to clear, the first attaching beside it without a match: the last shot's map is cut
+    without them, so its last match is its last big piece (the owner on v7: the gun fired on at an empty ceiling)."""
+    b = level_map["b"]
+    levels = len(b[0][0])
+    base = level_map["l"] - levels
+    cells = {(x, z, k): b[x][z][k] for x in range(len(b)) for z in range(len(b[0])) for k in range(levels) if b[x][z][k] is not None}
+
+    def neighbours(cell):
+        x, z, k = cell
+        found = [(x + 1, z, k), (x - 1, z, k), (x, z + 1, k), (x, z - 1, k)]
+        steps = (0, 1) if (base + k) % 2 == 1 else (-1, 0)
+        for dk in (-1, 1):
+            found += [(x + dx, z + dz, k + dk) for dx in steps for dz in steps]
+        return [n for n in found if n in cells]
+
+    seen, dropped = set(), 0
+    for cell in sorted(cells):
+        if cell in seen:
+            continue
+        group, stack = [], [cell]
+        seen.add(cell)
+        while stack:
+            q = stack.pop()
+            group.append(q)
+            for n in neighbours(q):
+                if n not in seen and cells[n]["t"] == cells[cell]["t"]:
+                    seen.add(n)
+                    stack.append(n)
+        if len(group) < least:
+            for x, z, k in group:
+                b[x][z][k] = None
+            dropped += len(group)
+    return dropped
+
+
+def level_copy(level_file, scene, keep_levels=None, min_group=None):
     """A copy of a level file with its scene replaced, in %TEMP%: the last shot plays one level in every scene (#1178). The copy is
     the original but for the scene's name, so the game played is the same (with wind=0, measured: every event at the same ms).
     "keepLevels": K keeps only the layout's levels 0 to K, its lowest, hung from the ceiling in place of the whole: a small map
-    cut from a shipped one (an odd K on a field of an even depth keeps the lattice's parity), which a few shots clear."""
+    cut from a shipped one (an odd K on a field of an even depth keeps the lattice's parity), which a few shots clear.
+    "minGroup": N then drops every group of one colour smaller than N balls (drop_small_groups)."""
     source = os.path.join(ROOT, level_file) if not os.path.isabs(level_file) else level_file
     with open(source, encoding="utf-8") as f:
         level = json.load(f)
@@ -82,6 +122,8 @@ def level_copy(level_file, scene, keep_levels=None):
     if keep_levels is not None:
         level["map"]["b"] = [[column[:keep_levels + 1] for column in row] for row in level["map"]["b"]]
         tag += "-k%d" % keep_levels
+    if min_group is not None:
+        tag += "-g%d(%d)" % (min_group, drop_small_groups(level["map"], min_group))
     folder = os.path.join(os.environ.get("TEMP", "."), "bs3d-trailer-levels")
     os.makedirs(folder, exist_ok=True)
     path = os.path.join(folder, "%s-%s.json" % (os.path.splitext(os.path.basename(source))[0], tag))
@@ -126,7 +168,7 @@ def capture_arguments(capture, film, size):
     merged.update(capture)
     if merged.get("hands"):
         merged["gameArgs"] = (merged.get("gameArgs", "") + " " + hands_arguments(merged["hands"])).strip()
-    where = (["-LevelFile", level_copy(merged["levelFile"], merged["scene"], merged.get("keepLevels"))] if merged.get("levelFile")
+    where = (["-LevelFile", level_copy(merged["levelFile"], merged["scene"], merged.get("keepLevels"), merged.get("minGroup"))] if merged.get("levelFile")
              else ["-Level", str(merged["level"])])
     args = where + ["-From", str(merged.get("from", 0)), "-Seconds", str(capture["seconds"]),
             "-Size", size, "-Quality", merged.get("quality", "Ultra"), "-Fps", str(merged.get("fps", 60))]
@@ -280,13 +322,14 @@ def synth_sfx(kind, variant=0):
         speaker that plays no sub still plays (#726), and a clean click, all in a dark hall;
       - "boom": the same, deeper, longer and in a bigger hall, for a part's first frame (the white flash, out of black);
       - "whoosh": the last shot's switch of world, a resonant band of noise swept up from about 420 Hz to 2.3 kHz into the cut
-        and a short soft tick on it; "variant" shifts the sweep and takes another noise.
+        and a short soft tick on it; "variant" shifts the sweep and takes another noise;
+      - "burn": the laser net cutting, a fluttering buzz and a crackle, for the loss at the net.
     No noise burst and no saturation (the owner on v4: "cleaner, not so low-res"), nothing above about 5 kHz; deterministic, so a
     re-cut sounds the same."""
     key = (kind, variant)
     if key in _SFX:
         return _SFX[key]
-    rng = np.random.default_rng({"hit": 1178, "boom": 1179, "whoosh": 1180}[kind] + 31 * variant)
+    rng = np.random.default_rng({"hit": 1178, "boom": 1179, "whoosh": 1180, "burn": 1181}[kind] + 31 * variant)
     # A whoosh's variant shifts its sweep by up to a tone and a half either way and takes another noise, so a run of them is
     # no one sound repeated (the owner on v6: softer, lower and varied, under the guitar and the popping)
     shift = 2.0 ** (((variant * 5) % 7 - 3) / 12.0 * 1.5) if kind == "whoosh" else 1.0
@@ -348,8 +391,31 @@ def synth_sfx(kind, variant=0):
         wet *= 0.25 * math.sqrt(float(np.mean(dry ** 2))) / (math.sqrt(float(np.mean(wet ** 2))) + 1e-12)
         x = tail[:, None] + wet
         mark = crest
+    elif kind == "burn":
+        # The net cutting into the cluster, where a monitor speaker plays it: the game's own cut is a mains hum, nine tenths of it
+        # under 300 Hz (docs/game-feedback/line-loss.md). A 100 Hz buzz's harmonics from 300 Hz to 2 kHz, fluttering, under a
+        # crackle of short resonant ticks; it rises over 0.15 s, holds, and dies over the last half second
+        n = int(1.9 * RATE)
+        t = np.arange(n) / RATE
+        buzz = np.zeros(n)
+        for h in range(3, 21):
+            buzz += np.sin(2 * np.pi * 100.0 * h * t + rng.uniform(0, 2 * np.pi)) / h ** 0.7
+        flutter = 0.72 + 0.28 * np.sin(2 * np.pi * 27.0 * t) * np.sin(2 * np.pi * 3.1 * t + 1.0)
+        crackle = np.zeros(n)
+        for _ in range(70):
+            at = int(rng.uniform(0.05, 1.5) * RATE)
+            length = int(rng.uniform(0.004, 0.012) * RATE)
+            tone = rng.uniform(900.0, 2600.0)
+            k = np.arange(min(length, n - at)) / RATE
+            crackle[at:at + len(k)] += rng.uniform(0.4, 1.0) * np.sin(2 * np.pi * tone * k) * np.exp(-k / (length / RATE / 3.0))
+        envelope = np.minimum(t / 0.15, 1.0) * np.minimum(np.maximum(1.9 - t, 0.0) / 0.5, 1.0)
+        dry = envelope * (_peak1(buzz) * flutter + 0.6 * _peak1(crackle))
+        wet = _convolve(dry, _hall(rng, 0.8, 0.25, 3000.0))
+        wet *= 0.25 * math.sqrt(float(np.mean(dry ** 2))) / (math.sqrt(float(np.mean(wet ** 2))) + 1e-12)
+        x = dry[:, None] + wet
+        mark = 0.0
     else:
-        sys.exit("no sound %r: hit, boom or whoosh" % kind)
+        sys.exit("no sound %r: hit, boom, whoosh or burn" % kind)
     _SFX[key] = ((x / (np.max(np.abs(x)) + 1e-12)).astype(np.float32), mark)
     return _SFX[key]
 
@@ -588,7 +654,7 @@ def main():
     for entry in tracks:
         at = entry.get("at", 0.0)
         if isinstance(at, str):
-            entry["at"] = by_name[at.split(":", 1)[1]]["_start"]
+            entry["at"] = by_name[at.split(":", 1)[1]]["_start"] + entry.get("atOffset", 0.0)
         signal, _ = music_track(entry, 1.0)
         bpm, times = beats(signal)
         # A generated track may miss the tempo it was asked for and the onsets may lock onto a subdivision: "bpm" and "downbeat"
@@ -729,7 +795,9 @@ def main():
     ramp = int(0.15 * RATE)
     for segment in segments:
         if segment.get("duck"):
-            a, b = int(segment["_start"] * RATE), int((segment["_start"] + segment["length"]) * RATE)
+            # "duckFrom": seconds into the segment where the duck begins (the loss at the net: the music under the cut alone)
+            a = int((segment["_start"] + segment.get("duckFrom", 0.0)) * RATE)
+            b = int((segment["_start"] + segment["length"]) * RATE)
             level = 10 ** (-abs(segment["duck"]) / 20.0)
             envelope = np.ones(samples, dtype=np.float32)
             envelope[a:b] = level
@@ -755,6 +823,11 @@ def main():
         wanted.append((entry, by_name[at.split(":", 1)[1]]["_start"] if isinstance(at, str) else float(at)))
     for entry, at in wanted:
         sound, mark = synth_sfx(entry["sound"], int(entry.get("variant", 0)))
+        # "length": the sound cut to that many seconds, faded over its last 60 ms (a burn that must end with its shot)
+        if entry.get("length") and entry["length"] * RATE < len(sound):
+            sound = sound[:int(entry["length"] * RATE)].copy()
+            fade = min(len(sound), int(0.06 * RATE))
+            sound[-fade:] *= np.linspace(1.0, 0.0, fade, dtype=np.float32)[:, None]
         when = at + entry.get("offset", 0.0) - mark
         pan = max(-1.0, min(1.0, entry.get("pan", 0.0)))
         gains = (math.cos((pan + 1) * math.pi / 4) * math.sqrt(2), math.sin((pan + 1) * math.pi / 4) * math.sqrt(2))
@@ -791,6 +864,23 @@ def main():
     game_gain = 10 ** ((mix_settings.get("game", -22.0) - game_level) / 20.0) if np.any(game) else 0.0
     music *= sfx_duck[:, None]
     effects_gain = 10 ** (mix_settings.get("sfx", -9.0) / 20.0)
+    # "sidechain": the game's own big moments (a shot, a blast, a group landing) dip the music by up to that many dB, so they are
+    # the accents and no sound laid on the cuts has to be (the owner on v7: the cuts' hits sat in the cannon's band and read as
+    # shots). The game's level over 30 ms, against its own 99th percentile; down within 15 ms, back over 0.3 s
+    depth = float(mix_settings.get("sidechain", 0.0))
+    if depth > 0 and np.any(game):
+        window = int(0.03 * RATE)
+        power = np.convolve((game * game_gain).astype(np.float64).mean(axis=1) ** 2, np.ones(window) / window, mode="same")
+        level = np.sqrt(power)
+        top = float(np.percentile(level[level > 1e-5], 99)) if np.any(level > 1e-5) else 1.0
+        drive = np.clip(level / top, 0.0, 1.0) ** 1.5
+        down, back = 1.0 - math.exp(-1.0 / (0.015 * RATE)), 1.0 - math.exp(-1.0 / (0.3 * RATE))
+        smooth_drive = np.empty_like(drive)
+        g = 0.0
+        for i, v in enumerate(drive):
+            g += (v - g) * (down if v > g else back)
+            smooth_drive[i] = g
+        music *= (10 ** (-depth * smooth_drive / 20.0)).astype(np.float32)[:, None]
     mix = music * music_gain + game * game_gain + effects * effects_gain
     if arguments.stems:
         # Each stem as it enters the mix (before the level and the limiter), to measure what a cut's sound adds over the music in a band

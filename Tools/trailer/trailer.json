@@ -1,16 +1,16 @@
-// The trailer, v7 (#1178): Tools/trailer-cut.py Tools/trailer/trailer.json
-// The owner's notes on v6 (2026-11-20): no HUD in the gameplay shots (the awards and the crosshair stay: capturehudawards); a big
-// combo inside the first three seconds; a soft bloom, not a white flash, into the worlds; the grid's shot low over the light
-// cycles at a sharp turn, looking away from the island; no laser-net shot after the big top, but a loss at the net before the last
-// shot (the cluster in the red net, the engine's own camera, cut before any Game Over); the last shot's gun going round at one
-// constant speed, firing on the move on the beats, and the level cleared before the logo; type a step bolder with a stronger
-// shadow; the whooshes lower, softer and varied; about 55 s.
+// The trailer, v8 (#1178): Tools/trailer-cut.py Tools/trailer/trailer.json
+// The owner on v7 (2026-11-20), and a review he passed on: the loss at the net must be a real swing under the line (Amphora: a
+// handle shot off, the amphora swinging on the other); the last shot's break-up spread to its end, the last big piece falling into
+// the cut to the logo, and no spare volley at an empty ceiling; the action after the big top at once, on the drums' first beat,
+// with no black, no standing gun and no black balls in a night scene; a hard cut, not a muddy dissolve, out of the opening, and
+// its first hit sooner; no dark band behind the titles, a soft shadow at the letters only; and the sound made over: no hits on the
+// cuts, the game's own sound over the music, the music dipped under its big moments and far down under the laser.
 // A HUD clip is never filmed with the benchmark's gun (its lens circles the gun): the shots it found are replayed by "hands" with the
 // game's own camera, with the same turn= and walk= the finding run had. Camera paths count from a clip's window start, a quarter
 // second before its "in".
 {
   "format": "bs3d-trailer",
-  "name": "bs3d-trailer-v7",
+  "name": "bs3d-trailer-v8",
   "size": "3840x2160",
   "fps": 60,
   "font": {
@@ -18,7 +18,7 @@
     "weight": 400
   },
   "tracking": 0.16,
-  "shadow": 0.9,
+  "shadow": 1.0,
   "film": {
     "quality": "Ultra",
     "hud": true,
@@ -42,31 +42,31 @@
           ],
           "shots": [
             [
-              25.3,
+              25.05,
               28.783,
               -7.904
             ],
             [
-              26.92,
+              26.67,
               33.366,
               22.955
             ],
             [
-              29.08,
+              28.83,
               33.742,
               6.06
             ]
           ],
-          "ease": 0.45,
-          "hold": 0.08
+          "ease": 0.25,
+          "hold": 0.05
         },
-        "gameArgs": "capturehudawards nodropcinematic skiptakeover=24.7 turn=25.42:26.27:left turn=27.05:28.25:right"
+        "gameArgs": "capturehudawards nodropcinematic skiptakeover=24.7 turn=25.15:26.00:left turn=27.05:28.25:right"
       },
-      "in": 3.6,
-      "length": 7.01,
+      "in": 4.15,
+      "length": 5.76,
       "transition": "dip",
-      "transitionSeconds": 0.6,
-      "sound": 3,
+      "transitionSeconds": 0.5,
+      "sound": 0,
       "snap": false
     },
     {
@@ -77,15 +77,15 @@
       },
       "in": 3.6,
       "length": 2.2,
-      "transition": "bloom",
-      "transitionSeconds": 0.9,
+      "transition": "cut",
+      "transitionSeconds": 0.5,
       "sound": null,
       "snap": false,
       "sfx": {
-        "sound": "boom",
-        "gain": -2,
-        "offset": 0.43,
-        "duck": 4
+        "sound": "whoosh",
+        "gain": -9,
+        "offset": 0.0,
+        "variant": 3
       }
     },
     {
@@ -182,45 +182,51 @@
       "snap": false
     },
     {
-      "name": "fish-start",
+      "name": "action",
       "capture": {
-        "level": "Fish",
-        "from": 0,
+        "levelFile": "Game/Levels/Minaret.json",
+        "scene": "desert",
+        "from": 18,
         "aim": true,
         "hands": {
           "rest": [
-            15.5,
+            22.75,
             33.782,
             0.0
           ],
           "shots": [
             [
-              17.21,
-              22.701,
-              3.312
+              23.05,
+              22.649,
+              14.579
+            ],
+            [
+              23.6,
+              30.04,
+              0.773
+            ],
+            [
+              24.67,
+              42.16,
+              -5.817
+            ],
+            [
+              25.75,
+              31.566,
+              -3.255
             ]
           ],
-          "ease": 0.75,
-          "hold": 0.25,
-          "rmb": [
-            16.3,
-            18.3
-          ]
+          "ease": 0.3,
+          "hold": 0.04
         },
-        "gameArgs": "capturehudawards walk=15.55:16.35:in turn=15.55:16.15:right"
+        "gameArgs": "capturehudawards nodropcinematic skiptakeover=22.70 turn=23.20:24.05:left"
       },
-      "in": 12.89,
-      "length": 5.401,
-      "transition": "dip",
-      "transitionSeconds": 0.8,
+      "in": 4.05,
+      "length": 4.78,
+      "transition": "dissolve",
+      "transitionSeconds": 0.5,
       "sound": 0,
-      "snap": false,
-      "sfx": {
-        "sound": "boom",
-        "gain": 3,
-        "offset": -0.02,
-        "duck": 4
-      }
+      "snap": false
     },
     {
       "name": "side-city",
@@ -234,13 +240,7 @@
       "in": 2.8,
       "length": 1.62,
       "sound": 0,
-      "snap": false,
-      "sfx": {
-        "sound": "hit",
-        "gain": 4,
-        "offset": -0.02,
-        "duck": 4
-      }
+      "snap": false
     },
     {
       "name": "play-cave",
@@ -280,13 +280,7 @@
       "in": 2.25,
       "length": 1.62,
       "sound": 0,
-      "snap": false,
-      "sfx": {
-        "sound": "hit",
-        "gain": 4,
-        "offset": -0.02,
-        "duck": 4
-      }
+      "snap": false
     },
     {
       "name": "below-cave",
@@ -327,13 +321,7 @@
       "in": 3.8,
       "length": 2.16,
       "sound": 0,
-      "snap": false,
-      "sfx": {
-        "sound": "hit",
-        "gain": 4,
-        "offset": -0.02,
-        "duck": 4
-      }
+      "snap": false
     },
     {
       "name": "above-bigtop",
@@ -348,13 +336,7 @@
       "in": 5.8,
       "length": 1.62,
       "sound": 0,
-      "snap": false,
-      "sfx": {
-        "sound": "hit",
-        "gain": 4,
-        "offset": -0.02,
-        "duck": 4
-      }
+      "snap": false
     },
     {
       "name": "special-glass",
@@ -394,13 +376,7 @@
       "in": 5.8,
       "length": 1.62,
       "sound": 0,
-      "snap": false,
-      "sfx": {
-        "sound": "hit",
-        "gain": 4,
-        "offset": -0.02,
-        "duck": 4
-      }
+      "snap": false
     },
     {
       "name": "special-bombs",
@@ -454,15 +430,8 @@
       },
       "in": 5.8,
       "length": 2.16,
-      "sound": 2,
-      "snap": false,
-      "duck": 4,
-      "sfx": {
-        "sound": "hit",
-        "gain": 4,
-        "offset": -0.02,
-        "duck": 4
-      }
+      "sound": 0,
+      "snap": false
     },
     {
       "name": "clear-drain",
@@ -475,18 +444,12 @@
       "in": 19.0,
       "length": 2.16,
       "sound": 0,
-      "snap": false,
-      "sfx": {
-        "sound": "hit",
-        "gain": 4,
-        "offset": -0.02,
-        "duck": 4
-      }
+      "snap": false
     },
     {
-      "name": "laser-loss",
+      "name": "net-loss",
       "capture": {
-        "level": "Giza",
+        "level": "Amphora",
         "from": 0,
         "aim": true,
         "hands": {
@@ -497,26 +460,36 @@
           ],
           "shots": [
             [
-              1.35,
-              24.265,
-              3.163
+              1.0,
+              22.0,
+              0.0
+            ],
+            [
+              3.72,
+              44.5,
+              0.0
             ]
           ],
-          "ease": 0.7,
-          "hold": 0.15
+          "ease": 0.6,
+          "hold": 0.2,
+          "rmb": [
+            3.0,
+            3.95
+          ]
         },
-        "gameArgs": "capturehudawards lasers lineloss=1.75"
+        "gameArgs": "capturehudawards lasers nodropcinematic turn=1.1:2.95:left"
       },
-      "in": 0.68,
-      "length": 2.7,
-      "sound": 3,
-      "duck": 9,
+      "in": 2.9,
+      "length": 3.78,
+      "sound": 4,
+      "duck": 12,
+      "duckFrom": 2.25,
       "snap": false,
       "sfx": {
-        "sound": "hit",
-        "gain": 4,
-        "offset": -0.02,
-        "duck": 4
+        "sound": "burn",
+        "gain": 0,
+        "offset": 2.35,
+        "length": 1.43
       }
     },
     {
@@ -525,11 +498,12 @@
         "levelFile": "Game/Levels/One.json",
         "scene": "meadow",
         "keepLevels": 5,
+        "minGroup": 2,
         "from": 1.3,
         "demo": false,
         "hud": false,
         "camPath": "Tools/trailer/paths/orbit.json",
-        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.75:9.4:right:0.34",
+        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.8:10:right:0.181",
         "hands": {
           "rest": [
             1.2,
@@ -538,52 +512,35 @@
           ],
           "shots": [
             [
-              1.857,
-              37.671,
-              -8.265
+              1.9,
+              33.518,
+              -4.298
             ],
             [
-              2.99,
-              30.785,
-              0.905
+              3.916,
+              30.771,
+              0.916
             ],
             [
-              4.02,
+              5.852,
               36.12,
-              -8.478
+              -8.477
             ],
             [
-              5.101,
-              37.263,
-              -4.955
-            ],
-            [
-              5.645,
-              38.249,
-              -2.242
-            ],
-            [
-              6.182,
-              38.432,
-              -2.027
+              6.935,
+              36.61,
+              -4.868
             ]
           ],
           "ease": 0.9,
           "hold": 0.1
         }
       },
-      "in": 0.0169,
+      "in": 0.234,
       "length": 1.08,
       "trim": false,
       "snap": false,
-      "sound": 0,
-      "duck": 2,
-      "sfx": {
-        "sound": "boom",
-        "gain": 2,
-        "offset": -0.02,
-        "duck": 4
-      }
+      "sound": 0
     },
     {
       "name": "worlds-01-neon",
@@ -591,11 +548,12 @@
         "levelFile": "Game/Levels/One.json",
         "scene": "neon",
         "keepLevels": 5,
+        "minGroup": 2,
         "from": 1.3,
         "demo": false,
         "hud": false,
         "camPath": "Tools/trailer/paths/orbit.json",
-        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.75:9.4:right:0.34",
+        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.8:10:right:0.181",
         "hands": {
           "rest": [
             1.2,
@@ -604,46 +562,35 @@
           ],
           "shots": [
             [
-              1.857,
-              37.671,
-              -8.265
+              1.9,
+              33.518,
+              -4.298
             ],
             [
-              2.99,
-              30.785,
-              0.905
+              3.916,
+              30.771,
+              0.916
             ],
             [
-              4.02,
+              5.852,
               36.12,
-              -8.478
+              -8.477
             ],
             [
-              5.101,
-              37.263,
-              -4.955
-            ],
-            [
-              5.645,
-              38.249,
-              -2.242
-            ],
-            [
-              6.182,
-              38.432,
-              -2.027
+              6.935,
+              36.61,
+              -4.868
             ]
           ],
           "ease": 0.9,
           "hold": 0.1
         }
       },
-      "in": 1.0969,
-      "length": 0.4726,
+      "in": 1.314,
+      "length": 0.4151,
       "trim": false,
       "snap": false,
       "sound": 0,
-      "duck": 2,
       "sfx": {
         "sound": "whoosh",
         "gain": -7,
@@ -658,11 +605,12 @@
         "levelFile": "Game/Levels/One.json",
         "scene": "desert",
         "keepLevels": 5,
+        "minGroup": 2,
         "from": 1.3,
         "demo": false,
         "hud": false,
         "camPath": "Tools/trailer/paths/orbit.json",
-        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.75:9.4:right:0.34",
+        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.8:10:right:0.181",
         "hands": {
           "rest": [
             1.2,
@@ -671,46 +619,35 @@
           ],
           "shots": [
             [
-              1.857,
-              37.671,
-              -8.265
+              1.9,
+              33.518,
+              -4.298
             ],
             [
-              2.99,
-              30.785,
-              0.905
+              3.916,
+              30.771,
+              0.916
             ],
             [
-              4.02,
+              5.852,
               36.12,
-              -8.478
+              -8.477
             ],
             [
-              5.101,
-              37.263,
-              -4.955
-            ],
-            [
-              5.645,
-              38.249,
-              -2.242
-            ],
-            [
-              6.182,
-              38.432,
-              -2.027
+              6.935,
+              36.61,
+              -4.868
             ]
           ],
           "ease": 0.9,
           "hold": 0.1
         }
       },
-      "in": 1.5695,
-      "length": 0.4591,
+      "in": 1.7291,
+      "length": 0.4048,
       "trim": false,
       "snap": false,
       "sound": 0,
-      "duck": 2,
       "sfx": {
         "sound": "whoosh",
         "gain": -7,
@@ -725,11 +662,12 @@
         "levelFile": "Game/Levels/One.json",
         "scene": "aurora",
         "keepLevels": 5,
+        "minGroup": 2,
         "from": 1.3,
         "demo": false,
         "hud": false,
         "camPath": "Tools/trailer/paths/orbit.json",
-        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.75:9.4:right:0.34",
+        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.8:10:right:0.181",
         "hands": {
           "rest": [
             1.2,
@@ -738,46 +676,35 @@
           ],
           "shots": [
             [
-              1.857,
-              37.671,
-              -8.265
+              1.9,
+              33.518,
+              -4.298
             ],
             [
-              2.99,
-              30.785,
-              0.905
+              3.916,
+              30.771,
+              0.916
             ],
             [
-              4.02,
+              5.852,
               36.12,
-              -8.478
+              -8.477
             ],
             [
-              5.101,
-              37.263,
-              -4.955
-            ],
-            [
-              5.645,
-              38.249,
-              -2.242
-            ],
-            [
-              6.182,
-              38.432,
-              -2.027
+              6.935,
+              36.61,
+              -4.868
             ]
           ],
           "ease": 0.9,
           "hold": 0.1
         }
       },
-      "in": 2.0286,
-      "length": 0.4456,
+      "in": 2.1339,
+      "length": 0.3944,
       "trim": false,
       "snap": false,
       "sound": 0,
-      "duck": 2,
       "sfx": {
         "sound": "whoosh",
         "gain": -7,
@@ -792,11 +719,12 @@
         "levelFile": "Game/Levels/One.json",
         "scene": "cavern",
         "keepLevels": 5,
+        "minGroup": 2,
         "from": 1.3,
         "demo": false,
         "hud": false,
         "camPath": "Tools/trailer/paths/orbit.json",
-        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.75:9.4:right:0.34",
+        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.8:10:right:0.181",
         "hands": {
           "rest": [
             1.2,
@@ -805,46 +733,35 @@
           ],
           "shots": [
             [
-              1.857,
-              37.671,
-              -8.265
+              1.9,
+              33.518,
+              -4.298
             ],
             [
-              2.99,
-              30.785,
-              0.905
+              3.916,
+              30.771,
+              0.916
             ],
             [
-              4.02,
+              5.852,
               36.12,
-              -8.478
+              -8.477
             ],
             [
-              5.101,
-              37.263,
-              -4.955
-            ],
-            [
-              5.645,
-              38.249,
-              -2.242
-            ],
-            [
-              6.182,
-              38.432,
-              -2.027
+              6.935,
+              36.61,
+              -4.868
             ]
           ],
           "ease": 0.9,
           "hold": 0.1
         }
       },
-      "in": 2.4742,
-      "length": 0.4321,
+      "in": 2.5283,
+      "length": 0.3841,
       "trim": false,
       "snap": false,
       "sound": 0,
-      "duck": 2,
       "sfx": {
         "sound": "whoosh",
         "gain": -7,
@@ -859,11 +776,12 @@
         "levelFile": "Game/Levels/One.json",
         "scene": "grid",
         "keepLevels": 5,
+        "minGroup": 2,
         "from": 1.3,
         "demo": false,
         "hud": false,
         "camPath": "Tools/trailer/paths/orbit.json",
-        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.75:9.4:right:0.34",
+        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.8:10:right:0.181",
         "hands": {
           "rest": [
             1.2,
@@ -872,46 +790,35 @@
           ],
           "shots": [
             [
-              1.857,
-              37.671,
-              -8.265
+              1.9,
+              33.518,
+              -4.298
             ],
             [
-              2.99,
-              30.785,
-              0.905
+              3.916,
+              30.771,
+              0.916
             ],
             [
-              4.02,
+              5.852,
               36.12,
-              -8.478
+              -8.477
             ],
             [
-              5.101,
-              37.263,
-              -4.955
-            ],
-            [
-              5.645,
-              38.249,
-              -2.242
-            ],
-            [
-              6.182,
-              38.432,
-              -2.027
+              6.935,
+              36.61,
+              -4.868
             ]
           ],
           "ease": 0.9,
           "hold": 0.1
         }
       },
-      "in": 2.9063,
-      "length": 0.4186,
+      "in": 2.9124,
+      "length": 0.3737,
       "trim": false,
       "snap": false,
       "sound": 0,
-      "duck": 2,
       "sfx": {
         "sound": "whoosh",
         "gain": -7,
@@ -926,11 +833,12 @@
         "levelFile": "Game/Levels/One.json",
         "scene": "volcano",
         "keepLevels": 5,
+        "minGroup": 2,
         "from": 1.3,
         "demo": false,
         "hud": false,
         "camPath": "Tools/trailer/paths/orbit.json",
-        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.75:9.4:right:0.34",
+        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.8:10:right:0.181",
         "hands": {
           "rest": [
             1.2,
@@ -939,46 +847,35 @@
           ],
           "shots": [
             [
-              1.857,
-              37.671,
-              -8.265
+              1.9,
+              33.518,
+              -4.298
             ],
             [
-              2.99,
-              30.785,
-              0.905
+              3.916,
+              30.771,
+              0.916
             ],
             [
-              4.02,
+              5.852,
               36.12,
-              -8.478
+              -8.477
             ],
             [
-              5.101,
-              37.263,
-              -4.955
-            ],
-            [
-              5.645,
-              38.249,
-              -2.242
-            ],
-            [
-              6.182,
-              38.432,
-              -2.027
+              6.935,
+              36.61,
+              -4.868
             ]
           ],
           "ease": 0.9,
           "hold": 0.1
         }
       },
-      "in": 3.3249,
-      "length": 0.4051,
+      "in": 3.2861,
+      "length": 0.3634,
       "trim": false,
       "snap": false,
       "sound": 0,
-      "duck": 2,
       "sfx": {
         "sound": "whoosh",
         "gain": -7,
@@ -993,11 +890,12 @@
         "levelFile": "Game/Levels/One.json",
         "scene": "space",
         "keepLevels": 5,
+        "minGroup": 2,
         "from": 1.3,
         "demo": false,
         "hud": false,
         "camPath": "Tools/trailer/paths/orbit.json",
-        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.75:9.4:right:0.34",
+        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.8:10:right:0.181",
         "hands": {
           "rest": [
             1.2,
@@ -1006,46 +904,35 @@
           ],
           "shots": [
             [
-              1.857,
-              37.671,
-              -8.265
+              1.9,
+              33.518,
+              -4.298
             ],
             [
-              2.99,
-              30.785,
-              0.905
+              3.916,
+              30.771,
+              0.916
             ],
             [
-              4.02,
+              5.852,
               36.12,
-              -8.478
+              -8.477
             ],
             [
-              5.101,
-              37.263,
-              -4.955
-            ],
-            [
-              5.645,
-              38.249,
-              -2.242
-            ],
-            [
-              6.182,
-              38.432,
-              -2.027
+              6.935,
+              36.61,
+              -4.868
             ]
           ],
           "ease": 0.9,
           "hold": 0.1
         }
       },
-      "in": 3.73,
-      "length": 0.3916,
+      "in": 3.6495,
+      "length": 0.3531,
       "trim": false,
       "snap": false,
       "sound": 0,
-      "duck": 2,
       "sfx": {
         "sound": "whoosh",
         "gain": -7,
@@ -1060,11 +947,12 @@
         "levelFile": "Game/Levels/One.json",
         "scene": "mountain",
         "keepLevels": 5,
+        "minGroup": 2,
         "from": 1.3,
         "demo": false,
         "hud": false,
         "camPath": "Tools/trailer/paths/orbit.json",
-        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.75:9.4:right:0.34",
+        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.8:10:right:0.181",
         "hands": {
           "rest": [
             1.2,
@@ -1073,46 +961,35 @@
           ],
           "shots": [
             [
-              1.857,
-              37.671,
-              -8.265
+              1.9,
+              33.518,
+              -4.298
             ],
             [
-              2.99,
-              30.785,
-              0.905
+              3.916,
+              30.771,
+              0.916
             ],
             [
-              4.02,
+              5.852,
               36.12,
-              -8.478
+              -8.477
             ],
             [
-              5.101,
-              37.263,
-              -4.955
-            ],
-            [
-              5.645,
-              38.249,
-              -2.242
-            ],
-            [
-              6.182,
-              38.432,
-              -2.027
+              6.935,
+              36.61,
+              -4.868
             ]
           ],
           "ease": 0.9,
           "hold": 0.1
         }
       },
-      "in": 4.1216,
-      "length": 0.3781,
+      "in": 4.0026,
+      "length": 0.3427,
       "trim": false,
       "snap": false,
       "sound": 0,
-      "duck": 2,
       "sfx": {
         "sound": "whoosh",
         "gain": -7,
@@ -1127,11 +1004,12 @@
         "levelFile": "Game/Levels/One.json",
         "scene": "circus",
         "keepLevels": 5,
+        "minGroup": 2,
         "from": 1.3,
         "demo": false,
         "hud": false,
         "camPath": "Tools/trailer/paths/orbit.json",
-        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.75:9.4:right:0.34",
+        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.8:10:right:0.181",
         "hands": {
           "rest": [
             1.2,
@@ -1140,46 +1018,35 @@
           ],
           "shots": [
             [
-              1.857,
-              37.671,
-              -8.265
+              1.9,
+              33.518,
+              -4.298
             ],
             [
-              2.99,
-              30.785,
-              0.905
+              3.916,
+              30.771,
+              0.916
             ],
             [
-              4.02,
+              5.852,
               36.12,
-              -8.478
+              -8.477
             ],
             [
-              5.101,
-              37.263,
-              -4.955
-            ],
-            [
-              5.645,
-              38.249,
-              -2.242
-            ],
-            [
-              6.182,
-              38.432,
-              -2.027
+              6.935,
+              36.61,
+              -4.868
             ]
           ],
           "ease": 0.9,
           "hold": 0.1
         }
       },
-      "in": 4.4997,
-      "length": 0.3645,
+      "in": 4.3453,
+      "length": 0.3324,
       "trim": false,
       "snap": false,
       "sound": 0,
-      "duck": 2,
       "sfx": {
         "sound": "whoosh",
         "gain": -7,
@@ -1194,11 +1061,12 @@
         "levelFile": "Game/Levels/One.json",
         "scene": "mars",
         "keepLevels": 5,
+        "minGroup": 2,
         "from": 1.3,
         "demo": false,
         "hud": false,
         "camPath": "Tools/trailer/paths/orbit.json",
-        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.75:9.4:right:0.34",
+        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.8:10:right:0.181",
         "hands": {
           "rest": [
             1.2,
@@ -1207,46 +1075,35 @@
           ],
           "shots": [
             [
-              1.857,
-              37.671,
-              -8.265
+              1.9,
+              33.518,
+              -4.298
             ],
             [
-              2.99,
-              30.785,
-              0.905
+              3.916,
+              30.771,
+              0.916
             ],
             [
-              4.02,
+              5.852,
               36.12,
-              -8.478
+              -8.477
             ],
             [
-              5.101,
-              37.263,
-              -4.955
-            ],
-            [
-              5.645,
-              38.249,
-              -2.242
-            ],
-            [
-              6.182,
-              38.432,
-              -2.027
+              6.935,
+              36.61,
+              -4.868
             ]
           ],
           "ease": 0.9,
           "hold": 0.1
         }
       },
-      "in": 4.8642,
-      "length": 0.351,
+      "in": 4.6777,
+      "length": 0.322,
       "trim": false,
       "snap": false,
       "sound": 0,
-      "duck": 2,
       "sfx": {
         "sound": "whoosh",
         "gain": -7,
@@ -1261,11 +1118,12 @@
         "levelFile": "Game/Levels/One.json",
         "scene": "polar",
         "keepLevels": 5,
+        "minGroup": 2,
         "from": 1.3,
         "demo": false,
         "hud": false,
         "camPath": "Tools/trailer/paths/orbit.json",
-        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.75:9.4:right:0.34",
+        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.8:10:right:0.181",
         "hands": {
           "rest": [
             1.2,
@@ -1274,46 +1132,35 @@
           ],
           "shots": [
             [
-              1.857,
-              37.671,
-              -8.265
+              1.9,
+              33.518,
+              -4.298
             ],
             [
-              2.99,
-              30.785,
-              0.905
+              3.916,
+              30.771,
+              0.916
             ],
             [
-              4.02,
+              5.852,
               36.12,
-              -8.478
+              -8.477
             ],
             [
-              5.101,
-              37.263,
-              -4.955
-            ],
-            [
-              5.645,
-              38.249,
-              -2.242
-            ],
-            [
-              6.182,
-              38.432,
-              -2.027
+              6.935,
+              36.61,
+              -4.868
             ]
           ],
           "ease": 0.9,
           "hold": 0.1
         }
       },
-      "in": 5.2152,
-      "length": 0.3375,
+      "in": 4.9997,
+      "length": 0.3117,
       "trim": false,
       "snap": false,
       "sound": 0,
-      "duck": 2,
       "sfx": {
         "sound": "whoosh",
         "gain": -7,
@@ -1328,11 +1175,12 @@
         "levelFile": "Game/Levels/One.json",
         "scene": "savanna",
         "keepLevels": 5,
+        "minGroup": 2,
         "from": 1.3,
         "demo": false,
         "hud": false,
         "camPath": "Tools/trailer/paths/orbit.json",
-        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.75:9.4:right:0.34",
+        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.8:10:right:0.181",
         "hands": {
           "rest": [
             1.2,
@@ -1341,46 +1189,35 @@
           ],
           "shots": [
             [
-              1.857,
-              37.671,
-              -8.265
+              1.9,
+              33.518,
+              -4.298
             ],
             [
-              2.99,
-              30.785,
-              0.905
+              3.916,
+              30.771,
+              0.916
             ],
             [
-              4.02,
+              5.852,
               36.12,
-              -8.478
+              -8.477
             ],
             [
-              5.101,
-              37.263,
-              -4.955
-            ],
-            [
-              5.645,
-              38.249,
-              -2.242
-            ],
-            [
-              6.182,
-              38.432,
-              -2.027
+              6.935,
+              36.61,
+              -4.868
             ]
           ],
           "ease": 0.9,
           "hold": 0.1
         }
       },
-      "in": 5.5527,
-      "length": 0.324,
+      "in": 5.3114,
+      "length": 0.3014,
       "trim": false,
       "snap": false,
       "sound": 0,
-      "duck": 2,
       "sfx": {
         "sound": "whoosh",
         "gain": -7,
@@ -1395,11 +1232,12 @@
         "levelFile": "Game/Levels/One.json",
         "scene": "moon",
         "keepLevels": 5,
+        "minGroup": 2,
         "from": 1.3,
         "demo": false,
         "hud": false,
         "camPath": "Tools/trailer/paths/orbit.json",
-        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.75:9.4:right:0.34",
+        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.8:10:right:0.181",
         "hands": {
           "rest": [
             1.2,
@@ -1408,46 +1246,35 @@
           ],
           "shots": [
             [
-              1.857,
-              37.671,
-              -8.265
+              1.9,
+              33.518,
+              -4.298
             ],
             [
-              2.99,
-              30.785,
-              0.905
+              3.916,
+              30.771,
+              0.916
             ],
             [
-              4.02,
+              5.852,
               36.12,
-              -8.478
+              -8.477
             ],
             [
-              5.101,
-              37.263,
-              -4.955
-            ],
-            [
-              5.645,
-              38.249,
-              -2.242
-            ],
-            [
-              6.182,
-              38.432,
-              -2.027
+              6.935,
+              36.61,
+              -4.868
             ]
           ],
           "ease": 0.9,
           "hold": 0.1
         }
       },
-      "in": 5.8767,
-      "length": 0.3105,
+      "in": 5.6128,
+      "length": 0.291,
       "trim": false,
       "snap": false,
       "sound": 0,
-      "duck": 2,
       "sfx": {
         "sound": "whoosh",
         "gain": -7,
@@ -1462,11 +1289,12 @@
         "levelFile": "Game/Levels/One.json",
         "scene": "tropical",
         "keepLevels": 5,
+        "minGroup": 2,
         "from": 1.3,
         "demo": false,
         "hud": false,
         "camPath": "Tools/trailer/paths/orbit.json",
-        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.75:9.4:right:0.34",
+        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.8:10:right:0.181",
         "hands": {
           "rest": [
             1.2,
@@ -1475,46 +1303,35 @@
           ],
           "shots": [
             [
-              1.857,
-              37.671,
-              -8.265
+              1.9,
+              33.518,
+              -4.298
             ],
             [
-              2.99,
-              30.785,
-              0.905
+              3.916,
+              30.771,
+              0.916
             ],
             [
-              4.02,
+              5.852,
               36.12,
-              -8.478
+              -8.477
             ],
             [
-              5.101,
-              37.263,
-              -4.955
-            ],
-            [
-              5.645,
-              38.249,
-              -2.242
-            ],
-            [
-              6.182,
-              38.432,
-              -2.027
+              6.935,
+              36.61,
+              -4.868
             ]
           ],
           "ease": 0.9,
           "hold": 0.1
         }
       },
-      "in": 6.1872,
-      "length": 0.297,
+      "in": 5.9038,
+      "length": 0.2807,
       "trim": false,
       "snap": false,
       "sound": 0,
-      "duck": 2,
       "sfx": {
         "sound": "whoosh",
         "gain": -7,
@@ -1529,11 +1346,12 @@
         "levelFile": "Game/Levels/One.json",
         "scene": "forest",
         "keepLevels": 5,
+        "minGroup": 2,
         "from": 1.3,
         "demo": false,
         "hud": false,
         "camPath": "Tools/trailer/paths/orbit.json",
-        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.75:9.4:right:0.34",
+        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.8:10:right:0.181",
         "hands": {
           "rest": [
             1.2,
@@ -1542,46 +1360,35 @@
           ],
           "shots": [
             [
-              1.857,
-              37.671,
-              -8.265
+              1.9,
+              33.518,
+              -4.298
             ],
             [
-              2.99,
-              30.785,
-              0.905
+              3.916,
+              30.771,
+              0.916
             ],
             [
-              4.02,
+              5.852,
               36.12,
-              -8.478
+              -8.477
             ],
             [
-              5.101,
-              37.263,
-              -4.955
-            ],
-            [
-              5.645,
-              38.249,
-              -2.242
-            ],
-            [
-              6.182,
-              38.432,
-              -2.027
+              6.935,
+              36.61,
+              -4.868
             ]
           ],
           "ease": 0.9,
           "hold": 0.1
         }
       },
-      "in": 6.4842,
-      "length": 0.2835,
+      "in": 6.1845,
+      "length": 0.2703,
       "trim": false,
       "snap": false,
       "sound": 0,
-      "duck": 2,
       "sfx": {
         "sound": "whoosh",
         "gain": -7,
@@ -1596,11 +1403,12 @@
         "levelFile": "Game/Levels/One.json",
         "scene": "outback",
         "keepLevels": 5,
+        "minGroup": 2,
         "from": 1.3,
         "demo": false,
         "hud": false,
         "camPath": "Tools/trailer/paths/orbit.json",
-        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.75:9.4:right:0.34",
+        "gameArgs": "nodropcinematic wind=0 skiptakeover=1 turn=1.8:10:right:0.181",
         "hands": {
           "rest": [
             1.2,
@@ -1609,46 +1417,35 @@
           ],
           "shots": [
             [
-              1.857,
-              37.671,
-              -8.265
+              1.9,
+              33.518,
+              -4.298
             ],
             [
-              2.99,
-              30.785,
-              0.905
+              3.916,
+              30.771,
+              0.916
             ],
             [
-              4.02,
+              5.852,
               36.12,
-              -8.478
+              -8.477
             ],
             [
-              5.101,
-              37.263,
-              -4.955
-            ],
-            [
-              5.645,
-              38.249,
-              -2.242
-            ],
-            [
-              6.182,
-              38.432,
-              -2.027
+              6.935,
+              36.61,
+              -4.868
             ]
           ],
           "ease": 0.9,
           "hold": 0.1
         }
       },
-      "in": 6.7677,
-      "length": 0.27,
+      "in": 6.4548,
+      "length": 0.26,
       "trim": false,
       "snap": false,
       "sound": 0,
-      "duck": 2,
       "sfx": {
         "sound": "whoosh",
         "gain": -7,
@@ -1696,7 +1493,7 @@
       "snap": false,
       "sfx": {
         "sound": "boom",
-        "gain": 3,
+        "gain": 2,
         "offset": -0.02,
         "duck": 4
       }
@@ -1711,12 +1508,11 @@
         ]
       ],
       "at": "segment:tour-desert",
-      "offset": 0.95,
-      "length": 1.6,
+      "offset": 0.15,
+      "length": 1.45,
       "y": 0.5,
-      "band": 0.35,
-      "fadeIn": 0.5,
-      "fadeOut": 0.5,
+      "fadeIn": 0.35,
+      "fadeOut": 0.4,
       "push": 0.04
     },
     {
@@ -1730,7 +1526,6 @@
       "offset": 0.1,
       "length": 1.45,
       "y": 0.42,
-      "band": 0.55,
       "fadeIn": 0.3,
       "fadeOut": 0.35,
       "push": 0.04
@@ -1751,7 +1546,6 @@
       "offset": 0.15,
       "length": 3.2,
       "y": 0.64,
-      "band": 0.5,
       "tracking": 0.12,
       "fadeIn": 0.1,
       "fadeOut": 0.4,
@@ -1761,7 +1555,7 @@
   "music": [
     {
       "file": "Tools/trailer/music/trailer-v3-action.ogg",
-      "from": 26.459,
+      "from": 27.259,
       "at": 0.0,
       "gain": 0,
       "loop": false,
@@ -1772,16 +1566,17 @@
     {
       "file": "Tools/trailer/music/trailer-v3-intro.ogg",
       "from": 3.0,
-      "at": 6.56,
+      "at": "segment:tour-desert",
       "gain": 0,
       "loop": false,
-      "switchFade": 0.45
+      "switchFade": 0.3
     },
     {
       "file": "Tools/trailer/music/trailer-v3-action.ogg",
       "from": 39.5,
-      "at": "segment:fish-start",
-      "gain": 0,
+      "at": "segment:action",
+      "atOffset": 1.0,
+      "gain": -2.5,
       "loop": false,
       "bpm": 111.1,
       "downbeat": 39.5
@@ -1790,9 +1585,10 @@
   "snap": false,
   "mix": {
     "music": -16.0,
-    "game": -20.0,
+    "game": -15.0,
     "sfx": -4,
-    "rms": -18.5
+    "rms": -18.5,
+    "sidechain": 3.0
   },
   "endFade": 1.5
 }
