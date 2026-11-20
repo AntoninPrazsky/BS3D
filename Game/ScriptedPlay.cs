@@ -51,7 +51,8 @@ namespace BS3D
     /// <item><c>walk=&lt;from&gt;:&lt;to&gt;[:in|out]</c> and <c>turn=&lt;from&gt;:&lt;to&gt;[:left|right]</c> — hold W (or S)
     /// and A (or D) across the interval, through the very calls the keys make. Written for the resize fault: a
     /// window resized mid-level re-solves the fit, and whether the player's walk and turn survive that could only be
-    /// shown with the gun actually walked and turned first. The defaults are <c>in</c> and <c>left</c>. While either holds
+    /// shown with the gun actually walked and turned first. The defaults are <c>in</c> and <c>left</c>. Several of each
+    /// accumulate (#1178: the trailer's player turns one way, fires, and turns back). While either holds
     /// a key, and half a second after, a <c>[gun]</c> line every tenth of a second says where the gun stands (bearing,
     /// radius, position) and where the lens is, so a run can show the walk and the orbit are continuous (#874).</item>
     /// <item><c>mbflip=&lt;seconds&gt;</c> — turns the motion blur off and on every that many seconds, printing an
@@ -84,8 +85,8 @@ namespace BS3D
         private int _nextCut;
         private float[] _skip;
         private int _nextSkip;
-        private float _walkFrom = float.NaN, _walkTo, _walkSign = 1f;
-        private float _turnFrom = float.NaN, _turnTo, _turnSign = 1f;
+        private readonly List<(float From, float To, float Sign)> _walks = new();
+        private readonly List<(float From, float To, float Sign)> _turns = new();
         private float _flipPeriod;
         private bool _flipReportedOff = true;
         private float _traceNext;
@@ -172,8 +173,7 @@ namespace BS3D
                 if (!TryHold(arg.Substring("walk=".Length), "in", "out", out float from, out float to, out float sign))
                     return false;
 
-                ScriptedPlay script = Current ??= new ScriptedPlay();
-                (script._walkFrom, script._walkTo, script._walkSign) = (from, to, sign);
+                (Current ??= new ScriptedPlay())._walks.Add((from, to, sign));
                 return true;
             }
 
@@ -182,8 +182,7 @@ namespace BS3D
                 if (!TryHold(arg.Substring("turn=".Length), "left", "right", out float from, out float to, out float sign))
                     return false;
 
-                ScriptedPlay script = Current ??= new ScriptedPlay();
-                (script._turnFrom, script._turnTo, script._turnSign) = (from, to, sign);
+                (Current ??= new ScriptedPlay())._turns.Add((from, to, sign));
                 return true;
             }
 
@@ -309,8 +308,8 @@ namespace BS3D
             + (float.IsNaN(_sweepFrom) ? "" : $"sweep {_sweepFrom:0.##}-{_sweepTo:0.##} s ±{_sweepAmplitude:0.#}° / {_sweepPeriod:0.##} s; ")
             + (float.IsNaN(_rmbFrom) ? "" : $"rmb {_rmbFrom:0.##}-{_rmbTo:0.##} s; ")
             + (_aims.Count == 0 ? "" : $"aim {string.Join(", ", _aims.ConvertAll(a => $"{a.Elevation:0.#}°/{a.Traverse:0.#}° from {a.At:0.##} s"))}; ")
-            + (float.IsNaN(_walkFrom) ? "" : $"walk {(_walkSign > 0f ? "in" : "out")} {_walkFrom:0.##}-{_walkTo:0.##} s; ")
-            + (float.IsNaN(_turnFrom) ? "" : $"turn {(_turnSign > 0f ? "left" : "right")} {_turnFrom:0.##}-{_turnTo:0.##} s; ")
+            + (_walks.Count == 0 ? "" : $"walk {string.Join(", ", _walks.ConvertAll(w => $"{(w.Sign > 0f ? "in" : "out")} {w.From:0.##}-{w.To:0.##} s"))}; ")
+            + (_turns.Count == 0 ? "" : $"turn {string.Join(", ", _turns.ConvertAll(t => $"{(t.Sign > 0f ? "left" : "right")} {t.From:0.##}-{t.To:0.##} s"))}; ")
             + (_padPresses.Count == 0 ? "" : $"{_padPresses.Count} pad press(es) from {_padPresses[0].From:0.##} s; ")
             + (_fire == null ? "" : $"fire at {string.Join(", ", Array.ConvertAll(_fire, t => t.ToString("0.##", CultureInfo.InvariantCulture)))} s");
 
@@ -355,9 +354,7 @@ namespace BS3D
         /// </summary>
         internal void TraceGun(float clock, Vector3 gun, float radius, Vector3 lens)
         {
-            bool walking = !float.IsNaN(_walkFrom) && clock >= _walkFrom && clock <= _walkTo + GUN_TRACE_TAIL;
-            bool turning = !float.IsNaN(_turnFrom) && clock >= _turnFrom && clock <= _turnTo + GUN_TRACE_TAIL;
-            if (!walking && !turning || clock < _traceNext) return;
+            if (clock < _traceNext || Held(_walks, clock, GUN_TRACE_TAIL) == 0f && Held(_turns, clock, GUN_TRACE_TAIL) == 0f) return;
 
             _traceNext = clock + GUN_TRACE_PERIOD;
 
@@ -366,11 +363,20 @@ namespace BS3D
                 $"[gun] {clock:0.00} s bearing {bearing:0.00} deg radius {radius:0.000} at ({gun.X:0.000}, {gun.Y:0.000}, {gun.Z:0.000}) lens ({lens.X:0.00}, {lens.Y:0.00}, {lens.Z:0.00})"));
         }
 
-        /// <summary>+1 while W is held by <c>walk=</c> at this instant, -1 for S, 0 outside its interval.</summary>
-        internal float Walk(float clock) => !float.IsNaN(_walkFrom) && clock >= _walkFrom && clock <= _walkTo ? _walkSign : 0f;
+        /// <summary>+1 while W is held by a <c>walk=</c> at this instant, -1 for S, 0 outside every interval.</summary>
+        internal float Walk(float clock) => Held(_walks, clock, 0f);
 
-        /// <summary>+1 while A is held by <c>turn=</c> at this instant, -1 for D, 0 outside its interval.</summary>
-        internal float Turn(float clock) => !float.IsNaN(_turnFrom) && clock >= _turnFrom && clock <= _turnTo ? _turnSign : 0f;
+        /// <summary>+1 while A is held by a <c>turn=</c> at this instant, -1 for D, 0 outside every interval.</summary>
+        internal float Turn(float clock) => Held(_turns, clock, 0f);
+
+        //The sign of the first of the holds whose interval (and the tail after it) the clock is in, 0 in none. A loop over a
+        //handful of intervals: no allocation, and nothing at all in a run without them
+        private static float Held(List<(float From, float To, float Sign)> holds, float clock, float tail)
+        {
+            for (int i = 0; i < holds.Count; i++)
+                if (clock >= holds[i].From && clock <= holds[i].To + tail) return holds[i].Sign;
+            return 0f;
+        }
 
         /// <summary>
         /// The pose <c>aim=</c> holds at this instant, in degrees - the latest one whose second has come - or false

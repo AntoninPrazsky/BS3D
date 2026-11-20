@@ -49,7 +49,8 @@ namespace BS3D
 
                 //The first frame the run films, and the two things a script against it needs: the clock and the step
                 string lens = _capture.Lens == null ? "the play camera" : $"a stated lens of {_capture.Lens.KeyCount} key(s)";
-                string action = _capture.Demo ? ", the benchmark's action" : string.Empty;
+                _captureDemoNoCuts = launch.CaptureDemoNoCuts;
+                string action = _capture.Demo ? (_captureDemoNoCuts ? ", the benchmark's action without its cuts" : ", the benchmark's action") : string.Empty;
                 string hud = (_capture.ShowHud ? ", the HUD of play" : string.Empty) + (_capture.Splash ? ", the 2D logo first" : string.Empty)
                     + (launch.CaptureAudio ? ", the game's sound recorded" : string.Empty);
                 string size = _capture.Size is Point film ? $", frames of {film.X}x{film.Y} shown in a {_windowedSize.X}x{_windowedSize.Y} window" : string.Empty;
@@ -107,6 +108,17 @@ namespace BS3D
 
         /// <summary>Whether the benchmark's action plays in this capture (<c>capturedemo</c>): the gun fires by itself.</summary>
         internal bool CaptureDemo => _capture is { Demo: true };
+
+        //"capturedemonocuts", read once as the capture begins
+        private bool _captureDemoNoCuts;
+
+        /// <summary>
+        /// Whether this capture's benchmark action leaves out its two cuts (<c>capturedemonocuts</c>, #1178): a run that looks for
+        /// shots a scripted hand will replay, from a gun a script walks round the island. A cutter aimed from where the gun
+        /// then stands into storeys the Cut may not strike is refused (#692), and the action waits on it and finds nothing more.
+        /// Never in the benchmark itself, which is no capture.
+        /// </summary>
+        internal bool CaptureDemoSkipsCuts => CaptureDemo && _captureDemoNoCuts;
 
         /// <summary>
         /// The capture's stated lens on this frame, or false for the play camera (a run that is not a capture, or one with no lens

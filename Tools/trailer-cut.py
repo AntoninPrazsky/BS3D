@@ -14,7 +14,8 @@ The edit file (JSON; a line starting with // is a comment) says, in order of the
     the trailer's own sound on its cut ("sfx": "hit", "boom" or "whoosh", made by synth_sfx);
   - "cards": text over the footage, at a time on the timeline: "lines", or "parts" of one line each shown at its "reveal";
   - "music": the tracks (Game/Music, or a path in the repository), each from an offset into its recording and at a time on the
-    timeline: each next track's time is a switch, where the one before stops ("switchFade") and the next comes in;
+    timeline: each next track's time is a switch, where the one before stops ("switchFade") and the next comes in (at once, or
+    over its "fadeIn");
   - "sfx": more of the trailer's own sounds, each at a stated time;
   - "snap": whether cuts after the last switch land on the last track's beats;
   - "mix": the music's, the game's and the trailer's own sounds' levels against each other.
@@ -651,6 +652,7 @@ def main():
     # ---- sound: the game's stem, the music, the mix
     samples = int(round(frames_total / fps * RATE))
     game = np.zeros((samples, 2), dtype=np.float32)
+    silent = []
     for segment in segments:
         if "capture" not in segment or segment.get("sound") is None:
             continue
@@ -660,6 +662,19 @@ def main():
         a = int(round(segment["_in"] * RATE))
         n = int(round(segment["length"] * RATE))
         piece = sound[a:a + n].copy()
+        # A clip filmed with no audio device has a silent audio.wav though its sounds.json lists what was played (the Game plays
+        # without sound then, #923; v5's six clips filmed at night, the desktop's outputs off, were all silent and nobody was
+        # told): say so, by the events inside the cut's window
+        if not np.any(np.abs(piece) > 1e-5):
+            events_path = os.path.join(footage[segment["name"]].folder, "sounds.json")
+            if os.path.exists(events_path):
+                with open(events_path, encoding="utf-8") as f:
+                    inside = [e["name"] for e in json.load(f).get("events", [])
+                              if segment["_in"] <= e.get("at", -1.0) < segment["_in"] + segment["length"]]
+                if inside:
+                    silent.append(segment["name"])
+                    print("WARNING: %s is silent though %d sound(s) were played in its window (%s...): filmed with no audio device? "
+                          "Film it again (--refilm, or delete its folder)" % (segment["name"], len(inside), ", ".join(inside[:3])))
         gain = 10 ** (segment["sound"] / 20.0)
         # Crossfades: in over this segment's overlap, out over the next one's
         index = segments.index(segment)
@@ -683,6 +698,11 @@ def main():
         tail = int(entry.get("switchFade", 0.04) * RATE) if i + 1 < len(tracks) else int(edit.get("endFade", 2.5) * RATE)
         if tail:
             piece[-tail:] *= np.linspace(1, 0, tail)[:, None]
+        # "fadeIn": the track swells in over that many seconds instead of starting at once (the owner on v5, of the opening)
+        head = min(len(piece), int(entry.get("fadeIn", 0.0) * RATE))
+        if head:
+            ramp = np.linspace(0.0, 1.0, head)
+            piece[:head] *= (ramp * ramp * (3 - 2 * ramp))[:, None]
         start = int(round(at * RATE))
         end = min(samples, start + len(piece))
         music[start:end] += piece[:end - start]
@@ -928,6 +948,7 @@ def main():
         "seconds": round(total, 3), "frames": frames_total, "levels": levels,
         "music": [{"file": f, "bpm": round(b, 2), "firstBeats": [round(x, 3) for x in g[:8]]} for f, b, g in grids],
         "snapped": [{"segment": n, "from": a, "to": b} for n, a, b in moved],
+        "silentClips": silent,
         "sfx": placed,
         "segments": [{"name": s["name"], "start": round(s["_start"], 3), "length": round(s["length"], 3), "in": s.get("in", 0.0),
                       "transition": s["_transition"], "overlap": s["_overlap"],

@@ -475,6 +475,10 @@ namespace BS3D
         //benchmark's lens circles it, unless a lens of the capture's own is stated
         internal bool CaptureDemo { get; private set; }
 
+        //"capturedemonocuts" (#1178): capturedemo, and its action without the two cuts - for a run that looks for shots a scripted
+        //hand will replay from a gun walked round the island (walk=, turn=), where a refused cutter stalls the action
+        internal bool CaptureDemoNoCuts { get; private set; }
+
         //"capturesize=<w>x<h>" (#1177): the frames' size, whatever the window's - the back buffer is made that size and the window
         //shows it scaled down (Capture.CaptureSize), so a 16:9 4K film comes out of a 21:9 panel or a laptop. Null: the window's.
         //Kept as written and read by CaptureRun.Create, which REFUSES a size it cannot take: a row that did not parse would only be
@@ -932,6 +936,7 @@ namespace BS3D
             Row.Flag("captureshake", o => o.CaptureShake = true),
             Row.Flag("captureaim", o => o.CaptureAim = true),
             Row.Flag("capturedemo", o => o.CaptureDemo = true),
+            Row.Flag("capturedemonocuts", o => { o.CaptureDemo = true; o.CaptureDemoNoCuts = true; }),
             //"capturesize=3840x2160" films at that size whatever the window is (#1177); "capturehud" keeps the HUD of play in the picture
             Row.Text("capturesize", (o, v) => o.CaptureSize = v),
             Row.Flag("capturehud", o => o.CaptureHud = true),

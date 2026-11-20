@@ -1779,10 +1779,14 @@ namespace BS3D.Screens
             //(TryBeginDropCinematic). It is usually the clearing shot's own drop, but not only: a second shot already in
             //the air can land during another shot's drop and empty the field (CheckLevelCleared is not gated by the
             //takeover), and then the hint goes part way through that drop - the level is over there too, which is the rule.
+            //Never in a capture run (#1178): nobody is there to skip a film, and the hint must not even rise unseen. The lone
+            //draw under a tour is held off below, but a hint risen behind it was drawn fading out with the HUD as the tour handed
+            //the gun over (the owner, of the trailer's first shot: it shows for a moment and vanishes), and a drop's with the HUD up
+            bool skippable = !Game.Capturing;
             if (_cinematic.Running)
-                _hud.UpdateSkipHint(elapsed, !LevelDecided, chapterIntro: false, _cinematic.Elapsed, float.MaxValue);
+                _hud.UpdateSkipHint(elapsed, skippable && !LevelDecided, chapterIntro: false, _cinematic.Elapsed, float.MaxValue);
             else
-                _hud.UpdateSkipHint(elapsed, _chapterIntro.Running, chapterIntro: true, _chapterIntro.Elapsed, _chapterIntro.Remaining);
+                _hud.UpdateSkipHint(elapsed, skippable && _chapterIntro.Running, chapterIntro: true, _chapterIntro.Elapsed, _chapterIntro.Remaining);
 
             //The tutorial's card (#189): the settings row read here every frame, a camera takeover hiding it, and
             //a decided level ending it. A lesson just done is answered the way a point scored is — the HUD's own
