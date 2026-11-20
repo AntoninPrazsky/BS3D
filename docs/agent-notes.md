@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-20 — #1221–#1224 poznámky majitele k lesu — desktop (RDT-PC), Claude Code
+
+- Hotovo: 2 odstavce poznámek → 4 issues, jen založeno: drobné listnaté stromky mezi smrky #1221, kmeny v barvě jehličí #1222, ploché kužely a kopule místo dalekých stromů na Ultra #1223, paty stromů a objektů bez přechodu k zemi #1224; všechny `priority-low` (les nemá kapitolu). Komentáře u #962 #1099 #983 #1166.
+- majitel (v chatu): potvrdil dvě změny dřívějších rozhodnutí z předchozí dávky: #1214 obrací #599 a #1220 mění pořadí z #975; zapsáno do #1214, #1220, #599 a #975.
+- ⚠ Příčiny: stromky jsou zmenšené kopie dospělého listnáče (měřítko 0,16–0,42, saplings jen na High a Ultra); stonek vzdálených špiček sdílí barvu koruny (jistě), kmen blízkého smrku je jen podle výpočtu blízko jehličí (nezměřeno); Ultra je tu totéž co High, nic nemění vzdálenosti. Snímek Ultra potvrdil malé listnáče, ploché kužely vzadu a tvrdou patu u kmenů.
+- ⚠ #1166 (lampy, větrná turbína) sahá do stejných souborů lesa; issues mu to hlásí. Otevřené: žádné `parked`.
+
 ## 2026-11-20 — #1209–#1220 poznámky majitele: kanon, editor, menu, kuličky, scény — desktop (RDT-PC), Claude Code
 
 - Hotovo: 11 poznámek → 12 issues, jen založeno (nic se nestavělo): editor UI #1209 a vykreslení #1210; dílna kanonu #1211 (`parked`, `owner-decision`); gumová kola a poklice #1212; kanon v menu stojí #1213; průlet nad skleněným stropem #1214; cena materiálů kuliček #1215 a jejich vzhled podle velikosti na obrazovce #1216; stopy brouka #1217; kopce v Tropical #1218 (`priority-low`); Dream #1219; sopka začíná řekou #1220. Komentáře u #990 #485 #1040 #541 #1186 #1113 #1126 #1127.
