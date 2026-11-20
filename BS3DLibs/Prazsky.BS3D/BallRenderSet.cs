@@ -1418,7 +1418,7 @@ namespace Prazsky.BS3D
                     GroundHeight = groundHeight,
 
                     //The forest's shaded lamps light the balls without their highlights (#1166): faint dots no pixel
-                    //shows, at a fifth of what the lamps cost on the cluster
+                    //shows, at a fifth of what the lamps cost in the instanced effect over a full field
                     SceneLampHighlight = 0f
                 };
 

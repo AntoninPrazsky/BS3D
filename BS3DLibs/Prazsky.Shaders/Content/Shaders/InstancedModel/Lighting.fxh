@@ -30,9 +30,10 @@ int SceneLightCount;
 //Whether a SHADED lamp (a negative range, SceneLamp.fxh: the forest's old lamps, #1166) puts its highlight on this
 //surface: 1 for everything (InstancedModelRenderer.SceneLampHighlight's default), 0 for the balls (BallRenderSet). Every
 //ball takes all five of the forest's lamps 40 to 55 units off, so their highlights are faint dots no pixel of the play
-//view showed by more than 7 levels of 255, and computing them was a fifth of what the lamps cost on the cluster; the
-//island's stone keeps them, its warm sheen under the lamps is their highlight. Every other scene light keeps its
-//highlight on every surface. A uniform on the slot's own sign, so a draw's pixels take one side.
+//view showed by more than 7 levels of 255, and computing them was a fifth of what the lamps cost in this effect over a
+//full field (docs/scenes/forest.md); the island's stone keeps them, its warm sheen under the lamps is their highlight.
+//Every other scene light keeps its highlight on every surface. A uniform and the slot's own sign, so a draw's pixels
+//all take one side of the branch.
 float SceneLampHighlight = 1;
 
 //Submerge fade for anything sinking below the sea (only pushed on the sea scene; SeaFadeDepth <= 0 disables

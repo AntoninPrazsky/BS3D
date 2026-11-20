@@ -23,7 +23,7 @@
 //above zero, which is zero on the shut side of a shaded lamp's soft cut. The falloff is computed once, before the second
 //branch, and the slot's lighting multiplies by it inside. The forest's five lamps each reach a sector of the wood and none
 //of the crowns over them, and without the branches every pixel of the wood paid for all five; the savanna's campfires,
-//out of reach of most of its plain, gave back about a third of a millisecond (docs/scenes/forest.md).
+//out of reach of most of its plain, give back about four tenths of a millisecond (docs/scenes/forest.md).
 
 static const float LAMP_RIM_GAIN = 5.0;
 static const float LAMP_RIM_SPILL = 0.45;
