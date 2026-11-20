@@ -209,11 +209,6 @@
               24.67,
               42.16,
               -5.817
-            ],
-            [
-              25.75,
-              31.566,
-              -3.255
             ]
           ],
           "ease": 0.3,
@@ -222,7 +217,7 @@
         "gameArgs": "capturehudawards nodropcinematic skiptakeover=22.70 turn=23.20:24.05:left"
       },
       "in": 4.05,
-      "length": 4.78,
+      "length": 3.7,
       "transition": "dissolve",
       "transitionSeconds": 0.5,
       "sound": 0,
@@ -430,7 +425,7 @@
       },
       "in": 5.8,
       "length": 2.16,
-      "sound": 0,
+      "sound": -3,
       "snap": false
     },
     {
@@ -443,7 +438,7 @@
       },
       "in": 19.0,
       "length": 2.16,
-      "sound": 0,
+      "sound": 6,
       "snap": false
     },
     {
@@ -479,16 +474,16 @@
         },
         "gameArgs": "capturehudawards lasers nodropcinematic turn=1.1:2.95:left"
       },
-      "in": 2.9,
-      "length": 3.78,
+      "in": 1.82,
+      "length": 4.86,
       "sound": 4,
       "duck": 12,
-      "duckFrom": 2.25,
+      "duckFrom": 3.33,
       "snap": false,
       "sfx": {
         "sound": "burn",
         "gain": 0,
-        "offset": 2.35,
+        "offset": 3.43,
         "length": 1.43
       }
     },
