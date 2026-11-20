@@ -378,7 +378,7 @@ namespace BS3D.Screens
                     //The Settings page's own list, from the one place both read it (#548, #868), set as Settings sets it (#1034):
                     //an aside's grey and the space under it, its labels in a column of their own
                     case AboutCopy.BlockKind.Privacy:
-                        Grid privacy = FactList(Game.Online.PrivacyList(), ProseMeasure, BS3DGame.MENU_TEXT_DIM);
+                        Grid privacy = FactList(Game.Online.PrivacyList(PhoneWords), ProseMeasure, BS3DGame.MENU_TEXT_DIM);
                         privacy.Margin = new Thickness(0, 0, 0, ParagraphGap);
                         body.Widgets.Add(privacy);
                         break;

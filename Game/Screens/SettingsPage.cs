@@ -1295,7 +1295,7 @@ namespace BS3D.Screens
         private void SizeOnlineNote(int pageWidth)
         {
             _onlineNote.Width = Math.Min(pageWidth, ProseMeasure);
-            _privacyList = FactList(Game.Online.PrivacyList(), pageWidth, BS3DGame.MENU_TEXT_DIM);
+            _privacyList = FactList(Game.Online.PrivacyList(PhoneWords), pageWidth, BS3DGame.MENU_TEXT_DIM);
             _noteArea.Widgets.Add(_privacyList);
 
             int tallest = Math.Max(ProseHeight(_onlineNote, TYPING_NOTE, REMOVED_HERE_NOTE, NO_SERVER_NOTE),
