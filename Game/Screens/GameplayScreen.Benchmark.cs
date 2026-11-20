@@ -183,7 +183,8 @@ namespace BS3D.Screens
             if (_demo.Age < _demoHoldUntil) return;
 
             //A cut at its second: a charge given and the round in the bore turned into a cutter, as R does
-            if (_demoCutsUsed < DEMO_CUTS.Length && _demo.Age >= DEMO_CUTS[_demoCutsUsed] && !_demoCutterLoaded)
+            //(not in a capture that asked for the action without them, capturedemonocuts - see BS3DGame.CaptureDemoSkipsCuts)
+            if (!Game.CaptureDemoSkipsCuts && _demoCutsUsed < DEMO_CUTS.Length && _demo.Age >= DEMO_CUTS[_demoCutsUsed] && !_demoCutterLoaded)
             {
                 _demoCutsUsed++;
                 _run.PowerupCharges[(int)PowerupKind.Cut]++;
