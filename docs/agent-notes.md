@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-20 — #1166 lesní lampy na sloupech a větrná elektrárna — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: pět starých lamp na dřevěných sloupech kolem lesního ostrova (poloměr 49, úvodní pohled mezi dvěma), stínítka nakloněná 25° k ostrovu; každá žárovka je skutečné bodové světlo (záporný dosah = jen pod stínítkem) v instancovaném efektu, Forest.fx i rostlinách. Jedna bliká. Na kopcích bílá větrná elektrárna (446) s točícím se rotorem a červeným W-rot světlem, vše funkcí hodin sceny. Smyčky přeskakují slot mimo dosah (SceneLightReaches): savana o 0,39 ms rychlejší. Cena: hra 10,54 -> 11,41 ms, menu 10,81 -> 11,97.
+- ⚠ Bez zvýraznění lamp je kámen ostrova zase studený; jeho teplý lesk je právě ten highlight. Kde sloup nemá místo, kácí se okolní stromy (ForestScatter.Fell).
+- Otevřené: verdict-eye; nejdražší vteřina menu nad lesem 13,3-13,4 ms = přesně limit #1103 (rovná stínítka by vrátila ~12,8, ale bez světla na shluku). Rotor, maják a blikání v pohybu neviděny.
+
 ## 2026-11-19 — #1169 #1170 plošiny bez blikání, maják a lodě blíž — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: #1169 blikání plošin opraveno geometrií, bez depth bias (spodní moduly už nekončí v rovinách horní paluby, lampy, heliport a nohy odsazené). Na High/Ultra se plošina blíž než 300 kreslí jemnou sítí (10 492 trojúhelníků: kulaté nohy, příhradová věž, jeřáb, flérka, osmiboký heliport s nápisy v Rig.fx, záchranné čluny); hrubá síť má 624 trojúhelníků. Cena: +1,3 ms v nejbližším záběru úvodu (3840x1600). #1170: maják na 400, jachta 450, loď 520 (rychlost 10); Sea.fx tlumí jen posun hladiny mezi 260 a 360, světlo vody beze změny.
