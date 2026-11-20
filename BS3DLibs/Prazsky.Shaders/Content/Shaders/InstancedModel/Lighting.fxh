@@ -136,16 +136,27 @@ void AddSceneLights(float3 worldPosition, float3 worldNormal, float3 eyeVector, 
     {
         float3 toLight = SceneLightPosition[i] - worldPosition;
         float dist = length(toLight);
-        float3 L = toLight / max(dist, 1e-4);
 
-        //Smooth distance falloff to the light's range (quadratic, so it fades gently and dies at the edge), and nothing
-        //above a shaded lamp's rim (SceneLamp.fxh)
-        float atten = SceneLightFalloff(toLight, dist, SceneLightRange[i]);
+        //Only where the light adds anything (SceneLamp.fxh): past its range, or above a shaded lamp's rim, the falloff
+        //below is exactly zero, and a pixel there skips the rest of the slot
+        [branch] if (SceneLightReaches(toLight, dist, SceneLightRange[i]))
+        {
+            float3 L = toLight / max(dist, 1e-4);
 
-        diffuse += SceneLightColor[i] * (saturate(dot(worldNormal, L)) * atten);
+            //Smooth distance falloff to the light's range (quadratic, so it fades gently and dies at the edge), and
+            //nothing above a shaded lamp's rim (SceneLamp.fxh)
+            float atten = SceneLightFalloff(toLight, dist, SceneLightRange[i]);
 
-        float dotH = saturate(dot(worldNormal, normalize(L + eyeVector)));
-        specular += SceneLightColor[i] * (pow(dotH, SpecularPower) * atten);
+            diffuse += SceneLightColor[i] * (saturate(dot(worldNormal, L)) * atten);
+
+            //A shaded lamp (a negative range, SceneLamp.fxh) lights by its pool and puts no highlight: under its shade the
+            //bulb is a small hot spot a long way off, and its glint cost as much again as its light on every lit pixel
+            [branch] if (SceneLightRange[i] > 0.0)
+            {
+                float dotH = saturate(dot(worldNormal, normalize(L + eyeVector)));
+                specular += SceneLightColor[i] * (pow(dotH, SpecularPower) * atten);
+            }
+        }
     }
 }
 

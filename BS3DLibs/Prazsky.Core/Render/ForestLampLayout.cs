@@ -10,8 +10,8 @@ namespace Prazsky.Core.Render
     /// wooden poles, and somewhere farther off a wind turbine, so it can be explained where the electricity comes from." So
     /// <see cref="COUNT"/> old lamps on weathered wooden poles stand round the island at the clearing's edge, each an enamel
     /// shade on a gooseneck arm reaching towards the island with one warm bulb under it, and each bulb is a real point light
-    /// (<see cref="SceneLights"/>' forest branch, the floor's and the plant material's own loops), so the stone, the cluster,
-    /// the gun, the trees nearest the clearing and the ground under every pole take its light. Device-free: the backdrop, the
+    /// (<see cref="SceneLights"/>' forest branch, the floor's and the plant material's own loops), so the island's stone, the
+    /// gun, the trees nearest the clearing and the ground under every pole take its light. Device-free: the backdrop, the
     /// hosts' <see cref="ForestLamps"/>, <see cref="SceneLights"/> and the tests all read this one copy.
     /// <para>
     /// <b>Outside every lens that plays</b>: the ring stands at <see cref="RING_RADIUS"/>, past the farthest the play lens
@@ -58,7 +58,7 @@ namespace Prazsky.Core.Render
         public const float OpenGroundRadius = RING_RADIUS - RING_GIVE - ARM_REACH - SHADE_RADIUS;
 
         /// <summary>The pole's length from its foot (sunk <see cref="SINK"/> into the ground) to its top: about 9 m, so the bulbs
-        /// hang over the cluster's lower half and light it from under their shades.</summary>
+        /// hang high over the island's stone and light it from under their shades.</summary>
         public const float POLE_LENGTH = 19f;
 
         /// <summary>How deep a pole's foot is sunk, before its own <see cref="Lamp.Sink"/>: the floor is lumpy and the ground
@@ -88,8 +88,11 @@ namespace Prazsky.Core.Render
         public const float BULB_RADIUS = 0.13f;
 
         /// <summary>
-        /// Where a lamp's light has fallen to nothing (<c>saturate(1 - d / range)^2</c>): far enough to reach the island's far
-        /// rim from the far side of the ring, so every lamp lights the whole stone and the cluster over it, the nearest rim most.
+        /// Where a lamp's light has fallen to nothing (<c>saturate(1 - d / range)^2</c>): far enough to reach most of the island
+        /// from the far side of the ring, so every lamp lights the stone, the nearest rim most. ⚠ Every lit pixel pays for every
+        /// lamp that reaches it (the loops skip the rest, <c>SceneLamp.fxh</c>), and at Ultra's supersampled frame the island
+        /// the front end flies over is millions of them: a shorter reach is a cheaper frame, and at 50 the stone's top went back
+        /// to nearly the dark it had without the lamps.
         /// </summary>
         public const float RANGE = 60f;
 

@@ -614,9 +614,12 @@ float4 AcaciaShade(AcaciaVertexOutput input, bool front, bool stone, bool barkRe
     {
         float3 toL = SceneLightPosition[i] - input.WorldPosition;
         float dist = length(toL);
-        float facing = dot(N, toL / max(dist, 1e-4));
-        float lit = lerp(saturate(facing), saturate((facing + LEAF_WRAP) / (1.0 + LEAF_WRAP)), leaf);
-        color += albedo * SceneLightColor[i] * (lit * SceneLightFalloff(toL, dist, SceneLightRange[i]));
+        [branch] if (SceneLightReaches(toL, dist, SceneLightRange[i]))
+        {
+            float facing = dot(N, toL / max(dist, 1e-4));
+            float lit = lerp(saturate(facing), saturate((facing + LEAF_WRAP) / (1.0 + LEAF_WRAP)), leaf);
+            color += albedo * SceneLightColor[i] * (lit * SceneLightFalloff(toL, dist, SceneLightRange[i]));
+        }
     }
 
     //The sun THROUGH the leaves (#610): strongest looking straight towards the sun, yellow-green, and only where

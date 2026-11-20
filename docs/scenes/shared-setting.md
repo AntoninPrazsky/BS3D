@@ -7,7 +7,7 @@ Everything that stands in every scene is one copy in the libraries (#75), becaus
 ## What is shared
 
 - `Prazsky.Core.Render.ArenaIsland`: stone cap, concrete drum, glass drain with its gold rims, the dark pit shaft, with every mesh, texture, renderer, matrix and figure ([The island](island.md), [The drain funnel](drain.md)).
-- `CeilingPlate` (the glass a cluster hangs from) and `CeilingRigging` (the cables and winches it hangs by, #896); `SkyLightRig` (dome-derived light rig, `SKY_TINT_STRENGTH`, overcast palette); `SceneLights` (a scene's point lights); `FunnelPhysics`; `CloudField`'s look values; `ForestScatterRenderer` (the forest's wood: "The forest" in `docs/scenes.md`).
+- `CeilingPlate` (the glass a cluster hangs from) and `CeilingRigging` (the cables and winches it hangs by, #896); `SkyLightRig` (dome-derived light rig, `SKY_TINT_STRENGTH`, overcast palette); `SceneLights` (a scene's point lights); `FunnelPhysics`; `CloudField`'s look values; `ForestScatterRenderer` (the forest's wood: "The forest" in `docs/scenes.md`) and `ForestLamps` (its lamps round the island, #1166).
 - Every question about a `SceneKind` (`IsSolidTerrainScene`, `OpenBelow`, `SceneCount`, `NextScene`, `SceneName`, `TryParseScene`) is a static on `SceneRenderer`, answered from `SceneCatalog` ([Backdrops and the registry](backdrop-architecture.md)).
 
 ## What stays with each executable

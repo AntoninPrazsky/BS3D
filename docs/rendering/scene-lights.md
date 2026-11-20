@@ -6,8 +6,9 @@ A scene can carry **real point lights under every sky dome** (not emissive surfa
 
 ## Mechanism
 
-- `InstancedModel.fx` (`AddSceneLights`, in `ShadePixel`) and `Savanna.fx` loop over `SceneLight{Position,Color,Range}[MAX_SCENE_LIGHTS]` and `SceneLightCount`: Blinn-Phong with a quadratic falloff over sun and sky; colours are linear radiance over 1.
-- `Prazsky.Core.Render.SceneLights` is the C# half for every executable; it pushes onto the **shared** instanced effect, so one push reaches balls, island, drain, gun and city. ⚠ **`SceneLights.MaxLights` (8) must equal `MAX_SCENE_LIGHTS` in both shaders**: raising it only here writes past the shader loop.
+- `InstancedModel.fx` (`AddSceneLights`, in `ShadePixel`) and `Savanna.fx` loop over `SceneLight{Position,Color,Range}[MAX_SCENE_LIGHTS]` and `SceneLightCount`: Blinn-Phong with a quadratic falloff over sun and sky; colours are linear radiance over 1. The forest's floor (`Forest.fx`, `ForestLampLight`) and the plant material (`Acacia.fx`) carry the same loop for the forest's lamps, Lambert (wrapped round a leaf on the plants).
+- **One falloff for every loop that may hold a shaded lamp** (`SceneLamp.fxh`: the instanced effect's, the forest floor's, the plant material's): `saturate(1 - d / range)^2`, and a **negative range** marks a lamp under a shade, lit only below its rim (the forest's, #1166). Each of those loops walks a slot behind `SceneLightReaches`, a `[branch]` on exactly where the falloff is zero (past the range, above a shade's cut), so a pixel out of a light's reach skips the rest of its slot and no pixel moves. `Savanna.fx` keeps its own copy, its fires unshaded.
+- `Prazsky.Core.Render.SceneLights` is the C# half for every executable; it pushes onto the **shared** instanced effect, so one push reaches balls, island, drain, gun and city. ⚠ **`SceneLights.MaxLights` (8) must equal `MAX_SCENE_LIGHTS` in every shader that declares it** (`Lighting.fxh`, `Savanna.fx`, `Forest.fx`, `Acacia.fx`): raising it only here writes past the shader loop.
 - The savanna grass is separate: `SavannaBackdrop.DrawSavanna` writes the same uniform names on its own effect, one slot per fire (`SavannaCampfireCount`), sharing the campfire itself so grass and balls stay in step.
 
 ## The lights
@@ -19,7 +20,8 @@ A scene can carry **real point lights under every sky dome** (not emissive surfa
 - **The storm's lightning** (`TryGetStormFlash`): a lamp far below the island on the planetshine's recipe, alight only for the fraction of a second a strike lasts (no slot between strikes). It is the one channel that reaches the play camera, the deck that throws the flash being below the island's own occluding line.
 - **The cavern** (`CavernArenaLights`, #958): the crystal clusters within 130 units of the axis, four at most, on the same breath their prisms glow on, so the island and the cluster stand in the hall's cyan and magenta.
 - **The big top** (`CircusLightCount`, `CircusBackdrop.FOOTLIGHT_COUNT`/`POOL_COUNT`): footlights on the curb that light the island's drum, then the pools the three island spots throw on its cap, up to `MaxLights`.
-- **No scene-light loop** in the sea, desert, mountains, meadow, forest and volcano terrain shaders (the volcano's lava is emissive and its lamps exist for everything that is *not* the ground).
+- **The forest's lamps** (`SceneRenderer.ForestLampLights`, `ForestLampLayout`, #1166): five old lamps on wooden poles round the island, shaded (negative range), on the clock their bulbs glow on. The backdrop states the same lights on its floor and on the plant material itself, from the same layout, so the pool on the ground and the light on the stone are one light. "The lamps round the island and the wind turbine" in [The forest](../scenes/forest.md).
+- **No scene-light loop** in the sea, desert, mountains, meadow and volcano terrain shaders (the volcano's lava is emissive and its lamps exist for everything that is *not* the ground).
 - Adding a light is a slot in `SceneLights.Apply` plus a loop in any shader that should catch it. The `Apply` guards are mutually exclusive by construction, so their order is an order, not a precedence: **a further branch must not rely on being tested last**.
 
 ## A blast's flash (#389)
