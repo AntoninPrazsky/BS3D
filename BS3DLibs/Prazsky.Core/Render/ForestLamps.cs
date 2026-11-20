@@ -23,6 +23,11 @@ namespace Prazsky.Core.Render
     /// carried far over the glare threshold, so the bloom makes its halo, at the lamp's own
     /// <see cref="ForestLampLayout.Brightness"/> on the scene's clock, so the old lamp's glass stutters with its light.
     /// </para>
+    /// <para>
+    /// <b>The lining glows in its own bulb's light</b> (<see cref="LINING_FACING"/>): the lamp's light is cut at the rim, and
+    /// every point of the lining stands on the shut side of it, so the loops give it none; drawn one lamp at a time, it takes
+    /// what the bulb would put on it as an emissive tint, and stutters with the old lamp.
+    /// </para>
     /// </summary>
     public sealed class ForestLamps : IDisposable
     {
@@ -39,8 +44,13 @@ namespace Prazsky.Core.Render
         //The wood's tiling of the bark texture, a pole's grain running up it (the wood's TRUNK_BARK_SPAN)
         private const float WOOD_SPAN = 2.2f;
 
+        /// <summary>How squarely the bulb's light meets the lining on the average (the cosine, with the falloff over the half
+        /// unit between them): about 0.8 at the cone's middle, 0.55 at the rim. The lining's glow is the lamp's light times
+        /// <see cref="ENAMEL"/> times this, what the light loops would have put on it without the rim's cut.</summary>
+        private const float LINING_FACING = 0.7f;
+
         private readonly UploadedMesh[] _meshes;
-        private readonly InstancedModelRenderer _wood, _iron, _lining, _bulb;
+        private readonly InstancedModelRenderer _wood, _iron, _lining, _glaze, _bulb;
         private readonly SurfaceTexture _bark;
         private readonly BasicEffectParams _woodParams, _ironParams, _liningParams, _bulbParams;
         private readonly Vector3 _woodTint, _ironTint, _liningTint;
@@ -61,7 +71,8 @@ namespace Prazsky.Core.Render
             _meshes = new[]
             {
                 Upload(device, ForestLampMeshes.Wood()), Upload(device, ForestLampMeshes.Iron()),
-                Upload(device, ForestLampMeshes.Lining()), Upload(device, ForestLampMeshes.Bulb()),
+                Upload(device, ForestLampMeshes.Lining()), Upload(device, ForestLampMeshes.Insulators()),
+                Upload(device, ForestLampMeshes.Bulb()),
             };
 
             _bark = SurfaceTexture.Bark(device);
@@ -78,8 +89,9 @@ namespace Prazsky.Core.Render
             };
             _iron = new InstancedModelRenderer(device, _meshes[1], MATERIAL_DIFFUSE, instancingEffect) { SpecularAmbientStrength = 0.35f };
             _lining = new InstancedModelRenderer(device, _meshes[2], MATERIAL_DIFFUSE, instancingEffect) { SpecularAmbientStrength = 0.3f };
-            _bulb = new InstancedModelRenderer(device, _meshes[3], Vector3.Zero, instancingEffect);
-            Renderers = new[] { _wood, _iron, _lining };
+            _glaze = new InstancedModelRenderer(device, _meshes[3], MATERIAL_DIFFUSE, instancingEffect) { SpecularAmbientStrength = 0.3f };
+            _bulb = new InstancedModelRenderer(device, _meshes[4], Vector3.Zero, instancingEffect);
+            Renderers = new[] { _wood, _iron, _lining, _glaze };
 
             Vector3 ambient = Vector3.One * sceneAmbientIntensity;
             _woodParams = new BasicEffectParams(ambient, new Vector3(0.05f, 0.045f, 0.04f), 10f, Vector3.Zero);
@@ -110,8 +122,8 @@ namespace Prazsky.Core.Render
             return new UploadedMesh(device, vertices, indices, new BoundingSphere(centre, (max - centre).Length()));
         }
 
-        /// <summary>The renderers a host enrols in its sky-lit list: the pole, the ironwork and the lining (the bulb is black
-        /// and lit by nothing). An array, as <see cref="ForestScatterRenderer.Renderers"/> is: a host that refills its list every
+        /// <summary>The renderers a host enrols in its sky-lit list: the pole, the ironwork, the lining and the insulators (the
+        /// bulb is black and lit by nothing). An array, as <see cref="ForestScatterRenderer.Renderers"/> is: a host that refills its list every
         /// frame walks it without boxing an enumerator.</summary>
         public InstancedModelRenderer[] Renderers { get; }
 
@@ -128,13 +140,16 @@ namespace Prazsky.Core.Render
             int count = _instances.Length;
             _wood.Draw(camera, _instances, count, _woodParams, _woodTint);
             _iron.Draw(camera, _instances, count, _ironParams, _ironTint);
-            _lining.Draw(camera, _instances, count, _liningParams, _liningTint);
+            _glaze.Draw(camera, _instances, count, _liningParams, _liningTint);
 
-            //Each bulb at its own brightness: one draw a lamp
+            //Each bulb and its lining at the lamp's own brightness: two draws a lamp
             for (int i = 0; i < count; i++)
             {
-                _bulb.EmissiveTint = ForestLampLayout.LightColour(i, wallClock) * (ForestLampLayout.GLOW / ForestLampLayout.COLOUR.Y);
+                Vector3 light = ForestLampLayout.LightColour(i, wallClock);
                 _one[0] = _instances[i];
+                _lining.EmissiveTint = light * ENAMEL * LINING_FACING;
+                _lining.Draw(camera, _one, 1, _liningParams, _liningTint);
+                _bulb.EmissiveTint = light * (ForestLampLayout.GLOW / ForestLampLayout.COLOUR.Y);
                 _bulb.Draw(camera, _one, 1, _bulbParams);
             }
         }
@@ -152,6 +167,7 @@ namespace Prazsky.Core.Render
             _wood?.Dispose();
             _iron?.Dispose();
             _lining?.Dispose();
+            _glaze?.Dispose();
             _bulb?.Dispose();
             _bark?.Dispose();
             foreach (UploadedMesh mesh in _meshes) mesh?.Dispose();

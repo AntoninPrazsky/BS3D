@@ -105,11 +105,10 @@ namespace BS3D.Effects
             Columns(ground, scatter.Rocks, forest.Rocks.Radius * 2f, forest.Rocks.Radius * 1.3f);
             Columns(ground, scatter.Stumps, 2f, 1.5f);
 
-            //The lamps' poles, each as wide as its arm reaches (#1166), and the turbine as wide as its rotor
+            //The lamps' poles, each as wide as its arm and its tipped shade reach (#1166), and the turbine as wide as its rotor
             if (lamps != null)
                 foreach (ForestLampLayout.Lamp lamp in lamps.Lamps)
-                    ground.Add(lamp.Foot, lamp.Foot + Vector3.Up * ForestLampLayout.POLE_LENGTH,
-                        ForestLampLayout.ARM_REACH + ForestLampLayout.SHADE_RADIUS);
+                    ground.Add(lamp.Foot, lamp.Foot + Vector3.Up * ForestLampLayout.POLE_LENGTH, ForestLampLayout.SHADE_REACH);
             Matrix turbine = ForestTurbineLayout.World(forest);
             ground.Add(turbine.Translation, Vector3.Transform(ForestTurbineLayout.HUB + Vector3.Up * ForestTurbineLayout.ROTOR_RADIUS, turbine),
                 ForestTurbineLayout.ROTOR_RADIUS + MathF.Abs(ForestTurbineLayout.HUB.Z) + MARGIN);

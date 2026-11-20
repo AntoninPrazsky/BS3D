@@ -11,9 +11,11 @@ namespace Prazsky.Core.Render
     /// bend, so nothing has an open end (<c>WindingCheck --openness</c>).
     /// <para>
     /// A lamp is built in its pole's frame (<see cref="ForestLampLayout"/>: the foot at the origin, up +Y, the arm towards -Z),
-    /// in four materials: the pole's weathered wood; the iron (the gooseneck arm and its brace, the cap on the pole's top, the
+    /// in five pieces: the pole's weathered wood; the iron (the gooseneck arm and its brace, the cap on the pole's top, the
     /// conduit running down the pole's back to the ground and its junction box, the socket and the shade's enamelled shell);
-    /// the shade's white enamel lining; and the bulb. The references (<c>C:\Users\panrd\AI\sd\out\1166-*</c>) draw old rural
+    /// the shade's white enamel lining; the crossarm's insulators, of the same glaze; and the bulb. The shade, its lining, its
+    /// socket and the bulb are built hanging and tipped towards the island about the collar
+    /// (<see cref="ForestLampLayout.SHADE_TURN"/>). The references (<c>C:\Users\panrd\AI\sd\out\1166-*</c>) draw old rural
     /// lamps this way: a cone shade on a curved arm, the wire running down the pole.
     /// </para>
     /// <para>
@@ -26,10 +28,14 @@ namespace Prazsky.Core.Render
     {
         private const int POLE_SIDES = 10, PIPE_SIDES = 8, SHADE_SIDES = 18;
 
-        //The shade's frame: its rim's plane, under the arm's end; and its profile's scale
+        //The shade's frame: its rim's plane, under the arm's end, before the shade is tipped towards the island about its
+        //collar (ForestLampLayout.SHADE_TURN); and its profile's scale
         private static readonly Vector3 SHADE = new(0f, ForestLampLayout.POLE_LENGTH - ForestLampLayout.SHADE_DROP, -ForestLampLayout.ARM_REACH);
         private const float K = ForestLampLayout.SHADE_SCALE;
-        private static Matrix ShadePlacement => Matrix.CreateScale(K) * Matrix.CreateTranslation(SHADE);
+        private static Matrix ShadePlacement => Matrix.CreateScale(K) * Matrix.CreateTranslation(SHADE) * ForestLampLayout.SHADE_TURN;
+
+        //A point of the hanging shade's frame (SHADE plus an offset), tipped with it
+        private static Vector3 Tipped(Vector3 offset) => Vector3.Transform(SHADE + offset, ForestLampLayout.SHADE_TURN);
 
         //The shade's enamelled shell, its profile from the axis at the top of the collar round the rim and back in under the
         //lining (LatheMesh's rule: top, outside, underside); and the lining, a thin cone just under the shell's inside
@@ -82,11 +88,12 @@ namespace Prazsky.Core.Render
                 new LathePoint(0f, L - 0.08f),
             }, POLE_SIDES, Matrix.Identity, Vector2.Zero);
 
-            //The gooseneck: out of the pole, rising a little, over and down into the shade's collar
+            //The gooseneck: out of the pole, rising a little, over and down into the shade's collar (the pivot the shade is
+            //tipped about), its last leg tipped with the shade
             Pipe(iron, 0.06f, new Vector3[]
             {
                 new(0f, L - 1.10f, 0f), new(0f, L - 1.10f, -0.55f), new(0f, L - 0.98f, -1.25f), new(0f, L - 1.02f, -1.85f),
-                new(0f, L - 1.12f, -2.17f), SHADE + new Vector3(0f, 0.52f * K, 0f), SHADE + new Vector3(0f, 0.40f * K, 0f),
+                new(0f, L - 1.12f, -2.17f), ForestLampLayout.SHADE_PIVOT, Tipped(new Vector3(0f, 0.40f * K, 0f)),
             });
 
             //Its brace, from lower down the pole up under the arm
@@ -119,17 +126,24 @@ namespace Prazsky.Core.Render
             }
 
             //The socket under the shade's crown, and the shell
-            Pipe(iron, 0.07f, new[] { SHADE + new Vector3(0f, 0.32f * K, 0f), SHADE + new Vector3(0f, 0.20f * K, 0f) });
+            Pipe(iron, 0.07f, new[] { Tipped(new Vector3(0f, 0.32f * K, 0f)), Tipped(new Vector3(0f, 0.20f * K, 0f)) });
             iron.AddLathe(SHADE_PROFILE, SHADE_SIDES, ShadePlacement, Vector2.Zero);
             return iron;
         }
 
-        /// <summary>The shade's white enamel lining, which the bulb lights, and the crossarm's two porcelain insulators, of the
-        /// same white glaze.</summary>
+        /// <summary>The shade's white enamel lining, which the bulb lights (<see cref="ForestLamps"/> draws it glowing in each
+        /// lamp's own light).</summary>
         public static MeshBuilder Lining()
         {
             var lining = new MeshBuilder();
             lining.AddLathe(LINING_PROFILE, SHADE_SIDES, ShadePlacement, Vector2.Zero);
+            return lining;
+        }
+
+        /// <summary>The crossarm's two porcelain insulators, of the lining's white glaze.</summary>
+        public static MeshBuilder Insulators()
+        {
+            var glaze = new MeshBuilder();
 
             //A pin insulator: two sheds over a waist, its top grooved for a line no longer there
             LathePoint[] insulator =
@@ -139,11 +153,11 @@ namespace Prazsky.Core.Render
                 new(0f, 0.08f),
             };
             foreach (float side in new[] { -1f, 1f })
-                lining.AddLathe(insulator, 10, Matrix.CreateTranslation(side * INSULATOR_X, CrossarmTop - 0.08f, CrossarmZ), Vector2.Zero);
-            return lining;
+                glaze.AddLathe(insulator, 10, Matrix.CreateTranslation(side * INSULATOR_X, CrossarmTop - 0.08f, CrossarmZ), Vector2.Zero);
+            return glaze;
         }
 
-        /// <summary>The bulb: a pear of glass under the socket, at <see cref="ForestLampLayout.BULB"/>.</summary>
+        /// <summary>The bulb: a pear of glass under the socket, at <see cref="ForestLampLayout.BULB"/>, tipped with the shade.</summary>
         public static MeshBuilder Bulb()
         {
             var bulb = new MeshBuilder();
@@ -152,7 +166,7 @@ namespace Prazsky.Core.Render
             {
                 new LathePoint(0f, r * 1.7f), new LathePoint(r * 0.55f, r * 1.55f), new LathePoint(r * 0.75f, r * 0.9f),
                 new LathePoint(r, 0.1f * r), new LathePoint(r * 0.85f, -0.6f * r), new LathePoint(r * 0.45f, -0.95f * r), new LathePoint(0f, -r),
-            }, 10, Matrix.CreateTranslation(ForestLampLayout.BULB), Vector2.Zero);
+            }, 10, Matrix.CreateRotationX(ForestLampLayout.SHADE_TILT) * Matrix.CreateTranslation(ForestLampLayout.BULB), Vector2.Zero);
             return bulb;
         }
 

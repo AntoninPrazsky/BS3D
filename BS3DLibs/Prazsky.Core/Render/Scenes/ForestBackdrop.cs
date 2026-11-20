@@ -92,11 +92,14 @@ namespace Prazsky.Core.Render
             ForestSceneConfig config = _forestConfig;
             _planting = ForestScatterRenderer.Plant(ForestScatterRenderer.DEFAULT_SEED + Services.SeedOffset, config,
                 (x, z) => TerrainMirror.Forest(x, z, config));
+
+            //The lamps first: where no spot in a pole's reach is clear the wood gives way (ForestLampLayout.Plan fells out of
+            //the planting), so everything built from the planting comes after
+            _lamps = ForestLampLayout.Plan(config, _planting);
             _farStand = new ForestFarStand(services.GraphicsDevice, _forestEffect, config, _planting);
             _dressing = new ForestDressing(services.GraphicsDevice, config, _planting, ForestScatterRenderer.DEFAULT_SEED + Services.SeedOffset);
             _dressingDrawn = _dressing.Buckets;
 
-            _lamps = ForestLampLayout.Plan(config, _planting);
             _sceneLightPosition = _forestEffect.Parameters["SceneLightPosition"];
             _sceneLightColour = _forestEffect.Parameters["SceneLightColor"];
             _sceneLightRange = _forestEffect.Parameters["SceneLightRange"];
@@ -142,7 +145,8 @@ namespace Prazsky.Core.Render
         private const int BERM_STONES = 14;
 
         /// <summary>Where the wood stands: the hosts' <see cref="ForestScatterRenderer"/> draws this planting, so what this
-        /// backdrop dresses it with on High and Ultra hangs on the trees that are drawn (#962).</summary>
+        /// backdrop dresses it with on High and Ultra hangs on the trees that are drawn (#962), less whatever the lamps' poles
+        /// felled (<see cref="ForestLampLayout.Plan"/>).</summary>
         public ForestScatter Planting => _planting;
 
         /// <summary>Where the lamps round the island stand (#1166), planned off <see cref="Planting"/>: what the hosts' lamps

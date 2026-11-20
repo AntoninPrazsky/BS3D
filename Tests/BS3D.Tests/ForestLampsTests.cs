@@ -3,7 +3,9 @@ using Prazsky.Core.Render;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Xunit;
 using Xunit.Abstractions;
 using static BS3D.Tests.PlayViewOpenings;
@@ -12,9 +14,10 @@ namespace BS3D.Tests
 {
     /// <summary>
     /// The forest's lamps round the island and the wind turbine on the hills (#1166, <see cref="ForestLampLayout"/>,
-    /// <see cref="ForestTurbineLayout"/>): each pole stands where the planting leaves it room at every roll of the wood, outside
-    /// every lens that plays and before no ball and no gun in any play view, the opening view looking between two of them; the
-    /// lights are shaded lamps with a slot left for a blast; the old lamp stutters and the rest breathe; the rotor turns and the
+    /// <see cref="ForestTurbineLayout"/>): each pole has its room at every roll of the wood (the wood giving way where no spot
+    /// in its reach is clear), stands outside every lens that plays and before no ball and no gun in any play view, the opening
+    /// view looking between two of them at every roll; the lights are shaded lamps with a slot left for a blast, cut where the
+    /// tipped shades' rims are, and reach the whole cluster; the old lamp stutters and the rest breathe; the rotor turns and the
     /// aviation light flashes as pure functions of the clock; the turbine stands in the opening play view's sky, inside the haze,
     /// on a pad the far stand leaves open.
     /// </summary>
@@ -28,8 +31,31 @@ namespace BS3D.Tests
 
         private static readonly ForestSceneConfig Forest = new();
 
-        private static ForestLampLayout Layout(int seedOffset) => ForestLampLayout.Plan(Forest,
-            ForestScatterRenderer.Plant(ForestScatterRenderer.DEFAULT_SEED + seedOffset, Forest, (x, z) => TerrainMirror.Forest(x, z, Forest)));
+        //The rolls of the wood the layout is held at (the Game rolls a new one every launch, Random.Shared.Next()): the first
+        //200 offsets, 200 from the whole int range off a fixed stream (so a failure reproduces), and the rolls a review found
+        //poles short of their room at before the wood gave way (a broadleaf's crown over the ring at 804533675 and 1862119023)
+        //and a bulb behind the cluster's middle at before the walk was held off it (59, 804900268, 142914922)
+        private static readonly int[] ROLLS = BuildRolls();
+
+        private static int[] BuildRolls()
+        {
+            var rolls = new List<int>(Enumerable.Range(0, 200));
+            var stream = new Random(1166);
+            for (int i = 0; i < 200; i++) rolls.Add(stream.Next());
+            rolls.AddRange(new[] { 804533675, 1372121676, 1862119023, 1659728552, 59, 804900268, 142914922 });
+            return rolls.Distinct().ToArray();
+        }
+
+        //Each roll's planting and its layout, planned once for every test here (the plan fells out of its planting)
+        private static readonly Lazy<(int Roll, ForestScatter Planting, ForestLampLayout Layout)[]> Planned = new(() =>
+            ROLLS.AsParallel().AsOrdered().Select(roll =>
+            {
+                ForestScatter planting = ForestScatterRenderer.Plant(ForestScatterRenderer.DEFAULT_SEED + roll, Forest,
+                    (x, z) => TerrainMirror.Forest(x, z, Forest));
+                return (roll, planting, ForestLampLayout.Plan(Forest, planting));
+            }).ToArray());
+
+        private static ForestLampLayout Layout0 => Planned.Value[0].Layout;
 
         //The pole, its arm and its shade in the world, as points
         private static IEnumerable<Vector3> Body(ForestLampLayout.Lamp lamp)
@@ -44,31 +70,40 @@ namespace BS3D.Tests
         public void EveryPoleHasRoomAtEveryRollOfTheWood()
         {
             //sceneseed= rolls the planting; at every roll each pole walks to a spot no trunk, crown, boulder, stump or dead wood
-            //comes within CLEARANCE of, and stays on its ring. Seen to fire with the poles held at their nominal spots (Room
-            //negative at most rolls: a spruce's skirt, a boulder at the foot)
+            //comes within CLEARANCE of, or where none in its reach is clear the wood gives way there, and it stays on its ring.
+            //The room is measured in the planting as it stands after the plan, which is what the hosts draw. Seen to fire with
+            //the poles held at their nominal spots (negative at most rolls: a spruce's skirt, a boulder at the foot), with the
+            //felling taken out of Plan and with the planting left unfelled (roll 44: 0.59, through RoomIn)
             float least = float.PositiveInfinity, farthest = 0f;
-            for (int seed = 0; seed < 24; seed++)
+            int felledRolls = 0, felled = 0;
+            foreach ((int roll, ForestScatter planting, ForestLampLayout layout) in Planned.Value)
             {
-                ForestLampLayout layout = Layout(seed);
                 Assert.Equal(ForestLampLayout.COUNT, layout.Lamps.Count);
+                if (layout.Felled > 0) felledRolls++;
+                felled += layout.Felled;
                 foreach (ForestLampLayout.Lamp lamp in layout.Lamps)
                 {
-                    Assert.True(lamp.Room >= ForestLampLayout.CLEARANCE,
-                        $"roll {seed}: the pole at {lamp.Foot.X:F1}, {lamp.Foot.Z:F1} has {lamp.Room:F2} of room, under {ForestLampLayout.CLEARANCE}");
+                    float room = ForestLampLayout.RoomIn(lamp, Forest, planting);
+                    Assert.True(room >= ForestLampLayout.CLEARANCE,
+                        $"roll {roll}: the pole at {lamp.Foot.X:F1}, {lamp.Foot.Z:F1} has {room:F2} of room, under {ForestLampLayout.CLEARANCE}");
                     float r = new Vector2(lamp.Foot.X, lamp.Foot.Z).Length();
                     Assert.InRange(r, ForestLampLayout.RING_RADIUS - ForestLampLayout.RING_GIVE - 1e-3f, ForestLampLayout.RING_RADIUS + ForestLampLayout.RING_GIVE + 1e-3f);
-                    least = MathF.Min(least, lamp.Room);
+                    least = MathF.Min(least, room);
                     farthest = MathF.Max(farthest, MathF.Abs(r - ForestLampLayout.RING_RADIUS));
                 }
             }
-            _output.WriteLine(string.Format(CultureInfo.InvariantCulture, "least room {0:F2}, farthest off the ring {1:F2}", least, farthest));
+
+            //The wood gives way at a few rolls (the review's are among them), never at most
+            Assert.InRange(felledRolls, 1, ROLLS.Length / 10);
+            _output.WriteLine(string.Format(CultureInfo.InvariantCulture, "{0} rolls: least room {1:F2}, farthest off the ring {2:F2}, {3} felled at {4} rolls",
+                ROLLS.Length, least, farthest, felled, felledRolls));
         }
 
         [Fact]
         public void TheLampsStandOnTheGroundAtDifferentHeights()
         {
             //Each foot sunk under the ground's mirror by SINK and its own sink, so no pole floats; and not all at one height
-            ForestLampLayout layout = Layout(0);
+            ForestLampLayout layout = Layout0;
             var tops = new List<float>();
             foreach (ForestLampLayout.Lamp lamp in layout.Lamps)
             {
@@ -89,7 +124,7 @@ namespace BS3D.Tests
             //overview holds: every lens stands inside the ring's nearest reach (OpenGroundRadius, which the front end's orbit keeps
             //inside too), and no point of a pole, its arm or its bulb is in the frame nearer the lens than the arena's axis, so
             //nothing of a lamp stands before the gun or a ball. Seen to fire with the ring at 40.
-            ForestLampLayout layout = Layout(0);
+            ForestLampLayout layout = Layout0;
             float farthestLens = 0f;
             foreach (string file in Shipped.LevelFiles())
             {
@@ -122,30 +157,136 @@ namespace BS3D.Tests
         [MemberData(nameof(Aspects))]
         public void TheOpeningViewLooksBetweenTwoLamps(float aspect)
         {
-            //From the first level's opening pose (the lens on +Z looking at the cluster), no bulb stands near the frame's middle
-            //column, where it would shine behind the cluster's middle: the two far lamps flank it. Seen to fire with the ring
-            //turned by half a step (a lamp straight behind the cluster)
+            //From the first level's opening pose (the lens on +Z looking at the cluster), at every roll of the wood, no bulb stands
+            //near the frame's middle column, where it would shine behind the cluster's middle, however far the planting sent the
+            //poles looking for room (FLANK); and at the default roll the two far lamps flank it in the frame (at others a pole that
+            //walked outwards may stand just past a narrower window's edge: roll 114 at 1.6). Seen to fire with the ring turned by
+            //half a step (a lamp straight behind the cluster), and with FLANK at 0 (rolls 59, 804900268 and 142914922 at 2.4: a
+            //bulb at -0.27 of the half-frame)
             Opening open = Open(Shipped.LevelFiles().First(), aspect);
             (_, Vector3 lens, Vector3 target, float fov) = open.Poses[0];
             Matrix viewProjection = Matrix.CreateLookAt(lens, target, Vector3.Up) * Matrix.CreatePerspectiveFieldOfView(fov, aspect, 0.1f, 5000f);
-            int flanking = 0;
-            foreach (ForestLampLayout.Lamp lamp in Layout(0).Lamps)
+            float nearest = 1f;
+            int flankedRolls = 0;
+            foreach ((int roll, _, ForestLampLayout layout) in Planned.Value)
             {
-                Vector3 ndc = Project(lamp.Bulb, viewProjection, out bool ahead);
-                if (!ahead || MathF.Abs(ndc.X) > 1f || MathF.Abs(ndc.Y) > 1f) continue;
-                Assert.True(MathF.Abs(ndc.X) > 0.3f, $"at {aspect:F2} a bulb stands at {ndc.X:F2} of the half-frame, behind the cluster's middle");
-                flanking++;
+                int flanking = 0;
+                foreach (ForestLampLayout.Lamp lamp in layout.Lamps)
+                {
+                    Vector3 ndc = Project(lamp.Bulb, viewProjection, out bool ahead);
+                    if (!ahead || MathF.Abs(ndc.X) > 1f || MathF.Abs(ndc.Y) > 1f) continue;
+                    Assert.True(MathF.Abs(ndc.X) > 0.3f, $"roll {roll} at {aspect:F2}: a bulb stands at {ndc.X:F2} of the half-frame, behind the cluster's middle");
+                    nearest = MathF.Min(nearest, MathF.Abs(ndc.X));
+                    flanking++;
+                }
+                if (flanking >= 2) flankedRolls++;
+                if (roll == 0) Assert.True(flanking >= 2 || aspect < 1.5f, $"at {aspect:F2} only {flanking} lamps flank the cluster in the opening view");
             }
-            Assert.True(flanking >= 2 || aspect < 1.5f, $"at {aspect:F2} only {flanking} lamps flank the cluster in the opening view");
+            _output.WriteLine(string.Format(CultureInfo.InvariantCulture, "{0:F2}: the nearest bulb to the middle at {1:F2} of the half-frame; two lamps in the frame at {2} of {3} rolls",
+                aspect, nearest, flankedRolls, ROLLS.Length));
+        }
+
+        //SceneLamp.fxh's constants, read off its source: the test's copy of the cut below is the shader's
+        private static float ShaderConstant(string name)
+        {
+            string source = File.ReadAllText(Path.Combine(RepoRoot(), "BS3DLibs", "Prazsky.Shaders", "Content", "Shaders", "SceneLamp.fxh"));
+            Match match = Regex.Match(source, @"static const float " + name + @" = ([0-9.]+);");
+            Assert.True(match.Success, $"SceneLamp.fxh states no {name}");
+            return float.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
+        }
+
+        private static string RepoRoot()
+        {
+            var dir = new DirectoryInfo(AppContext.BaseDirectory);
+            while (dir != null && !File.Exists(Path.Combine(dir.FullName, "Game.sln"))) dir = dir.Parent;
+            return dir?.FullName ?? throw new DirectoryNotFoundException("Game.sln not found above the test's output");
+        }
+
+        //SceneLamp.fxh's SceneLightFalloff for a shaded lamp, line for line: the falloff to the range, times the soft cut at
+        //the rim's plane, which tips LAMP_TILT towards the arena's axis
+        private static float ShadedFalloff(Vector3 light, Vector3 point, float gain, float spill, float sin, float cos)
+        {
+            Vector3 toLight = light - point;
+            float dist = toLight.Length();
+            float atten = MathHelper.Clamp(1f - dist / ForestLampLayout.RANGE, 0f, 1f);
+            Vector2 inward = -Vector2.Normalize(new Vector2(light.X, light.Z));
+            Vector3 axis = new(inward.X * sin, -cos, inward.Y * sin);
+            float below = MathHelper.Clamp(-Vector3.Dot(toLight, axis) / dist * gain + spill, 0f, 1f);
+            return atten * atten * below;
+        }
+
+        [Fact]
+        public void TheLightIsCutWhereTheTippedShadesRimIs()
+        {
+            //The shader tips every shaded lamp's cut LAMP_TILT towards the arena's axis, read off the light's position; the
+            //meshes tip each shade SHADE_TILT towards its own arm. One angle (the shader's sine and cosine are SHADE_TILT's), and
+            //at every lamp the two axes within its arm's skew and its pole's lean of each other, so the light goes out at the
+            //rim that is drawn. Seen to fire with the meshes' tilt the other way (an axis 50 degrees off)
+            Assert.Equal(MathF.Sin(ForestLampLayout.SHADE_TILT), ShaderConstant("LAMP_TILT_SIN"), 4);
+            Assert.Equal(MathF.Cos(ForestLampLayout.SHADE_TILT), ShaderConstant("LAMP_TILT_COS"), 4);
+
+            float worst = 0f;
+            foreach (ForestLampLayout.Lamp lamp in Layout0.Lamps)
+            {
+                Vector3 meshAxis = Vector3.Normalize(Vector3.TransformNormal(Vector3.TransformNormal(-Vector3.UnitY, ForestLampLayout.SHADE_TURN), lamp.World));
+                Vector2 inward = -Vector2.Normalize(new Vector2(lamp.Bulb.X, lamp.Bulb.Z));
+                Vector3 lightAxis = new(inward.X * MathF.Sin(ForestLampLayout.SHADE_TILT), -MathF.Cos(ForestLampLayout.SHADE_TILT), inward.Y * MathF.Sin(ForestLampLayout.SHADE_TILT));
+                float degrees = MathHelper.ToDegrees(MathF.Acos(MathHelper.Clamp(Vector3.Dot(meshAxis, lightAxis), -1f, 1f)));
+                Assert.True(degrees < 12f, $"the shade at {lamp.Foot.X:F1}, {lamp.Foot.Z:F1} is tipped {degrees:F1} degrees off the light's cut");
+                worst = MathF.Max(worst, degrees);
+            }
+            _output.WriteLine(string.Format(CultureInfo.InvariantCulture, "the shades' axes within {0:F1} degrees of their lights' cuts", worst));
+        }
+
+        [Fact]
+        public void TheLampsLightTheWholeCluster()
+        {
+            //Every ball of every shipped level, moved into the forest, takes the lamps' light (the falloff summed over the five,
+            //SceneLamp.fxh's cut copied above): none is left in the dusk alone, and the top of the cluster takes about as much as
+            //its bottom, so the field reads as one colour under the lamps, not warm at its foot and cold at its crown. Seen to
+            //fire with the shade hanging straight down (LAMP_TILT 0: a ball of Amphora takes 0.049)
+            float gain = ShaderConstant("LAMP_RIM_GAIN"), spill = ShaderConstant("LAMP_RIM_SPILL");
+            float sin = ShaderConstant("LAMP_TILT_SIN"), cos = ShaderConstant("LAMP_TILT_COS");
+            ForestLampLayout layout = Layout0;
+            float least = float.PositiveInfinity, worstRatio = float.PositiveInfinity, most = 0f;
+            string worstLevel = "";
+            foreach (string file in Shipped.LevelFiles())
+            {
+                Opening open = Open(file, 16f / 9f);
+                var lit = new List<(float Y, float Light)>();
+                foreach (Vector3 ball in open.Balls)
+                {
+                    float light = 0f;
+                    foreach (ForestLampLayout.Lamp lamp in layout.Lamps) light += ShadedFalloff(lamp.Bulb, ball, gain, spill, sin, cos);
+                    Assert.True(light > 0.05f, $"{open.Level}: the ball at {ball.X:F1}, {ball.Y:F1}, {ball.Z:F1} takes {light:F3} of the lamps");
+                    least = MathF.Min(least, light);
+                    most = MathF.Max(most, light);
+                    lit.Add((ball.Y, light));
+                }
+
+                if (lit.Count < 9) continue;
+                lit.Sort((a, b) => a.Y.CompareTo(b.Y));
+                int third = lit.Count / 3;
+                float bottom = lit.Take(third).Average(b => b.Light), top = lit.Skip(lit.Count - third).Average(b => b.Light);
+                float ratio = top / bottom;
+                Assert.True(ratio > 0.6f, $"{open.Level}: the top third of the cluster takes {top:F3} of the lamps, its bottom {bottom:F3}");
+                if (ratio < worstRatio)
+                {
+                    worstRatio = ratio;
+                    worstLevel = open.Level;
+                }
+            }
+            _output.WriteLine(string.Format(CultureInfo.InvariantCulture, "a ball takes {0:F3} to {1:F3} of the lamps; the top third against the bottom at worst {2:F2} ({3})",
+                least, most, worstRatio, worstLevel));
         }
 
         [Fact]
         public void TheLampsAreShadedLightsWithASlotLeftForABlast()
         {
             //Fewer lamps than SceneLights' slots, so a blast's flash always finds one; each range negative, which every scene-light
-            //loop reads as a shaded lamp (SceneLamp.fxh: no light above its rim), its magnitude RANGE; the light at the bulb
+            //loop reads as a shaded lamp (SceneLamp.fxh: no light on the shut side of its rim), its magnitude RANGE; the light at the bulb
             Assert.True(ForestLampLayout.COUNT < SceneLights.MaxLights);
-            ForestLampLayout layout = Layout(0);
+            ForestLampLayout layout = Layout0;
             var position = new Vector3[SceneLights.MaxLights];
             var colour = new Vector3[SceneLights.MaxLights];
             var range = new float[SceneLights.MaxLights];

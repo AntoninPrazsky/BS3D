@@ -40,9 +40,10 @@ namespace Prazsky.Core.Render
     public sealed class SceneLights
     {
         /// <summary>
-        /// Light slots, <b>matched by <c>MAX_SCENE_LIGHTS</c> in <c>InstancedModel.fx</c> and
-        /// <c>Savanna.fx</c></b> (and by <c>SceneRenderer</c>'s own grass-side arrays). Raising it here
-        /// without raising it in the shaders silently writes past what the shader loop reads.
+        /// Light slots, <b>matched by <c>MAX_SCENE_LIGHTS</c> in <c>InstancedModel/Lighting.fxh</c>, <c>Savanna.fx</c>,
+        /// <c>Forest.fx</c> and <c>Acacia.fx</c></b> (and by the arrays sized off it that are pushed into them:
+        /// <c>SceneRenderer</c>'s grass-side ones, and <c>ForestBackdrop</c>'s for the floor and, through
+        /// <c>PlantPass.SetSceneLights</c>, the plant material). Raising it here without raising it in the shaders silently writes past what the shader loop reads.
         /// </summary>
         public const int MaxLights = 8;
 
@@ -171,7 +172,9 @@ namespace Prazsky.Core.Render
             else if (sceneRenderer == null)
             {
                 //No renderer (the Potato path): the neon ring, which is config, and the lamps the Potato backdrop built
-                //(#1044), a slot left for a flash
+                //(#1044), a slot left for a flash. ⚠ Never a shaded lamp (a negative range, the forest's, SceneLamp.fxh):
+                //PotatoModel.fx's copy of the loop does not know one and would light everything in its reach fully
+                //(saturate(1 + d / |range|)), so a Potato forest must not hand these slots the forest's lamps
                 if (scene == SceneKind.NeonCity) count = BuildNeonRing(neonLook);
                 else if (BackdropLamps != null) count = BackdropLamps(wallClock, _lightPosition, _lightColor, _lightRange, MaxLights - 1);
             }

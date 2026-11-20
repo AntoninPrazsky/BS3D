@@ -265,7 +265,8 @@ namespace BS3D.Screens
 
         //=== THE SCENE'S OWN GROUND ===
 
-        //How far inside the scene's open ground (BS3DGame.OpenGroundRadius, the city's clearing) the lens is held (#1039).
+        //How far inside the scene's open ground (BS3DGame.OpenGroundRadius, the city's clearing or the forest's ring of poles)
+        //the lens is held (#1039).
         //The wide leg stands further out the narrower the window, since the island has to fit the frame's HORIZONTAL
         //half-angle: 46.5 units at aspect 1.25 (the owner's half-screen window), and the cities' first towers stand at
         //about 50, with the lens among their floors. A facade a few units off the lens sweeps the frame's edge as a wall,

@@ -137,15 +137,15 @@ void AddSceneLights(float3 worldPosition, float3 worldNormal, float3 eyeVector, 
         float3 toLight = SceneLightPosition[i] - worldPosition;
         float dist = length(toLight);
 
-        //Only where the light adds anything (SceneLamp.fxh): past its range, or above a shaded lamp's rim, the falloff
+        //Only where the light adds anything (SceneLamp.fxh): past its range, or on the shut side of a shaded lamp's rim, the falloff
         //below is exactly zero, and a pixel there skips the rest of the slot
-        [branch] if (SceneLightReaches(toLight, dist, SceneLightRange[i]))
+        [branch] if (SceneLightReaches(SceneLightPosition[i], toLight, dist, SceneLightRange[i]))
         {
             float3 L = toLight / max(dist, 1e-4);
 
             //Smooth distance falloff to the light's range (quadratic, so it fades gently and dies at the edge), and
-            //nothing above a shaded lamp's rim (SceneLamp.fxh)
-            float atten = SceneLightFalloff(toLight, dist, SceneLightRange[i]);
+            //nothing on the shut side of a shaded lamp's rim (SceneLamp.fxh)
+            float atten = SceneLightFalloff(SceneLightPosition[i], toLight, dist, SceneLightRange[i]);
 
             diffuse += SceneLightColor[i] * (saturate(dot(worldNormal, L)) * atten);
 
