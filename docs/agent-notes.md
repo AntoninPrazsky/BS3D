@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-20 — #1209–#1220 poznámky majitele: kanon, editor, menu, kuličky, scény — desktop (RDT-PC), Claude Code
+
+- Hotovo: 11 poznámek → 12 issues, jen založeno (nic se nestavělo): editor UI #1209 a vykreslení #1210; dílna kanonu #1211 (`parked`, `owner-decision`); gumová kola a poklice #1212; kanon v menu stojí #1213; průlet nad skleněným stropem #1214; cena materiálů kuliček #1215 a jejich vzhled podle velikosti na obrazovce #1216; stopy brouka #1217; kopce v Tropical #1218 (`priority-low`); Dream #1219; sopka začíná řekou #1220. Komentáře u #990 #485 #1040 #541 #1186 #1113 #1126 #1127.
+- ⚠ Změřeno: MapEditor při 1280×800 ořízne 5 z 39 řádků (K, F1–F4), načtení je pod okrajem. Dream: ohraničení solidů se prolínají 83 % času, tvary kolem 53 % (výpočet z `Dream.fx`, ne ze snímku). Válečky kola jsou naladěné na ocel hlavně záměrně (`CannonRig.cs:508-521`).
+- ⚠ #1214 obrací rozhodnutí #599 (menu nikdy nepohlíží shora); příčina #1213 (drift 16°/19 s) je z aritmetiky, ne ze snímků.
+- Otevřené: nasnímán jen editor a Tropical; ostatní je čtení kódu.
+
 ## 2026-11-20 — #1178 trailer v7 a v8 — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: trailer v8 (52,4 s, `Videos\BS3D trailer\bs3d-trailer-v8-master.mp4`). Game: `capturehudawards` (z HUD jen body a zaměřovač), `nodropcinematic`, síla u `turn=`/`walk=`. `trailer-cut.py`: `keepLevels`/`minGroup`, `sidechain`, `duckFrom`, `burn`.
