@@ -99,13 +99,13 @@ namespace Prazsky.BS3D.Levels
         public BallStyle? Balls { get; set; }
 
         /// <summary>
-        /// What sky stands over this level (#221) — <c>"clear"</c>, <c>"scattered"</c>, <c>"broken"</c>,
-        /// <c>"overcast"</c> or <c>"storm"</c>. Null, which is what every level authored before the field
+        /// What sky stands over this level (#221) — <c>"clear"</c>, <c>"scattered"</c>, <c>"mixed"</c>,
+        /// <c>"broken"</c>, <c>"overcast"</c> or <c>"storm"</c>. Null, which is what every level authored before the field
         /// existed says, means <b>whatever the scene wanted</b>: the scene states what the place is usually
         /// like (<c>SceneConfig.Weather</c>) and this states what it is like today.
         /// <para>
         /// A <b>word</b> rather than a bundle of floats, for the reason <see cref="Music"/> is a word: the
-        /// five skies are authored and can be shown a picture of, where eleven numbers in a level file are a
+        /// six skies are authored and can be shown a picture of, where eleven numbers in a level file are a
         /// sky nobody can name and a mistyped one is a sky nobody meant. An unknown spelling falls back to
         /// the scene's own weather rather than throwing, the same leniency the scene and the music take —
         /// so a typo here is a level that plays under its scene's usual sky, not a level that fails to open.

@@ -140,7 +140,7 @@ namespace Testbed
         //level opened at runtime (F2/drag-drop) still takes its own dome.
         private bool _skyFromCommandLine;
 
-        //Testing: "weather=<name>" pins the sky over every scene, so five skies can be judged over one
+        //Testing: "weather=<name>" pins the sky over every scene, so the skies can be judged over one
         //backdrop. Null when the switch is absent, which is every run but a comparison.
         private string _weatherFromCommandLine;
 
@@ -1121,7 +1121,7 @@ namespace Testbed
         private void ApplySceneWeather(string levelWeather = null, bool immediately = false)
         {
             //"weather=<name>" outranks both, which is what makes it useful: the point of it is to see one
-            //backdrop under five skies, and a scene default that could override it would defeat that.
+            //backdrop under every sky, and a scene default that could override it would defeat that.
             //The city's own config is this file's and not the scene renderer's — the two cities are drawn
             //through the shared instanced technique rather than by a scene shader, which is why
             //GetSceneConfig answers null for both. Reading it from the right place is what stops the city

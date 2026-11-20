@@ -187,6 +187,7 @@ namespace Prazsky.Core.Render
             _seaEffect.Parameters["FoamColor"].SetValue(_seaConfig.FoamColor.ToVector3());
             _seaEffect.Parameters["SssStrength"].SetValue(_seaConfig.SssStrength);
             _seaEffect.Parameters["SssColor"].SetValue(_seaConfig.SssColor.ToVector3());
+            _seaEffect.Parameters["SunBeamGate"].SetValue(_seaConfig.SunBeamGate);
             _seaEffect.Parameters["HorizonHazeDistance"].SetValue(_seaConfig.HorizonHazeDistance);
         }
 
