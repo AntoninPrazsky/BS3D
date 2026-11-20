@@ -13,18 +13,35 @@ namespace Prazsky.Core.Render
         public override SceneKind Kind => SceneKind.Sea;
 
         /// <summary>
-        /// The sea is the moodiest backdrop in the set and its own doc says a bright dome gives it a breezy mood rather than the intended one - a broken deck over open water is the weather that makes it read as weather at sea rather than as a postcard.
+        /// The sea is the moodiest backdrop in the set and its own doc says a bright dome gives it a breezy mood rather than the intended one - a deck of broken cloud over open water is the weather that makes it read as weather at sea rather than as a postcard.
+        /// <para>
+        /// <see cref="WeatherPreset.Mixed"/> since #1172, Broken's clouds with as much open sky between them: under Broken
+        /// itself the sun stood behind cloud from almost everywhere, and the owner: "the cloud cover seems too large to me - it
+        /// does not quite correspond to the sun's reflection on the water".
+        /// </para>
         /// </summary>
-        public SeaSceneConfig() => Weather = WeatherPreset.Broken;
+        public SeaSceneConfig() => Weather = WeatherPreset.Mixed;
 
         /// <summary>Mean water level (world Y). Kept well below the platform so a rough sea has headroom for its crests.</summary>
         public float LevelY { get; set; } = -13f;
 
-        /// <summary>Deep-body water colour (linear reflectance, multiplied by skylight in the shader).</summary>
-        public Rgb WaterDeep { get; set; } = new(0.02f, 0.05f, 0.07f);
+        /// <summary>
+        /// Deep-body water colour (linear reflectance, multiplied by skylight in the shader). Both body colours are
+        /// <see cref="BODY_DARKENING"/> of what they were until #1171 (0.02, 0.05, 0.07 and 0.07, 0.17, 0.19), the hue kept:
+        /// the owner, "the sea is actually darker", and the sea's own dome kept 13's brightness for the island's sake, so the
+        /// sea's own darkness is its body's.
+        /// </summary>
+        public Rgb WaterDeep { get; set; } = new(0.02f * BODY_DARKENING, 0.05f * BODY_DARKENING, 0.07f * BODY_DARKENING);
 
-        /// <summary>Paler up-facing water colour (linear reflectance).</summary>
-        public Rgb WaterShallow { get; set; } = new(0.07f, 0.17f, 0.19f);
+        /// <summary>Paler up-facing water colour (linear reflectance), darkened with <see cref="WaterDeep"/>.</summary>
+        public Rgb WaterShallow { get; set; } = new(0.07f * BODY_DARKENING, 0.17f * BODY_DARKENING, 0.19f * BODY_DARKENING);
+
+        /// <summary>
+        /// How much of the body's reflectance the sea kept in #1171. The body is a reflectance times the dome's light plus a
+        /// twentieth of its zenith (<c>Sea.fx</c>), so its luminance falls by less than this: to about seven tenths of what it
+        /// was under dome 13 (<c>SeaSkyTests</c>). At a grazing look the water is mostly the sky's mirror, which this leaves alone.
+        /// </summary>
+        public const float BODY_DARKENING = 0.55f;
 
         /// <summary>
         /// How much of the body colour is <see cref="WaterShallow"/> regardless of which way the surface
@@ -116,11 +133,25 @@ namespace Prazsky.Core.Render
         /// <summary>Foam colour (linear).</summary>
         public Rgb FoamColor { get; set; } = new(0.97f, 0.98f, 1.0f);
 
-        /// <summary>Strength of the subsurface crest glow when the sun is behind a wave.</summary>
-        public float SssStrength { get; set; } = 0.7f;
+        /// <summary>
+        /// Strength of the subsurface crest glow when the sun is behind a wave. 0.7 until #1171: over the slate water of the
+        /// sea's own dome (22) that laid a turquoise sheet over the whole sunward quarter of the view (hue 177, saturation 0.45
+        /// at the Testbed's low view into the sun), where the references of a dusk sea draw dark water with the light only in
+        /// the thin crests.
+        /// </summary>
+        public float SssStrength { get; set; } = 0.35f;
 
-        /// <summary>Warm green-blue colour light takes coming through the water (linear).</summary>
-        public Rgb SssColor { get; set; } = new(0.15f, 0.55f, 0.50f);
+        /// <summary>Green-blue colour light takes coming through the water (linear): a sea's, bluer than the lagoon's green
+        /// (0.15, 0.55, 0.50 until #1171).</summary>
+        public Rgb SssColor { get; set; } = new(0.12f, 0.42f, 0.46f);
+
+        /// <summary>
+        /// How far the sun's glint and the crests' glow take the sun's own beam rather than the light under the deck
+        /// (<c>Sea.fx</c>'s <c>SunBeamGate</c>, #1172): 1, so a glitter path lies on the water only while the sun is out of
+        /// cloud. The light under the deck never falls under the weather's floor, and at that floor the glint drew a path
+        /// under a sky with no sun in it. The tropical lagoon, which shares the shader, pushes 0 and keeps the floored light.
+        /// </summary>
+        public float SunBeamGate { get; set; } = 1f;
 
         /// <summary>Distance over which the finite water fades into the skyline.</summary>
         public float HorizonHazeDistance { get; set; } = 700f;

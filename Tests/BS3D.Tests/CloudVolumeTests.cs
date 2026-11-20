@@ -441,5 +441,87 @@ namespace BS3D.Tests
             Assert.Equal(0f, CloudVolumes.Strength(Sky(WeatherPreset.Storm, 0f)), 3);
             Assert.Equal(0, Place(new Vector3(0f, -4f, 30f), Sky(WeatherPreset.Overcast, 0f)).Count);
         }
+
+        //THE SUN PAST THE HEAPS (#1172): CloudVolumes.SunPast marches the lens's sun ray as CloudVolume.fx marches a pixel's
+
+        //Any constant of the shader, a float or an int, written alone or in a list (`static const float A = 1.0, B = 2.0;`)
+        private static float AnyConstant(string name)
+        {
+            Match match = Regex.Match(SourceText, $@"static const (?:float|int) [^;]*\b{name} = ([0-9.]+)[,;]");
+            Assert.True(match.Success, $"CloudVolume.fx has no {name}");
+            return float.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
+        }
+
+        [Fact]
+        public void TheSunPastTheHeapsMarchesWithTheShadersOwnFigures()
+        {
+            //Every figure the CPU's march copies, against the shader's own. Seen to fail with CLOUD_SIGMA at 0.1 in C#
+            foreach (string name in new[] { "CLOUD_STEPS", "CLOUD_STEPS_FAR", "STEPS_FAR_FROM", "STEPS_FAR_AT", "CLOUD_SIGMA", "CLOUD_WAIST",
+                "CLOUD_BASE_WIDTH", "CLOUD_BILLOW", "BILLOW_RADIUS", "BILLOW_GROWTH", "CLOUD_EDGE", "CLOUD_BILLOW_PUSH", "CLOUD_PUFF_BIAS",
+                "CLOUD_PUFF_FROM", "CLOUD_PUFF_TO", "CLOUD_RIM_PUSH", "CLOUD_MARGIN", "CLOUD_PUSH_FADE_FROM", "NOISE_PERIOD" })
+            {
+                object copy = typeof(CloudVolumes).GetField(name, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public
+                    | System.Reflection.BindingFlags.Static)?.GetValue(null);
+                Assert.True(copy != null, $"CloudVolumes keeps no copy of {name}");
+                Assert.Equal(AnyConstant(name), Convert.ToSingle(copy, CultureInfo.InvariantCulture));
+            }
+
+            //And the literals of the march it copies, as the shader writes them
+            string code = Regex.Replace(SourceText, @"\s+", " ");
+            foreach (string literal in new[]
+            {
+                "shape.y * float3(13.7, 5.3, 9.1) + float3(0.0, -CloudTime * 0.004, 0.0)", "VolumeNoise(q * 3.1 + 11.3)",
+                "body *= smoothstep(0.0, 0.04, h);", "if (density > 0.02)", "if (transmit < 0.03)", "clip((1.0 - transmit) * fade - 0.002);",
+                "float fade = (1.0 - smoothstep(FadeNear, FadeFar, t0)) * shape.w;", "tex3Dlod(CloudNoiseSampler, float4(p / NOISE_PERIOD, 0.0))",
+            })
+                Assert.Contains(literal, code);
+        }
+
+        [Fact]
+        public void TheNoiseIsReadAsTheSamplerReadsIt()
+        {
+            //At a texel's centre the sampler returns the texel, between two it is linear, and it wraps at the period
+            float[] texels = ProxyVolumes.GradientNoiseTexels(CloudVolumes.NOISE_PERIOD, CloudVolumes.NOISE_TEXELS_PER_UNIT, CloudVolumes.NOISE_SEED);
+            int side = CloudVolumes.NOISE_PERIOD * CloudVolumes.NOISE_TEXELS_PER_UNIT;
+            float unit = 1f / CloudVolumes.NOISE_TEXELS_PER_UNIT;
+            Vector3 Centre(int x, int y, int z) => (new Vector3(x, y, z) + new Vector3(0.5f)) * unit;
+            float Texel(int x, int y, int z) => texels[x + side * (y + side * z)];
+
+            Assert.Equal(Texel(3, 7, 11), CloudVolumes.VolumeNoise(texels, Centre(3, 7, 11)), 5);
+            Assert.Equal(Texel(3, 7, 11), CloudVolumes.VolumeNoise(texels, Centre(3, 7, 11) + new Vector3(CloudVolumes.NOISE_PERIOD, -CloudVolumes.NOISE_PERIOD, 0f)), 4);
+            Assert.Equal(0.5f * (Texel(3, 7, 11) + Texel(4, 7, 11)), CloudVolumes.VolumeNoise(texels, Centre(3, 7, 11) + new Vector3(0.5f * unit, 0f, 0f)), 5);
+            Assert.Equal(0.5f * (Texel(side - 1, 0, 0) + Texel(0, 0, 0)), CloudVolumes.VolumeNoise(texels, Centre(side - 1, 0, 0) + new Vector3(0.5f * unit, 0f, 0f)), 5);
+        }
+
+        [Fact]
+        public void AHeapAcrossTheSunHidesItAndOneBesideItDoesNot()
+        {
+            float[] noise = ProxyVolumes.GradientNoiseTexels(CloudVolumes.NOISE_PERIOD, CloudVolumes.NOISE_TEXELS_PER_UNIT, CloudVolumes.NOISE_SEED);
+            var lens = new Vector3(0f, -4f, 30f);
+            Vector3 sun = Vector3.Normalize(new Vector3(0.69f, 0.225f, -0.69f));
+            //A heap 150 across and as high, its waist on the sun ray 800 out
+            const float RADIUS = 150f, HEIGHT = 150f;
+            Vector3 onRay = lens + sun * 800f;
+            CloudVolumes.Heap Heap(Vector3 waist, float fade) => new()
+            {
+                Cloud = new Vector4(waist.X, waist.Y - 0.3f * HEIGHT, waist.Z, RADIUS),
+                Shape = new Vector4(HEIGHT, 3.7f, 1f, fade),
+                Form = new Vector4(1f, 0f, 1f, 0f),
+            };
+            var across = new[] { Heap(onRay, 1f) };
+            Vector3 aside = onRay + Vector3.Normalize(new Vector3(sun.Z, 0f, -sun.X)) * (3f * RADIUS);
+            var beside = new[] { Heap(aside, 1f) };
+            var thin = new[] { Heap(onRay, 0.4f) };
+
+            Assert.Equal(1f, CloudVolumes.SunPast(lens, sun, 0f, across, 0, noise));
+            //The march stops once under 3 % gets through, as the shader's does
+            Assert.True(CloudVolumes.SunPast(lens, sun, 0f, across, 1, noise) < 0.03f, "a heap across the sun's ray leaves it seen");
+            Assert.Equal(1f, CloudVolumes.SunPast(lens, sun, 0f, beside, 1, noise));
+            //A heap only fading in hides as much of the sun as it has faded in
+            Assert.InRange(CloudVolumes.SunPast(lens, sun, 0f, thin, 1, noise), 0.58f, 0.62f);
+            //Two hide what each leaves of the other
+            var both = new[] { Heap(onRay, 0.4f), Heap(onRay + sun * 400f, 0.4f) };
+            Assert.InRange(CloudVolumes.SunPast(lens, sun, 0f, both, 2, noise), 0.34f, 0.38f);
+        }
     }
 }

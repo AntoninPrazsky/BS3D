@@ -26,7 +26,7 @@ A level bundles a map with the **name** of its scene and the sky dome, and nothi
 | `scene` | the scene's name |
 | `music` | a music family or one recording's stem |
 | `balls` | the ball material |
-| `weather` | `"clear"`, `"scattered"`, `"broken"`, `"overcast"`, `"storm"`; absent or unknown means the scene's own |
+| `weather` | `"clear"`, `"scattered"`, `"mixed"`, `"broken"`, `"overcast"`, `"storm"`; absent or unknown means the scene's own |
 | `map` | the ball map |
 | `crates` | `{x, y, z, w, h, d}` boxes in world units (centre from the field's floor on its axis, full sizes) a shot banks off ("Crates" in `docs/game-session.md`) |
 | `softness` | `{"hz", "damping"}`, the lattice spring |

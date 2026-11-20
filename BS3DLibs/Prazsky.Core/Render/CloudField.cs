@@ -250,7 +250,7 @@ namespace Prazsky.Core.Render
             public EffectParameter SunColor, ShadowColor, DetailStrength, Opacity, HorizonFade, SunStep,
                 SelfAbsorption, SunAbsorption, SilverStrength, SilverPower, SunDirection,
                 FormStrength, ShapeStrength, CharacterStrength, SunDiscCos, SunDiscEdge, SunDiscColor,
-                GroundGlowPosition, GroundGlowColor, GroundGlowRange;
+                GroundGlowPosition, GroundGlowColor, GroundGlowRange, SunHeaps, SunPastHeaps;
         }
 
         //Callers apply the field to the same two or three effects every frame, and the by-name indexer is
@@ -320,6 +320,31 @@ namespace Prazsky.Core.Render
             slots.GroundGlowPosition?.SetValue(_groundGlowPosition);
             slots.GroundGlowColor?.SetValue(_groundGlowColor);
             slots.GroundGlowRange?.SetValue(_groundGlowRange);
+
+            //The sun past the heaps (#1172) - Sea.fx's alone
+            slots.SunHeaps?.SetValue(SunHeaps);
+            slots.SunPastHeaps?.SetValue(SunPastHeaps);
+        }
+
+        /// <summary>
+        /// How far the deck near the lens gives way to the heaps this frame (<see cref="CloudVolumes.Strength"/> where they
+        /// are drawn, 0 where they are not), the sky shader's <c>CloudVolumeCut</c>: on High and Ultra under cumulus 1, and the
+        /// sun's disc is then the heaps' alone to hide (#1172). <see cref="CloudVolumes"/> states it with
+        /// <see cref="SunPastHeaps"/> every frame the sky is drawn; where no heaps are ever drawn it stays 0.
+        /// </summary>
+        public float SunHeaps { get; private set; }
+
+        /// <summary>
+        /// How much of the sun's disc the lens sees past the heaps this frame, 0 to 1 (<see cref="CloudVolumes.SunPast"/>):
+        /// what <c>Sea.fx</c>'s glint and crest glow take as far as <see cref="SunHeaps"/> says the heaps hide the disc (#1172).
+        /// </summary>
+        public float SunPastHeaps { get; private set; } = 1f;
+
+        /// <summary>States <see cref="SunHeaps"/> and <see cref="SunPastHeaps"/> for this frame (<see cref="CloudVolumes"/>).</summary>
+        internal void SetSunHeaps(float heaps, float pastHeaps)
+        {
+            SunHeaps = heaps;
+            SunPastHeaps = pastHeaps;
         }
 
         /// <summary>
@@ -479,7 +504,10 @@ namespace Prazsky.Core.Render
 
                 GroundGlowPosition = effect.Parameters["GroundGlowPosition"],
                 GroundGlowColor = effect.Parameters["GroundGlowColor"],
-                GroundGlowRange = effect.Parameters["GroundGlowRange"]
+                GroundGlowRange = effect.Parameters["GroundGlowRange"],
+
+                SunHeaps = effect.Parameters["CloudSunHeaps"],
+                SunPastHeaps = effect.Parameters["CloudSunPastHeaps"]
             };
             _slotsByEffect.Add(effect, slots);
 

@@ -8,7 +8,13 @@ namespace Prazsky.Core
         //rather than a moody one; the savanna wants the set's warmest gold horizon; the tropical beach
         //wants the brightest blue in the set (dome 1, a clear sunny sky over a warm horizon — white
         //sand and turquoise water are the postcard, and they read as one under it).
-        private const byte SEA_DOME = 13;
+        //
+        //The sea has a dome built for it (#1171): 22, a dusk under broken cloud - a pale, nearly neutral skyline under a
+        //grey-blue sky and a slate zenith, its sun where dome 13's stood (13 degrees, azimuth 135). It stood under 13, whose
+        //blue-violet zenith the water multiplies and mirrors, and the owner: "the sea and also the sky ... seem to me too blue
+        //... the sea is actually darker, especially when it is overcast". 13 itself stays as it is: the icesheet below, the
+        //Game's own default and sixty levels of six chapters stand under it.
+        private const byte SEA_DOME = 22;
         private const byte SAVANNA_DOME = 14;
         private const byte TROPICAL_DOME = 1;
 

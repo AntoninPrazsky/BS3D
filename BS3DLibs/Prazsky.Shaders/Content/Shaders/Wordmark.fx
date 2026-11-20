@@ -3,7 +3,7 @@
 //THE GAME'S NAME ON HIGH AND ULTRA (#929): the 3D wordmark's letters, its badge's disc and their rims, shaded to
 //match the PNG logo (Images/logo) rather than lit by the scene. The logo was rendered as a studio piece - glossy
 //inflated tubes, a key light from the upper left laying a crisp white streak along every stroke, the colour running
-//deep and saturated into the shadowed side - and the scene's own rig cannot be that over twenty-one domes (a dusk,
+//deep and saturated into the shadowed side - and the scene's own rig cannot be that over every dome (a dusk,
 //a night, a black sky). So the light here is fixed in VIEW space, and the colours come out as the picture itself:
 //every opaque pass writes a DISPLAY-LINEAR colour with a negative alpha, which the resolve recognises and lays over
 //the mapped frame without the curve, the exposure, the grain or the colour fringe (Tonemap.fx, DisplayReferred).

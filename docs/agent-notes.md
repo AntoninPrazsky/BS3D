@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-20 — #1171 #1172 moře: soumraková kopule a smíšená obloha — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: #1171 moře má vlastní kopuli 22 (soumrak pod roztrhanou oblačností: bledý obzor, šedomodré nebe, břidlicový zenit), slunce na místě kopule 13, ale teplé bílé; kopule 13 beze změny (ledovec, výchozí scéna, 60 úrovní). Tělo vody 0,55 (`BODY_DARKENING`), záře hřebenů 0,7 → 0,35. #1172 nová obloha `WeatherPreset.Mixed` (Broken s coverage bias 0,10), jen pro moře. Třpyt a záře hřebenů v `Sea.fx` sledují slunce za vrstvou a na High/Ultra za kupami (`CloudVolumes.SunPast` na CPU); laguna drží staré světlo (`SunBeamGate` 0).
+- ⚠ Hradlo podle ploché vrstvy nesouhlasilo s viditelným sluncem v ~40 % okamžiků, protože kupy jsou nad ní vyřezané. Logika kup je teď dvakrát (GPU a CPU); `CloudVolumeTests` čte konstanty ze shaderu.
+- Otevřené: verdict-eye obou; pohyb nesledován, Low/Medium bez snímků, telefon ne; blízká voda v herním pohledu je o kousek světlejší; záběr stoupání z #652 končí na matné vodě asi ve dvou startech ze tří.
+
 ## 2026-11-19 — #1169 #1170 plošiny bez blikání, maják a lodě blíž — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: #1169 blikání plošin opraveno geometrií, bez depth bias (spodní moduly už nekončí v rovinách horní paluby, lampy, heliport a nohy odsazené). Na High/Ultra se plošina blíž než 300 kreslí jemnou sítí (10 492 trojúhelníků: kulaté nohy, příhradová věž, jeřáb, flérka, osmiboký heliport s nápisy v Rig.fx, záchranné čluny); hrubá síť má 624 trojúhelníků. Cena: +1,3 ms v nejbližším záběru úvodu (3840x1600). #1170: maják na 400, jachta 450, loď 520 (rychlost 10); Sea.fx tlumí jen posun hladiny mezi 260 a 360, světlo vody beze změny.
