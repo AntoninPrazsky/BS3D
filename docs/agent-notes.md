@@ -20,6 +20,14 @@ Pravidla:
 
 ---
 
+## 2026-11-20 — #1178 trailer v7 a v8 — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: trailer v8 (52,4 s, `Videos\BS3D trailer\bs3d-trailer-v8-master.mp4`). Game: `capturehudawards` (z HUD jen body a zaměřovač), `nodropcinematic`, síla u `turn=`/`walk=`. `trailer-cut.py`: `keepLevels`/`minGroup`, `sidechain`, `duckFrom`, `burn`.
+- Majitel (v6, v7): čistý HUD, kombo do 3 s, Grid s motorkami, skutečná prohra na síti (Amphora: sestřelit ucho), montáž plynule a s posledním velkým kusem do loga, akce na první dobu bicích, bez pruhů za titulky, zvuk hry nad hudbou a žádné údery na střizích.
+- ⚠ `lineloss=` na nehybném shluku jako prohra nevypadá; Amphora ji dá za dva výstřely, ale zepředu ucha kryje břicho (čtvrtotočka `turn=`).
+- ⚠ Záběr na pád drží dělo (`nodropcinematic`). Osamocená kulička barvy stojí dva výstřely. Po vyčištění úrovně naskočí pod `capturehudawards` výherní body: stříhat dřív.
+- Otevřené: verdikt na v8; ~90 GB 4K klipů v `%TEMP%`.
+
 ## 2026-11-20 — #1181–#1185 telefon ověřen, soukromí jmenuje telefon — desktop (RDT-PC), Claude Code
 
 - Hotovo: skutečný telefon (vivo, podepsané 0.6.0-dev z b130094a, `adb install -r`, firstInstallTime beze změny, profil hzscratch): #1181–#1185 OK, výsledky na issues. Seznam soukromí (O hře, Nastavení > ONLINE) psal na telefonu „your computer's specification“; `PhoneWords` je teď v `MenuPage` a `PrivacyList` ho bere, test drží obě znění.
