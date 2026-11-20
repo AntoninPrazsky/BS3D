@@ -210,6 +210,10 @@ namespace BS3D.Tools.WindingCheck
             }
             yield return ("ForestStand spire", () => new AuroraStandMesh(d, new AuroraFarStandConfig { Height = 19f, Radius = 3.6f }, tiers: 5, sides: 10));
             yield return ("ForestFireflies", () => new ForestFireflies(d, fx, new ForestSceneConfig(), 0.3f));
+            //The forest's lamps round the island (#1166): the pole, its ironwork, the shade's lining and the bulb; and the wind
+            //turbine on the hills: the tower with its nacelle and spinner, the rotor, the aviation light
+            yield return ("ForestLamps", () => new ForestLamps(d, fx, ForestLampLayout.Plan(new ForestSceneConfig(), null), 0.3f));
+            yield return ("ForestTurbineMeshes", () => new ForestTurbineMeshes(d));
             yield return ("SavannaScatter", () => new SavannaScatter(d, new SavannaSceneConfig(), (x, z) => 0f,
                 Array.Empty<ScatterSpacing.Footprint>()));
             yield return ("MeadowScatter", () => new MeadowScatter(d, new MeadowSceneConfig(), MeadowScatter.DEFAULT_SEED));

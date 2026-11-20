@@ -63,6 +63,7 @@ float3 SrgbToLinear(float3 color)
 //technique table. Its uniforms move everything declared after them, which is expected for a real change; the
 //layout rule is only a promise that a change which is MEANT to be pure (a move, a split) compiles identically.
 #include "InstancedModel/Common.fxh"
+#include "SceneLamp.fxh"
 #include "InstancedModel/Lighting.fxh"
 #include "InstancedModel/SceneRelief.fxh"
 #include "InstancedModel/BallCommon.fxh"

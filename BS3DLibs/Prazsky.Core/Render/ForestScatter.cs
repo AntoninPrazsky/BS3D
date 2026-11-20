@@ -243,6 +243,53 @@ namespace Prazsky.Core.Render
                 logs.MinScale, logs.MaxScale, LOG_LEAN, logVariants, terrainHeight, rng, logs.Length * 0.5f, logSpace));
         }
 
+        /// <summary>The kinds a planting holds, for <see cref="Fell"/>.</summary>
+        internal enum Kind { Conifer, Broadleaf, Rock, Stump, Snag, Log }
+
+        /// <summary>A kind's arrays: the ones every tier draws, and High and Ultra's (the same arrays where the config plants
+        /// no more of it).</summary>
+        internal (ModelInstance[][] Every, ModelInstance[][] Fine) Arrays(Kind kind) => kind switch
+        {
+            Kind.Conifer => (Conifers, FineConifers),
+            Kind.Broadleaf => (Broadleaves, FineBroadleaves),
+            Kind.Rock => (Rocks, FineRocks),
+            Kind.Stump => (Stumps, FineStumps),
+            Kind.Snag => (Snags, FineSnags),
+            _ => (Logs, FineLogs),
+        };
+
+        /// <summary>
+        /// Takes instances out of the planting, each named by its kind, its variant and its index in that variant's
+        /// <c>Fine</c> array, from every tier's arrays at once (an index under a lower tier's array's length is the same
+        /// instance there), so a tier change still moves nothing. The forest's lamp poles fell what stands where no spot in
+        /// their reach is clear (#1166, <see cref="ForestLampLayout.Plan"/>). ⚠ Before anything else reads the planting: what
+        /// was built from it before still holds the felled instances.
+        /// </summary>
+        internal void Fell(IEnumerable<(Kind Kind, int Variant, int Index)> felled)
+        {
+            var byBucket = new Dictionary<(Kind, int), HashSet<int>>();
+            foreach ((Kind kind, int variant, int index) in felled)
+            {
+                if (!byBucket.TryGetValue((kind, variant), out HashSet<int> indices)) byBucket[(kind, variant)] = indices = new HashSet<int>();
+                indices.Add(index);
+            }
+
+            foreach (((Kind kind, int variant), HashSet<int> gone) in byBucket)
+            {
+                (ModelInstance[][] every, ModelInstance[][] fine) = Arrays(kind);
+                if (!ReferenceEquals(every, fine)) every[variant] = Without(every[variant], gone);
+                fine[variant] = Without(fine[variant], gone);
+            }
+        }
+
+        private static ModelInstance[] Without(ModelInstance[] bucket, HashSet<int> gone)
+        {
+            var kept = new List<ModelInstance>(bucket.Length);
+            for (int i = 0; i < bucket.Length; i++)
+                if (!gone.Contains(i)) kept.Add(bucket[i]);
+            return kept.ToArray();
+        }
+
         //Every instance of a planting as the footprint it was spaced by, so a later pass of the same kind keeps clear of it
         private static List<ScatterSpacing.Footprint> Footprints(ModelInstance[][] planted, float footprint)
         {

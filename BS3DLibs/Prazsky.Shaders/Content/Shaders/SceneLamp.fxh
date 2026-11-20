@@ -1,0 +1,55 @@
+//How much of a scene point light (SceneLights) reaches a point: one copy for every loop over the slots that may hold a
+//shaded lamp, the instanced effect's (InstancedModel/Lighting.fxh), the forest floor's (Forest.fx) and the plant
+//material's (Acacia.fx). The Potato path's copy (GamePi/Shaders/PotatoModel.fx) does not read it, so no host may push a
+//shaded lamp there.
+//
+//The quadratic falloff to the light's range every scene light has, saturate(1 - d / range)^2. And a NEGATIVE range marks a
+//SHADED LAMP (#1166, the forest's old lamps on their poles, ForestLampLayout): its bulb hangs in an enamel shade, which
+//lets its light out only on the open side of the shade's rim, so what stands above the bulb and behind it takes none of
+//it. Without that the lamps lit the spruces' crowns over them and the wood round the clearing to its tops, and the wood's
+//dusk went flat: the trees nearest a lamp take it on their trunks and lower boughs and stay dark above, as a real wood
+//does under a street lamp.
+//
+//The shade is tipped towards the arena's axis by LAMP_TILT (ForestLampLayout.SHADE_TILT, the meshes tipped the same), so
+//the rim's plane rises towards the island and the light reaches the cluster, which hangs well above the bulbs, while it
+//falls away behind the pole. The shade's axis is read off the light's own position (every shaded lamp faces the axis,
+//give or take its arm's few degrees of skew), so no slot carries a direction. The cut is soft over a few degrees either
+//side of the rim's plane (LAMP_RIM_GAIN, LAMP_RIM_SPILL): the lining spills a little light sideways past the rim.
+//
+//toLight is the vector from the point to the light (not normalised), dist its length.
+//
+//Every loop walks a slot behind two [branch]es on exactly the points where the falloff is zero, so no pixel moves: the
+//range first (the distance is in hand, and most of a scene stands out of most lights' reach), then the falloff itself
+//above zero, which is zero on the shut side of a shaded lamp's soft cut. The falloff is computed once, before the second
+//branch, and the slot's lighting multiplies by it inside. The forest's five lamps each reach a sector of the wood and none
+//of the crowns over them, and without the branches every pixel of the wood paid for all five; the savanna's campfires,
+//out of reach of most of its plain, give back about four tenths of a millisecond (docs/scenes/forest.md).
+
+static const float LAMP_RIM_GAIN = 5.0;
+static const float LAMP_RIM_SPILL = 0.45;
+
+//sin and cos of ForestLampLayout.SHADE_TILT (25 degrees); ForestLampsTests reads them back against it
+static const float LAMP_TILT_SIN = 0.42262;
+static const float LAMP_TILT_COS = 0.90631;
+
+//How far below a shaded lamp's rim plane the point stands, times dist: the light-to-point vector along the shade's axis,
+//which points down and tips LAMP_TILT towards the arena's axis
+float SceneLampDepth(float3 lightPosition, float3 toLight)
+{
+    float2 inward = -lightPosition.xz * rsqrt(max(dot(lightPosition.xz, lightPosition.xz), 1e-4));
+    float3 axis = float3(inward.x * LAMP_TILT_SIN, -LAMP_TILT_COS, inward.y * LAMP_TILT_SIN);
+    return -dot(toLight, axis);
+}
+
+//The cut is behind a branch on the slot's own range: the same for every pixel of a draw, so every other scene's lights
+//(the savanna's fires, the neon ring, a blast) skip the shade's arithmetic outright
+float SceneLightFalloff(float3 lightPosition, float3 toLight, float dist, float range)
+{
+    float atten = saturate(1.0 - dist / abs(range));
+    atten *= atten;
+
+    //Positive below the rim, on the open side: lit
+    [branch] if (range < 0.0)
+        atten *= saturate(SceneLampDepth(lightPosition, toLight) / max(dist, 1e-4) * LAMP_RIM_GAIN + LAMP_RIM_SPILL);
+    return atten;
+}

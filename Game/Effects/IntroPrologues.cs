@@ -92,7 +92,7 @@ namespace BS3D.Effects
                 //#1108: and the savanna, its grass home (SavannaLanding)
                 SceneKind.Savanna => SavannaIntroShots.Build(renderer, context.GamePosition, context.GameTarget, fieldOfView, random),
                 SceneKind.Forest => ForestIntroShots.Build(context.ForestScatter,
-                    renderer?.GetSceneConfig(SceneKind.Forest) as ForestSceneConfig, fieldOfView, random),
+                    renderer?.GetSceneConfig(SceneKind.Forest) as ForestSceneConfig, fieldOfView, random, renderer?.ForestLamps),
                 SceneKind.Tropical => TropicalIntroShots.Build(renderer, fieldOfView, random),
                 SceneKind.Dream => DreamIntroShots.Build(renderer, context.WallClock, fieldOfView, random),
                 SceneKind.Cavern => CavernIntroShots.Build(renderer, fieldOfView, random),

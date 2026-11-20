@@ -15,8 +15,8 @@ namespace Prazsky.Core.Render
     /// <para>
     /// Some scenes carry lights of their own: the volcano's crater and its travelling flow fronts, the
     /// savanna's campfire, the neon city's ring of magenta and cyan, space's planetshine, the Moon's
-    /// earthshine and the big top's footlights. The others push a count of zero once and then cost nothing — see the early-out in
-    /// <see cref="Apply"/>.
+    /// earthshine, the big top's footlights, the cavern's crystal clusters and the forest's lamps round the island
+    /// (#1166). The others push a count of zero once and then cost nothing — see the early-out in <see cref="Apply"/>.
     /// </para>
     /// <para>
     /// <b>The savanna grass shader's copy is deliberately not this one.</b>
@@ -40,9 +40,10 @@ namespace Prazsky.Core.Render
     public sealed class SceneLights
     {
         /// <summary>
-        /// Light slots, <b>matched by <c>MAX_SCENE_LIGHTS</c> in <c>InstancedModel.fx</c> and
-        /// <c>Savanna.fx</c></b> (and by <c>SceneRenderer</c>'s own grass-side arrays). Raising it here
-        /// without raising it in the shaders silently writes past what the shader loop reads.
+        /// Light slots, <b>matched by <c>MAX_SCENE_LIGHTS</c> in <c>InstancedModel/Lighting.fxh</c>, <c>Savanna.fx</c>,
+        /// <c>Forest.fx</c> and <c>Acacia.fx</c></b> (and by the arrays sized off it that are pushed into them:
+        /// <c>SceneRenderer</c>'s grass-side ones, and <c>ForestBackdrop</c>'s for the floor and, through
+        /// <c>PlantPass.SetSceneLights</c>, the plant material). Raising it here without raising it in the shaders silently writes past what the shader loop reads.
         /// </summary>
         public const int MaxLights = 8;
 
@@ -134,7 +135,7 @@ namespace Prazsky.Core.Render
         /// (#795), which has none: then the volcano's lamps come from <see cref="Volcano"/>, the neon ring from
         /// <paramref name="neonLook"/> as always, the cavern's clusters from the Potato backdrop
         /// (<see cref="BackdropLamps"/>, #1044), and the other scenes whose lights only a backdrop knows (the campfires,
-        /// the big top, the planetshine, the earthshine, the lightning) push none.</param>
+        /// the big top, the planetshine, the earthshine, the lightning, the forest's lamps) push none.</param>
         /// <param name="neonLook">The neon city's ring (count, range, radius, height, colours), read only when
         /// <paramref name="scene"/> is <see cref="SceneKind.NeonCity"/>. Passed by reference, never copied.</param>
         /// <param name="wallClock">Must be the same clock the caller feeds <see cref="SceneFrame.Time"/>, or
@@ -145,7 +146,7 @@ namespace Prazsky.Core.Render
             int count = 0;
 
             //The guards below are mutually exclusive by construction — a scene is the volcano, or the savanna, or
-            //the neon city, or space, or the Moon, or the storm, or the big top, or the cavern (each TryGet returns
+            //the neon city, or space, or the Moon, or the storm, or the big top, or the forest, or the cavern (each TryGet returns
             //false for every kind but its own), and no SceneKind satisfies two of them. So this order is an order
             //and not a precedence: do not read it as one, and do not write a further branch that relies on being
             //tested last. The storm's own branch is additionally self-gating in TIME as well as in kind —
@@ -171,7 +172,9 @@ namespace Prazsky.Core.Render
             else if (sceneRenderer == null)
             {
                 //No renderer (the Potato path): the neon ring, which is config, and the lamps the Potato backdrop built
-                //(#1044), a slot left for a flash
+                //(#1044), a slot left for a flash. ⚠ Never a shaded lamp (a negative range, the forest's, SceneLamp.fxh):
+                //PotatoModel.fx's copy of the loop does not know one and would light everything in its reach fully
+                //(saturate(1 + d / |range|)), so a Potato forest must not hand these slots the forest's lamps
                 if (scene == SceneKind.NeonCity) count = BuildNeonRing(neonLook);
                 else if (BackdropLamps != null) count = BackdropLamps(wallClock, _lightPosition, _lightColor, _lightRange, MaxLights - 1);
             }
@@ -240,6 +243,12 @@ namespace Prazsky.Core.Render
             else if (scene == SceneKind.NeonCity)
             {
                 count = BuildNeonRing(neonLook);
+            }
+            else if (scene == SceneKind.Forest)
+            {
+                //The forest's old lamps on their wooden poles round the island (#1166), on the clock their bulbs glow on, so the
+                //old lamp's stutter dims its glass and its light together. Fewer than MaxLights, so a blast's flash finds a slot
+                count = sceneRenderer.ForestLampLights(wallClock, _lightPosition, _lightColor, _lightRange, MaxLights - 1);
             }
             else if (scene == SceneKind.Cavern)
             {

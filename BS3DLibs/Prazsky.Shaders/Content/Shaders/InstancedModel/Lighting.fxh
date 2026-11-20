@@ -27,6 +27,15 @@ float3 SceneLightColor[MAX_SCENE_LIGHTS];
 float SceneLightRange[MAX_SCENE_LIGHTS];
 int SceneLightCount;
 
+//Whether a SHADED lamp (a negative range, SceneLamp.fxh: the forest's old lamps, #1166) puts its highlight on this
+//surface: 1 for everything (InstancedModelRenderer.SceneLampHighlight's default), 0 for the balls (BallRenderSet). Every
+//ball takes all five of the forest's lamps 40 to 55 units off, so their highlights are faint dots no pixel of the play
+//view showed by more than 7 levels of 255, and computing them was a fifth of what the lamps cost in this effect over a
+//full field (docs/scenes/forest.md); the island's stone keeps them, its warm sheen under the lamps is their highlight.
+//Every other scene light keeps its highlight on every surface. A uniform and the slot's own sign, so a draw's pixels
+//all take one side of the branch.
+float SceneLampHighlight = 1;
+
 //Submerge fade for anything sinking below the sea (only pushed on the sea scene; SeaFadeDepth <= 0 disables
 //it everywhere else). A ball that misses falls past the platform into the water, and the opaque sea surface
 //hides it the instant it crosses - this fades it instead, blending its lit colour toward the deep-water tint
@@ -136,16 +145,29 @@ void AddSceneLights(float3 worldPosition, float3 worldNormal, float3 eyeVector, 
     {
         float3 toLight = SceneLightPosition[i] - worldPosition;
         float dist = length(toLight);
-        float3 L = toLight / max(dist, 1e-4);
 
-        //Smooth distance falloff to the light's range (quadratic, so it fades gently and dies at the edge)
-        float atten = saturate(1.0 - dist / SceneLightRange[i]);
-        atten *= atten;
+        //Only where the light adds anything (SceneLamp.fxh): a pixel past the range, or on the shut side of a shaded
+        //lamp's rim, where the falloff is exactly zero, skips the rest of the slot
+        [branch] if (dist < abs(SceneLightRange[i]))
+        {
+            //Smooth distance falloff to the light's range (quadratic, so it fades gently and dies at the edge), and
+            //nothing on the shut side of a shaded lamp's rim (SceneLamp.fxh)
+            float atten = SceneLightFalloff(SceneLightPosition[i], toLight, dist, SceneLightRange[i]);
 
-        diffuse += SceneLightColor[i] * (saturate(dot(worldNormal, L)) * atten);
+            [branch] if (atten > 0.0)
+            {
+                float3 L = toLight / max(dist, 1e-4);
 
-        float dotH = saturate(dot(worldNormal, normalize(L + eyeVector)));
-        specular += SceneLightColor[i] * (pow(dotH, SpecularPower) * atten);
+                diffuse += SceneLightColor[i] * (saturate(dot(worldNormal, L)) * atten);
+
+                //A shaded lamp's highlight only where the surface takes it (SceneLampHighlight)
+                [branch] if (SceneLightRange[i] > 0.0 || SceneLampHighlight > 0.0)
+                {
+                    float dotH = saturate(dot(worldNormal, normalize(L + eyeVector)));
+                    specular += SceneLightColor[i] * (pow(dotH, SpecularPower) * atten);
+                }
+            }
+        }
     }
 }
 
