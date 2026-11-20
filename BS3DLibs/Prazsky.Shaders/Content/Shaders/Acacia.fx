@@ -614,11 +614,15 @@ float4 AcaciaShade(AcaciaVertexOutput input, bool front, bool stone, bool barkRe
     {
         float3 toL = SceneLightPosition[i] - input.WorldPosition;
         float dist = length(toL);
-        [branch] if (SceneLightReaches(SceneLightPosition[i], toL, dist, SceneLightRange[i]))
+        [branch] if (dist < abs(SceneLightRange[i]))
         {
-            float facing = dot(N, toL / max(dist, 1e-4));
-            float lit = lerp(saturate(facing), saturate((facing + LEAF_WRAP) / (1.0 + LEAF_WRAP)), leaf);
-            color += albedo * SceneLightColor[i] * (lit * SceneLightFalloff(SceneLightPosition[i], toL, dist, SceneLightRange[i]));
+            float atten = SceneLightFalloff(SceneLightPosition[i], toL, dist, SceneLightRange[i]);
+            [branch] if (atten > 0.0)
+            {
+                float facing = dot(N, toL / max(dist, 1e-4));
+                float lit = lerp(saturate(facing), saturate((facing + LEAF_WRAP) / (1.0 + LEAF_WRAP)), leaf);
+                color += albedo * SceneLightColor[i] * (lit * atten);
+            }
         }
     }
 

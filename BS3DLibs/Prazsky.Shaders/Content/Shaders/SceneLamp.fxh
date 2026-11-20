@@ -18,11 +18,12 @@
 //
 //toLight is the vector from the point to the light (not normalised), dist its length.
 //
-//Every loop walks the slots behind SceneLightReaches, a [branch] on exactly the points where the falloff is zero: past the
-//range, and on the shut side of a shaded lamp's soft cut. The forest's five lamps each reach a sector of the wood and none
-//of the crowns over them, and without it every pixel of the wood paid for all five; the savanna's campfires, out of reach
-//of most of its plain, gave back about a third of a millisecond (docs/scenes/forest.md). The same zero set, not an
-//approximation, so no pixel moves.
+//Every loop walks a slot behind two [branch]es on exactly the points where the falloff is zero, so no pixel moves: the
+//range first (the distance is in hand, and most of a scene stands out of most lights' reach), then the falloff itself
+//above zero, which is zero on the shut side of a shaded lamp's soft cut. The falloff is computed once, before the second
+//branch, and the slot's lighting multiplies by it inside. The forest's five lamps each reach a sector of the wood and none
+//of the crowns over them, and without the branches every pixel of the wood paid for all five; the savanna's campfires,
+//out of reach of most of its plain, gave back about a third of a millisecond (docs/scenes/forest.md).
 
 static const float LAMP_RIM_GAIN = 5.0;
 static const float LAMP_RIM_SPILL = 0.45;
@@ -40,8 +41,8 @@ float SceneLampDepth(float3 lightPosition, float3 toLight)
     return -dot(toLight, axis);
 }
 
-//The cut is behind a branch on the slot's own range in both functions below: the same for every pixel of a draw, so
-//every other scene's lights (the savanna's fires, the neon ring, a blast) skip the shade's arithmetic outright
+//The cut is behind a branch on the slot's own range: the same for every pixel of a draw, so every other scene's lights
+//(the savanna's fires, the neon ring, a blast) skip the shade's arithmetic outright
 float SceneLightFalloff(float3 lightPosition, float3 toLight, float dist, float range)
 {
     float atten = saturate(1.0 - dist / abs(range));
@@ -51,14 +52,4 @@ float SceneLightFalloff(float3 lightPosition, float3 toLight, float dist, float 
     [branch] if (range < 0.0)
         atten *= saturate(SceneLampDepth(lightPosition, toLight) / max(dist, 1e-4) * LAMP_RIM_GAIN + LAMP_RIM_SPILL);
     return atten;
-}
-
-//Whether SceneLightFalloff is above zero at the point: inside the range, and for a shaded lamp on the open side of the
-//cut, where depth / dist * LAMP_RIM_GAIN + LAMP_RIM_SPILL > 0 (multiplied through by dist)
-bool SceneLightReaches(float3 lightPosition, float3 toLight, float dist, float range)
-{
-    bool reaches = dist < abs(range);
-    [branch] if (range < 0.0)
-        reaches = reaches && SceneLampDepth(lightPosition, toLight) * LAMP_RIM_GAIN + dist * LAMP_RIM_SPILL > 0.0;
-    return reaches;
 }

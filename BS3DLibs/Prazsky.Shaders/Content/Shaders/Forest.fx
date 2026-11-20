@@ -192,8 +192,12 @@ float3 ForestLampLight(float3 worldPosition, float3 normal)
     {
         float3 toL = SceneLightPosition[i] - worldPosition;
         float dist = length(toL);
-        [branch] if (SceneLightReaches(SceneLightPosition[i], toL, dist, SceneLightRange[i]))
-            light += SceneLightColor[i] * (saturate(dot(normal, toL / max(dist, 1e-4))) * SceneLightFalloff(SceneLightPosition[i], toL, dist, SceneLightRange[i]));
+        [branch] if (dist < abs(SceneLightRange[i]))
+        {
+            float atten = SceneLightFalloff(SceneLightPosition[i], toL, dist, SceneLightRange[i]);
+            [branch] if (atten > 0.0)
+                light += SceneLightColor[i] * (saturate(dot(normal, toL / max(dist, 1e-4))) * atten);
+        }
     }
     return light;
 }
