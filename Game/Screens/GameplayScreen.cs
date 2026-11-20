@@ -2357,6 +2357,11 @@ namespace BS3D.Screens
         /// <see cref="PlayHud.Draw"/> and the gate in <see cref="Draw"/>. The crosshair goes with the playing ones.</param>
         private void DrawOverlay(HudParts parts = HudParts.All)
         {
+            //A capture that asked for the awards alone (capturehudawards, #1178): whatever part of the HUD the frame would draw,
+            //the awards are what it draws, and the crosshair of a lean below, which is the aim and not a readout
+            bool awardsOnly = Game.CaptureHudAwardsOnly;
+            if (awardsOnly) parts = HudParts.Awards;
+
             PlayHud.ClusterProfile profile = BuildClusterProfile(out int ballCount);
 
             //Through LoadedColour, so a wildcard's disc cycles with the ball it stands for (#330). The strip
@@ -2384,7 +2389,7 @@ namespace BS3D.Screens
                 brakeBlock: BrakeBlockNow(), cutBlocked: !CutRoundFits, kinds: _magazineKinds, queueFrom: _magazineFrom,
                 queueFade: _magazineFade);
 
-            if ((parts & HudParts.Play) == 0) return;
+            if ((parts & HudParts.Play) == 0 && !awardsOnly) return;
 
             //The crosshair, into the host's overlay batch (the one the HUD above just used): shown only while
             //precise aim is leaning in, that being the only pose whose lens looks along the shot, and faded up
@@ -2410,7 +2415,7 @@ namespace BS3D.Screens
                 AimStrain, WallClock);
 
             //And the touch controls over everything, while the hand is on the screen (#1051)
-            DrawTouchControls();
+            if (!awardsOnly) DrawTouchControls();
         }
 
     }

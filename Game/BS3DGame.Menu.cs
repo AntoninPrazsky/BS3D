@@ -1312,7 +1312,7 @@ namespace BS3D
         /// </summary>
         internal bool MotionBlurActive => _effective.MotionBlur && QualityPreset.Presets[(int)_quality].MotionBlur
             && ScriptedPlay.Current?.MotionBlurFlippedOff(_wallClock) != true;
-        internal bool IsDropCinematicEnabled => _effective.DropCinematic;
+        internal bool IsDropCinematicEnabled => _effective.DropCinematic && !_launchNoDropCinematic;
 
         //The tutorial's switch (#189), read by the session every frame on MouseSensitivity's argument: the row
         //can move under a level standing paused behind the settings page. Never in a capture run (#946): a card is a HUD.

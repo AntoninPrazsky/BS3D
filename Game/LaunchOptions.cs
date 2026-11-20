@@ -479,6 +479,17 @@ namespace BS3D
         //hand will replay from a gun walked round the island (walk=, turn=), where a refused cutter stalls the action
         internal bool CaptureDemoNoCuts { get; private set; }
 
+        //"capturehudawards" (#1178): capturehud, and of the HUD only the awards flying off a match and the crosshair of a lean -
+        //no score, time bonus, streak, balls left, chips, side cut or queue. The owner asked for the trailer's gameplay shots
+        //as clean as its shots without a HUD; the awards stay because they are what says a match was one
+        internal bool CaptureHudAwardsOnly { get; private set; }
+
+        //"nodropcinematic" (#1178): the Drop camera row off for this run, whatever the settings file says, and never written
+        //back - "nograin"'s kind of instruction. A takeover holds the gun still and silent while it runs, so a filmed game
+        //whose gun must go on turning and firing through a big drop (the trailer's last shot, under a lens of its own) asks
+        //for none
+        internal bool NoDropCinematic { get; private set; }
+
         //"capturesize=<w>x<h>" (#1177): the frames' size, whatever the window's - the back buffer is made that size and the window
         //shows it scaled down (Capture.CaptureSize), so a 16:9 4K film comes out of a 21:9 panel or a laptop. Null: the window's.
         //Kept as written and read by CaptureRun.Create, which REFUSES a size it cannot take: a row that did not parse would only be
@@ -714,6 +725,8 @@ namespace BS3D
             //"nofps" hides the FPS overlay for this run, for a picture somebody else will look at (#452).
             Row.Flag("nofps", o => o.NoFpsOverlay = true),
             Row.Flag("nograin", o => o.NoGrain = true),
+            //"nodropcinematic" plays the run with the Drop camera row off (#1178) - see the property's own note
+            Row.Flag("nodropcinematic", o => o.NoDropCinematic = true),
             //"maxdetail" draws every distance rule at its finest, for filming (#1178) - see the property's own note
             Row.Flag("maxdetail", o => o.MaxDetail = true),
             //"nosplash" opens on the main menu with no intro logo (#621) — the Settings row for this run only.
@@ -940,6 +953,8 @@ namespace BS3D
             //"capturesize=3840x2160" films at that size whatever the window is (#1177); "capturehud" keeps the HUD of play in the picture
             Row.Text("capturesize", (o, v) => o.CaptureSize = v),
             Row.Flag("capturehud", o => o.CaptureHud = true),
+            //"capturehudawards" is capturehud with the awards and the crosshair alone (#1178) - see the property's own note
+            Row.Flag("capturehudawards", o => { o.CaptureHud = true; o.CaptureHudAwardsOnly = true; }),
             //"capturesplash" films the 2D logo first; "captureaudio" writes the game's own sound beside the frames (#1179)
             Row.Flag("capturesplash", o => o.CaptureSplash = true),
             Row.Flag("captureaudio", o => o.CaptureAudio = true),

@@ -29,6 +29,11 @@ namespace BS3D.Screens
         /// <summary>The score, the awards flying into it and the takeover's skip hint: what the celebration still reads.</summary>
         Account = 4,
 
+        /// <summary>The awards alone, flying off the balls they were earned on (#1178): all a capture filmed with
+        /// <c>capturehudawards</c> draws of the readouts, a trailer's gameplay shot with a match's number and nothing else.
+        /// Not part of <see cref="All"/>: <see cref="Account"/> draws them with the score they fly into.</summary>
+        Awards = 8,
+
         All = Field | Play | Account,
     }
 
@@ -1426,13 +1431,12 @@ namespace BS3D.Screens
                 DrawTutorial(tutorial, viewport, margin, cornerLeft);
             }
 
-            if ((parts & HudParts.Account) != 0)
-            {
-                DrawSkipHint(tutorial, viewport, margin);
+            if ((parts & HudParts.Account) != 0) DrawSkipHint(tutorial, viewport, margin);
 
-                //Last, so the numbers coming in pass over the readouts rather than under them
+            //Last, so the numbers coming in pass over the readouts rather than under them (alone, towards a score that is not
+            //drawn, when only the awards are asked for)
+            if ((parts & (HudParts.Account | HudParts.Awards)) != 0)
                 DrawAwards(camera, viewport, scoreAnchor - new Vector2(scoreSize.X * 0.5f, 0f));
-            }
 
             //The lost streak, said over the aim point (#875), last of what this call draws: over the awards in flight when one call
             //draws both (all of play). A won level's cleared beat draws the Play and the Account parts in two calls (#862), the

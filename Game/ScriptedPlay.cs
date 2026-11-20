@@ -48,8 +48,9 @@ namespace BS3D
     /// launched without focus, and needs <c>nofocuspause</c> so the level does not pause itself first.</item>
     /// <item><c>cut=&lt;t1,t2,…&gt;</c> — presses the anchor cut's key at those seconds (#213), through the very call R makes,
     /// so the round in the bore becomes a cutter and the next <c>fire=</c> is the cut.</item>
-    /// <item><c>walk=&lt;from&gt;:&lt;to&gt;[:in|out]</c> and <c>turn=&lt;from&gt;:&lt;to&gt;[:left|right]</c> — hold W (or S)
-    /// and A (or D) across the interval, through the very calls the keys make. Written for the resize fault: a
+    /// <item><c>walk=&lt;from&gt;:&lt;to&gt;[:in|out[:&lt;push&gt;]]</c> and <c>turn=&lt;from&gt;:&lt;to&gt;[:left|right[:&lt;push&gt;]]</c> — hold W (or S)
+    /// and A (or D) across the interval, through the very calls the keys make; a push under 1 (above 0) is a pad's stick
+    /// held that far, a share of the full rate (#1178: the trailer's gun going round the island at one slow speed). Written for the resize fault: a
     /// window resized mid-level re-solves the fit, and whether the player's walk and turn survive that could only be
     /// shown with the gun actually walked and turned first. The defaults are <c>in</c> and <c>left</c>. Several of each
     /// accumulate (#1178: the trailer's player turns one way, fires, and turns back). While either holds
@@ -251,12 +252,20 @@ namespace BS3D
             to = 0f;
             sign = 1f;
             string[] parts = text.Split(':');
-            if (parts.Length < 2 || parts.Length > 3 || !TryFloat(parts[0], out from) || !TryFloat(parts[1], out to)) { from = 0f; return false; }
+            if (parts.Length < 2 || parts.Length > 4 || !TryFloat(parts[0], out from) || !TryFloat(parts[1], out to)) { from = 0f; return false; }
 
-            if (parts.Length == 3)
+            if (parts.Length >= 3)
             {
                 if (parts[2].Equals(negative, StringComparison.OrdinalIgnoreCase)) sign = -1f;
                 else if (!parts[2].Equals(positive, StringComparison.OrdinalIgnoreCase)) return false;
+            }
+
+            //The push, a share of the key's full rate as a pad's stick gives one (#802): the sign keeps the direction and
+            //the size is how hard, so one number is the whole hold
+            if (parts.Length == 4)
+            {
+                if (!TryFloat(parts[3], out float push) || push <= 0f || push > 1f) return false;
+                sign *= push;
             }
 
             return true;
@@ -308,8 +317,8 @@ namespace BS3D
             + (float.IsNaN(_sweepFrom) ? "" : $"sweep {_sweepFrom:0.##}-{_sweepTo:0.##} s ±{_sweepAmplitude:0.#}° / {_sweepPeriod:0.##} s; ")
             + (float.IsNaN(_rmbFrom) ? "" : $"rmb {_rmbFrom:0.##}-{_rmbTo:0.##} s; ")
             + (_aims.Count == 0 ? "" : $"aim {string.Join(", ", _aims.ConvertAll(a => $"{a.Elevation:0.#}°/{a.Traverse:0.#}° from {a.At:0.##} s"))}; ")
-            + (_walks.Count == 0 ? "" : $"walk {string.Join(", ", _walks.ConvertAll(w => $"{(w.Sign > 0f ? "in" : "out")} {w.From:0.##}-{w.To:0.##} s"))}; ")
-            + (_turns.Count == 0 ? "" : $"turn {string.Join(", ", _turns.ConvertAll(t => $"{(t.Sign > 0f ? "left" : "right")} {t.From:0.##}-{t.To:0.##} s"))}; ")
+            + (_walks.Count == 0 ? "" : $"walk {string.Join(", ", _walks.ConvertAll(w => $"{(w.Sign > 0f ? "in" : "out")}{Push(w.Sign)} {w.From:0.##}-{w.To:0.##} s"))}; ")
+            + (_turns.Count == 0 ? "" : $"turn {string.Join(", ", _turns.ConvertAll(t => $"{(t.Sign > 0f ? "left" : "right")}{Push(t.Sign)} {t.From:0.##}-{t.To:0.##} s"))}; ")
             + (_padPresses.Count == 0 ? "" : $"{_padPresses.Count} pad press(es) from {_padPresses[0].From:0.##} s; ")
             + (_fire == null ? "" : $"fire at {string.Join(", ", Array.ConvertAll(_fire, t => t.ToString("0.##", CultureInfo.InvariantCulture)))} s");
 
@@ -363,10 +372,14 @@ namespace BS3D
                 $"[gun] {clock:0.00} s bearing {bearing:0.00} deg radius {radius:0.000} at ({gun.X:0.000}, {gun.Y:0.000}, {gun.Z:0.000}) lens ({lens.X:0.00}, {lens.Y:0.00}, {lens.Z:0.00})"));
         }
 
-        /// <summary>+1 while W is held by a <c>walk=</c> at this instant, -1 for S, 0 outside every interval.</summary>
+        //A hold's push for the run's log: nothing for a key's full rate
+        private static string Push(float sign) =>
+            MathF.Abs(sign) >= 1f ? string.Empty : string.Create(CultureInfo.InvariantCulture, $" at {MathF.Abs(sign):0.##}");
+
+        /// <summary>+1 while W is held by a <c>walk=</c> at this instant, -1 for S (less for a stated push), 0 outside every interval.</summary>
         internal float Walk(float clock) => Held(_walks, clock, 0f);
 
-        /// <summary>+1 while A is held by a <c>turn=</c> at this instant, -1 for D, 0 outside every interval.</summary>
+        /// <summary>+1 while A is held by a <c>turn=</c> at this instant, -1 for D (less for a stated push), 0 outside every interval.</summary>
         internal float Turn(float clock) => Held(_turns, clock, 0f);
 
         //The sign of the first of the holds whose interval (and the tail after it) the clock is in, 0 in none. A loop over a

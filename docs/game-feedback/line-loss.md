@@ -22,7 +22,8 @@ Losing to the death line is a moment, not a frame (#434): the cluster crosses th
 ## Staging a loss
 
 - **`lineloss=<seconds>`** stages a loss on a running level, making the same two calls the real crossing makes and aiming at the cluster's own lowest ball; it needs no edited level set, and it is the lever for a picture. The staged loss does not bring the cluster to the line, so the net must be pinned on (`lasers`) to see it.
-- A real line loss takes a descending ceiling and a couple of dozen shots. One can be forced with `fire=` and a scratch build's `Levels.json` whose entry has `ceilingStep` 1 (#643, #669 did).
+- A real line loss by the descending ceiling takes a couple of dozen shots. One can be forced with `fire=` and a scratch build's `Levels.json` whose entry has `ceilingStep` 1 (#643, #669 did).
+- **A real line loss in two shots: Amphora** (#1178, the owner's own recipe: "shoot a handle off and it swings on the other under the red line"). The amphora hangs by two handles of 29 cream balls each; with one gone the rest swings a unit past the line (`[level] Lost 'Amphora': ClusterReachedLine (... 1.00 past the line, deeper than a swing goes)`). From the gun's rest the belly covers the handles, so: `lasers aim=0.6:22:0 aim=3.2:44.5:0 turn=1.1:2.95:left fire=1.0,3.72` (a round thrown at the belly, since the second in the magazine is the cream one; a quarter turn; the handle's outer ball along the heading to the centre). The shot 3.72 s, the net touched 5.25 s, the loss 5.37 s, the result page 7.1 s. ⚠ For a picture of a loss this is the lever, not `lineloss=`: a staged crossing on a cluster that has not moved shows a net flaring and nothing swinging into it.
 - A staged run that listens for the hum needs `nofocuspause` as well as `lasers`: an unfocused window pauses the game, and a paused game holds no hum.
 
 ## The sound

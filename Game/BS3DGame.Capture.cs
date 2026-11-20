@@ -50,6 +50,7 @@ namespace BS3D
                 //The first frame the run films, and the two things a script against it needs: the clock and the step
                 string lens = _capture.Lens == null ? "the play camera" : $"a stated lens of {_capture.Lens.KeyCount} key(s)";
                 _captureDemoNoCuts = launch.CaptureDemoNoCuts;
+                _captureHudAwardsOnly = launch.CaptureHudAwardsOnly;
                 string action = _capture.Demo ? (_captureDemoNoCuts ? ", the benchmark's action without its cuts" : ", the benchmark's action") : string.Empty;
                 string hud = (_capture.ShowHud ? ", the HUD of play" : string.Empty) + (_capture.Splash ? ", the 2D logo first" : string.Empty)
                     + (launch.CaptureAudio ? ", the game's sound recorded" : string.Empty);
@@ -119,6 +120,13 @@ namespace BS3D
         /// Never in the benchmark itself, which is no capture.
         /// </summary>
         internal bool CaptureDemoSkipsCuts => CaptureDemo && _captureDemoNoCuts;
+
+        //"capturehudawards", read once as the capture begins
+        private bool _captureHudAwardsOnly;
+
+        /// <summary>Whether this capture draws of the HUD only the awards and the crosshair (<c>capturehudawards</c>, #1178;
+        /// <see cref="Screens.HudParts.Awards"/>).</summary>
+        internal bool CaptureHudAwardsOnly => _capture is { ShowHud: true } && _captureHudAwardsOnly;
 
         /// <summary>
         /// The capture's stated lens on this frame, or false for the play camera (a run that is not a capture, or one with no lens
