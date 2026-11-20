@@ -238,7 +238,8 @@ namespace BS3D.Online
         /// the one place (<see cref="OnlineScores.PrivacyList"/>), so the two read the same: each line a label and what it
         /// says.
         /// </summary>
-        internal (string Label, string Text)[] PrivacyList() => OnlineScores.PrivacyList(_settings);
+        /// <param name="phone">Whether the page calls the machine a phone (<c>MenuPage.PhoneWords</c>).</param>
+        internal (string Label, string Text)[] PrivacyList(bool phone) => OnlineScores.PrivacyList(_settings, phone);
 
         /// <summary>
         /// What became of the level just cleared, once the worker knows: accepted with its ranks, refused, or

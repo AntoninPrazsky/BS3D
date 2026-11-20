@@ -66,6 +66,20 @@ namespace BS3D.Tests
             Assert.DoesNotContain("phone", BenchmarkConsent.SentNote(phone: false), StringComparison.Ordinal);
         }
 
+        //The privacy list's benchmark line (About, Settings > ONLINE) names the same machine as the benchmark's page: on the real
+        //phone it still said "your computer's specification" (2026-11-20, #1183's phone pass)
+        [Theory]
+        [InlineData(true, "your phone’s specification", "computer")]
+        [InlineData(false, "your computer’s specification", "phone")]
+        public void The_privacy_lists_benchmark_line_names_the_machine_it_runs_on(bool phone, string names, string never)
+        {
+            (string label, string text) = Array.Find(BS3D.Online.OnlineScores.PrivacyList(new GameSettings(), phone), line => line.Label == "Benchmark");
+            Assert.Equal("Benchmark", label);
+            Assert.Contains(names, text, StringComparison.Ordinal);
+            Assert.DoesNotContain(never, text, StringComparison.OrdinalIgnoreCase);
+            Assert.Null(CopyRules.Fault(text));
+        }
+
         //The tap the phone's copy promises is read over the play too, where the gameplay screen has the input (#1183's review)
         [Fact]
         public void On_a_phone_a_finger_landing_stops_the_run_once()

@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-20 — #1181–#1185 telefon ověřen, soukromí jmenuje telefon — desktop (RDT-PC), Claude Code
+
+- Hotovo: skutečný telefon (vivo, podepsané 0.6.0-dev z b130094a, `adb install -r`, firstInstallTime beze změny, profil hzscratch): #1181–#1185 OK, výsledky na issues. Seznam soukromí (O hře, Nastavení > ONLINE) psal na telefonu „your computer's specification“; `PhoneWords` je teď v `MenuPage` a `PrivacyList` ho bere, test drží obě znění.
+- ⚠ Povolení ladění USB na telefonu může zaniknout („device unauthorized“): po potvrzení na telefonu pomohl až `adb kill-server`.
+- Otevřené: hlavní menu má na telefonu cíle 6,6 mm a piny kapitol 6,9 mm (mimo #1181).
+
 ## 2026-11-20 — #1178 trailer v6, pohyb děla — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: trailer v6 (56,1 s, `Videos\BS3D trailer\bs3d-trailer-v6-master.mp4`): dělo se hýbe ve všech herních záběrech (`turn=`/`walk=` se sčítají), `capturedemonocuts`, hudba nabíhá (`fadeIn`), skip hint se při natáčení nekrokuje.

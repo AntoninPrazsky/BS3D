@@ -59,7 +59,7 @@ namespace BS3D.Tests
         {
             //Drawn as written since #1154: a capital, then lower case, as the text beside them is set
             List<string> faults = new();
-            foreach ((string label, _) in OnlineScores.PrivacyList(new GameSettings()))
+            foreach ((string label, _) in OnlineScores.PrivacyList(new GameSettings(), phone: false))
             {
                 bool sentence = label.Length > 1 && char.IsUpper(label[0]) && label.Substring(1) == label.Substring(1).ToLowerInvariant();
                 if (!sentence) faults.Add(label);
