@@ -115,6 +115,8 @@ namespace Prazsky.Core.Render
         private readonly IndexBuffer _boxIndices;
         private readonly DynamicVertexBuffer _instances;
         private readonly Texture3D _noise;
+        //The same noise on the CPU, for the lens's sun ray (SunPast)
+        private readonly float[] _noiseTexels;
         private readonly Heap[] _heaps = new Heap[MAX_HEAPS];
         private readonly float[] _order = new float[MAX_HEAPS];
 
@@ -158,7 +160,8 @@ namespace Prazsky.Core.Render
 
             int side = NOISE_PERIOD * NOISE_TEXELS_PER_UNIT;
             _noise = new Texture3D(device, side, side, side, false, SurfaceFormat.Single);
-            _noise.SetData(ProxyVolumes.GradientNoiseTexels(NOISE_PERIOD, NOISE_TEXELS_PER_UNIT, NOISE_SEED));
+            _noiseTexels = ProxyVolumes.GradientNoiseTexels(NOISE_PERIOD, NOISE_TEXELS_PER_UNIT, NOISE_SEED);
+            _noise.SetData(_noiseTexels);
             p["CloudNoiseVolume"].SetValue(_noise);
 
             _march = _effect.Techniques["CloudVolume"];
@@ -185,12 +188,15 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Tells the sky shader whether the deck gives way to the heaps this frame (<c>Sky.fx</c>'s <c>CloudVolumeCut</c>): state it
         /// before the sky is drawn, every frame, <paramref name="on"/> false wherever no heaps will be drawn, so a tier or a scene
-        /// switched to never inherits a cut deck with nothing in its place.
+        /// switched to never inherits a cut deck with nothing in its place. The field is told the same
+        /// (<see cref="CloudField.SunHeaps"/>, #1172), the sun seen whole until <see cref="March"/> says what the heaps hide of it.
         /// </summary>
         public void ApplyToSky(Effect skyEffect, CloudField clouds, bool on)
         {
             ReadSky(skyEffect);
-            _skyCut?.SetValue(on ? Strength(clouds) : 0f);
+            float cut = on ? Strength(clouds) : 0f;
+            _skyCut?.SetValue(cut);
+            clouds.SetSunHeaps(cut, 1f);
         }
 
         /// <summary>
@@ -198,11 +204,14 @@ namespace Prazsky.Core.Render
         /// it leaves bound: call it before the scene target is bound (a target is bound once a frame), with this frame's sky
         /// stated on <paramref name="skyEffect"/> (<see cref="CloudField.ApplyTo"/>), whose cloud light it reads. Then
         /// <see cref="Composite"/> lays the layer over the sky. Draws nothing, and binds nothing, where no heap stands
-        /// (<see cref="Count"/> 0).
+        /// (<see cref="Count"/> 0). Tells <paramref name="clouds"/> how much of the sun's disc the lens sees past the heaps
+        /// (<see cref="CloudField.SunPastHeaps"/>, #1172), heaps or none.
         /// </summary>
         public void March(ICamera camera, CloudField clouds, Effect skyEffect)
         {
+            ReadSky(skyEffect);
             Count = Place(camera.Position, clouds, _heaps, _order, _lattice);
+            clouds.SetSunHeaps(Strength(clouds), SunPast(camera.Position, _skySunDirection.GetValueVector3(), clouds.Time, _heaps, Count, _noiseTexels));
             if (Count == 0) return;
 
             int width = Math.Max(_device.PresentationParameters.BackBufferWidth, 1);
@@ -214,7 +223,6 @@ namespace Prazsky.Core.Render
                     RenderTargetUsage.DiscardContents);
             }
 
-            ReadSky(skyEffect);
             _view.SetValue(camera.View);
             _projection.SetValue(FarProjection(camera.Projection, LAYER_FAR));
             _cameraPosition.SetValue(camera.Position);
@@ -473,6 +481,140 @@ namespace Prazsky.Core.Render
             float row = 0.5f + 0.5f * MathF.Cos(MathHelper.TwoPi * (across + bend));
             return MathHelper.Lerp(1f, MathHelper.Lerp(STREET_GAP, STREET_CREST, row), organised);
         }
+
+        //THE SUN PAST THE HEAPS (#1172). On High and Ultra the deck near the lens gives way to the heaps (ApplyToSky), so the
+        //sun's disc the sky draws is hidden by them alone, and Sea.fx's glint, which the owner asked to agree with the sun,
+        //takes what the lens sees of the disc past them. That is one ray, the lens's own sun ray, marched here as
+        //CloudVolume.fx marches a pixel's ray through each heap - its bound, its steps, its density with the billows of the
+        //same baked noise, its fade - less the per-pixel jitter (each step at its middle). Its figures are the shader's own,
+        //named as there (CloudVolumeTests reads them in the shader): keep the two in step.
+        internal const int CLOUD_STEPS = 10, CLOUD_STEPS_FAR = 5;
+        internal const float STEPS_FAR_FROM = 1500f, STEPS_FAR_AT = 3000f;
+        internal const float CLOUD_SIGMA = 0.09f, CLOUD_WAIST = 0.3f, CLOUD_BASE_WIDTH = 0.78f;
+        internal const float CLOUD_BILLOW = 0.45f, BILLOW_RADIUS = 90f, BILLOW_GROWTH = 0.6f, CLOUD_EDGE = 10f;
+        internal const float CLOUD_BILLOW_PUSH = 0.8f, CLOUD_PUFF_BIAS = 0.35f, CLOUD_PUFF_FROM = 0.35f, CLOUD_PUFF_TO = 0.7f;
+        internal const float CLOUD_RIM_PUSH = 0.25f, CLOUD_MARGIN = 0.45f, CLOUD_PUSH_FADE_FROM = 0.9f;
+
+        /// <summary>
+        /// How much of the sun's disc <paramref name="lens"/> sees past the first <paramref name="count"/> of
+        /// <paramref name="heaps"/>, 0 to 1: the sky behind the heaps' layer shows through each heap's alpha in turn, so the
+        /// product of what each leaves. <paramref name="sun"/> points at the sun; <paramref name="time"/> is the clouds' clock
+        /// (the billows roll with it); <paramref name="noise"/> the baked noise the shader samples. 1 with no heaps.
+        /// </summary>
+        internal static float SunPast(Vector3 lens, Vector3 sun, float time, Heap[] heaps, int count, float[] noise)
+        {
+            float seen = 1f;
+            for (int i = 0; i < count && seen > 1e-4f; i++)
+                seen *= 1f - HeapAlpha(lens, sun, time, heaps[i], noise);
+            return seen;
+        }
+
+        //CloudVolumePS's alpha for one ray through one heap: the bound (the cap's ellipsoid grown by the margin, over the
+        //base plane), the march, the fade by distance and by how far the heap has faded in. 0 for a ray the bound misses.
+        private static float HeapAlpha(Vector3 lens, Vector3 direction, float time, in Heap heap, float[] noise)
+        {
+            Vector4 cloud = heap.Cloud, shape = heap.Shape, form = heap.Form;
+            float radius = cloud.W;
+            if (radius <= 0f || shape.W <= 0f) return 0f;
+            float aspect = shape.X / radius;
+            float billowSize = CLOUD_BILLOW * MathF.Pow(MathF.Sqrt(radius * shape.X), BILLOW_GROWTH) * MathF.Pow(BILLOW_RADIUS, 1f - BILLOW_GROWTH);
+            float edge = CLOUD_EDGE / radius;
+
+            Vector3 o = HeapLocalDirection(lens - new Vector3(cloud.X, cloud.Y, cloud.Z), cloud, form, aspect);
+            Vector3 d = HeapLocalDirection(direction, cloud, form, aspect);
+            float dy = MathF.Abs(d.Y) > 1e-9f ? d.Y : 1e-9f;
+            float reach = 1f + CLOUD_MARGIN;
+            float waistY = CLOUD_WAIST * aspect, capY = (1f - CLOUD_WAIST) * aspect + CLOUD_MARGIN;
+
+            float squash = reach / capY;
+            Vector3 oe = new(o.X, (o.Y - waistY) * squash, o.Z);
+            Vector3 de = new(d.X, d.Y * squash, d.Z);
+            float ea = MathF.Max(Vector3.Dot(de, de), 1e-12f), eb = Vector3.Dot(oe, de);
+            float ed = eb * eb - ea * (Vector3.Dot(oe, oe) - reach * reach);
+            if (ed < 0f) return 0f;
+            float eroot = MathF.Sqrt(ed);
+            float ya = -o.Y / dy, yc = (waistY + capY - o.Y) / dy;
+            float t0 = MathF.Max(MathF.Max((-eb - eroot) / ea, MathF.Min(ya, yc)), 0f);
+            float t1 = MathF.Min((-eb + eroot) / ea, MathF.Max(ya, yc));
+            if (t1 - t0 <= 0f) return 0f;
+
+            int steps = (int)MathF.Round(MathHelper.Lerp(CLOUD_STEPS, CLOUD_STEPS_FAR, MathHelper.Clamp((t0 - STEPS_FAR_FROM) / (STEPS_FAR_AT - STEPS_FAR_FROM), 0f, 1f)));
+            float dt = (t1 - t0) / steps;
+            float transmit = 1f;
+            for (int i = 0; i < steps; i++)
+            {
+                float t = t0 + (i + 0.5f) * dt;
+                float density = HeapDensity(o + d * t, lens + direction * t, shape, aspect, billowSize, edge, time, noise);
+                if (density > 0.02f) transmit *= MathF.Exp(-CLOUD_SIGMA * density * dt);
+                if (transmit < 0.03f) break;
+            }
+
+            float fade = (1f - HlslSmoothStep(FADE_NEAR, FADE_FAR, t0)) * shape.W;
+            float alpha = (1f - transmit) * fade;
+            //The shader clips what would hide less than this
+            return alpha > 0.002f ? alpha : 0f;
+        }
+
+        //CloudVolume.fx's HeapLocalDirection: a direction in the heap's own measure (radii, x along its axis, its lean out)
+        private static Vector3 HeapLocalDirection(Vector3 v, Vector4 cloud, Vector4 form, float aspect)
+        {
+            float along = v.X * form.X + v.Z * form.Y - form.W * v.Y / aspect;
+            float across = -v.X * form.Y + v.Z * form.X;
+            return new Vector3(along / form.Z, v.Y, across) / cloud.W;
+        }
+
+        //CloudVolume.fx's HeapInside: how far inside the outline, in radii; h how high up the heap, e how far out to the margin
+        private static float HeapInside(Vector3 l, float aspect, out float h, out float e)
+        {
+            float waistY = CLOUD_WAIST * aspect, capY = (1f - CLOUD_WAIST) * aspect;
+            h = l.Y / aspect;
+            float waist = MathHelper.Lerp(CLOUD_BASE_WIDTH, 1f, h / CLOUD_WAIST);
+            Vector3 c = new(l.X, l.Y - waistY, l.Z);
+            Vector3 axes = new(1f, capY, 1f);
+            float k0 = (c / axes).Length(), k1 = MathF.Max((c / (axes * axes)).Length(), 1e-6f);
+            e = new Vector3(l.X, c.Y * (1f + CLOUD_MARGIN) / (capY + CLOUD_MARGIN), l.Z).Length() / (1f + CLOUD_MARGIN);
+            float acrossAxis = MathF.Sqrt(l.X * l.X + l.Z * l.Z);
+            return h < CLOUD_WAIST ? waist - acrossAxis : -k0 * (k0 - 1f) / k1;
+        }
+
+        //CloudVolume.fx's HeapDensity with the rim's erosion (fine 1): the outline pushed by the billows
+        private static float HeapDensity(Vector3 l, Vector3 p, Vector4 shape, float aspect, float billowSize, float edge, float time, float[] noise)
+        {
+            float inside = HeapInside(l, aspect, out float h, out float e);
+            if (!(e < 1f && h > 0f)) return 0f;
+
+            Vector3 q = p / billowSize + shape.Y * new Vector3(13.7f, 5.3f, 9.1f) + new Vector3(0f, -time * 0.004f, 0f);
+            float n = VolumeNoise(noise, q);
+            float billow = MathHelper.Lerp(n, MathF.Abs(n) * 2f - CLOUD_PUFF_BIAS * MathHelper.Clamp(1f - inside * 3f, 0f, 1f),
+                HlslSmoothStep(CLOUD_PUFF_FROM, CLOUD_PUFF_TO, h));
+            float rim = VolumeNoise(noise, q * 3.1f + new Vector3(11.3f));
+            float push = 1f - HlslSmoothStep(CLOUD_PUSH_FADE_FROM, 1f, e);
+            float body = inside + push * (CLOUD_BILLOW_PUSH * billow + CLOUD_RIM_PUSH * rim * MathHelper.Clamp(1f - inside * 1.5f, 0f, 1f));
+            body *= HlslSmoothStep(0f, 0.04f, h);
+            return MathHelper.Clamp(body / edge, 0f, 1f) * shape.Z;
+        }
+
+        //CloudVolume.fx's VolumeNoise: the baked texels read as the sampler reads them, at p / NOISE_PERIOD, wrapped, trilinear
+        //between texel centres (texel i's centre stands at (i + 0.5) / side)
+        internal static float VolumeNoise(float[] texels, Vector3 p)
+        {
+            const int side = NOISE_PERIOD * NOISE_TEXELS_PER_UNIT;
+            float x = p.X * NOISE_TEXELS_PER_UNIT - 0.5f, y = p.Y * NOISE_TEXELS_PER_UNIT - 0.5f, z = p.Z * NOISE_TEXELS_PER_UNIT - 0.5f;
+            float fx = MathF.Floor(x), fy = MathF.Floor(y), fz = MathF.Floor(z);
+            float tx = x - fx, ty = y - fy, tz = z - fz;
+            int x0 = Wrap((int)fx, side), y0 = Wrap((int)fy, side), z0 = Wrap((int)fz, side);
+            int x1 = (x0 + 1) % side, y1 = (y0 + 1) % side, z1 = (z0 + 1) % side;
+
+            float At(int ix, int iy, int iz) => texels[ix + side * (iy + side * iz)];
+            float near = MathHelper.Lerp(MathHelper.Lerp(At(x0, y0, z0), At(x1, y0, z0), tx), MathHelper.Lerp(At(x0, y1, z0), At(x1, y1, z0), tx), ty);
+            float far = MathHelper.Lerp(MathHelper.Lerp(At(x0, y0, z1), At(x1, y0, z1), tx), MathHelper.Lerp(At(x0, y1, z1), At(x1, y1, z1), tx), ty);
+            return MathHelper.Lerp(near, far, tz);
+        }
+
+        private static int Wrap(int i, int side) => ((i % side) + side) % side;
+
+        //HLSL's smoothstep, edges and all
+        private static float HlslSmoothStep(float from, float to, float x) => SmoothStep((x - from) / (to - from));
 
         //How far a heap reaches from its centre along a unit direction, in radii across: 1 across its axis, its stretch
         //along it, an ellipse between

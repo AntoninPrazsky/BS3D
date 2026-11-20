@@ -210,12 +210,6 @@ float3 CloudThicknessD(float2 world, float footprint)
     return float3(max(thickness, 0.0), weather.yz * CloudCoverageGain + detail.yz * strength);
 }
 
-//How much of the sun still reaches a point in the world. Branchless on purpose past the early-out: the
-//callers take screen-space derivatives further down, and those want every pixel of a quad to have walked
-//one path.
-//The shadow itself, for CloudSunlight below. Split off so the uniform branch there can wrap one call and
-//return once: a [branch] around an early return in an inlined function is what fxc reports as X4000, "use of
-//potentially uninitialized variable", once per shader that includes this - 45 of the ~480 lines a build printed.
 //Where the sun ray from a point crosses the cloud plane (CloudField.SunlightAt's crossing on the CPU).
 float2 CloudSunHit(float3 worldPosition, float3 sunDirection)
 {
@@ -234,6 +228,12 @@ float CloudSunlightUnder(float cover)
     return lerp(1.0, CloudShadowFloor, saturate(cover * CloudShadowGain));
 }
 
+//How much of the sun still reaches a point in the world. Branchless on purpose past the early-out: the
+//callers take screen-space derivatives further down, and those want every pixel of a quad to have walked
+//one path.
+//The shadow itself, for CloudSunlight below. Split off so the uniform branch there can wrap one call and
+//return once: a [branch] around an early return in an inlined function is what fxc reports as X4000, "use of
+//potentially uninitialized variable", once per shader that includes this - 45 of the ~480 lines a build printed.
 float CloudSunlightLit(float3 worldPosition, float3 sunDirection)
 {
     //The weather layer alone, deliberately. A cloud shadow thrown from that height has a penumbra
@@ -244,8 +244,9 @@ float CloudSunlightLit(float3 worldPosition, float3 sunDirection)
 
 //How much cloud stands between a point and the sun: the weather layer where the sun ray crosses the deck, 0 with no
 //weather (the map editor never sets the uniforms, so the gain sits at 0). For a shader that wants the sun's own beam
-//as well as the light under the deck (Sea.fx's glint, #1172): CloudSunlightUnder of it is CloudSunlight, and the
-//beam is what the sky shader's disc is seen through, which has no floor.
+//as well as the light under the deck (Sea.fx's glint, #1172): CloudSunlightUnder of it is CloudSunlight, and it times
+//CloudOpacity, with no floor, is what the sky shader hides its disc behind where the deck is drawn (below High; on High
+//and Ultra the deck near the lens gives way to the heaps).
 float CloudSunCover(float3 worldPosition, float3 sunDirection)
 {
     float cover = 0.0;

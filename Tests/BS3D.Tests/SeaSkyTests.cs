@@ -83,9 +83,17 @@ namespace BS3D.Tests
             Assert.True(body.Z < 1.5f * body.Y, $"the sea's body is blue {body.Z / body.Y:0.00} times the green");
             Assert.True(oldBody.Z > 3f * oldBody.Y, "the measure no longer tells dome 13's blue body");
 
-            //...and no brighter than it was: a darker sea, as the owner asked, and not a paler one
-            Assert.True(ColorSpace.Luminance(body) <= ColorSpace.Luminance(oldBody) * 1.05f,
-                $"the sea's body is {ColorSpace.Luminance(body):0.0000} where it was {ColorSpace.Luminance(oldBody):0.0000}");
+            //...and darker by luminance, as the owner asked ("the sea is actually darker"), not only greyer: at most four fifths
+            //of the body dome 13 lit with the old reflectances. Seen to fail with the reflectances undarkened (0.98 of it: the
+            //new dome's light is as bright as 13's, so a greyer body alone is not a darker one)
+            var oldSea = new SeaSceneConfig
+            {
+                WaterDeep = new Rgb(0.02f, 0.05f, 0.07f),
+                WaterShallow = new Rgb(0.07f, 0.17f, 0.19f),
+            };
+            Vector3 mainBody = Body(oldSea, OLD_DOME);
+            Assert.True(ColorSpace.Luminance(body) <= ColorSpace.Luminance(mainBody) * 0.8f,
+                $"the sea's body is {ColorSpace.Luminance(body):0.0000} where it was {ColorSpace.Luminance(mainBody):0.0000}");
         }
 
         [Fact]

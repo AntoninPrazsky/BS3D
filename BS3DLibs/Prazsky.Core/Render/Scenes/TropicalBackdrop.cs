@@ -254,6 +254,9 @@ namespace Prazsky.Core.Render
             _lagoonEffect.Parameters["FoamColor"].SetValue(water.FoamColor.ToVector3());
             _lagoonEffect.Parameters["SssStrength"].SetValue(water.SssStrength);
             _lagoonEffect.Parameters["SssColor"].SetValue(water.SssColor.ToVector3());
+            //The lagoon's glint and crest glow keep the light under the deck, floored as the shadows are: only the sea's take
+            //the sun's own beam (SeaSceneConfig.SunBeamGate, #1172)
+            _lagoonEffect.Parameters["SunBeamGate"].SetValue(0f);
             _lagoonEffect.Parameters["HorizonHazeDistance"].SetValue(water.HorizonHazeDistance);
 
             //The shore (#968): the lagoon reads its depth off the land's own height, so the land's profile goes into it too

@@ -394,9 +394,9 @@ namespace Testbed.Diagnostics
         public bool ClockStill { get; private set; }
 
         /// <summary>
-        /// <c>weather=&lt;clear|scattered|broken|overcast|storm&gt;</c>: the sky over the starting scene,
+        /// <c>weather=&lt;clear|scattered|mixed|broken|overcast|storm&gt;</c>: the sky over the starting scene,
         /// overriding whatever that scene asks for (#221). Testing only, and it exists for one reason the
-        /// scene defaults cannot serve: judging five skies means seeing them over the SAME backdrop under
+        /// scene defaults cannot serve: judging the skies means seeing them over the SAME backdrop under
         /// the SAME dome, and every other route ties the weather to the scene that wanted it.
         /// </summary>
         public string Weather { get; private set; }

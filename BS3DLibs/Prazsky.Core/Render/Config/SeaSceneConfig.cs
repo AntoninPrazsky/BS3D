@@ -25,11 +25,23 @@ namespace Prazsky.Core.Render
         /// <summary>Mean water level (world Y). Kept well below the platform so a rough sea has headroom for its crests.</summary>
         public float LevelY { get; set; } = -13f;
 
-        /// <summary>Deep-body water colour (linear reflectance, multiplied by skylight in the shader).</summary>
-        public Rgb WaterDeep { get; set; } = new(0.02f, 0.05f, 0.07f);
+        /// <summary>
+        /// Deep-body water colour (linear reflectance, multiplied by skylight in the shader). Both body colours are
+        /// <see cref="BODY_DARKENING"/> of what they were until #1171 (0.02, 0.05, 0.07 and 0.07, 0.17, 0.19), the hue kept:
+        /// the owner, "the sea is actually darker", and the sea's own dome kept 13's brightness for the island's sake, so the
+        /// sea's own darkness is its body's.
+        /// </summary>
+        public Rgb WaterDeep { get; set; } = new(0.02f * BODY_DARKENING, 0.05f * BODY_DARKENING, 0.07f * BODY_DARKENING);
 
-        /// <summary>Paler up-facing water colour (linear reflectance).</summary>
-        public Rgb WaterShallow { get; set; } = new(0.07f, 0.17f, 0.19f);
+        /// <summary>Paler up-facing water colour (linear reflectance), darkened with <see cref="WaterDeep"/>.</summary>
+        public Rgb WaterShallow { get; set; } = new(0.07f * BODY_DARKENING, 0.17f * BODY_DARKENING, 0.19f * BODY_DARKENING);
+
+        /// <summary>
+        /// How much of the body's reflectance the sea kept in #1171. The body is a reflectance times the dome's light plus a
+        /// twentieth of its zenith (<c>Sea.fx</c>), so its luminance falls by less than this: to about seven tenths of what it
+        /// was under dome 13 (<c>SeaSkyTests</c>). At a grazing look the water is mostly the sky's mirror, which this leaves alone.
+        /// </summary>
+        public const float BODY_DARKENING = 0.55f;
 
         /// <summary>
         /// How much of the body colour is <see cref="WaterShallow"/> regardless of which way the surface
@@ -132,6 +144,14 @@ namespace Prazsky.Core.Render
         /// <summary>Green-blue colour light takes coming through the water (linear): a sea's, bluer than the lagoon's green
         /// (0.15, 0.55, 0.50 until #1171).</summary>
         public Rgb SssColor { get; set; } = new(0.12f, 0.42f, 0.46f);
+
+        /// <summary>
+        /// How far the sun's glint and the crests' glow take the sun's own beam rather than the light under the deck
+        /// (<c>Sea.fx</c>'s <c>SunBeamGate</c>, #1172): 1, so a glitter path lies on the water only while the sun is out of
+        /// cloud. The light under the deck never falls under the weather's floor, and at that floor the glint drew a path
+        /// under a sky with no sun in it. The tropical lagoon, which shares the shader, pushes 0 and keeps the floored light.
+        /// </summary>
+        public float SunBeamGate { get; set; } = 1f;
 
         /// <summary>Distance over which the finite water fades into the skyline.</summary>
         public float HorizonHazeDistance { get; set; } = 700f;

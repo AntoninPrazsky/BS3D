@@ -14,8 +14,10 @@ namespace BS3D.Tests
     /// the weather's 0.3: a glitter path under a sky with no sun in it. What can be held without a frame: the sea stands under
     /// <see cref="WeatherPreset.Mixed"/>, Broken's clouds with about as much open sky, which leaves the sun's disc seen from
     /// nearly half the deck where Broken left it a twentieth; the heaps of #1145 still stand on its cloud; and
-    /// <c>Sea.fx</c>'s glint and crest glow take the sun's beam, the cover over the sun times the deck's opacity with no floor,
-    /// which is what the sky shader hides the disc behind. How the two read together is the owner's eye.
+    /// <c>Sea.fx</c>'s glint and crest glow take the sun's beam with no floor: below High the cover over the sun times the
+    /// deck's opacity, which is what the sky shader hides the disc behind, and on High and Ultra, where the deck near the lens
+    /// gives way to the heaps, what the lens sees of the disc past them (<see cref="CloudVolumes.SunPast"/>). The lagoon,
+    /// drawn through the same shader, keeps the floored light. How the two read together is the owner's eye.
     /// </summary>
     public class SeaCloudCoverTests
     {
@@ -125,15 +127,26 @@ namespace BS3D.Tests
         public void TheGlintAndTheCrestGlowTakeTheSunsBeam()
         {
             //Sea.fx cannot run without a device, so its lines are read: one crossing of the sun ray with the deck, the light
-            //under it floored as CloudSunlight is, and the beam with no floor, the cover times the deck's opacity. Seen to fail
-            //with the glint back on `sunlight`
+            //under it floored as CloudSunlight is, and the beam with no floor - the cover times the deck's opacity where the deck
+            //is drawn, what the lens sees past the heaps as far as they stand in its place (CloudSunHeaps) - which the glint and
+            //the crests' glow take as far as SunBeamGate says. Seen to fail with the glint back on `sunlight`
             string sea = Code("BS3DLibs", "Prazsky.Shaders", "Content", "Shaders", "Sea.fx");
             Assert.Contains("float sunCover = CloudSunCover(worldPosition, SunDirection);", sea);
             Assert.Contains("float sunlight = CloudSunlightUnder(sunCover);", sea);
-            Assert.Contains("float sunBeam = 1.0 - saturate(sunCover * CloudOpacity);", sea);
-            Assert.Matches(@"float glint = pow\(saturate\(dot\(reflected, SunDirection\)\), SunGlintPower\) \* SunGlintStrength \* sunBeam;", sea);
-            Assert.Matches(@"float sss = backlight \* [^;]*\* sunBeam \*", sea);
-            Assert.Contains("float CloudOpacity;", sea);
+            Assert.Contains("float sunBeam = lerp(1.0 - saturate(sunCover * CloudOpacity), CloudSunPastHeaps, CloudSunHeaps);", sea);
+            Assert.Contains("float sunGlint = lerp(sunlight, sunBeam, SunBeamGate);", sea);
+            Assert.Matches(@"float glint = pow\(saturate\(dot\(reflected, SunDirection\)\), SunGlintPower\) \* SunGlintStrength \* sunGlint;", sea);
+            Assert.Matches(@"float sss = backlight \* [^;]*\* sunGlint \*", sea);
+            foreach (string uniform in new[] { "float CloudOpacity;", "float CloudSunHeaps;", "float CloudSunPastHeaps;", "float SunBeamGate;" })
+                Assert.Contains(uniform, sea);
+
+            //The sea takes the beam whole; the lagoon, drawn through the same shader, keeps the floored light it had (the gate
+            //at 0, where the lerp is bit-exactly `sunlight`). Seen to fail with the lagoon's line left out
+            Assert.Equal(1f, new SeaSceneConfig().SunBeamGate);
+            Assert.Contains("_seaEffect.Parameters[\"SunBeamGate\"].SetValue(_seaConfig.SunBeamGate);",
+                Code("BS3DLibs", "Prazsky.Core", "Render", "Scenes", "SeaBackdrop.cs"));
+            Assert.Contains("_lagoonEffect.Parameters[\"SunBeamGate\"].SetValue(0f);",
+                Code("BS3DLibs", "Prazsky.Core", "Render", "Scenes", "TropicalBackdrop.cs"));
 
             //And Clouds.fxh: the light under the deck is what CloudSunlight always was, the cover is the weather layer at the
             //sun ray's crossing and nothing with no weather
@@ -141,6 +154,53 @@ namespace BS3D.Tests
             Assert.Contains("return lerp(1.0, CloudShadowFloor, saturate(cover * CloudShadowGain));", clouds);
             Assert.Contains("return CloudSunlightUnder(CloudCover(CloudSunHit(worldPosition, sunDirection)));", clouds);
             Assert.Contains("if (CloudCoverageGain > 0.0) cover = CloudCover(CloudSunHit(worldPosition, sunDirection));", clouds);
+        }
+
+        [Fact]
+        public void OnHighAndUltraTheGlintFollowsTheSunTheLensSeesPastTheHeaps()
+        {
+            //There the deck near the lens gives way to the heaps, and the disc is theirs to hide: from the play camera and the
+            //prologue's climb to the sun, over the drift, the lens sees the sun past them about a third of the time under
+            //Mixed (CloudVolumes.SunPast, the shader's march along the lens's sun ray). The weather layer the shader's gate
+            //reads below High disagrees with that for over a quarter of the moments at the glitter path's water, which is why
+            //the glint there takes the lens's figure. Seen to fail with SunPast answering 1 (the sun "seen" in every moment)
+            Vector3 sun = SunOfTheSea();
+            float[] noise = ProxyVolumes.GradientNoiseTexels(CloudVolumes.NOISE_PERIOD, CloudVolumes.NOISE_TEXELS_PER_UNIT, CloudVolumes.NOISE_SEED);
+            var heaps = new CloudVolumes.Heap[CloudVolumes.CAPACITY];
+            var order = new float[CloudVolumes.CAPACITY];
+            Vector2 along = Vector2.Normalize(new Vector2(sun.X, sun.Z));
+            foreach (Vector3 lens in new[] { new Vector3(0f, -4f, 30f), new Vector3(-81.72f, 1.06f, -56.1f), new Vector3(-53.63f, 18.01f, -84.19f) })
+            {
+                int moments = 0, seen = 0, weatherDisagrees = 0;
+                for (int k = 0; k < 120; k++)
+                {
+                    CloudField clouds = Sky(WeatherPreset.Mixed, k * 37.3f);
+                    int count = CloudVolumes.Place(lens, clouds, heaps, order);
+                    bool sunOut = CloudVolumes.SunPast(lens, sun, clouds.Time, heaps, count, noise) > 0.5f;
+
+                    //The weather layer's beam at the glitter path's water 100 out, below High's gate
+                    var water = new Vector3(lens.X + along.X * 100f, new SeaSceneConfig().LevelY, lens.Z + along.Y * 100f);
+                    float climb = (clouds.PlaneY - water.Y) / sun.Y;
+                    float cover = clouds.Cover(new Vector2(water.X + sun.X * climb, water.Z + sun.Z * climb));
+                    bool weatherOut = 1f - MathHelper.Clamp(cover * WeatherLooks.Of(WeatherPreset.Mixed).Opacity, 0f, 1f) > 0.5f;
+
+                    moments++;
+                    if (sunOut) seen++;
+                    if (sunOut != weatherOut) weatherDisagrees++;
+                }
+
+                float share = seen / (float)moments;
+                Assert.InRange(share, 0.25f, 0.45f);
+                Assert.True(weatherDisagrees > moments / 4, $"from {lens} the weather layer agreed with the heaps in all but {weatherDisagrees} of {moments}");
+            }
+        }
+
+        //The sea's sun, its dome's (22: 13 degrees up at azimuth 135, SkyDome's own conversion)
+        private static Vector3 SunOfTheSea()
+        {
+            var dome = Prazsky.Core.SkyDome.SunOf(Prazsky.Core.SkyDome.SceneDefault(Prazsky.Core.Render.SceneKind.Sea));
+            float elevation = MathHelper.ToRadians(dome.Elevation), azimuth = MathHelper.ToRadians(dome.Azimuth);
+            return new Vector3(MathF.Cos(elevation) * MathF.Sin(azimuth), MathF.Sin(elevation), MathF.Cos(elevation) * MathF.Cos(azimuth));
         }
 
         private static string FindFile(string relative)

@@ -33,9 +33,10 @@ namespace Prazsky.Core.Render
         Storm,
 
         /// <summary>
-        /// Broken's clouds with about as much open sky between them as cloud (#1172), so the sun is out as often as it is
-        /// behind one. It sits between <see cref="Scattered"/> and <see cref="Broken"/> and is written last only so the
-        /// five older values keep their numbers.
+        /// Broken's clouds with about as much open sky between them as cloud (#1172), so where the deck is drawn the sun is out
+        /// about as often as it is behind one; on High and Ultra the heaps standing on it hide a low sun more often, its ray
+        /// running a long way through them (about two moments in three for the sea's). It sits between
+        /// <see cref="Scattered"/> and <see cref="Broken"/> and is written last only so the five older values keep their numbers.
         /// </summary>
         Mixed,
     }
