@@ -20,6 +20,15 @@ Pravidla:
 
 ---
 
+## 2026-11-20 — #1178 trailer v6, pohyb děla — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: trailer v6 (56,1 s, `Videos\BS3D trailer\bs3d-trailer-v6-master.mp4`): dělo se hýbe ve všech herních záběrech (`turn=`/`walk=` se sčítají), `capturedemonocuts`, hudba nabíhá (`fadeIn`), skip hint se při natáčení nekrokuje.
+- Majitel (v5): dobré; hudba plynule, hint pryč, hlavně pohyb děla (proto je hra 3D), i v montáži a za pohybu.
+- ⚠ Automat střílí jen ze stojícího děla; míření platí jen na azimutu, kde vzniklo (otočka stejné délky z klidu skončí stejně). Kamera obíhající s dělem pohyb skryje.
+- ⚠ Noční natáčení bez zvukového výstupu dá tiché klipy (#923): v5 neměla zvuk hry v šesti záběrech; `trailer-cut.py` teď varuje.
+- ⚠ Merge v6 shodil CI: `ChapterIntroSkipTests` čte zdroják `GameplayScreen`. Po změně v `Game/Screens` pouštět testy před merge.
+- Otevřené: poznámky majitele k v6 na issue (v7).
+
 ## 2026-11-20 — #1171 #1172 moře: soumraková kopule a smíšená obloha — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: #1171 moře má vlastní kopuli 22 (soumrak pod roztrhanou oblačností: bledý obzor, šedomodré nebe, břidlicový zenit), slunce na místě kopule 13, ale teplé bílé; kopule 13 beze změny (ledovec, výchozí scéna, 60 úrovní). Tělo vody 0,55 (`BODY_DARKENING`), záře hřebenů 0,7 → 0,35. #1172 nová obloha `WeatherPreset.Mixed` (Broken s coverage bias 0,10), jen pro moře. Třpyt a záře hřebenů v `Sea.fx` sledují slunce za vrstvou a na High/Ultra za kupami (`CloudVolumes.SunPast` na CPU); laguna drží staré světlo (`SunBeamGate` 0).
