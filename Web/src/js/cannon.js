@@ -47,8 +47,8 @@ void main() {
 precision highp float;
 in vec3 vWorld;
 in vec3 vNormal;
-uniform vec3 uColor, uEmissive, uEye, uShadowAt;
-uniform float uSky, uAlpha, uFade, uMetal, uRough;
+uniform vec3 uColor, uEmissive, uEye, uShadowAt, uAmbient;
+uniform float uSky, uAlpha, uFade, uGame;
 out vec4 outColor;
 
 // The light: a warm key from up and to the left, a cool fill from the other side, the sky over it all and a floor under it,
@@ -62,31 +62,36 @@ const vec3 FLOOR = vec3(0.035, 0.022, 0.055);
 
 vec3 aces(vec3 x) { return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }
 
-// A soft rectangular light seen from the middle of the room: where it is, how far it reaches to either side and up and down
-// (in tangents, so it is a rectangle of the view), and how soft its edge is
-float panel(vec3 r, vec3 dir, vec2 reach, float soft) {
-  vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), dir));
-  vec3 top = cross(dir, right);
-  float z = dot(r, dir);
-  vec2 p = vec2(dot(r, right), dot(r, top)) / max(z, 0.05);
-  vec2 d = clamp((reach - abs(p)) / soft, 0.0, 1.0);
-  return smoothstep(0.0, 1.0, d.x) * smoothstep(0.0, 1.0, d.y) * step(0.0, z);
-}
+// The cannon's metal parts are lit as the game lights them (#1203): InstancedModel's ShadePixel (Lighting.fxh) with the
+// three-light rig the game takes from BasicEffect's defaults (DefaultLighting.cs, decoded to linear as LinearLightRig does),
+// a daylight hemisphere, the Blinn-Phong highlight at the renderer's power 16, and the sky mirrored as a dielectric mirrors it,
+// 4 % head-on rising to all of it at a grazing angle (Schlick), times the part's own sky figure. The directions are the page's:
+// the game's key is each scene's sun and its warm fill comes up from below the sun's side, and the page turns the pair to its
+// own lens, the key from up and to the left as the page has always had it and the fill up from the right, so the faces it
+// shows are lit as the game lights the faces its play camera sees. Painted steel, not polished: the page once drew a
+// mirror-bright studio in it, and the owner read that as shinier than the gun a player sees.
+const vec3 G_KEY = vec3(1.0, 0.9131, 0.6179);
+const vec3 G_FILL_DIR = normalize(vec3(0.45, -0.8, 0.4));
+const vec3 G_FILL = vec3(0.9216, 0.5395, 0.1384);
+const vec3 G_BACK_DIR = normalize(vec3(-0.4545195, 0.7660444, -0.4545195));
+const vec3 G_BACK = vec3(0.0849, 0.1065, 0.1284);
+const float G_POWER = 16.0, G_F0 = 0.04, G_EXPOSURE = 1.1;
+// A daylight dome over the island's grey stone, as the Meadow's rig derives it (the zenith's blue, the horizon's bounce)
+const vec3 G_SKY = vec3(0.30, 0.42, 0.62);
+const vec3 G_GROUND = vec3(0.20, 0.19, 0.17);
 
-// The room the metal reflects, seen from the reflected direction alone: the page's violet dome with a bright band along its
-// horizon, a dark floor, and a few soft panels (a big warm one where the key is, a tall cool strip on the other side, a small one
-// overhead). A rougher metal sees all of it blurred.
-vec3 studio(vec3 r, float rough) {
-  float soft = 0.05 + rough * 0.9;
-  vec3 dome = mix(vec3(0.22, 0.14, 0.34), vec3(0.025, 0.018, 0.07), smoothstep(0.0, 0.85, r.y));
-  float band = exp(-pow((r.y - 0.06) / (0.05 + rough * 0.4), 2.0));
-  dome += vec3(1.0, 0.82, 1.1) * band * 0.9;
-  vec3 ground = mix(vec3(0.1, 0.06, 0.13), vec3(0.008, 0.005, 0.016), 1.0 - smoothstep(-0.6, 0.0, r.y));
-  vec3 e = mix(ground, dome, smoothstep(-soft * 0.4, soft * 0.4, r.y));
-  e += vec3(1.0, 0.93, 0.85) * 9.0 * panel(r, KEY_DIR, vec2(0.6, 0.4), soft);
-  e += vec3(0.62, 0.72, 1.0) * 6.0 * panel(r, normalize(vec3(0.85, 0.2, -0.3)), vec2(0.14, 0.7), soft);
-  e += vec3(0.95, 0.9, 1.0) * 2.5 * panel(r, normalize(vec3(0.05, 0.95, -0.3)), vec2(0.35, 0.18), soft);
-  return e;
+vec3 gameShade(vec3 n, vec3 v, float sky) {
+  float nk = max(dot(n, KEY_DIR), 0.0);
+  vec3 diffuse = G_KEY * nk + G_FILL * max(dot(n, G_FILL_DIR), 0.0) + G_BACK * max(dot(n, G_BACK_DIR), 0.0);
+  vec3 lit = diffuse * uColor + mix(G_GROUND, G_SKY, n.y * 0.5 + 0.5) * uAmbient;
+  float kh = max(dot(n, normalize(KEY_DIR + v)), 0.0) * step(0.0, dot(n, KEY_DIR));
+  float bh = max(dot(n, normalize(G_BACK_DIR + v)), 0.0) * step(0.0, dot(n, G_BACK_DIR));
+  lit += G_KEY * pow(kh, G_POWER) + G_BACK * pow(bh, G_POWER);
+  // Roughness from the exponent, sqrt(2 / (n + 2)): the mirror sample a third of the way to the sky's average
+  vec3 r = reflect(-v, n);
+  vec3 environment = mix(mix(G_GROUND, G_SKY, r.y * 0.5 + 0.5), (G_SKY + G_GROUND) * 0.5, sqrt(2.0 / (G_POWER + 2.0)));
+  float fresnel = G_F0 + (1.0 - G_F0) * pow(1.0 - clamp(dot(n, v), 0.0, 1.0), 5.0);
+  return lit + environment * fresnel * sky;
 }
 
 void main() {
@@ -96,20 +101,13 @@ void main() {
   float nv = max(dot(n, v), 0.0);
   float key = max(dot(n, KEY_DIR), 0.0), fill = max(dot(n, FILL_DIR), 0.0);
   vec3 ambient = mix(FLOOR, SKY, n.y * 0.5 + 0.5) * 0.6;
-  // A metal keeps a trace of its colour in the shade and has no diffuse beyond it
-  vec3 lit = uColor * mix(1.0, 0.07, uMetal) * (ambient + KEY * key * 1.1 + FILL * fill * 0.6);
+  vec3 lit = uColor * (ambient + KEY * key * 1.1 + FILL * fill * 0.6);
   vec3 r = reflect(-v, n);
   vec3 h = normalize(KEY_DIR + v);
 
-  if (uMetal > 0.0) {
-    // Polished metal: what it shows is the room, weighted by a Fresnel that climbs to a mirror at the grazing edges (less so the
-    // rougher it is), and the key's own glint. The inside of the bore sees only itself, so it stays dark.
-    float grazing = pow(1.0 - nv, 5.0);
-    vec3 fr = uColor + (max(vec3(1.0 - uRough), uColor) - uColor) * grazing;
-    float inner = gl_FrontFacing ? 1.0 : 0.15;
-    float expo = 2.0 / max(pow(uRough, 4.0), 0.0005) - 2.0;
-    lit += studio(r, uRough) * fr * inner;
-    lit += KEY * pow(max(dot(n, h), 0.0), expo) * key * fr * 2.0 * inner;
+  if (uGame > 0.0) {
+    // The game's own shading at the game's exposure; the inside of the bore sees only itself, so it stays dark
+    lit = gameShade(n, v, uSky) * G_EXPOSURE * (gl_FrontFacing ? 1.0 : 0.15);
   } else {
     // Glossy where the game is: a highlight off the key and the sky's reflection, by the part's own sky figure
     float fresnel = 0.04 + 0.96 * pow(1.0 - nv, 5.0);
@@ -130,7 +128,7 @@ void main() {
   vec3 c = pow(aces(lit), vec3(1.0 / 2.2));
   outColor = vec4(c * alpha, alpha);
 }`);
-  const u = uniforms(gl, program, ["uModel", "uViewProj", "uScale", "uColor", "uEmissive", "uEye", "uSky", "uAlpha", "uFade", "uShadowAt", "uMetal", "uRough"]);
+  const u = uniforms(gl, program, ["uModel", "uViewProj", "uScale", "uColor", "uEmissive", "uEye", "uSky", "uAlpha", "uFade", "uShadowAt", "uAmbient", "uGame"]);
 
   // --- The meshes: one vertex buffer and one index buffer for every part, each part's attributes pointed at its own first vertex
   const vbo = gl.createBuffer();
@@ -140,10 +138,12 @@ void main() {
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
   gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint8Array(bin, meta.indexOffset), gl.STATIC_DRAW);
 
-  // How each part is finished, as [how much of a metal it is, how rough, and the colour it reflects as a multiple of the game's
-  // colour for it]: the barrel a polished blue steel, the rollers chrome, the carriage a darker steel and the hubs and the collar
-  // a dark gunmetal. Everything else (the balls, the glass, the ground) is shaded as before.
-  const FINISH = { barrel: [1, 0.18, 1.4], carriage: [1, 0.26, 1.5], wheel: [0.75, 0.3, 3.5], roller: [1, 0.14, 1.2], collar: [1, 0.22, 3] };
+  // The metal parts take the game's shading (gameShade above) with the game's own colour for each, decoded to linear as the
+  // game's shader decodes it, and the ambient colour the game's renderer hands its effect: BasicEffect's ambient light times
+  // that colour, in sRGB (InstancedModelRenderer). The balls, the glass and the ground are shaded as before.
+  const GAME_PARTS = new Set(["barrel", "carriage", "wheel", "roller", "collar"]);
+  const AMBIENT_LIGHT = [0.05333332, 0.09882354, 0.1819608];
+  const linear = (c) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
   const parts = {};
   for (const [name, p] of Object.entries(meta.parts)) {
     const vao = gl.createVertexArray();
@@ -155,9 +155,10 @@ void main() {
     gl.vertexAttribPointer(0, 4, gl.SHORT, true, meta.vertexStride, at);
     gl.enableVertexAttribArray(1);
     gl.vertexAttribPointer(1, 4, gl.BYTE, true, meta.vertexStride, at + 8);
-    const material = meta.materials[name], finish = FINISH[name];
-    parts[name] = { vao, count: p.indexCount, offset: p.indexStart * 2, material, scale: meta.positionScale,
-      metal: finish ? finish[0] : 0, rough: finish ? finish[1] : 0.5, reflects: finish && material.color.map((c) => Math.min(c * finish[2], 1)) };
+    const material = meta.materials[name], game = GAME_PARTS.has(name);
+    parts[name] = { vao, count: p.indexCount, offset: p.indexStart * 2, material, scale: meta.positionScale, game,
+      albedo: game ? material.color.map(linear) : null,
+      ambient: game ? material.color.map((c, i) => linear(c * AMBIENT_LIGHT[i])) : [0, 0, 0] };
   }
   parts.ball = sphere(gl, f.ballRadius, 24, 16);
   const GROUND_RADIUS = 9.5, GLASS_THINNING = 0.45;
@@ -291,9 +292,9 @@ void main() {
     gl.bindVertexArray(part.vao);
     gl.uniformMatrix4fv(u.uModel, false, model);
     gl.uniform1f(u.uScale, part.scale || 1);
-    gl.uniform3fv(u.uColor, color || part.reflects || m.color || [0.5, 0.5, 0.5]);
-    gl.uniform1f(u.uMetal, part.metal || 0);
-    gl.uniform1f(u.uRough, part.rough ?? 0.5);
+    gl.uniform3fv(u.uColor, color || part.albedo || m.color || [0.5, 0.5, 0.5]);
+    gl.uniform1f(u.uGame, part.game ? 1 : 0);
+    gl.uniform3fv(u.uAmbient, part.ambient || [0, 0, 0]);
     gl.uniform1f(u.uSky, sky ?? m.sky ?? 0.2);
     gl.uniform1f(u.uAlpha, alpha ?? m.alpha ?? 1);
     gl.uniform3fv(u.uEmissive, emissive || [0, 0, 0]);
