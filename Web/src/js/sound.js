@@ -84,6 +84,11 @@ function setUp(button) {
     source.start();
   });
 
+  // The trailer (js/trailer.js) brings its own soundtrack: the menu loop fades out under it, as a press of the toggle would
+  window.addEventListener("bs3d:trailer", () => {
+    if (on && !loading) button.click();
+  });
+
   document.addEventListener("visibilitychange", () => {
     if (!context) return;
     if (document.hidden) context.suspend();

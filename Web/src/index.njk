@@ -6,6 +6,9 @@ layout: base.njk
 {%- if collections.posts and collections.posts.length %}
       <a href="/blog/">Blog</a>
 {%- endif %}
+{%- if site.trailer %}
+      <a href="#trailer">Trailer</a>
+{%- endif %}
       <a href="#download">Download</a>
       <a href="{{ site.repo }}">GitHub</a>
     </nav>
@@ -31,6 +34,24 @@ layout: base.njk
   </header>
 
   <main>
+{%- if site.trailer %}
+    <section class="section" id="trailer" aria-labelledby="trailer-title">
+      <div class="wrap">
+        <h2 id="trailer-title">The trailer</h2>
+        <p class="lead">Under a minute of the game in motion. Every shot of it is the game itself, filmed in the game at 4K and 60 frames a second.</p>
+        <div class="trailer-stage" data-youtube="{{ site.trailer.youtube }}" data-title="{{ site.trailer.title }}">
+          <a class="trailer-poster" href="https://www.youtube.com/watch?v={{ site.trailer.youtube }}">
+            <img src="/img/trailer-1600.jpg" srcset="/img/trailer-800.jpg 800w, /img/trailer-1600.jpg 1600w"
+                 sizes="(max-width: 1040px) 100vw, 63rem" width="1600" height="900" loading="lazy" alt="">
+            <span class="trailer-play"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z" fill="currentColor"/></svg>Play the trailer</span>
+          </a>
+        </div>
+        <p class="trailer-note">The video is on YouTube, and this page loads it only when you press play: until then nothing here talks to anyone else.</p>
+      </div>
+      <script type="module" src="/js/trailer.js"></script>
+    </section>
+
+{%- endif %}
     <section class="section" id="play" aria-labelledby="play-title">
       <div class="wrap">
         <h2 id="play-title">How it plays</h2>
@@ -95,11 +116,6 @@ layout: base.njk
 {%- endfor %}
       </div>
       <div class="wrap">
-{%- if site.video %}
-        <p class="video"><a class="button button-quiet" href="{{ site.video }}">Watch it in motion</a></p>
-{%- else %}
-        <p class="later">A video of it in motion is on its way.</p>
-{%- endif %}
 {%- if collections.posts and collections.posts.length %}
         <p class="later">How it is made (the lattice, the Pi renderer, the music) is told <a href="/blog/">on the blog</a>.</p>
 {%- endif %}

@@ -10,7 +10,7 @@ const root = document.documentElement;
 if (root.classList.contains("motion")) {
   // What rises, and its place among its siblings for the stagger
   const pieces = document.querySelectorAll(
-    ".section h2, .section .lead, .card, .gallery figure, .features li, .platform, .posts li, .cannon-stage, .numbers-row p");
+    ".section h2, .section .lead, .card, .gallery figure, .features li, .platform, .posts li, .cannon-stage, .trailer-stage, .numbers-row p");
   for (const el of pieces) {
     const siblings = Array.from(el.parentElement.children).filter((c) => c.matches(el.tagName));
     el.style.setProperty("--i", String(Math.min(siblings.indexOf(el), 6)));
