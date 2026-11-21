@@ -53,7 +53,7 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The largest offset, an angle: 0.28 degrees, 6.7 pixels at 1080 rows through the play camera's 42.9-degree lens
-        /// (<c>GameplayScreen.GAME_FOV</c>) and 9.9 at 1600, and under half that most of the time (the field's spread,
+        /// (<c>GameplayScreen.GAME_FOV</c>) and 10 at 1600, and under half that most of the time (the field's spread,
         /// <c>SWELL_GAIN</c> and <c>BOIL_GAIN</c> in the shader). Seven tenths of it is the shader's swell, cells tall enough
         /// that a column's offset barely changes up the strip, so the skyline rises and sinks whole; three tenths the boil,
         /// the fine field rising through it (0.084 degrees). ⚠ The fine field alone at three times its first 0.07 degrees

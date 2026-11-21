@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-21 — #1229 článek na blog o tetelení vzduchu — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: článek „Hot air from a copy of the frame“ (`/blog/hot-air-from-a-copy-of-the-frame/`, datum 2026-11-21) začíná smyčkou silnějšího tetelení z #1135 a pro čtenáře, který není grafik, vysvětluje skutečné tetelení a fata morgánu, proč to nejde namalovat, krok označit–zkopírovat–lomit, prstenec na 620, úhel místo pixelů, „moc malé, má být větší“ a co stálo čtyřnásobné zvětšení, a cenu 0,09 ms. Dva klipy 1056x336, rozdílový snímek celého pohledu, náhled. Nástroj smyčky s prolnutím je nově `Tools/web-capture-loop.py`.
+- ⚠ V pruhu 240 px zakryly ovládací prvky prohlížeče (asi 90 px v Edge) obzor; klipy jsou proto 336 px vysoké (zapsáno v `docs/website.md`).
+- ⚠ Scénu ze Extras do hry nedostaneš: každá úroveň nastaví svou. Outback jde vidět jen přes pauzu → Scene.
+- Otevřené: `verdict-eye`; web je živý až po `publish-web.cmd` majitele (případně posunout datum); klipy nikdo nesledoval mimo headless Edge.
+
 ## 2026-11-21 — #1213 #1202 #1200 #1189 #1197 opravy před vydáním — desktop (RDT-PC), Claude Code (bs3d-85)
 
 - majitel: projít issues před zítřejším vydáním; „pusť se do všech pěti“. On mezitím vydává BS3D-API (BS3D-API#19, podmínka tagu kvůli pravidlům v2).
