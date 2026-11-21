@@ -1468,7 +1468,7 @@ namespace Testbed
         /// behind alike and <see cref="MarkVariantSwitch"/> waits out (#1129).
         /// </summary>
         private static readonly string[] ALTERNATION_DIALS =
-            { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "finemeshes", "envorder", "skyorder", "skyres", "bdres", "cityreflect", "cityreflectreach", "cityreflectsteps", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano", "aurora", "cavern", "meadow", "mountain", "forest", "mars", "outback" };
+            { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "finemeshes", "fardetail", "envorder", "skyorder", "skyres", "bdres", "cityreflect", "cityreflectreach", "cityreflectsteps", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano", "aurora", "cavern", "meadow", "mountain", "forest", "mars", "outback" };
 
         /// <summary>
         /// Prints the sweep's plan before the first window, and names anything it will not switch. A pin that
@@ -1566,6 +1566,11 @@ namespace Testbed
                     //High's finer meshes or Low and Medium's (#758): read per draw, so nothing carries across the switch
                     case "finemeshes":
                         _sceneRenderer.FineMeshes = pin.Value is not ("0" or "false" or "off");
+                        break;
+
+                    //Ultra's farther reach (#1208): the aurora stand's spruces out to 300 instead of 200, read per draw
+                    case "fardetail":
+                        _sceneRenderer.FarDetail = pin.Value is not ("0" or "false" or "off");
                         break;
 
                     //The windows mirroring the towers (#1065): the technique is picked per draw, so nothing carries across

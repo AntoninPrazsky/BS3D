@@ -298,6 +298,10 @@ namespace Prazsky.Core.Render
         /// Read per draw, so a tier change needs no hook.</summary>
         public bool FineMeshes { get; set; } = true;
 
+        /// <summary>Whether a distance rule reaches farther than High's — <see cref="SceneRenderer.FarDetail"/>, which forwards
+        /// here. Read per draw, so a tier change needs no hook.</summary>
+        public bool FarDetail { get; set; }
+
         /// <summary>
         /// True while the renderer has a backdrop drawing into its own display-resolution target (#155) rather than the
         /// caller's: whatever depth the backdrop writes then stays in that target and never reaches the scene's.

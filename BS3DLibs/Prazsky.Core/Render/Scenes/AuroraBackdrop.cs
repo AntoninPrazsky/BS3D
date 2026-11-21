@@ -159,7 +159,7 @@ namespace Prazsky.Core.Render
 
             //The near ring's spires as the wood's spruces, for the hosts' renderer to draw where the lens comes near (#1163):
             //handed over with the planting, which every host builds its renderer of after this
-            _standSpruces = StandSprucesOf(nearRing, config);
+            _standSpruces = StandSprucesOf(nearRing, config, () => Services.FarDetail);
             _planting.Stand = _standSpruces;
             _standSwapRadius = _effect.Parameters["StandSwapRadius"];
 
@@ -708,7 +708,7 @@ namespace Prazsky.Core.Render
         /// <see cref="AuroraFarStandConfig.NearRadius"/>, further from every lens a host lays than the swap reaches, and is
         /// drawn with no swap (<see cref="Draw"/>).
         /// </summary>
-        internal static StandSpruces StandSprucesOf(StandInstance[] nearRing, AuroraSceneConfig config)
+        internal static StandSpruces StandSprucesOf(StandInstance[] nearRing, AuroraSceneConfig config, Func<bool> farDetail = null)
         {
             var places = new Vector4[nearRing.Length];
             var looks = new Vector4[nearRing.Length];
@@ -717,7 +717,7 @@ namespace Prazsky.Core.Render
                 places[i] = nearRing[i].Place;
                 looks[i] = nearRing[i].Look;
             }
-            return new StandSpruces(places, looks, nearRing.Length, config.FarStand.Height, STAND_SINK, config.Terrain.Trees);
+            return new StandSpruces(places, looks, nearRing.Length, config.FarStand.Height, STAND_SINK, config.Terrain.Trees, farDetail);
         }
 
         //How far a spire's foot is sunk under the snow, as a share of its scale: the stem's foot stays under the drifts

@@ -1676,6 +1676,9 @@ namespace BS3D
                 //The finer meshes (#758, #733), seeded for the same reason: a Medium start would draw High's acacias and spruces
                 FineMeshes = QualityPreset.Presets[(int)_quality].FineMeshes,
 
+                //And Ultra's farther reach (#1208), seeded so an Ultra start swaps at Ultra's radius from the first frame
+                FarDetail = QualityPreset.Presets[(int)_quality].FarDetail,
+
                 //And the outback's heat shimmer (#1135): the renderer draws it until told otherwise, which a Medium start must
                 HorizonShimmer = QualityPreset.Presets[(int)_quality].HorizonShimmer
             };
