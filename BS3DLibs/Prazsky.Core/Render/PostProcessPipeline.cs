@@ -118,8 +118,8 @@ namespace Prazsky.Core.Render
         private RenderTarget2D _refractionTarget;
 
         //THE GRAB (#541): a copy of the scene target as drawn so far, for a pane of glass INSIDE the scene to bend -
-        //see GrabScene. The back buffer's size, linear radiance, no depth. As lazy as the layers above: only the
-        //Game's ceiling asks for it.
+        //see GrabScene - and, a strip of it, for the outback's heat shimmer to read (GrabSceneFar, #1135). The back
+        //buffer's size, linear radiance, no depth. As lazy as the layers above: only those two ask for it.
         private RenderTarget2D _grabTarget;
 
         //THE OVERLAY LAYER (#438): the foreground's opposite. A display-space layer the caller draws AFTER the
@@ -157,6 +157,7 @@ namespace Prazsky.Core.Render
         private readonly EffectTechnique _tonemapTechnique;
         private readonly EffectTechnique _foregroundCompositeTechnique;
         private readonly EffectTechnique _sceneGrabTechnique;
+        private readonly EffectTechnique _sceneGrabFarTechnique;
         private readonly EffectParameter _glareSourceTextureParam;
         private readonly EffectParameter _glareSourceTexelSizeParam;
         private readonly EffectParameter _glareThresholdParam;
@@ -241,6 +242,7 @@ namespace Prazsky.Core.Render
             _tonemapTechnique = tonemapEffect.Techniques["Tonemap"];
             _foregroundCompositeTechnique = tonemapEffect.Techniques["ForegroundComposite"];
             _sceneGrabTechnique = tonemapEffect.Techniques["SceneGrab"];
+            _sceneGrabFarTechnique = tonemapEffect.Techniques["SceneGrabFar"];
             _glareSourceTextureParam = glareEffect.Parameters["SourceTexture"];
             _glareSourceTexelSizeParam = glareEffect.Parameters["SourceTexelSize"];
             _glareThresholdParam = glareEffect.Parameters["GlareThreshold"];
@@ -772,8 +774,15 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The grab's target (#541): the back buffer's own size, linear radiance, no depth and no multisampling —
-        /// written whole by one full-screen pass in <see cref="GrabScene"/>. Built on first use and carrying a
-        /// resize the way <see cref="ForegroundTarget"/> does, and null while the window is minimized.
+        /// written whole by one full-screen pass in <see cref="GrabScene"/>, or a strip of its rows by
+        /// <see cref="GrabSceneFar"/>. Built on first use and carrying a resize the way <see cref="ForegroundTarget"/>
+        /// does, and null while the window is minimized.
+        /// <para>
+        /// <b>Preserved</b> (#1135), though nothing reads what a frame before left in it: binding a
+        /// <see cref="RenderTargetUsage.DiscardContents"/> target clears the whole of it (MonoGame's discard), and the
+        /// heat shimmer's strip is a tenth of the rows or less, so the clear would have cost several times the copy.
+        /// Each reader reads only what its own grab wrote: the glass the whole frame, the shimmer its strip.
+        /// </para>
         /// </summary>
         private RenderTarget2D GrabTarget
         {
@@ -788,12 +797,24 @@ namespace Prazsky.Core.Render
                 {
                     _grabTarget?.Dispose();
                     _grabTarget = new RenderTarget2D(_device, width, height, false, SurfaceFormat.HdrBlendable,
-                        DepthFormat.None, 0, RenderTargetUsage.DiscardContents);
+                        DepthFormat.None, 0, RenderTargetUsage.PreserveContents);
                 }
 
                 return _grabTarget;
             }
         }
+
+        /// <summary>The grab target's size in texels, (0, 0) while the window is minimized: what a reader of
+        /// <see cref="GrabSceneFar"/>'s strip sizes its rows by before it asks for them.</summary>
+        public Point GrabSize => new(Math.Max(_device.PresentationParameters.BackBufferWidth, 0),
+            Math.Max(_device.PresentationParameters.BackBufferHeight, 0));
+
+        //The copy's rasterizer when only a strip of rows is wanted: no culling, as the full-screen quad's, and the scissor on
+        private static readonly RasterizerState ScissoredQuad = new()
+        {
+            CullMode = CullMode.None,
+            ScissorTestEnable = true
+        };
 
         /// <summary>
         /// Copies what the scene target holds so far into a target of its own and binds the scene target again with
@@ -839,6 +860,57 @@ namespace Prazsky.Core.Render
             DrawFullScreenQuad(_tonemapEffect);
             _tonemapEffect.CurrentTechnique = _tonemapTechnique;
 
+            _device.SetRenderTarget(_sceneTarget);
+
+            _device.BlendState = blend;
+            _device.DepthStencilState = depth;
+            _device.RasterizerState = raster;
+
+            return grab;
+        }
+
+        /// <summary>
+        /// <see cref="GrabScene"/> for the outback's heat shimmer (#1135): the rows from <paramref name="firstRow"/> for
+        /// <paramref name="rowCount"/> of the scene as drawn so far, into the same target, each pixel premultiplied by how
+        /// much of it the shimmer's first pass marked far (the <c>SceneGrabFar</c> technique, Tonemap.fx, which has the
+        /// argument): its alpha the far share, its colour the far samples' alone. The rest of the target is not written.
+        /// The same contract as <see cref="GrabScene"/> otherwise: the scene target bound, left and bound again with
+        /// everything in it, a multisampled one resolved by being left, the caller's states put back. The vertex buffer is
+        /// the full-screen quad's on the way out.
+        /// </summary>
+        /// <returns>The copy, valid in those rows until the next grab; null while the window is minimized, or when the
+        /// rows hold none of the target.</returns>
+        public Texture2D GrabSceneFar(int firstRow, int rowCount)
+        {
+            RenderTarget2D grab = GrabTarget;
+            if (grab == null || _sceneTarget == null) return null;
+
+            int top = Math.Clamp(firstRow, 0, grab.Height);
+            int bottom = Math.Clamp(firstRow + rowCount, 0, grab.Height);
+            if (bottom <= top) return null;
+
+            BlendState blend = _device.BlendState;
+            DepthStencilState depth = _device.DepthStencilState;
+            RasterizerState raster = _device.RasterizerState;
+
+            _device.SetRenderTarget(grab);
+
+            //After the bind, which sets the scissor to the whole target
+            _device.ScissorRectangle = new Rectangle(0, top, grab.Width, bottom - top);
+            _device.BlendState = BlendState.Opaque;
+            _device.DepthStencilState = DepthStencilState.None;
+            _device.RasterizerState = ScissoredQuad;
+            _device.SetVertexBuffer(_fullScreenQuad);
+
+            _tonemapSceneTextureParam.SetValue(_sceneTarget);
+            _tonemapSourceTexelSizeParam.SetValue(new Vector2(1f / _sceneTarget.Width, 1f / _sceneTarget.Height));
+            _tonemapMagnifyParam.SetValue(ScaledScene(_sceneTarget, _supersampleFactor));
+
+            _tonemapEffect.CurrentTechnique = _sceneGrabFarTechnique;
+            DrawFullScreenQuad(_tonemapEffect);
+            _tonemapEffect.CurrentTechnique = _tonemapTechnique;
+
+            //The bind sets the scissor back to the whole scene target
             _device.SetRenderTarget(_sceneTarget);
 
             _device.BlendState = blend;

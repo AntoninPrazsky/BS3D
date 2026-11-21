@@ -1674,7 +1674,10 @@ namespace BS3D
                 ShadowMapSizeScale = QualityPreset.Presets[(int)_quality].ShadowMapScale,
 
                 //The finer meshes (#758, #733), seeded for the same reason: a Medium start would draw High's acacias and spruces
-                FineMeshes = QualityPreset.Presets[(int)_quality].FineMeshes
+                FineMeshes = QualityPreset.Presets[(int)_quality].FineMeshes,
+
+                //And the outback's heat shimmer (#1135): the renderer draws it until told otherwise, which a Medium start must
+                HorizonShimmer = QualityPreset.Presets[(int)_quality].HorizonShimmer
             };
 
             //The startup pick was made before the renderer existed: a scene that builds off the frame (the cavern, #958)

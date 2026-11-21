@@ -75,5 +75,14 @@ namespace Prazsky.Core.Render
         /// supersampling 1, so it keeps the dome as the frame's first draw until a phone run shows the order pays there.
         /// </summary>
         public static bool SkyBehindScene => !OperatingSystem.IsAndroid();
+
+        /// <summary>
+        /// Whether the outback's heat shimmer may be drawn (#1135, <c>SceneRenderer.DrawHorizonRefraction</c>): not under
+        /// MonoGame's Android backend. Its copy of the frame leaves the scene target in the middle of the scene and comes
+        /// back to it, which on a phone's tiler stores the whole target out of the tile memory and loads it back, a cost no
+        /// phone run has measured; and a phone starts at Medium and reaches High, the shimmer's lowest tier, only from the
+        /// Quality row (<c>PhoneTiers</c>). The effect still compiles for OpenGL ES, as every shared effect does.
+        /// </summary>
+        public static bool HorizonShimmer => !OperatingSystem.IsAndroid();
     }
 }

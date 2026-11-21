@@ -1197,6 +1197,13 @@ namespace BS3D
             //just drawn. A no-op for the two cities and for a scene with no such half.
             if (SceneryShown) _sceneRenderer.DrawEnvironmentBlended(_scene, sceneFrame);
 
+            //THE HEAT SHIMMER AT THE SKYLINE (#1135): the outback's far horizon read again from a copy of the frame at wavering
+            //angles. Here, because everything it may show is in the frame (the far plain and formations, the sky just drawn)
+            //and everything that must stand clear of it comes after (the island's colour, the gun, the cluster); what is in
+            //the frame already and nearer hides it by depth, the island's laid depth included, and its copy never reads them.
+            //Before the ceiling glass's copy (#541), which therefore holds it. A no-op in every other scene and below High.
+            if (SceneryShown) _sceneRenderer.DrawHorizonRefraction(_scene, sceneFrame, _pipeline);
+
             //The round island, opaque: its stone cap and concrete drum, over the depth they laid before the environment
             //(the test is LessEqual and the two draws are one call, so every sample passes on its own depth). Then the
             //dark well behind the glass drain, which is drawn in the solid-terrain scenes only — it fills the hole those

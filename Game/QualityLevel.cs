@@ -339,10 +339,19 @@ namespace BS3D
         /// </summary>
         public readonly bool CityReflections;
 
+        /// <summary>
+        /// Whether the outback's skyline shimmers with heat (#1135, <c>SceneRenderer.HorizonShimmer</c>): a ring round the
+        /// lens marks the far horizon, a strip of the frame is copied and the ring reads it again at wavering angles, with a
+        /// sliver of mirage under the skyline. <b>High and Ultra only.</b> What it costs and why Medium gives it up is in
+        /// "The heat shimmer" in docs/scenes/outback.md.
+        /// </summary>
+        public readonly bool HorizonShimmer;
+
         public QualityPreset(int supersampleFactor, float facadeGrainStrength, float windowFrameWidth, int cityRadiusBlocks,
             int msaaSamples, int shadowMapCap, bool ceilingRefraction, bool motionBlur, int shadowMapScale = 1,
-            bool clusterWind = true, bool fineMeshes = false, bool cityReflections = false)
+            bool clusterWind = true, bool fineMeshes = false, bool cityReflections = false, bool horizonShimmer = false)
         {
+            HorizonShimmer = horizonShimmer;
             CityReflections = cityReflections;
             FineMeshes = fineMeshes;
             ShadowMapScale = shadowMapScale;
@@ -413,7 +422,7 @@ namespace BS3D
             new(supersampleFactor: 1, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: 4, shadowMapCap: 2048, ceilingRefraction: true, motionBlur: true, clusterWind: false),
 
             //High — the look the game was authored at, and the finer meshes (#758, #733).
-            new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES, shadowMapCap: 0, ceilingRefraction: true, motionBlur: true, fineMeshes: true, cityReflections: true),
+            new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES, shadowMapCap: 0, ceilingRefraction: true, motionBlur: true, fineMeshes: true, cityReflections: true, horizonShimmer: true),
 
             //Ultra (#484) — High, and the sun shadow map at twice the scene's authored size (8192). The one
             //rung ABOVE the authored look, so it is the player's alone: the probe starts at High and only steps
@@ -421,7 +430,7 @@ namespace BS3D
             //on High (full scene detail, full stone cap, full city, the ceiling's refraction), and the one dial
             //that could go further — supersampling 3 — is 2.25x High's shaded pixels at 3840x1600, the whole
             //frame's biggest cost bought for relief detail High already resolves. See ShadowMapScale.
-            new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES, shadowMapCap: 0, ceilingRefraction: true, motionBlur: true, shadowMapScale: 2, fineMeshes: true, cityReflections: true),
+            new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES, shadowMapCap: 0, ceilingRefraction: true, motionBlur: true, shadowMapScale: 2, fineMeshes: true, cityReflections: true, horizonShimmer: true),
             //Potato (#788) — Low with the last of its multisampling gone, for the Raspberry Pi build (GamePi), where
             //it is the only tier. A placeholder of the desktop pipeline's own dials and nothing more: what the tier
             //actually draws is its own OpenGL shader set and render path (#789), which GamePi needs because none of

@@ -250,6 +250,11 @@ namespace Testbed
                 //creatures), over the sky just drawn. A no-op for the two cities and for a scene with no such half.
                 _sceneRenderer.DrawEnvironmentBlended(_scene, sceneFrame);
 
+                //The outback's heat shimmer at the skyline (#1135), where the Game's BeginSceneDraw draws it: after the sky and
+                //everything far, before the island's colour and the arena. On the scene clock, so clock= and clockstill hold
+                //it as they hold the weather; outback=all/-shimmer takes it out
+                _sceneRenderer.DrawHorizonRefraction(_scene, sceneFrame, _pipeline);
+
                 //The round island, opaque: its stone cap and concrete drum, over the depth they laid before the
                 //environment (the test is LessEqual and the two draws are one call, so every sample passes on its
                 //own depth). Then the dark pit shaft behind the drain, which is drawn in the solid-terrain scenes

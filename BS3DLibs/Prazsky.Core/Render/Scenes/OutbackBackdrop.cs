@@ -55,6 +55,10 @@ namespace Prazsky.Core.Render
         //The crust and the gibber (#776): on at High and Ultra, stated every frame off the tier
         private readonly EffectParameter _groundDetail;
 
+        //The heat shimmer at the skyline (#1135): the frame read again in a strip at the far horizon, drawn by the host after
+        //the sky (DrawRefraction), never in this scene's own draw
+        private HorizonShimmer _shimmer;
+
         //The plain's grid. It carried the monoliths until #967, which set its density (a flank falling over some
         //eight 2.5-unit cells); the formations have their own discs now (OutbackRockDiscs) and the grid only the
         //swell and the boulders' footprints it stops on, but it keeps the density its shading was tuned at. Above
@@ -118,6 +122,19 @@ namespace Prazsky.Core.Render
             _planting = new OutbackPlanting(services.GraphicsDevice, (x, z) => TerrainMirror.Outback(x, z, _outbackConfig),
                 TerrainMirror.OutbackFootprints(_outbackConfig, PLANTING_REACH), PLANTING_SEED + Services.SeedOffset);
             _plantingDrawn = _planting.Buckets;
+
+            _shimmer = new HorizonShimmer(services.GraphicsDevice, content);
+        }
+
+        /// <summary>
+        /// The heat shimmer (#1135): the skyline refracted in a strip a ring round the lens marks out at the distance where the
+        /// plain's last fade begins (<see cref="OutbackAirConfig.HorizonHazeDistance"/>), so the plain nearer than that, every
+        /// formation nearer and everything the host draws after it stand clear of it. See <see cref="HorizonShimmer"/>.
+        /// </summary>
+        public override void DrawRefraction(in SceneFrame frame, PostProcessPipeline pipeline)
+        {
+            if ((_layers & OutbackLayer.Shimmer) != 0)
+                _shimmer?.Draw(frame, pipeline, _outbackConfig.Terrain.LevelY, _outbackConfig.Air.HorizonHazeDistance);
         }
 
         /// <inheritdoc/>
@@ -350,6 +367,8 @@ namespace Prazsky.Core.Render
             _rockDiscs = null;
             _sunBake?.Dispose();
             _sunBake = null;
+            _shimmer?.Dispose();
+            _shimmer = null;
         }
 
         /// <inheritdoc/>
