@@ -866,6 +866,7 @@ namespace BS3D.Screens
             _streakCapFlare = 0f;
             _clock = 0f;
             _playSeconds = -1f;
+            _timeHeld = 0f;
         }
 
         /// <summary>
@@ -1171,10 +1172,13 @@ namespace BS3D.Screens
         /// <param name="playSeconds">The level's play clock (#1045, <c>LevelRun.Seconds</c>), which the time bonus under the score
         /// is read off (<see cref="TimeBonusReadout.Clock"/>: frozen at the clear through the cleared beat); negative once a level
         /// is lost, which takes the readout away.</param>
-        internal void Update(float elapsed, ScoreKeeper score, bool swapHint = false, float playSeconds = -1f)
+        /// <param name="clockHeld">Whether the play clock is held by the drop camera while the level is still being played
+        /// (#1197): the time bonus readout then says it is paused (<see cref="DrawTimeBonus"/>).</param>
+        internal void Update(float elapsed, ScoreKeeper score, bool swapHint = false, float playSeconds = -1f, bool clockHeld = false)
         {
             _clock += elapsed;
             _playSeconds = playSeconds;
+            _timeHeld = Math.Clamp(_timeHeld + (clockHeld ? elapsed : -elapsed) / TIME_HELD_FADE_SECONDS, 0f, 1f);
 
             AgePopups(elapsed);
             AgeLostCaption(elapsed);
@@ -1522,6 +1526,13 @@ namespace BS3D.Screens
         /// clear it stands at the figure the clear was paid, thrown over the aim point as <c>TIME BONUS</c> (<see cref="AddTimeBonus"/>),
         /// and fades with the other playing readouts through the cleared beat; on a loss it goes at once
         /// (<see cref="TimeBonusReadout.Clock"/>).
+        /// <para>
+        /// <b>While the drop camera holds the clock it says so</b> (#1197, the owner: the player should understand that the time
+        /// bonus is paused and need not fear having to hurry): the figure and the bar turn a calm blue
+        /// (<see cref="HUD_TIME_HELD"/>), the caption becomes <see cref="TimeBonusReadout.PAUSED_LABEL"/> and a pause mark stands
+        /// left of the figure, eased in and out over <see cref="TIME_HELD_FADE_SECONDS"/> so neither edge flashes. "paused" is
+        /// narrower than the caption it replaces, so the readout keeps its width.
+        /// </para>
         /// </summary>
         /// <param name="top">Where the readout's top stands.</param>
         /// <param name="left">The corner's left edge so far, moved left when the readout is wider: what the tutorial card may
@@ -1543,11 +1554,20 @@ namespace BS3D.Screens
             Vector2 captionSize = font.MeasureString(TimeBonusReadout.LABEL);
             float right = viewport.Width - margin;
             float width = MathF.Max(figureSize.X, captionSize.X);
+            float held = MathHelper.SmoothStep(0f, 1f, _timeHeld);
 
-            DrawString(font, _timeBonusText, new Vector2(right - figureSize.X, top), bonus > 0 ? BS3DGame.MENU_TEXT : HUD_CAPTION);
+            DrawString(font, _timeBonusText, new Vector2(right - figureSize.X, top),
+                Color.Lerp(bonus > 0 ? BS3DGame.MENU_TEXT : HUD_CAPTION, HUD_TIME_HELD, held));
 
             float captionTop = top + figureSize.Y + Scaled(HUD_TIME_CAPTION_GAP);
-            DrawString(font, TimeBonusReadout.LABEL, new Vector2(right - captionSize.X, captionTop), HUD_CAPTION);
+            if (held < 1f) DrawString(font, TimeBonusReadout.LABEL, new Vector2(right - captionSize.X, captionTop), HUD_CAPTION * (1f - held));
+
+            if (held > 0f)
+            {
+                Vector2 pausedSize = font.MeasureString(TimeBonusReadout.PAUSED_LABEL);
+                DrawString(font, TimeBonusReadout.PAUSED_LABEL, new Vector2(right - pausedSize.X, captionTop), HUD_TIME_HELD * held);
+                left = MathF.Min(left, DrawPauseMark(right - figureSize.X - Scaled(TIME_HELD_MARK_GAP), top, figureSize.Y, held));
+            }
 
             //The bar: a dark track the readout's width, and the white fill shrinking towards the right edge as the bonus drains
             int thickness = Math.Max(2, Scaled(HUD_TIME_BAR_THICKNESS));
@@ -1561,11 +1581,36 @@ namespace BS3D.Screens
             {
                 Rectangle bar = new((int)(right - fill), (int)barTop, (int)fill, thickness);
                 batch.Draw(Pixel, new Rectangle(bar.X + lift, bar.Y + lift, bar.Width, bar.Height), HUD_SHADOW);
-                batch.Draw(Pixel, bar, BS3DGame.MENU_TEXT);
+                batch.Draw(Pixel, bar, Color.Lerp(BS3DGame.MENU_TEXT, HUD_TIME_HELD, held));
             }
 
             left = MathF.Min(left, right - width);
             return barTop + thickness + Scaled(HUD_LINE_GAP);
+        }
+
+        /// <summary>
+        /// The pause mark beside the held time bonus (#1197): two upright bars, the media player's sign every player knows,
+        /// drawn rather than set because Anton has no pause glyph. Right-aligned to <paramref name="right"/>, centred on the
+        /// figure's digits, with the HUD's offset shadow. Returns its left edge.
+        /// </summary>
+        private float DrawPauseMark(float right, float top, float figureHeight, float alpha)
+        {
+            int height = Math.Max(4, (int)(figureHeight * TIME_HELD_MARK_HEIGHT));
+            int bar = Math.Max(2, (int)(height * TIME_HELD_MARK_BAR));
+            int gap = Math.Max(2, (int)(bar * TIME_HELD_MARK_SPACE));
+            int y = (int)(top + figureHeight * TIME_HELD_MARK_CENTRE - height * 0.5f);
+            int x = (int)right - 2 * bar - gap;
+            int lift = Math.Max(1, Scaled(HUD_SHADOW_OFFSET) / 2);
+
+            SpriteBatch batch = _game.OverlayBatch;
+            for (int i = 0; i < 2; i++)
+            {
+                Rectangle mark = new(x + i * (bar + gap), y, bar, height);
+                batch.Draw(Pixel, new Rectangle(mark.X + lift, mark.Y + lift, bar, height), HUD_SHADOW * alpha);
+                batch.Draw(Pixel, mark, HUD_TIME_HELD * alpha);
+            }
+
+            return x;
         }
 
         //The time bonus readout's layout (#1045), in design units: the caption's gap under the figure, the bar's under the caption
@@ -1573,6 +1618,21 @@ namespace BS3D.Screens
         private const int HUD_TIME_CAPTION_GAP = 0;
         private const int HUD_TIME_BAR_GAP = 14;
         private const int HUD_TIME_BAR_THICKNESS = 12;
+
+        //The held look (#1197): the calm blue the figure, the bar and "paused" turn while the drop camera holds the clock, the
+        //seconds it eases over each way, and the pause mark: its height and centre as shares of the figure's line (the digits stand
+        //in its lower part: measured off a capture, they fill about 0.83 of it round 0.75 down), its bars'
+        //width as a share of its height, the space between them as a share of a bar, and its gap from the figure in design units
+        private static readonly Color HUD_TIME_HELD = new(140, 205, 255);
+        private const float TIME_HELD_FADE_SECONDS = 0.25f;
+        private const float TIME_HELD_MARK_HEIGHT = 0.8f;
+        private const float TIME_HELD_MARK_CENTRE = 0.75f;
+        private const float TIME_HELD_MARK_BAR = 0.28f;
+        private const float TIME_HELD_MARK_SPACE = 0.8f;
+        private const int TIME_HELD_MARK_GAP = 14;
+
+        //How far the held look has eased in, 0 to 1 (Update)
+        private float _timeHeld;
 
         //The play clock the readout reads (Update), and its figure, rebuilt only when it changes - once a second
         private float _playSeconds = -1f;

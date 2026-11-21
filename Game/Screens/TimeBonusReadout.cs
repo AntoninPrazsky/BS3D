@@ -15,6 +15,10 @@ namespace BS3D.Screens
         /// (<see cref="AwardZoom.TIME_BONUS_CAPTION"/>), and the result page's row is called by them.</summary>
         internal const string LABEL = "time bonus";
 
+        /// <summary>What the caption says while the play clock is held under the drop camera (#1197): the bonus is not draining,
+        /// so the player need not hurry the skip.</summary>
+        internal const string PAUSED_LABEL = "paused";
+
         /// <summary>
         /// The clock the readout is read off in <paramref name="phase"/>: the play clock (<paramref name="seconds"/>) while the
         /// level is played; through a won level's cleared beat the clock frozen at the clear (<paramref name="endSeconds"/>,
