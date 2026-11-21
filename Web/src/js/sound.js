@@ -16,7 +16,8 @@ if (button && window.AudioContext) {
 function setUp(button) {
   const MENU_LEVEL = 0.29, DECODE_HEADROOM = 0.84139514, FADE = 0.5, SHOT_LEVEL = 0.55, SHOT_PAN = 0.7, LOAD_TIMEOUT = 20000;
   const label = button.querySelector(".sound-label");
-  let context = null, music = null, shot = null, loop = null, on = false, loading = false;
+  // `hushed`: the trailer started while the sound was still loading, so the load ends silent instead of switching it on
+  let context = null, music = null, shot = null, loop = null, on = false, loading = false, hushed = false;
 
   const show = (text, pressed) => {
     label.textContent = text;
@@ -45,10 +46,22 @@ function setUp(button) {
     shot = shoot;
   }
 
+  // The loop fades in or out over FADE, from wherever it is
+  const fadeTo = (wanted) => {
+    on = wanted;
+    if (on) context.resume().catch(() => {});
+    const now = context.currentTime;
+    music.gain.cancelScheduledValues(now);
+    music.gain.setValueAtTime(music.gain.value, now);
+    music.gain.linearRampToValueAtTime(on ? MENU_LEVEL * DECODE_HEADROOM : 0, now + FADE);
+    show(on ? "Sound on" : "Sound off", on);
+  };
+
   button.addEventListener("click", async () => {
     if (loading) return;
     if (!music) {
       loading = true;
+      hushed = false;
       show("Loading…", false);
       try {
         await load();
@@ -60,14 +73,12 @@ function setUp(button) {
         return;
       }
       loading = false;
+      if (hushed) {
+        show("Sound off", false);
+        return;
+      }
     }
-    on = !on;
-    if (on) context.resume().catch(() => {});
-    const now = context.currentTime;
-    music.gain.cancelScheduledValues(now);
-    music.gain.setValueAtTime(music.gain.value, now);
-    music.gain.linearRampToValueAtTime(on ? MENU_LEVEL * DECODE_HEADROOM : 0, now + FADE);
-    show(on ? "Sound on" : "Sound off", on);
+    fadeTo(!on);
   });
 
   // The cannon's shot, from where it is across the canvas (-1 left to 1 right)
@@ -84,9 +95,11 @@ function setUp(button) {
     source.start();
   });
 
-  // The trailer (js/trailer.js) brings its own soundtrack: the menu loop fades out under it, as a press of the toggle would
+  // The trailer (js/trailer.js) brings its own soundtrack: the menu loop fades out under it, as a press of the toggle would,
+  // and a load still under way when it starts ends silent. The toggle still works: a visitor may switch the loop back on
   window.addEventListener("bs3d:trailer", () => {
-    if (on && !loading) button.click();
+    if (loading) hushed = true;
+    else if (on) fadeTo(false);
   });
 
   document.addEventListener("visibilitychange", () => {
