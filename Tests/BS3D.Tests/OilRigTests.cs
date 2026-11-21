@@ -263,7 +263,8 @@ namespace BS3D.Tests
         }
 
         //A 24-bit depth step at view depth z under the Game's projection (RecoilCamera's planes): two surfaces nearer each
-        //other than this along one ray, the depth buffer may not tell apart
+        //other than this along one ray, the depth buffer may not tell apart. The play view's near plane: exact for a play view,
+        //and the run's lens, far from the drain, draws with a farther plane (RecoilCamera.NearPlaneAt), whose step is finer
         private static float DepthStep(float z)
         {
             var camera = new RecoilCamera();

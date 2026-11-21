@@ -364,8 +364,10 @@ namespace BS3D.Effects
                     Vector3[] path = Line(centre + axis * from, centre - axis * past);
                     if (!Clear(path, solids, ring, floorY, clearance: RING_CLEARANCE)) continue;
 
+                    //Clear of everything by RING_CLEARANCE, so its look stands far ahead and the Game's near plane follows
+                    //the drain's distance (IntroShot.FAR_LOOK, #1193): the push looks along the ring's axis at the arena
                     return new IntroShot("the ring", path, RING_SECONDS, MathHelper.ToRadians(RING_FOV_DEGREES),
-                        lookAhead: 40f, pitchDownDegrees: RING_PITCH_DEGREES);
+                        lookAhead: 40f, pitchDownDegrees: RING_PITCH_DEGREES, lookReach: IntroShot.FAR_LOOK);
                 }
             }
 

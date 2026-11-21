@@ -23,7 +23,7 @@ namespace BS3D.Tests
 
         public GridRideTests(ITestOutputHelper output) => _output = output;
 
-        private static readonly GridSceneConfig Grid = new();
+        internal static readonly GridSceneConfig Grid = new();
         private static float FloorY => Grid.Terrain.LevelY;
 
         //Builds at wall-clock seconds spread from the game's first second to an hour in, and the lateness the shot comes on with:
@@ -38,7 +38,7 @@ namespace BS3D.Tests
         private static readonly float[] ASPECTS = { 4f / 3f, 16f / 10f, 16f / 9f, 21f / 9f };
 
         /// <summary>The landmark ring of <paramref name="grid"/>, where <c>GridLayout.Landmark</c> stands it.</summary>
-        private static GridRing RingOf(GridSceneConfig grid)
+        internal static GridRing RingOf(GridSceneConfig grid)
         {
             GridLandmarkConfig landmark = grid.Landmark;
             float bearing = MathHelper.ToRadians(landmark.Bearing);
@@ -53,7 +53,7 @@ namespace BS3D.Tests
         /// the ring's inner edge reaches in among the cycles (a 75 cube centred at 140 reaches to 102.5 square on an axis and to 87
         /// on a diagonal, and the cycles ride from 56 to 124).
         /// </summary>
-        private static List<GridSolid> Solids(int seed)
+        internal static List<GridSolid> Solids(int seed)
         {
             GridTowerConfig towers = Grid.Towers;
             var random = new Random(seed);
