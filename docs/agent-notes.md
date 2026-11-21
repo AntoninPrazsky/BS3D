@@ -26,7 +26,7 @@ Pravidla:
 - majitel: trailer půjde na web přímo na webhosting, ne v tomto sezení (zapsáno na #1228); chce banner aspoň 2048x1152 s logem a atraktivní scénou.
 - ⚠ YouTube ukáže na počítači jen střední pruh 2560x423 a na telefonu 1546x423: logo i kuličky musí být v něm. Žádný level tam nemá díru, proto vlastní oblouk.
 - ⚠ Hra dává na osu střed horní úrovně POLE (`ClusterHang.FitWorldOffset`), ne rozložení: oblouk o čtvrt buňky vedle stál 40 px vlevo.
-- Otevřené: výběr scény majitelem (`verdict-eye`).
+- majitel (v chatu, týž den): „Verze E (Aurora) se mi líbí nejvíc.“ Banner kanálu je polární záře; #1230 uzavřeno. Otevřené: nic, skutečné oříznutí na telefonu a TV ukáže až nahrání.
 
 ## 2026-11-21 — #1135 tetelení vzduchu nad Outbackem — desktop (RDT-PC), Claude Code
 
