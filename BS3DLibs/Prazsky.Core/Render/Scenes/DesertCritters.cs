@@ -74,7 +74,8 @@ namespace Prazsky.Core.Render
         //height of its middle (no further than a sun this high casts it), and this dark at its middle
         private const float SHADOW_LENGTH = 0.5f, SHADOW_WIDTH = 0.3f, SHADOW_HEIGHT = 0.2f, SHADOW_LOWEST_SUN = 0.25f;
         private const float SHADOW_ALPHA = 0.7f, PRINT_ALPHA = 0.55f;
-        //How far over the sand a disc lies: the clearing is flat and the mirror is the sand's own height there
+        //How far over the sand a disc lies (a print: how much nearer the lens, PrintSeenFrom): the clearing is flat and the
+        //mirror is the sand's own height there
         private const float DISC_LIFT = 0.03f;
 
         //A beetle's trail (the references' double line of footprints): a print where each foot touched down over the last
@@ -365,12 +366,13 @@ namespace Prazsky.Core.Render
                 _instanceData[kind][counts[kind]++] = new ModelInstance(World(pose, scorpion),
                     new Vector4(pose.Gait, i * 0.137f, kind, CritterGait.Stride(scorpion)));
 
-                //A beetle's trail: a print where each of its feet stepped, fading with age
+                //A beetle's trail: a print where each of its feet stepped, fading with age, seen where it lies on the sand
                 if (!scorpion)
                     for (int step = 0; step < TRAIL_STEPS; step++)
                         for (int foot = 0; foot < CritterMesh.BEETLE_FEET && discs < MAX_DISCS; foot++)
                             if (TrailPrint(pose, foot, step, out Vector2 at, out float fade))
-                                FlatDisc(ref discs, new Vector3(at.X, _ground(at.X, at.Y), at.Y), size * PRINT_RADIUS, new Color(0f, 0f, 0f, PRINT_ALPHA) * fade);
+                                Quad(ref discs, PrintSeenFrom(new Vector3(at.X, _ground(at.X, at.Y), at.Y), lens), Vector3.UnitX * (size * PRINT_RADIUS),
+                                    Vector3.UnitZ * (size * PRINT_RADIUS), new Color(0f, 0f, 0f, PRINT_ALPHA) * fade);
 
                 //Its shadow while it stands on the sand: a soft ellipse along its body, cast off it away from the sun by the
                 //height of its body's middle, so it lies beside the body rather than under it, where the body hid it
@@ -449,6 +451,15 @@ namespace Prazsky.Core.Render
             _device.DepthStencilState = DepthStencilState.Default;
             _device.RasterizerState = RasterizerState.CullCounterClockwise;
         }
+
+        /// <summary>
+        /// Where a print lying on the sand at <paramref name="sand"/> is drawn for a lens at <paramref name="lens"/>:
+        /// <see cref="DISC_LIFT"/> nearer the lens along the line to it, so it stands clear of the sand's depth and is seen
+        /// exactly where it lies. ⚠ LIFTED STRAIGHT UP, AS THE OTHER DISCS ARE, A PRINT STOOD BEHIND THE FOOT ON IT (#1217):
+        /// seen from 30 degrees over the sand (a 1600 x 900 frame through a 30-degree lens, 2.8 units off) a planted foot's
+        /// tip came 15 pixels under the middle of its print, the print seen further off than the sand it lies on.
+        /// </summary>
+        internal static Vector3 PrintSeenFrom(Vector3 sand, Vector3 lens) => sand + Vector3.Normalize(lens - sand) * DISC_LIFT;
 
         //A disc lying on the sand a hair over it
         private void FlatDisc(ref int discs, Vector3 centre, float radius, Color color)

@@ -307,6 +307,50 @@ namespace BS3D.Tests
         //How far a roaming beetle's planted foot may turn off its print as the body turns over it on its curve (TURN), units
         private const float CURVE_DRIFT = 0.035f;
 
+        /// <summary>
+        /// A print is seen where it lies on the sand (#1217): drawn nearer the lens along the line to it
+        /// (<see cref="DesertCritters.PrintSeenFrom"/>), it falls within a twentieth of a pixel (float rounding) of its spot on the sand in a
+        /// 1600 x 900 frame through a 30-degree lens, from lenses 5 to 85 degrees over the sand and 1.5 to 7.5 off, and stands
+        /// 0.03 nearer the lens than the sand there, clear of its depth. Lifted straight up as the other discs are, it fell
+        /// 15 pixels from its spot seen 30 degrees down from 2.8 off, behind the planted foot standing on that spot.
+        /// </summary>
+        [Fact]
+        public void A_print_is_seen_where_it_lies_on_the_sand()
+        {
+            Matrix projection = Matrix.CreatePerspectiveFieldOfView(MathHelper.ToRadians(30f), 1600f / 900f, 0.1f, 1000f);
+            var rng = new Random(1217);
+            float worst = 0f;
+            for (int n = 0; n < 500; n++)
+            {
+                var sand = new Vector3(-10f + (float)rng.NextDouble(), -13.5f, -80f + (float)rng.NextDouble());
+                float elevation = MathHelper.ToRadians(5f + 80f * (float)rng.NextDouble()), bearing = MathHelper.TwoPi * (float)rng.NextDouble();
+                float off = 1.5f + 6f * (float)rng.NextDouble();
+                Vector3 lens = sand + off * new Vector3(MathF.Cos(elevation) * MathF.Sin(bearing), MathF.Sin(elevation), MathF.Cos(elevation) * MathF.Cos(bearing));
+                //The look a little off the print, so it lies anywhere in the frame
+                Vector3 look = sand + new Vector3((float)rng.NextDouble() - 0.5f, 0f, (float)rng.NextDouble() - 0.5f) * 0.6f;
+                Matrix viewProjection = Matrix.CreateLookAt(lens, look, Vector3.Up) * projection;
+
+                Vector3 drawn = DesertCritters.PrintSeenFrom(sand, lens);
+                worst = MathF.Max(worst, Vector2.Distance(Pixel(sand, viewProjection), Pixel(drawn, viewProjection)));
+                Assert.Equal(0.03f, Vector3.Distance(lens, sand) - Vector3.Distance(lens, drawn), 4);
+            }
+
+            //Seen to fire (BestPractices.md, section 10): lifted straight up, from 30 degrees over the sand and 2.8 off
+            var spot = new Vector3(-10.80f, -13.50f, -79.91f);
+            Matrix close = Matrix.CreateLookAt(new Vector3(-10.97f, -12.10f, -82.31f), spot, Vector3.Up) * projection;
+            float upright = Vector2.Distance(Pixel(spot, close), Pixel(spot + Vector3.Up * 0.03f, close));
+            _output.WriteLine(FormattableString.Invariant($"a print falls at most {worst:F4} px from its spot; lifted straight up, {upright:F1} px"));
+            Assert.True(worst < 0.05f, $"a print falls {worst} px from its spot on the sand");
+            Assert.True(upright > 10f, $"lifted straight up, a print falls only {upright} px from its spot");
+        }
+
+        //Where a point falls in a 1600 x 900 frame
+        private static Vector2 Pixel(Vector3 point, Matrix viewProjection)
+        {
+            Vector4 clip = Vector4.Transform(new Vector4(point, 1f), viewProjection);
+            return new Vector2((clip.X / clip.W + 1f) * 800f, (1f - clip.Y / clip.W) * 450f);
+        }
+
         //The furthest beetle `i`'s planted feet get from where each touched down (or, `onPrint`, from its newest print) over
         //its cycles, its feet swung by `forward` and down while `planted`
         private static float WorstStance(int i, Func<float, float> forward, Func<float, bool> planted, float stride, bool onPrint)
