@@ -20,6 +20,15 @@ Pravidla:
 
 ---
 
+## 2026-11-21 — #1213 #1202 #1200 #1189 #1197 opravy před vydáním — desktop (RDT-PC), Claude Code (bs3d-85)
+
+- majitel: projít issues před zítřejším vydáním; „pusť se do všech pěti“. On mezitím vydává BS3D-API (BS3D-API#19, podmínka tagu kvůli pravidlům v2).
+- Hotovo, sloučeno. #1213: dělo v menu stojí. #1202: scéna menu se losuje jen z odemčených kapitol (`LevelSet.ChapterScenes`, `RollMenuScene`). #1200: skladba podle místa úrovně v kapitole (`PlaceInChapter`). #1189: − a + u všech stupňových řádků nastavení, kolečko krokuje oběma směry. #1197: time bonus pod pádovou kamerou modře „paused“ se značkou pauzy.
+- #1202 a #1200 zavřeny s důkazem; #1213, #1189 a #1197 mají `verdict-eye`.
+- ⚠ Pádovou kameru jde naskriptovat jen úrovní na míru: shluk visí na skle přes bombu, v rohu zůstává kus, aby úroveň nebyla vyčištěná (`detonate=4`, `levelfile=`). Bomby v Paroxysmu shodí jen jednu kouli.
+- ⚠ Cesta `/c/...` v `userdata=` z bashe se změní na `C:\c\...`, proto `cygpath -m`.
+- Otevřené: #1207 (desátá nahrávka pro summit a nocturne).
+
 ## 2026-11-21 — #1135 tetelení vzduchu čtyřikrát silnější — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: majitel řekl, že efekt je moc malý, a tak je tetelení čtyřikrát větší (`AMPLITUDE` 0,28°, asi 6,7 px při 1080 řádcích). Má dvě vrstvy: pomalé vlnění (sedm desetin, celé úseky obzoru stoupají a klesají) a původní jemný var (tři desetiny, stejně rychlý). Čtení pod obzorem drží podlaha (`FLOOR_SHARE`), fata morgána je hlubší (0,2°) a z vysokých kamer síla slábne strměji. Mění se jen proužek u obzoru. Cena je 0,09 ms (Testbed, Debug).
