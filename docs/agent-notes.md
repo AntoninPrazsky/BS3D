@@ -24,7 +24,8 @@ Pravidla:
 
 - Hotovo (jen soubory, nic nestavěno): tři issues, jedna na poznámku, všechny `priority-low` (scéna bez kapitoly). #1225 trsy spinifexu zapadají do země: sedí na nejnižším z pěti vzorků země a navíc o 0,06 klesají, takže nejnižší jehlice leží pod zemí. #1226 vegetace nečte upečený stín kopců: čte ho jen `Outback.fx`, rostliny jdou přes `Acacia.fx` a mapu slunce. #1227 kopce se opakují a malé balvany („klobouky“) chtějí realismus: napřed změřit opakování přes `TerrainMirror.Outback`, pak reference z Z-Image. Komentáře: #749, #967, #1176.
 - ⚠ `docs/scenes/outback.md` v „The formations' shadows“ rostliny nejmenuje, i když stín nedostávají.
-- Otevřené: otázka na majitele v #1227 (klobouky = malé balvany, nebo daleké štíty z #967?); chybí snímek rostliny uvnitř stínu a jehlic u země. Peer #1135 edituje `Outback.fx`.
+- majitel (téhož dne): „klobouky“ v #1227 jsou hlavně velké rýhované oranžové hory, tedy bochníky; malé balvany jsou až druhé. Tělo issue upraveno.
+- Otevřené: chybí snímek rostliny uvnitř stínu a jehlic u země. Peer #1135 edituje `Outback.fx`.
 
 ## 2026-11-20 — #1178 trailer RC — desktop (RDT-PC), Claude Code
 
