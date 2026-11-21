@@ -88,6 +88,15 @@ namespace Prazsky.Core.Render
         /// </summary>
         public virtual void DrawDepth(in SceneFrame frame) { }
 
+        /// <summary>
+        /// A pass that reads the frame drawn so far through <paramref name="pipeline"/>'s grab
+        /// (<see cref="SceneRenderer.DrawHorizonRefraction"/>): the outback's heat shimmer at the skyline (#1135). A host
+        /// calls it with the scene target bound, after both halves of the environment and the sky and before the island's
+        /// colour, the gun and the cluster, so what it reads holds the far world and what stands in front of it is drawn over
+        /// it afterwards. It must leave the device's states as it found them. Nothing by default.
+        /// </summary>
+        public virtual void DrawRefraction(in SceneFrame frame, PostProcessPipeline pipeline) { }
+
         /// <summary>The foreground weather drawn after the cluster, and space's saucer glass on High and Ultra
         /// (<see cref="SceneRenderer.DrawOverlays"/>); nothing by default.</summary>
         public virtual void DrawOverlays(in SceneFrame frame) { }

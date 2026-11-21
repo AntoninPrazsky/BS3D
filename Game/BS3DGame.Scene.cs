@@ -903,10 +903,12 @@ namespace BS3D
             // everything already drawn into it. Drawing the cup before the scene's own bind keeps every
             // target on the one bind-draw-unbind lifecycle the framework promises: the foreground is
             // resolved the moment the scene takes its place, the scene is cleared only ahead of the sky
-            // the way it always was, and nothing is ever bound twice in one frame. (The SCENE target is the one
-            // exception since #541, and made preserved for it: the ceiling's glass bends a copy of the frame, and
-            // PostProcessPipeline.GrabScene leaves the scene target once to take it and comes back. Every other
-            // target here is still discarded, so the order below still has to hold.)
+            // the way it always was, and nothing is ever bound twice in one frame. (The SCENE target is the
+            // exception since #541, and made preserved for it: the ceiling's glass and the outback's heat shimmer
+            // (#1135) each read a copy of the frame, and PostProcessPipeline.GrabScene and GrabSceneFar leave the
+            // scene target to take it and come back, twice in one frame when the plate is in view over the outback
+            // at High; the copy they share is preserved on the desktop for the same reason. The foreground target
+            // the cup goes into is still discarded, so the order below still has to hold.)
             //
             //Why a separate target at all: the result page's defocus takes everything the HDR pass holds,
             // and the one object it must not take is the cup being presented. Out here the blur is built
@@ -1196,6 +1198,13 @@ namespace BS3D
             //(the sea, the lagoon and its beach, the storm, the fountains, the moons, the desert's creatures), over the sky
             //just drawn. A no-op for the two cities and for a scene with no such half.
             if (SceneryShown) _sceneRenderer.DrawEnvironmentBlended(_scene, sceneFrame);
+
+            //THE HEAT SHIMMER AT THE SKYLINE (#1135): the outback's far horizon read again from a copy of the frame at wavering
+            //angles. Here, because everything it may show is in the frame (the far plain and formations, the sky just drawn)
+            //and everything that must stand clear of it comes after (the island's colour, the gun, the cluster); what is in
+            //the frame already and nearer hides it by depth, the island's laid depth included, and its copy never reads them.
+            //Before the ceiling glass's copy (#541), which therefore holds it. A no-op in every other scene and below High.
+            if (SceneryShown) _sceneRenderer.DrawHorizonRefraction(_scene, sceneFrame, _pipeline);
 
             //The round island, opaque: its stone cap and concrete drum, over the depth they laid before the environment
             //(the test is LessEqual and the two draws are one call, so every sample passes on its own depth). Then the

@@ -95,16 +95,17 @@ namespace Prazsky.Core.Render
     /// kind (#749: the spinifex hummocks, the saltbush, the dead timber, the mulga and dead trees, and High and Ultra's gibber,
     /// #776), the flock, High and Ultra's crust in the plain's program (#776), the formations' baked shadows the land reads
     /// (#967; off, the land reads none, the bake kept), what the scene casts into the sun's map (the bank's planting and
-    /// the plain's, whichever of them are drawn or not), and whether High and Ultra lay the monoliths' depth before shading
-    /// them (#1137; off, they are the one pass the lower tiers draw: the same picture).
+    /// the plain's, whichever of them are drawn or not), whether High and Ultra lay the monoliths' depth before shading
+    /// them (#1137; off, they are the one pass the lower tiers draw: the same picture), and the heat shimmer at the skyline
+    /// (#1135, <see cref="SceneRenderer.DrawHorizonRefraction"/>: its two passes and its copy of the frame).
     /// </summary>
     [System.Flags]
     public enum OutbackLayer
     {
         None = 0, Plain = 1, FarRing = 2, Bank = 4, Formations = 8, Stones = 16, Spinifex = 32, Saltbush = 64, Timber = 128,
-        Trees = 256, Gibber = 512, Birds = 1024, Crust = 2048, SunBake = 4096, Casters = 8192, RockDepth = 16384,
+        Trees = 256, Gibber = 512, Birds = 1024, Crust = 2048, SunBake = 4096, Casters = 8192, RockDepth = 16384, Shimmer = 32768,
         All = Plain | FarRing | Bank | Formations | Stones | Spinifex | Saltbush | Timber | Trees | Gibber | Birds | Crust | SunBake | Casters
-            | RockDepth
+            | RockDepth | Shimmer
     }
 
     /// <summary>
@@ -1866,6 +1867,40 @@ namespace Prazsky.Core.Render
         /// for the two cities.
         /// </summary>
         public void DrawEnvironmentBlended(SceneKind scene, in SceneFrame frame) => BackdropFor(scene)?.DrawBlended(frame);
+
+        /// <summary>
+        /// Whether the outback's heat shimmer at the skyline is drawn (#1135, <see cref="DrawHorizonRefraction"/>): the host's
+        /// tier. The Game sets it from its quality preset (High and Ultra); on until a host says otherwise, so the Testbed
+        /// draws it and prices it with its <c>outback=</c> dial. A phone and a multisampled scene target never draw it
+        /// whatever this says (<see cref="DrawHorizonRefraction"/>).
+        /// </summary>
+        public bool HorizonShimmer { get; set; } = true;
+
+        /// <summary>
+        /// The passes of <paramref name="scene"/> that read the frame drawn so far through <paramref name="pipeline"/>'s grab
+        /// (<see cref="Backdrop.DrawRefraction"/>): the outback's heat shimmer (#1135), which bends the skyline in a strip the
+        /// depth test keeps beyond the plain's last fade. A no-op for every other scene, below the tier
+        /// (<see cref="HorizonShimmer"/>), on a phone, and on a multisampled scene target (the Testbed's <c>ssaa=1</c>, or the
+        /// Game's at High under an <c>ssaa=1</c> override), as <see cref="EnvironmentFollowsIslandDepth"/> is: leaving a
+        /// multisampled target resolves it, its far mark averaged into its colour before the copy can weigh the one by the
+        /// other, and a near silhouette in the strip would thicken towards the near colour even where nothing moves
+        /// (<c>SampleSceneFar</c> in Tonemap.fx).
+        /// <para>
+        /// <b>Where a host calls it</b>: with the scene target bound, after <see cref="DrawEnvironmentBlended"/> and the sky
+        /// behind the opaque scene, and before the island's colour. Everything the strip may show (the far plain, the far
+        /// formations, the sky) is in the frame by then and everything that must stand clear of it is drawn after; what is
+        /// already in the frame and nearer (the plain, the near formations, the island's laid depth) hides the strip by
+        /// depth and is never read into it. From under the ceiling the glass's own copy (#541) is taken after this, so it
+        /// holds the shimmer. It puts the device's states back.
+        /// </para>
+        /// </summary>
+        public void DrawHorizonRefraction(SceneKind scene, in SceneFrame frame, PostProcessPipeline pipeline)
+        {
+            if (!HorizonShimmer || !GraphicsSupport.HorizonShimmer || pipeline?.SceneTarget == null
+                || pipeline.SceneTarget.MultiSampleCount > 1) return;
+
+            BackdropFor(scene)?.DrawRefraction(frame, pipeline);
+        }
 
         /// <summary>
         /// Whether a host lays the island's depth into the frame before <paramref name="scene"/>'s environment

@@ -118,8 +118,8 @@ namespace Prazsky.Core.Render
         private RenderTarget2D _refractionTarget;
 
         //THE GRAB (#541): a copy of the scene target as drawn so far, for a pane of glass INSIDE the scene to bend -
-        //see GrabScene. The back buffer's size, linear radiance, no depth. As lazy as the layers above: only the
-        //Game's ceiling asks for it.
+        //see GrabScene - and, a strip of it, for the outback's heat shimmer to read (GrabSceneFar, #1135). The back
+        //buffer's size, linear radiance, no depth. As lazy as the layers above: only those two ask for it.
         private RenderTarget2D _grabTarget;
 
         //THE OVERLAY LAYER (#438): the foreground's opposite. A display-space layer the caller draws AFTER the
@@ -157,6 +157,7 @@ namespace Prazsky.Core.Render
         private readonly EffectTechnique _tonemapTechnique;
         private readonly EffectTechnique _foregroundCompositeTechnique;
         private readonly EffectTechnique _sceneGrabTechnique;
+        private readonly EffectTechnique _sceneGrabFarTechnique;
         private readonly EffectParameter _glareSourceTextureParam;
         private readonly EffectParameter _glareSourceTexelSizeParam;
         private readonly EffectParameter _glareThresholdParam;
@@ -241,6 +242,7 @@ namespace Prazsky.Core.Render
             _tonemapTechnique = tonemapEffect.Techniques["Tonemap"];
             _foregroundCompositeTechnique = tonemapEffect.Techniques["ForegroundComposite"];
             _sceneGrabTechnique = tonemapEffect.Techniques["SceneGrab"];
+            _sceneGrabFarTechnique = tonemapEffect.Techniques["SceneGrabFar"];
             _glareSourceTextureParam = glareEffect.Parameters["SourceTexture"];
             _glareSourceTexelSizeParam = glareEffect.Parameters["SourceTexelSize"];
             _glareThresholdParam = glareEffect.Parameters["GlareThreshold"];
@@ -597,11 +599,12 @@ namespace Prazsky.Core.Render
             //leave with no antialiasing of any kind, on the setting a weak machine reaches for first. It
             //goes on the scene target, never the back buffer: nothing but one resolved quad ever reaches
             //that.
-            //PRESERVED rather than discarded since #541, and that is the one target in the frame the discard rule
-            //does not hold for: binding a DiscardContents target clears it (MonoGame's whole implementation of
-            //discard, which every other target here still pays when bound), and GrabScene is the one pass that has
-            //to leave the scene target mid-frame and come back to it with everything still in it. Each executable
-            //clears this target itself as it binds it, so nothing ever relied on the implicit clear.
+            //PRESERVED rather than discarded since #541: binding a DiscardContents target clears it (MonoGame's whole
+            //implementation of discard), and two passes leave the scene target mid-frame and come back to it with
+            //everything still in it - GrabScene for the ceiling's glass and GrabSceneFar for the outback's heat shimmer
+            //(#1135), both in one frame when the plate is in view over the outback at High. The bloom chain below is
+            //preserved for its own reason (#565), and the grab target on the desktop for the shimmer's strip (GrabTarget).
+            //Each executable clears this target itself as it binds it, so nothing ever relied on the implicit clear.
             _sceneTarget = new RenderTarget2D(_device, width, height, false, SurfaceFormat.HdrBlendable,
                 DepthFormat.Depth24Stencil8, samples, RenderTargetUsage.PreserveContents);
 
@@ -772,8 +775,17 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The grab's target (#541): the back buffer's own size, linear radiance, no depth and no multisampling —
-        /// written whole by one full-screen pass in <see cref="GrabScene"/>. Built on first use and carrying a
-        /// resize the way <see cref="ForegroundTarget"/> does, and null while the window is minimized.
+        /// written whole by one full-screen pass in <see cref="GrabScene"/>, or a strip of its rows by
+        /// <see cref="GrabSceneFar"/>. Built on first use and carrying a resize the way <see cref="ForegroundTarget"/>
+        /// does, and null while the window is minimized.
+        /// <para>
+        /// <b>Preserved wherever the heat shimmer may be drawn</b> (#1135, <see cref="GraphicsSupport.HorizonShimmer"/>),
+        /// though nothing reads what a frame before left in it: binding a <see cref="RenderTargetUsage.DiscardContents"/>
+        /// target clears the whole of it (MonoGame's discard), and the shimmer's strip is a tenth of the rows or less, so the
+        /// clear would have cost several times the copy. Each reader reads only what its own grab wrote: the glass the whole
+        /// frame, the shimmer its strip. Where the shimmer is never drawn (a phone) it stays discarded, as it was: there the
+        /// glass alone binds it, and the clear tells a tiler not to load the old contents into its tile memory first.
+        /// </para>
         /// </summary>
         private RenderTarget2D GrabTarget
         {
@@ -788,12 +800,29 @@ namespace Prazsky.Core.Render
                 {
                     _grabTarget?.Dispose();
                     _grabTarget = new RenderTarget2D(_device, width, height, false, SurfaceFormat.HdrBlendable,
-                        DepthFormat.None, 0, RenderTargetUsage.DiscardContents);
+                        DepthFormat.None, 0, GrabUsage);
                 }
 
                 return _grabTarget;
             }
         }
+
+        /// <summary>The grab target's usage (<see cref="GrabTarget"/>): preserved where the heat shimmer's strip may be
+        /// copied into it, discarded where only the glass's whole-frame copy ever is.</summary>
+        public static RenderTargetUsage GrabUsage =>
+            GraphicsSupport.HorizonShimmer ? RenderTargetUsage.PreserveContents : RenderTargetUsage.DiscardContents;
+
+        /// <summary>The grab target's size in texels, (0, 0) while the window is minimized: what a reader of
+        /// <see cref="GrabSceneFar"/>'s strip sizes its rows by before it asks for them.</summary>
+        public Point GrabSize => new(Math.Max(_device.PresentationParameters.BackBufferWidth, 0),
+            Math.Max(_device.PresentationParameters.BackBufferHeight, 0));
+
+        //The copy's rasterizer when only a strip of rows is wanted: no culling, as the full-screen quad's, and the scissor on
+        private static readonly RasterizerState ScissoredQuad = new()
+        {
+            CullMode = CullMode.None,
+            ScissorTestEnable = true
+        };
 
         /// <summary>
         /// Copies what the scene target holds so far into a target of its own and binds the scene target again with
@@ -802,10 +831,12 @@ namespace Prazsky.Core.Render
         /// The copy is box-filtered to the back buffer's size exactly as the resolve reads the scene (the
         /// <c>SceneGrab</c> technique, <c>SampleScene</c> in Tonemap.fx), in linear radiance.
         /// <para>
-        /// <b>Call it with the scene target bound, and only then.</b> It is the one pass that leaves the scene
-        /// target mid-frame and comes back, which is why that target is <see cref="RenderTargetUsage.PreserveContents"/>
-        /// (see <see cref="EnsureTarget"/>): any other target in this class is still cleared by being bound, and
-        /// the rule that each is bound once a frame stands for them. Leaving a multisampled scene target resolves it,
+        /// <b>Call it with the scene target bound, and only then.</b> It and <see cref="GrabSceneFar"/> are the two passes
+        /// that leave the scene target mid-frame and come back (both in one frame when the plate is in view over the
+        /// outback at High), which is why that target is <see cref="RenderTargetUsage.PreserveContents"/> (see
+        /// <see cref="EnsureTarget"/>), and the grab target on the desktop too, which the two may bind once each in a frame
+        /// (<see cref="GrabTarget"/>). The other targets in this class keep the rule that each is bound once a frame,
+        /// the bloom chain apart (#565). Leaving a multisampled scene target resolves it,
         /// which is most of what this costs below <see cref="SupersampleFactor"/> 2 — the frame's close resolves it
         /// again as it always did. The blend, depth and rasterizer states are put back as they were found, so the
         /// caller's scene pass goes on under its own.
@@ -839,6 +870,61 @@ namespace Prazsky.Core.Render
             DrawFullScreenQuad(_tonemapEffect);
             _tonemapEffect.CurrentTechnique = _tonemapTechnique;
 
+            _device.SetRenderTarget(_sceneTarget);
+
+            _device.BlendState = blend;
+            _device.DepthStencilState = depth;
+            _device.RasterizerState = raster;
+
+            return grab;
+        }
+
+        /// <summary>
+        /// <see cref="GrabScene"/> for the outback's heat shimmer (#1135): the rows from <paramref name="firstRow"/> for
+        /// <paramref name="rowCount"/> of the scene as drawn so far, into the same target, each pixel premultiplied by how
+        /// much of it the shimmer's first pass marked far (the <c>SceneGrabFar</c> technique, Tonemap.fx, which has the
+        /// argument): its alpha the far share, its colour the far samples' alone. The rest of the target is not written.
+        /// The same contract as <see cref="GrabScene"/> otherwise: the scene target bound, left and bound again with
+        /// everything in it, the caller's states put back. The vertex buffer is the full-screen quad's on the way out.
+        /// ⚠ <b>Not on a multisampled scene target</b>: leaving one resolves it, colour and mark averaged together before
+        /// the copy can weigh them, so <c>SceneRenderer.DrawHorizonRefraction</c> draws nothing there. The copy is exact
+        /// (every far sample written back its own block's average where nothing moves) on a target that is the back buffer
+        /// times the factor; on any other (a resolution below the display's) it is a hand-built bilinear read, near colour
+        /// still kept out but the strip resampled once more than the frame.
+        /// </summary>
+        /// <returns>The copy, valid in those rows until the next grab; null while the window is minimized, or when the
+        /// rows hold none of the target.</returns>
+        public Texture2D GrabSceneFar(int firstRow, int rowCount)
+        {
+            RenderTarget2D grab = GrabTarget;
+            if (grab == null || _sceneTarget == null) return null;
+
+            int top = Math.Clamp(firstRow, 0, grab.Height);
+            int bottom = Math.Clamp(firstRow + rowCount, 0, grab.Height);
+            if (bottom <= top) return null;
+
+            BlendState blend = _device.BlendState;
+            DepthStencilState depth = _device.DepthStencilState;
+            RasterizerState raster = _device.RasterizerState;
+
+            _device.SetRenderTarget(grab);
+
+            //After the bind, which sets the scissor to the whole target
+            _device.ScissorRectangle = new Rectangle(0, top, grab.Width, bottom - top);
+            _device.BlendState = BlendState.Opaque;
+            _device.DepthStencilState = DepthStencilState.None;
+            _device.RasterizerState = ScissoredQuad;
+            _device.SetVertexBuffer(_fullScreenQuad);
+
+            _tonemapSceneTextureParam.SetValue(_sceneTarget);
+            _tonemapSourceTexelSizeParam.SetValue(new Vector2(1f / _sceneTarget.Width, 1f / _sceneTarget.Height));
+            _tonemapMagnifyParam.SetValue(ScaledScene(_sceneTarget, _supersampleFactor));
+
+            _tonemapEffect.CurrentTechnique = _sceneGrabFarTechnique;
+            DrawFullScreenQuad(_tonemapEffect);
+            _tonemapEffect.CurrentTechnique = _tonemapTechnique;
+
+            //The bind sets the scissor back to the whole scene target
             _device.SetRenderTarget(_sceneTarget);
 
             _device.BlendState = blend;

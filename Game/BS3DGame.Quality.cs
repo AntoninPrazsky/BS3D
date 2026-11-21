@@ -750,6 +750,9 @@ namespace BS3D
                 //the finer range, Low and Medium the tubes, the lathes and the coarser range. Read per draw, so nothing is
                 //rebuilt (the range's finer grid is built on its first draw and kept). See QualityPreset.FineMeshes
                 _sceneRenderer.FineMeshes = preset.FineMeshes;
+
+                //And the outback's heat shimmer at the skyline (#1135), High and Ultra; read per frame. See QualityPreset.HorizonShimmer
+                _sceneRenderer.HorizonShimmer = preset.HorizonShimmer;
             }
 
             //And the title (#981): every tier draws the PNG logo, Low and Medium its lean copy without the halo

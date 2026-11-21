@@ -134,6 +134,12 @@
 /processorParam:DebugMode=Auto
 /build:Shaders/Outback.fx
 
+#begin Shaders/HorizonShimmer.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/HorizonShimmer.fx
+
 #begin Shaders/Savanna.fx
 /importer:EffectImporter
 /processor:EffectProcessor

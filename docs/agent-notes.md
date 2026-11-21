@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-21 — #1135 tetelení vzduchu nad Outbackem — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: skutečné tetelení. Prstenec kolem objektivu láme daleký obzor v úzkém pruhu u horizontu: čte z kopie už nakresleného snímku (`GrabSceneFar`, technika `SceneGrabFar`), blízké věci drží venku hloubkou a vahou „daleko“. Pod obzorem je tenký zrcadlový proužek fata morgány. Posun je úhel (0,07°), hodiny jsou scény. `Outback.fx` zůstal netknutý. Jen High a Ultra; Medium, Potato, telefony a multisamplovaný cíl ho nekreslí. Cena na Ultra +0,08 ms.
+- ⚠ Prstenec je 700 jednotek daleko, ne 1000. Při 1000 byla čára, kterou oko čte jako obzor, spodním okrajem pruhu, a stála (0,06 px pohybu proti 0,37). Z vysokých kamer dělala plná síla zuby, proto slábne s úhlem pohledu dolů (`GRAZE`).
+- Otevřené: `verdict-eye`, pohyb nikdo neviděl (síla, rychlost, zrcadlení). Neměřeno na APU, notebooku ani telefonu.
+
 ## 2026-11-21 — #1178 trailer schválen — desktop (RDT-PC), Claude Code
 
 - majitel (v chatu): „Toto je finální podoba prvního traileru, schvaluji.“ RC je tedy první trailer; #1178 uzavřeno, odpověď je na issue.
