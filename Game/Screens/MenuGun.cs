@@ -24,8 +24,8 @@ namespace BS3D.Screens
 
     /// <summary>
     /// The gun the front end stands on the island when no session's does (#1040): where a session would stand it for the
-    /// preview map, loaded as a session would load it, drifting slowly about its rest aim so it reads as alive. No physics and
-    /// no firing — the gun is a prop here, and the cluster over it is the preview's data.
+    /// preview map, loaded as a session would load it, standing still at its rest aim. No physics and no firing — the gun is a
+    /// prop here, and the cluster over it is the preview's data.
     /// <para>
     /// <b>The same gun, not a second drawing of it.</b> The pose is <see cref="Cannon"/>'s, the hardware
     /// <see cref="CannonRig"/>'s and the rounds in the bore <see cref="Magazine"/>'s, exactly as in play; the calls are
@@ -44,14 +44,6 @@ namespace BS3D.Screens
     /// </summary>
     internal sealed class MenuGun : IStandingGun
     {
-        //The idle drift: about the rest aim, slow and slight. The traverse is the wide swing (the gun slews on its wheels,
-        //which scrub as a slewed gun's do) and the elevation a breath of it, on periods that do not meet, so the pair never
-        //repeats in a minute. A pure function of the wall clock, so it is the same on any machine and costs a sine apiece.
-        private static readonly float TRAVERSE_SWING = MathHelper.ToRadians(16f);
-        private const float TRAVERSE_PERIOD_SECONDS = 19f;
-        private static readonly float ELEVATION_SWING = MathHelper.ToRadians(3f);
-        private const float ELEVATION_PERIOD_SECONDS = 13f;
-
         //Which way round the island it stands: towards -X, and the same for every map so the picker's changing the preview never
         //moves it. A session parks its gun towards +Z (behind it is the play camera), and that is where the menu's lens stands
         //after a level, while at launch it stands at +X. -X is opposite the launch lens and a quarter turn from the other, so the
@@ -134,9 +126,13 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// The idle drift, once per frame while the front end updates: re-fits to a window that has changed shape and swings the
-        /// aim about its rest. Stated, not integrated — <see cref="Cannon.AimTo"/> lands on the pose it is given — so a hitched
-        /// frame cannot overshoot, and the same wall-clock second is the same pose on every machine.
+        /// Once per frame while the front end updates: re-fits to a window that has changed shape and holds the aim at its rest.
+        /// <para>
+        /// <b>The gun stands still (#1213).</b> It drifted 16 degrees in traverse until the owner's second look: while the menu's
+        /// lens swept round it the same way, the barrel held its angle in the frame and the island turned behind it, so the gun
+        /// read as turning with the camera. Nobody plays it and the island is calm, so it does not move; the collar's breathing
+        /// glow is the only life it shows. Stated every frame, because the rest elevation follows the fit's radius.
+        /// </para>
         /// </summary>
         public void Update()
         {
@@ -144,11 +140,7 @@ namespace BS3D.Screens
 
             if (MathF.Abs(_game.Camera.AspectRatio - _fitAspect) > 1e-3f) Fit();
 
-            float t = _game.WallClock;
-
-            _cannon.AimTo(
-                _cannon.RestElevation + ELEVATION_SWING * MathF.Sin(MathHelper.TwoPi * t / ELEVATION_PERIOD_SECONDS + 1.3f),
-                TRAVERSE_SWING * MathF.Sin(MathHelper.TwoPi * t / TRAVERSE_PERIOD_SECONDS));
+            _cannon.AimTo(_cannon.RestElevation, 0f);
         }
 
         /// <summary>
