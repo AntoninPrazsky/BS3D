@@ -207,17 +207,13 @@ namespace BS3D.Screens
             var chapters = new List<string>[SceneRenderer.SceneCount];
             var order = new List<SceneKind>(SceneRenderer.SceneCount);
 
-            if (set != null && set.HasBlocks)
-            {
-                for (int index = 0; index < set.Count; index++)
+            //The chapter-to-scene mapping has one home (LevelSet.ChapterScenes), which the front end's launch roll reads too (#1202)
+            if (set != null)
+                foreach ((int first, SceneKind scene) in set.ChapterScenes())
                 {
-                    set.BlockRange(index, out int first, out _);
-                    if (first != index || !TryReadScene(set, index, out SceneKind scene)) continue;
-
-                    (chapters[(int)scene] ??= new List<string>()).Add(set.BlockName(index));
+                    (chapters[(int)scene] ??= new List<string>()).Add(set.BlockName(first));
                     if (!order.Contains(scene)) order.Add(scene);
                 }
-            }
 
             for (int i = 0; i < SceneRenderer.SceneCount; i++)
             {
@@ -230,24 +226,6 @@ namespace BS3D.Screens
             }
 
             _order = order.ToArray();
-        }
-
-        private static bool TryReadScene(LevelSet set, int index, out SceneKind scene)
-        {
-            scene = default;
-
-            try
-            {
-                string path = set.ResolvePath(index);
-                if (!Level.IsLevelFile(path) || Level.Load(path).Scene is not SceneKind named) return false;
-
-                scene = named;
-                return true;
-            }
-            catch (Exception)
-            {
-                return false;
-            }
         }
 
         private void Choose(SceneKind scene)

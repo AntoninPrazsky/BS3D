@@ -1752,10 +1752,16 @@ namespace BS3D
             //And the winners' podium (#827), which stands the cups above on its steps: before the SetScene for the same reason
             _winners = new WinnersPodium(GraphicsDevice, _instancingEffect, SCENE_AMBIENT_INTENSITY, _trophy);
 
-            //A different one of the fifteen every launch, so the front end is not the same picture twice — unless
-            //the command line pinned one. It also sets the dome and the city's lighting, and ends in
-            //ApplySkyLighting, which is why nothing derives the light rig before this point.
-            SetScene(_startupScene ?? (SceneKind)RANDOM.Next(SceneRenderer.SceneCount));
+            //The order the levels are played in, read once here: a broken set is reported at startup rather
+            //than at the moment the player presses Play, and the maps themselves are only parsed per level.
+            //BEFORE THE SetScene BELOW: it loads the player's progress too, and the launch roll draws only from the
+            //scenes of the chapters that progress has unlocked (#1202).
+            LoadLevelSet();
+
+            //A different scene every launch, so the front end is not the same picture twice — unless the command
+            //line pinned one. It also sets the dome and the city's lighting, and ends in ApplySkyLighting, which is
+            //why nothing derives the light rig before this point.
+            SetScene(_startupScene ?? RollMenuScene());
 
             //After SetScene and never before: the sea and the savanna each replace the dome with one of their
             //own, so an explicit sky= would be silently overridden the other way round. The Testbed's rule.
@@ -1767,10 +1773,6 @@ namespace BS3D
             ApplyQuality(_quality);
 
             _pipeline?.EnsureTarget();
-
-            //The order the levels are played in, read once here: a broken set is reported at startup rather
-            //than at the moment the player presses Play, and the maps themselves are only parsed per level.
-            LoadLevelSet();
 
             //The building count only belongs on this line for the scenes that actually draw the city; for the
             //other nine it is just how many sit in memory, and printing it beside an unrelated scene name reads
@@ -1950,6 +1952,29 @@ namespace BS3D
                 Console.WriteLine($"[levels] No level set at '{path}' ({e.Message}); using the built-in level");
                 _levelSet = null;
             }
+        }
+
+        /// <summary>
+        /// The front end's launch scene when the command line pinned none (#1202): one of the scenes of the chapters the
+        /// player has unlocked, at random. A first launch has only the first chapter open, so it is always the Meadow, and
+        /// each chapter opened adds its scene to the draw; Extras > Scene still offers every scene. A chapter is open when
+        /// its first level is (<see cref="IsLevelUnlocked"/>, the picker's own test), so "Unlock all" opens every chapter's
+        /// scene. The scenes no chapter is played in are never drawn: the owner's rule is the scenes of unlocked chapters.
+        /// Every scene, as before, only when the set gives no chapter at all (no set, or one without blocks).
+        /// </summary>
+        private SceneKind RollMenuScene()
+        {
+            var open = new List<SceneKind>();
+
+            if (_levelSet != null)
+                foreach ((int first, SceneKind scene) in _levelSet.ChapterScenes())
+                    if (IsLevelUnlocked(first) && !open.Contains(scene)) open.Add(scene);
+
+            Console.WriteLine(open.Count > 0
+                ? $"[menu] launch scene drawn from {open.Count} unlocked chapter scene(s): {string.Join(", ", open)}"
+                : "[menu] launch scene drawn from every scene: the level set names no chapter");
+
+            return open.Count > 0 ? open[RANDOM.Next(open.Count)] : (SceneKind)RANDOM.Next(SceneRenderer.SceneCount);
         }
 
         /// <summary>
