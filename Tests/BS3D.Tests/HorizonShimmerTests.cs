@@ -184,7 +184,8 @@ namespace BS3D.Tests
         /// <summary>
         /// The copy is scissored to the rows the ring covers, so it must hold every pixel the ring draws: from lenses at the
         /// heights the Game flies, turned every way, pitched up and down and rolled a little as the shake rolls it, through
-        /// narrow and wide lenses, every point of the band that lands on the screen lies inside the rows.
+        /// narrow and wide lenses, every point of the band that lands on the screen lies inside the rows. And the rows are
+        /// the band's, not the frame's: what the ring reaches off the screen's sides does not widen them.
         /// </summary>
         [Fact]
         public void TheRowsHoldTheRing()
@@ -211,6 +212,7 @@ namespace BS3D.Tests
                 float tanBottom = MathF.Tan(band.Bottom - HorizonShimmer.UNDER), tanTop = MathF.Tan(band.Top);
 
                 bool any = HorizonShimmer.TryRows(viewProjection, lens, radius, tanBottom, tanTop, height, 0, out int first, out int count);
+                float seenTop = float.MaxValue, seenBottom = float.MinValue;
 
                 //The band sampled far finer than the ring's chords, on the chords themselves (the drawn geometry)
                 for (int s = 0; s < HorizonShimmer.SEGMENTS * 8; s++)
@@ -233,9 +235,16 @@ namespace BS3D.Tests
                         float row = (1f - y) * 0.5f * height;
                         Assert.True(any, $"view {view}: the band is on the screen at row {row:F1} and no rows were given");
                         Assert.True(row >= first - 0.01f && row <= first + count + 0.01f, $"view {view}: the band's row {row:F1} is outside {first}..{first + count}");
+                        seenTop = MathF.Min(seenTop, row);
+                        seenBottom = MathF.Max(seenBottom, row);
                         checkedViews++;
                     }
                 }
+
+                //Tight: no more than a few rows past what the band shows (the samples fall a little inside its edges)
+                if (seenBottom >= seenTop)
+                    Assert.True(count <= seenBottom - seenTop + 0.02f * height + 2f,
+                        $"view {view}: {count} rows for a band seen over {seenBottom - seenTop:F1}");
             }
 
             Assert.True(checkedViews > 10000, $"only {checkedViews} points of the band landed on the screen");
