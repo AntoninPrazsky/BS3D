@@ -1,9 +1,9 @@
 //The outback's heat shimmer (#1135): the far horizon refracted in a thin strip at the skyline. Not a colour laid on the
-//plain (#1123 took that one out: it crept over the middle plain as a pale fog), but the frame already drawn read again a
-//little above or below where each pixel looks, so the plain's edge and the feet of the far formations waver by about a
-//pixel, and under the skyline a sliver of the sky and of the rock standing on it is mirrored, as hot ground mirrors it.
+//plain (#1123 took that one out: it crept over the middle plain as a pale fog), but the frame already drawn read again
+//above or below where each pixel looks, so the plain's edge and the feet of the far formations boil up and down by a few
+//pixels, and under the skyline a sliver of the sky and of the rock standing on it is mirrored, as hot ground mirrors it.
 //
-//THE BAND is a ring round the lens (HorizonShimmer.cs builds it and its vertex buffer), at seven tenths of the distance
+//THE BAND is a ring round the lens (HorizonShimmer.cs builds it and its vertex buffer), at RING_SHARE of the distance
 //where the plain's last fade begins, from just under where the plain meets that radius to REACH over the skyline's axis:
 //the plain where the fade begins, which is the line the eye reads as the horizon. Both passes draw it depth-tested and
 //write no depth, so the island, the cluster, the gun, every nearer formation and the whole plain nearer than the radius
@@ -33,10 +33,11 @@ float3 CameraPosition;
 //lens is the radius times one of them)
 float3 Ring;
 
-//The band's elevations over the horizontal, radians: where the plain at the ring's radius lies (the shimmer grows from
+//The band's elevations over the horizontal, radians: where the plain at the ring's radius lies (a read upward grows from
 //nothing there), the skyline's axis (the plain where its last fade begins, where the shimmer is strongest and the mirage's
-//mirror runs) and the top it has faded out by
-float3 Band;
+//mirror runs), the top it has faded out by, and the floor no read lands under (HorizonShimmer.FLOOR_SHARE: over the
+//bottom, on the plain beyond the ring)
+float4 Band;
 
 //The largest offset this frame, radians (weaker the steeper the lens looks down at the skyline, HorizonShimmer.GRAZE)
 float Amplitude;
@@ -61,10 +62,13 @@ sampler2D GrabSampler = sampler_state
     AddressV = Clamp;
 };
 
-//The waver's field. Gradient noise of the HEADING on a circle (an atan2 of it would seam behind the lens) and of the
-//height over the skyline's axis, the second coordinate sliding down the field as the clock runs, so the pattern rises
-//through the band; a finer octave rises faster. Cells per radian of heading (ACROSS) and of elevation (UP), cells a
-//second (TEMPO): an angle and a time, nothing on the screen.
+//The waver's field, two layers. Gradient noise of the HEADING on a circle (an atan2 of it would seam behind the lens) and
+//of the height over the skyline's axis, the second coordinate sliding down the field as the clock runs, so the pattern
+//rises through the band. Cells per radian of heading (ACROSS) and of elevation (UP), cells a second (TEMPO): an angle and a
+//time, nothing on the screen.
+//
+//THE BOIL is the fine field, two octaves, the finer rising faster: cells of 0.25 degrees across and 0.15 up, turning over
+//3.5 and 9 times a second.
 static const float ACROSS = 230.0;
 static const float UP = 380.0;
 static const float TEMPO = 3.5;
@@ -73,14 +77,31 @@ static const float FINE_TEMPO = 9.0;
 
 //The two octaves' sum spreads about 0.15 either way (0.28 at the 95th percentile): scaled so the offset reaches its
 //largest about one sample in twenty and clamped there
-static const float WOBBLE_GAIN = 3.3;
+static const float BOIL_GAIN = 3.3;
 
-float Wobble(float2 heading, float above)
+//THE SWELL carries most of the offset (SWELL_SHARE): one octave of cells 0.5 degrees across and 0.95 up, two thirds of
+//the strip's depth over the axis, so a column's offset changes slowly up the strip and the skyline rises and sinks whole
+//rather than reading its rows out of order (the boil's cells at the swell's offset did: torn horizontal slivers). It
+//turns over once a second where the boil's coarse octave turns over 3.5 times: its cells are six times as tall, and an
+//eddy's turnover slows as the two-thirds power of its size (6.3 to the two-thirds is 3.4). So it rises 0.95 degrees a
+//second, nearly twice the boil's 0.53, and slower in cells: the skyline swells and sinks over a second or so.
+static const float SWELL_ACROSS = 115.0;
+static const float SWELL_UP = 60.0;
+static const float SWELL_TEMPO = 1.0;
+static const float SWELL_GAIN = 2.5;
+static const float SWELL_SHARE = 0.7;
+
+float Boil(float2 heading, float above)
 {
     float coarse = GradientNoise3(float3(heading * ACROSS, above * UP - Time * TEMPO));
     float fine = GradientNoise3(float3(heading * (ACROSS * FINE_SCALE), above * (UP * FINE_SCALE) - Time * FINE_TEMPO + 31.7));
 
-    return clamp((coarse * 0.7 + fine * 0.3) * WOBBLE_GAIN, -1.0, 1.0);
+    return clamp((coarse * 0.7 + fine * 0.3) * BOIL_GAIN, -1.0, 1.0);
+}
+
+float Swell(float2 heading, float above)
+{
+    return clamp(GradientNoise3(float3(heading * SWELL_ACROSS, above * SWELL_UP - Time * SWELL_TEMPO + 57.3)) * SWELL_GAIN, -1.0, 1.0);
 }
 
 //How far off the camera a direction is projected to find its place in the copy: far enough that the camera's position,
@@ -148,15 +169,25 @@ float4 RefractPS(BandPixel input) : COLOR
     float4 own = tex2Dlod(GrabSampler, float4(centre, 0, 0));
     float3 color = own.rgb / max(own.a, 1e-4);
 
-    //The waver: nothing where the band's plain begins, growing over the far plain to the axis and fading out above it
-    float reach = smoothstep(Band.x, Band.y, elevation) * (1.0 - smoothstep(Band.y, Band.z, elevation));
-    float2 shiftedUv = centre + GrabUv(heading, elevation + Amplitude * reach * Wobble(heading, elevation - Band.y)) - here;
-    float4 shifted = tex2Dlod(GrabSampler, float4(shiftedUv, 0, 0));
+    //The waver: fading out over the axis. Under it a read upward (the sky let down into the plain's edge) grows from
+    //nothing where the band's plain begins, so the sky never reaches the ring's lower edge; a read downward (the plain's edge
+    //boiled up into the sky) keeps its whole offset and is held at the floor instead (Band.w). From the play camera the far
+    //plain under the axis is less deep than the offset, and a downward read fading in that steeply read the rows nearer the
+    //horizon from lower down than the rows over them: turned over, the skyline's edge came apart into rings. The floor
+    //never moves a read where nothing moves: min(elevation, floor) is the pixel's own elevation under the floor
+    float wobble = lerp(Boil(heading, elevation - Band.y), Swell(heading, elevation - Band.y), SWELL_SHARE);
+    float rise = wobble < 0.0 ? 1.0 : smoothstep(Band.x, Band.y, elevation);
+    float reach = rise * (1.0 - smoothstep(Band.y, Band.z, elevation));
+    float read = max(elevation + Amplitude * reach * wobble, min(elevation, Band.w));
+    float4 shifted = tex2Dlod(GrabSampler, float4(centre + GrabUv(heading, read) - here, 0, 0));
     color = color * (1.0 - shifted.a) + shifted.rgb;
 
-    //The mirage: under the axis, which wavers with the rest, the sky and what stands on it mirrored, fading out with depth.
-    //A point on the axis is its own mirror, so the image meets what is above it without a seam
-    float axis = Band.y + Amplitude * Wobble(heading, 0.0);
+    //The mirage: under the axis, which wavers with the boil, the sky and what stands on it mirrored, fading out with depth
+    //and before the floor, so it never ends on the ring's lower edge. A point on the axis is its own mirror, so the image
+    //meets the boil's waver over it without a seam; but the axis does not move with the swell, which lifts or sinks the
+    //picture just over it by up to SWELL_SHARE of the amplitude, so the axis is a deliberate edge: the sheet stays at the
+    //horizon as the skyline over it rises and sinks, the far formations floating over their own reflection
+    float axis = Band.y + Amplitude * (1.0 - SWELL_SHARE) * Boil(heading, 0.0);
     float below = axis - elevation;
 
     [branch]
@@ -164,7 +195,7 @@ float4 RefractPS(BandPixel input) : COLOR
     {
         float4 mirrored = tex2Dlod(GrabSampler, float4(centre + GrabUv(heading, axis + below) - here, 0, 0));
         float3 image = color * (1.0 - mirrored.a) + mirrored.rgb;
-        float sheet = Mirage.y * (1.0 - smoothstep(0.0, Mirage.x, below));
+        float sheet = Mirage.y * (1.0 - smoothstep(0.0, Mirage.x, below)) * smoothstep(Band.x, Band.w, elevation);
         color = lerp(color, image, sheet);
     }
 

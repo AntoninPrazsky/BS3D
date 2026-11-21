@@ -8,11 +8,12 @@ namespace Prazsky.Core.Render
 {
     /// <summary>
     /// The outback's heat shimmer (#1135): the far horizon refracted in a thin strip at the skyline. The frame drawn so far
-    /// is read again a little above or below where each pixel of the strip looks, so the plain's edge and the feet of the
-    /// far formations waver by about a pixel, and under the skyline a sliver of the sky and of the rock on it is mirrored,
-    /// as hot ground mirrors it. Nothing over the middle plain and nothing near: the strip is a ring round the lens seven
-    /// tenths of the way to where the plain's last fade begins, drawn depth-tested, so everything nearer hides it. See "The heat shimmer"
-    /// in docs/scenes/outback.md and <c>HorizonShimmer.fx</c>, which carries the passes' own argument.
+    /// is read again above or below where each pixel of the strip looks, so the plain's edge and the feet of the far
+    /// formations boil up and down by a few pixels from the play camera, and under the skyline a sliver of the sky and of the
+    /// rock on it is mirrored, as hot ground mirrors it. Nothing over the middle plain and nothing near: the strip is a ring
+    /// round the lens <see cref="RING_SHARE"/> of the way to where the plain's last fade begins, drawn depth-tested, so
+    /// everything nearer hides it. See "The heat shimmer" in docs/scenes/outback.md and <c>HorizonShimmer.fx</c>, which
+    /// carries the passes' own argument.
     /// <para>
     /// <b>Three passes, all inside the scene target's frame</b>: the ring marks where it passes the depth test (an alpha of
     /// 0), <see cref="PostProcessPipeline.GrabSceneFar"/> copies the rows the ring covers with every sample weighed by that
@@ -51,36 +52,58 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// The largest offset, an angle: 0.07 degrees, 1.8 pixels at 1080 rows through the play camera's 42.9-degree lens
-        /// (<c>GameplayScreen.GAME_FOV</c>) and 2.6 at 1600, and under half that most of the time (the field's spread,
-        /// <c>WOBBLE_GAIN</c> in the shader), so the skyline wavers by about a pixel: from the Testbed's play pose its edge
-        /// moved 0.37 pixels on average a quarter of a second apart, 1.03 at the 95th percentile.
+        /// The largest offset, an angle: 0.28 degrees, 6.7 pixels at 1080 rows through the play camera's 42.9-degree lens
+        /// (<c>GameplayScreen.GAME_FOV</c>) and 9.9 at 1600, and under half that most of the time (the field's spread,
+        /// <c>SWELL_GAIN</c> and <c>BOIL_GAIN</c> in the shader). Seven tenths of it is the shader's swell, cells tall enough
+        /// that a column's offset barely changes up the strip, so the skyline rises and sinks whole; three tenths the boil,
+        /// the fine field rising through it (0.084 degrees). ⚠ The fine field alone at three times its first 0.07 degrees
+        /// shredded the formations' feet into torn horizontal slivers, rows read up to seven pixels out of order at 1080 rows:
+        /// its cells are 0.15 degrees tall, and the faster an offset that large changes up the strip, the further back a row
+        /// is read. The swell reads none out of order; the boil's share still reads some a pixel or two back, the flicker in
+        /// it (docs/scenes/outback.md, "The heat shimmer").
         /// </summary>
-        public static readonly float AMPLITUDE = MathHelper.ToRadians(0.07f);
+        public static readonly float AMPLITUDE = MathHelper.ToRadians(0.28f);
 
         /// <summary>How far over the skyline's axis the waver reaches before it has faded out: the strip's upper half.</summary>
         public static readonly float REACH = MathHelper.ToRadians(1.5f);
 
-        /// <summary>How deep under the skyline's axis the mirage reaches: a sliver, two pixels at 1080 rows through the play
-        /// camera's lens. A lens low over the plain sees less of it where the plain from the ring to the axis is thinner than this.</summary>
-        public static readonly float MIRAGE_DEPTH = MathHelper.ToRadians(0.08f);
+        /// <summary>
+        /// The lowest a read may land, as a share of the way from the band's bottom (the plain at the ring) to the axis: a
+        /// read lower than that would fall on the plain nearer than the ring, which brings nothing back, and the skyline would
+        /// tear there. So a read downward is held at this floor (<c>Band.w</c> in the shader) instead of fading in from the
+        /// band's bottom, as a read upward does: from the play camera the far plain under the axis is a fifth of a degree,
+        /// less than the offset, and a fade that steep turned the order of the rows over at the horizon.
+        /// </summary>
+        public const float FLOOR_SHARE = 0.3f;
+
+        /// <summary>How deep under the skyline's axis the mirage reaches: a fifth of a degree, five pixels at 1080 rows through
+        /// the play camera's lens and seven at 1600. It fades out before the band's bottom (the floor, <see cref="FLOOR_SHARE"/>),
+        /// so a lens low over the plain, where the plain from the ring to the axis is thinner than this, sees less of it.</summary>
+        public static readonly float MIRAGE_DEPTH = MathHelper.ToRadians(0.2f);
 
         /// <summary>How much of the mirrored image shows at the axis, fading to nothing at <see cref="MIRAGE_DEPTH"/>.</summary>
-        public const float MIRAGE_STRENGTH = 0.85f;
+        public const float MIRAGE_STRENGTH = 1f;
 
         /// <summary>
-        /// The steepest look down at the skyline's axis the shimmer keeps its whole strength at: a degree, a lens up to 17 over
-        /// the plain (the play camera at 6, the approach at 2.9). Steeper, the waver falls as this over the angle and the
-        /// mirage as its square (<see cref="Grazing"/>): a ray that grazes the hot air over the ground crosses a long path of
-        /// it, a steep one a short path, and a mirage is a grazing ray's alone. At its whole strength from the intro's wide
-        /// shot and its crane (about 40 over the plain, 2.3 degrees down) the plain's red edge boiled up into the pale fade as
-        /// a row of dark teeth along the whole skyline.
+        /// The steepest look down at the skyline's axis the shimmer keeps its whole strength at: 0.8 degrees, a lens up to 14
+        /// over the plain (the play camera at 6, the approach at 2.9). Steeper, the waver falls as the square of this over the
+        /// angle and the mirage as its fourth power (<see cref="Grazing"/>): a ray that grazes the hot air over the ground
+        /// crosses a long path of it, a steep one a short path, and a mirage is a grazing ray's alone. The intro's wide shot
+        /// flies from 30 to 52 over the plain (1.7 to 3 degrees down): its first frame keeps a fifth of the waver, 0.061
+        /// degrees, which shows no teeth, and its last a fourteenth. Its crane climbs from 4 over the plain to 18 over the
+        /// monolith's crown, some 60, through every strength between, the rock filling most of its frame. ⚠ More was a row
+        /// of dark teeth along the whole skyline from the wide shot, the plain's red edge boiling up into the pale fade: at
+        /// the whole of the first 0.07 degrees, and again at 0.12 (this amplitude falling as one over the angle).
         /// </summary>
-        public static readonly float GRAZE = MathHelper.ToRadians(1f);
+        public static readonly float GRAZE = MathHelper.ToRadians(0.8f);
 
-        /// <summary>The share of its strength the shimmer keeps for a band (<see cref="GRAZE"/>): 1 where the axis lies within
-        /// it under the horizontal, falling as one over the angle past it.</summary>
-        public static float Grazing(Elevations band) => Math.Clamp(GRAZE / MathF.Max(-band.Axis, 1e-6f), 0f, 1f);
+        /// <summary>The share of its strength the waver keeps for a band (<see cref="GRAZE"/>): 1 where the axis lies within
+        /// it under the horizontal, falling as the square of it over the angle past it. The mirage keeps the square of this.</summary>
+        public static float Grazing(Elevations band)
+        {
+            float share = Math.Clamp(GRAZE / MathF.Max(-band.Axis, 1e-6f), 0f, 1f);
+            return share * share;
+        }
 
         /// <summary>How far the ring's lower edge reaches under the band's bottom, so the far plain right at the ring's
         /// radius is inside it: the plain nearer than the radius hides what is under it anyway.</summary>
@@ -98,9 +121,9 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The band's three elevations over the horizontal, radians: <see cref="Bottom"/> where the plain lies at the ring's
-        /// radius (the waver grows from nothing there), <see cref="Axis"/> the skyline, the plain where its last fade begins,
-        /// where the waver is strongest and the mirage's mirror runs, and <see cref="Top"/>, <see cref="REACH"/> over the axis,
-        /// where it has faded out.
+        /// radius (a read upward grows from nothing there, and a read downward is held over it, <see cref="FLOOR_SHARE"/>),
+        /// <see cref="Axis"/> the skyline, the plain where its last fade begins, where the waver is strongest and the mirage's
+        /// mirror runs, and <see cref="Top"/>, <see cref="REACH"/> over the axis, where it has faded out.
         /// </summary>
         public readonly record struct Elevations(float Bottom, float Axis, float Top);
 
@@ -112,10 +135,13 @@ namespace Prazsky.Core.Render
         /// are already half sky, squeezed into a pixel or two. A ring there made that line the strip's lower edge, every read
         /// under it fell on plain the gate calls near, and from the play camera and a low lens the line moved a twentieth of a
         /// pixel on average (a quarter of a second apart, 0.33 at the 95th percentile): only the faded sliver over it took the
-        /// waver. Seven tenths of the way out puts that line inside the strip, under plain that is still the far plain.
+        /// waver. 0.62 of the way out (620 units) puts that line inside the strip with a fifth of a degree of the far plain
+        /// under it from the play camera, room for the mirage (<see cref="MIRAGE_DEPTH"/>) and the floor a read downward is
+        /// held at; and it stays past <see cref="FarField.FAR_FADE_START_LATEST"/>, where every other ground's last fade
+        /// begins, so the plain it may touch is still the far plain.
         /// </para>
         /// </summary>
-        public const float RING_SHARE = 0.7f;
+        public const float RING_SHARE = 0.62f;
 
         /// <summary>The ring's radius for a plain whose last fade begins at <paramref name="fadeStart"/>, held short of the
         /// fade's end (<see cref="FarField.FAR_FADE_END"/>).</summary>
@@ -134,6 +160,10 @@ namespace Prazsky.Core.Render
 
             return new Elevations(-MathF.Atan(height / RingRadius(fadeStart)), axis, axis + REACH);
         }
+
+        /// <summary>The lowest elevation a read of <paramref name="band"/> may land at (<see cref="FLOOR_SHARE"/>): over the
+        /// band's bottom, so on the plain beyond the ring.</summary>
+        public static float Floor(Elevations band) => band.Bottom + FLOOR_SHARE * (band.Axis - band.Bottom);
 
         /// <summary>
         /// The rows the copy must hold beyond the ring's own projection, for a frame <paramref name="height"/> rows tall
@@ -303,10 +333,11 @@ namespace Prazsky.Core.Render
             _viewProjection.SetValue(viewProjection);
             _cameraPosition.SetValue(lens);
             _ringParameter.SetValue(new Vector3(ring, tanBottom, tanTop));
-            _band.SetValue(new Vector3(band.Bottom, band.Axis, band.Top));
+            _band.SetValue(new Vector4(band.Bottom, band.Axis, band.Top, Floor(band)));
             _time.SetValue(frame.Time % CLOCK_WRAP);
 
-            //Weaker the steeper the lens looks down at the skyline (GRAZE): with the lens's height, so stated every frame
+            //Weaker the steeper the lens looks down at the skyline (GRAZE), the mirage as the square of the waver's share:
+            //with the lens's height, so stated every frame
             float grazing = Grazing(band);
             _amplitude.SetValue(AMPLITUDE * grazing);
             _mirage.SetValue(new Vector2(MIRAGE_DEPTH, MIRAGE_STRENGTH * grazing * grazing));
