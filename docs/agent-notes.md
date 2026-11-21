@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-21 — #1135 tetelení vzduchu čtyřikrát silnější — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: majitel řekl, že efekt je moc malý, a tak je tetelení čtyřikrát větší (`AMPLITUDE` 0,28°, asi 6,7 px při 1080 řádcích). Má dvě vrstvy: pomalé vlnění (sedm desetin, celé úseky obzoru stoupají a klesají) a původní jemný var (tři desetiny, stejně rychlý). Čtení pod obzorem drží podlaha (`FLOOR_SHARE`), fata morgána je hlubší (0,2°) a z vysokých kamer síla slábne strměji. Mění se jen proužek u obzoru. Cena je 0,09 ms (Testbed, Debug).
+- ⚠ Když se jemné pole jen zvětšilo, rozervalo úpatí útvarů na vodorovné proužky (7–10 px přeložení). Velikost proto nese pomalá vrstva, var si nechává asi 2 px.
+- majitel: video tetelení se hodí jako ukázka do článku na blog. Smyčka a její „před“ jsou ve scratchi issue.
+- Otevřené: `verdict-eye` (dost velké, nebo už neklidné?). Cena v Ultra ve hře znovu neměřena.
+
 ## 2026-11-21 — #1135 tetelení vzduchu nad Outbackem — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: skutečné tetelení. Prstenec kolem objektivu láme daleký obzor v úzkém pruhu u horizontu: čte z kopie už nakresleného snímku (`GrabSceneFar`, technika `SceneGrabFar`), blízké věci drží venku hloubkou a vahou „daleko“. Pod obzorem je tenký zrcadlový proužek fata morgány. Posun je úhel (0,07°), hodiny jsou scény. `Outback.fx` zůstal netknutý. Jen High a Ultra; Medium, Potato, telefony a multisamplovaný cíl ho nekreslí. Cena na Ultra +0,08 ms.
