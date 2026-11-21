@@ -165,9 +165,9 @@ namespace MapEditor.GUI
         }
 
         /// <summary>
-        /// Every way to cut the groups, in order, into columns (a bit per gap between two groups: at most eight
-        /// groups, so 128 ways), and the one whose panel can be drawn largest, up to <paramref name="wanted"/>. Two
-        /// equally large ones go to fewer columns, then to the shorter panel.
+        /// Every way to cut the groups, in order, into columns (a bit per gap between two groups: 64 ways for
+        /// <see cref="KeyGroup"/>'s seven), and the one whose panel can be drawn largest, up to <paramref name="wanted"/>.
+        /// Two equally large ones go to fewer columns, then to the shorter panel.
         /// </summary>
         private static void ChooseColumns(List<Block> blocks, float lineHeight, float wanted, float roomWidth,
             float roomHeight, out int bestCuts, out float bestScale)
