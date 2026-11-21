@@ -140,7 +140,10 @@ sampler2D NeighborSampler = sampler_state
 
 //The HDR scene, read BILINEARLY at back-buffer pixel centres: at supersample factor 2 such a tap lands on the
 //corner four scene texels share and is their exact box filter, which is the resolve's own reading; at factor 1
-//it lands on a texel centre and is that texel. So every tap below is one fetch whatever the factor.
+//it lands on a texel centre and is that texel. So at the tiers' factors every tap below is one fetch. At 3 and 4
+//(the capture's ssaa=, a film's) one tap at a pixel's centre is not the box: it lands on the middle texel of a 3x3
+//block, or among the middle four of a 4x4, and the frame came out with no antialiasing where nothing moved
+//(#1208, the owner: Max's edges stair-stepped where High's were smooth). SceneAt takes the whole block there.
 texture SceneTexture;
 sampler2D SceneSampler = sampler_state
 {
@@ -151,6 +154,38 @@ sampler2D SceneSampler = sampler_state
     AddressU = Clamp;
     AddressV = Clamp;
 };
+
+//How many scene texels lie under an output pixel along each axis (1 where the scene is no whole multiple of the
+//output, #801's resolution row: one bilinear tap then, as before), and one scene texel's size in uv
+int SupersampleFactor;
+float2 SceneTexelSize;
+//SupersampleFactor's bound in the GL loops (COUNT_LOOP): the pipeline clamps the factor to 4
+#define MAX_SUPERSAMPLE 4
+
+//The scene under the output pixel whose centre is uv, as the tonemap's resolve reads it: one bilinear tap at a
+//factor of 1 or 2, the box of the whole block at 3 and 4 (point reads, each at a texel's centre). The branch is on a
+//uniform, so it is non-divergent, and nothing inside it takes a gradient.
+float3 SceneAt(float2 uv)
+{
+    float3 scene = 0;
+
+    [branch]
+    if (SupersampleFactor <= 2) scene = tex2Dlod(SceneSampler, float4(uv, 0, 0)).rgb;
+    else
+    {
+        COUNT_LOOP(y, SupersampleFactor, MAX_SUPERSAMPLE)
+        {
+            COUNT_LOOP(x, SupersampleFactor, MAX_SUPERSAMPLE)
+            {
+                float2 offset = (float2(x, y) + 0.5 - SupersampleFactor * 0.5) * SceneTexelSize;
+                scene += tex2Dlod(SceneSampler, float4(uv + offset, 0, 0)).rgb;
+            }
+        }
+        scene /= SupersampleFactor * SupersampleFactor;
+    }
+
+    return scene;
+}
 
 float2 TileSourceTexelSize;
 int TileSize;
@@ -319,7 +354,7 @@ void Surface(float2 uv, out float2 velocity, out float depth)
 float4 ReconstructPS(VertexShaderOutput input) : COLOR
 {
     float2 uv = input.TexCoord;
-    float3 centre = tex2Dlod(SceneSampler, float4(uv, 0, 0)).rgb;
+    float3 centre = SceneAt(uv);
 
     float2 velocityX;
     float depthX;
@@ -351,7 +386,7 @@ float4 ReconstructPS(VertexShaderOutput input) : COLOR
         float2 offset = widest * t;
         float distance = length(offset);
 
-        //Snapped to a pixel centre, where the scene read is an exact box filter
+        //Snapped to a pixel centre, where the scene read is an exact box filter (SceneAt)
         float2 pixelY = floor(input.Position.xy + offset) + 0.5;
         float2 uvY = pixelY * OutputTexelSize;
 
@@ -369,7 +404,7 @@ float4 ReconstructPS(VertexShaderOutput input) : COLOR
             + Cylinder(distance, reachY) * Cylinder(distance, reachX) * 2;
 
         weight += alpha;
-        sum += tex2Dlod(SceneSampler, float4(uvY, 0, 0)).rgb * alpha;
+        sum += SceneAt(uvY) * alpha;
     }
 
     return float4(sum / weight, 1);
