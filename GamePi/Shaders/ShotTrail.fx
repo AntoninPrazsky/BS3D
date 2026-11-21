@@ -14,6 +14,9 @@
 //Drawn with BlendState.Additive, depth-read and writing no depth (the owners set that state). The colour is linear
 //radiance boosted over 1. On the desktop that radiance was meant to bloom through the glare pass; Potato has no glare,
 //so here it only reaches the curve's bright core.
+//
+//The second technique, AimRay, is the desktop's (#1196: the aim beam's crisp lines, premultiplied, for
+//BlendState.AlphaBlend); its return says why it curves the colour and not the light.
 
 #include "PotatoOutput.fxh"
 
@@ -27,6 +30,9 @@ float TrailHeadWidth;   //half-width at the head
 float TrailTailWidth;   //half-width at the tail
 float3 TrailColor;      //linear radiance, already boosted and hue-floored on the CPU
 float TrailAlpha;       //overall launch fade, 1 at the shot down to 0
+
+float RayTailAlpha;     //AimRay only: the line's alpha at its tail
+float RayHeadAlpha;     //AimRay only: the line's alpha at its head
 
 struct TrailVertexInput
 {
@@ -107,11 +113,33 @@ float4 TrailPS(TrailPixelInput input) : COLOR
     return float4(ToDisplay(TrailColor * (a * a)), 1.0);
 }
 
+//The desktop's crisp line, its coverage and alpha line for line.
+float4 RayPS(TrailPixelInput input) : COLOR
+{
+    float coverage = saturate((1.0 - abs(input.UV.x)) / max(fwidth(input.UV.x), 1e-4));
+    float a = coverage * saturate(lerp(RayTailAlpha, RayHeadAlpha, input.UV.y));
+
+    //THE OUTPUT. This is a surface laid over the frame (BlendState.AlphaBlend), not light added to it, so the
+    //premultiplied-surface rule the streak's return refuses is the right one here: the line's colour on the display
+    //curve, weighted by its coverage. Over black it is the desktop's curve of the same colour at full coverage.
+    return float4(ToDisplay(TrailColor) * a, a);
+}
+
+//The first technique, so CurrentTechnique.Passes[0] (what LaunchSmears and LineSparks cache) is still the streak
 technique ShotTrail
 {
     pass P0
     {
         VertexShader = compile POTATO_VS TrailVS();
         PixelShader = compile POTATO_PS TrailPS();
+    }
+};
+
+technique AimRay
+{
+    pass P0
+    {
+        VertexShader = compile POTATO_VS TrailVS();
+        PixelShader = compile POTATO_PS RayPS();
     }
 };

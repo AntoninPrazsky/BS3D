@@ -198,8 +198,8 @@ namespace BS3D.Screens
 
         /// <summary>
         /// Draws the aim beam. Coloured by what the far end means — the loaded ball's own tint where the shot
-        /// sticks, <see cref="PREVIEW_REFUSED"/> where it certainly will not — and opened at that end into the
-        /// region the shot may snap into (#1144, <see cref="AimBeam.LANDING_SPREAD"/>).
+        /// sticks, <see cref="PREVIEW_REFUSED"/> where it certainly will not — and split at that end into a funnel of
+        /// lines over the region the shot may snap into (#1144, #1196, <see cref="AimBeam.LANDING_SPREAD"/>).
         /// </summary>
         /// <remarks>
         /// This is what gives the <b>overview</b> the refusal signal the crosshair cannot: the crosshair is only
@@ -236,8 +236,8 @@ namespace BS3D.Screens
             opacity *= _dozing.Awake;
 
             //THE FAR END IS A REGION WHERE THE SHOT SNAPS INTO A CELL (#1144). The beam ends at the touch, and the ghost
-            //stands in the free cell beside the ball touched, up to two thirds of a ball off the line: the cone and the
-            //patch over its end say "somewhere in here", and the ghost inside it is the one. Not on a beam that reaches
+            //stands in the free cell beside the ball touched, up to two thirds of a ball off the line: the funnel of lines
+            //the beam splits into says "somewhere in here" (#1196), and the ghost inside it is the one. Not on a beam that reaches
             //nothing, and not for a cutter, which strikes the very ball the beam ends on and has no cell to snap to.
             //A refusal keeps it, in red: the region it would have landed in has no room.
             float spread = _previewReachesCluster && !CutterLoaded ? AimBeam.LANDING_SPREAD : 0f;
@@ -246,8 +246,8 @@ namespace BS3D.Screens
             //it always was. A shot bent by a well reaches a contact the straight line between muzzle and contact
             //does NOT pass through, so a single straight beam would be telling the truth about where the shot
             //ends and lying about the whole middle of it — which is worse than either, and is the shape of
-            //#70's own complaint. AimBeam lays the dashes and the cone along the whole chain, so the crawl runs
-            //on through every knot and the cone opens once over the flight rather than once per leg.
+            //#70's own complaint. AimBeam lays the dashes and the funnel along the whole chain, so the crawl runs
+            //on through every knot and the funnel opens once over the flight rather than once per leg.
             ReadOnlySpan<Vector3> path = _previewPath.Count >= 2
                 ? CollectionsMarshal.AsSpan(_previewPath)
                 : stackalloc Vector3[] { _previewMuzzle, _previewBeamEnd };

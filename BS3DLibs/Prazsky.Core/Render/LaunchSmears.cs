@@ -281,7 +281,7 @@ namespace Prazsky.Core.Render
                 float t = smear.Age / LIFETIME;
 
                 //The smear's own taper, reclaimed from whatever else drew through this effect since — AimBeam shares
-                //it and lays a cone of its own. See the constructor. Per smear, since a streak's are its own
+                //it and lays widths of its own. See the constructor. Per smear, since a streak's are its own
                 _headWidthParam.SetValue(smear.HeadWidth);
                 _tailWidthParam.SetValue(smear.TailWidth);
 

@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-21 — #1196 paprsek míření se na konci rozevře do trychtýře čar — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: záře na konci paprsku je pryč. Do `SPLIT_FROM` (55 % letu) zůstává starý ostrý přerušovaný paprsek, pak se rozdělí do pěti tenkých nepřerušených čar (nová technika `AimRay` v `ShotTrail.fx`, i v GamePi). Prostřední je míření samo, krajní se rozevřou na `LANDING_SPREAD` (0,65, změřená oblast dopadu z #1144) a za dotykem běží souběžně a slábnou. Ghost je v trychtýři na obrazovce u 477 z 478 mířů z přehledové kamery. Rozevírají se kolmo k letu i k pohledu, proto jsou z přehledu vidět vedle sebe (rozevření 119 px při 1080 řádcích).
+- ⚠ Čárkované čáry viděné skoro zboku se slijí do příček žebříku, proto jsou nepřerušené. Paprsky jsou prolnutí (AlphaBlend pod `GLARE_THRESHOLD`), ne aditivní, a zakryly by záblesk výstřelu: paprsek se teď kreslí před stopami a jiskrami.
+- Otevřené: `verdict-eye` (nejsou čáry na bílých koulích louky moc slabé? páka `RAY_LUMINANCE`). V pohybu, na padu, na telefonu ani na Pi nikdo nezkoušel; cena neměřena.
+
 ## 2026-11-21 — web #1203–#1206, #1208 podle majitele — desktop (RDT-PC), Claude Code (bs3d-cc)
 
 - Hotovo, sloučeno: #1204 věta u děla, #1206 boxy ke stažení (tři stejné sloupce, 84rem, příkazy se zalamují), #1205 dělo ostré při zoomu (celý devicePixelRatio, překreslení i v pauze). #1203 dělo stínované jako ve hře (`gameShade`), `verdict-eye`. Hudba stránky se při traileru ztiší i během načítání.

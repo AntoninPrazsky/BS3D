@@ -2,21 +2,23 @@ using Prazsky.BS3D;
 using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.BS3D.Physics;
 using Prazsky.Core.Render;
+using Prazsky.Core.Tools;
 using System;
 using System.Collections.Generic;
 using Xunit;
 using Xunit.Abstractions;
 using MathHelper = Microsoft.Xna.Framework.MathHelper;
+using XVector2 = Microsoft.Xna.Framework.Vector2;
 using XVector3 = Microsoft.Xna.Framework.Vector3;
 
 namespace BS3D.Tests
 {
     /// <summary>
-    /// #1144: the aim beam's far end is a region the ghost sits in, not a point beside it, and the rest of the beam is
-    /// what it was. <see cref="AimBeam.Lay"/> is asked without a graphics device, and the light its pieces put
-    /// somewhere is reckoned as <c>ShotTrail.fx</c> draws it (<see cref="Light"/>, and on a lens's screen
-    /// <see cref="ScreenLight"/>): the alpha across a piece <c>(1 - |x|/w)²</c>, its quarter-length fades along, and the
-    /// additive blend weighing the alpha twice.
+    /// #1144 and #1196: where the shot snaps into a lattice cell, the aim beam's far end splits into a funnel of crisp lines
+    /// the ghost sits inside, and the rest of the beam is the line it always was. <see cref="AimBeam.Lay"/> is asked without
+    /// a graphics device. What a lens sees of the funnel is reckoned by projecting the rays' pieces onto its screen
+    /// (<see cref="Lens"/>); the dashes' light as <c>ShotTrail.fx</c>'s streak draws it (<see cref="Light"/>): the alpha
+    /// across a piece <c>(1 - |x|/w)²</c>, its quarter-length fades along, and the additive blend weighing the alpha twice.
     /// </summary>
     public class AimBeamTests(ITestOutputHelper output)
     {
@@ -70,11 +72,32 @@ namespace BS3D.Tests
         }
 
         /// <summary>
-        /// The light <paramref name="piece"/> puts at <paramref name="at"/>, in units of a dash's core at the muzzle, as
-        /// <c>ShotTrail.fx</c> draws it, for a point in the plane the billboard turns into: a point off the axis is reckoned
-        /// at its whole distance from it, which is what the beam shows there to a lens square to that offset. The profile
-        /// along the axis and straight across it, for the tests of the layout's own shape; what a lens sees at a ghost
-        /// that stands off the line in any direction is <see cref="ScreenLight"/>.
+        /// A pinhole lens at <see cref="Eye"/> looking at a point: where a world point lands on its screen, in units of the
+        /// image plane one unit in front of it (a frame's pixels are these times its pixels per unit), and how deep it is.
+        /// </summary>
+        private readonly record struct Lens(XVector3 Eye, XVector3 Forward, XVector3 Right, XVector3 Up)
+        {
+            public static Lens LookingAt(XVector3 eye, XVector3 target)
+            {
+                XVector3 forward = XVector3.Normalize(target - eye);
+                XVector3 helper = MathF.Abs(forward.Y) < 0.95f ? XVector3.UnitY : XVector3.UnitX;
+                XVector3 right = XVector3.Normalize(XVector3.Cross(forward, helper));
+                return new Lens(eye, forward, right, XVector3.Cross(right, forward));
+            }
+
+            public float Depth(XVector3 point) => XVector3.Dot(point - Eye, Forward);
+
+            public XVector2 Project(XVector3 point)
+            {
+                XVector3 q = point - Eye;
+                float z = XVector3.Dot(q, Forward);
+                return new XVector2(XVector3.Dot(q, Right) / z, XVector3.Dot(q, Up) / z);
+            }
+        }
+
+        /// <summary>
+        /// The light a dash <paramref name="piece"/> puts at <paramref name="at"/>, in units of a dash's core, as
+        /// <c>ShotTrail.fx</c>'s streak draws it, for a point in the plane the billboard turns into.
         /// </summary>
         private static float Light(in AimBeam.Piece piece, XVector3 at)
         {
@@ -91,7 +114,7 @@ namespace BS3D.Tests
             float across = 1f - distance / width;
             if (across <= 0f) return 0f;
 
-            float alpha = across * across * SmoothStep(0f, 0.25f, t) * SmoothStep(1f, 0.75f, t) * piece.Alpha;
+            float alpha = across * across * SmoothStep(0f, 0.25f, t) * SmoothStep(1f, 0.75f, t) * piece.TailAlpha;
             return alpha * alpha;
         }
 
@@ -102,55 +125,12 @@ namespace BS3D.Tests
             return t * t * (3f - 2f * t);
         }
 
-        private static float LightAt(ReadOnlySpan<AimBeam.Piece> pieces, XVector3 at)
+        //The dashes' light at a point: the rays add none (they are laid over the frame, not added to it)
+        private static float DashLightAt(ReadOnlySpan<AimBeam.Piece> pieces, XVector3 at)
         {
             float sum = 0f;
-            foreach (AimBeam.Piece piece in pieces) sum += Light(piece, at);
-            return sum;
-        }
-
-        /// <summary>
-        /// The light <paramref name="piece"/> puts on the pixel where a lens at <paramref name="camera"/> sees
-        /// <paramref name="at"/>: the ray from the lens through the point is met with the billboard, which turns about its
-        /// axis to face the lens (<c>ShotTrail.fx</c>'s side, square to the axis and to the line to the lens; taken here
-        /// once at the piece's middle, where the shader takes it at each end), and the light is read where it meets it.
-        /// Depth is not asked, which flatters every layout alike: the ball hit hides whatever of the beam lies behind it.
-        /// </summary>
-        private static float ScreenLight(in AimBeam.Piece piece, XVector3 camera, XVector3 at)
-        {
-            XVector3 axis = piece.Head - piece.Tail;
-            float length = axis.Length();
-            if (length < 1e-5f) return 0f;
-
-            XVector3 direction = axis / length;
-            XVector3 side = XVector3.Cross(direction, camera - (piece.Tail + piece.Head) * 0.5f);
-            if (side.Length() < 1e-5f) return 0f;
-            side.Normalize();
-            XVector3 normal = XVector3.Cross(direction, side);
-
-            XVector3 ray = at - camera;
-            float facing = XVector3.Dot(ray, normal);
-            if (MathF.Abs(facing) < 1e-6f) return 0f;
-
-            float reach = XVector3.Dot(piece.Tail - camera, normal) / facing;
-            if (reach <= 0f) return 0f;
-
-            XVector3 hit = camera + ray * reach - piece.Tail;
-            float t = XVector3.Dot(hit, direction) / length;
-            if (t < 0f || t > 1f) return 0f;
-
-            float width = piece.TailWidth + (piece.HeadWidth - piece.TailWidth) * t;
-            float across = 1f - MathF.Abs(XVector3.Dot(hit, side)) / width;
-            if (across <= 0f) return 0f;
-
-            float alpha = across * across * SmoothStep(0f, 0.25f, t) * SmoothStep(1f, 0.75f, t) * piece.Alpha;
-            return alpha * alpha;
-        }
-
-        private static float ScreenLightAt(ReadOnlySpan<AimBeam.Piece> pieces, XVector3 camera, XVector3 at)
-        {
-            float sum = 0f;
-            foreach (AimBeam.Piece piece in pieces) sum += ScreenLight(piece, camera, at);
+            foreach (AimBeam.Piece piece in pieces)
+                if (piece.Kind == AimBeam.PieceKind.Dash) sum += Light(piece, at);
             return sum;
         }
 
@@ -161,8 +141,7 @@ namespace BS3D.Tests
             return pieces[..count];
         }
 
-        //The tests of the layout's own shape: a lens square to the beam at its far end, so the glow past the touch runs
-        //along the flight and the profile reckoned by Light is the one the lens sees
+        //The tests of the layout's own shape: a lens square to the beam at its far end
         private static AimBeam.Piece[] Lay(XVector3[] path, float phase, bool openEnded, float spread) =>
             Lay(path, phase, openEnded, spread, SideOn(path));
 
@@ -207,34 +186,74 @@ namespace BS3D.Tests
             return path[^1] - (far * MathF.Cos(angle) - off * MathF.Sin(angle)) * distance;
         }
 
-        /// <summary>
-        /// Whether the ghost of <paramref name="aim"/>, seen from <paramref name="camera"/>, sits inside the far end of
-        /// <paramref name="pieces"/>: the pixel the beam points at (the touch's) is lit, at least half the light the glow is
-        /// laid with there, and the ghost's centre is inside that light, its pixel getting at least a tenth of the touch's.
-        /// </summary>
-        private static bool GhostInside(AimBeam.Piece[] pieces, XVector3 camera, Aim aim)
+        /// <summary>A ray's alpha, against <see cref="AimBeam.RAY_ALPHA"/>, below which it no longer counts as outlining anything.</summary>
+        private const float VISIBLE = 0.2f;
+
+        //One lane of the rays, its pieces in the order laid (from the split outwards)
+        private static List<AimBeam.Piece> RayLane(AimBeam.Piece[] pieces, int lane)
         {
-            float touch = ScreenLightAt(pieces, camera, aim.Path[^1]);
-            return touch >= 0.5f * AimBeam.GLOW_LIGHT && ScreenLightAt(pieces, camera, aim.Ghost) >= 0.1f * touch;
+            List<AimBeam.Piece> ray = new();
+            foreach (AimBeam.Piece p in pieces)
+                if (p.Kind == AimBeam.PieceKind.Ray && p.Lane == lane) ray.Add(p);
+            return ray;
+        }
+
+        private const int OUTER = (AimBeam.RAYS - 1) / 2;
+
+        /// <summary>
+        /// Whether <paramref name="ghost"/>, seen through <paramref name="lens"/>, sits inside the funnel
+        /// <paramref name="pieces"/> outline: between the two outer rays on screen, at a point of their run where they are
+        /// still at least <see cref="VISIBLE"/> of the alpha they split off the line with. The outer rays are cut at the
+        /// same stations, so the funnel on screen is the run of quadrilaterals between their pieces.
+        /// </summary>
+        private static bool GhostInside(AimBeam.Piece[] pieces, Lens lens, XVector3 ghost)
+        {
+            List<AimBeam.Piece> left = RayLane(pieces, -OUTER), right = RayLane(pieces, OUTER);
+            if (left.Count == 0 || left.Count != right.Count) return false;
+
+            XVector2 g = lens.Project(ghost);
+
+            for (int j = 0; j < left.Count; j++)
+            {
+                XVector2 a = lens.Project(left[j].Tail), b = lens.Project(left[j].Head);
+                XVector2 c = lens.Project(right[j].Head), d = lens.Project(right[j].Tail);
+                if (!InTriangle(g, a, b, c) && !InTriangle(g, a, c, d)) continue;
+
+                //How far along the piece the ghost stands, by its place between the quadrilateral's two ends
+                XVector2 tail = (a + d) * 0.5f, axis = (b + c) * 0.5f - tail;
+                float t = axis.LengthSquared() > 0f ? Math.Clamp(XVector2.Dot(g - tail, axis) / axis.LengthSquared(), 0f, 1f) : 0f;
+
+                if (MathHelper.Lerp(left[j].TailAlpha, left[j].HeadAlpha, t) >= VISIBLE * AimBeam.RAY_ALPHA) return true;
+            }
+
+            return false;
+        }
+
+        private static bool InTriangle(XVector2 p, XVector2 a, XVector2 b, XVector2 c)
+        {
+            float d1 = Cross(b - a, p - a), d2 = Cross(c - b, p - b), d3 = Cross(a - c, p - c);
+            bool negative = d1 < 0f || d2 < 0f || d3 < 0f, positive = d1 > 0f || d2 > 0f || d3 > 0f;
+            return !(negative && positive);
+
+            static float Cross(XVector2 u, XVector2 v) => u.X * v.Y - u.Y * v.X;
         }
 
         /// <summary>
-        /// <b>The ghost sits inside the beam's far end, on screen</b>, which is the issue's whole promise. For each measured
-        /// aim the beam is laid as the Game lays it (<see cref="AimBeam.LANDING_SPREAD"/>, for the lens it is seen from) and
-        /// the ghost's centre is looked at from that lens (<see cref="GhostInside"/>): from the Game's overview, which sees
-        /// the beam nearly end on and is the hardest view, and from lenses 10, 20, 45 and 90 degrees off the beam on four
-        /// sides of it. A ghost standing off the line towards a lens or away from it shows on screen along the beam, past
-        /// the touch, which only a far end laid square to the lens covers. Held for 98 % of the aims from every lens
-        /// (measured: 471 of 478 from the overview, at least 474 from each of the others; the ghosts left out stand at the
-        /// patch's side edge, 0.57 to 0.67 across the beam on screen).
+        /// <b>The ghost sits inside the funnel the beam splits into, on screen</b>, which is the issue's whole promise. For
+        /// each measured aim the beam is laid as the Game lays it (<see cref="AimBeam.LANDING_SPREAD"/>, for the lens it is
+        /// seen from) and the ghost's centre is looked at through that lens (<see cref="GhostInside"/>): from the Game's
+        /// overview, which sees the beam nearly end on and is the hardest view, and from lenses 10, 20, 45 and 90 degrees off
+        /// the beam on four sides of it. A ghost standing off the line towards a lens or away from it shows on screen along
+        /// the beam, past the touch or short of it, which only rays laid on past the touch square to the lens cover. Held
+        /// for 98 % of the aims from every lens.
         /// <para>
-        /// <b>And the same question must fail where it should</b> (BestPractices.md §10): the line the cone replaces (no
-        /// spread) for nearly every aim from every lens (it holds none), and from the overview a far end laid along the
-        /// flight past the touch, as it is for a lens side on, for a third of them (328 of 478 inside).
+        /// <b>And the same question must fail where it should</b> (BestPractices.md §10): the plain line (no spread) holds
+        /// no ghost, and from the overview a funnel laid square to another lens (one side on, where the rays spread across
+        /// the flight's plane with that lens and run past the touch along the flight) holds far fewer.
         /// </para>
         /// </summary>
         [Fact]
-        public void TheGhostSitsInsideTheBeamsFarEndOnScreen()
+        public void TheGhostSitsInsideTheFunnelOnScreen()
         {
             List<Aim> aims = Measure(80);
             Assert.True(aims.Count >= 400, $"only {aims.Count} of 480 aims had a ghost");
@@ -254,7 +273,7 @@ namespace BS3D.Tests
             output.WriteLine($"the overview sees the far leg {Percentile(overviewAngles, 0):0.0} to {Percentile(overviewAngles, 1):0.0} degrees off end on, " +
                 $"{Percentile(overviewAngles, 0.5):0.0} at the median");
 
-            int alongTheFlight = 0;
+            int squareToAnother = 0;
             Check("the overview", aim => Overview(aim.Path[0]));
 
             foreach (float degrees in new[] { 10f, 20f, 45f, 90f })
@@ -264,35 +283,145 @@ namespace BS3D.Tests
                     Check($"{degrees} degrees off the beam, side {side}", aim => OffBeam(aim.Path, degrees, s));
                 }
 
-            output.WriteLine($"from the overview, a far end laid along the flight past the touch: {alongTheFlight} of {aims.Count}");
-            Assert.True(alongTheFlight <= 0.85 * aims.Count,
-                $"{alongTheFlight} of {aims.Count} ghosts sat inside a far end laid along the flight from the overview: " +
-                "the question cannot tell the run past the touch square to the lens from one along the flight");
+            output.WriteLine($"from the overview, a funnel laid square to a lens side on: {squareToAnother} of {aims.Count}");
+            Assert.True(squareToAnother <= 0.85 * aims.Count,
+                $"{squareToAnother} of {aims.Count} ghosts sat inside a funnel laid for a lens side on, seen from the overview: " +
+                "the question cannot tell a funnel square to the lens from one in another plane");
 
-            void Check(string name, Func<Aim, XVector3> lens)
+            void Check(string name, Func<Aim, XVector3> eye)
             {
                 int inside = 0, insideWithoutSpread = 0;
                 bool overview = name == "the overview";
 
                 foreach (Aim aim in aims)
                 {
-                    XVector3 camera = lens(aim);
+                    XVector3 camera = eye(aim);
+                    Lens lens = Lens.LookingAt(camera, aim.Path[^1]);
 
-                    if (GhostInside(Lay(aim.Path, 0f, false, AimBeam.LANDING_SPREAD, camera), camera, aim)) inside++;
-                    if (GhostInside(Lay(aim.Path, 0f, false, 0f, camera), camera, aim)) insideWithoutSpread++;
+                    if (GhostInside(Lay(aim.Path, 0f, false, AimBeam.LANDING_SPREAD, camera), lens, aim.Ghost)) inside++;
+                    if (GhostInside(Lay(aim.Path, 0f, false, 0f, camera), lens, aim.Ghost)) insideWithoutSpread++;
 
-                    //The far end laid for a lens side on, where the run past the touch is the flight's own direction
-                    if (overview && GhostInside(Lay(aim.Path, 0f, false, AimBeam.LANDING_SPREAD, SideOn(aim.Path)), camera, aim))
-                        alongTheFlight++;
+                    if (overview && GhostInside(Lay(aim.Path, 0f, false, AimBeam.LANDING_SPREAD, SideOn(aim.Path)), lens, aim.Ghost))
+                        squareToAnother++;
                 }
 
-                output.WriteLine($"{name}: inside the far end {inside} of {aims.Count} ({100f * inside / aims.Count:0.0} %), " +
+                output.WriteLine($"{name}: inside the funnel {inside} of {aims.Count} ({100f * inside / aims.Count:0.0} %), " +
                     $"inside the plain line {insideWithoutSpread}");
 
-                Assert.True(inside >= 0.98 * aims.Count, $"from {name} only {inside} of {aims.Count} ghosts sit inside the beam's far end");
+                Assert.True(inside >= 0.98 * aims.Count, $"from {name} only {inside} of {aims.Count} ghosts sit inside the funnel");
                 Assert.True(insideWithoutSpread <= 0.2 * aims.Count,
-                    $"from {name} {insideWithoutSpread} of {aims.Count} ghosts already sat inside the plain line: the question cannot tell the cone from it");
+                    $"from {name} {insideWithoutSpread} of {aims.Count} ghosts already sat inside the plain line: the question cannot tell the funnel from it");
             }
+        }
+
+        /// <summary>
+        /// <b>The rays read as separate lines from every lens, and never as rungs.</b> Where the funnel is open, neighbouring
+        /// rays stand apart on screen by at least three times a ray's own width there (so the gap between them is twice the
+        /// line), from the overview and from the lenses round the beam, for every measured aim: the funnel does not collapse
+        /// into one smear. And every ray is one unbroken line, each piece starting where the one before it ended, so there
+        /// are no dashes on them to stand level with each other across the funnel and read as a ladder (#1144's widened
+        /// dashes did, from the overview).
+        /// <para>
+        /// <b>Seen to fail</b>: from the overview, a funnel laid square to a lens side on folds onto the line for most aims.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void TheRaysStandApartOnScreenAndAreUnbroken()
+        {
+            List<Aim> aims = Measure(40);
+            Assert.True(aims.Count >= 200, $"only {aims.Count} of 240 aims had a ghost");
+
+            List<float> overviewRatios = new(), allRatios = new(), squareToAnother = new();
+            List<float> openingPixels = new(), overrunPixels = new(), gapPixels = new(), dashDraws = new(), rayDraws = new();
+
+            //Pixels a unit of the image plane is at a 1080-line frame through the play lens the capture logs (39.4 degrees)
+            float pixelsPerUnit = 540f / MathF.Tan(MathHelper.ToRadians(39.4f) * 0.5f);
+
+            foreach (Aim aim in aims)
+            {
+                List<XVector3> eyes = [Overview(aim.Path[0])];
+                foreach (float degrees in new[] { 10f, 45f, 90f })
+                    for (int side = 0; side < 4; side++) eyes.Add(OffBeam(aim.Path, degrees, side));
+
+                for (int e = 0; e < eyes.Count; e++)
+                {
+                    Lens lens = Lens.LookingAt(eyes[e], aim.Path[^1]);
+                    AimBeam.Piece[] pieces = Lay(aim.Path, 0f, false, AimBeam.LANDING_SPREAD, eyes[e]);
+
+                    float ratio = OpenSeparation(pieces, lens);
+                    allRatios.Add(ratio);
+
+                    if (e == 0)
+                    {
+                        overviewRatios.Add(ratio);
+                        squareToAnother.Add(OpenSeparation(Lay(aim.Path, 0f, false, AimBeam.LANDING_SPREAD, SideOn(aim.Path)), lens));
+
+                        //What the overview's frame shows of it, for the record
+                        List<AimBeam.Piece> middle = RayLane(pieces, 0);
+                        openingPixels.Add((lens.Project(middle[^1].Tail) - lens.Project(middle[0].Tail)).Length() * pixelsPerUnit);
+                        overrunPixels.Add((lens.Project(middle[^1].Head) - lens.Project(middle[^1].Tail)).Length() * pixelsPerUnit);
+                        List<AimBeam.Piece> next = RayLane(pieces, 1);
+                        gapPixels.Add((lens.Project(next[^1].Tail) - lens.Project(middle[^1].Tail)).Length() * pixelsPerUnit);
+
+                        //And what it costs: a draw a piece
+                        int rays = Array.FindAll(pieces, p => p.Kind == AimBeam.PieceKind.Ray).Length;
+                        rayDraws.Add(rays);
+                        dashDraws.Add(pieces.Length - rays);
+                    }
+
+                    //Unbroken: each lane a chain of pieces, head to tail
+                    for (int lane = -OUTER; lane <= OUTER; lane++)
+                    {
+                        List<AimBeam.Piece> ray = RayLane(pieces, lane);
+                        Assert.True(ray.Count >= 2, $"lane {lane} is {ray.Count} pieces");
+                        for (int j = 1; j < ray.Count; j++)
+                            Assert.True(XVector3.Distance(ray[j - 1].Head, ray[j].Tail) < 1e-4f,
+                                $"lane {lane} breaks between its pieces {j - 1} and {j}: a gap of {XVector3.Distance(ray[j - 1].Head, ray[j].Tail):0.000}");
+                    }
+                }
+            }
+
+            output.WriteLine($"neighbouring rays apart on screen where the funnel is open, in rays' widths: overview least {Percentile(overviewRatios, 0):0.0}, " +
+                $"median {Percentile(overviewRatios, 0.5):0.0}; every lens least {Percentile(allRatios, 0):0.0}; " +
+                $"laid square to a lens side on, from the overview: median {Percentile(squareToAnother, 0.5):0.0}, least {Percentile(squareToAnother, 0):0.0}");
+            output.WriteLine($"through the overview at a 1080-line frame: the opening {Percentile(openingPixels, 0.5):0} px on screen at the median " +
+                $"({Percentile(openingPixels, 0):0} to {Percentile(openingPixels, 1):0}), the run past the touch {Percentile(overrunPixels, 0.5):0} px, " +
+                $"neighbouring rays {Percentile(gapPixels, 0.5):0.0} px apart at the touch ({Percentile(gapPixels, 0):0.0} to {Percentile(gapPixels, 1):0.0})");
+            output.WriteLine($"draws a beam: {Percentile(dashDraws, 0.5):0} dash pieces at the median ({Percentile(dashDraws, 0):0} to {Percentile(dashDraws, 1):0}), " +
+                $"{Percentile(rayDraws, 0.5):0} ray pieces ({Percentile(rayDraws, 0):0} to {Percentile(rayDraws, 1):0})");
+
+            Assert.True(Percentile(allRatios, 0) >= 3f, $"neighbouring rays stand as close as {Percentile(allRatios, 0):0.00} of a ray's width on screen");
+            Assert.True(Percentile(squareToAnother, 0.5) < 3f,
+                $"a funnel laid square to a lens side on keeps its rays {Percentile(squareToAnother, 0.5):0.00} widths apart from the overview: the measure cannot tell it");
+        }
+
+        /// <summary>
+        /// The least separation on screen of neighbouring rays, in units of a ray's screen width there, at the stations
+        /// where the funnel is fully open (each lane's last two pieces start there: the touch, and where it opened before
+        /// it). Measured square to the ray's own screen direction there, since two rays offset only along it lie on top of
+        /// each other however far apart the two points are.
+        /// </summary>
+        private static float OpenSeparation(AimBeam.Piece[] pieces, Lens lens)
+        {
+            float least = float.MaxValue;
+            for (int lane = -OUTER; lane < OUTER; lane++)
+            {
+                List<AimBeam.Piece> a = RayLane(pieces, lane), b = RayLane(pieces, lane + 1);
+                foreach (int back in new[] { 1, 2 })
+                {
+                    XVector3 p = a[^back].Tail, q = b[^back].Tail;
+                    XVector2 run = lens.Project(a[^back].Head) - lens.Project(p);
+                    if (run.LengthSquared() < 1e-12f) return 0f;
+                    run.Normalize();
+
+                    XVector2 apart = lens.Project(q) - lens.Project(p);
+                    float across = MathF.Abs(apart.X * run.Y - apart.Y * run.X);
+                    float width = 2f * AimBeam.RAY_WIDTH / lens.Depth((p + q) * 0.5f);
+                    least = MathF.Min(least, across / width);
+                }
+            }
+
+            return least;
         }
 
         //A straight flight of the length the measured beams run (15 to 28 units, 20 at the median), from a muzzle under the cluster
@@ -302,8 +431,9 @@ namespace BS3D.Tests
         private static XVector3 OnLine(float fraction) => XVector3.Lerp(Muzzle, Touch, fraction);
 
         /// <summary>
-        /// <b>The near end is the line it always was</b>, which is what the overview reads the aim off: up to where the
-        /// hand-over begins, a beam that ends in a region lays exactly the dashes, widths and light of a plain one.
+        /// <b>The near end is the line it always was</b>, which is what the overview reads the aim off: up to where it
+        /// splits, a beam that ends in a funnel lays exactly the dashes, widths and light of a plain one, and past it no
+        /// dash at all.
         /// </summary>
         [Fact]
         public void TheNearEndIsTheLineItAlwaysWas()
@@ -313,88 +443,189 @@ namespace BS3D.Tests
 
             foreach (float phase in new[] { 0f, 0.13f, 0.41f, 0.66f })
             {
-                AimBeam.Piece[] cone = Lay(path, phase, false, AimBeam.LANDING_SPREAD);
+                AimBeam.Piece[] funnel = Lay(path, phase, false, AimBeam.LANDING_SPREAD);
                 AimBeam.Piece[] line = Lay(path, phase, false, 0f);
 
-                AimBeam.Piece[] nearCone = Array.FindAll(cone, Near);
-                AimBeam.Piece[] nearLine = Array.FindAll(line, Near);
+                AimBeam.Piece[] nearFunnel = Array.FindAll(funnel, p => p.Kind == AimBeam.PieceKind.Dash);
+                AimBeam.Piece[] nearLine = Array.FindAll(line, p => XVector3.Distance(Muzzle, p.Head) <= 0.5f * total);
 
                 Assert.NotEmpty(nearLine);
-                Assert.Equal(nearLine, nearCone);
-                Assert.All(nearCone, p => Assert.True(p.TailWidth == AimBeam.WIDTH && p.HeadWidth == AimBeam.WIDTH && p.Alpha == 1f));
+                Assert.Equal(nearLine, Array.FindAll(nearFunnel, p => XVector3.Distance(Muzzle, p.Head) <= 0.5f * total));
+                Assert.All(nearFunnel, p => Assert.True(p.TailWidth == AimBeam.WIDTH && p.HeadWidth == AimBeam.WIDTH
+                    && p.TailAlpha == 1f && p.HeadAlpha == 1f, $"a dash of the funnel's near end is {p}"));
 
-                //And a third of the way out, which the overview cannot do without, every dash is there at full light
-                Assert.Contains(nearCone, p => XVector3.Distance(Muzzle, p.Head) > total / 3f);
+                //A third of the way out, which the overview cannot do without, every dash is there at full light; and none
+                //is laid past where the line splits, a little over half way
+                Assert.Contains(nearFunnel, p => XVector3.Distance(Muzzle, p.Head) > total / 3f);
+                Assert.All(nearFunnel, p => Assert.True(XVector3.Distance(Muzzle, p.Head) <= 0.56f * total,
+                    $"a dash of a funnel beam reaches {XVector3.Distance(Muzzle, p.Head) / total:0.00} of the flight"));
             }
-
-            bool Near(AimBeam.Piece p) => XVector3.Distance(Muzzle, p.Head) <= 0.5f * total && p.TailWidth <= AimBeam.WIDTH;
         }
 
         /// <summary>
-        /// <b>The cone opens once over the whole flight, not once per leg</b> (a shot bent by a gravity well, #332): laid
-        /// along a flight cut into legs, the widths never fall back at a knot, the far end is as wide as a straight
-        /// beam's, and the dashes crawl on through the knots, lit over the same stretches as on the uncut line.
+        /// <b>The far end is crisp lines, not light</b> (the owner on #1144's glow: "it works more like a glow, and it is not
+        /// obvious what it is"). A funnel beam is the dashes and <see cref="AimBeam.RAYS"/> rays and nothing else: every
+        /// piece is a dash of the line's width or a ray of its own thin one, none wider than the line; each ray leaves the
+        /// line at <see cref="AimBeam.RAY_ALPHA"/> and fades along its run to nothing at its far end; and the rays' colour is
+        /// under the glare pass's threshold for every tint, so they bloom nowhere. The outer rays end
+        /// <see cref="AimBeam.LANDING_SPREAD"/> off the middle one.
         /// </summary>
         [Fact]
-        public void TheConeOpensOverTheWholeFlightNotPerLeg()
+        public void TheFarEndIsCrispLinesNotLight()
         {
-            XVector3[] straight = [Muzzle, Touch];
-            XVector3[] cut = [Muzzle, OnLine(0.17f), OnLine(0.48f), OnLine(0.71f), OnLine(0.93f), Touch];
+            XVector3[] path = [Muzzle, Touch];
+            AimBeam.Piece[] pieces = Lay(path, 0.3f, false, AimBeam.LANDING_SPREAD);
 
-            //The widths along the cut flight, in the order the cone runs: never narrower further out
-            AimBeam.Piece[] pieces = Lay(cut, 0.3f, false, AimBeam.LANDING_SPREAD);
-            List<(float Distance, float Width)> widths = new();
+            Assert.All(pieces, p => Assert.True(p.TailWidth <= AimBeam.WIDTH && p.HeadWidth <= AimBeam.WIDTH, $"a piece wider than the line: {p}"));
+
+            HashSet<int> lanes = new();
             foreach (AimBeam.Piece p in pieces)
             {
-                widths.Add((XVector3.Distance(Muzzle, p.Tail), p.TailWidth));
-                widths.Add((XVector3.Distance(Muzzle, p.Head), p.HeadWidth));
+                if (p.Kind != AimBeam.PieceKind.Ray) continue;
+                lanes.Add(p.Lane);
+                Assert.True(p.TailWidth == AimBeam.RAY_WIDTH && p.HeadWidth == AimBeam.RAY_WIDTH, $"a ray of another width: {p}");
             }
 
-            //Dashes and glow are two layers with two widths: each is held to its own
-            foreach (bool glow in new[] { false, true })
+            Assert.Equal(AimBeam.RAYS, lanes.Count);
+
+            List<AimBeam.Piece> middle = RayLane(pieces, 0);
+            for (int lane = -OUTER; lane <= OUTER; lane++)
             {
-                List<(float Distance, float Width)> layer = widths.FindAll(w => (w.Width > 2f * AimBeam.WIDTH) == glow);
-                layer.Sort((a, b) => a.Distance.CompareTo(b.Distance));
-                for (int i = 1; i < layer.Count; i++)
-                    if (layer[i].Distance - layer[i - 1].Distance > 1e-3f)
-                        Assert.True(layer[i].Width >= layer[i - 1].Width - 1e-4f,
-                            $"the {(glow ? "glow" : "dashes")} narrow from {layer[i - 1].Width:0.000} to {layer[i].Width:0.000} at {layer[i].Distance:0.00} along a cut flight");
+                List<AimBeam.Piece> ray = RayLane(pieces, lane);
+                Assert.Equal(AimBeam.RAY_ALPHA, ray[0].TailAlpha);
+                Assert.Equal(0f, ray[^1].HeadAlpha);
+                foreach (AimBeam.Piece p in ray) Assert.True(p.HeadAlpha <= p.TailAlpha, $"lane {lane} brightens along its run: {p}");
+
+                //How far it ends up off the middle one, at the touch
+                float off = XVector3.Distance(ray[^1].Tail, middle[^1].Tail);
+                Assert.Equal(AimBeam.LANDING_SPREAD * MathF.Abs(lane) / OUTER, off, 3);
             }
 
-            float farCut = MaxWidth(pieces), farStraight = MaxWidth(Lay(straight, 0.3f, false, AimBeam.LANDING_SPREAD));
-            Assert.Equal(farStraight, farCut, 3);
-            Assert.Equal(AimBeam.FarWidth(AimBeam.LANDING_SPREAD), farCut, 3);
+            //The colour, over every corner of the colour cube and a sweep between: under the glare threshold (0.55)
+            float brightest = 0f;
+            for (int r = 0; r <= 4; r++)
+                for (int g = 0; g <= 4; g++)
+                    for (int b = 0; b <= 4; b++)
+                    {
+                        XVector3 linear = ColorSpace.SrgbToLinear(new XVector3(r, g, b) / 4f);
+                        brightest = MathF.Max(brightest, ColorSpace.Luminance(AimBeam.RayColor(linear)));
+                    }
 
-            //The light along the axis and a hand's width off it, the cut flight against the uncut: the glow is the same
-            //chords either way, and a dash cut at a knot is the same stretch of light in two pieces
-            for (float f = 0.02f; f < 1.04f; f += 0.01f)
+            output.WriteLine($"the rays' colour is at most {brightest:0.000} of luminance over 125 tints");
+            Assert.True(brightest <= AimBeam.RAY_LUMINANCE + 1e-5f && AimBeam.RAY_LUMINANCE < 0.55f,
+                $"a ray's colour reaches {brightest:0.000} of luminance, at or over the glare threshold");
+        }
+
+        /// <summary>
+        /// <b>The funnel opens once over the whole flight, not once per leg</b> (a shot bent by a gravity well, #332): laid
+        /// along a straight flight cut into legs it is the uncut flight's funnel, piece for piece, and the dashes crawl on
+        /// through the knots, lit over the same stretches as on the uncut line. Along a bent flight the middle ray runs on
+        /// the flight, cut where it bends, and the outer rays open steadily to the spread whatever the bend.
+        /// </summary>
+        [Fact]
+        public void TheFunnelOpensOverTheWholeFlightNotPerLeg()
+        {
+            XVector3[] straight = [Muzzle, Touch];
+            XVector3[] cut = [Muzzle, OnLine(0.17f), OnLine(0.48f), OnLine(0.62f), OnLine(0.71f), OnLine(0.86f), OnLine(0.93f), Touch];
+            XVector3 viewer = SideOn(straight);
+
+            AimBeam.Piece[] straightPieces = Lay(straight, 0.3f, false, AimBeam.LANDING_SPREAD, viewer);
+            AimBeam.Piece[] cutPieces = Lay(cut, 0.3f, false, AimBeam.LANDING_SPREAD, viewer);
+
+            //The rays: the same pieces, the knots of a straight flight cutting none of them
+            for (int lane = -OUTER; lane <= OUTER; lane++)
             {
-                XVector3 point = OnLine(f);
-                float straightLight = LightAt(Lay(straight, 0.3f, false, AimBeam.LANDING_SPREAD), point);
-                float cutLight = LightAt(pieces, point);
-
-                //A dash cut at a knot fades into and out of the cut on each side, so a point within a dash's fade of a knot may
-                //differ; anywhere else the two must agree
-                if (!NearKnot(f)) Assert.Equal(straightLight, cutLight, 3);
+                List<AimBeam.Piece> a = RayLane(straightPieces, lane), b = RayLane(cutPieces, lane);
+                Assert.Equal(a.Count, b.Count);
+                for (int j = 0; j < a.Count; j++)
+                {
+                    Assert.True(XVector3.Distance(a[j].Tail, b[j].Tail) < 1e-3f && XVector3.Distance(a[j].Head, b[j].Head) < 1e-3f,
+                        $"lane {lane}'s piece {j} lies elsewhere on a flight cut into legs: {a[j]} against {b[j]}");
+                    Assert.Equal(a[j].TailAlpha, b[j].TailAlpha, 3);
+                    Assert.Equal(a[j].HeadAlpha, b[j].HeadAlpha, 3);
+                }
             }
 
-            bool NearKnot(float f)
+            //The dashes: a dash cut at a knot is the same stretch of light in two pieces; within a dash's fade of a knot the
+            //two may differ, anywhere else they must agree
+            for (float f = 0.02f; f < 0.56f; f += 0.01f)
+                if (!NearKnot(f)) Assert.Equal(DashLightAt(straightPieces, OnLine(f)), DashLightAt(cutPieces, OnLine(f)), 3);
+
+            //A flight bent by a well: a quarter circle's worth of turn spread over its far half, in steps of the Game's knots
+            List<XVector3> bentList = [Muzzle];
+            XVector3 at = Muzzle, heading = XVector3.Normalize(Touch - Muzzle);
+            for (int i = 0; i < 14; i++)
             {
-                foreach (float knot in new[] { 0.17f, 0.48f, 0.71f, 0.93f })
+                if (i >= 6) heading = XVector3.Normalize(heading + XVector3.UnitX * 0.12f);
+                at += heading * (5f / 3f);
+                bentList.Add(at);
+            }
+
+            XVector3[] bent = bentList.ToArray();
+            AimBeam.Piece[] bentPieces = Lay(bent, 0.3f, false, AimBeam.LANDING_SPREAD);
+
+            List<AimBeam.Piece> centre = RayLane(bentPieces, 0);
+            Assert.True(centre.Count > RayLane(straightPieces, 0).Count, $"the rays of a bent flight are {centre.Count} pieces, no more than a straight one's");
+            //Every piece but the last, which runs on past the touch, ends on the flight; and every knot of the flight past the
+            //split lies within a hundredth (RAY_CHORD_TOLERANCE) of the middle ray
+            List<XVector3> centreLine = [centre[0].Tail];
+            for (int j = 0; j + 1 < centre.Count; j++)
+            {
+                Assert.True(DistanceToPath(bent, centre[j].Head) < 1e-3f, $"the middle ray's knot {j} lies {DistanceToPath(bent, centre[j].Head):0.000} off a bent flight");
+                centreLine.Add(centre[j].Head);
+            }
+
+            for (int i = 1; i + 1 < bent.Length; i++)
+                if (AlongPath(bent, bent[i]) > 0.56f * AlongPath(bent, bent[^1]))
+                    Assert.True(DistanceToPath(centreLine.ToArray(), bent[i]) < 0.0101f,
+                        $"knot {i} of a bent flight lies {DistanceToPath(centreLine.ToArray(), bent[i]):0.000} off the middle ray");
+
+            //The outer rays open with the distance along the whole flight, from the split to REGION_BEHIND short of the
+            //touch: at every knot they are cut at, as far off the middle one as that distance says, and never narrower
+            float flown = AlongPath(bent, bent[^1]), split = AimBeam.SPLIT_FROM * flown;
+            float open = MathF.Max(flown - AimBeam.REGION_BEHIND, (split + flown) * 0.5f);
+
+            for (int lane = -OUTER; lane <= OUTER; lane += 2 * OUTER)
+            {
+                List<AimBeam.Piece> ray = RayLane(bentPieces, lane);
+                float last = 0f;
+                for (int j = 0; j + 1 < ray.Count; j++)
+                {
+                    float off = XVector3.Distance(ray[j].Head, centre[j].Head);
+                    float expected = AimBeam.LANDING_SPREAD * Math.Clamp((AlongPath(bent, centre[j].Head) - split) / (open - split), 0f, 1f);
+                    Assert.True(MathF.Abs(off - expected) < 2e-3f,
+                        $"lane {lane} stands {off:0.000} off the middle ray at its knot {j} of a bent flight, where the distance flown says {expected:0.000}");
+                    Assert.True(off >= last - 1e-4f, $"lane {lane} narrows from {last:0.000} to {off:0.000} at a knot of a bent flight");
+                    last = off;
+                }
+
+                Assert.Equal(AimBeam.LANDING_SPREAD, last, 3);
+            }
+
+            static bool NearKnot(float f)
+            {
+                foreach (float knot in new[] { 0.17f, 0.48f })
                     if (MathF.Abs(f - knot) < 0.04f) return true;
                 return false;
             }
+        }
 
-            static float MaxWidth(AimBeam.Piece[] pieces)
+        //How far a point lies from the nearest point of a flight
+        private static float DistanceToPath(XVector3[] path, XVector3 point)
+        {
+            float best = float.MaxValue;
+            for (int i = 0; i + 1 < path.Length; i++)
             {
-                float most = 0f;
-                foreach (AimBeam.Piece p in pieces) most = MathF.Max(most, MathF.Max(p.TailWidth, p.HeadWidth));
-                return most;
+                XVector3 leg = path[i + 1] - path[i];
+                float t = Math.Clamp(XVector3.Dot(point - path[i], leg) / leg.LengthSquared(), 0f, 1f);
+                best = MathF.Min(best, XVector3.Distance(point, path[i] + leg * t));
             }
+
+            return best;
         }
 
         /// <summary>
-        /// <b>A beam that reaches nothing is the fading line it was</b>: no cone (there is no region to show) whatever
+        /// <b>A beam that reaches nothing is the fading line it was</b>: no rays (there is no region to show) whatever
         /// spread is handed, nothing laid past its end, and its light dying away towards the tip.
         /// <para>
         /// <b>And so is the longest one the Game hands over</b>: a flight bent by a gravity well that reaches nothing is a
@@ -429,7 +660,7 @@ namespace BS3D.Tests
                 AimBeam.Piece[] pieces = Lay(path, 0.2f, true, AimBeam.LANDING_SPREAD);
 
                 Assert.NotEmpty(pieces);
-                Assert.All(pieces, p => Assert.True(p.TailWidth == AimBeam.WIDTH && p.HeadWidth == AimBeam.WIDTH));
+                Assert.All(pieces, p => Assert.True(p.Kind == AimBeam.PieceKind.Dash && p.TailWidth == AimBeam.WIDTH && p.HeadWidth == AimBeam.WIDTH));
 
                 //Laid out to the end and not past it: the farthest dash's head within a period of it, along the flight
                 float farthest = 0f;
@@ -438,8 +669,8 @@ namespace BS3D.Tests
                     $"an open beam {length:0.0} long is laid out to {farthest:0.0}");
 
                 AimBeam.Piece last = pieces[^1];
-                Assert.True(last.Alpha < 0.5f, $"the last dash of an open beam {length:0.0} long is at {last.Alpha:0.00}, not dying away");
-                Assert.True(pieces[0].Alpha == 1f);
+                Assert.True(last.TailAlpha < 0.5f, $"the last dash of an open beam {length:0.0} long is at {last.TailAlpha:0.00}, not dying away");
+                Assert.True(pieces[0].TailAlpha == 1f);
             }
         }
 
@@ -462,8 +693,8 @@ namespace BS3D.Tests
 
         /// <summary>
         /// <b>A knot laid within a thousandth of the far end does not take the far end with it</b>: a stepped flight (a
-        /// well's, a crate's) can end a hair past its last knot, or on it. The glow still runs <c>OVERRUN</c> past the touch
-        /// along the leg before, as it does on a flight without that knot, and a beam that reaches nothing still fades out
+        /// well's, a crate's) can end a hair past its last knot, or on it. The rays still run <c>OVERRUN</c> past the touch
+        /// along the leg before, as they do on a flight without that knot, and a beam that reaches nothing still fades out
         /// over that leg rather than over a last leg of nothing (which would leave no dash lit at all).
         /// </summary>
         [Fact]
@@ -481,7 +712,7 @@ namespace BS3D.Tests
 
             float plain = Farthest([Muzzle, Touch]);
             float hair = Farthest([Muzzle, Touch - direction * 0.0005f, Touch]), on = Farthest([Muzzle, Touch, Touch]);
-            output.WriteLine($"the glow's farthest head along the flight: {plain:0.000} without the knot, {hair:0.000} with one " +
+            output.WriteLine($"the rays' farthest head along the flight: {plain:0.000} without the knot, {hair:0.000} with one " +
                 $"a hair short of the touch, {on:0.000} with one on it");
             Assert.True(plain > XVector3.Distance(Muzzle, Touch) + 1f);
             Assert.Equal(plain, hair, 2);
@@ -492,14 +723,14 @@ namespace BS3D.Tests
             {
                 AimBeam.Piece[] pieces = Lay(open, 0.2f, true, 0f);
                 Assert.NotEmpty(pieces);
-                Assert.True(pieces[0].Alpha == 1f && pieces[^1].Alpha < 0.5f,
-                    $"an open beam with a knot at its end runs from {pieces[0].Alpha:0.00} to {pieces[^1].Alpha:0.00}, not the fading line");
+                Assert.True(pieces[0].TailAlpha == 1f && pieces[^1].TailAlpha < 0.5f,
+                    $"an open beam with a knot at its end runs from {pieces[0].TailAlpha:0.00} to {pieces[^1].TailAlpha:0.00}, not the fading line");
             }
         }
 
         /// <summary>
         /// <b>No spread is a plain line ending at the touch</b>, which is what a cutter's beam is (it strikes the ball the
-        /// beam ends on): the line's width and full light everywhere, nothing past the touch.
+        /// beam ends on): dashes of the line's width at full light all the way, no rays, nothing past the touch.
         /// </summary>
         [Fact]
         public void NoSpreadIsAPlainLineEndingAtTheTouch()
@@ -508,79 +739,10 @@ namespace BS3D.Tests
             AimBeam.Piece[] pieces = Lay([Muzzle, Touch], 0.5f, false, 0f);
 
             Assert.NotEmpty(pieces);
-            Assert.All(pieces, p => Assert.True(p.TailWidth == AimBeam.WIDTH && p.HeadWidth == AimBeam.WIDTH && p.Alpha == 1f));
+            Assert.All(pieces, p => Assert.True(p.Kind == AimBeam.PieceKind.Dash && p.TailWidth == AimBeam.WIDTH
+                && p.HeadWidth == AimBeam.WIDTH && p.TailAlpha == 1f));
             Assert.All(pieces, p => Assert.True(XVector3.Distance(Muzzle, p.Head) <= total + 1e-3f));
-        }
-
-        /// <summary>
-        /// GamePi's <c>PotatoOutput.fxh</c> <c>ToDisplay</c>, for one channel: exposure, Narkowicz's ACES fit, the sRGB
-        /// curve. The Potato <c>ShotTrail.fx</c> adds this of each piece's light, where the desktop curves the sum.
-        /// </summary>
-        private static float ToDisplay(float radiance)
-        {
-            float x = radiance * 1.1f;
-            float aces = Math.Clamp(x * (2.51f * x + 0.03f) / (x * (2.43f * x + 0.59f) + 0.14f), 0f, 1f);
-            return aces <= 0.0031308f ? aces * 12.92f : 1.055f * MathF.Pow(aces, 1f / 2.4f) - 0.055f;
-        }
-
-        /// <summary>
-        /// <b>On the Potato path the glow's body is the desktop's</b>, over a black backdrop: the Potato effect curves each
-        /// piece's light by itself and adds the results, so the glow's overlapping chords would come out far brighter
-        /// than the desktop's curved sum, and <see cref="AimBeam.POTATO_GLOW_GAIN"/> takes that back. Reckoned in display
-        /// values for a channel of one at the beam's radiance boost (3.5), level with the median ghost and a fifth of a
-        /// ball off the axis; held within a tenth. The same reckoning at the desktop's own light shows what the gain is for.
-        /// </summary>
-        [Fact]
-        public void OnThePotatoPathTheGlowsBodyIsTheDesktops()
-        {
-            const float radiance = 3.5f;
-            XVector3[] path = [Muzzle, Touch];
-            XVector3 side = XVector3.Normalize(XVector3.Cross(Touch - Muzzle, XVector3.UnitX));
-
-            float Desktop(XVector3 at) => ToDisplay(radiance * LightAt(Lay(path, 0f, false, AimBeam.LANDING_SPREAD), at));
-
-            float Potato(XVector3 at, float gain)
-            {
-                AimBeam.Piece[] pieces = new AimBeam.Piece[AimBeam.MAX_PIECES];
-                int count = AimBeam.Lay(path, 0f, false, AimBeam.LANDING_SPREAD, SideOn(path), pieces, gain);
-
-                float sum = 0f;
-                for (int i = 0; i < count; i++) sum += ToDisplay(radiance * Light(pieces[i], at));
-                return sum;
-            }
-
-            //Level with the median ghost, 0.34 short of the touch
-            XVector3 Off(float distance) => Touch - XVector3.Normalize(Touch - Muzzle) * 0.34f + side * distance;
-
-            foreach (float off in new[] { 0f, 0.2f, 0.45f, 0.65f })
-                output.WriteLine($"{off:0.00} off the axis: desktop {Desktop(Off(off)):0.00}, Potato at the desktop's light " +
-                    $"{Potato(Off(off), 1f):0.00}, at POTATO_GLOW_GAIN {Potato(Off(off), AimBeam.POTATO_GLOW_GAIN):0.00} (over 1 clips)");
-
-            float desktop = Desktop(Off(0.2f)), potato = Potato(Off(0.2f), AimBeam.POTATO_GLOW_GAIN), ungained = Potato(Off(0.2f), 1f);
-            Assert.True(MathF.Abs(potato - desktop) <= 0.1f * desktop,
-                $"the Potato glow's body is {potato:0.000} where the desktop's is {desktop:0.000}");
-            Assert.True(ungained > 1.3f * desktop,
-                $"at the desktop's light the Potato glow's body is {ungained:0.000} against {desktop:0.000}: the gain has nothing to take back");
-        }
-
-        /// <summary>
-        /// The glow's chords add up to the light asked for: the overlap the dimming assumes (<see cref="AimBeam.GLOW_OVERLAP"/>)
-        /// is the shader's fade summed at that spacing, reckoned here along a long straight run, and it holds within a few
-        /// per cent along it, which is what keeps the patch from banding.
-        /// </summary>
-        [Fact]
-        public void TheGlowsChordsAddUpWithoutBanding()
-        {
-            XVector3[] path = [Muzzle, Touch];
-            AimBeam.Piece[] pieces = Lay(path, 0f, false, AimBeam.LANDING_SPREAD);
-
-            //Over the stretch where the hand-over has finished and the dashes are gone, short of where the chords stop
-            List<float> light = new();
-            for (float f = 0.985f; f <= 1.0f; f += 0.001f) light.Add(LightAt(pieces, OnLine(f)));
-
-            float least = Percentile(light, 0), most = Percentile(light, 1);
-            output.WriteLine($"the glow's light on the axis over the last 0.3 before the touch: {least:0.000} to {most:0.000}");
-            Assert.True(least >= 0.9f * most, $"the glow bands: {least:0.000} to {most:0.000} along a stretch it should hold");
+            Assert.Contains(pieces, p => XVector3.Distance(Muzzle, p.Head) > total - 1.1f);
         }
     }
 }
