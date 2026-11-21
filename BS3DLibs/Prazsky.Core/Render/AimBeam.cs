@@ -49,8 +49,8 @@ namespace Prazsky.Core.Render
     /// </para>
     /// <para>
     /// <b>The rays are unbroken, where the line before them is dashed</b>, and that is forced by the overview. It sees
-    /// the beam ten-odd degrees off end on, so a dash foreshortens to a dot, and dots on neighbouring rays stand level
-    /// with each other across the funnel and read as the rungs of a ladder (#1144 found the same of widened dashes).
+    /// the beam ten-odd degrees off end on, so a dash foreshortens to a dot, and dots on neighbouring rays would stand
+    /// level with each other across the funnel and read as the rungs of a ladder, as #1144 found widened dashes do.
     /// </para>
     /// <para>
     /// <b>The rays spread square to the lens</b>, which is what keeps them apart on screen from that same overview. At
@@ -169,19 +169,21 @@ namespace Prazsky.Core.Render
         /// always was, from it the rays. Past half way, so the overview, which reads the aim off the near part, keeps
         /// the dashed line over most of it.
         /// </summary>
-        private const float SPLIT_FROM = 0.55f;
+        internal const float SPLIT_FROM = 0.55f;
 
         /// <summary>
         /// How many lines the beam splits into: the middle one along the flight, the aim itself, and two to each side,
-        /// half and all the way out. Odd, so there is a middle one. Three left the funnel's edges reading as two stray
-        /// lines beside the aim; five outline it.
+        /// half and all the way out. Odd, so there is a middle one; five, the most the owner's "several lines" was taken
+        /// to allow, so the outer pair draw the funnel's edges and the inner pair stand between them and the aim.
         /// </summary>
         internal const int RAYS = 5;
 
         /// <summary>
-        /// Half-width of a ray, in world units: a line some three to five pixels across at a 1080-line frame from the
-        /// overview, which stands twenty-odd units off the far end. Thin beside a dash (<see cref="WIDTH"/>, whose soft
-        /// profile shows about a third of it), because five of them share a ball's width and must read as five lines.
+        /// Half-width of a ray, in world units: from the overview, which stands some twenty units off the split and
+        /// twenty-five off the touch, a line about five pixels across where it splits and four at the touch at a 1080-line
+        /// frame (the outermost of them anti-aliased). Thin beside a dash, whose soft profile shows a band about twice as
+        /// wide (<see cref="WIDTH"/>), because five of them share a ball's width and must read as five lines: neighbouring
+        /// rays stand 12 to 17 pixels apart at the touch on that frame.
         /// </summary>
         internal const float RAY_WIDTH = 0.035f;
 
@@ -190,7 +192,7 @@ namespace Prazsky.Core.Render
         /// (0.68 at the most, <see cref="LANDING_SPREAD"/>), so the whole landing region lies inside the outer rays and a
         /// ghost at its near edge is not left outside a funnel still opening. From there on the rays run parallel.
         /// </summary>
-        private const float REGION_BEHIND = 0.7f;
+        internal const float REGION_BEHIND = 0.7f;
 
         /// <summary>
         /// How far past the touch the rays run before they have faded out, in world units, <b>square to the lens</b>
@@ -203,8 +205,8 @@ namespace Prazsky.Core.Render
         private const float OVERRUN = 1.2f;
 
         /// <summary>
-        /// The rays' alpha where they split off the line. Not quite whole, so where all of them still lie on top of
-        /// each other just past the split they read as the line going on rather than as a knot.
+        /// The rays' alpha where they split off the line. Under one, so each is a line laid over the scene with a little
+        /// of it showing through: the lines "become transparent", in the owner's word, where the dashes were solid light.
         /// </summary>
         internal const float RAY_ALPHA = 0.9f;
 

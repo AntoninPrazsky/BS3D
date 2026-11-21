@@ -332,7 +332,7 @@ namespace BS3D.Tests
             Assert.True(aims.Count >= 200, $"only {aims.Count} of 240 aims had a ghost");
 
             List<float> overviewRatios = new(), allRatios = new(), squareToAnother = new();
-            List<float> openingPixels = new(), overrunPixels = new(), gapPixels = new();
+            List<float> openingPixels = new(), overrunPixels = new(), gapPixels = new(), dashDraws = new(), rayDraws = new();
 
             //Pixels a unit of the image plane is at a 1080-line frame through the play lens the capture logs (39.4 degrees)
             float pixelsPerUnit = 540f / MathF.Tan(MathHelper.ToRadians(39.4f) * 0.5f);
@@ -362,6 +362,11 @@ namespace BS3D.Tests
                         overrunPixels.Add((lens.Project(middle[^1].Head) - lens.Project(middle[^1].Tail)).Length() * pixelsPerUnit);
                         List<AimBeam.Piece> next = RayLane(pieces, 1);
                         gapPixels.Add((lens.Project(next[^1].Tail) - lens.Project(middle[^1].Tail)).Length() * pixelsPerUnit);
+
+                        //And what it costs: a draw a piece
+                        int rays = Array.FindAll(pieces, p => p.Kind == AimBeam.PieceKind.Ray).Length;
+                        rayDraws.Add(rays);
+                        dashDraws.Add(pieces.Length - rays);
                     }
 
                     //Unbroken: each lane a chain of pieces, head to tail
@@ -382,6 +387,8 @@ namespace BS3D.Tests
             output.WriteLine($"through the overview at a 1080-line frame: the opening {Percentile(openingPixels, 0.5):0} px on screen at the median " +
                 $"({Percentile(openingPixels, 0):0} to {Percentile(openingPixels, 1):0}), the run past the touch {Percentile(overrunPixels, 0.5):0} px, " +
                 $"neighbouring rays {Percentile(gapPixels, 0.5):0.0} px apart at the touch ({Percentile(gapPixels, 0):0.0} to {Percentile(gapPixels, 1):0.0})");
+            output.WriteLine($"draws a beam: {Percentile(dashDraws, 0.5):0} dash pieces at the median ({Percentile(dashDraws, 0):0} to {Percentile(dashDraws, 1):0}), " +
+                $"{Percentile(rayDraws, 0.5):0} ray pieces ({Percentile(rayDraws, 0):0} to {Percentile(rayDraws, 1):0})");
 
             Assert.True(Percentile(allRatios, 0) >= 3f, $"neighbouring rays stand as close as {Percentile(allRatios, 0):0.00} of a ray's width on screen");
             Assert.True(Percentile(squareToAnother, 0.5) < 3f,
@@ -573,6 +580,11 @@ namespace BS3D.Tests
                     Assert.True(DistanceToPath(centreLine.ToArray(), bent[i]) < 0.0101f,
                         $"knot {i} of a bent flight lies {DistanceToPath(centreLine.ToArray(), bent[i]):0.000} off the middle ray");
 
+            //The outer rays open with the distance along the whole flight, from the split to REGION_BEHIND short of the
+            //touch: at every knot they are cut at, as far off the middle one as that distance says, and never narrower
+            float flown = AlongPath(bent, bent[^1]), split = AimBeam.SPLIT_FROM * flown;
+            float open = MathF.Max(flown - AimBeam.REGION_BEHIND, (split + flown) * 0.5f);
+
             for (int lane = -OUTER; lane <= OUTER; lane += 2 * OUTER)
             {
                 List<AimBeam.Piece> ray = RayLane(bentPieces, lane);
@@ -580,6 +592,9 @@ namespace BS3D.Tests
                 for (int j = 0; j + 1 < ray.Count; j++)
                 {
                     float off = XVector3.Distance(ray[j].Head, centre[j].Head);
+                    float expected = AimBeam.LANDING_SPREAD * Math.Clamp((AlongPath(bent, centre[j].Head) - split) / (open - split), 0f, 1f);
+                    Assert.True(MathF.Abs(off - expected) < 2e-3f,
+                        $"lane {lane} stands {off:0.000} off the middle ray at its knot {j} of a bent flight, where the distance flown says {expected:0.000}");
                     Assert.True(off >= last - 1e-4f, $"lane {lane} narrows from {last:0.000} to {off:0.000} at a knot of a bent flight");
                     last = off;
                 }
