@@ -77,6 +77,8 @@ namespace Prazsky.Core.Render
         private readonly EffectParameter _tileSizeParam;
         private readonly EffectParameter _neighborTextureParam;
         private readonly EffectParameter _sceneTextureParam;
+        private readonly EffectParameter _supersampleFactorParam;
+        private readonly EffectParameter _sceneTexelSizeParam;
         private readonly EffectParameter _outputSizeParam;
         private readonly EffectParameter _outputTexelSizeParam;
         private readonly EffectParameter _backgroundReprojectParam;
@@ -122,6 +124,8 @@ namespace Prazsky.Core.Render
             _tileSizeParam = effect.Parameters["TileSize"];
             _neighborTextureParam = effect.Parameters["NeighborTexture"];
             _sceneTextureParam = effect.Parameters["SceneTexture"];
+            _supersampleFactorParam = effect.Parameters["SupersampleFactor"];
+            _sceneTexelSizeParam = effect.Parameters["SceneTexelSize"];
             _outputSizeParam = effect.Parameters["OutputSize"];
             _outputTexelSizeParam = effect.Parameters["OutputTexelSize"];
             _backgroundReprojectParam = effect.Parameters["BackgroundReproject"];
@@ -234,6 +238,14 @@ namespace Prazsky.Core.Render
             _velocityTextureParam.SetValue(_velocityTarget);
             _neighborTextureParam.SetValue(_neighbors);
             _sceneTextureParam.SetValue(scene);
+
+            //How many scene texels an output pixel covers along each axis, for the box at a factor above 2 (#1208): a whole
+            //multiple only, as a supersampled scene is; one where it is not (#801's resolution row), whose single bilinear
+            //tap is what the pass always took
+            int factor = scene.Width % _output.Width == 0 && scene.Height % _output.Height == 0
+                && scene.Width / _output.Width == scene.Height / _output.Height ? scene.Width / _output.Width : 1;
+            _supersampleFactorParam?.SetValue(factor);
+            _sceneTexelSizeParam?.SetValue(new Vector2(1f / scene.Width, 1f / scene.Height));
             if (DebugView > 0 && _debugTechnique != null)
             {
                 _debugModeParam?.SetValue((float)DebugView);
