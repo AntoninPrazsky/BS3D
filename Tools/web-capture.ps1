@@ -186,9 +186,11 @@ Assert-SanePath -Name Python -Value $Python
 
 if ($Name -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') { throw "-Name '$Name' is a file name: letters, digits, dots, dashes and underscores" }
 
-# -CamPos 30,-6,40 reaches here as an array and -CamPos '30,-6,40' as a string: both are "x,y,z" for the Game
-if ($null -ne $CamPos) { $CamPos = (@($CamPos) -join ',') } else { $CamPos = '' }
-if ($null -ne $CamTarget) { $CamTarget = (@($CamTarget) -join ',') } else { $CamTarget = '' }
+# -CamPos 30,-6,40 reaches here as an array and -CamPos '30,-6,40' as a string: both are "x,y,z" for the Game. Each number goes
+# through a string expansion, which PowerShell does in the invariant culture: -join formats in the session's, and on a Czech
+# Windows -CamPos 13,0.8,33.5 reached the Game as "13,0,8,33,5", which it ignored and then refused the capture
+if ($null -ne $CamPos) { $CamPos = (@($CamPos) | ForEach-Object { "$_" }) -join ',' } else { $CamPos = '' }
+if ($null -ne $CamTarget) { $CamTarget = (@($CamTarget) | ForEach-Object { "$_" }) -join ',' } else { $CamTarget = '' }
 
 $root = Split-Path -Parent $PSScriptRoot
 $build = Join-Path $env:TEMP 'bs3d-web-capture'
