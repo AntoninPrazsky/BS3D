@@ -1,3 +1,4 @@
+using Prazsky.Core.Render;
 using Prazsky.Core.Tools;
 using System;
 using System.Collections.Generic;
@@ -200,6 +201,42 @@ namespace Prazsky.BS3D.Levels
                 if (!SameBlock(i, i - 1)) number++;
 
             return number;
+        }
+
+        /// <summary>
+        /// Every chapter's scene, in campaign order: the index of the chapter's first entry and the scene that level names.
+        /// The Extras scene list captions its scenes with these (#773) and the front end draws its launch scene from the
+        /// unlocked ones (#1202). A chapter's scene is its first level's, which is how the set is authored (every level of
+        /// a chapter names the same one).
+        /// <para>
+        /// An entry naming no block is no chapter, and a chapter whose first file cannot be read or names no scene is left
+        /// out, so a set with no blocks yields nothing. Reads one level file per chapter: for a page's build or the launch,
+        /// never for a frame.
+        /// </para>
+        /// </summary>
+        public List<(int First, SceneKind Scene)> ChapterScenes()
+        {
+            var scenes = new List<(int First, SceneKind Scene)>();
+
+            for (int index = 0; index < Count; index++)
+            {
+                BlockRange(index, out int first, out int last);
+                if (BlockName(index) == null) continue;
+
+                index = last;
+
+                try
+                {
+                    string path = ResolvePath(first);
+                    if (Level.IsLevelFile(path) && Level.Load(path).Scene is SceneKind scene) scenes.Add((first, scene));
+                }
+                catch (Exception)
+                {
+                    //Unreadable or unparseable: that chapter has no scene to offer, and the rest still do
+                }
+            }
+
+            return scenes;
         }
 
         /// <summary>

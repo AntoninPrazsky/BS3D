@@ -57,6 +57,33 @@ namespace BS3D.Tests
         }
 
         /// <summary>
+        /// The front end's launch scene is drawn from the scenes of unlocked chapters (#1202, <c>BS3DGame.RollMenuScene</c>),
+        /// through <see cref="LevelSet.ChapterScenes"/>: one entry per chapter, at the chapter's first level, in campaign order.
+        /// A first launch must open on the Meadow, so the first chapter is the Meadow's and costs no stars (the picker's
+        /// unlock test opens only the frontier's level and what the stars pay for, so on a fresh save that is the first
+        /// chapter alone).
+        /// </summary>
+        [Fact]
+        public void EveryChapterOffersItsSceneAndAFreshSaveOpensOnTheMeadow()
+        {
+            LevelSet set = ShippedSet();
+            List<(int First, Prazsky.Core.Render.SceneKind Scene)> scenes = set.ChapterScenes();
+
+            Assert.Equal(set.BlockCount, scenes.Count);
+
+            foreach ((int first, _) in scenes)
+            {
+                set.BlockRange(first, out int start, out _);
+                Assert.Equal(start, first);
+            }
+
+            Assert.Equal((0, Prazsky.Core.Render.SceneKind.Meadow), scenes[0]);
+            Assert.Equal(0, set.Levels[0].MinStars.GetValueOrDefault());
+            Assert.All(scenes.Skip(1), s => Assert.True(set.Levels[s.First].MinStars.GetValueOrDefault() > 0,
+                $"chapter '{set.BlockName(s.First)}' costs no stars, so a fresh save's menu could open on {s.Scene}"));
+        }
+
+        /// <summary>
         /// And the family each level names is one the game has recordings of: a name with no files behind it falls back
         /// to the positional rotation as quietly as no name at all (<c>GameMusic.SetTheme</c>), grouping the recordings in
         /// <c>Game/Music</c> by the name before the first dash, as the game does.
