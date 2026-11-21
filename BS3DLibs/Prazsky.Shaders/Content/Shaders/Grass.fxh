@@ -68,7 +68,7 @@ float GrassRelief(float2 xz, float footprint, float gust)
 //distance to the lens: the parallax of a blade whose stroke on the ground is a stroke long (a blade of height H seen
 //from a height h lies H/h of the distance along the ground). A closer grid would drift less and chop the strokes
 //shorter than they are.
-static const float GRASS_STROKE_STRETCH = 24.0;    //a stroke is this many times longer towards the lens than across
+static const float GRASS_STROKE_STRETCH = 40.0;    //a stroke is this many times longer towards the lens than across
 static const float GRASS_STROKE_SCATTER = 61.0;    //how far into the noise each anchor's offset reaches, in noise cells
 
 //And from overhead a blade shows its tip, not its flank, and the strokes' rays would all meet in the middle of the
