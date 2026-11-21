@@ -239,7 +239,7 @@ $py = 'C:\Users\panrd\AI\ComfyUI\venv\Scripts\python.exe'
 - ⚠ **A scene is filmed under its own chapter's sky**: the tool reads the sky dome from a shipped level of the scene (`--sky` overrides). The neon city under the meadow's dome is a city in daylight.
 - **What the balls are made of**: `bubble` by default, the brightest in the strip and the game's name. `gem`, the neon city's own, is dark there; `beach` and `plasma` are `--balls` away.
 - **It writes** the banner at the size filmed (`<name>-5120x2880.png`), the upload (`<name>-2560x1440.jpg`) and `<name>-crops.jpg`, the TV's picture with both strips outlined over the desktop's strip and the phone's: look at that one before uploading. `--frame <png>` lays the logo over a frame filmed before.
-- **Measured** (desktop, RX 6900 XT): 5120x2880 at the Ultra tier (the scene drawn at 10240x5760) takes about a minute a scene with the Game built; the uploads are 1.4 to 2.1 MB at JPEG quality 95. Five scenes were filmed for the owner to choose from (neon, meadow, space, desert, aurora); the pictures are his, in `Pictures\BS3D banner` on the desktop, not in the repository.
+- **Measured** (desktop, RX 6900 XT): 5120x2880 at the Ultra tier (the scene drawn at 10240x5760) takes about a minute a scene with the Game built; the uploads are 1.4 to 2.1 MB at JPEG quality 95. **The channel's banner is the aurora** (`--scene aurora`): the owner's choice of five scenes filmed (neon, meadow, space, desert, aurora). The pictures are his, in `Pictures\BS3D banner` on the desktop, not in the repository.
 
 ## The blog (#928)
 
