@@ -51,8 +51,8 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// The largest offset, an angle: 0.07 degrees, 1.8 pixels at 1080 rows through the play camera's 42.9-degree lens
         /// (<c>GameplayScreen.GAME_FOV</c>) and 2.6 at 1600, and under half that most of the time (the field's spread,
-        /// <c>WOBBLE_GAIN</c> in the shader), so the skyline wavers by about a pixel. At 0.05 a still pair a quarter of a
-        /// second apart moved a few hundred pixels of a 1080-row frame and the eye found nothing in it.
+        /// <c>WOBBLE_GAIN</c> in the shader), so the skyline wavers by about a pixel: from the Testbed's play pose its edge
+        /// moved 0.37 pixels on average a quarter of a second apart, 1.03 at the 95th percentile.
         /// </summary>
         public static readonly float AMPLITUDE = MathHelper.ToRadians(0.07f);
 
