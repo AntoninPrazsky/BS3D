@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-21 — #1228 trailer na webu z YouTube — desktop (RDT-PC), Claude Code
+
+- majitel (v chatu): „Protože už je video na YouTube, asi bude nejlepší použít to“ (7MvOO2YHGUY). Mění dřívější odpověď „přímo na webhosting“; zapsáno na #1228.
+- Hotovo, sloučeno: sekce „The trailer“ hned pod hlavičkou a odkaz „Trailer“ v liště. Vlastní plakát (snímek, který YouTube ukazuje jako náhled, 21,5 s, vzatý ze 4K masteru) s tlačítkem; YouTube (`youtube-nocookie`, autoplay) se načte až po stisku, takže stránka dál sama nikoho nekontaktuje. Bez JS je plakát odkaz. Hudba stránky (`sound.js`) pod trailerem zeslábne. Nápis „A video … is on its way“ zmizel.
+- ⚠ Přehrávač YouTube bez refereru nehraje („error 153“): iframe má `referrerpolicy` napevno.
+- Otevřené: web je živý až po `publish-web.cmd` majitele; skutečné kliknutí se zvukem a iPhone nikdo nezkoušel.
+
 ## 2026-11-21 — #1230 banner pro YouTube kanál — desktop (RDT-PC), Claude Code
 
 - Hotovo: `Tools/channel-banner.py` (věšený oblouk kuliček v barvách loga, snímek ze hry v 5120x2880, logo přes něj, nahrávaný JPEG 2560x1440 a list tří výřezů). Pět scén na výběr (neon, louka, vesmír, poušť, polární záře) v `Pictures\BS3D banner`; návod v `docs/website.md`, „The channel banner“.

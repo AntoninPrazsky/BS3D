@@ -125,6 +125,29 @@ h3 { font-size: 1.45rem; }
 .motion .rise { opacity: 0; transform: translateY(28px); transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1); transition-delay: calc(var(--i, 0) * 90ms); }
 .motion .rise.in { opacity: 1; transform: none; }
 
+/* The trailer (#1228): a poster of our own with a play button, which js/trailer.js swaps for YouTube's player only when it is
+   pressed. The stage keeps the video's shape either way, so nothing below it moves when the player comes in */
+.trailer-stage {
+  position: relative; aspect-ratio: 16 / 9; margin-top: 8px; overflow: hidden;
+  border-radius: var(--radius); background: var(--bg-sunken); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+}
+.trailer-poster { position: absolute; inset: 0; display: block; color: var(--accent-text); text-decoration: none; border-radius: var(--radius); }
+.trailer-poster img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.trailer-poster::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 50%, transparent 35%, rgba(13, 1, 24, 0.45) 100%); }
+.trailer-play {
+  position: absolute; left: 50%; top: 50%; z-index: 1; transform: translate(-50%, -50%);
+  display: inline-flex; align-items: center; gap: 0.45em; white-space: nowrap;
+  font-family: var(--display); font-size: clamp(1.15rem, 2.6vw, 1.6rem); letter-spacing: 0.03em;
+  background: var(--accent); border-radius: 999px; padding: 0.5em 1.3em 0.5em 1em; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+.trailer-play svg { width: 1.15em; height: 1.15em; }
+.trailer-poster:hover .trailer-play, .trailer-poster:focus-visible .trailer-play { background: #ffd866; transform: translate(-50%, -50%) scale(1.06); }
+.trailer-poster:hover img, .trailer-poster:focus-visible img { transform: scale(1.025); }
+.trailer-poster:focus-visible { outline: 3px solid var(--link); outline-offset: -3px; }
+.trailer-stage iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.trailer-note { color: var(--muted); font-size: 0.95rem; text-align: center; margin: 10px 0 0; }
+
 /* The live cannon's pause (#948: a visible stop for anything that moves on its own) */
 .cannon-stage { position: relative; }
 .cannon-pause {
@@ -185,7 +208,7 @@ h3 { font-size: 1.45rem; }
 .gallery a { display: block; border-radius: var(--radius); }
 .gallery figcaption { color: var(--muted); font-size: 0.95rem; margin-top: 8px; }
 .gallery figcaption strong { color: var(--text); font-weight: 600; }
-.later, .video { color: var(--muted); text-align: center; margin: 28px 0 0; }
+.later { color: var(--muted); text-align: center; margin: 28px 0 0; }
 .later + .later { margin-top: 6px; }
 
 .features { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
@@ -384,4 +407,5 @@ h3 { font-size: 1.45rem; }
 @media (prefers-reduced-motion: reduce) {
   .button { transition: none; } .button:hover { transform: none; }
   .thumb img { transition: none; } .posts li:hover .thumb img, .postcard:hover .thumb img { transform: none; }
+  .trailer-poster img, .trailer-play { transition: none; } .trailer-poster:hover img, .trailer-poster:focus-visible img { transform: none; }
 }
