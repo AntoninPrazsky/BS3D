@@ -3,10 +3,11 @@
 //little above or below where each pixel looks, so the plain's edge and the feet of the far formations waver by about a
 //pixel, and under the skyline a sliver of the sky and of the rock standing on it is mirrored, as hot ground mirrors it.
 //
-//THE BAND is a ring round the lens (HorizonShimmer.cs builds it and its vertex buffer), at the radius where the plain's last
-//fade begins, from just under where the plain meets that radius to REACH over the skyline's axis, the plain's edge where
-//its fade ends. Both passes draw it depth-tested and write no depth, so the island, the cluster, the gun, every near
-//formation and the whole plain nearer than the radius hide it: only the far plain, the far formations and the sky take it.
+//THE BAND is a ring round the lens (HorizonShimmer.cs builds it and its vertex buffer), at seven tenths of the distance
+//where the plain's last fade begins, from just under where the plain meets that radius to REACH over the skyline's axis:
+//the plain where the fade begins, which is the line the eye reads as the horizon. Both passes draw it depth-tested and
+//write no depth, so the island, the cluster, the gun, every nearer formation and the whole plain nearer than the radius
+//hide it: only the far plain, the formations on the skyline and the sky take it.
 //
 //  Mark     writes an alpha of 0 where the band passes, and nothing else. The far grab that follows
 //           (Tonemap.fx, SceneGrabFar) weighs each sample by that mark, so the copy holds the far samples' colour alone,
@@ -33,8 +34,8 @@ float3 CameraPosition;
 float3 Ring;
 
 //The band's elevations over the horizontal, radians: where the plain at the ring's radius lies (the shimmer grows from
-//nothing there), the skyline's axis (the plain at the end of its last fade, where it is strongest and the mirage's mirror
-//runs) and the top it has faded out by
+//nothing there), the skyline's axis (the plain where its last fade begins, where the shimmer is strongest and the mirage's
+//mirror runs) and the top it has faded out by
 float3 Band;
 
 //The largest offset, radians

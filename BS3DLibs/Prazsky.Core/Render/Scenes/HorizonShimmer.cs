@@ -10,8 +10,8 @@ namespace Prazsky.Core.Render
     /// The outback's heat shimmer (#1135): the far horizon refracted in a thin strip at the skyline. The frame drawn so far
     /// is read again a little above or below where each pixel of the strip looks, so the plain's edge and the feet of the
     /// far formations waver by about a pixel, and under the skyline a sliver of the sky and of the rock on it is mirrored,
-    /// as hot ground mirrors it. Nothing over the middle plain and nothing near: the strip is a ring round the lens at the
-    /// radius where the plain's last fade begins, drawn depth-tested, so everything nearer hides it. See "The heat shimmer"
+    /// as hot ground mirrors it. Nothing over the middle plain and nothing near: the strip is a ring round the lens seven
+    /// tenths of the way to where the plain's last fade begins, drawn depth-tested, so everything nearer hides it. See "The heat shimmer"
     /// in docs/scenes/outback.md and <c>HorizonShimmer.fx</c>, which carries the passes' own argument.
     /// <para>
     /// <b>Three passes, all inside the scene target's frame</b>: the ring marks where it passes the depth test (an alpha of
@@ -60,7 +60,7 @@ namespace Prazsky.Core.Render
         public static readonly float REACH = MathHelper.ToRadians(1.5f);
 
         /// <summary>How deep under the skyline's axis the mirage reaches: a sliver, two pixels at 1080 rows through the play
-        /// camera's lens. A lens low over the plain sees less of it, the far plain under the axis being thinner than this.</summary>
+        /// camera's lens. A lens low over the plain sees less of it where the plain from the ring to the axis is thinner than this.</summary>
         public static readonly float MIRAGE_DEPTH = MathHelper.ToRadians(0.08f);
 
         /// <summary>How much of the mirrored image shows at the axis, fading to nothing at <see cref="MIRAGE_DEPTH"/>.</summary>
@@ -82,27 +82,42 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The band's three elevations over the horizontal, radians: <see cref="Bottom"/> where the plain lies at the ring's
-        /// radius (the waver grows from nothing there), <see cref="Axis"/> the skyline, the plain at the end of its last fade
-        /// (<see cref="FarField.FAR_FADE_END"/>), where the waver is strongest and the mirage's mirror runs, and
-        /// <see cref="Top"/>, <see cref="REACH"/> over the axis, where it has faded out.
+        /// radius (the waver grows from nothing there), <see cref="Axis"/> the skyline, the plain where its last fade begins,
+        /// where the waver is strongest and the mirage's mirror runs, and <see cref="Top"/>, <see cref="REACH"/> over the axis,
+        /// where it has faded out.
         /// </summary>
         public readonly record struct Elevations(float Bottom, float Axis, float Top);
 
         /// <summary>
-        /// The band for a lens <paramref name="lensHeight"/> over the plain and a ring of <paramref name="radius"/>, which is
-        /// held short of the skyline's own distance so the band's bottom stays under its axis.
+        /// The ring's radius, as a share of the distance where the plain's last fade begins (the skyline's axis).
+        /// <para>
+        /// ⚠ <b>Not the fade's start itself.</b> The line the eye reads as the horizon is where the plain's own colour ends and
+        /// its fade into the sky begins (<see cref="OutbackAirConfig.HorizonHazeDistance"/>): the last few hundred units past it
+        /// are already half sky, squeezed into a pixel or two. A ring there made that line the strip's lower edge, every read
+        /// under it fell on plain the gate calls near, and from the play camera and a low lens the line moved a twentieth of a
+        /// pixel on average (a quarter of a second apart, 0.33 at the 95th percentile): only the faded sliver over it took the
+        /// waver. Seven tenths of the way out puts that line inside the strip, under plain that is still the far plain.
+        /// </para>
         /// </summary>
-        public static Elevations BandFor(float lensHeight, float radius)
+        public const float RING_SHARE = 0.7f;
+
+        /// <summary>The ring's radius for a plain whose last fade begins at <paramref name="fadeStart"/>, held short of the
+        /// fade's end (<see cref="FarField.FAR_FADE_END"/>).</summary>
+        public static float RingRadius(float fadeStart) => SkylineDistance(fadeStart) * RING_SHARE;
+
+        private static float SkylineDistance(float fadeStart) => Math.Clamp(fadeStart, 1f, FarField.FAR_FADE_END);
+
+        /// <summary>
+        /// The band for a lens <paramref name="lensHeight"/> over a flat plain whose last fade begins at
+        /// <paramref name="fadeStart"/>: its axis the plain there, its bottom the plain at the ring (<see cref="RingRadius"/>).
+        /// </summary>
+        public static Elevations BandFor(float lensHeight, float fadeStart)
         {
             float height = MathF.Max(lensHeight, MIN_LENS_HEIGHT);
-            float ring = Math.Clamp(radius, 1f, FarField.FAR_FADE_END * MAX_RADIUS_SHARE);
-            float axis = -MathF.Atan(height / FarField.FAR_FADE_END);
+            float axis = -MathF.Atan(height / SkylineDistance(fadeStart));
 
-            return new Elevations(-MathF.Atan(height / ring), axis, axis + REACH);
+            return new Elevations(-MathF.Atan(height / RingRadius(fadeStart)), axis, axis + REACH);
         }
-
-        /// <summary>The furthest the ring may stand, as a share of the skyline's distance (<see cref="BandFor"/>).</summary>
-        public const float MAX_RADIUS_SHARE = 0.9f;
 
         /// <summary>
         /// The rows the copy must hold beyond the ring's own projection, for a frame <paramref name="height"/> rows tall
@@ -247,20 +262,21 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Draws the shimmer into the bound scene target: the plain at <paramref name="groundY"/>, the ring at
-        /// <paramref name="radius"/> (where the plain's last fade begins). Call it with the scene target bound, after
-        /// everything the strip may show (the far plain, the far formations, the sky) and before what must stand in front of
-        /// it untouched: the island's colour, the gun, the cluster. Puts the device's states back; the vertex buffer is not.
+        /// Draws the shimmer into the bound scene target: the plain at <paramref name="groundY"/>, its last fade beginning at
+        /// <paramref name="fadeStart"/> (the skyline's axis; the ring at <see cref="RingRadius"/>). Call it with the scene
+        /// target bound, after everything the strip may show (the far plain, the formations on the skyline, the sky) and
+        /// before what must stand in front of it untouched: the island's colour, the gun, the cluster. Puts the device's
+        /// states back; the vertex buffer is not.
         /// </summary>
-        public void Draw(in SceneFrame frame, PostProcessPipeline pipeline, float groundY, float radius)
+        public void Draw(in SceneFrame frame, PostProcessPipeline pipeline, float groundY, float fadeStart)
         {
             Point grabSize = pipeline.GrabSize;
             if (grabSize.X <= 0 || grabSize.Y <= 0) return;
 
             ICamera camera = frame.Camera;
             Vector3 lens = camera.Position;
-            Elevations band = BandFor(lens.Y - groundY, radius);
-            float ring = Math.Clamp(radius, 1f, FarField.FAR_FADE_END * MAX_RADIUS_SHARE);
+            Elevations band = BandFor(lens.Y - groundY, fadeStart);
+            float ring = RingRadius(fadeStart);
             float tanBottom = MathF.Tan(band.Bottom - UNDER);
             float tanTop = MathF.Tan(band.Top);
             Matrix viewProjection = camera.View * camera.Projection;

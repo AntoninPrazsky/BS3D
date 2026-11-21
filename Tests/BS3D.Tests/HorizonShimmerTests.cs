@@ -50,17 +50,19 @@ namespace BS3D.Tests
         private static float Degrees(float radians) => MathHelper.ToDegrees(radians);
 
         /// <summary>
-        /// The strip is the skyline's: its axis is the plain where its last fade ends, it reaches no more than two degrees
-        /// over it, and its bottom is the plain at the ring's radius, which is where that fade begins. So the plain the strip
-        /// may touch is all beyond the start of the last fade, whatever the lens's height: nothing over the middle plain.
+        /// The strip is the skyline's: its axis is the plain where its last fade begins, the line the eye reads as the horizon,
+        /// it reaches no more than two degrees over it, and its bottom is the plain at the ring, seven tenths of the way out.
+        /// So the plain the strip may touch lies past where every other ground's last fade begins, whatever the lens's
+        /// height: nothing over the middle plain.
         /// </summary>
         [Fact]
         public void TheBandIsAStripAtTheSkyline()
         {
             OutbackAirConfig air = new OutbackSceneConfig().Air;
 
-            Assert.True(air.HorizonHazeDistance >= 1000f && air.HorizonHazeDistance < FarField.FAR_FADE_END,
-                $"the ring stands at {air.HorizonHazeDistance}, not between 1000 and the fade's end at {FarField.FAR_FADE_END}");
+            float ring = HorizonShimmer.RingRadius(air.HorizonHazeDistance);
+            Assert.True(ring >= FarField.FAR_FADE_START_LATEST && ring < air.HorizonHazeDistance,
+                $"the ring stands at {ring}, not between {FarField.FAR_FADE_START_LATEST} and the fade's start at {air.HorizonHazeDistance}");
 
             foreach (float height in LensHeights)
             {
@@ -73,21 +75,22 @@ namespace BS3D.Tests
                 //The plain the band's bottom and axis look at, along a flat plain from the lens
                 float bottomGround = lens / MathF.Tan(-band.Bottom);
                 float axisGround = lens / MathF.Tan(-band.Axis);
-                Assert.True(bottomGround >= air.HorizonHazeDistance - 0.5f, $"at {height} the strip's bottom looks at the plain {bottomGround:F0} out");
-                Assert.InRange(axisGround, FarField.FAR_FADE_END - 0.5f, FarField.FAR_FADE_END + 0.5f);
+                Assert.True(bottomGround >= FarField.FAR_FADE_START_LATEST, $"at {height} the strip's bottom looks at the plain {bottomGround:F0} out");
+                Assert.InRange(bottomGround, ring - 0.5f, ring + 0.5f);
+                Assert.InRange(axisGround, air.HorizonHazeDistance - 0.5f, air.HorizonHazeDistance + 0.5f);
 
                 //And it is a strip, a degree or two either side of the skyline, at every height the Game's lenses fly at
                 if (height <= 40f) Assert.True(Degrees(band.Axis - band.Bottom) <= 2f, $"at {height} the strip reaches {Degrees(band.Axis - band.Bottom):F2} degrees under the skyline");
             }
 
-            //A ring at or past the skyline's distance would turn the band over: it is held short of it
+            //A fade begun past its own end is held to it, and the band does not turn over
             HorizonShimmer.Elevations turned = HorizonShimmer.BandFor(6.1f, FarField.FAR_FADE_END * 2f);
-            Assert.True(turned.Bottom < turned.Axis, "a ring past the skyline turned the band over");
+            Assert.True(turned.Bottom < turned.Axis, "a fade start past the fade's end turned the band over");
         }
 
         /// <summary>
-        /// The outback hands the shimmer the plain's own figures: the ring at the distance where its last fade begins and the
-        /// plain's height, and the host calls it after the sky and before the island's colour in both the Game and the Testbed.
+        /// The outback hands the shimmer the plain's own figures: the distance where its last fade begins and the plain's
+        /// height, and the host calls it after the sky and before the island's colour in both the Game and the Testbed.
         /// </summary>
         [Fact]
         public void TheOutbackDrawsItAtTheLastFadeAfterTheSky()
@@ -191,7 +194,7 @@ namespace BS3D.Tests
         public void TheRowsHoldTheRing()
         {
             const int height = 1080;
-            const float radius = 1000f;
+            float radius = HorizonShimmer.RingRadius(1000f);
             Random random = new(1135);
             int checkedViews = 0;
 
@@ -208,7 +211,7 @@ namespace BS3D.Tests
                 Vector3 up = Vector3.Transform(Vector3.Up, Matrix.CreateFromAxisAngle(forward, roll));
                 Matrix viewProjection = Matrix.CreateLookAt(lens, lens + forward, up) * Matrix.CreatePerspectiveFieldOfView(fov, aspect, 0.01f, 2000f);
 
-                HorizonShimmer.Elevations band = HorizonShimmer.BandFor(lens.Y + 13.5f, radius);
+                HorizonShimmer.Elevations band = HorizonShimmer.BandFor(lens.Y + 13.5f, 1000f);
                 float tanBottom = MathF.Tan(band.Bottom - HorizonShimmer.UNDER), tanTop = MathF.Tan(band.Top);
 
                 bool any = HorizonShimmer.TryRows(viewProjection, lens, radius, tanBottom, tanTop, height, 0, out int first, out int count);
@@ -261,7 +264,7 @@ namespace BS3D.Tests
                 * Matrix.CreatePerspectiveFieldOfView(MathF.PI / 4.2f, 16f / 9f, 0.01f, 2000f);
             HorizonShimmer.Elevations band = HorizonShimmer.BandFor(43.5f, 1000f);
 
-            Assert.False(HorizonShimmer.TryRows(viewProjection, lens, 1000f, MathF.Tan(band.Bottom - HorizonShimmer.UNDER), MathF.Tan(band.Top),
+            Assert.False(HorizonShimmer.TryRows(viewProjection, lens, HorizonShimmer.RingRadius(1000f), MathF.Tan(band.Bottom - HorizonShimmer.UNDER), MathF.Tan(band.Top),
                 1080, 4, out _, out _));
         }
 
