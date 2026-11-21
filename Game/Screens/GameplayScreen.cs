@@ -2183,6 +2183,15 @@ namespace BS3D.Screens
             bool paneBeforeLayers = Game.CameraUnderCeiling(_ceiling.World);
             if (paneBeforeLayers) DrawCeilingPane();
 
+            //The aim beam opens the layers over the opaque scene, depth-read, so the cluster and the gun occlude it.
+            //Its dashes are light added to the frame and bloom through the glare; the funnel of rays its far end
+            //splits into (#1196) is laid OVER the frame with premultiplied alpha, in a colour under the glare
+            //threshold, and blooms nowhere (AimBeam's remarks). That blend is why the beam comes BEFORE the smears
+            //and the sparks: a blend covers what is already drawn, so a ray drawn after them would dim a shot's
+            //flare wherever the two cross, where drawn before them the flare is added over the guide that aimed it.
+            //It puts back the states it found.
+            if (!Game.HidesAimPreview) DrawShotPreviewBeam();
+
             //Over the opaque scene (which the depth buffer now holds, so the cluster and the gun occlude
             //them) and additive, so they glow through the glare. It puts back exactly the states it found,
             //so the frame's translucent baseline still stands for the glass below.
@@ -2194,13 +2203,8 @@ namespace BS3D.Screens
             //cluster and the gun occlude the shower and it blooms through the glare with them (#434).
             _lineSparks.Draw(Camera);
 
-            //The aim beam in the smears' own slot and states — additive, depth-read — so the cluster and the gun
-            //occlude it and it blooms through the glare with them. After the smears rather than before for one
-            //reason: a shot's flare should sit over the guide that aimed it, not under it.
-            if (!Game.HidesAimPreview) DrawShotPreviewBeam();
-
-            //A special round's rays (#820), in the beam's slot for its reasons: added light, depth-read, so the cluster in
-            //front of the muzzle covers them and they bloom through the glare
+            //A special round's rays (#820), in the smears' slot for their reasons: added light, depth-read, so the
+            //cluster in front of the muzzle covers them and they bloom through the glare
             DrawMuzzleRays(barrelWorld);
 
             //The blasts (#389), in the same slot and the same states: additive and depth-read, so what stands
