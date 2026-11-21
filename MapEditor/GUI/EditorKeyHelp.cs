@@ -49,36 +49,36 @@ namespace MapEditor.GUI
         //How many colours have a number key of their own (NumPad1-9); the rest are reached by cycling
         public const int DIRECT_COLOUR_KEYS = 9;
 
-        public static readonly KeyHelpRow Open = new(KeyGroup.File, "F2", "Open a map or level (or drop its .json file on the window)");
-        public static readonly KeyHelpRow SaveLevel = new(KeyGroup.File, "F4", "Save a level: the map with its scene, sky and ball material");
-        public static readonly KeyHelpRow SaveMap = new(KeyGroup.File, "F1", "Save the map alone (no scene, sky or material)");
-        public static readonly KeyHelpRow NewMap = new(KeyGroup.File, "F3", "New map (choose the size of the play field)");
+        public static readonly KeyHelpRow Open = new(KeyGroup.File, "F2", "Open a map or level, or drop one on the window");
+        public static readonly KeyHelpRow SaveLevel = new(KeyGroup.File, "F4", "Save a level (map, scene, sky, material)");
+        public static readonly KeyHelpRow SaveMap = new(KeyGroup.File, "F1", "Save the map alone (no scene or sky)");
+        public static readonly KeyHelpRow NewMap = new(KeyGroup.File, "F3", "New map (choose the play field's size)");
 
-        public static readonly KeyHelpRow ToggleHelp = new(KeyGroup.Help, "H", "Show or hide the rest of the keys");
+        public static readonly KeyHelpRow ToggleHelp = new(KeyGroup.Help, "H", "Show or hide the other keys");
 
         public static readonly KeyHelpRow MoveSelector = new(KeyGroup.Selector, "Arrows", "Move the selector forward, back, left, right");
         public static readonly KeyHelpRow MoveSelectorVertically = new(KeyGroup.Selector, "PgUp / PgDn", "Move the selector up, down");
-        public static readonly KeyHelpRow PutBall = new(KeyGroup.Selector, "Space", "Put a ball (the colour and kind picked below)");
+        public static readonly KeyHelpRow PutBall = new(KeyGroup.Selector, "Space", "Put a ball of the colour and kind below");
         public static readonly KeyHelpRow RemoveBall = new(KeyGroup.Selector, "Delete", "Remove the ball");
         public static readonly KeyHelpRow FillMap = new(KeyGroup.Selector, "N", "Fill the whole play field with balls");
         public static readonly KeyHelpRow ClearMap = new(KeyGroup.Selector, "M", "Clear the whole play field");
 
         public static readonly KeyHelpRow PickColour = new(KeyGroup.Ball, "Num 1-9", ColourLine());
         public static readonly KeyHelpRow CycleColour = new(KeyGroup.Ball, "Num + / -",
-            $"Next or previous colour, all {BallTypeNames.Length} ({DIRECT_COLOUR_KEYS + 1}-{BallTypeNames.Length} have no number key)");
-        public static readonly KeyHelpRow CycleKind = new(KeyGroup.Ball, "K", "Next kind of ball: normal, rock, bomb and the rest (named at the top)");
-        public static readonly KeyHelpRow CycleStyle = new(KeyGroup.Ball, "L", "Next material, for every ball (named at the top)");
+            $"Next or previous of all {BallTypeNames.Length} colours");
+        public static readonly KeyHelpRow CycleKind = new(KeyGroup.Ball, "K", "Next kind of ball (named at the top)");
+        public static readonly KeyHelpRow CycleStyle = new(KeyGroup.Ball, "L", "Next material of all balls (named at the top)");
 
         public static readonly KeyHelpRow Fly = new(KeyGroup.Camera, "W A S D", "Fly forward, left, back, right");
-        public static readonly KeyHelpRow FlyVertically = new(KeyGroup.Camera, "Q / E", "Fly down, up (hold Shift to fly faster)");
-        public static readonly KeyHelpRow MouseLook = new(KeyGroup.Camera, "Right mouse", "Click: look around with the mouse, click again to stop. Hold: pan");
-        public static readonly KeyHelpRow Views = new(KeyGroup.Camera, "1-6", "Face the field looking forward, back, left, right, up, down");
+        public static readonly KeyHelpRow FlyVertically = new(KeyGroup.Camera, "Q / E", "Fly down, up (Shift: faster)");
+        public static readonly KeyHelpRow MouseLook = new(KeyGroup.Camera, "Right mouse", "Click: mouse look on or off. Hold: pan");
+        public static readonly KeyHelpRow Views = new(KeyGroup.Camera, "1-6", "Six views that frame the whole field");
         public static readonly KeyHelpRow ResetCamera = new(KeyGroup.Camera, "R", "Reset the camera");
 
         public static readonly KeyHelpRow CycleScene = new(KeyGroup.Scene, "V", "Next scene (named at the top)");
         public static readonly KeyHelpRow CycleSky = new(KeyGroup.Scene, "B", "Next sky dome");
 
-        public static readonly KeyHelpRow Screenshot = new(KeyGroup.Window, "F8", "Save a screenshot beside the editor");
+        public static readonly KeyHelpRow Screenshot = new(KeyGroup.Window, "F8", "Save a screenshot");
         public static readonly KeyHelpRow Fullscreen = new(KeyGroup.Window, "F11", "Fullscreen or windowed");
         public static readonly KeyHelpRow HideText = new(KeyGroup.Window, "F12", "Hide or show all text");
         public static readonly KeyHelpRow Quit = new(KeyGroup.Window, "Esc", "Quit");
