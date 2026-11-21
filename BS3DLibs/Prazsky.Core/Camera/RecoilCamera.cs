@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using Prazsky.Core.Render;
 using System;
 
 namespace Prazsky.Core.Camera
@@ -42,9 +43,40 @@ namespace Prazsky.Core.Camera
 
         public float AspectRatio { get; set; } = 16f / 9f;
 
+        /// <summary>
+        /// The near plane of a lens close to what it shows: every play view, the menu's flight, the result page and the
+        /// drop cinematic. A lens far from both its target and <see cref="DepthSubject"/> draws with a farther one
+        /// (<see cref="EffectiveNearPlane"/>, <see cref="NearPlaneAt"/>).
+        /// </summary>
         public float NearPlane { get; set; } = 0.05f;
 
         public float FarPlane { get; set; } = BasicCamera3D.DEFAULT_FAR_PLANE_DISTANCE;
+
+        /// <summary>
+        /// While the lens stands within this of its target or of <see cref="DepthSubject"/> it keeps <see cref="NearPlane"/>;
+        /// past it, from both, the near plane grows with the square of the nearer distance (#1193). A play view stands at most
+        /// 32 from the nearer of the two (every shipped level at every window shape, <c>NearPlaneTests</c>) and the menu's
+        /// widest frame of the island 38 to 45 from it, so none of them moves.
+        /// </summary>
+        public const float NEAR_HOLD_DISTANCE = 60f;
+
+        /// <summary>
+        /// The farthest the near plane goes, ten times <see cref="NearPlane"/> (#1193). It clips whatever stands nearer the lens
+        /// than its corner, which at the widest window and the widest lens a chapter intro opens is about twice this; a lens far
+        /// from both its target and the arena is an establishing shot, built with far more air than that round it (the meadow's
+        /// valley flies 18 or more over the ground, <c>NearPlaneTests</c>).
+        /// </summary>
+        public const float NEAR_PLANE_CEILING = 0.5f;
+
+        /// <summary>
+        /// The point besides the target whose distance from the lens holds the near plane down (#1193): the middle of the
+        /// arena, where the island, its drain and the cluster stand (the game's world is centred on it). A lens near it may
+        /// be looking past it (a shot from the rim out over the land) and still has the island beside it.
+        /// </summary>
+        public Vector3 DepthSubject { get; set; } = new(0f, ArenaIsland.TOP_Y, 0f);
+
+        /// <summary>The near plane <see cref="Projection"/> was last built with (<see cref="NearPlaneAt"/>).</summary>
+        public float EffectiveNearPlane { get; private set; }
 
         /// <summary>The kick. Call <see cref="CameraShake.Kick"/> on it when something violent happens.</summary>
         public CameraShake Shake { get; } = new();
@@ -110,7 +142,42 @@ namespace Prazsky.Core.Camera
             //The punch widens the frame briefly. Clamped well off π so a stacked-up kick cannot produce a
             //degenerate projection.
             float fov = MathHelper.Clamp(FieldOfView * (1f + Shake.FovPunch), 0.01f, MathHelper.Pi * 0.95f);
-            Projection = Matrix.CreatePerspectiveFieldOfView(fov, AspectRatio, NearPlane, FarPlane);
+            EffectiveNearPlane = NearPlaneAt(NearPlane, distance, Vector3.Distance(BasePosition, DepthSubject));
+            Projection = Matrix.CreatePerspectiveFieldOfView(fov, AspectRatio, EffectiveNearPlane, FarPlane);
+        }
+
+        /// <summary>
+        /// The near plane for a lens <paramref name="toTarget"/> from what it looks at and <paramref name="toSubject"/> from
+        /// <see cref="DepthSubject"/> (#1193): <paramref name="near"/> out to <see cref="NEAR_HOLD_DISTANCE"/> from the nearer
+        /// of the two, then growing with its square up to <see cref="NEAR_PLANE_CEILING"/>.
+        /// <para>
+        /// <b>Why.</b> A 24-bit depth buffer's step at distance z is about z² / (near × 2^24): with the near plane at 0.05,
+        /// 0.0024 at the far side of the drain from the play view, 45 off, and 0.05 from the meadow's valley shot, some 200
+        /// off. The drain is built of surfaces closer than that: the glass and the dark pit sheath behind it part from nothing
+        /// at the mouth to <c>ArenaIsland.PIT_SHEATH_CLEARANCE</c> at the hole, and the gold collar crosses both a hundredth or
+        /// so off them. Seen from the valley the two landed on one depth value down the top of the glass and the sheath won
+        /// it pixel by pixel: dark streaks down the inner sides and teeth along the rim, different in every frame of the
+        /// flight (the owner's QA, #1193). Growing with the square holds the step at the nearer distance where it is at
+        /// <see cref="NEAR_HOLD_DISTANCE"/>, until the ceiling; from the valley the band of glass the buffer cannot part from
+        /// the sheath then spans half as much of the frame as it does from the play view (<c>NearPlaneTests</c>).
+        /// </para>
+        /// <para>
+        /// <b>Why the nearer of the two.</b> The near plane clips whatever stands nearer the lens than it. A lens that looks
+        /// at something close is a close shot, and close shots fly low among things (the orbit round the hay bales under a
+        /// unit over the grass, the walk along the fence, a beetle on the sand); a lens near the arena has the island beside
+        /// it. Both keep <paramref name="near"/>. Only a lens far from both, an establishing shot built with air all round it,
+        /// draws with a farther one. Nothing else reads the plane: no pass of the game samples the depth buffer, and the passes
+        /// that work out a depth of their own take the planes from this projection (the clouds' far layer, the motion blur's
+        /// background).
+        /// </para>
+        /// </summary>
+        public static float NearPlaneAt(float near, float toTarget, float toSubject)
+        {
+            float nearer = MathF.Min(toTarget, toSubject);
+            if (!(nearer > NEAR_HOLD_DISTANCE)) return near;
+
+            float share = nearer / NEAR_HOLD_DISTANCE;
+            return MathF.Max(near, MathF.Min(near * share * share, NEAR_PLANE_CEILING));
         }
     }
 }
