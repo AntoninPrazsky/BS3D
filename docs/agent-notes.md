@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-21 — web #1203–#1206, #1208 podle majitele — desktop (RDT-PC), Claude Code (bs3d-cc)
+
+- Hotovo, sloučeno: #1204 věta u děla, #1206 boxy ke stažení (tři stejné sloupce, 84rem, příkazy se zalamují), #1205 dělo ostré při zoomu (celý devicePixelRatio, překreslení i v pauze). #1203 dělo stínované jako ve hře (`gameShade`), `verdict-eye`. Hudba stránky se při traileru ztiší i během načítání.
+- #1208 (majitel: Max zubatý, stromy High = Ultra, posuvníky jen mezi různými): motion blur četl při `ssaa=3` jeden vzorek (oprava `SceneAt`, High bajtově stejný); Ultra má `FarDetail` (spruce do 300, +0,7 ms na Fish 3840x1600); článek: talíř 2 obrázky, louka a hrany bez Ultra/Max, stromy z herního pohledu Fish.
+- ⚠ Emulovaný jen `deviceScaleFactor` (CDP) nepošle žádnou událost: zoom testuj jako zoom (šířka/poměr). `web-capture.ps1 -CamPos` s desetinnými čísly na české Windows selhával (opraveno).
+- Otevřené: verdikty #1228, #1203, #1208; web čeká na `publish-web.cmd`.
+
 ## 2026-11-21 — #1229 článek na blog o tetelení vzduchu — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: článek „Hot air from a copy of the frame“ (`/blog/hot-air-from-a-copy-of-the-frame/`, datum 2026-11-21) začíná smyčkou silnějšího tetelení z #1135 a pro čtenáře, který není grafik, vysvětluje skutečné tetelení a fata morgánu, proč to nejde namalovat, krok označit–zkopírovat–lomit, prstenec na 620, úhel místo pixelů, „moc malé, má být větší“ a co stálo čtyřnásobné zvětšení, a cenu 0,09 ms. Dva klipy 1056x336, rozdílový snímek celého pohledu, náhled. Nástroj smyčky s prolnutím je nově `Tools/web-capture-loop.py`.
