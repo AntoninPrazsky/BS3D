@@ -223,6 +223,24 @@ $py = 'C:\Users\panrd\AI\ComfyUI\venv\Scripts\python.exe'
     - The action render: its first rock section runs to its breakdown at 33.0 s, the drop is at 39.5 s (+27 dB), and it rings out at 68.5 s. The opening takes its last three bars before the breakdown, laid so the first shot lands on a downbeat and the phrase ends on the white flash; the fast part takes it from the drop, and the last chord lands on the end card.
   - **Cut the trailer to the music, not the music to the trailer**: measure the render's drop (the biggest 6 s rise of its 300 Hz–4 kHz energy, then the beat nearest it), then move the clip whose first shot must land there.
 
+### The channel banner (#1230)
+
+**The YouTube channel's banner is a picture of the game with the logo laid over it**, made by `Tools/channel-banner.py`:
+
+```powershell
+$py = 'C:\Users\panrd\AI\ComfyUI\venv\Scripts\python.exe'
+& $py -I Tools\channel-banner.py --scene neon --out "$env:USERPROFILE\Pictures\BS3D banner"              # film and compose
+& $py -I Tools\channel-banner.py --scene meadow --no-build --out "$env:USERPROFILE\Pictures\BS3D banner" # the Game already built
+```
+
+- **What YouTube shows decides the picture.** It asks for 2560x1440 (at most 6 MB): a TV shows all of it, a desktop only the middle strip, 2560x423, and a phone the middle 1546x423. So the logo stands in the middle, 360 px tall (a quarter of the height, about 30 px of the strip clear above and below), and what else must be seen stands beside it at the same height.
+- **The balls are an arch made for the banner, not a shipped level**: no level has a hole where the logo goes. Its legs run down both sides of the logo through the strip, its opening is about 780 px in the clear against the logo's 580, and its colours are the logo's own, magenta to blue from left to right (navy is left out: at the edge it reads as a hole). The Game hangs, lights and draws it: one still through `web-capture.ps1` from a level camera on the gun's side, at the Ultra tier with `-MaxDetail` and `-NoGrain`, no HUD, `wind=0`.
+- ⚠ **The Game puts the middle of the FIELD's top level on the axis, not the layout's** (`ClusterHang.FitWorldOffset`): on a shifted top level that is `sx / 2`. An arch centred a quarter cell off it stood about 40 px left in the 2560 px banner, and the logo off the middle of its opening.
+- ⚠ **A scene is filmed under its own chapter's sky**: the tool reads the sky dome from a shipped level of the scene (`--sky` overrides). The neon city under the meadow's dome is a city in daylight.
+- **What the balls are made of**: `bubble` by default, the brightest in the strip and the game's name. `gem`, the neon city's own, is dark there; `beach` and `plasma` are `--balls` away.
+- **It writes** the banner at the size filmed (`<name>-5120x2880.png`), the upload (`<name>-2560x1440.jpg`) and `<name>-crops.jpg`, the TV's picture with both strips outlined over the desktop's strip and the phone's: look at that one before uploading. `--frame <png>` lays the logo over a frame filmed before.
+- **Measured** (desktop, RX 6900 XT): 5120x2880 at the Ultra tier (the scene drawn at 10240x5760) takes about a minute a scene with the Game built; the uploads are 1.4 to 2.1 MB at JPEG quality 95. Five scenes were filmed for the owner to choose from (neon, meadow, space, desert, aurora); the pictures are his, in `Pictures\BS3D banner` on the desktop, not in the repository.
+
 ## The blog (#928)
 
 **Adding a post is one Markdown file in `src/blog/`.** Its front matter:

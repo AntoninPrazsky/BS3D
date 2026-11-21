@@ -20,6 +20,14 @@ Pravidla:
 
 ---
 
+## 2026-11-21 — #1230 banner pro YouTube kanál — desktop (RDT-PC), Claude Code
+
+- Hotovo: `Tools/channel-banner.py` (věšený oblouk kuliček v barvách loga, snímek ze hry v 5120x2880, logo přes něj, nahrávaný JPEG 2560x1440 a list tří výřezů). Pět scén na výběr (neon, louka, vesmír, poušť, polární záře) v `Pictures\BS3D banner`; návod v `docs/website.md`, „The channel banner“.
+- majitel: trailer půjde na web přímo na webhosting, ne v tomto sezení (zapsáno na #1228); chce banner aspoň 2048x1152 s logem a atraktivní scénou.
+- ⚠ YouTube ukáže na počítači jen střední pruh 2560x423 a na telefonu 1546x423: logo i kuličky musí být v něm. Žádný level tam nemá díru, proto vlastní oblouk.
+- ⚠ Hra dává na osu střed horní úrovně POLE (`ClusterHang.FitWorldOffset`), ne rozložení: oblouk o čtvrt buňky vedle stál 40 px vlevo.
+- Otevřené: výběr scény majitelem (`verdict-eye`).
+
 ## 2026-11-21 — #1135 tetelení vzduchu nad Outbackem — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: skutečné tetelení. Prstenec kolem objektivu láme daleký obzor v úzkém pruhu u horizontu: čte z kopie už nakresleného snímku (`GrabSceneFar`, technika `SceneGrabFar`), blízké věci drží venku hloubkou a vahou „daleko“. Pod obzorem je tenký zrcadlový proužek fata morgány. Posun je úhel (0,07°), hodiny jsou scény. `Outback.fx` zůstal netknutý. Jen High a Ultra; Medium, Potato, telefony a multisamplovaný cíl ho nekreslí. Cena na Ultra +0,08 ms.
