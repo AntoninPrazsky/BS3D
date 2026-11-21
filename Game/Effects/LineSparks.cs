@@ -101,7 +101,7 @@ namespace BS3D.Effects
         //- 44 frames of it, confirmed from a diagnostic line before anything was blamed - and could not be
         //seen at all. It was not occlusion, not timing and not the shared effect's parameters: it was SCALE.
         //Set against the other two users rather than by eye, the widths were five times thinner than the
-        //thinnest thing that had ever drawn through ShotTrail.fx (AimBeam's 0.15, against LaunchSmears' 0.72),
+        //thinnest thing that had ever drawn through ShotTrail.fx (AimBeam's 0.15 then, against LaunchSmears' 0.72),
         //and the streaks were a third of a ball long.
         //
         //What settled them was a deliberately absurd pass - width 1.0, streak 0.25 s, six-second life - which

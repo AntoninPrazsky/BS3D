@@ -20,104 +20,106 @@ namespace Prazsky.Core.Render
     /// than stopping in mid-air as if something were there.
     /// </para>
     /// <para>
-    /// <b>And where the shot snaps into the lattice, the line splits into a funnel over the region it lands in</b>
-    /// (#1144 asked for a region, #1196 for it drawn as lines). The touch is where the shot meets the ball it hits;
-    /// the ghost is drawn in the free cell beside that ball nearest the touch, which can be two thirds of a ball to
-    /// either side of the line, so a line that ended on one point next to a ghost sitting somewhere else read as a
-    /// promise it did not keep. Handed a <c>spread</c>, the beam is the old dashed line up to
-    /// <see cref="SPLIT_FROM"/> of the flight, where it is the aim and must stay exactly as it was, and there it splits
-    /// into <see cref="RAYS"/> thin crisp lines: the middle one runs on along the flight to the touch, the others open
-    /// out to either side until they stand the spread off it (<see cref="LANDING_SPREAD"/>, measured), and all of them
-    /// run on a little past the touch and fade out. Together they outline a funnel over every place the ghost can be,
-    /// and the ghost then reads as "the one in here", which is what it is.
+    /// <b>And where the shot snaps into the lattice, its far dashes widen a little and fade out at the ball</b> (#1144
+    /// asked for the region the shot lands in; the owner turned down a soft glow and then a fan of lines for it, #1196, and
+    /// asked for the one dashed line, thin and quiet, whose dashes "widen slightly and smoothly towards the end, turn
+    /// transparent, and stop at the ball"). Handed the ball the shot touches (<c>ballTouched</c>), the beam is the plain line
+    /// up to <see cref="FAR_FROM"/> of its length; over the rest its dashes widen along one smooth curve to
+    /// <see cref="FAR_WIDTH"/>, lengthen with it (<see cref="FAR_STRETCH"/>, <see cref="FAR_DASH_FRACTION"/>) and give up
+    /// their light, to nothing where the beam reaches that ball. It is one dashed line from the muzzle on, with nothing beside it, over the ball or past it.
     /// </para>
     /// </summary>
     /// <remarks>
     /// It borrows <c>Shaders/ShotTrail.fx</c> from <see cref="LaunchSmears"/> rather than bringing a shader of
-    /// its own: that shader is already a camera-facing billboard between two world points. Its first technique
-    /// fades each segment in over its first quarter and out over its last, so a <i>short</i> segment comes out as a
-    /// dash with soft ends, drawn additively and bright enough to bloom: the dashes. Its second, <c>AimRay</c>, draws the
-    /// same billboard as a crisp line, covered whole across but for a pixel's anti-aliasing at its edges, its alpha
-    /// running from one end's to the other's, blended over what is behind it: the rays. One piece is one draw of the
-    /// shared quad.
+    /// its own: that shader is already a camera-facing billboard between two world points, and it fades each
+    /// segment in over its first quarter and out over its last, so a <i>short</i> segment comes out as a dash
+    /// with soft ends and no new code at all; its two half-widths are lerped along the billboard, so a dash that widens
+    /// is a slim trapezoid. One piece is one draw of the shared quad.
     /// <para>
-    /// <b>The rays are lines, not light</b>, which is the owner's verdict on the soft glow #1144 drew there: "it works
-    /// more like a glow, and it is not obvious what it is". So they are laid over the frame with premultiplied alpha
-    /// rather than added to it, in a colour whose luminance is held under the glare pass's threshold
-    /// (<see cref="RayColor"/>): a pixel they cover is a blend of the scene and that colour, so it is never brighter than
-    /// the brighter of the two and they put no bloom of their own anywhere.
+    /// <b>Where the beam reaches the ball is where the lens sees it reach the ball</b> (<see cref="VisibleEnd"/>). The touch
+    /// lies on the ball's near surface, and the overview sees the beam six to twenty degrees off end on, so the beam's last
+    /// unit or few lie in front of that ball on screen: a line run to the touch draws over the ball it is about to hit, as
+    /// the fan of lines did ("it covers the ball"). So the far part ends where the beam's line of sight first meets the
+    /// ball's disc, and the dashes are laid no further; seen from the side the two are the same point, the touch.
     /// </para>
     /// <para>
-    /// <b>The rays are unbroken, where the line before them is dashed</b>, and that is forced by the overview. It sees
-    /// the beam ten-odd degrees off end on, so a dash foreshortens to a dot, and dots on neighbouring rays would stand
-    /// level with each other across the funnel and read as the rungs of a ladder, as #1144 found widened dashes do.
+    /// <b>The far end widens and still never grows bolder.</b> The light a dash adds goes as the square of its alpha
+    /// (the additive blend weighs the alpha twice) times its cross-section, so a dash twice as wide at the same alpha would
+    /// carry twice the light. Over the far part the alpha is cut by the square root of the widening as well as faded
+    /// (<see cref="FarAlpha"/>): the light a dash adds across its whole width falls with the fade, never above the
+    /// line's, and its brightest point falls faster still, so the far end is fainter where it is wider.
     /// </para>
     /// <para>
-    /// <b>The rays spread square to the lens</b>, which is what keeps them apart on screen from that same overview. At
-    /// each point they are cut at they open along the way across the flight that is also across the view ray to it
-    /// (<see cref="Across"/>), so the spread shows at its full size from any view; a fan in any fixed plane would fold
-    /// onto the line from a lens that looks along that plane. <b>Past the touch they run on square to the lens too</b>
-    /// (<see cref="OVERRUN"/>), which is what keeps the ghost inside the funnel from the overview: a ghost standing off
-    /// the line towards the lens or away from it shows on screen along the beam, past the touch or short of it, where a
-    /// run along the flight would show at a fifth of its length and lie behind the ball hit.
+    /// <b>The far dashes grow longer with their width, or the overview reads them as rungs.</b> That lens sees a dash's
+    /// length at a fifth of itself or less while its width (the billboard faces the lens) shows whole: #1144 found widened
+    /// dashes of the line's length squash into bars across it, level with each other like the rungs of a ladder. So the
+    /// pattern's period and the share of it lit grow along the width's curve (<see cref="FAR_STRETCH"/>,
+    /// <see cref="FAR_DASH_FRACTION"/>), the length further than the width: each far dash is a near one drawn longer for
+    /// its width, and the crawl carries the dashes outwards faster as they grow.
     /// </para>
     /// <para>
-    /// <b>The widths are pushed per draw, and they have to be.</b> <see cref="LaunchSmears"/> set them once in
-    /// its constructor, correctly, on the reasoning that a compile-time constant need not be re-sent per frame
+    /// <b>The widths and the alpha are pushed per draw, and they have to be.</b> <see cref="LaunchSmears"/> set the widths
+    /// once in its constructor, correctly, on the reasoning that a compile-time constant need not be re-sent per frame
     /// (<c>BestPractices.md</c> §1 names those two parameters as its own example). That stopped being true the
     /// moment a second component shared the effect: the two want different widths, an <c>Effect</c>'s parameter
     /// values are the effect's and not the caller's, and whichever constructor ran last would otherwise decide
     /// how both look. Here every draw sends its first piece's two, and each later piece's where they differ from the
-    /// last (the rays' differ from the dashes').
+    /// last (a far dash's differ from the one before it).
     /// </para>
     /// <para>
-    /// <b>The layout is a pure function</b> (<see cref="Lay"/>), apart from the draw, so what the funnel promises
-    /// can be asked of it without a graphics device: <c>AimBeamTests</c> holds the near end to the old line, the rays to
-    /// one funnel however the flight is cut into legs, and the funnel on screen round the ghosts the measured aims put
-    /// beside the touch, seen from the Game's overview and from lenses all round the beam.
+    /// <b>The layout is a pure function</b> (<see cref="Lay"/>), apart from the draw, so what the beam promises can be
+    /// asked of it without a graphics device: <c>AimBeamTests</c> holds the near end to the plain line, the width to one
+    /// smooth curve however the flight is cut into legs, nothing past the touch, the far dashes never bolder than the line,
+    /// and, through the Game's overview, the far dashes longer than wide and clear of the ball the shot touches.
     /// </para>
     /// </remarks>
     public sealed class AimBeam : IDisposable
     {
         #region The dials
 
-        /// <summary>World length of one dash plus the gap after it — the pattern's period along the line.</summary>
-        private const float SPACING = 1.1f;
+        /// <summary>
+        /// World length of one dash plus the gap after it — the pattern's period along the line, up to where the far
+        /// dashes start growing (<see cref="FAR_STRETCH"/>).
+        /// </summary>
+        internal const float SPACING = 1.1f;
 
         /// <summary>How much of a period is lit. Under a half so the line reads as dashes rather than as a rod.</summary>
-        private const float DASH_FRACTION = 0.42f;
+        internal const float DASH_FRACTION = 0.42f;
 
         /// <summary>
-        /// Half-width of a dash. A ball's radius is <c>0.5</c>, so this is a line about three-fifths of a ball
-        /// across — which sounds fat and is not: the alpha of <c>ShotTrail.fx</c>'s streak falls across it as
-        /// <c>(1 - across)²</c> and an additive draw weighs the alpha twice, so the light goes as
-        /// <c>(1 - across)⁴</c> and only the core of that is anywhere near full strength.
+        /// Half-width of a dash. A ball is <c>1</c> across, so this is a line about a quarter of a ball wide — which
+        /// sounds fat and is not: the alpha of <c>ShotTrail.fx</c>'s streak falls across it as <c>(1 - across)²</c> and an
+        /// additive draw weighs the alpha twice, so the light goes as <c>(1 - across)⁴</c>, nearly nine-tenths of it inside
+        /// the middle third of that.
         /// <para>
-        /// <b>Both this and <see cref="BRIGHTNESS"/> were set by looking, and the first guesses were wrong by a
-        /// lot.</b> 0.085 and 1.35 were reasoned from the ball's radius and from the smear's boost, and the beam
-        /// came out <i>invisible</i> at the overview's stand-off — the mode it exists for. The values here were
-        /// bracketed from the other side: 0.45 and 8 are unmistakable and far too heavy, and these sit between.
-        /// Anything derived from a ball's size rather than from what a few dozen pixels of an additive line
-        /// actually look like over a bright cluster should be expected to be wrong the same way.
+        /// <b>Both this and <see cref="BRIGHTNESS"/> were set by looking, and the first guesses were wrong both ways.</b>
+        /// 0.085 and 1.35 were reasoned from the ball's radius and from the smear's boost, and the beam came out
+        /// <i>invisible</i> at the overview's stand-off, the mode it exists for; 0.45 and 8 were unmistakable and far too
+        /// heavy. 0.15 and 3.5 between them were the line for a long time, and the owner then found it loud: "the aim beam
+        /// must not disturb: thin, not as conspicuous and bold" (#1196). Against the black of the moon its core bloomed into a
+        /// glowing bead a dash, and next to the muzzle, eleven units from the overview's lens, it was a fat stroke; so it is
+        /// a fifth thinner and a third dimmer now. Anything derived from a ball's size rather than from what a few dozen
+        /// pixels of an additive line actually look like over a bright cluster should be expected to be wrong the same way.
         /// </para>
         /// </summary>
-        internal const float WIDTH = 0.15f;
+        internal const float WIDTH = 0.12f;
 
         /// <summary>
-        /// Radiance boost of the dashes. A little <i>over</i> <see cref="LaunchSmears"/>'s, which is not what one would
-        /// guess — a smear is a shot going off and should flare, while this is up the whole time the gun is aimed — but
-        /// the smear is briefly enormous where this is permanently thin, and a thin additive line over a lit
-        /// cluster needs the radiance to read at all. See <see cref="WIDTH"/> on how both were arrived at.
+        /// Radiance boost of the dashes. Over <see cref="LaunchSmears"/>'s, which is not what one would guess (a smear is
+        /// a shot going off and should flare, while this is up the whole time the gun is aimed), but the smear is briefly
+        /// enormous where this is permanently thin, and a thin additive line over a lit cluster needs the radiance to read
+        /// at all: in daylight over white balls it is a faint line at this. See <see cref="WIDTH"/> on how both were arrived at.
         /// </summary>
-        private const float BRIGHTNESS = 3.5f;
+        private const float BRIGHTNESS = 2.4f;
 
         /// <summary>Lowest peak channel of the dashes, so the near-black ball still gives a visible grey line.</summary>
         private const float COLOR_FLOOR = 0.2f;
 
         /// <summary>
-        /// World units a second the dash pattern crawls towards the far end. Slow: a hint of travel, not a
-        /// barber's pole. The pattern is laid along the whole flight from <c>phase * CRAWL</c>, so on a beam bent
-        /// by a gravity well (#332) the dashes run on through every knot instead of restarting at each.
+        /// World units a second the dash pattern crawls towards the far end, where its period is
+        /// <see cref="SPACING"/>. Slow: a hint of travel, not a barber's pole. The pattern is laid along the whole flight
+        /// from <c>phase * CRAWL</c>, so on a beam bent by a gravity well (#332) the dashes run on through every knot
+        /// instead of restarting at each; over the far part, where the period grows, they move on that much faster.
         /// </summary>
         private const float CRAWL = 1.6f;
 
@@ -144,127 +146,88 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Below this the beam is not drawn at all — an eased fade that has all but reached zero is a row of
         /// invisible quads and a pile of state changes for nothing. <see cref="Crosshair.MIN_OPACITY"/>'s
-        /// reasoning, for the mark this one hands over to.
+        /// reasoning, for the mark this one hands over to. A far dash whose own alpha has faded under it is skipped too.
         /// </summary>
         public const float MIN_OPACITY = 0.01f;
 
         /// <summary>
-        /// <b>How far to the side of the beam's end the ghost can sit</b>, in world units: what the funnel has to
-        /// cover so the ghost is always inside it (#1144). <b>Measured, not chosen</b>: over 478 aims at the six
-        /// levels <c>ShotAgreementTests</c> sweeps, each asked as the Game asks (the curved sweep with the world's
-        /// gravity, then <c>ShotPlacement.TrySolveAgainstBall</c>), the ghost's centre stood off the line through
-        /// the touch by 0.45 at the median, 0.61 at the 95th percentile, 0.64 at the 99th and 0.67 at the most
-        /// (along the line it stood 0.34 short of the touch at the median, from 0.68 short to 0.38 past).
-        /// <c>AimBeamTests</c> re-measures it and holds the funnel round those ghosts on screen.
-        /// <para>
-        /// It is a little over a ball's width across, which is the region the owner asked for: the shot ends
-        /// "somewhere in here", and the lattice decides where. The callers pass it where the shot snaps into a
-        /// cell and nothing (a plain line) where it does not.
-        /// </para>
+        /// <b>How far to the side of the beam's end the ghost can sit</b>, in world units (#1144). <b>Measured, not
+        /// chosen</b>: over 478 aims at the six levels <c>ShotAgreementTests</c> sweeps, each asked as the Game asks (the
+        /// curved sweep with the world's gravity, then <c>ShotPlacement.TrySolveAgainstBall</c>), the ghost's centre stood
+        /// off the line through the touch by 0.45 at the median, 0.61 at the 95th percentile, 0.64 at the 99th and 0.67 at
+        /// the most (along the line it stood 0.34 short of the touch at the median, from 0.68 short to 0.38 past).
+        /// <c>AimBeamTests</c> re-measures it and says how much of it <see cref="FAR_WIDTH"/> reaches: the beam's far end
+        /// points at the region, it does not outline it (the owner wanted it narrow, #1196).
         /// </summary>
-        public const float LANDING_SPREAD = 0.65f;
+        internal const float LANDING_SPREAD = 0.65f;
 
         /// <summary>
-        /// Where the line splits into the rays, as a fraction of the flight: before it the beam is the dashed line it
-        /// always was, from it the rays. Past half way, so the overview, which reads the aim off the near part, keeps
-        /// the dashed line over most of it.
+        /// Where the far part begins, as a fraction of the beam's length (to where it reaches the ball,
+        /// <see cref="VisibleEnd"/>): before it the beam is the plain line, from it its dashes widen, lengthen and fade.
+        /// Half way, so the overview, which reads the aim off the near part, keeps the plain line over half of it, and the
+        /// fade has the other half to be gradual in.
         /// </summary>
-        internal const float SPLIT_FROM = 0.55f;
+        internal const float FAR_FROM = 0.5f;
 
         /// <summary>
-        /// How many lines the beam splits into: the middle one along the flight, the aim itself, and two to each side,
-        /// half and all the way out. Odd, so there is a middle one; five, the most the owner's "several lines" was taken
-        /// to allow, so the outer pair draw the funnel's edges and the inner pair stand between them and the aim.
+        /// Half-width of a dash where the beam reaches the ball, in world units: a little over twice the line's
+        /// (<see cref="WIDTH"/>), which is what it takes to widen "slightly", in the owner's word, on screen at all: the
+        /// overview stands half again as far from the far end as from the middle of the beam, so a width that grew less would
+        /// shrink there. Seen from it at a 1080-line frame the dashes' half-light width goes from about 5 px half way to about
+        /// 8 px at the last dash with a tenth of the light, still well under the measured landing region's reach
+        /// (<see cref="LANDING_SPREAD"/>). The light where the beam reaches the ball has gone (<see cref="FarAlpha"/>), so what
+        /// shows widest is the stretch just short of it.
         /// </summary>
-        internal const int RAYS = 5;
+        internal const float FAR_WIDTH = 0.26f;
 
         /// <summary>
-        /// Half-width of a ray, in world units: from the overview, which stands some twenty units off the split and
-        /// twenty-five off the touch, a line about five pixels across where it splits and four at the touch at a 1080-line
-        /// frame (the outermost of them anti-aliased). Thin beside a dash, whose soft profile shows a band about twice as
-        /// wide (<see cref="WIDTH"/>), because five of them share a ball's width and must read as five lines: neighbouring
-        /// rays stand 12 to 17 pixels apart at the touch on that frame.
+        /// The pattern's period where the beam reaches the ball, over <see cref="SPACING"/>: the far dashes lengthen along
+        /// the same curve they widen along, by the period and by the share of it lit (<see cref="FAR_DASH_FRACTION"/>), so
+        /// a dash there is four and a half times the line's length at a little over twice its width, and the overview, which
+        /// sees it nearly end on, shows it no squatter than the line's own dashes there rather than as a rung (the remarks;
+        /// <c>AimBeamTests</c> holds it over the measured aims).
         /// </summary>
-        internal const float RAY_WIDTH = 0.035f;
+        internal const float FAR_STRETCH = 3.2f;
 
         /// <summary>
-        /// How far short of the touch the funnel is fully open, in world units: as far as a ghost stands short of it
-        /// (0.68 at the most, <see cref="LANDING_SPREAD"/>), so the whole landing region lies inside the outer rays and a
-        /// ghost at its near edge is not left outside a funnel still opening. From there on the rays run parallel.
+        /// The share of a period lit where the beam reaches the ball, against <see cref="DASH_FRACTION"/> on the plain line:
+        /// the far dashes take more of their period as they lengthen, so the gaps between them grow less than the dashes
+        /// do and the last dash is never a long gap short of the ball.
         /// </summary>
-        internal const float REGION_BEHIND = 0.7f;
+        internal const float FAR_DASH_FRACTION = 0.6f;
 
         /// <summary>
-        /// How far past the touch the rays run before they have faded out, in world units, <b>square to the lens</b>
-        /// (<see cref="FacingLens"/>): in the direction the flight carries on in on screen, with none of it into the
-        /// screen. A ghost standing off the line towards the lens or away from it, up to <see cref="LANDING_SPREAD"/>,
-        /// shows on screen beside the touch along the beam's screen direction; square to the lens the run shows at its
-        /// full length from any view, in front of the ball hit, and side on it is the flight's own direction, which
-        /// covers a ghost standing past the touch (up to 0.38).
+        /// The ball's radius, as <c>BallRenderSet.BALL_RADIUS</c> and the physics' own have it (this library sees
+        /// neither): the size of the disc the ball the shot touches shows the lens (<see cref="VisibleEnd"/>).
         /// </summary>
-        private const float OVERRUN = 1.2f;
+        private const float BALL_RADIUS = Constants.HALF;
 
         /// <summary>
-        /// The rays' alpha where they split off the line. Under one, so each is a line laid over the scene with a little
-        /// of it showing through: the lines "become transparent", in the owner's word, where the dashes were solid light.
+        /// The step the far part's period is integrated over, in world units (<see cref="Advance"/>). The period bends over
+        /// the far part's whole length, several units, so at a tenth of a unit the midpoint rule puts every dash within two
+        /// thousandths of a unit of where a march two hundred times finer would, over far parts four to twelve units long.
         /// </summary>
-        internal const float RAY_ALPHA = 0.9f;
+        private const float MARCH = 0.1f;
 
         /// <summary>
-        /// The share of <see cref="RAY_ALPHA"/> the rays keep at the touch: they fade along the flight to it and then out
-        /// to nothing over <see cref="OVERRUN"/>, so the funnel is clearest where it opens and dies away past the region.
+        /// The step the search for where the beam reaches the ball's disc walks back from the touch in, in world units
+        /// (<see cref="VisibleEnd"/>), before it halves the step it crossed in down to a thousandth.
         /// </summary>
-        private const float RAY_ALPHA_AT_TOUCH = 0.6f;
-
-        /// <summary>The rays' colour on its brightest channel, in linear radiance: the tint's own hue at full strength.</summary>
-        private const float RAY_PEAK = 1f;
-
-        /// <summary>
-        /// The most luminance the rays' colour may have, in linear radiance: under the glare pass's threshold (the
-        /// executables' <c>GLARE_THRESHOLD</c>, 0.55), so a ray never blooms. A white or yellow tint is dimmed to it; a
-        /// red or blue one at <see cref="RAY_PEAK"/> is under it already.
-        /// </summary>
-        internal const float RAY_LUMINANCE = 0.45f;
-
-        /// <summary>
-        /// How far the flight may stray from a ray's chord, in world units, before the rays are cut at a knot of it. The
-        /// Game's flight is stepped at the simulation's step (a knot every unit and a half or so) and falls a few
-        /// hundredths over it, which no chord shows; a gravity well's bend is cut as finely as it needs.
-        /// </summary>
-        private const float RAY_CHORD_TOLERANCE = 0.01f;
-
-        /// <summary>
-        /// The most points the rays can be cut at along the flight: the split, where the funnel is fully open, the touch
-        /// and the knots between where the flight bends past <see cref="RAY_CHORD_TOLERANCE"/>. Past it a bend is
-        /// spanned by a coarser chord rather than drawn with more pieces.
-        /// </summary>
-        private const int MAX_STATIONS = 64;
+        private const float SIGHT_STEP = 0.25f;
 
         /// <summary>
         /// Pieces a beam can be laid as: a dash a knot of a bent flight cuts is two, and the rare one that two knots
-        /// cut is three; each ray is a piece between neighbouring stations and one past the touch.
+        /// cut is three.
         /// </summary>
-        internal const int MAX_PIECES = 3 * MAX_DASHES + RAYS * MAX_STATIONS;
+        internal const int MAX_PIECES = 3 * MAX_DASHES;
 
         #endregion
 
-        /// <summary>Which of the shader's two techniques a piece is drawn with, and so how it is blended.</summary>
-        internal enum PieceKind : byte
-        {
-            /// <summary>The soft streak, added to the frame: the dashed line.</summary>
-            Dash,
-
-            /// <summary>The crisp line, blended over the frame: the rays the far end splits into.</summary>
-            Ray
-        }
-
         /// <summary>
-        /// One quad of a laid beam: its two ends, the half-width and the alpha at each before the caller's opacity (a
-        /// dash's two alphas are one), which technique draws it, and for a ray which of them it is: its lane, from
-        /// <c>-(RAYS - 1) / 2</c> on one side through 0 along the flight to <c>(RAYS - 1) / 2</c> on the other.
+        /// One quad of a laid beam: its two ends, the half-width at each, and the alpha before the caller's opacity (one
+        /// for the whole dash it is a piece of).
         /// </summary>
-        internal readonly record struct Piece(Vector3 Tail, Vector3 Head, float TailWidth, float HeadWidth, float TailAlpha,
-            float HeadAlpha, PieceKind Kind, int Lane);
+        internal readonly record struct Piece(Vector3 Tail, Vector3 Head, float TailWidth, float HeadWidth, float Alpha);
 
         private readonly GraphicsDevice _device;
 
@@ -273,11 +236,8 @@ namespace Prazsky.Core.Render
         private readonly EffectParameter _viewParam, _projectionParam, _cameraPositionParam;
         private readonly EffectParameter _headParam, _tailParam, _colorParam, _alphaParam;
         private readonly EffectParameter _headWidthParam, _tailWidthParam;
-        private readonly EffectParameter _rayTailAlphaParam, _rayHeadAlphaParam;
 
-        //The dashes' pass and the rays': by name, since LaunchSmears and LineSparks draw the effect's first technique
-        //through the pass they cached, and nothing here changes which technique is current
-        private readonly EffectPass _dashPass, _rayPass;
+        private readonly EffectPass _pass;
 
         //The frame's layout, reused: laid into, drawn from, never reallocated
         private readonly Piece[] _pieces = new Piece[MAX_PIECES];
@@ -286,8 +246,8 @@ namespace Prazsky.Core.Render
         private IndexBuffer _indexBuffer;
 
         /// <param name="shotTrailEffect">The compiled <c>Shaders/ShotTrail.fx</c>, the same instance
-        /// <see cref="LaunchSmears"/> is given, with its <c>AimRay</c> technique (the Potato path's port has one too).
-        /// Handed in and never disposed here — the caller's content manager owns its lifetime.</param>
+        /// <see cref="LaunchSmears"/> is given. Handed in and never disposed here — the caller's content
+        /// manager owns its lifetime.</param>
         public AimBeam(GraphicsDevice device, Effect shotTrailEffect)
         {
             _device = device;
@@ -301,11 +261,8 @@ namespace Prazsky.Core.Render
             _alphaParam = shotTrailEffect.Parameters["TrailAlpha"];
             _headWidthParam = shotTrailEffect.Parameters["TrailHeadWidth"];
             _tailWidthParam = shotTrailEffect.Parameters["TrailTailWidth"];
-            _rayTailAlphaParam = shotTrailEffect.Parameters["RayTailAlpha"];
-            _rayHeadAlphaParam = shotTrailEffect.Parameters["RayHeadAlpha"];
 
-            _dashPass = shotTrailEffect.Techniques["ShotTrail"].Passes[0];
-            _rayPass = shotTrailEffect.Techniques["AimRay"].Passes[0];
+            _pass = shotTrailEffect.CurrentTechnique.Passes[0];
 
             CreateQuad();
         }
@@ -313,51 +270,48 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Draws the beam along <paramref name="path"/>, from its first point (the muzzle) to its last.
         /// </summary>
-        /// <param name="camera">The frame's camera; the pieces turn to face it, and the rays spread and run past the touch
-        /// square to it (<see cref="Across"/>, <see cref="OVERRUN"/>).</param>
+        /// <param name="camera">The frame's camera; the dashes turn to face it, and the far part ends where it sees the
+        /// beam reach <paramref name="ballTouched"/>.</param>
         /// <param name="path">The flight, the muzzle first and the far end last: two points for a straight shot, the
-        /// knots of the curve for one bent by a gravity well or banked off a crate. The dashes, the rays and the
+        /// knots of the curve for one bent by a gravity well or banked off a crate. The dashes, the far part and the
         /// open fade are laid along the whole of it, so the knots do not show.</param>
-        /// <param name="srgbTint">The line's colour as authored (sRGB). Decoded to linear here; for the dashes its hue
-        /// kept but its peak lifted to <see cref="COLOR_FLOOR"/> and then boosted, which is the same rule
-        /// <see cref="LaunchSmears"/> applies to a smear and for the same reason, and for the rays
-        /// <see cref="RayColor"/>.</param>
+        /// <param name="srgbTint">The line's colour as authored (sRGB). Decoded to linear here, its hue kept but
+        /// its peak lifted to <see cref="COLOR_FLOOR"/> and then boosted, which is the same rule
+        /// <see cref="LaunchSmears"/> applies to a smear and for the same reason.</param>
         /// <param name="phase">A seconds clock. Only its fractional position within a period matters, so the
         /// wall clock serves — and being the wall clock, the crawl keeps going while a pause holds the session.</param>
         /// <param name="openEnded">True when the far end is open air rather than something the shot would hit, which
-        /// fades the dashes out along the last leg instead of ending them at a point. It splits into no rays.</param>
-        /// <param name="spread">How far to the side of the far end the shot may come to rest: <see cref="LANDING_SPREAD"/>
-        /// where it snaps into a lattice cell beside the ball it touches, splitting the beam into a funnel of rays over
-        /// that region; zero for a plain line, as a cutter, which strikes the very ball the beam ends on, wants (and so is
-        /// anything up to <see cref="WIDTH"/>, a funnel no wider than the line).</param>
+        /// fades the dashes out along the last leg instead of ending them at a point. Its dashes do not widen.</param>
+        /// <param name="ballTouched">The centre of the ball the shot touches where it snaps into a lattice cell beside it:
+        /// the far dashes widen, lengthen and fade out where the beam reaches that ball (the class summary). Null for a
+        /// plain line to the touch at full strength, as a cutter, which strikes the very ball the beam ends on, wants.</param>
         /// <param name="opacity">Scales the whole beam. The Game hands over the inverse of its precise-aim blend:
         /// leaning in over the barrel the lens looks <i>along</i> the bore, so the beam foreshortens into a stack of
         /// dashes piled over the very cell it is pointing at — and it has nothing to add there, because a crosshair
         /// on a lens aimed down the shot ray already <b>is</b> the trajectory. Each mode keeps the one signal that
         /// suits it. At or below <see cref="MIN_OPACITY"/> nothing is drawn and no state is touched.</param>
         public void Draw(ICamera camera, ReadOnlySpan<Vector3> path, Vector3 srgbTint, float phase, bool openEnded,
-            float spread, float opacity = 1f)
+            Vector3? ballTouched, float opacity = 1f)
         {
             if (opacity <= MIN_OPACITY) return;
 
-            int count = Lay(path, phase, openEnded, spread, camera.Position, _pieces);
+            int count = Lay(path, phase, openEnded, ballTouched, camera.Position, _pieces);
             if (count == 0) return;
 
             Vector3 linear = ColorSpace.SrgbToLinear(srgbTint);
-            Vector3 rayColor = RayColor(linear);
-
             float peak = MathF.Max(linear.X, MathF.Max(linear.Y, linear.Z));
             if (peak < COLOR_FLOOR) linear *= COLOR_FLOOR / MathF.Max(peak, Constants.THOUSANDTH);
-            Vector3 dashColor = linear * BRIGHTNESS;
 
             _viewParam.SetValue(camera.View);
             _projectionParam.SetValue(camera.Projection);
             _cameraPositionParam.SetValue(camera.Position);
+            _colorParam.SetValue(linear * BRIGHTNESS);
 
             BlendState blend = _device.BlendState;
             DepthStencilState depth = _device.DepthStencilState;
             RasterizerState raster = _device.RasterizerState;
 
+            _device.BlendState = BlendState.Additive;
             _device.DepthStencilState = DepthStencilState.DepthRead;
             _device.RasterizerState = RasterizerState.CullNone;
 
@@ -367,45 +321,22 @@ namespace Prazsky.Core.Render
             //The widths last sent. NaN equals nothing, so every Draw sends its first piece's
             float tailWidth = float.NaN, headWidth = float.NaN;
 
-            //The technique the pieces are on: the dashes are laid first and the rays after them, so it changes once
-            EffectPass pass = null;
-            PieceKind kind = PieceKind.Dash;
-
             for (int i = 0; i < count; i++)
             {
                 ref readonly Piece piece = ref _pieces[i];
-
-                if (pass == null || piece.Kind != kind)
-                {
-                    kind = piece.Kind;
-                    bool ray = kind == PieceKind.Ray;
-
-                    //A dash is light added to the frame, a ray a line laid over it (the remarks)
-                    _device.BlendState = ray ? BlendState.AlphaBlend : BlendState.Additive;
-                    _colorParam.SetValue(ray ? rayColor : dashColor);
-                    pass = ray ? _rayPass : _dashPass;
-                }
 
                 _tailParam.SetValue(piece.Tail);
                 _headParam.SetValue(piece.Head);
 
                 //Per draw and not per construction -- see the remarks: the effect is shared with LaunchSmears and
                 //LineSparks, which want widths of their own. Within this loop nothing else draws through it, so a
-                //width is sent only when it changes: once for the dashes and once for the rays
+                //width is sent only when it changes: once for the plain line, and per dash over the far part
                 if (piece.TailWidth != tailWidth) _tailWidthParam.SetValue(tailWidth = piece.TailWidth);
                 if (piece.HeadWidth != headWidth) _headWidthParam.SetValue(headWidth = piece.HeadWidth);
 
-                if (kind == PieceKind.Ray)
-                {
-                    _rayTailAlphaParam.SetValue(piece.TailAlpha * opacity);
-                    _rayHeadAlphaParam.SetValue(piece.HeadAlpha * opacity);
-                }
-                else
-                {
-                    _alphaParam.SetValue(piece.TailAlpha * opacity);
-                }
+                _alphaParam.SetValue(piece.Alpha * opacity);
 
-                pass.Apply();
+                _pass.Apply();
                 _device.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, 2);
             }
 
@@ -415,38 +346,22 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// The rays' colour for a <paramref name="linear"/> tint: its hue at <see cref="RAY_PEAK"/> on its brightest
-        /// channel (grey for black, which has none), dimmed to <see cref="RAY_LUMINANCE"/> where it would read brighter.
-        /// Under the glare threshold for every tint, so a ray blooms nowhere.
-        /// </summary>
-        internal static Vector3 RayColor(Vector3 linear)
-        {
-            float peak = MathF.Max(linear.X, MathF.Max(linear.Y, linear.Z));
-            Vector3 color = peak > Constants.THOUSANDTH ? linear * (RAY_PEAK / peak) : new Vector3(RAY_PEAK);
-
-            float luminance = ColorSpace.Luminance(color);
-            return luminance > RAY_LUMINANCE ? color * (RAY_LUMINANCE / luminance) : color;
-        }
-
-        /// <summary>
         /// Lays the beam out along <paramref name="path"/> as the pieces <see cref="Draw"/> draws, into
-        /// <paramref name="pieces"/> (<see cref="MAX_PIECES"/> is always enough), and says how many: the dashes first,
-        /// then the rays lane by lane, each lane's pieces from the split outwards. Pure: the same arguments give the same
-        /// pieces, and nothing is allocated.
+        /// <paramref name="pieces"/> (<see cref="MAX_PIECES"/> is always enough), and says how many, from the muzzle
+        /// outwards. Pure: the same arguments give the same pieces, and nothing is allocated.
         /// </summary>
         /// <remarks>
         /// <b>Everything is measured along the whole flight</b>, from the muzzle: the dash pattern, so it crawls on
-        /// through a knot; and the funnel, so a beam bent by a well splits once and opens once over its whole length
-        /// rather than once per leg. A dash that a knot cuts is two pieces, which make one continuous slice of the line;
-        /// the rays are cut only where the flight bends off their chord (<see cref="RAY_CHORD_TOLERANCE"/>).
+        /// through a knot, and the far part, so a beam bent by a well widens and fades once over its whole length rather
+        /// than once per leg. A dash that a knot cuts is two pieces, which make one continuous slice of the line, each
+        /// with the widths its own two ends stand at.
         /// <para>
-        /// <b>The flight's far direction is its last leg with a length</b> (<see cref="LastLeg"/>): a stepped flight can
-        /// put a knot within a thousandth of its end, and a last leg of nothing has no direction for the rays to run on
-        /// past the touch in, nor a length for the open fade to run over.
+        /// <b>The flight's last leg is its last one with a length</b> (<see cref="LastLeg"/>): a stepped flight can
+        /// put a knot within a thousandth of its end, and a last leg of nothing has no length for the open fade to run over.
         /// </para>
         /// </remarks>
-        /// <param name="viewer">Where the camera is: the rays spread and run past the touch square to its view.</param>
-        internal static int Lay(ReadOnlySpan<Vector3> path, float phase, bool openEnded, float spread, Vector3 viewer,
+        /// <param name="viewer">Where the camera is: the far part ends where it sees the beam reach the ball touched.</param>
+        internal static int Lay(ReadOnlySpan<Vector3> path, float phase, bool openEnded, Vector3? ballTouched, Vector3 viewer,
             Span<Piece> pieces)
         {
             if (path.Length < 2 || pieces.Length == 0) return 0;
@@ -454,18 +369,17 @@ namespace Prazsky.Core.Render
             float total = 0f;
             for (int i = 0; i + 1 < path.Length; i++) total += Vector3.Distance(path[i], path[i + 1]);
 
-            if (total < SPACING * MIN_DASH_FRACTION) return 0;
+            //A beam that reaches nothing has no landing at its end: it is the fading line, out to its end
+            float end = total, farFrom = float.PositiveInfinity;
+            if (ballTouched is Vector3 ball && !openEnded)
+            {
+                end = VisibleEnd(path, total, ball, viewer);
+                farFrom = FAR_FROM * end;
+            }
 
-            //A funnel no wider than the line is the line
-            bool fan = !openEnded && spread > WIDTH;
-            float split = fan ? SPLIT_FROM * total : total;
+            if (end < SPACING * MIN_DASH_FRACTION) return 0;
 
-            int lastLeg = LastLeg(path);
-
-            int count = LayDashes(path, split, lastLeg, phase, openEnded, pieces);
-            if (fan) count = LayRays(path, total, split, lastLeg, spread, viewer, pieces, count);
-
-            return count;
+            return LayDashes(path, end, farFrom, LastLeg(path), phase, openEnded, pieces);
         }
 
         /// <summary>The last leg of <paramref name="path"/> longer than a thousandth, or the first leg when none is.</summary>
@@ -478,46 +392,138 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// <paramref name="direction"/> turned square to the view ray <paramref name="view"/>: its part across the
-        /// view, made unit, which is the way it runs on screen at its full length. Unchanged when it has no such part
-        /// (a lens looking exactly along it) or there is no view to speak of.
+        /// How far along the flight, seen from <paramref name="viewer"/>, the beam reaches the disc the ball it touches
+        /// (centred on <paramref name="ball"/>) shows: the touch, <paramref name="total"/>, where the touch itself is not
+        /// over that disc, as from the side; short of it where the lens sees the beam's last stretch in front of the ball,
+        /// as the overview does. Walked back from the touch in steps of <see cref="SIGHT_STEP"/>, then halved down to a
+        /// thousandth between the last point over the disc and the first clear of it.
         /// </summary>
-        internal static Vector3 FacingLens(Vector3 direction, Vector3 view)
+        internal static float VisibleEnd(ReadOnlySpan<Vector3> path, float total, Vector3 ball, Vector3 viewer)
         {
-            float viewLength = view.Length();
-            if (viewLength <= Constants.THOUSANDTH) return direction;
+            if (!OverBall(PointAt(path, total), ball, viewer)) return total;
 
-            Vector3 along = view / viewLength;
-            Vector3 across = direction - along * Vector3.Dot(direction, along);
-            float acrossLength = across.Length();
+            float over = total, clear = -1f;
+            for (float distance = total - SIGHT_STEP; distance > 0f; distance -= SIGHT_STEP)
+            {
+                if (!OverBall(PointAt(path, distance), ball, viewer))
+                {
+                    clear = distance;
+                    break;
+                }
 
-            return acrossLength > Constants.THOUSANDTH ? across / acrossLength : direction;
+                over = distance;
+            }
+
+            //The walk stepped past the muzzle: the muzzle itself, or, over the disc too, the whole flight in front of the
+            //ball, which only a lens on the line of fire sees, and that lens sees nothing of the beam anyway
+            if (clear < 0f)
+            {
+                if (OverBall(path[0], ball, viewer)) return 0f;
+                clear = 0f;
+            }
+
+            while (over - clear > Constants.THOUSANDTH)
+            {
+                float middle = (over + clear) * Constants.HALF;
+                if (OverBall(PointAt(path, middle), ball, viewer)) over = middle;
+                else clear = middle;
+            }
+
+            return clear;
+        }
+
+        //Whether a point shows over the ball's disc from the viewer: the sight line through it passes within the ball's
+        //radius of its centre. In front of the ball such a point is drawn over it; behind it, it is hidden by it
+        private static bool OverBall(Vector3 point, Vector3 ball, Vector3 viewer)
+        {
+            Vector3 sight = point - viewer;
+            float length = sight.Length();
+            if (length <= Constants.THOUSANDTH) return false;
+
+            Vector3 toBall = ball - viewer;
+            float along = Vector3.Dot(toBall, sight) / length;
+            if (along <= 0f) return false;
+
+            return toBall.LengthSquared() - along * along < BALL_RADIUS * BALL_RADIUS;
         }
 
         /// <summary>
-        /// The way across <paramref name="direction"/> that is also across the view ray <paramref name="view"/>, made
-        /// unit: the one a spread shows at its full size along on screen, square to the line's own screen direction.
-        /// Any way across the direction when the lens looks exactly along it (nothing is seen of a spread then anyway).
+        /// How far along the far part a distance along the beam stands, from 0 at <paramref name="farFrom"/> (and everywhere
+        /// on a beam with no far part, whose <paramref name="farFrom"/> is infinite) to 1 at <paramref name="end"/>, where it
+        /// reaches the ball; held at those two outside them.
         /// </summary>
-        internal static Vector3 Across(Vector3 direction, Vector3 view)
+        internal static float FarAlong(float distance, float farFrom, float end)
         {
-            Vector3 across = Vector3.Cross(direction, view);
-            float length = across.Length();
-            if (length > Constants.THOUSANDTH * MathF.Max(direction.Length() * view.Length(), Constants.THOUSANDTH))
-                return across / length;
+            if (distance <= farFrom) return 0f;
+            if (distance >= end) return 1f;
 
-            across = Vector3.Cross(direction, MathF.Abs(direction.Y) < 0.9f * direction.Length() ? Vector3.UnitY : Vector3.UnitX);
-            length = across.Length();
-            return length > 0f ? across / length : Vector3.UnitX;
+            return (distance - farFrom) / (end - farFrom);
         }
 
         /// <summary>
-        /// The dashed line from the muzzle to <paramref name="end"/>, a distance along the flight (the touch, or where the
-        /// line splits): the crawl along the whole flight, and the open fade over the last leg of a beam that reaches
-        /// nothing. Exactly the line the beam always was, up to where it ends.
+        /// The curve the far dashes widen and lengthen along, over <see cref="FarAlong"/>: a smoothstep, so it leaves the
+        /// plain line with no corner and arrives at the ball with none either.
         /// </summary>
-        private static int LayDashes(ReadOnlySpan<Vector3> path, float end, int finalLeg, float phase, bool openEnded,
-            Span<Piece> pieces)
+        internal static float Ease(float along) => along * along * (3f - 2f * along);
+
+        /// <summary>A dash's half-width at a point of the far part: <see cref="WIDTH"/> widening to <see cref="FAR_WIDTH"/>.</summary>
+        internal static float FarWidth(float along) => WIDTH + (FAR_WIDTH - WIDTH) * Ease(along);
+
+        /// <summary>The pattern's period at a point of the far part: <see cref="SPACING"/> growing to <see cref="FAR_STRETCH"/> times it.</summary>
+        internal static float FarPeriod(float along) => SPACING * (1f + (FAR_STRETCH - 1f) * Ease(along));
+
+        /// <summary>The share of a period a dash starting at a point of the far part lights: <see cref="DASH_FRACTION"/> growing to <see cref="FAR_DASH_FRACTION"/>.</summary>
+        internal static float FarFraction(float along) => DASH_FRACTION + (FAR_DASH_FRACTION - DASH_FRACTION) * Ease(along);
+
+        /// <summary>
+        /// A far dash's alpha at a point of the far part, for a dash <paramref name="width"/> wide (half-width, its two
+        /// ends' mean): 1 on the plain line, 0 where the beam reaches the ball. Its square, the light the dash adds at its
+        /// core, is the fade <c>1 - along³</c> (flat where it leaves the plain line, so no corner there, and falling fastest
+        /// as it reaches the ball, so the dashes still read up to it) cut by the widening, <see cref="WIDTH"/> over
+        /// <paramref name="width"/>, so the light across its whole width goes as the fade alone: never over the line's, and
+        /// gone at the ball.
+        /// </summary>
+        internal static float FarAlpha(float along, float width) => MathF.Sqrt((1f - along * along * along) * WIDTH / width);
+
+        /// <summary>
+        /// The distance along the flight <paramref name="periods"/> of the dash pattern past <paramref name="distance"/>:
+        /// <see cref="SPACING"/> a period up to <paramref name="farFrom"/>, by exactly the plain line's arithmetic, and
+        /// <see cref="FarPeriod"/> a period over the far part, integrated in steps of <see cref="MARCH"/>.
+        /// </summary>
+        private static float Advance(float distance, float periods, float farFrom, float end)
+        {
+            float steady = periods * SPACING;
+            if (distance + steady <= farFrom) return distance + steady;
+
+            if (distance < farFrom)
+            {
+                periods -= (farFrom - distance) / SPACING;
+                distance = farFrom;
+            }
+
+            while (periods > 0f)
+            {
+                //Past the end the period is the far one, and stays it
+                if (distance >= end) return distance + periods * FarPeriod(1f);
+
+                float step = MathF.Min(MARCH, end - distance);
+                float period = FarPeriod(FarAlong(distance + step * Constants.HALF, farFrom, end));
+                if (periods * period <= step) return distance + periods * period;
+
+                distance += step;
+                periods -= step / period;
+            }
+
+            return distance;
+        }
+
+        /// <summary>
+        /// The dashed line from the muzzle to <paramref name="end"/> along the flight (the touch, or where the beam reaches
+        /// the ball touched): the crawl along the whole flight, the far part from <paramref name="farFrom"/> on, and the
+        /// open fade over the last leg of a beam that reaches nothing.
+        /// </summary>
+        private static int LayDashes(ReadOnlySpan<Vector3> path, float end, float farFrom, int finalLeg, float phase,
+            bool openEnded, Span<Piece> pieces)
         {
             //The open fade runs over the last leg, as it did when each leg was drawn on its own: a bank shot that
             //reaches nothing keeps its first leg whole and dies away after the bounce
@@ -525,8 +531,6 @@ namespace Prazsky.Core.Render
             for (int i = 0; i < finalLeg; i++) lastLegStart += Vector3.Distance(path[i], path[i + 1]);
             float lastLeg = Vector3.Distance(path[finalLeg], path[finalLeg + 1]);
 
-            float dashLength = SPACING * DASH_FRACTION;
-            float minDash = SPACING * MIN_DASH_FRACTION;
             int count = 0, dashes = 0;
 
             //The leg the walk is on, and how far along the flight it starts. Dashes only move forward, so this
@@ -536,14 +540,17 @@ namespace Prazsky.Core.Render
 
             //The pattern's origin walks towards the target and wraps every period, so the dashes appear to
             //travel without any one of them being tracked. Starting one period behind the muzzle is what lets a
-            //dash be clipped INTO existence at the near end rather than popping in whole.
+            //dash be clipped INTO existence at the near end rather than popping in whole; and since every dash is laid
+            //on from there, the far dashes, whose period grows, wrap with the near ones.
             float origin = (phase * CRAWL) % SPACING - SPACING;
 
-            for (float start = origin; start < end && dashes < MAX_DASHES; start += SPACING)
+            for (float start = origin; start < end && dashes < MAX_DASHES;)
             {
                 float from = MathF.Max(start, 0f);
-                float to = MathF.Min(start + dashLength, end);
-                if (to - from < minDash) continue;
+                float to = MathF.Min(Advance(start, FarFraction(FarAlong(start, farFrom, end)), farFrom, end), end);
+                start = Advance(start, 1f, farFrom, end);
+
+                if (to - from < FarPeriod(FarAlong(from, farFrom, end)) * MIN_DASH_FRACTION) continue;
 
                 dashes++;
 
@@ -557,6 +564,13 @@ namespace Prazsky.Core.Render
                         : 1f;
                     if (t > 0f) alpha = 1f - t * t;
                     if (alpha <= 0f) continue;
+                }
+                else if (to > farFrom)
+                {
+                    //The far part's fade, for the dash as a whole: at its middle, for its mean width
+                    float width = (FarWidth(FarAlong(from, farFrom, end)) + FarWidth(FarAlong(to, farFrom, end))) * Constants.HALF;
+                    alpha = FarAlpha(FarAlong((from + to) * Constants.HALF, farFrom, end), width);
+                    if (alpha <= MIN_OPACITY) continue;
                 }
 
                 while (leg + 2 < path.Length && legStart + legLength <= from)
@@ -577,7 +591,8 @@ namespace Prazsky.Core.Render
                     if (b - a > Constants.THOUSANDTH)
                     {
                         pieces[count++] = new Piece(PointOnLeg(path, at, atStart, atLength, a),
-                            PointOnLeg(path, at, atStart, atLength, b), WIDTH, WIDTH, alpha, alpha, PieceKind.Dash, 0);
+                            PointOnLeg(path, at, atStart, atLength, b), FarWidth(FarAlong(a, farFrom, end)),
+                            FarWidth(FarAlong(b, farFrom, end)), alpha);
                     }
 
                     if (b >= to || at + 2 >= path.Length) break;
@@ -594,169 +609,13 @@ namespace Prazsky.Core.Render
             return count;
         }
 
-        /// <summary>
-        /// The rays: <see cref="RAYS"/> lines from <paramref name="split"/>, a distance along the flight, through the
-        /// touch and <see cref="OVERRUN"/> past it. The middle one runs along the flight; the others open straight out
-        /// across it, square to the lens, until they stand <paramref name="spread"/> (all the way out) or half of it off
-        /// it <see cref="REGION_BEHIND"/> short of the touch, and run parallel from there. Each fades from
-        /// <see cref="RAY_ALPHA"/> at the split to <see cref="RAY_ALPHA_AT_TOUCH"/> of it at the touch, and to nothing at
-        /// its far end. Static: the dashes crawl, the funnel stays.
-        /// </summary>
-        private static int LayRays(ReadOnlySpan<Vector3> path, float total, float split, int finalLeg, float spread,
-            Vector3 viewer, Span<Piece> pieces, int count)
-        {
-            //Where the funnel is fully open: the near edge of the landing region, or half way from the split on a flight
-            //too short for that
-            float open = MathF.Max(total - REGION_BEHIND, split + (total - split) * Constants.HALF);
-
-            Span<float> stations = stackalloc float[MAX_STATIONS];
-            int n = Stations(path, total, split, open, stations);
-
-            //Past the touch the rays run on square to the lens (OVERRUN): the far leg's direction with none of it into the screen
-            Vector3 touch = path[^1];
-            Vector3 far = Vector3.Normalize(path[finalLeg + 1] - path[finalLeg]);
-            Vector3 overrun = FacingLens(far, touch - viewer);
-
-            //Each station's point on the flight, and the way across it the rays spread there: across the flight's
-            //direction at the station (between its neighbours; at the touch the far leg's, so the spread there is square
-            //to the run past it) and across the view ray to it
-            Span<Vector3> points = stackalloc Vector3[MAX_STATIONS];
-            Span<Vector3> sides = stackalloc Vector3[MAX_STATIONS];
-            for (int i = 0; i < n; i++) points[i] = PointAt(path, stations[i]);
-            for (int i = 0; i < n; i++)
-            {
-                Vector3 along = i == n - 1 ? far : points[i + 1] - points[Math.Max(i - 1, 0)];
-                sides[i] = Across(along, points[i] - viewer);
-            }
-
-            int half = (RAYS - 1) / 2;
-
-            for (int lane = -half; lane <= half && count < pieces.Length; lane++)
-            {
-                float share = spread * lane / half;
-
-                //From the split, where every ray leaves the line
-                Vector3 from = points[0];
-                float fromAlpha = RAY_ALPHA;
-
-                for (int i = 1; i < n && count < pieces.Length; i++)
-                {
-                    Vector3 to = points[i] + sides[i] * (share * Opening(stations[i], split, open));
-                    float toAlpha = RAY_ALPHA * MathHelper.Lerp(1f, RAY_ALPHA_AT_TOUCH, (stations[i] - split) / (total - split));
-
-                    pieces[count++] = new Piece(from, to, RAY_WIDTH, RAY_WIDTH, fromAlpha, toAlpha, PieceKind.Ray, lane);
-
-                    from = to;
-                    fromAlpha = toAlpha;
-                }
-
-                //And on past the touch, square to the lens, still fully open, fading out
-                if (count < pieces.Length)
-                    pieces[count++] = new Piece(from, touch + overrun * OVERRUN + sides[n - 1] * share, RAY_WIDTH, RAY_WIDTH,
-                        fromAlpha, 0f, PieceKind.Ray, lane);
-            }
-
-            return count;
-        }
-
-        //How far the funnel has opened at a distance along the flight: nothing at the split, all the way at `open`
-        private static float Opening(float distance, float split, float open) =>
-            Math.Clamp((distance - split) / (open - split), 0f, 1f);
-
-        /// <summary>
-        /// The distances along the flight the rays are cut at, into <paramref name="stations"/>, nearest first, and how
-        /// many: the split, where the funnel is fully open (<paramref name="open"/>), the touch, and between them each knot
-        /// past which the flight would stray further than <see cref="RAY_CHORD_TOLERANCE"/> off a single chord. A straight
-        /// flight, however many legs it is cut into, is the first three.
-        /// </summary>
-        private static int Stations(ReadOnlySpan<Vector3> path, float total, float split, float open, Span<float> stations)
-        {
-            int n = 0;
-            stations[n++] = split;
-
-            //The chord being grown runs from the last station, `anchor`, to the furthest knot it is known to hold to,
-            //`held`, which becomes a station only once the chord to the next knot breaks
-            float anchor = split, held = float.NaN;
-            bool opened = false;
-
-            float knot = 0f;
-            for (int i = 1; i + 1 < path.Length; i++)
-            {
-                knot += Vector3.Distance(path[i - 1], path[i]);
-                if (knot <= split + Constants.THOUSANDTH) continue;
-                if (knot >= total - Constants.THOUSANDTH) break;
-
-                //Room kept for what the rest of this pass and the two forced stations after it can add, two each
-                if (n + 7 > stations.Length) break;
-
-                if (!opened && open <= knot + Constants.THOUSANDTH)
-                {
-                    Grow(path, stations, ref n, ref anchor, ref held, open, forced: true);
-                    opened = true;
-                }
-
-                if (knot > open + Constants.THOUSANDTH || knot < open - Constants.THOUSANDTH)
-                    Grow(path, stations, ref n, ref anchor, ref held, knot, forced: false);
-            }
-
-            if (!opened) Grow(path, stations, ref n, ref anchor, ref held, open, forced: true);
-            Grow(path, stations, ref n, ref anchor, ref held, total, forced: true);
-
-            return n;
-        }
-
-        //One more candidate for the chord being grown: where the chord from the anchor to it no longer holds, the last
-        //knot it did hold to becomes a station; a forced candidate is a station whatever the chord does
-        private static void Grow(ReadOnlySpan<Vector3> path, Span<float> stations, ref int n, ref float anchor, ref float held,
-            float candidate, bool forced)
-        {
-            if (!float.IsNaN(held) && !ChordHolds(path, anchor, candidate))
-            {
-                stations[n++] = held;
-                anchor = held;
-            }
-
-            if (forced)
-            {
-                stations[n++] = candidate;
-                anchor = candidate;
-                held = float.NaN;
-            }
-            else
-            {
-                held = candidate;
-            }
-        }
-
-        //Whether every knot of the flight strictly between two distances along it lies within RAY_CHORD_TOLERANCE of the
-        //chord between them
-        private static bool ChordHolds(ReadOnlySpan<Vector3> path, float from, float to)
-        {
-            Vector3 a = PointAt(path, from), b = PointAt(path, to);
-            Vector3 chord = b - a;
-            float lengthSquared = chord.LengthSquared();
-
-            float knot = 0f;
-            for (int i = 1; i + 1 < path.Length; i++)
-            {
-                knot += Vector3.Distance(path[i - 1], path[i]);
-                if (knot <= from) continue;
-                if (knot >= to) break;
-
-                float t = lengthSquared > 0f ? Math.Clamp(Vector3.Dot(path[i] - a, chord) / lengthSquared, 0f, 1f) : 0f;
-                if (Vector3.DistanceSquared(path[i], a + chord * t) > RAY_CHORD_TOLERANCE * RAY_CHORD_TOLERANCE) return false;
-            }
-
-            return true;
-        }
-
         //A point at a distance along the flight, on the leg that covers it; a leg of nothing is its one point
         private static Vector3 PointOnLeg(ReadOnlySpan<Vector3> path, int leg, float legStart, float legLength, float distance) =>
             legLength > Constants.THOUSANDTH
                 ? Vector3.Lerp(path[leg], path[leg + 1], (distance - legStart) / legLength)
                 : path[leg];
 
-        //A point at a distance along the flight, the leg found by walking from the muzzle (the rays ask for a few dozen
+        //A point at a distance along the flight, the leg found by walking from the muzzle (VisibleEnd asks for a few dozen
         //over a flight of a few dozen knots at the most, so the walk is cheaper than any cursor kept for it). Before the
         //muzzle it is the muzzle, past the far end the far end
         private static Vector3 PointAt(ReadOnlySpan<Vector3> path, float distance)
