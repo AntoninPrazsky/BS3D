@@ -1871,8 +1871,8 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Whether the outback's heat shimmer at the skyline is drawn (#1135, <see cref="DrawHorizonRefraction"/>): the host's
         /// tier. The Game sets it from its quality preset (High and Ultra); on until a host says otherwise, so the Testbed
-        /// draws it and prices it with its <c>outback=</c> dial. A phone never draws it whatever this says
-        /// (<see cref="GraphicsSupport.HorizonShimmer"/>).
+        /// draws it and prices it with its <c>outback=</c> dial. A phone and a multisampled scene target never draw it
+        /// whatever this says (<see cref="DrawHorizonRefraction"/>).
         /// </summary>
         public bool HorizonShimmer { get; set; } = true;
 
@@ -1880,7 +1880,11 @@ namespace Prazsky.Core.Render
         /// The passes of <paramref name="scene"/> that read the frame drawn so far through <paramref name="pipeline"/>'s grab
         /// (<see cref="Backdrop.DrawRefraction"/>): the outback's heat shimmer (#1135), which bends the skyline in a strip the
         /// depth test keeps beyond the plain's last fade. A no-op for every other scene, below the tier
-        /// (<see cref="HorizonShimmer"/>) and on a phone.
+        /// (<see cref="HorizonShimmer"/>), on a phone, and on a multisampled scene target (the Testbed's <c>ssaa=1</c>, or the
+        /// Game's at High under an <c>ssaa=1</c> override), as <see cref="EnvironmentFollowsIslandDepth"/> is: leaving a
+        /// multisampled target resolves it, its far mark averaged into its colour before the copy can weigh the one by the
+        /// other, and a near silhouette in the strip would thicken towards the near colour even where nothing moves
+        /// (<c>SampleSceneFar</c> in Tonemap.fx).
         /// <para>
         /// <b>Where a host calls it</b>: with the scene target bound, after <see cref="DrawEnvironmentBlended"/> and the sky
         /// behind the opaque scene, and before the island's colour. Everything the strip may show (the far plain, the far
@@ -1892,7 +1896,8 @@ namespace Prazsky.Core.Render
         /// </summary>
         public void DrawHorizonRefraction(SceneKind scene, in SceneFrame frame, PostProcessPipeline pipeline)
         {
-            if (!HorizonShimmer || !GraphicsSupport.HorizonShimmer || pipeline == null) return;
+            if (!HorizonShimmer || !GraphicsSupport.HorizonShimmer || pipeline?.SceneTarget == null
+                || pipeline.SceneTarget.MultiSampleCount > 1) return;
 
             BackdropFor(scene)?.DrawRefraction(frame, pipeline);
         }

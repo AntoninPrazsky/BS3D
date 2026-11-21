@@ -137,7 +137,9 @@ float4 RefractPS(BandPixel input) : COLOR
     float elevation = asin(ray.y);
 
     //The pixel's own texel of the copy, at its centre: every sample a display pixel resolves reads the same one, so where
-    //nothing moves the samples are written their own box average and the resolve gives back exactly what it had. Every
+    //nothing moves the samples are written their own box average and the resolve gives back exactly what it had (on a
+    //target the back buffer times the factor; on any other the copy is a bilinear read and the strip a little softer,
+    //SampleSceneFar in Tonemap.fx). Every
     //read below is that centre moved by how far its direction lands from the pixel's own, so an offset of nothing reads
     //the own texel again rather than a blend of it with its neighbours
     float2 uv = input.Clip.xy / input.Clip.w * float2(0.5, -0.5) + 0.5;

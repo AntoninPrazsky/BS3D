@@ -612,9 +612,22 @@ technique SceneGrab
 //under keeps it there). So each tap counts as far as it is marked: the copy's alpha is how much of the output pixel is far
 //and its colour is the far samples' alone. A block of samples straddling a near silhouette lends the shimmer only its far
 //share, and a near pixel lends nothing, which is what keeps a near formation's or the island's colour out of the strip.
-//The taps are the box's own, one at a time (SampleSceneBox's loop): the single bilinear tap SampleScene takes at a factor
-//of two averages the colour and the mark first and cannot weigh the one by the other. Only a magnifying read (#298, #801,
-//a scene target smaller than the copy) takes one bilinear tap, there being no block of texels under an output pixel.
+//⚠ EVERY TAP IS A POINT TAP, weighed by its own mark (FarShare): the hardware's bilinear filter averages the colour and the
+//mark first and cannot weigh the one by the other, so a near sample's colour would land in the far share. Two reads:
+//  - the box (a scene target exactly the copy times the factor): SampleSceneBox's taps, one at a time, where SampleScene
+//    takes one bilinear tap at a factor of two. The resolve's own box, so where nothing moves the shimmer writes every
+//    sample back its block's average and the frame comes back as it was.
+//  - any other target (MagnifyScene: #298's probe below native, #801's resolution row below the display's, whose
+//    supersampled target is no whole multiple of the copy): the resolve's one bilinear tap built by hand from the four
+//    texels round the pixel's centre, each weighed by its share of the filter and by its own mark. Near colour stays out
+//    as on the box, but the strip is resampled once more than the frame round it, a little softer where nothing moves.
+//A multisampled target never reaches this pass (SceneRenderer.DrawHorizonRefraction): leaving it resolves its samples,
+//colour and mark averaged together, before any tap here could weigh them.
+float4 FarShare(float4 scene)
+{
+    return float4(scene.rgb, 1.0) * saturate(1.0 - scene.a);
+}
+
 float4 SampleSceneFar(float2 uv)
 {
     float4 far = 0;
@@ -622,8 +635,18 @@ float4 SampleSceneFar(float2 uv)
     [branch]
     if (MagnifyScene > 0)
     {
-        float4 scene = tex2Dlod(SceneSamplerLinear, float4(uv, 0, 0));
-        far = float4(scene.rgb, 1.0) * saturate(1.0 - scene.a);
+        //The texel whose centre is the nearest under and left of the pixel's, and how far past it the pixel's centre lies:
+        //the bilinear filter's own footprint and weights. Point taps at texel centres; the clamp at the target's edge is
+        //the sampler's, as the hardware filter's is
+        float2 texel = uv / SourceTexelSize - 0.5;
+        float2 corner = floor(texel);
+        float2 f = texel - corner;
+        float2 first = (corner + 0.5) * SourceTexelSize;
+
+        far = FarShare(tex2Dlod(SceneSampler, float4(first, 0, 0))) * ((1.0 - f.x) * (1.0 - f.y))
+            + FarShare(tex2Dlod(SceneSampler, float4(first + float2(SourceTexelSize.x, 0.0), 0, 0))) * (f.x * (1.0 - f.y))
+            + FarShare(tex2Dlod(SceneSampler, float4(first + float2(0.0, SourceTexelSize.y), 0, 0))) * ((1.0 - f.x) * f.y)
+            + FarShare(tex2Dlod(SceneSampler, float4(first + SourceTexelSize, 0, 0))) * (f.x * f.y);
     }
     else
     {
@@ -632,8 +655,7 @@ float4 SampleSceneFar(float2 uv)
             COUNT_LOOP(x, SupersampleFactor, MAX_SUPERSAMPLE)
             {
                 float2 offset = (float2(x, y) + 0.5 - SupersampleFactor * 0.5) * SourceTexelSize;
-                float4 scene = tex2Dlod(SceneSampler, float4(uv + offset, 0, 0));
-                far += float4(scene.rgb, 1.0) * saturate(1.0 - scene.a);
+                far += FarShare(tex2Dlod(SceneSampler, float4(uv + offset, 0, 0)));
             }
         }
 

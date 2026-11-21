@@ -17,8 +17,10 @@ namespace Prazsky.Core.Render
     /// <b>Three passes, all inside the scene target's frame</b>: the ring marks where it passes the depth test (an alpha of
     /// 0), <see cref="PostProcessPipeline.GrabSceneFar"/> copies the rows the ring covers with every sample weighed by that
     /// mark, and the ring is drawn again reading the copy at displaced angles and compositing only its far share, so a read
-    /// beside a near silhouette brings none of the near thing's colour into the strip. The copy is scissored to the rows the
-    /// ring's projection reaches (<see cref="TryRows"/>), so it costs a strip of the frame, not the frame.
+    /// beside a near silhouette brings none of the near thing's colour into the strip. That holds because every sample is
+    /// weighed before anything averages it, which a multisampled scene target cannot give (leaving it resolves colour and
+    /// mark together), so <see cref="SceneRenderer.DrawHorizonRefraction"/> never draws the shimmer on one. The copy is
+    /// scissored to the rows the ring's projection reaches (<see cref="TryRows"/>), so it costs a strip of the frame, not the frame.
     /// </para>
     /// <para>
     /// ⚠ <b>Every figure here is an angle or a time</b>: the offset is radians of a direction's elevation, projected back

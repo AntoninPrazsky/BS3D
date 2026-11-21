@@ -193,9 +193,20 @@ namespace BS3D.Tests
             Assert.Matches(@"float4\s+MarkPS\(BandPixel\s+input\)\s*:\s*COLOR\s*\{\s*return\s+0\s*;\s*\}", Shader());
 
             string tonemap = CodeOf(Path.Combine("BS3DLibs", "Prazsky.Shaders", "Content", "Shaders", "Tonemap.fx"));
+            Assert.Matches(@"float4\s+FarShare\(float4\s+scene\)\s*\{\s*return\s+float4\(scene\.rgb,\s*1\.0\)\s*\*\s*saturate\(1\.0\s*-\s*scene\.a\)\s*;\s*\}", tonemap);
+
+            //Every tap a point tap weighed by its own mark before anything averages it: the hardware's bilinear filter would
+            //average the colour and the mark first, and a near sample's colour would land in the far share. The box's taps
+            //(one, in its loop) and the hand-built bilinear's four on a target no whole multiple of the copy
             string far = tonemap.Substring(tonemap.IndexOf("float4 SampleSceneFar(", StringComparison.Ordinal));
             far = far.Substring(0, far.IndexOf("\n}", StringComparison.Ordinal));
-            Assert.Equal(2, Regex.Matches(far, @"float4\(scene\.rgb,\s*1\.0\)\s*\*\s*saturate\(1\.0\s*-\s*scene\.a\)").Count);
+            Assert.DoesNotContain("SceneSamplerLinear", far);
+            Assert.Equal(5, Regex.Matches(far, @"tex2Dlod\(").Count);
+            Assert.Equal(5, Regex.Matches(far, @"FarShare\(tex2Dlod\(SceneSampler,").Count);
+            Assert.Matches(@"\*\s*\(\(1\.0\s*-\s*f\.x\)\s*\*\s*\(1\.0\s*-\s*f\.y\)\)", far);
+            Assert.Matches(@"\*\s*\(f\.x\s*\*\s*\(1\.0\s*-\s*f\.y\)\)", far);
+            Assert.Matches(@"\*\s*\(\(1\.0\s*-\s*f\.x\)\s*\*\s*f\.y\)", far);
+            Assert.Matches(@"\*\s*\(f\.x\s*\*\s*f\.y\)", far);
 
             string refract = Body(Shader(), "float4 RefractPS(");
             Assert.Matches(@"color\s*=\s*color\s*\*\s*\(1\.0\s*-\s*shifted\.a\)\s*\+\s*shifted\.rgb\s*;", refract);
@@ -299,5 +310,41 @@ namespace BS3D.Tests
         [InlineData(QualityLevel.Ultra, true)]
         public void OnlyHighAndUltraShimmer(QualityLevel quality, bool shimmers) =>
             Assert.Equal(shimmers, QualityPreset.Presets[(int)quality].HorizonShimmer);
+
+        /// <summary>
+        /// The table is not the tier until something carries it: the renderer draws the shimmer until told otherwise, so the
+        /// Game seeds it from the starting tier where it builds the renderer and states it again on every change of tier, and
+        /// the renderer refuses it on a phone and on a multisampled scene target (whose resolve averages the far mark into
+        /// the colour before the copy can weigh them) before the backdrop is asked. And the copy's target is preserved only
+        /// where the shimmer may be drawn: a phone keeps the discarded target the glass alone had.
+        /// </summary>
+        [Fact]
+        public void TheTierReachesTheRenderer()
+        {
+            Assert.Matches(@"_sceneRenderer\.HorizonShimmer\s*=\s*preset\.HorizonShimmer\s*;", CodeOf(Path.Combine("Game", "BS3DGame.Quality.cs")));
+
+            string game = CodeOf(Path.Combine("Game", "BS3DGame.cs"));
+            int built = game.IndexOf("new SceneRenderer(", StringComparison.Ordinal);
+            Assert.True(built >= 0, "BS3DGame.cs builds no SceneRenderer");
+            string initializer = game.Substring(built, game.IndexOf("};", built, StringComparison.Ordinal) - built);
+            Assert.Matches(@"\bHorizonShimmer\s*=\s*QualityPreset\.Presets\[\(int\)_quality\]\.HorizonShimmer\b", initializer);
+
+            string renderer = CodeOf(Path.Combine("BS3DLibs", "Prazsky.Core", "Render", "SceneRenderer.cs"));
+            int draw = renderer.IndexOf("public void DrawHorizonRefraction(", StringComparison.Ordinal);
+            Assert.True(draw >= 0, "SceneRenderer has no DrawHorizonRefraction");
+            int asked = renderer.IndexOf("DrawRefraction(frame, pipeline)", draw, StringComparison.Ordinal);
+            Assert.True(asked > draw, "DrawHorizonRefraction never asks the backdrop");
+            string guard = renderer.Substring(draw, asked - draw);
+            Assert.Matches(@"if\s*\(\s*!HorizonShimmer\s*\|\|\s*!GraphicsSupport\.HorizonShimmer\s*\|\|[^)]*MultiSampleCount\s*>\s*1\s*\)\s*return\s*;", guard);
+
+            Assert.Matches(@"public\s+static\s+bool\s+HorizonShimmer\s*=>\s*!OperatingSystem\.IsAndroid\(\)\s*;",
+                CodeOf(Path.Combine("BS3DLibs", "Prazsky.Core", "Render", "GraphicsSupport.cs")));
+
+            //This host is a desktop, where the shimmer may be drawn and so the copy's target is preserved
+            Assert.True(GraphicsSupport.HorizonShimmer);
+            Assert.Equal(RenderTargetUsage.PreserveContents, PostProcessPipeline.GrabUsage);
+            Assert.Matches(@"GrabUsage\s*=>\s*GraphicsSupport\.HorizonShimmer\s*\?\s*RenderTargetUsage\.PreserveContents\s*:\s*RenderTargetUsage\.DiscardContents\s*;",
+                CodeOf(Path.Combine("BS3DLibs", "Prazsky.Core", "Render", "PostProcessPipeline.cs")));
+        }
     }
 }
