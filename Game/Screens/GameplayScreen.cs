@@ -1367,10 +1367,9 @@ namespace BS3D.Screens
 
             //The aim beam borrows the SAME effect instance — it is the same billboard between two world points,
             //and a short segment of it comes out as a dash for free. Sharing it is why both components now push
-            //the trail's two widths per draw instead of once; see AimBeam's remarks. On the Potato path its glow is
-            //dimmed, since that effect curves each of the glow's overlapping layers by itself (#1144)
-            _aimBeam = new AimBeam(GraphicsDevice, Game.Content.Load<Effect>("Shaders/ShotTrail"),
-                BS3DGame.PotatoPath ? AimBeam.POTATO_GLOW_GAIN : 1f);
+            //the trail's two widths per draw instead of once; see AimBeam's remarks. Its far end's crisp lines are the
+            //effect's second technique, which the Potato path's port has as well (#1196)
+            _aimBeam = new AimBeam(GraphicsDevice, Game.Content.Load<Effect>("Shaders/ShotTrail"));
 
             //Its OWN effect and not the trail's, unlike the two above: this billboard is placed from a centre
             //and the view basis rather than from two world points, so there is no quad to share and no widths
