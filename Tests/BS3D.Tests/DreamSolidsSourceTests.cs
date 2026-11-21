@@ -54,8 +54,11 @@ namespace BS3D.Tests
         [Fact]
         public void TheHostOrbitsAndBoundsTheSolidsAsTheShaderDoes()
         {
-            Assert.Equal(DreamBackdrop.SOLID_ORBIT_BASE, Define("SHAPE_ORBIT_BASE"), 5);
-            Assert.Equal(DreamBackdrop.SOLID_ORBIT_SWING, Define("SHAPE_ORBIT_SWING"), 5);
+            Assert.Equal(DreamBackdrop.SOLID_INNER_EDGE, Define("SHAPE_INNER_EDGE"), 5);
+            Assert.Equal(DreamBackdrop.SOLID_RING_GAP, Define("SHAPE_RING_GAP"), 5);
+            Assert.Equal(DreamBackdrop.SOLID_RATE_INNER, Define("SHAPE_RATE_INNER"), 5);
+            Assert.Equal(DreamBackdrop.SOLID_RATE_OUTER, Define("SHAPE_RATE_OUTER"), 5);
+            Assert.Equal(DreamBackdrop.SOLID_SLOT_JITTER, Define("SHAPE_SLOT_JITTER"), 5);
             Assert.Equal(DreamBackdrop.SOLID_BOUND_IN_RADII, Define("SHAPE_BOUND_IN_RADII"), 5);
 
             //And the shader gates the march where the host does
@@ -85,30 +88,63 @@ namespace BS3D.Tests
         [Fact]
         public void TheHostPlacesEverySolidWhereTheShaderDoes()
         {
-            //ShapeCenter's own formula, its figures read off the source and evaluated here beside the host's copy: an angle
-            //term, a height term or an orbit hash changed on one side alone moves the solids the intro lays its lenses against
+            //ShapeCenter's own formula and the ring and orbit it is built on (#1219), their figures read off the source and
+            //evaluated here beside the host's copy: a ring, an orbit, an angle or a height term changed on one side alone
+            //moves the solids the intro lays its lenses against, and DreamSolidsApartTests keeps apart only the host's copy
+            Match ring = Regex.Match(Function(@"bool\s+ShapeInner\(\s*float\s+i\s*\)"), $@"return\s+frac\(\s*i\s*\*\s*{N}\s*\)\s*>\s*{N}\s*;");
+            Assert.True(ring.Success, "ShapeInner is no longer the ring this test reads");
+
+            string orbitBody = Function(@"float\s+ShapeOrbit\(\s*float\s+i\s*\)");
+            Match outer = Regex.Match(orbitBody, $@"if\s*\(\s*!\s*ShapeInner\(\s*i\s*\)\s*\)\s*edge\s*\+=\s*ShapeSize\s*\*\s*\(\s*{N}\s*\*\s*SHAPE_BOUND_IN_RADII\s*\+\s*SHAPE_RING_GAP\s*\)\s*;");
+            Assert.True(outer.Success, "ShapeOrbit no longer sets the outer ring out as this test reads");
+            Assert.Matches(@"float\s+edge\s*=\s*ShapeOrbitRadius\s*\*\s*SHAPE_INNER_EDGE\s*;", orbitBody);
+            Assert.Matches(@"return\s+edge\s*\+\s*ShapeRadius\(\s*i\s*\)\s*\*\s*SHAPE_BOUND_IN_RADII\s*;", orbitBody);
+
             string body = Function(@"float3\s+ShapeCenter\(\s*float\s+i\s*,\s*float\s+t\s*\)");
-            Match angle = Regex.Match(body, $@"float\s+a\s*=\s*t\s*\*\s*\(\s*{N}\s*\+\s*{N}\s*\*\s*frac\(\s*i\s*\*\s*{N}\s*\)\s*\)\s*\+\s*i\s*\*\s*{N}\s*;");
-            Match orbit = Regex.Match(body, $@"float\s+r\s*=\s*ShapeOrbitRadius\s*\*\s*\(\s*SHAPE_ORBIT_BASE\s*\+\s*SHAPE_ORBIT_SWING\s*\*\s*sin\(\s*i\s*\*\s*{N}\s*\)\s*\)\s*;");
+            Match place = Regex.Match(body, $@"float\s+place\s*=\s*{N}\s*\*\s*PI\s*/\s*\(\s*SHAPE_COUNT\s*/\s*{N}\s*\)\s*;");
+            Match angle = Regex.Match(body, $@"float\s+a\s*=\s*t\s*\*\s*\(\s*inner\s*\?\s*SHAPE_RATE_INNER\s*:\s*SHAPE_RATE_OUTER\s*\)\s*\+\s*floor\(\s*i\s*\*\s*{N}\s*\)\s*\*\s*place"
+                + $@"\s*\+\s*\(\s*inner\s*\?\s*place\s*\*\s*{N}\s*:\s*{N}\s*\)\s*\+\s*SHAPE_SLOT_JITTER\s*\*\s*sin\(\s*i\s*\*\s*{N}\s*\)\s*;");
             Match height = Regex.Match(body, $@"float\s+y\s*=\s*{N}\s*\+\s*{N}\s*\*\s*sin\(\s*t\s*\*\s*{N}\s*\+\s*i\s*\*\s*{N}\s*\)\s*;");
-            Assert.True(angle.Success && orbit.Success && height.Success, "ShapeCenter is no longer the angle, orbit and height this test reads");
+            Assert.True(place.Success && angle.Success && height.Success, "ShapeCenter is no longer the places, angle and height this test reads");
+            Assert.Matches(@"bool\s+inner\s*=\s*ShapeInner\(\s*i\s*\)\s*;", body);
+            Assert.Matches(@"float\s+r\s*=\s*ShapeOrbit\(\s*i\s*\)\s*;", body);
             Assert.Matches(@"return\s+float3\(\s*cos\(\s*a\s*\)\s*\*\s*r\s*,\s*y\s*,\s*sin\(\s*a\s*\)\s*\*\s*r\s*\)\s*;", body);
 
-            float[] a = Numbers(angle), r = Numbers(orbit), y = Numbers(height);
-            float orbitBase = Define("SHAPE_ORBIT_BASE"), orbitSwing = Define("SHAPE_ORBIT_SWING");
+            Match radiusHash = Regex.Match(Function(@"float\s+ShapeRadius\(\s*float\s+i\s*\)"),
+                $@"return\s+ShapeSize\s*\*\s*\(\s*{N}\s*\+\s*{N}\s*\*\s*sin\(\s*i\s*\*\s*{N}\s*\)\s*\)\s*;");
+            Assert.True(radiusHash.Success, "ShapeRadius is no longer the hash this test reads");
+
+            float[] k = Numbers(ring), o = Numbers(outer), p = Numbers(place), a = Numbers(angle), y = Numbers(height), s = Numbers(radiusHash);
+            float count = Define("SHAPE_COUNT"), innerEdge = Define("SHAPE_INNER_EDGE"), gap = Define("SHAPE_RING_GAP"), boundInRadii = Define("SHAPE_BOUND_IN_RADII");
+            float rateInner = Define("SHAPE_RATE_INNER"), rateOuter = Define("SHAPE_RATE_OUTER"), jitter = Define("SHAPE_SLOT_JITTER");
             var shapes = new DreamShapesConfig();
 
             for (int index = 0; index < SceneRenderer.DREAM_SOLID_COUNT; index++)
                 foreach (float t in new[] { 0f, 41.3f, 613.7f, 3599.1f })
                 {
                     float i = index;
-                    float turn = t * (a[0] + a[1] * Frac(i * a[2])) + i * a[3];
-                    float radius = shapes.OrbitRadius * (orbitBase + orbitSwing * MathF.Sin(i * r[0]));
+                    bool inner = Frac(i * k[0]) > k[1];
+                    Assert.Equal(DreamBackdrop.SolidInner(index), inner);
+
+                    float edge = shapes.OrbitRadius * innerEdge + (inner ? 0f : shapes.Size * (o[0] * boundInRadii + gap));
+                    float radius = edge + shapes.Size * (s[0] + s[1] * MathF.Sin(i * s[2])) * boundInRadii;
+                    float slot = p[0] * MathF.PI / MathF.Floor(count / p[1]);
+                    float turn = t * (inner ? rateInner : rateOuter) + MathF.Floor(i * a[0]) * slot + (inner ? slot * a[1] : a[2]) + jitter * MathF.Sin(i * a[3]);
                     var shader = new Vector3(MathF.Cos(turn) * radius, y[0] + y[1] * MathF.Sin(t * y[2] + i * y[3]), MathF.Sin(turn) * radius);
 
                     Vector3 host = DreamBackdrop.SolidCenter(shapes, index, t, out _);
                     Assert.True(Vector3.Distance(shader, host) < 0.01f, $"solid {index} at {t} s: the shader puts it at {shader}, the host at {host}");
                 }
+        }
+
+        [Fact]
+        public void TheApartTestMeltsTheFormsTheShaderDoes()
+        {
+            //DreamSolidsApartTests ports the distance field to look for a point inside two solids; its forms are the shader's
+            Assert.Equal(DreamSolidsApartTests.BOX_HALF, Define("SHAPE_BOX_HALF"), 5);
+            Assert.Equal(DreamSolidsApartTests.BOX_ROUND, Define("SHAPE_BOX_ROUND"), 5);
+            Assert.Equal(DreamSolidsApartTests.TORUS_MAJOR, Define("SHAPE_TORUS_MAJOR"), 5);
+            Assert.Equal(DreamSolidsApartTests.TORUS_MINOR, Define("SHAPE_TORUS_MINOR"), 5);
         }
 
         [Fact]

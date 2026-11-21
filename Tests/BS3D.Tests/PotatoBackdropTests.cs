@@ -211,6 +211,43 @@ namespace BS3D.Tests
         }
 
         [Fact]
+        public void TheDreamsBodiesNeverPassThroughEachOther()
+        {
+            //#1219: the desktop's solids met for most of the clock, and so did these (each on its own rate, every other one the
+            //other way round). Over an hour at a twentieth of a second, every body's reach as it is drawn that frame (its
+            //longest half-axis, or the box's corner) keeps clear of every other's, and never passes the reach the rings are
+            //set apart by
+            var shapes = new DreamShapesConfig();
+            int n = PotatoBackdrop.DREAM_SOLIDS;
+            var centre = new Vector3[n];
+            var reach = new float[n];
+            float least = float.MaxValue, leastAt = 0f;
+            int leastA = -1, leastB = -1;
+
+            for (int k = 0; k * 0.05f <= 3600f; k++)
+            {
+                float t = k * 0.05f;
+                for (int i = 0; i < n; i++)
+                {
+                    Matrix world = PotatoBackdrop.DreamSolidWorld(shapes, i, t);
+                    centre[i] = world.Translation;
+                    var axes = new Vector3(world.Right.Length(), world.Up.Length(), world.Backward.Length());
+                    reach[i] = i % 4 == 0 ? 0.5f * axes.Length() : 0.5f * MathF.Max(axes.X, MathF.Max(axes.Y, axes.Z));
+                    Assert.True(reach[i] <= PotatoBackdrop.DreamBodyReach(shapes, i) + 1e-3f, $"body {i} at {t} s reaches {reach[i]:F2}, past its {PotatoBackdrop.DreamBodyReach(shapes, i):F2}");
+                }
+
+                for (int i = 0; i < n; i++)
+                    for (int j = i + 1; j < n; j++)
+                    {
+                        float gap = Vector3.Distance(centre[i], centre[j]) - reach[i] - reach[j];
+                        if (gap < least) (least, leastAt, leastA, leastB) = (gap, t, i, j);
+                    }
+            }
+
+            Assert.True(least > 0f, $"dream bodies {leastA} and {leastB} come {least:F1} into each other at {leastAt:F2} s");
+        }
+
+        [Fact]
         public void TheNormalsFollowTheHeightAndPointUp()
         {
             (VertexPositionNormalTexture[] vertices, _) = PotatoTerrainMesh.Build(8, 40f, 0f, Bowl);

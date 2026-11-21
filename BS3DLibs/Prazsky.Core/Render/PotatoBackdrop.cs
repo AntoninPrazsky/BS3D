@@ -722,16 +722,12 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// The dream's solids (#829, the owner's eye: "a few geometric flying shapes changing form, in the style of a
         /// Windows 98 screensaver"): the desktop's raymarched solids tumbling and morphing round the sky as as many
-        /// low-poly bodies (<see cref="DREAM_SOLIDS"/>, twelve since #1126) - boxes, octahedra and gems - on their own
-        /// orbits past the config's orbit radius, far outside the game's lens and the front end's orbit, each turning about
-        /// two axes and breathing its proportions, in a colour of the palette that drifts as the desktop's does, its own
-        /// light. Animated on the clock the host hands <see cref="Draw"/>: a matrix a solid a frame.
-        /// <para>
-        /// ⚠ Not outside every lens: this path has no prologue, so the chapter tour opens on its rim shot, 1.9 to 2.4 times
-        /// the stand-off out, and at the widest stand-off (45, so up to 108 out) that reaches the inner ring, where a box at
-        /// its fullest breath comes to about 80 of the axis (the solids grew 1.4 times in #1126). The tour can then pass
-        /// close by or through a body, which a back-face-culled mesh shows as a flat face filling the frame or as nothing.
-        /// </para>
+        /// low-poly bodies (<see cref="DREAM_SOLIDS"/>, twelve since #1126) - boxes, octahedra and gems - in two rings past
+        /// the config's orbit radius that turn opposite ways and never let two bodies meet (#1219, <see cref="DreamSolidWorld"/>),
+        /// far outside the game's lens, the front end's orbit and the chapter tour's rim shot (this path has no prologue,
+        /// so the tour opens on it, up to 108 out), each turning about two axes and breathing its proportions, in a colour
+        /// of the palette that drifts as the desktop's does, its own light. Animated on the clock the host hands
+        /// <see cref="Draw"/>: a matrix a solid a frame.
         /// </summary>
         private static PotatoBackdrop Dream(GraphicsDevice graphicsDevice, Effect potatoEffect)
         {
@@ -751,7 +747,7 @@ namespace Prazsky.Core.Render
             for (int i = 0; i < DREAM_SOLIDS; i++)
             {
                 int index = i;
-                var renderer = new InstancedModelRenderer(graphicsDevice, bodies[i % bodies.Length], Vector3.Zero, potatoEffect) { PotatoVertexLit = true, SpecularAmbientStrength = 0f };
+                var renderer = new InstancedModelRenderer(graphicsDevice, bodies[i % DREAM_BODY_KINDS], Vector3.Zero, potatoEffect) { PotatoVertexLit = true, SpecularAmbientStrength = 0f };
                 backdrop._owned.Add(renderer);
                 backdrop._renderers.Add(renderer);
                 var item = new DrawItem { Renderer = renderer, Instances = new[] { new ModelInstance(Matrix.Identity, OPEN) }, Glow = Vector3.Zero };
@@ -762,8 +758,8 @@ namespace Prazsky.Core.Render
                     draw.Glow = ColorSpace.LinearToSrgb(Vector3.Clamp(DreamPalette(palette, index * 0.17f + time * 0.010f) * 0.55f, Vector3.Zero, Vector3.One));
                 };
                 backdrop._draws.Add(item);
-                backdrop.VertexCount += bodies[i % bodies.Length].PrimitiveCount * 3;
-                backdrop._census.Add($"solid {i} 1x{bodies[i % bodies.Length].PrimitiveCount * 3}");
+                backdrop.VertexCount += bodies[i % DREAM_BODY_KINDS].PrimitiveCount * 3;
+                backdrop._census.Add($"solid {i} 1x{bodies[i % DREAM_BODY_KINDS].PrimitiveCount * 3}");
             }
 
             return backdrop;
@@ -782,26 +778,59 @@ namespace Prazsky.Core.Render
                 a.Z + b.Z * MathF.Cos(MathHelper.TwoPi * (c.Z * t + d.Z)));
         }
 
+        //The dream's bodies (#1219): the odd ones fly in the inner ring, this share of the config's orbit radius out, the even
+        //ones in the outer ring, past the inner one by the most an inner body and an outer one can reach plus DREAM_RING_GAP
+        //(in the config's size), so a body of one ring never meets one of the other. The rings turn opposite ways, the inner
+        //at DREAM_RATE_INNER and the outer at DREAM_RATE_OUTER (radians a second), every body of a ring at its ring's rate, so
+        //two of a ring never close on each other either. The inner ring's nearest reach, 113 from the axis, is past the
+        //chapter tour's rim shot (108 out at the widest stand-off)
+        internal const float DREAM_INNER_ORBIT = 1.12f, DREAM_RING_GAP = 0.1f;
+        internal const float DREAM_RATE_INNER = 0.024f, DREAM_RATE_OUTER = -0.018f;
+
+        //How far a body's three sizes breathe about twice the config's size: 1 minus this to 1 plus it
+        private const float DREAM_BREATH = 0.45f;
+
+        //The bodies' meshes, in the order Dream lays them out: body i is mesh i % DREAM_BODY_KINDS, the box first
+        private const int DREAM_BODY_KINDS = 4;
+
+        /// <summary>True for a dream body of the inner ring: the odd ones, none of them a box (<see cref="DreamSolidWorld"/>).</summary>
+        public static bool DreamBodyInner(int index) => (index & 1) == 1;
+
         /// <summary>
-        /// Where solid <paramref name="index"/> of the dream is and how it stands at <paramref name="time"/>: on an orbit
-        /// of the config's radius and a share more, at its own height that swings slowly, turned about two axes at its
-        /// own rates, its three sizes breathing round the config's size at the morph speed so it is a slab, then a bar,
-        /// then a cube. Pure, for the tests: every solid stays past the orbit radius.
+        /// The most dream body <paramref name="index"/> ever reaches from its centre: its longest half-axis at the fullest
+        /// breath, or for the box its corner there. The rings are set apart by these (<see cref="DreamSolidWorld"/>).
+        /// </summary>
+        public static float DreamBodyReach(DreamShapesConfig shapes, int index)
+        {
+            //A unit box or a sphere of half a unit, scaled by twice the size breathing to 1 + DREAM_BREATH
+            float half = shapes.Size * (1f + DREAM_BREATH);
+            return index % DREAM_BODY_KINDS == 0 ? half * MathF.Sqrt(3f) : half;
+        }
+
+        /// <summary>
+        /// Where solid <paramref name="index"/> of the dream is and how it stands at <paramref name="time"/>: in its ring
+        /// past the config's orbit radius, the two rings turning opposite ways and apart by more than any two bodies reach
+        /// (see <see cref="DREAM_INNER_ORBIT"/>), at its own height that swings slowly, turned about two axes at its own
+        /// rates, its three sizes breathing round the config's size at the morph speed so it is a slab, then a bar, then a
+        /// cube. Pure, for the tests: every solid stays past the orbit radius and none ever meets another.
         /// </summary>
         public static Matrix DreamSolidWorld(DreamShapesConfig shapes, int index, float time)
         {
             float phase = index * 2.39996f;
-            float radius = shapes.OrbitRadius * (1.05f + 0.25f * (index % 3));
-            float angle = phase + time * (0.018f + 0.004f * (index % 4)) * (index % 2 == 0 ? 1f : -1f);
-            float height = 25f + 45f * MathF.Sin(time * 0.013f + phase) + 10f * (index % 3);
+            bool inner = DreamBodyInner(index);
+            float innerRadius = shapes.OrbitRadius * DREAM_INNER_ORBIT;
+            float radius = inner ? innerRadius
+                : innerRadius + shapes.Size * ((1f + DREAM_BREATH) * (1f + MathF.Sqrt(3f)) + DREAM_RING_GAP);
+            float place = MathHelper.TwoPi / (DREAM_SOLIDS / 2);
+            float angle = MathF.Floor(index * 0.5f) * place + (inner ? place * 0.5f : 0f) + time * (inner ? DREAM_RATE_INNER : DREAM_RATE_OUTER);            float height = 25f + 45f * MathF.Sin(time * 0.013f + phase) + 10f * (index % 3);
             Vector3 centre = new(MathF.Cos(angle) * radius, height, MathF.Sin(angle) * radius);
 
             float morph = time * shapes.MorphSpeed;
             float size = shapes.Size * 2f;
             Vector3 scale = new(
-                size * (1f + 0.45f * MathF.Sin(morph + phase)),
-                size * (1f + 0.45f * MathF.Sin(morph * 0.8f + phase + 2.1f)),
-                size * (1f + 0.45f * MathF.Sin(morph * 1.25f + phase + 4.2f)));
+                size * (1f + DREAM_BREATH * MathF.Sin(morph + phase)),
+                size * (1f + DREAM_BREATH * MathF.Sin(morph * 0.8f + phase + 2.1f)),
+                size * (1f + DREAM_BREATH * MathF.Sin(morph * 1.25f + phase + 4.2f)));
 
             return Matrix.CreateScale(scale) * Matrix.CreateFromYawPitchRoll(time * (0.21f + 0.05f * index), time * (0.13f + 0.03f * (index % 5)), phase)
                 * Matrix.CreateTranslation(centre);

@@ -154,25 +154,65 @@ namespace Prazsky.Core.Render
             return true;
         }
 
-        /// <summary>A solid's orbit as a share of <see cref="DreamShapesConfig.OrbitRadius"/>: this plus
-        /// <see cref="SOLID_ORBIT_SWING"/> × a sine of its index. <c>Dream.fx</c>'s <c>SHAPE_ORBIT_BASE</c>.</summary>
-        internal const float SOLID_ORBIT_BASE = 0.82f;
+        /// <summary>How near the axis the inner ring's bounds come, as a share of <see cref="DreamShapesConfig.OrbitRadius"/>
+        /// (61 of 130): past the game's lens, the front end's orbit and the chapter tour's leg into the pose.
+        /// <c>Dream.fx</c>'s <c>SHAPE_INNER_EDGE</c>.</summary>
+        internal const float SOLID_INNER_EDGE = 0.47f;
 
-        /// <summary><c>Dream.fx</c>'s <c>SHAPE_ORBIT_SWING</c>: see <see cref="SOLID_ORBIT_BASE"/>.</summary>
-        internal const float SOLID_ORBIT_SWING = 0.18f;
+        /// <summary>The room between the two rings, in <see cref="DreamShapesConfig.Size"/>: the outer ring's bounds come
+        /// no nearer the axis than the inner ring's biggest possible bound reaches, plus this. <c>Dream.fx</c>'s
+        /// <c>SHAPE_RING_GAP</c>.</summary>
+        internal const float SOLID_RING_GAP = 0.1f;
+
+        /// <summary>How fast each ring turns round the axis (radians a second): the inner one faster, as an inner orbit
+        /// is. Every solid of a ring turns at its ring's rate, so it keeps its place in the ring. <c>Dream.fx</c>'s
+        /// <c>SHAPE_RATE_INNER</c> and <c>SHAPE_RATE_OUTER</c>.</summary>
+        internal const float SOLID_RATE_INNER = 0.029f, SOLID_RATE_OUTER = 0.022f;
+
+        /// <summary>How far a solid stands off its even place in its ring (radians, times a sine of its index), so a ring
+        /// is not a regular hexagon. <c>Dream.fx</c>'s <c>SHAPE_SLOT_JITTER</c>.</summary>
+        internal const float SOLID_SLOT_JITTER = 0.1f;
 
         /// <summary>The bound a solid's march is gated on, in its own radius (<see cref="SolidRadius"/>): just past
         /// the farthest of its forms. <c>Dream.fx</c>'s <c>SHAPE_BOUND_IN_RADII</c>.</summary>
         internal const float SOLID_BOUND_IN_RADII = 1.45f;
 
-        /// <summary>See <see cref="SceneRenderer.DreamSolidCenter"/>: <c>Dream.fx</c>'s <c>ShapeCenter</c> on
-        /// <paramref name="shapes"/>, and the bound its march is gated on.</summary>
+        /// <summary>True for a solid of the inner ring: the odd indices, which <see cref="SolidRadius"/>'s hash makes
+        /// the bigger solids. <c>Dream.fx</c>'s <c>ShapeInner</c>.</summary>
+        public static bool SolidInner(int index) => (index & 1) == 1;
+
+        /// <summary>
+        /// Solid <paramref name="index"/>'s distance from the axis, which the clock never changes (#1219): its ring's
+        /// nearest edge plus its own bound, so every bound of a ring comes as near the axis as the ring's edge and no
+        /// nearer. The outer ring's edge is the inner one's plus the widest any inner bound can be
+        /// (<see cref="DreamShapesConfig.Size"/> × <see cref="SOLID_BOUND_IN_RADII"/>, both sides) plus
+        /// <see cref="SOLID_RING_GAP"/>, so a solid of one ring never meets one of the other, at any bearing or height.
+        /// <c>Dream.fx</c>'s <c>ShapeOrbit</c>.
+        /// </summary>
+        public static float SolidOrbit(DreamShapesConfig shapes, int index)
+        {
+            float edge = shapes.OrbitRadius * SOLID_INNER_EDGE;
+            if (!SolidInner(index)) edge += shapes.Size * (2f * SOLID_BOUND_IN_RADII + SOLID_RING_GAP);
+
+            return edge + SolidRadius(shapes, index) * SOLID_BOUND_IN_RADII;
+        }
+
+        /// <summary>
+        /// See <see cref="SceneRenderer.DreamSolidCenter"/>: <c>Dream.fx</c>'s <c>ShapeCenter</c> on
+        /// <paramref name="shapes"/>, and the bound its march is gated on. The solids fly in two rings
+        /// (<see cref="SolidOrbit"/>) and every solid of a ring turns at its ring's rate, half the solids a ring in
+        /// even places (a twelfth of a turn apart between the rings at the clock's start, then drifting as the rings
+        /// turn at their own rates) a little off true, so no two of a ring ever close on each other either; only the
+        /// height swings each solid on its own.
+        /// </summary>
         public static Vector3 SolidCenter(DreamShapesConfig shapes, int index, float time, out float bound)
         {
             float i = index;
-            float a = time * (0.020f + 0.011f * ShaderMath.Frac(i * 0.371f)) + i * 2.399f;
-            float r = shapes.OrbitRadius * (SOLID_ORBIT_BASE + SOLID_ORBIT_SWING * MathF.Sin(i * 5.3f));
-            float y = 26f + 46f * MathF.Sin(time * 0.013f + i * 2.7f);
+            bool inner = SolidInner(index);
+            float place = MathHelper.TwoPi / (SceneRenderer.DREAM_SOLID_COUNT / 2);
+            float a = time * (inner ? SOLID_RATE_INNER : SOLID_RATE_OUTER) + MathF.Floor(i * 0.5f) * place
+                + (inner ? place * 0.5f : 0f) + SOLID_SLOT_JITTER * MathF.Sin(i * 7.7f);
+            float r = SolidOrbit(shapes, index);            float y = 26f + 46f * MathF.Sin(time * 0.013f + i * 2.7f);
 
             bound = SolidRadius(shapes, index) * SOLID_BOUND_IN_RADII;
             return new Vector3(MathF.Cos(a) * r, y, MathF.Sin(a) * r);

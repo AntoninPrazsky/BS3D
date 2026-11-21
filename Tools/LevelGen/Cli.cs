@@ -429,7 +429,7 @@ namespace BS3D.Tools.LevelGen
             //
             //THE SCENE IS THE DREAM, the one fully-built backdrop no shipped level had ever named (the note
             //in docs/scenes.md that said so is retired by this block). It is not a leftover: the dream's own
-            //signature is hard glassy solids tumbling and melting into one another under a sky of slow
+            //signature is hard glassy solids tumbling and melting from form to form under a sky of slow
             //marbled colour, so the chapter about a ball that is glass until it becomes a colour plays in
             //the one place where that is what the BACKDROP is already doing. The dome number is inert here -
             //the dream replaces the sky and states its own light rig - and every level names the same one
