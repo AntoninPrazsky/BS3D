@@ -242,13 +242,21 @@ h3 { font-size: 1.45rem; }
 .download { background: var(--bg-sunken); border-top: 1px solid var(--line); }
 .platforms { display: grid; gap: 20px; }
 @media (min-width: 860px) { .platforms { grid-template-columns: 1fr 1fr; } }
-@media (min-width: 1100px) { .platforms { grid-template-columns: 3fr 3fr 2fr; } }
+/* Three equal boxes side by side on a desktop, in a column wider than the page's others (#1206, the owner: "the window's width
+   has to be used"): the Raspberry Pi's box, with the longest paragraph and two commands, was the narrowest at 2fr of 8 and its
+   text ran out of its frame. At 84rem each command reads on one line from a 1280 px window; narrower, it wraps (below) */
+.download .wrap-wide { max-width: 84rem; }
+@media (min-width: 1100px) { .platforms { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .platform-shot { margin: 14px 0; }
 .platform-shot img { width: 100%; height: auto; border-radius: var(--radius); display: block; }
 .platform-shot figcaption { color: var(--muted); font-size: 0.9rem; margin-top: 6px; }
 .platform { min-width: 0; background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; }
 .platform ol { padding-left: 1.3em; }
 .platform li { margin-bottom: 0.4em; }
+/* A file name or a command reads whole at any width: it wraps where it must, never runs past the box nor hides behind a
+   scrollbar of its own (a soft wrap copies as one line) */
+.platform code { white-space: normal; overflow-wrap: anywhere; }
+.platform code.cmd { white-space: pre-wrap; }
 .note { border-left: 4px solid var(--accent); padding: 10px 14px; background: rgba(255, 197, 49, 0.08); border-radius: 0 8px 8px 0; }
 .checksums { color: var(--muted); font-size: 0.95rem; margin-top: 20px; }
 
