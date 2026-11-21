@@ -310,7 +310,7 @@ namespace BS3D.Tests
         }
 
         //How far a point stands from the nearest of the city's boxes, towers and cornices: 0 inside one
-        private static float Clearance(City city, Vector3 point)
+        internal static float Clearance(City city, Vector3 point)
         {
             float nearest = float.MaxValue;
             foreach (ModelInstance building in city.Buildings)

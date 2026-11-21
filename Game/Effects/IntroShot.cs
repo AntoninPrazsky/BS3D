@@ -56,6 +56,7 @@ namespace BS3D.Effects
         private readonly Vector3? _lookAt;
         private readonly Vector3[] _lookAtPath;
         private readonly float _lookAhead;
+        private readonly float _lookReach;
         private readonly float _pitchDown;
         private readonly float _pitchDamping;
         private readonly Action _onStart;
@@ -93,10 +94,12 @@ namespace BS3D.Effects
         /// <param name="onFrame">Called on every frame the shot is on screen while the intro runs, with how far into it the
         /// intro's own clock is, seconds (#1110, <see cref="Track"/>): for a shot whose look follows something the scene moves on
         /// the wall clock, which it keeps in step with the shot.</param>
+        /// <param name="lookReach">How far ahead of the lens a shot that looks along its travel puts the point it looks at
+        /// (#1193): <see cref="NEAR_LOOK"/> or <see cref="FAR_LOOK"/>, see there.</param>
         public IntroShot(string name, Vector3[] path, float seconds, float fieldOfView,
             Vector3? lookAt = null, float lookAhead = 12f, float pitchDownDegrees = 0f, Vector3[] lookAtPath = null,
             float pitchDamping = 0f, Action onStart = null, float[] rollPath = null, float endFieldOfView = float.NaN,
-            bool lands = false, Action<float> onFrame = null)
+            bool lands = false, Action<float> onFrame = null, float lookReach = NEAR_LOOK)
         {
             if (path == null || path.Length < 2) throw new ArgumentException("A shot needs at least two points.", nameof(path));
 
@@ -107,6 +110,7 @@ namespace BS3D.Effects
             _lookAt = lookAt;
             _lookAtPath = lookAtPath != null && lookAtPath.Length >= 2 ? lookAtPath : null;
             _lookAhead = lookAhead;
+            _lookReach = lookReach;
             _pitchDown = MathHelper.ToRadians(pitchDownDegrees);
             _pitchDamping = MathHelper.Clamp(pitchDamping, 0f, 1f);
             _onStart = onStart;
@@ -137,6 +141,9 @@ namespace BS3D.Effects
             WallClockPose pose, Action onStart = null) =>
             new(name, seconds, fieldOfView, wallClock, pose, onStart);
 
+        /// <summary>Whether the shot looks along its own travel, at a point ahead of the lens rather than at a subject (#1193).</summary>
+        internal bool LooksAhead => _wallPose == null && _lookAtPath == null && _lookAt == null;
+
         /// <summary>The field of view at <paramref name="t"/> (0–1 of the shot), on the pose's own eased clock.</summary>
         public float FieldOfViewAt(float t) =>
             float.IsNaN(_endFieldOfView) ? FieldOfView : MathHelper.Lerp(FieldOfView, _endFieldOfView, Eased(t));
@@ -153,6 +160,23 @@ namespace BS3D.Effects
 
         //How much of the shot's clock is a smoothstep (see Pose); the rest runs at a constant rate.
         private const float EASE = 0.3f;
+
+        /// <summary>
+        /// How far ahead of the lens a shot that looks along its travel puts the point it looks at, by default (#1193).
+        /// Everything that reads the look takes only its direction (the view, the sun's shadow box, the listener) but the
+        /// Game's near plane, which a target within <c>RecoilCamera.TARGET_HOLD_DISTANCE</c> holds down as a close subject:
+        /// a low run among things keeps the plane the play view draws with, as the aurora's pass between the spruces needs,
+        /// its lens a trunk's crown off their axes.
+        /// </summary>
+        internal const float NEAR_LOOK = 10f;
+
+        /// <summary>
+        /// The point ahead for a run that keeps its distance from everything (#1193): far past the near plane's hold, so the
+        /// drain's distance alone decides the plane. At <see cref="NEAR_LOOK"/> the Grid's push through its ring, 30 off the
+        /// ring, the solids and the floor, drew some 450 from the drain with the play view's plane, and the drain flickered
+        /// there as it had from the meadow's valley.
+        /// </summary>
+        internal const float FAR_LOOK = 1000f;
 
         /// <summary>
         /// The shot's fastest pace as a multiple of its mean: the eased clock runs at 1 - <see cref="EASE"/> of it at the
@@ -264,7 +288,7 @@ namespace BS3D.Effects
                 forward = Vector3.Transform(forward, Matrix.CreateFromAxisAngle(across, -_pitchDown));
             }
 
-            target = position + forward * 10f;
+            target = position + forward * _lookReach;
         }
 
         private static Vector3 SafeNormalize(Vector3 v) => v.LengthSquared() > 1e-12f ? Vector3.Normalize(v) : Vector3.Zero;

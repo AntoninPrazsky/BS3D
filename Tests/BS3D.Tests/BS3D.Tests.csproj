@@ -59,6 +59,9 @@
     <Compile Include="..\..\Game\Effects\GridRide.cs" />
     <!--The icesheet's (#1128): the camp's arc and the keep-out round the camp, over TerrainMirror.Polar and PolarPlanting's layout.-->
     <Compile Include="..\..\Game\Effects\PolarIntroShots.cs" />
+    <!--The aurora's (#1193): the pass through the spruces, the moon and the curtains, over the wood's planting and the snow's
+        mirror; NearPlaneTests walks every chapter scene's intro.-->
+    <Compile Include="..\..\Game\Effects\AuroraIntroShots.cs" />
   </ItemGroup>
 
   <!--The tutorial's rules (#666), compiled in the same way: Tutorial is a ladder of lessons and clocks with no device

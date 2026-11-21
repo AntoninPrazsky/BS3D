@@ -74,18 +74,23 @@ namespace BS3D.Effects
         /// which each shot widens from.
         /// </summary>
         public static IntroShot[] Build(ForestScatterRenderer wood, AuroraSceneConfig aurora, Func<float, float, float> ground,
+            float fieldOfView, Random random) =>
+            Build(wood?.Scatter, aurora, ground, fieldOfView, random);
+
+        /// <summary>The prologue over the wood's planting itself, with no device (a test's): the same as the public one.</summary>
+        internal static IntroShot[] Build(ForestScatter scatter, AuroraSceneConfig aurora, Func<float, float, float> ground,
             float fieldOfView, Random random)
         {
-            if (wood?.Scatter == null || aurora == null || ground == null) return null;
+            if (scatter == null || aurora == null || ground == null) return null;
 
             float bearing = MathHelper.ToRadians(aurora.Curtains.BearingDegrees);
             Vector2 towardsCurtains = new(MathF.Sin(bearing), MathF.Cos(bearing));
             float moonAzimuth = MathHelper.ToRadians(aurora.Sky.MoonAzimuthDegrees);
             Vector2 towardsMoon = new(MathF.Sin(moonAzimuth), MathF.Cos(moonAzimuth));
 
-            IntroShot pass = Wood(wood.Scatter, aurora, ground, towardsCurtains, fieldOfView, random);
-            IntroShot moon = Moon(wood.Scatter, aurora, ground, towardsMoon, fieldOfView, random);
-            IntroShot sky = Curtains(wood.Scatter, ground, towardsCurtains, fieldOfView, random);
+            IntroShot pass = Wood(scatter, aurora, ground, towardsCurtains, fieldOfView, random);
+            IntroShot moon = Moon(scatter, aurora, ground, towardsMoon, fieldOfView, random);
+            IntroShot sky = Curtains(scatter, ground, towardsCurtains, fieldOfView, random);
 
             int count = (pass != null ? 1 : 0) + (moon != null ? 1 : 0) + (sky != null ? 1 : 0);
             if (count == 0) return null;
