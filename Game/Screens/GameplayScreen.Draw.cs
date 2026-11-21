@@ -200,7 +200,7 @@ namespace BS3D.Screens
         /// <summary>
         /// Draws the aim beam. Coloured by what the far end means — the loaded ball's own tint where the shot
         /// sticks, <see cref="PREVIEW_REFUSED"/> where it certainly will not — and where the shot snaps into a cell its
-        /// far dashes widen a little and fade out by the touch (#1144, #1196).
+        /// far dashes widen a little and fade out where the lens sees the beam reach the ball it touches (#1144, #1196).
         /// </summary>
         /// <remarks>
         /// This is what gives the <b>overview</b> the refusal signal the crosshair cannot: the crosshair is only
