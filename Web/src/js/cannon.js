@@ -10,7 +10,7 @@
 // The canvas is transparent (alpha, premultiplied) and the CSS feathers its edges, so the gun stands in the page itself and not in
 // a picture of it; the ground it drives on is only a pool of light that dissolves well inside the canvas.
 //
-// It runs only while it is on screen and the tab is shown, at most two device pixels a CSS pixel, and under
+// It runs only while it is on screen and the tab is shown, at the screen's own pixels at any zoom (up to a 4K frame's), and under
 // prefers-reduced-motion it draws one frame and stops. Without WebGL2 (or if the meshes cannot be fetched) the section is hidden:
 // there is no poster to stand in for a gun that is not drawn.
 
@@ -217,7 +217,7 @@ void main() {
   // --- A frame
   const eye = [0, 9.2, 21.5], target = [0, 1.2, 0];
   function draw(t, pose) {
-    resize(canvas, gl);
+    resize(canvas, devicePixels);
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -304,7 +304,7 @@ void main() {
   // ?cannon-t=<seconds> draws the pose at that moment and stops: how a page without a display (a headless capture) is checked
   const pinned = Number(new URLSearchParams(location.search).get("cannon-t"));
   const still = matchMedia("(prefers-reduced-motion: reduce)").matches || pinned > 0;
-  let visible = true, last = 0, time = 4, running = false, paused = false;
+  let visible = true, last = 0, time = 4, running = false, paused = false, pose = null, devicePixels = null;
   if (pinned > 0) for (let t = 0; t < pinned; t += 1 / 60) step(1 / 60, (time = t));
   const frame = (now) => {
     running = false;
@@ -312,7 +312,7 @@ void main() {
     const dt = last ? Math.min((now - last) / 1000, 0.05) : 0;
     last = now;
     time += dt;
-    draw(time, step(dt, time));
+    draw(time, (pose = step(dt, time)));
     if (!still) loop();
   };
   const loop = () => { if (!running && !paused) { running = true; requestAnimationFrame(frame); } };
@@ -335,8 +335,24 @@ void main() {
     if (visible) loop();
   }).observe(canvas);
   document.addEventListener("visibilitychange", () => { last = 0; if (!document.hidden) loop(); });
+
+  // Sharp at any browser zoom (#1205): a zoom changes the canvas's size in device pixels, and the bitmap follows it at the
+  // next frame. A gun the clock does not draw (paused, still under reduced motion, off screen) is drawn again here in the pose
+  // it holds, or the browser would stretch the old bitmap until it moves again. The device-pixel box (where the browser has
+  // it) is the exact size the canvas covers, and it changes with the zoom even when the CSS size happens not to
+  const redraw = () => { if (!running && pose) draw(time, pose); };
+  const sized = new ResizeObserver((entries) => {
+    const box = entries[entries.length - 1].devicePixelContentBoxSize?.[0];
+    devicePixels = box ? [box.inlineSize, box.blockSize] : null;
+    redraw();
+  });
+  try { sized.observe(canvas, { box: "device-pixel-content-box" }); } catch { sized.observe(canvas); }
+  // A change of ratio alone (a zoom that leaves the CSS size where it was, or a window dragged to another screen)
+  const watchRatio = () => matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`).addEventListener("change", () => { redraw(); watchRatio(); }, { once: true });
+  watchRatio();
+
   canvas.classList.add("live");
-  draw(time, step(0, time));
+  draw(time, (pose = step(0, time)));
   if (!still) loop();
 }
 
@@ -407,9 +423,19 @@ function uniforms(gl, program, names) {
   return out;
 }
 
-function resize(canvas, gl) {
-  const ratio = Math.min(window.devicePixelRatio || 1, 2);
-  const w = Math.max(1, Math.round(canvas.clientWidth * ratio)), h = Math.max(1, Math.round(canvas.clientHeight * ratio));
+// The bitmap is the canvas's size in device pixels, the whole devicePixelRatio whatever the zoom (a cap of two read soft past
+// 200 %), and only a bitmap over a 4K frame's pixels (MAX_PIXELS) is scaled down to one: the cost has a ceiling, the
+// sharpness none a screen can show. `observed` is the device-pixel box last observed, null where the browser has none: it is
+// exact where the browser keeps it current, and one a change of ratio has left behind (measured: an emulated ratio did not
+// update it) is not used
+const MAX_PIXELS = 3840 * 2160;
+function resize(canvas, observed) {
+  const ratio = window.devicePixelRatio || 1;
+  let w = canvas.clientWidth * ratio, h = canvas.clientHeight * ratio;
+  if (observed && Math.abs(observed[0] - w) < 2 && Math.abs(observed[1] - h) < 2) [w, h] = observed;
+  const fit = Math.min(1, Math.sqrt(MAX_PIXELS / Math.max(1, w * h)));
+  w = Math.max(1, Math.round(w * fit));
+  h = Math.max(1, Math.round(h * fit));
   if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
 }
 
