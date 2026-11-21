@@ -32,6 +32,22 @@ namespace Prazsky.Core.Render
         /// <summary>The ring's segments round the lens: a chord's middle stands 0.03 % nearer than its ends.</summary>
         public const int SEGMENTS = 128;
 
+        /// <summary>The ring's vertices on the unit circle, x and z, the first repeated at the end: the vertex buffer and
+        /// <see cref="TryRows"/> read the same points, so the rows bound the very chords the GPU draws.</summary>
+        public static readonly Vector2[] Round = BuildRound();
+
+        private static Vector2[] BuildRound()
+        {
+            var round = new Vector2[SEGMENTS + 1];
+            for (int i = 0; i <= SEGMENTS; i++)
+            {
+                float angle = MathHelper.TwoPi * i / SEGMENTS;
+                round[i] = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
+            }
+
+            return round;
+        }
+
         /// <summary>
         /// The largest offset, an angle: 0.07 degrees, 1.8 pixels at 1080 rows through the play camera's 42.9-degree lens
         /// (<c>GameplayScreen.GAME_FOV</c>) and 2.6 at 1600, and under half that most of the time (the field's spread,
@@ -115,8 +131,7 @@ namespace Prazsky.Core.Render
             Vector4 lowPrevious = default, highPrevious = default;
             for (int i = 0; i <= SEGMENTS; i++)
             {
-                float angle = MathHelper.TwoPi * i / SEGMENTS;
-                float x = MathF.Cos(angle) * radius, z = MathF.Sin(angle) * radius;
+                float x = Round[i].X * radius, z = Round[i].Y * radius;
 
                 Vector4 low = Vector4.Transform(new Vector4(lens.X + x, lens.Y + radius * tanBottom, lens.Z + z, 1f), viewProjection);
                 Vector4 high = Vector4.Transform(new Vector4(lens.X + x, lens.Y + radius * tanTop, lens.Z + z, 1f), viewProjection);
@@ -222,8 +237,7 @@ namespace Prazsky.Core.Render
             var vertices = new VertexPosition[(SEGMENTS + 1) * 2];
             for (int i = 0; i <= SEGMENTS; i++)
             {
-                float angle = MathHelper.TwoPi * i / SEGMENTS;
-                Vector3 round = new(MathF.Cos(angle), 0f, MathF.Sin(angle));
+                Vector3 round = new(Round[i].X, 0f, Round[i].Y);
                 vertices[i * 2] = new VertexPosition(round);
                 vertices[i * 2 + 1] = new VertexPosition(round + Vector3.UnitY);
             }
