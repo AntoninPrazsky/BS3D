@@ -30,8 +30,11 @@ namespace BS3D.Tests
                 new Regex(IN_CHECK_LEVEL_CLEARED + @"_hud\.AddTimeBonus\(timeBonus\);", RegexOptions.Singleline),
                 "if (timeBonus > 0) _hud.AddTimeBonus(timeBonus);", string.Empty),
             ("the HUD handed the readout's clock",
-                new Regex(@"_hud\.Update\([^;]*, TimeBonusReadout\.Clock\(_phase, _run\.Seconds, _run\.EndSeconds\)\);"),
+                new Regex(@"_hud\.Update\([^;]*, TimeBonusReadout\.Clock\(_phase, _run\.Seconds, _run\.EndSeconds\)(?:,[^;]*)?\);"),
                 "TimeBonusReadout.Clock(_phase, _run.Seconds, _run.EndSeconds)", "_run.Seconds"),
+            ("the HUD told the drop camera holds the clock on a level still played (#1197)",
+                new Regex(@"_hud\.Update\([^;]*clockHeld: _cinematic\.Engaged && !_releasePending && !LevelDecided\);"),
+                "clockHeld: _cinematic.Engaged && !_releasePending && !LevelDecided", "clockHeld: false"),
         };
 
         [Fact]
