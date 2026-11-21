@@ -89,6 +89,25 @@ namespace BS3D.Tests
         }
 
         /// <summary>
+        /// It is the grazing rays' (<see cref="HorizonShimmer.GRAZE"/>): whole from the lenses low over the plain (the approach
+        /// at 2.4, the play camera at 6.1), weaker the steeper a lens looks down at the skyline (the intro's wide shot at 40 under
+        /// half), and never stronger as a lens climbs.
+        /// </summary>
+        [Fact]
+        public void ItIsTheGrazingRays()
+        {
+            float fade = new OutbackSceneConfig().Air.HorizonHazeDistance;
+            float Grazing(float height) => HorizonShimmer.Grazing(HorizonShimmer.BandFor(height, fade));
+
+            Assert.Equal(1f, Grazing(2.4f));
+            Assert.Equal(1f, Grazing(6.1f));
+            Assert.True(Grazing(40f) < 0.5f, $"from 40 over the plain the shimmer keeps {Grazing(40f):F2} of its strength");
+
+            for (float height = 0.5f; height < 200f; height += 0.5f)
+                Assert.True(Grazing(height + 0.5f) <= Grazing(height), $"the shimmer grows as the lens climbs past {height}");
+        }
+
+        /// <summary>
         /// The outback hands the shimmer the plain's own figures: the distance where its last fade begins and the plain's
         /// height, and the host calls it after the sky and before the island's colour in both the Game and the Testbed.
         /// </summary>

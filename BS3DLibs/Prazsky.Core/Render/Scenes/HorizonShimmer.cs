@@ -66,6 +66,20 @@ namespace Prazsky.Core.Render
         /// <summary>How much of the mirrored image shows at the axis, fading to nothing at <see cref="MIRAGE_DEPTH"/>.</summary>
         public const float MIRAGE_STRENGTH = 0.85f;
 
+        /// <summary>
+        /// The steepest look down at the skyline's axis the shimmer keeps its whole strength at: a degree, a lens up to 17 over
+        /// the plain (the play camera at 6, the approach at 2.9). Steeper, the waver falls as this over the angle and the
+        /// mirage as its square (<see cref="Grazing"/>): a ray that grazes the hot air over the ground crosses a long path of
+        /// it, a steep one a short path, and a mirage is a grazing ray's alone. At its whole strength from the intro's wide
+        /// shot and its crane (about 40 over the plain, 2.3 degrees down) the plain's red edge boiled up into the pale fade as
+        /// a row of dark teeth along the whole skyline.
+        /// </summary>
+        public static readonly float GRAZE = MathHelper.ToRadians(1f);
+
+        /// <summary>The share of its strength the shimmer keeps for a band (<see cref="GRAZE"/>): 1 where the axis lies within
+        /// it under the horizontal, falling as one over the angle past it.</summary>
+        public static float Grazing(Elevations band) => Math.Clamp(GRAZE / MathF.Max(-band.Axis, 1e-6f), 0f, 1f);
+
         /// <summary>How far the ring's lower edge reaches under the band's bottom, so the far plain right at the ring's
         /// radius is inside it: the plain nearer than the radius hides what is under it anyway.</summary>
         public static readonly float UNDER = MathHelper.ToRadians(0.25f);
@@ -226,7 +240,7 @@ namespace Prazsky.Core.Render
         private readonly GraphicsDevice _device;
         private readonly VertexBuffer _ring;
         private readonly EffectPass _markPass, _refractPass;
-        private readonly EffectParameter _viewProjection, _cameraPosition, _ringParameter, _band, _time, _grab, _grabSize;
+        private readonly EffectParameter _viewProjection, _cameraPosition, _ringParameter, _band, _time, _grab, _grabSize, _amplitude, _mirage;
 
         /// <summary>Loads <c>Shaders/HorizonShimmer</c>, sets its constant figures once and builds the ring.</summary>
         public HorizonShimmer(GraphicsDevice device, ContentManager content)
@@ -243,9 +257,8 @@ namespace Prazsky.Core.Render
             _time = effect.Parameters["Time"];
             _grab = effect.Parameters["Grab"];
             _grabSize = effect.Parameters["GrabSize"];
-
-            effect.Parameters["Amplitude"].SetValue(AMPLITUDE);
-            effect.Parameters["Mirage"].SetValue(new Vector2(MIRAGE_DEPTH, MIRAGE_STRENGTH));
+            _amplitude = effect.Parameters["Amplitude"];
+            _mirage = effect.Parameters["Mirage"];
 
             //A strip round the unit circle: x and z the circle, y 0 on the lower edge and 1 on the upper (HorizonShimmer.fx's
             //BandVS scales and lifts it). Seen from inside and drawn with no culling, so its winding is nobody's.
@@ -290,6 +303,11 @@ namespace Prazsky.Core.Render
             _ringParameter.SetValue(new Vector3(ring, tanBottom, tanTop));
             _band.SetValue(new Vector3(band.Bottom, band.Axis, band.Top));
             _time.SetValue(frame.Time % CLOCK_WRAP);
+
+            //Weaker the steeper the lens looks down at the skyline (GRAZE): with the lens's height, so stated every frame
+            float grazing = Grazing(band);
+            _amplitude.SetValue(AMPLITUDE * grazing);
+            _mirage.SetValue(new Vector2(MIRAGE_DEPTH, MIRAGE_STRENGTH * grazing * grazing));
 
             BlendState blend = _device.BlendState;
             DepthStencilState depth = _device.DepthStencilState;

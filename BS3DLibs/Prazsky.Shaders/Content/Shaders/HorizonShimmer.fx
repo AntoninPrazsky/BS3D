@@ -38,10 +38,10 @@ float3 Ring;
 //mirror runs) and the top it has faded out by
 float3 Band;
 
-//The largest offset, radians
+//The largest offset this frame, radians (weaker the steeper the lens looks down at the skyline, HorizonShimmer.GRAZE)
 float Amplitude;
 
-//The mirage under the axis: how deep it reaches, radians, and how much of the mirrored image shows at the axis
+//The mirage under the axis: how deep it reaches, radians, and how much of the mirrored image shows at the axis this frame
 float2 Mirage;
 
 //Seconds on the scene's clock, wrapped by the host (HorizonShimmer.CLOCK_WRAP)
