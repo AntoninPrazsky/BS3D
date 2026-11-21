@@ -15,7 +15,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using mgKeys = Microsoft.Xna.Framework.Input.Keys;
@@ -64,6 +63,9 @@ namespace MapEditor
 
         private CameraInputHelper _cih;
         private ButtonAction[] _actions;
+
+        //The grouped key help that fits the window (#1209), drawn over the scene beside the shared InfoRenderer
+        private KeyHelpOverlay _keyHelp;
 
         #region Graphics
 
@@ -268,28 +270,30 @@ namespace MapEditor
 
             #region Controls
 
+            //Every binding names the line of the key help that documents it (#1209), so a key cannot be bound and left
+            //off the screen. The help draws EditorKeyHelp.All, in groups with the file keys first, not this table in
+            //its own order: that was one 39-line block whose last five lines, load and save among them, were below the
+            //bottom edge of every window.
             var actions = new List<ButtonAction>
             {
-                new(mgKeys.Up, Buttons.DPadUp, () => _selector.Move(Vector3.Forward), "Move selector forward"),
-                new(mgKeys.Down, Buttons.DPadDown,() => _selector.Move(Vector3.Backward), "Move selector backward"),
-                new(mgKeys.Left, Buttons.DPadLeft,() => _selector.Move(Vector3.Left), "Move selector left"),
-                new(mgKeys.Right, Buttons.DPadRight,() => _selector.Move(Vector3.Right), "Move selector right"),
-                new(mgKeys.PageUp, Buttons.RightShoulder,() => _selector.Move(Vector3.Up), "Move selector up"),
-                new(mgKeys.PageDown, Buttons.LeftShoulder,() => _selector.Move(Vector3.Down), "Move selector down"),
+                Bind(EditorKeyHelp.MoveSelector, mgKeys.Up, () => _selector.Move(Vector3.Forward), Buttons.DPadUp),
+                Bind(EditorKeyHelp.MoveSelector, mgKeys.Down, () => _selector.Move(Vector3.Backward), Buttons.DPadDown),
+                Bind(EditorKeyHelp.MoveSelector, mgKeys.Left, () => _selector.Move(Vector3.Left), Buttons.DPadLeft),
+                Bind(EditorKeyHelp.MoveSelector, mgKeys.Right, () => _selector.Move(Vector3.Right), Buttons.DPadRight),
+                Bind(EditorKeyHelp.MoveSelectorVertically, mgKeys.PageUp, () => _selector.Move(Vector3.Up), Buttons.RightShoulder),
+                Bind(EditorKeyHelp.MoveSelectorVertically, mgKeys.PageDown, () => _selector.Move(Vector3.Down), Buttons.LeftShoulder),
 
-                new(mgKeys.Space, Buttons.A,() => _selector.PutBall(), "Put ball"),
-                new(mgKeys.Delete, Buttons.B,() => _selector.RemoveBall(), "Remove ball"),
-
+                Bind(EditorKeyHelp.PutBall, mgKeys.Space, () => _selector.PutBall(), Buttons.A),
+                Bind(EditorKeyHelp.RemoveBall, mgKeys.Delete, () => _selector.RemoveBall(), Buttons.B),
             };
 
             //One row per direct-key colour: NumPad1..NumPad9 and Type1..Type9 are both consecutive values,
             //so the nine bindings are one loop over the name table rather than nine rows whose three digits
             //(key, type, name index) would have to be kept agreeing by hand.
-            for (int i = 0; i < 9; i++)
+            for (int i = 0; i < EditorKeyHelp.DIRECT_COLOUR_KEYS; i++)
             {
                 BallType type = (BallType)(i + 1);
-                actions.Add(new((mgKeys)((int)mgKeys.NumPad1 + i), () => SetBallType(type),
-                    $"Change ball type to {(int)type} ({BALL_TYPE_NAMES[i]})"));
+                actions.Add(Bind(EditorKeyHelp.PickColour, (mgKeys)((int)mgKeys.NumPad1 + i), () => SetBallType(type)));
             }
 
             actions.AddRange(new ButtonAction[]
@@ -297,58 +301,62 @@ namespace MapEditor
                 //Thirteen types outgrew the numpad's digits (#152): brown, silver, navy and olive have no
                 //direct key and are reached by cycling. The wrap makes the two keys a complete picker on
                 //their own; the digits above stay as shortcuts into the first nine.
-                new(mgKeys.Add,() => CycleBallType(+1), "Next ball type (10-13 have no direct key)"),
-                new(mgKeys.Subtract,() => CycleBallType(-1), "Previous ball type"),
+                Bind(EditorKeyHelp.CycleColour, mgKeys.Add, () => CycleBallType(+1)),
+                Bind(EditorKeyHelp.CycleColour, mgKeys.Subtract, () => CycleBallType(-1)),
 
-                new(mgKeys.Escape, Buttons.Back, Exit, "Exit"),
-                new(mgKeys.F11, () => SetGraphics(_graphics.IsFullScreen), "Fullscreen/windowed"),
-                new(mgKeys.F12,() => Info.Visible = ! Info.Visible, "Hide/show text overlay"),
+                Bind(EditorKeyHelp.Quit, mgKeys.Escape, Exit, Buttons.Back),
+                Bind(EditorKeyHelp.Fullscreen, mgKeys.F11, () => SetGraphics(_graphics.IsFullScreen)),
+                //Both overlays: the FPS and status lines (the shared InfoRenderer) and the key help
+                Bind(EditorKeyHelp.HideText, mgKeys.F12, () => _keyHelp.Visible = Info.Visible = !Info.Visible),
+                //Not F12, the Testbed's and the Game's shot key: here F12 has always hidden the text
+                Bind(EditorKeyHelp.Screenshot, mgKeys.F8, () => _shots.Request()),
+                //H for help; nothing else here had it (S, W, A, D, Q and E drive the camera)
+                Bind(EditorKeyHelp.ToggleHelp, mgKeys.H, () => _keyHelp.Expanded = !_keyHelp.Expanded),
 
-                new(mgKeys.N, Buttons.X, FullMapTest, "Fill entire map with balls"),
-                new(mgKeys.M, () => _map.Clear(), "Clear entire map"),
+                Bind(EditorKeyHelp.FillMap, mgKeys.N, FullMapTest, Buttons.X),
+                Bind(EditorKeyHelp.ClearMap, mgKeys.M, () => _map.Clear()),
 
-                new(mgKeys.D1,() => CenterViewOn(Vector3.Forward), "Forward view"),
-                new(mgKeys.D2, () => CenterViewOn(Vector3.Backward), "Backward view"),
-                new(mgKeys.D3, () => CenterViewOn(Vector3.Left), "Left view"),
-                new(mgKeys.D4, () => CenterViewOn(Vector3.Right), "Right view"),
-                new(mgKeys.D5, () => CenterViewOn(Vector3.Up), "Up view"),
-                new(mgKeys.D6, () => CenterViewOn(Vector3.Down), "Down view"),
+                Bind(EditorKeyHelp.Views, mgKeys.D1, () => CenterViewOn(Vector3.Forward)),
+                Bind(EditorKeyHelp.Views, mgKeys.D2, () => CenterViewOn(Vector3.Backward)),
+                Bind(EditorKeyHelp.Views, mgKeys.D3, () => CenterViewOn(Vector3.Left)),
+                Bind(EditorKeyHelp.Views, mgKeys.D4, () => CenterViewOn(Vector3.Right)),
+                Bind(EditorKeyHelp.Views, mgKeys.D5, () => CenterViewOn(Vector3.Up)),
+                Bind(EditorKeyHelp.Views, mgKeys.D6, () => CenterViewOn(Vector3.Down)),
 
-                new(mgKeys.R, () => _cih.RestartCamera(), "Restart camera"),
+                Bind(EditorKeyHelp.ResetCamera, mgKeys.R, () => _cih.RestartCamera()),
                 //Not S, W, A, D, Q or E: those move the camera (see CameraInputHelper)
-                new(mgKeys.B, SwitchSkyDome, "Switch sky dome (backdrop)"),
-                //Names the axis, not the members (#320's rule, and #376's — this string named seven scenes of
-                //seventeen right up until #380, one line above two hints that had already been fixed to it)
-                new(mgKeys.V, SwitchScene, "Cycle scene (the current one is named in the line below)"),
-                new(mgKeys.L, SwitchBallStyle, "Cycle ball material (the current one is named in the line below)"),
-                new(mgKeys.K, CycleBallKind, "Cycle ball kind (the current one is named in the line below)"),
+                Bind(EditorKeyHelp.CycleSky, mgKeys.B, SwitchSkyDome),
+                //The help names the axis, not the members (#320's rule, and #376's): it says the current one is named
+                //at the top, where the status line says it, so a new scene, material or kind cannot make it wrong
+                Bind(EditorKeyHelp.CycleScene, mgKeys.V, SwitchScene),
+                Bind(EditorKeyHelp.CycleStyle, mgKeys.L, SwitchBallStyle),
+                Bind(EditorKeyHelp.CycleKind, mgKeys.K, CycleBallKind),
 
-                new(mgKeys.F1, SaveJson, "Save map to file (JSON)"),
-                new(mgKeys.F2, LoadJson, "Load map or level from file (JSON)"),
-                new(mgKeys.F3, NewMap, "New map (choose play field size)"),
-                new(mgKeys.F4, SaveLevel, "Save level: map + current scene + sky (JSON)"),
+                Bind(EditorKeyHelp.SaveMap, mgKeys.F1, SaveJson),
+                Bind(EditorKeyHelp.Open, mgKeys.F2, LoadJson),
+                Bind(EditorKeyHelp.NewMap, mgKeys.F3, NewMap),
+                Bind(EditorKeyHelp.SaveLevel, mgKeys.F4, SaveLevel),
             });
 
             _actions = actions.ToArray();
 
-            StringBuilder builder = new();
-            foreach (var act in _actions) builder.Append(string.Format("{0,-9} {1}\n", act.Key.ToString(), act.Description));
-
-            Info.HintText = builder.ToString();
+            //The key help is the editor's own (#1209); the shared overlay keeps the FPS line and the status line and
+            //is given no hint text
+            _keyHelp = new KeyHelpOverlay(this, "Fonts/segoeui") { DrawOrder = int.MaxValue };
+            Components.Add(_keyHelp);
 
             #endregion
 
             base.Initialize();
         }
 
-        //One copy of the colour names in the editor: the direct keys' hint descriptions and the cycle keys'
+        //One copy of the colour names in the editor, EditorKeyHelp's: the key help's colour line and the cycle keys'
         //on-screen feedback both read it, so a colour added to BallType shows up here by adding one row.
-        //Ordered by BallType value, index = value - 1.
-        private static readonly string[] BALL_TYPE_NAMES =
-        {
-            "red", "green", "blue", "white", "cyan", "magenta", "yellow", "black",
-            "orange", "brown", "silver", "navy blue", "olive green",
-        };
+        private static readonly string[] BALL_TYPE_NAMES = EditorKeyHelp.BallTypeNames;
+
+        //A binding and its line of the key help: the help's text is the action's description too
+        private static ButtonAction Bind(KeyHelpRow help, mgKeys key, Action method, Buttons button = Buttons.None) =>
+            new(key, button, method, help.Text);
 
         private void SetBallType(BallType type)
         {
