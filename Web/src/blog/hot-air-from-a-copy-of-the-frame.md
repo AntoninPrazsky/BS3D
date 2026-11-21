@@ -34,13 +34,13 @@ The picture itself knows, once it is drawn. So the shimmer is a pass of its own,
 
 ## Keeping it off everything near
 
-Reading the frame back has one trap. The strip runs behind the gun, the island's rim and the nearer rocks. A pixel of far sky just above a near rock's top, told to read a few pixels lower, finds the rock. The rock's colour would be smeared up into the sky, and a near thing would shimmer along its edge as if the hot air were in front of it.
+Reading the frame back has one trap. When the shimmer is drawn, the frame already holds the near plain and the rocks nearer than the skyline, and the strip runs behind them. A pixel of far sky just above a near rock's top, told to read a few pixels lower, finds the rock. The rock's colour would be smeared up into the sky, and a near thing would shimmer along its edge as if the hot air were in front of it. The island's stone, the gun and the cluster are no such trap: they are drawn after the shimmer, so they are never in the copy and simply cover the strip where they stand.
 
 What stops it is how far away each pixel is. As a frame is drawn, every pixel keeps the depth of the surface it shows, so that something nearer can hide something farther. The shimmer's strip is not a rectangle on the screen but a ring round the camera, 620 units out, standing from just under the plain at that distance to a degree and a half above the horizon. The ring is depth-tested like any object: wherever something nearer than 620 units has been drawn, it is hidden. So drawing the ring marks exactly the pixels that are far (the far plain, the rocks on the skyline and the sky) and leaves everything near unmarked. Then three steps, all inside one frame:
 
 1. **Mark.** The ring writes its mark where it passes the depth test, and nothing else.
 2. **Copy.** The rows the ring covers are copied, every sample weighed by its mark, so the copy holds the far colours alone and, for each pixel, how much of it was far.
-3. **Refract.** The ring is drawn again, reading the copy at moved angles, and whatever a read brings back counts only as much as it was far. A read that lands on the gun's wheel brings nothing of the wheel back.
+3. **Refract.** The ring is drawn again, reading the copy at moved angles, and whatever a read brings back counts only as much as it was far. A read that lands on a nearer rock brings nothing of the rock back.
 
 The copy is only the rows the ring reaches on the screen: a strip, not the frame. The weighing has to happen before anything averages the samples inside a pixel, so the shimmer is never drawn on a multisampled frame. Resolving one averages the colours and the marks together, and a pixel at a near rock's edge would bring the rock back with it.
 
@@ -61,7 +61,7 @@ So the ring stands inside the horizon, with a little far plain under the line fo
 
 One of the project's standing rules shapes everything that moves: it may not depend on the machine it runs on, neither on the screen's resolution nor on the frame rate.
 
-The offset is an angle. A pixel's direction is moved up or down by at most 0.28 degrees and projected back through the camera to find where to read. Through the play camera's 42.9-degree lens that is 6.7 pixels at 1080 rows and 9.9 at 1600, and most of the time under half that. A 4K screen shows the same air moving twice as many pixels as a 1080p one, because it is the same piece of the world, and a narrower lens shows it larger, as a telephoto does.
+The offset is an angle. A pixel's direction is moved up or down by at most 0.28 degrees and projected back through the camera to find where to read. Through the play camera's 42.9-degree lens that is 6.7 pixels at 1080 rows and 10 at 1600, and most of the time under half that. A 4K screen shows the same air moving twice as many pixels as a 1080p one, because it is the same piece of the world, and a narrower lens shows it larger, as a telephoto does.
 
 The motion is gradient noise, a smooth random field, laid round the camera by heading and by height above the horizon. The heading runs round a circle, so there is no seam behind the lens. The clock slides the field downwards through the strip, so the pattern rises the way hot air does. That clock is the game's wall clock, never a count of frames: at 30 frames a second or at 144 the air moves as far in a second. It wraps every 600 seconds, because a float that has been counting for hours has too few bits left to slide a field smoothly, and the jump at the wrap lands in a field nothing follows.
 
@@ -69,7 +69,7 @@ The strength depends on how the camera looks at the horizon. A camera low over t
 
 ## Bigger, at Antonín's word
 
-The first version moved the line by at most 0.07 degrees, about 1.8 pixels at 1080 rows. Antonín's verdict was: "It looks great! … But the effect is visually too small - a player will hardly notice it - it should be bigger."
+The first version moved the line by at most 0.07 degrees, about 1.7 pixels at 1080 rows. Antonín's verdict was: "It looks great! … But the effect is visually too small - a player will hardly notice it - it should be bigger."
 
 <figure>
 <video class="clip" width="1056" height="336" muted loop playsinline controls preload="none" poster="/video/blog/hot-air-from-a-copy-of-the-frame/skyline-first-poster.jpg" aria-label="The same view of the red desert with the first, smaller shimmer: the horizon barely moves, and only a thin pale line lies under the rocks.">
@@ -81,7 +81,7 @@ The first version moved the line by at most 0.07 degrees, about 1.8 pixels at 10
 
 Four times bigger sounds like one number changed, and it was not. The first field was a boil: two layers of fine noise in cells a quarter of a degree across and 0.15 degrees tall, turning over 3.5 and 9 times a second. Scaled up to 0.28 degrees it shredded the feet of the rocks into torn horizontal slivers that read as a glitch, not as air. An offset that large, changing that fast up the strip, reads the rows out of order: a row is read from lower down than the row beneath it. A numerical copy of the shader's arithmetic, at the gun's camera and 1080 rows, found rows read up to seven pixels out of order at 0.21 degrees and up to ten at 0.28.
 
-So the size moved into a second layer. Seven tenths of the offset is now a slow swell: cells half a degree across and 0.95 degrees tall, two thirds of the strip's height, so a column's offset barely changes up the strip and whole stretches of the skyline rise and sink together without tearing. Three tenths is the old boil, at its old speed, the flicker on top. The swell turns over once a second, where the boil's coarser layer turns over 3.5 times, and that also comes from the air: an eddy's turnover time grows as the two-thirds power of its size, and the swell's cells are about six times as tall, which makes them 3.4 times slower. It still rises 0.95 degrees a second, nearly twice the boil's 0.53. Nothing was slowed down to make the bigger size read as heat.
+So the size moved into a second layer. Seven tenths of the offset is now a slow swell: cells half a degree across and 0.95 degrees tall, two thirds of the strip's height over the horizon, so a column's offset barely changes up the strip and whole stretches of the skyline rise and sink together without tearing. Three tenths is the old boil, at its old speed, the flicker on top. The swell turns over once a second, where the boil's coarser layer turns over 3.5 times, and that also comes from the air: an eddy's turnover time grows as the two-thirds power of its size, and the swell's cells are about six times as tall, which makes them 3.4 times slower. It still rises 0.95 degrees a second, nearly twice the boil's 0.53. Nothing was slowed down to make the bigger size read as heat.
 
 Two more things changed with it. In the first version a read below the horizon grew from nothing where the ring meets the plain to its full size at the horizon. At the new size that ramp, a fifth of a degree deep and shallower than the offset itself, folded the rows at the horizon into floating lumps outlined by rings. A read downwards now keeps its full size down to a floor, 0.3 of the way from where the ring meets the plain up to the horizon, and that floor is what the ring moved nearer for. And the mirage is deeper, 0.2 degrees instead of 0.08, at full strength. Its mirror line wavers only with the boil, so the sheet of mirrored sky stays at the horizon while the swell lifts and sinks the skyline over it, and the far rocks float over their own reflection.
 
@@ -95,6 +95,6 @@ It is drawn on High and Ultra only. Medium draws its frame multisampled, which t
 
 ## Seeing it, and what we do not know
 
-No chapter is set in the outback yet. To see the shimmer from behind the gun, pick Outback on the Scene page, from Extras or from the pause menu, with the detail level at High or Ultra.
+No chapter is set in the outback yet, and every level brings its own scene when it starts. To see the shimmer from behind the gun, start any level, pause it, choose Scene and pick Outback, with the detail level at High or Ultra. Picked from Extras, the outback shows its own opening flight over the menu instead, and the level started after it brings back its own scene.
 
 We measured how far the line moves, not whether it reads as heat. A number cannot say whether the swell looks like air or like a fault in the picture. Stills enlarged three times show the far plain's edge lifted into floating lumps over slivers of sky, which is the mirage we wanted, and also the part most likely to look busy. That judgement is Antonín's eye, the same eye that made it four times bigger. We have not looked at the shimmer during the camera's swoop after a big drop, through the glass ceiling from below, or on the laptop.
