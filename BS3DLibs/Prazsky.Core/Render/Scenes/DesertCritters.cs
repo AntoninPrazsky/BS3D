@@ -14,7 +14,7 @@ namespace Prazsky.Core.Render
     /// is tracked between frames and a capture at a given second is the same picture every run. Its cycle: hidden under the
     /// sand, it comes up out of a burrow nose first (<see cref="EMERGE_SECONDS"/>, a puff of sand and the hole's dark mouth
     /// round it), walks a short curved way on the dune's own height (<see cref="TerrainMirror.Desert"/>) with its legs in a
-    /// tripod gait, stopping now and then, and digs back in nose down where it stands (<see cref="BURROW_SECONDS"/>, another
+    /// tripod gait (<see cref="CritterGait"/>), stopping now and then, and digs back in nose down where it stands (<see cref="BURROW_SECONDS"/>, another
     /// puff and the hole). Each cycle comes up somewhere else round its home. The terrain writes depth, so the part still under
     /// the sand is hidden by the sand itself.
     /// </para>
@@ -39,8 +39,6 @@ namespace Prazsky.Core.Render
         private const float HOME_SPREAD = 7f;
         private const float BEETLE_SPEED = 1.3f, SCORPION_SPEED = 0.9f;
         private const float TURN = 0.35f;
-        //Steps a body length: the gait's phase over the ground walked
-        private const float STEPS_PER_LENGTH = 2.2f;
 
         private readonly GraphicsDevice _device;
         private readonly Effect _effect;
@@ -79,10 +77,12 @@ namespace Prazsky.Core.Render
         //How far over the sand a disc lies: the clearing is flat and the mirror is the sand's own height there
         private const float DISC_LIFT = 0.03f;
 
-        //A beetle's trail (the references' double line of footprints): this many prints behind it, a print this many of its
-        //lengths apart, this far either side of its line and this wide
-        private const int TRAIL_PRINTS = 14;
-        private const float PRINT_SPACING = 0.22f, PRINT_SIDE = 0.16f, PRINT_RADIUS = 0.07f;
+        //A beetle's trail (the references' double line of footprints): a print where each foot touched down over the last
+        //this many steps (cycles of its gait), each this wide in its lengths, under half the 0.115 lengths between the
+        //nearest two prints of a side on a straight walk, so each foot's print stands on its own (0.074 apart on the inside
+        //of the sharpest curve, where two overlap)
+        private const int TRAIL_STEPS = 7, TRAIL_PRINTS = TRAIL_STEPS * CritterMesh.BEETLE_FEET;
+        private const float PRINT_RADIUS = 0.05f;
         private readonly VertexPositionColorTexture[] _discs = new VertexPositionColorTexture[MAX_DISCS * 4];
         private readonly DynamicVertexBuffer _discBuffer;
         private readonly IndexBuffer _discIndices;
@@ -224,7 +224,7 @@ namespace Prazsky.Core.Render
             float burrowing = Math.Clamp((local - EMERGE_SECONDS - walk) / BURROW_SECONDS, 0f, 1f);
             float sunk = (1f - Smooth(emerging)) + Smooth(burrowing);
             float pitch = 0.6f * (1f - Smooth(emerging)) * (emerging < 1f ? 1f : 0f) - 0.55f * Smooth(burrowing);
-            pose = new Pose(new Vector3(p.X, ground(p.X, p.Y), p.Y), heading, pitch, sunk, distance / size * STEPS_PER_LENGTH * MathHelper.TwoPi,
+            pose = new Pose(new Vector3(p.X, ground(p.X, p.Y), p.Y), heading, pitch, sunk, CritterGait.Phase(distance, size, scorpion),
                 new Vector3(burrowing > 0f ? p.X : at.X, 0f, burrowing > 0f ? p.Y : at.Y), emerging < 1f ? emerging : 0f, burrowing,
                 at, yaw, 0f, distance);
             return true;
@@ -270,31 +270,52 @@ namespace Prazsky.Core.Render
             float sunk = (1f - Smooth(emerging)) + Smooth(burrowing);
             float pitch = 0.6f * (1f - Smooth(emerging)) * (emerging < 1f ? 1f : 0f) - 0.55f * Smooth(burrowing);
             float y = ground(at.X, at.Y);
-            pose = new Pose(new Vector3(at.X, y, at.Y), yaw, pitch, sunk, distance / size * STEPS_PER_LENGTH * MathHelper.TwoPi,
+            pose = new Pose(new Vector3(at.X, y, at.Y), yaw, pitch, sunk, CritterGait.Phase(distance, size, scorpion),
                 new Vector3(burrowing > 0f ? at.X : start.X, 0f, burrowing > 0f ? at.Y : start.Y),
                 emerging < 1f ? emerging : 0f, burrowing, start, heading, turn, distance);
             return true;
         }
 
         /// <summary>
-        /// The <paramref name="k"/>-th newest print of a beetle's trail (1 the newest; false once the trail has no more): where
-        /// it lies on the sand (x, z) and how much of <see cref="PRINT_ALPHA"/> it still has. ⚠ A PRINT IS LAID, NOT DRAGGED
-        /// (#1186): the prints lie at whole multiples of the spacing along this cycle's path, so each stays where the beetle
-        /// left it from the moment it passes the spot until it fades. They were once placed a fixed distance behind where the
-        /// beetle was, and the whole trail slid along with it. A print's side follows its own place along the path, not its
-        /// rank behind the beetle (a rank changes with every new print, and the sides would swap each time), and its fade its
-        /// age, how far the beetle has walked since: nothing at <see cref="TRAIL_PRINTS"/> spacings, the moment it is dropped.
+        /// The print a beetle's foot <paramref name="foot"/> (<see cref="CritterMesh.BEETLE_FEET"/>' numbering) left
+        /// <paramref name="step"/> steps back (0 its newest; false where it has none): where it lies on the sand (x, z) and how
+        /// much of <see cref="PRINT_ALPHA"/> it still has.
+        /// <para>
+        /// ⚠ A PRINT IS WHERE A FOOT STEPPED (#1217): a foot touches down where its leg's phase in the gait reaches
+        /// <see cref="CritterGait.TOUCHDOWN"/>, once a cycle, so at whole cycles of the ground walked off the leg's own phase;
+        /// the print lies under it there, the body's pose on its path at that distance with the foot where the mesh and
+        /// <c>Critter.fx</c> put it (its place at rest in <see cref="CritterMesh.BeetleFoot"/>, reaching forwards by
+        /// <see cref="CritterGait.Stride"/>), and the gait holds the foot on it until it lifts. Laid by arithmetic on the
+        /// body's path, the prints once ran in a zig-zag under the shell, two a step where the feet put six.
+        /// </para>
+        /// <para>
+        /// ⚠ A PRINT IS LAID, NOT DRAGGED (#1186): each lies at a distance along this cycle's path, so it stays where the foot
+        /// left it until it fades. Placed a fixed distance behind where the beetle was, the whole trail once slid along with
+        /// it. Its fade is its age, how far the beetle has walked since: nothing at <see cref="TRAIL_STEPS"/> steps, the
+        /// moment it is dropped.
+        /// </para>
         /// </summary>
-        internal static bool TrailPrint(in Pose pose, float size, int k, out Vector2 at, out float fade)
+        internal static bool TrailPrint(in Pose pose, int foot, int step, out Vector2 at, out float fade)
         {
-            float step = PRINT_SPACING * size;
-            int index = (int)MathF.Floor(pose.Walked / step) - (k - 1);
-            if (index <= 0 || k > TRAIL_PRINTS) { at = default; fade = 0f; return false; }
-            float along = index * step;
+            at = default;
+            fade = 0f;
+            if (step < 0 || step >= TRAIL_STEPS) return false;
+            const float SIZE = BEETLE_SIZE, STEPS = CritterGait.BEETLE_STEPS_PER_LENGTH;
+            int leg = foot >> 1, side = (foot & 1) == 0 ? -1 : 1;
+
+            //Its touchdowns, in cycles of the gait walked: where the gait plus the leg's own phase reaches the touchdown
+            float offset = (CritterGait.TOUCHDOWN - CritterMesh.LegPhase(leg, side)) / MathHelper.TwoPi;
+            float cycle = MathF.Floor(pose.Walked / SIZE * STEPS - offset) - step + offset;
+            float along = cycle / STEPS * SIZE;
+            if (along <= 0f) return false;
+
+            //The body where it stood then, and the foot off it as the body's matrix places it (DesertCritters.World)
             Vector2 on = Arc(pose.Start, pose.Heading, pose.Turn, along, out float yaw);
-            float side = (index & 1) == 0 ? PRINT_SIDE * size : -PRINT_SIDE * size;
-            at = new Vector2(on.X + MathF.Cos(yaw) * side, on.Y - MathF.Sin(yaw) * side);
-            fade = 1f - (pose.Walked - along) / (TRAIL_PRINTS * step);
+            Vector3 rest = CritterMesh.BeetleFoot(leg, side);
+            float x = rest.X * SIZE, z = (rest.Z + CritterGait.Stride(scorpion: false) * CritterGait.Forward(CritterGait.TOUCHDOWN)) * SIZE;
+            float cos = MathF.Cos(yaw), sin = MathF.Sin(yaw);
+            at = new Vector2(on.X + cos * x + sin * z, on.Y - sin * x + cos * z);
+            fade = 1f - (pose.Walked - along) / (TRAIL_STEPS / STEPS * SIZE);
             return true;
         }
 
@@ -341,15 +362,15 @@ namespace Prazsky.Core.Render
                 float size = scorpion ? SCORPION_SIZE : BEETLE_SIZE;
                 int kind = scorpion ? 1 : 0;
 
-                _instanceData[kind][counts[kind]++] = new ModelInstance(World(pose, scorpion), new Vector4(pose.Gait, i * 0.137f, kind, 0f));
+                _instanceData[kind][counts[kind]++] = new ModelInstance(World(pose, scorpion),
+                    new Vector4(pose.Gait, i * 0.137f, kind, CritterGait.Stride(scorpion)));
 
-                //A beetle's trail of prints behind it, along the way it walked, fading with age
+                //A beetle's trail: a print where each of its feet stepped, fading with age
                 if (!scorpion)
-                    for (int k = 1; k <= TRAIL_PRINTS && discs < MAX_DISCS; k++)
-                    {
-                        if (!TrailPrint(pose, size, k, out Vector2 at, out float fade)) break;
-                        FlatDisc(ref discs, new Vector3(at.X, _ground(at.X, at.Y), at.Y), size * PRINT_RADIUS, new Color(0f, 0f, 0f, PRINT_ALPHA) * fade);
-                    }
+                    for (int step = 0; step < TRAIL_STEPS; step++)
+                        for (int foot = 0; foot < CritterMesh.BEETLE_FEET && discs < MAX_DISCS; foot++)
+                            if (TrailPrint(pose, foot, step, out Vector2 at, out float fade))
+                                FlatDisc(ref discs, new Vector3(at.X, _ground(at.X, at.Y), at.Y), size * PRINT_RADIUS, new Color(0f, 0f, 0f, PRINT_ALPHA) * fade);
 
                 //Its shadow while it stands on the sand: a soft ellipse along its body, cast off it away from the sun by the
                 //height of its body's middle, so it lies beside the body rather than under it, where the body hid it
