@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-21 — #1193 blikání trychtýře z dálky — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: příčinou byla přesnost hloubky, ne stínový box. Z údolí louky (172–203 jednotek od trychtýře) při near 0,05 vyhrával tmavý plášť jámy nad sklem: pruhy po vnitřních stěnách a zuby na zlatém límci, v každém snímku jinak. `RecoilCamera.NearPlaneAt` drží 0,05 do 36 jednotek od trychtýře, dál roste se čtvercem vzdálenosti až po 0,75; blízký cíl ho jen drží dole. Hra ani menu se nemění (bitově stejné snímky). Pohled vpřed v průjezdech míří 1000 daleko (Grid). Blikání v ústí z 38,9 na 6,4 promile.
+- ⚠ Sweep pevného near (0,15 smaže pruhy, 0,3 zuby) je to, co ukázalo na hloubku místo stínů.
+- Otevřené: orbity kolem balíků sena (louka) a akácie (savana) drží 0,05 a v pár snímcích může blikání prosvítat. Potato, Pi, Android, Testbed a editor nezachyceny.
+
 ## 2026-11-21 — #1213 #1202 #1200 #1189 #1197 opravy před vydáním — desktop (RDT-PC), Claude Code (bs3d-85)
 
 - majitel: projít issues před zítřejším vydáním; „pusť se do všech pěti“. On mezitím vydává BS3D-API (BS3D-API#19, podmínka tagu kvůli pravidlům v2).
