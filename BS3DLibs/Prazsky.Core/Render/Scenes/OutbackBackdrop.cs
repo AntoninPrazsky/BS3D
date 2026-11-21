@@ -128,9 +128,10 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The heat shimmer (#1135): the skyline, the plain where its last fade begins
-        /// (<see cref="OutbackAirConfig.HorizonHazeDistance"/>), refracted in a strip a ring round the lens marks out seven
-        /// tenths of the way to it (<see cref="HorizonShimmer.RingRadius"/>), so the plain nearer than the ring, every formation
-        /// nearer and everything the host draws after it stand clear of it. See <see cref="HorizonShimmer"/>.
+        /// (<see cref="OutbackAirConfig.HorizonHazeDistance"/>), refracted in a strip a ring round the lens marks out
+        /// <see cref="HorizonShimmer.RING_SHARE"/> of the way to it (<see cref="HorizonShimmer.RingRadius"/>), so the plain
+        /// nearer than the ring, every formation nearer and everything the host draws after it stand clear of it. See
+        /// <see cref="HorizonShimmer"/>.
         /// </summary>
         public override void DrawRefraction(in SceneFrame frame, PostProcessPipeline pipeline)
         {

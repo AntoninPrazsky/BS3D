@@ -43,8 +43,9 @@ namespace BS3D.Tests
             return code.Substring(start, end - start);
         }
 
-        //The heights over the plain the Game's lenses fly at: the approach (2.4 over the ground), the play camera (6.1), the
-        //intro's wide shot and the crane (about 40), and a lens far higher than any of them
+        //The heights over the plain the Game's lenses fly at: the approach (2.4 over the ground), the play camera (6.1), 20
+        //and 40, which the intro's crane climbs through (from 4 to some 60), 40 inside its wide shot's 30 to 52 as well, and
+        //a lens far higher than any of them
         private static readonly float[] LensHeights = { 0.1f, 2.4f, 6.1f, 20f, 40f, 120f };
 
         private static float Degrees(float radians) => MathHelper.ToDegrees(radians);
@@ -91,12 +92,20 @@ namespace BS3D.Tests
             Assert.True(turned.Bottom < turned.Axis, "a fade start past the fade's end turned the band over");
         }
 
+        //The heights over the plain the intro's wide shot flies between (OutbackIntroShots' WIDE_FROM_HEIGHT and WIDE_TO_HEIGHT)
+        private const float WIDE_SHOT_LOWEST = 30f, WIDE_SHOT_HIGHEST = 52f;
+
+        //The waver the wide shot's first frame keeps (30 over the plain), which showed no teeth along the skyline: the
+        //first shimmer at its whole 0.07 degrees showed a row of them from the wide shot
+        private const float WIDE_SHOT_WAVER_DEGREES = 0.062f;
+
         /// <summary>
         /// It is the grazing rays' (<see cref="HorizonShimmer.GRAZE"/>): whole from the lenses low over the plain (the approach
         /// at 2.4, the play camera at 6.1), weaker the steeper a lens looks down at the skyline, and never stronger as a lens
-        /// climbs. From the intro's wide shot and its crane (40 over the plain) the waver keeps no more than the 0.04 degrees
-        /// the first shimmer showed there without a row of dark teeth along the skyline (0.07 times 0.44), and the mirage
-        /// under a fifth of its strength.
+        /// climbs. The host states the waver at the amplitude times that share and the mirage at the share squared, every
+        /// frame. From every height of the intro's wide shot (30 to 52 over the plain) the waver keeps no more than its
+        /// first frame's 0.061 degrees, which shows no row of dark teeth along the skyline, and the mirage under a twentieth
+        /// of its strength. The crane climbs through every strength, the rock filling most of its frame, so no bound is its.
         /// </summary>
         [Fact]
         public void ItIsTheGrazingRays()
@@ -106,10 +115,21 @@ namespace BS3D.Tests
 
             Assert.Equal(1f, Grazing(2.4f));
             Assert.Equal(1f, Grazing(6.1f));
-            Assert.True(Degrees(HorizonShimmer.AMPLITUDE * Grazing(40f)) <= 0.04f,
-                $"from 40 over the plain the waver reaches {Degrees(HorizonShimmer.AMPLITUDE * Grazing(40f)):F3} degrees");
-            Assert.True(HorizonShimmer.MIRAGE_STRENGTH * Grazing(40f) * Grazing(40f) < 0.2f,
-                $"from 40 over the plain the mirage keeps {HorizonShimmer.MIRAGE_STRENGTH * Grazing(40f) * Grazing(40f):F2}");
+
+            string shimmer = CodeOf(Path.Combine("BS3DLibs", "Prazsky.Core", "Render", "Scenes", "HorizonShimmer.cs"));
+            string draw = shimmer.Substring(shimmer.IndexOf("public void Draw(", StringComparison.Ordinal));
+            Assert.Matches(@"float\s+grazing\s*=\s*Grazing\(\s*band\s*\)\s*;", draw);
+            Assert.Matches(@"_amplitude\.SetValue\(\s*AMPLITUDE\s*\*\s*grazing\s*\)\s*;", draw);
+            Assert.Matches(@"_mirage\.SetValue\(\s*new\s+Vector2\(\s*MIRAGE_DEPTH\s*,\s*MIRAGE_STRENGTH\s*\*\s*grazing\s*\*\s*grazing\s*\)\s*\)\s*;", draw);
+
+            for (float height = WIDE_SHOT_LOWEST; height <= WIDE_SHOT_HIGHEST; height += 0.5f)
+            {
+                float waver = Degrees(HorizonShimmer.AMPLITUDE * Grazing(height));
+                float mirage = HorizonShimmer.MIRAGE_STRENGTH * Grazing(height) * Grazing(height);
+
+                Assert.True(waver <= WIDE_SHOT_WAVER_DEGREES, $"from {height} over the plain the waver reaches {waver:F3} degrees");
+                Assert.True(mirage < 0.05f, $"from {height} over the plain the mirage keeps {mirage:F3}");
+            }
 
             for (float height = 0.5f; height < 200f; height += 0.5f)
                 Assert.True(Grazing(height + 0.5f) <= Grazing(height), $"the shimmer grows as the lens climbs past {height}");
@@ -137,10 +157,11 @@ namespace BS3D.Tests
         }
 
         /// <summary>
-        /// The offset is an angle: the figures are radians of a few pixels through the play camera's lens at 1080 rows (the
-        /// owner found about a pixel too small for a player to notice), the shader adds the offset to an elevation and
-        /// projects the direction back through the camera, and the copy's size in texels reaches nothing but the pixel's own
-        /// texel. The rows the copy is padded by follow from the angle: twice the rows, twice the pad.
+        /// The offset is an angle: the figures are radians of a few pixels through the play camera's lens at 1080 rows (about
+        /// a pixel is too small for a player to notice), the shader adds the offset to an elevation and projects the
+        /// direction back through the camera, and the copy's size in texels reaches nothing but the pixel's own texel. The
+        /// mirage's axis wavers by the boil's share alone, so the sheet holds the horizon while the swell lifts and sinks the
+        /// skyline over it. The rows the copy is padded by follow from the angle: twice the rows, twice the pad.
         /// </summary>
         [Fact]
         public void TheOffsetIsAnAngle()
@@ -155,7 +176,7 @@ namespace BS3D.Tests
             //The waver and the mirror move an elevation, by the amplitude (radians) and by the axis's own wobble
             Assert.Matches(@"float\s+read\s*=\s*max\(\s*elevation\s*\+\s*Amplitude\s*\*", code);
             Assert.Matches(@"GrabUv\(\s*heading\s*,\s*read\s*\)", code);
-            Assert.Matches(@"float\s+axis\s*=\s*Band\.y\s*\+\s*Amplitude\s*\*", code);
+            Assert.Matches(@"float\s+axis\s*=\s*Band\.y\s*\+\s*Amplitude\s*\*\s*\(1\.0\s*-\s*SWELL_SHARE\)\s*\*\s*Boil\(heading,\s*0\.0\)\s*;", code);
             Assert.Contains("mul(float4(CameraPosition + direction * PROJECTED_DISTANCE, 1.0), ViewProjection)", Body(code, "float2 GrabUv("));
 
             //GrabSize finds the pixel's own texel and nothing else: once in its declaration and twice in the centre's line
@@ -177,10 +198,12 @@ namespace BS3D.Tests
         }
 
         /// <summary>
-        /// The skyline boils, it does not tear: each layer of the field moves a read by less than its own cells are tall, so
-        /// neighbouring rows are read in their order. The fine boil alone at three times the first amplitude read the
-        /// formations' feet out of order into torn horizontal slivers (its cells are 0.15 degrees tall); the swell's cells are
-        /// tall enough to carry most of the offset, so the skyline rises and sinks whole.
+        /// The skyline boils, it does not tear: each layer of the field moves a read by less than its own coarsest cells are
+        /// tall. That alone does not keep rows in order, and this test does not claim it: the swell, which carries most of the
+        /// offset, reads none out of order (its cells are 0.95 degrees tall), but the boil's finer octave has cells shorter
+        /// than the boil's share, and in a numeric port of the shader at the play camera it reads rows up to about two pixels
+        /// back at 1080 rows, the flicker in the boil. The boil alone at three times the first amplitude read them up to seven
+        /// back, the formations' feet torn into horizontal slivers; hence the swell's share.
         /// </summary>
         [Fact]
         public void EachLayerMovesLessThanItsCells()
@@ -203,7 +226,10 @@ namespace BS3D.Tests
         /// <summary>
         /// No read lands on the plain nearer than the ring (which brings nothing back, and the skyline would tear there): a
         /// read is held at the floor the host computes (<see cref="HorizonShimmer.Floor"/>, the band's fourth figure), and the
-        /// floor never moves a read where nothing moves, since a pixel under the floor is held at its own elevation. The
+        /// floor never moves a read where nothing moves, since a pixel under the floor is held at its own elevation. A read
+        /// downward keeps its whole offset down to that floor, and only a read upward grows from nothing at the band's
+        /// bottom: a downward read ramped in over the plain under the axis, thinner than the offset, read the rows nearer the
+        /// horizon from lower down than the rows over them, and the skyline came apart into lumps outlined by rings. The
         /// mirage fades out before the floor, so it never ends on the ring's lower edge.
         /// </summary>
         [Fact]
@@ -213,6 +239,8 @@ namespace BS3D.Tests
             Assert.Matches(@"_band\.SetValue\(\s*new\s+Vector4\(\s*band\.Bottom\s*,\s*band\.Axis\s*,\s*band\.Top\s*,\s*Floor\(band\)\s*\)\s*\)", shimmer);
 
             string refract = Body(Shader(), "float4 RefractPS(");
+            Assert.Matches(@"float\s+rise\s*=\s*wobble\s*<\s*0\.0\s*\?\s*1\.0\s*:\s*smoothstep\(\s*Band\.x\s*,\s*Band\.y\s*,\s*elevation\s*\)\s*;", refract);
+            Assert.Matches(@"float\s+reach\s*=\s*rise\s*\*", refract);
             Assert.Matches(@"float\s+read\s*=\s*max\([^;]*,\s*min\(\s*elevation\s*,\s*Band\.w\s*\)\s*\)\s*;", refract);
             Assert.Matches(@"float\s+sheet\s*=[^;]*\*\s*smoothstep\(\s*Band\.x\s*,\s*Band\.w\s*,\s*elevation\s*\)\s*;", refract);
         }

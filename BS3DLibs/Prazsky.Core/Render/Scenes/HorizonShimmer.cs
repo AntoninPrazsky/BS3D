@@ -57,8 +57,10 @@ namespace Prazsky.Core.Render
         /// <c>SWELL_GAIN</c> and <c>BOIL_GAIN</c> in the shader). Seven tenths of it is the shader's swell, cells tall enough
         /// that a column's offset barely changes up the strip, so the skyline rises and sinks whole; three tenths the boil,
         /// the fine field rising through it (0.084 degrees). ⚠ The fine field alone at three times its first 0.07 degrees
-        /// shredded the formations' feet into torn horizontal slivers: its cells are 0.15 degrees tall, and an offset larger
-        /// than a cell reads its rows out of order (docs/scenes/outback.md, "The heat shimmer").
+        /// shredded the formations' feet into torn horizontal slivers, rows read up to seven pixels out of order at 1080 rows:
+        /// its cells are 0.15 degrees tall, and the faster an offset that large changes up the strip, the further back a row
+        /// is read. The swell reads none out of order; the boil's share still reads some a pixel or two back, the flicker in
+        /// it (docs/scenes/outback.md, "The heat shimmer").
         /// </summary>
         public static readonly float AMPLITUDE = MathHelper.ToRadians(0.28f);
 
@@ -87,9 +89,11 @@ namespace Prazsky.Core.Render
         /// over the plain (the play camera at 6, the approach at 2.9). Steeper, the waver falls as the square of this over the
         /// angle and the mirage as its fourth power (<see cref="Grazing"/>): a ray that grazes the hot air over the ground
         /// crosses a long path of it, a steep one a short path, and a mirage is a grazing ray's alone. The intro's wide shot
-        /// and its crane (about 40 over the plain, 2.3 degrees down) keep an eighth of the waver, 0.034 degrees. ⚠ More was
-        /// a row of dark teeth along the whole skyline from there, the plain's red edge boiling up into the pale fade: at the
-        /// whole of the first 0.07 degrees, and again at 0.12 (this amplitude falling as one over the angle).
+        /// flies from 30 to 52 over the plain (1.7 to 3 degrees down): its first frame keeps a fifth of the waver, 0.061
+        /// degrees, which shows no teeth, and its last a fourteenth. Its crane climbs from 4 over the plain to 18 over the
+        /// monolith's crown, some 60, through every strength between, the rock filling most of its frame. ⚠ More was a row
+        /// of dark teeth along the whole skyline from the wide shot, the plain's red edge boiling up into the pale fade: at
+        /// the whole of the first 0.07 degrees, and again at 0.12 (this amplitude falling as one over the angle).
         /// </summary>
         public static readonly float GRAZE = MathHelper.ToRadians(0.8f);
 

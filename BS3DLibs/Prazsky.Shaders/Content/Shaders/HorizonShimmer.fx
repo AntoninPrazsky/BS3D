@@ -184,8 +184,9 @@ float4 RefractPS(BandPixel input) : COLOR
 
     //The mirage: under the axis, which wavers with the boil, the sky and what stands on it mirrored, fading out with depth
     //and before the floor, so it never ends on the ring's lower edge. A point on the axis is its own mirror, so the image
-    //meets what is above it without a seam. Not with the swell: the sheet stays at the horizon as the skyline over it rises
-    //and sinks, the far formations floating over their own reflection
+    //meets the boil's waver over it without a seam; but the axis does not move with the swell, which lifts or sinks the
+    //picture just over it by up to SWELL_SHARE of the amplitude, so the axis is a deliberate edge: the sheet stays at the
+    //horizon as the skyline over it rises and sinks, the far formations floating over their own reflection
     float axis = Band.y + Amplitude * (1.0 - SWELL_SHARE) * Boil(heading, 0.0);
     float below = axis - elevation;
 
