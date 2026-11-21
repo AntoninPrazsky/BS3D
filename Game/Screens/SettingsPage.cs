@@ -234,9 +234,9 @@ namespace BS3D.Screens
         private Grid _campaign;
 
         /// <summary>
-        /// A cycling row's − and + (#1151), on a touch screen: the two ends' buttons and glyphs, and what they ask and do. A
-        /// press on the row itself walks the row's ladder one way and wraps; the ends step it either way and hold at its ends,
-        /// dimmed there.
+        /// A cycling row's − and + (#1151; on every input since #1189): the two ends' buttons and glyphs, and what they ask and
+        /// do. A press on the row itself walks the row's ladder one way and wraps; the ends and the wheel step it either way
+        /// and hold at its ends, dimmed there.
         /// </summary>
         private sealed record Stepper(Func<int, bool> CanStep, Action<int> Step)
         {
@@ -435,7 +435,7 @@ namespace BS3D.Screens
         /// than scrolled. ONLINE's note stands beside its heading and rows rather than under them, unscrolled, and GAME's
         /// campaign pair beside its switches. The captions end at one seam on every
         /// tab and the values start from it (#833), as on a monitor; on the tabs with nothing beside their rows the values
-        /// reach across the width, with a cycling row's − and + at their ends where a touch screen answers.
+        /// reach across the width, with a cycling row's − and + at their ends.
         /// </summary>
         private Widget BuildRailTree()
         {
@@ -446,7 +446,7 @@ namespace BS3D.Screens
             //Two value widths and one seam: ONLINE's and GAME's values are a box, a name or a word, and their tabs fill the width
             //with what stands beside the rows (the note, the campaign pair); the other tabs' values reach across the width
             //that leaves, at least the widest value there is (the Resolution row's display size, native) between a cycling
-            //row's − and + where a touch screen draws them. ONLINE's narrow column is what leaves its note the width it needs
+            //row's − and +. ONLINE's narrow column is what leaves its note the width it needs
             int spacing = Scaled(COLUMN_SPACING);
             int plain = Scaled(PHONE_VALUE_WIDTH);
             int ends = _steppers.Count > 0 ? 2 * (RowHeight + Scaled(STEP_GAP)) : 0;
@@ -914,9 +914,10 @@ namespace BS3D.Screens
         /// <param name="typingRow">The nickname's own row, whose click keeps or starts typing. Every other row's
         /// click first keeps a name being typed when it is one, and drops it when it is not (#687) — the player has
         /// moved on, and only Escape says "not this name".</param>
-        /// <param name="stepper">A cycling row's − and + (#1151), drawn at the value's two ends where a touch screen answers
-        /// (<see cref="BS3DGame.TouchScreenPresent"/>): a finger has no other way to step the row back, where the pad and the
-        /// keys keep their walk. Null for a row with two states or one that is not a ladder.</param>
+        /// <param name="stepper">A cycling row's − and + (#1151), drawn at the value's two ends. A touch screen's alone until
+        /// #1189: the owner, with a mouse, clicked Sensitivity's 100 % to lower it and read 125 %, and the way down was five
+        /// more clicks round the ladder. The pad and the keys keep their walk, which does not land on the ends. Null for a
+        /// row with two states or one that is not a ladder.</param>
         private void AddRow(Grid grid, int row, string caption, Action onClick, out Label value, bool typingRow = false,
             Stepper stepper = null)
         {
@@ -934,7 +935,7 @@ namespace BS3D.Screens
             //From the seam, not centred in the slab (#833): every value begins at the same x
             value.HorizontalAlignment = HorizontalAlignment.Left;
 
-            if (stepper != null && Game.TouchScreenPresent)
+            if (stepper != null)
             {
                 AddStepped(grid, row, button, stepper);
                 return;
@@ -1073,7 +1074,8 @@ namespace BS3D.Screens
         /// there being only the one direction any row's own action performs, an up-notch and a down-notch do
         /// the same thing. <c>Tag</c> rather than the row's own click handler directly, so the wheel plays the
         /// same click sound a mouse press or a pad activation already does (see <c>MenuClickable</c>) instead
-        /// of silently skipping it.
+        /// of silently skipping it. <b>A row with − and + steps the way the wheel turns</b> (#1189): away from the
+        /// player raises, towards lowers, and it holds at the ladder's ends as the two ends do, ticking only when it moved.
         /// <para>
         /// Over the tab row it turns the tab (#686), the way the level picker's wheel turns its chapter — away from the
         /// player is the next one. A row is asked only when it is on the page that is up: a page hidden under the
@@ -1092,9 +1094,30 @@ namespace BS3D.Screens
             {
                 if (!_rows[i].IsMouseInside || _rowTabs[i] != _tab) continue;
 
+                Stepper stepper = StepperOf(_rows[i]);
+                if (stepper != null)
+                {
+                    int direction = delta > 0 ? 1 : -1;
+                    if (!stepper.CanStep(direction)) return;
+
+                    KeepOrDropTyping();
+                    stepper.Step(direction);
+                    Game.Audio?.PlayUiTick();
+                    return;
+                }
+
                 (_rows[i].Tag as Action)?.Invoke();
                 return;
             }
+        }
+
+        /// <summary>The − and + standing either side of <paramref name="value"/>, or null for a row without them.</summary>
+        private Stepper StepperOf(Button value)
+        {
+            foreach (Stepper stepper in _steppers)
+                if (stepper.Value == value) return stepper;
+
+            return null;
         }
 
         /// <summary>Writes the current value onto each setting's button. Cheap, and only run on a change.</summary>
