@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-21 — #1178 trailer schválen — desktop (RDT-PC), Claude Code
+
+- majitel (v chatu): „Toto je finální podoba prvního traileru, schvaluji.“ RC je tedy první trailer; #1178 uzavřeno, odpověď je na issue.
+- ⚠ Schválený master (`bs3d-trailer-rc-master.mp4` ve `Videos\BS3D trailer`) je jediná kopie schváleného obrazu: `trailer.json` ho natočí znovu, ale ze hry, jak vypadá ten den. Změna střihu = nový trailer v novém souboru (`docs/website.md`).
+- Otevřené: kam trailer umístit (web má jen odkazový `site.json` `video`, itch.io #838) — #1228 (`owner-decision`), s naměřenými velikostmi webové verze: 1080p 77 MB (CRF 21) nebo 44 MB (CRF 26, rozmazává jiskry), celý web má 17 MB. Snímky klipů (~90 GB v `%TEMP%\bs3d-web-capture-frames`) zůstávají, dokud nejsou hotové všechny verze; disk má místo.
+
 ## 2026-11-21 — #1225 #1226 #1227 Outback, poznámky z hraní — desktop (RDT-PC), Claude Code
 
 - Hotovo (jen soubory, nic nestavěno): tři issues, jedna na poznámku, všechny `priority-low` (scéna bez kapitoly). #1225 trsy spinifexu zapadají do země: sedí na nejnižším z pěti vzorků země a navíc o 0,06 klesají, takže nejnižší jehlice leží pod zemí. #1226 vegetace nečte upečený stín kopců: čte ho jen `Outback.fx`, rostliny jdou přes `Acacia.fx` a mapu slunce. #1227 kopce se opakují a malé balvany („klobouky“) chtějí realismus: napřed změřit opakování přes `TerrainMirror.Outback`, pak reference z Z-Image. Komentáře: #749, #967, #1176.
