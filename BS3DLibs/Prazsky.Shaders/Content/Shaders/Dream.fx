@@ -1,6 +1,6 @@
 //Draws the dream: a hallucinatory skyscape - slow marbled colour flowing across the whole sphere of the
-//sky, hard glassy solids that tumble and melt from form to form (never into each other), soft luminous orbs breathing in and
-//out of the murk, and fast sparks whipping between them. The tenth scene, and deliberately a scene of
+//sky, hard glassy solids that tumble and melt from form to form (never into each other), soft luminous orbs
+//breathing in and out of the murk, and fast sparks whipping between them. The tenth scene, and deliberately a scene of
 //CONTRASTS: sharp against blurred (raymarched surfaces with crisp silhouettes against pure gaussian glows),
 //fast against slow (the background marbling drifts over minutes while the sparks cross the sky in seconds),
 //near against far. It is the picture of a hallucination the way Space.fx is the picture of space.
