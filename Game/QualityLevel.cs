@@ -347,10 +347,21 @@ namespace BS3D
         /// </summary>
         public readonly bool HorizonShimmer;
 
+        /// <summary>
+        /// Whether the distance rules reach farther than High's (<c>SceneRenderer.FarDetail</c>, #1208): the aurora stand's
+        /// spires are spruces out to <c>StandSpruces.FAR_DETAIL_SWAP_RADIUS</c> (300) where High swaps them within 200.
+        /// <b>Ultra only</b>: the owner, of the post that compared the tiers, "High has fewer detailed trees than Ultra, and Max
+        /// has every tree in detail", where Ultra had drawn High's trees to the tree. What it costs is in "The stand's spruces"
+        /// in docs/scenes/aurora.md.
+        /// </summary>
+        public readonly bool FarDetail;
+
         public QualityPreset(int supersampleFactor, float facadeGrainStrength, float windowFrameWidth, int cityRadiusBlocks,
             int msaaSamples, int shadowMapCap, bool ceilingRefraction, bool motionBlur, int shadowMapScale = 1,
-            bool clusterWind = true, bool fineMeshes = false, bool cityReflections = false, bool horizonShimmer = false)
+            bool clusterWind = true, bool fineMeshes = false, bool cityReflections = false, bool horizonShimmer = false,
+            bool farDetail = false)
         {
+            FarDetail = farDetail;
             HorizonShimmer = horizonShimmer;
             CityReflections = cityReflections;
             FineMeshes = fineMeshes;
@@ -424,13 +435,14 @@ namespace BS3D
             //High — the look the game was authored at, and the finer meshes (#758, #733).
             new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES, shadowMapCap: 0, ceilingRefraction: true, motionBlur: true, fineMeshes: true, cityReflections: true, horizonShimmer: true),
 
-            //Ultra (#484) — High, and the sun shadow map at twice the scene's authored size (8192). The one
-            //rung ABOVE the authored look, so it is the player's alone: the probe starts at High and only steps
-            //down. It carries nothing else, deliberately: every other entry is already at the authored maximum
+            //Ultra (#484) — High, the sun shadow map at twice the scene's authored size (8192), and the farther reach of
+            //the distance rules that trade a far thing's detail for frame time (#1208, FarDetail: the aurora stand's spruces
+            //out to 300 where High stops at 200). The one rung ABOVE the authored look, so it is the player's alone: the probe
+            //starts at High and only steps down. Every other entry is already at the authored maximum
             //on High (full scene detail, full stone cap, full city, the ceiling's refraction), and the one dial
             //that could go further — supersampling 3 — is 2.25x High's shaded pixels at 3840x1600, the whole
             //frame's biggest cost bought for relief detail High already resolves. See ShadowMapScale.
-            new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES, shadowMapCap: 0, ceilingRefraction: true, motionBlur: true, shadowMapScale: 2, fineMeshes: true, cityReflections: true, horizonShimmer: true),
+            new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES, shadowMapCap: 0, ceilingRefraction: true, motionBlur: true, shadowMapScale: 2, fineMeshes: true, cityReflections: true, horizonShimmer: true, farDetail: true),
             //Potato (#788) — Low with the last of its multisampling gone, for the Raspberry Pi build (GamePi), where
             //it is the only tier. A placeholder of the desktop pipeline's own dials and nothing more: what the tier
             //actually draws is its own OpenGL shader set and render path (#789), which GamePi needs because none of

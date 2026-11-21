@@ -32,8 +32,24 @@ namespace BS3D.Tests
         [MemberData(nameof(Lenses))]
         public void Every_spire_within_the_swap_that_a_pass_meets_is_drawn_as_its_spruce_and_none_beyond(Vector3 lens, Vector3 target)
         {
-            ForestPasses passes = ForestCullingTests.AuroraPasses(out ForestScatter scatter);
+            //High's radius, then Ultra's (#1208), from one planting: the tier is read at every use, as a tier change reads it
+            bool ultra = false;
+            ForestPasses passes = ForestCullingTests.AuroraPasses(out ForestScatter scatter, () => ultra);
             StandSpruces stand = scatter.Stand;
+            int highSwapped = 0;
+            foreach (bool far in new[] { false, true })
+            {
+                ultra = far;
+                float radius = far ? StandSpruces.FAR_DETAIL_SWAP_RADIUS : StandSpruces.SWAP_RADIUS;
+                Assert.Equal(radius, stand.SwapRadiusFor(true));
+                int swapped = SwappedFrom(passes, stand, lens, target, radius);
+                if (far) Assert.True(swapped > highSwapped, $"Ultra swapped {swapped} spires from a lens beside the stand, High {highSwapped}");
+                else highSwapped = swapped;
+            }
+        }
+
+        private static int SwappedFrom(ForestPasses passes, StandSpruces stand, Vector3 lens, Vector3 target, float radius)
+        {
             Assert.True(stand.Reaches(lens));
             Matrix camera = ForestCullingTests.ViewProjectionFrom(lens, target);
 
@@ -54,13 +70,14 @@ namespace BS3D.Tests
                 {
                     Vector3 at = spruce.World.Translation;
                     float fromLens = new Vector2(at.X - lens.X, at.Z - lens.Z).Length();
-                    bool due = fromLens < StandSpruces.SWAP_RADIUS && ForestScatterRenderer.Meets(frustum, TREE, spruce.World);
+                    bool due = fromLens < radius && ForestScatterRenderer.Meets(frustum, TREE, spruce.World);
                     Assert.True(due == drawn.Contains(at), $"a spire {fromLens:F1} from the lens is {(due ? "not drawn as its spruce" : "drawn as a spruce")}");
                     if (!due) continue;
                     swapped++;
                     Assert.Equal(fromLens < ForestScatterRenderer.NEAR_LENS_RADIUS, near.Contains(at));
                 }
             Assert.True(swapped > 0, "no spire was swapped from a lens beside the stand");
+            return swapped;
         }
 
         [Fact]
@@ -165,9 +182,11 @@ namespace BS3D.Tests
         public void No_lens_is_within_the_swap_of_more_spruces_than_the_passes_have_room_for()
         {
             var config = new AuroraSceneConfig();
-            ForestPasses passes = ForestCullingTests.AuroraPasses(out ForestScatter scatter);
+            ForestPasses passes = ForestCullingTests.AuroraPasses(out ForestScatter scatter, () => true);
             StandSpruces stand = scatter.Stand;
-            float reach = config.FarStand.NearRadius + StandSpruces.SWAP_RADIUS;
+            //Out to the widest radius the stand is sized for (Ultra's, #1208), from which a pass may take the most
+            Assert.Equal(StandSpruces.FAR_DETAIL_SWAP_RADIUS, stand.Radius);
+            float reach = config.FarStand.NearRadius + stand.Radius;
             var most = new int[stand.Feet.Length];
             int busiest = -1;
             Vector3 busiestLens = Vector3.Zero;

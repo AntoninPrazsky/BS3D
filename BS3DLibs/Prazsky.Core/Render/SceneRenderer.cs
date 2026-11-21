@@ -495,6 +495,21 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
+        /// Whether a distance rule that trades a far thing's detail for frame time reaches farther than High's: Ultra's rung
+        /// (#1208). The owner, of the post that compared the tiers: "High has fewer detailed trees than Ultra, and Max has every
+        /// tree in detail", where Ultra had drawn High's trees to the tree. It moves the aurora stand's swap from spire to spruce
+        /// out to <see cref="StandSpruces.FAR_DETAIL_SWAP_RADIUS"/> from <see cref="StandSpruces.SWAP_RADIUS"/> (only with
+        /// <see cref="FineMeshes"/>, which makes the swap at all); <see cref="RenderDetail.Maximum"/> still goes past both.
+        /// Off unless a caller says otherwise: the Testbed's <c>fardetail=</c> and the map editor draw High's reach. What it
+        /// costs is in "The stand's spruces" in docs/scenes/aurora.md.
+        /// </summary>
+        public bool FarDetail
+        {
+            get => _services.FarDetail;
+            set => _services.FarDetail = value;
+        }
+
+        /// <summary>
         /// Whether the scene shaders may draw their <b>expensive extras</b> — the forest floor's triplanar
         /// normal variation and its procedural tree shadows, and the dream's four. 1 is the authored look;
         /// 0 is the reduced one, and each scene that has a reduced program compiles it as a second technique.

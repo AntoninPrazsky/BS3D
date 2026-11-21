@@ -138,7 +138,7 @@ namespace Prazsky.Core.Render
                 {
                     ModelInstance[] spruces = stand.Spruces[v];
                     Vector2[] feet = stand.Feet[v];
-                    float radius = stand.Radius;
+                    float radius = stand.SwapRadius;
                     for (int i = 0; i < spruces.Length; i++)
                     {
                         if (!StandSpruces.Swaps(feet[i].X, feet[i].Y, lens, radius)) continue;

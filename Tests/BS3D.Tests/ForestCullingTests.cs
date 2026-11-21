@@ -346,14 +346,15 @@ namespace BS3D.Tests
             return SunShadowMap.FitWindow(8192, centre, sun, extent, yMin, yMax).ViewProjection;
         }
 
-        //The aurora's planting with its far stand's spruces, as AuroraBackdrop hands them over (#1163)
-        internal static ForestPasses AuroraPasses(out ForestScatter scatter)
+        //The aurora's planting with its far stand's spruces, as AuroraBackdrop hands them over (#1163), the stand told whether the
+        //tier is Ultra by farDetail as the backdrop tells it from its services (#1208); none is High
+        internal static ForestPasses AuroraPasses(out ForestScatter scatter, Func<bool> farDetail = null)
         {
             var config = new AuroraSceneConfig();
             scatter = ForestScatterRenderer.Plant(ForestScatterRenderer.DEFAULT_SEED, config.Terrain, (x, z) => TerrainMirror.AuroraBase(x, z, config));
             (AuroraBackdrop.StandInstance[] nearRing, _) = AuroraBackdrop.PlantStandInstances(config, config.FarStand.InnerRadius,
                 config.FarStand.NearRadius, config.FarStand.Count, 0, AuroraBackdrop.TakenCells(scatter));
-            scatter.Stand = AuroraBackdrop.StandSprucesOf(nearRing, config);
+            scatter.Stand = AuroraBackdrop.StandSprucesOf(nearRing, config, farDetail);
             var tree = new BoundingSphere(new Vector3(0f, 15f, 0f), 18f);
             var low = new BoundingSphere(new Vector3(0f, 0.5f, 0f), 2f);
             static BoundingSphere[] Each(ModelInstance[][] kind, BoundingSphere sphere)
