@@ -29,6 +29,13 @@ namespace MapEditor
         /// <summary>Optional map or level file loaded once at startup (first command-line argument).</summary>
         public string StartupFilePath { get; set; }
 
+        /// <summary>The <c>shot=</c> schedule in seconds, or null for none (see <see cref="ScreenshotWriter"/>).</summary>
+        public float[] ShotSeconds { get; set; }
+
+        //The editor's own frame written to a PNG (#1209): the shot= schedule, so its screen can be photographed at a
+        //stated window size without focus, a screen grab or a window in front of it getting into the picture
+        private ScreenshotWriter _shots;
+
         //A little air around the play field, so that it does not touch the edges of the screen
         private const float VIEW_MARGIN = 1.1f;
 
@@ -502,6 +509,8 @@ namespace MapEditor
             ApplySkyLighting();
 
             _pipeline.EnsureTarget();
+
+            _shots = new ScreenshotWriter(GraphicsDevice, "mapeditor", ShotSeconds);
 
             //Load a map or level handed on the command line (it stashes to _pendingLoad and lands next Update)
             if (!string.IsNullOrEmpty(StartupFilePath) && File.Exists(StartupFilePath))
@@ -1006,6 +1015,10 @@ namespace MapEditor
             _axisGizmo.Draw(Camera3D);
 
             base.Draw(gameTime);
+
+            //Last, after the components have drawn the text, so a shot is the frame as presented. On the draw's own
+            //clock: Update stands still while the window is not active, and a scheduled shot is taken without focus.
+            _shots.Service((float)gameTime.TotalGameTime.TotalSeconds, _scene);
         }
 
         /// <summary>

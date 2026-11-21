@@ -12,6 +12,10 @@ The key table in `MapEditor.cs` is the authority (its hint line names each). **F
 - **V does not adopt the scene's default dome** (the Testbed does): here the dome is *data* that F4 writes, and overwriting it on a cycle would destroy the author's choice.
 - **K is its own key** because kind and colour are orthogonal (a rock is not a fourteenth colour); they compose with nothing added. ⚠ The hint line names each kind in a `switch`: a new kind needs its case.
 
+## The command line
+
+`MapEditor.exe [file] [width=W] [height=H] [shot=s1,s2,…]`. The first argument that is not an option is the map or level to open. `width=`/`height=` size the window's client area (1280 × 800 without them). `shot=` writes the back buffer to `Screenshots\mapeditor-<time>-<scene>.png` beside the exe at those seconds of the draw clock (the shared `ScreenshotWriter`, printing a `[shot] <path>` line). Use it to photograph the editor: its `Update` stops while the window is not active, but the draw and the shot carry on, so a scripted run needs no focus, and nothing in front of the window gets into the picture. An argument counts as an option only by its exact prefix, so a file path stays a file path. The open and save dialogs start in the working directory, so a scripted run gets a scratch one.
+
 ## The render pipeline
 
 `MapEditor.Draw` binds the shared supersampled HDR target (`SUPERSAMPLE_FACTOR` fixed at 2, no `ssaa=`), clears it to the **current dome's horizon colour** (`_rig.HorizonLinear`; black for a sky-replacing scene: at a wide aspect the bottom corners look below the horizon past dome and scene, and a fixed blue showed through), draws sky, scene and balls, and `PostProcessPipeline.Resolve` runs `Glare.fx` and `Tonemap.fx` with the game's own look figures.
