@@ -114,5 +114,58 @@ namespace BS3D.Tests
 
             Assert.True(faults.Count == 0, string.Join(Environment.NewLine, faults));
         }
+
+        /// <summary>
+        /// Each level of a chapter plays its own recording (#1200): <c>GameMusic.SetTheme</c> takes the level's
+        /// <see cref="LevelSet.PlaceInChapter"/> modulo its family's count, so within a chapter the places must be 0, 1, 2 …
+        /// in order and the family must have a recording for each. The families short of their chapter are the known
+        /// exceptions the owner's rule of ten recordings a chapter is filling (#1207); a family that falls short and is not
+        /// on the list, or one on the list that has caught up, fails here, so the list cannot go stale either way.
+        /// </summary>
+        [Fact]
+        public void EveryLevelOfAChapterPlaysItsOwnRecording()
+        {
+            //#1207: the Tower's and the Reveal's tenth recordings are still to be generated
+            HashSet<string> knownShort = new(StringComparer.OrdinalIgnoreCase) { "summit", "nocturne" };
+
+            LevelSet set = ShippedSet();
+            string music = Path.Combine(Path.GetDirectoryName(Shipped.LevelsDirectory), "Music");
+
+            Dictionary<string, int> recordings = Directory.GetFiles(music, "*.ogg")
+                .Select(file =>
+                {
+                    string stem = Path.GetFileNameWithoutExtension(file);
+                    int dash = stem.IndexOf('-');
+                    return dash < 0 ? stem : stem.Substring(0, dash);
+                })
+                .GroupBy(family => family, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(group => group.Key, group => group.Count(), StringComparer.OrdinalIgnoreCase);
+
+            List<string> faults = new();
+
+            for (int first = 0; first < set.Count;)
+            {
+                set.BlockRange(first, out _, out int last);
+                string chapter = set.BlockName(first);
+                string family = Level.Load(set.ResolvePath(first)).Music.Split('-')[0];
+
+                for (int i = first; i <= last; i++)
+                    if (set.PlaceInChapter(i) != i - first)
+                        faults.Add($"'{chapter}': {set.Levels[i].File} is at place {set.PlaceInChapter(i)}, not {i - first}");
+
+                int levels = last - first + 1;
+                bool isShort = recordings.GetValueOrDefault(family) < levels;
+
+                if (isShort && !knownShort.Contains(family))
+                    faults.Add($"'{chapter}' has {levels} levels and its family '{family}' {recordings.GetValueOrDefault(family)} recordings,"
+                        + " so two of its levels play the same one");
+                else if (!isShort && knownShort.Contains(family))
+                    faults.Add($"'{family}' has caught up with '{chapter}' ({recordings[family]} recordings): take it off the known-short list");
+
+                first = last + 1;
+            }
+
+            Assert.True(faults.Count == 0, string.Join(Environment.NewLine, faults));
+        }
     }
 }

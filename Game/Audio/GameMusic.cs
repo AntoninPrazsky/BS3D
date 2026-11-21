@@ -174,9 +174,16 @@ namespace BS3D.Audio
         /// One family of recordings (#486): the files that share a name before the first dash, the family's own
         /// bare file first and then its variants in name order, each decoded on demand into <see cref="Loads"/>
         /// (null until asked for; a task that finished with null is a file that could not be read, already logged).
-        /// <see cref="Next"/> is which recording the next chain head plays: a family with several moves on every
-        /// time a head is built for it, and a head is built exactly when a level opens (a build, a retry, a switch
-        /// of piece, a Continue), so "each start of a level in this chapter plays the next one" is this one counter.
+        /// <see cref="Next"/> is which recording the next chain head plays. <b>A level states it</b> (#1200): its place in
+        /// its chapter, modulo the family's count (<see cref="SetTheme(string, int, int)"/>), so each level of a chapter
+        /// plays its own recording and always the same one, a retry and a level picked out of order included. It still
+        /// moves on by one every time a head is built, which is all that decides it where nothing states it: the Settings
+        /// row's family and a level outside any set.
+        /// <para>
+        /// The counter alone decided it until #1200, moving on at every level start, retries included, and starting at the
+        /// bare file on every launch: the owner heard one track twice in a chapter (his log: the Gallery's ten
+        /// recordings over twelve starts).
+        /// </para>
         /// </summary>
         private sealed class Family
         {
@@ -447,10 +454,12 @@ namespace BS3D.Audio
         /// What a level asks for by name, falling back to the pool's own rotation. Resolved rather than cast: the
         /// level file is hand-editable, and an unknown spelling has to mean "the default", not an exception. A name
         /// is first a <b>recording</b> — <c>ember-punk-03</c> pins that one file, which is how a level gets music of
-        /// its own — and then a <b>family</b>, which rotates. <paramref name="index"/> picks when nothing is named
-        /// (the level's place in its set), which is why level one still opens on Pulse.
+        /// its own — and then a <b>family</b>. <paramref name="index"/> picks when nothing is named (the level's place in
+        /// its set), which is why level one still opens on Pulse. <paramref name="place"/> is the level's place in its
+        /// chapter (<c>LevelSet.PlaceInChapter</c>), which picks the named family's recording (#1200); −1 leaves the
+        /// family's own counter to pick.
         /// </summary>
-        public void SetTheme(string named, int index)
+        public void SetTheme(string named, int index, int place)
         {
             if (Families.Length == 0) return;
 
@@ -482,7 +491,7 @@ namespace BS3D.Audio
                         if (pinned < 0) Console.WriteLine($"[music] no recording '{name}', playing the {familyName} family instead");
                     }
 
-                    SetFamily(family, pinned);
+                    SetFamily(family, pinned, place);
                     return;
                 }
 
@@ -504,9 +513,13 @@ namespace BS3D.Audio
         /// builds the new one underneath it. The family being left lets go of its decoded recordings (#486): the
         /// retiring chain already holds the buffer it is fading out, and a chapter come back to decodes again.
         /// </summary>
-        private void SetFamily(Family family, int pinned)
+        private void SetFamily(Family family, int pinned, int place = -1)
         {
             if (_failed) return;
+
+            //The level's own recording (#1200), stated even when the family is the one already playing: the next head
+            //built (this level's opening) reads it, and a chain that is kept (a Continue) plays on unaffected
+            if (pinned < 0 && place >= 0 && family.Files.Length > 0) family.Next = place % family.Files.Length;
 
             //The same family again with the same pin is the same music — a retry, a Continue — and keeps its chain
             if (family == _family && pinned == _pinned) return;

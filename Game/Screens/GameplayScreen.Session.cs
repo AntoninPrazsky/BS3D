@@ -391,7 +391,9 @@ namespace BS3D.Screens
                 }
             }
 
-            Game.Music?.SetTheme(namedTheme, index);
+            //The recording within the family is the level's place in its chapter (#1200), not how many levels were started
+            Game.Music?.SetTheme(namedTheme, index,
+                levelSet != null && index >= 0 && index < levelSet.Count ? levelSet.PlaceInChapter(index) : -1);
 
             //The render set is the whole program's, and the front end hangs its own preview through it — so
             //this is stated on the way in rather than assumed, and stated again every frame this screen draws
