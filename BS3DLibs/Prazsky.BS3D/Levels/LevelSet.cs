@@ -204,6 +204,20 @@ namespace Prazsky.BS3D.Levels
         }
 
         /// <summary>
+        /// Where <paramref name="index"/> stands in its chapter, counting from 0: its distance from the chapter's first
+        /// entry, or its place in the whole set when it names no chapter. Which recording of its family a level plays
+        /// (#1200, <c>GameMusic.SetTheme</c>): a function of the level, so a retry or a level picked out of order hears the
+        /// same recording, and no two levels of a chapter share one while the family has a recording for each.
+        /// </summary>
+        public int PlaceInChapter(int index)
+        {
+            if (BlockName(index) == null) return index;
+
+            BlockRange(index, out int first, out _);
+            return index - first;
+        }
+
+        /// <summary>
         /// Every chapter's scene, in campaign order: the index of the chapter's first entry and the scene that level names.
         /// The Extras scene list captions its scenes with these (#773) and the front end draws its launch scene from the
         /// unlocked ones (#1202). A chapter's scene is its first level's, which is how the set is authored (every level of
