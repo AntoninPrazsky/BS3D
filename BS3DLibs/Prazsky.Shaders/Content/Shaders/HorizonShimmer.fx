@@ -67,7 +67,7 @@ sampler2D GrabSampler = sampler_state
 static const float ACROSS = 230.0;
 static const float UP = 380.0;
 static const float TEMPO = 3.5;
-static const float FINE_SCALE = 2.3;
+static const float FINE_SCALE = 2.0;
 static const float FINE_TEMPO = 9.0;
 
 //The two octaves' sum spreads about 0.15 either way (0.28 at the 95th percentile): scaled so the offset reaches its

@@ -33,17 +33,19 @@ namespace Prazsky.Core.Render
         public const int SEGMENTS = 128;
 
         /// <summary>
-        /// The largest offset, an angle: 0.05 degrees, a little over a pixel at 1080 rows through the play camera's lens and
-        /// about one and a half at 1600, and half that or less most of the time (the field's spread, <c>WOBBLE_GAIN</c> in
-        /// the shader).
+        /// The largest offset, an angle: 0.07 degrees, 1.8 pixels at 1080 rows through the play camera's 42.9-degree lens
+        /// (<c>GameplayScreen.GAME_FOV</c>) and 2.6 at 1600, and under half that most of the time (the field's spread,
+        /// <c>WOBBLE_GAIN</c> in the shader), so the skyline wavers by about a pixel. At 0.05 a still pair a quarter of a
+        /// second apart moved a few hundred pixels of a 1080-row frame and the eye found nothing in it.
         /// </summary>
-        public static readonly float AMPLITUDE = MathHelper.ToRadians(0.05f);
+        public static readonly float AMPLITUDE = MathHelper.ToRadians(0.07f);
 
         /// <summary>How far over the skyline's axis the waver reaches before it has faded out: the strip's upper half.</summary>
         public static readonly float REACH = MathHelper.ToRadians(1.5f);
 
-        /// <summary>How deep under the skyline's axis the mirage reaches: a sliver, about one and a half pixels at 1080 rows.</summary>
-        public static readonly float MIRAGE_DEPTH = MathHelper.ToRadians(0.06f);
+        /// <summary>How deep under the skyline's axis the mirage reaches: a sliver, two pixels at 1080 rows through the play
+        /// camera's lens. A lens low over the plain sees less of it, the far plain under the axis being thinner than this.</summary>
+        public static readonly float MIRAGE_DEPTH = MathHelper.ToRadians(0.08f);
 
         /// <summary>How much of the mirrored image shows at the axis, fading to nothing at <see cref="MIRAGE_DEPTH"/>.</summary>
         public const float MIRAGE_STRENGTH = 0.85f;
@@ -169,6 +171,10 @@ namespace Prazsky.Core.Render
                 by = y1;
             }
 
+            //Wholly over or under the screen between its sides: nothing of it is drawn either. (A quad of the band could
+            //still hold the whole screen with every edge outside it, but the band is a few degrees tall and no lens is.)
+            if ((ay > 1f && by > 1f) || (ay < -1f && by < -1f)) return;
+
             yMin = MathF.Min(yMin, MathF.Min(ay, by));
             yMax = MathF.Max(yMax, MathF.Max(ay, by));
         }
@@ -177,8 +183,8 @@ namespace Prazsky.Core.Render
         /// depth buffer as they found it and everything nearer than the ring hides it.</summary>
         public static readonly DepthStencilState Gate = DepthStencilState.DepthRead;
 
-        //The mark: the alpha alone, written whole (0)
-        private static readonly BlendState MarkBlend = new()
+        /// <summary>The mark's blend: the alpha alone, written whole (the 0 the far grab reads as "far"), the colour untouched.</summary>
+        public static readonly BlendState MarkBlend = new()
         {
             ColorSourceBlend = Blend.One,
             ColorDestinationBlend = Blend.Zero,
