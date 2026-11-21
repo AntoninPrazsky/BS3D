@@ -7,11 +7,11 @@ thumb: /img/blog/thumbs/hot-air-from-a-copy-of-the-frame.jpg
 ---
 
 <figure>
-<video class="clip" width="1056" height="240" muted loop playsinline controls preload="none" poster="/video/blog/hot-air-from-a-copy-of-the-frame/skyline-poster.jpg" aria-label="A strip of red desert under a pale sky. Two great red rock domes and a few smaller rocks stand on the horizon, and the edge of the plain and the feet of the rocks rise and sink by a few pixels over a wavering band of pale mirrored sky.">
+<video class="clip" width="1056" height="336" muted loop playsinline controls preload="none" poster="/video/blog/hot-air-from-a-copy-of-the-frame/skyline-poster.jpg" aria-label="Red desert under a pale sky. Two great red rock domes and a few smaller rocks stand on the horizon, and the edge of the plain and the feet of the rocks rise and sink by a few pixels over a wavering band of pale mirrored sky, while the plain in front stays still.">
 <source src="/video/blog/hot-air-from-a-copy-of-the-frame/skyline.webm" type="video/webm">
 <source src="/video/blog/hot-air-from-a-copy-of-the-frame/skyline.mp4" type="video/mp4">
 </video>
-<figcaption>The outback's skyline to the right of the gun, as a player sees it on High, cut at its own pixels from a 3840×2160 frame of the game's capture mode, with the film grain off. Six seconds that loop. The air never repeats, so the last second fades into the first.</figcaption>
+<figcaption>The outback's skyline to the right of the gun, as a player sees it on High, cut at its own pixels from a 3840×2160 frame of the game's capture mode, with the film grain off. Only the band at the horizon moves; the sky above it and the plain in front of it hold still. Six seconds that loop. The air never repeats, so the last second fades into the first.</figcaption>
 </figure>
 
 That is the far edge of the outback, seen from behind the gun, and the air over it is hot. The plain's edge and the feet of the rocks rise and sink by a few pixels, and under them lies a sliver of sky where the ground should be. Nothing in the strip is a texture or an animation anyone drew. Every pixel of it is a pixel of the same frame, read again from a little higher or a little lower.
@@ -72,7 +72,7 @@ The strength depends on how the camera looks at the horizon. A camera low over t
 The first version moved the line by at most 0.07 degrees, about 1.8 pixels at 1080 rows. Antonín's verdict was: "It looks great! … But the effect is visually too small - a player will hardly notice it - it should be bigger."
 
 <figure>
-<video class="clip" width="1056" height="240" muted loop playsinline controls preload="none" poster="/video/blog/hot-air-from-a-copy-of-the-frame/skyline-first-poster.jpg" aria-label="The same strip of red desert with the first, smaller shimmer: the horizon barely moves, and only a thin pale line lies under the rocks.">
+<video class="clip" width="1056" height="336" muted loop playsinline controls preload="none" poster="/video/blog/hot-air-from-a-copy-of-the-frame/skyline-first-poster.jpg" aria-label="The same view of the red desert with the first, smaller shimmer: the horizon barely moves, and only a thin pale line lies under the rocks.">
 <source src="/video/blog/hot-air-from-a-copy-of-the-frame/skyline-first.webm" type="video/webm">
 <source src="/video/blog/hot-air-from-a-copy-of-the-frame/skyline-first.mp4" type="video/mp4">
 </video>
