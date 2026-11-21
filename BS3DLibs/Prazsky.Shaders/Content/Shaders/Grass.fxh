@@ -64,10 +64,10 @@ float GrassRelief(float2 xz, float footprint, float gust)
 //blended (smooth bilinear weights, the spread kept: over the weights' own length). Each anchor's across coordinate is
 //the ray's distance from that anchor, one value along the ray, so every stroke still runs exactly along the bearing;
 //and it is measured from a point of the ground, so it is fixed to it. When the lens moves a stroke only turns with its
-//bearing, about the point of it nearest its anchor, so the field drifts over the ground by about the spacing over the
-//distance to the lens: the parallax of a blade whose stroke on the ground is a stroke long (a blade of height H seen
-//from a height h lies H/h of the distance along the ground). A closer grid would drift less and chop the strokes
-//shorter than they are.
+//bearing, about the point of it nearest its anchor, so for each unit the lens moves across, the field drifts over the
+//ground by up to about the spacing over the distance to the lens: the parallax of a blade whose stroke on the ground is
+//a stroke long (a blade of height H seen from a height h lies H/h of the distance along the ground). A closer grid would
+//drift less and chop the strokes shorter than they are.
 static const float GRASS_STROKE_STRETCH = 40.0;    //a stroke is this many times longer towards the lens than across
 static const float GRASS_STROKE_SCATTER = 61.0;    //how far into the noise each anchor's offset reaches, in noise cells
 
