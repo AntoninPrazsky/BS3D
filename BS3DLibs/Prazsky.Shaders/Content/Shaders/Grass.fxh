@@ -109,13 +109,13 @@ float GrassStrokes(float2 xz, float2 toLens, float3 normal, float3 toCamera, flo
     float flank = 1.0 - smoothstep(GRASS_STROKE_FLANK_FULL, GRASS_STROKE_FLANK_GONE, dot(normal, toCamera));
 
     //Under the lens the bearing is undefined; the flank has faded the strokes out long before
-    float distance = length(toLens);
-    float2 axis = distance > 1e-4 ? toLens / distance : float2(1.0, 0.0);
+    float lensDistance = length(toLens);
+    float2 axis = lensDistance > 1e-4 ? toLens / lensDistance : float2(1.0, 0.0);
     float2 across = float2(-axis.y, axis.x);
     //The domain is turned about an anchor up to a spacing and a half away, so a pixel's step also turns it by that
     //much over the distance to the lens: the bearing's own spin, which the screen steps alone do not see
     float spacing = GRASS_STROKE_STRETCH / frequency;
-    float footprint = GrassStrokeFootprint(axis, dpdx, dpdy) * frequency * (1.0 + 1.5 * spacing / max(distance, 1e-4));
+    float footprint = GrassStrokeFootprint(axis, dpdx, dpdy) * frequency * (1.0 + 1.5 * spacing / max(lensDistance, 1e-4));
 
     float strokes = 0.0;
     [branch]
