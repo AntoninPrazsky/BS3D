@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-22 — #1190 louka: stébla se netřpytí — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: tahy „stébel z boku“ (`Meadow.fx`) točily šum kolem počátku světa podle úhlu ke kameře, takže vznikal vějíř přilepený k obrazovce, který se měnil každý snímek. Nové `GrassStrokes` v `Grass.fxh` točí doménu kolem čtyř kotev mřížky na zemi (jedna délka tahu), tah dál míří přesně ke kameře, ve strmém pohledu mizí (37° až 55°), je pásmově omezený a v herním pohledu se vůbec nepočítá. Low program je bajtově stejný. Cena +0,10/+0,08 ms proti +0,07/+0,06 ms.
+- ⚠ Doména otočená kolem bodu pod kamerou je vějíř pevný na obrazovce. Na spodním okraji orbity u balíků drží tahy ze snímku na snímek jen asi 2/3 vzoru na zemi (`docs/scenes/meadow.md`).
+- Otevřené: `verdict-eye` (pohyb nikdo nesledoval okem); savana má stejnou chybu (#1232).
+
 ## 2026-11-21 — web #1203–#1206, #1208 podle majitele — desktop (RDT-PC), Claude Code (bs3d-cc)
 
 - Hotovo, sloučeno: #1204 věta u děla, #1206 boxy ke stažení (tři stejné sloupce, 84rem, příkazy se zalamují), #1205 dělo ostré při zoomu (celý devicePixelRatio, překreslení i v pauze). #1203 dělo stínované jako ve hře (`gameShade`), `verdict-eye`. Hudba stránky se při traileru ztiší i během načítání.
