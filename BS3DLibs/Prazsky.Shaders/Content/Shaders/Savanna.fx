@@ -402,7 +402,9 @@ float4 SavannaField(SavannaVertexOutput input, bool detail)
 
     //BLADES SEEN FROM THE SIDE (#281), the meadow's strokes: a fine noise stretched along the ground towards the
     //camera projects to upright strokes in front of the lens - longer here, the savanna's grass being tall. The
-    //reduced program's other cut.
+    //reduced program's other cut. ⚠ Still the call #1190 took out of the meadow: it turns the domain about the world
+    //origin, so every stroke is a whole ray from the point under the lens, a fan fixed to the screen and re-rolled as
+    //the lens moves (BLADES SEEN FROM THE SIDE in Grass.fxh). #1232 moves it onto GrassStrokes.
     if (detail)
     {
         float strokeFrequency = GrassReliefFrequency * 3.0;

@@ -615,6 +615,9 @@ CarvedVertexOutput MeadowCarvedVS(PatchVertexInput input)
 //savanna's copy for what each number is answering.
 static const float GRASS_COMB_STRETCH = 2.6;
 static const float GRASS_FBM_GAIN = 5.0;
+//The blades seen from the side (GrassStrokes): this many strokes across, in the coarser of their two octaves, to one
+//grass feature of the relief (GrassReliefFrequency): at its 2, 96 to the unit
+static const float GRASS_STROKE_FREQUENCY = 48.0;
 
 //The rosettes' form (#127), as fractions of a flower's own world size: how high a petal domes, how much
 //the golden eye rises over the petals, and how hard the grass darkens in the contact ring just outside
@@ -827,6 +830,16 @@ float4 MeadowField(float3 worldPosition, float3 worldNormal, float4 carve, bool 
 
     float3 baseNormal = normalize(worldNormal);
     float footprint = length(fwidth(worldPosition.xz));
+    //The blades seen from the side, which shade the grass further down (BLADES SEEN FROM THE SIDE): worked out here,
+    //where little else is live yet, because their four anchors' noises are the program's widest point. The two
+    //screen steps are for their footprint across the grain (GrassStrokeFootprint).
+    float strokes = 0.0;
+    if (detail)
+    {
+        strokes = GrassStrokes(worldPosition.xz, CameraPosition.xz - worldPosition.xz, baseNormal,
+            normalize(CameraPosition - worldPosition),
+            GrassReliefFrequency * GRASS_STROKE_FREQUENCY, ddx(worldPosition.xz), ddy(worldPosition.xz));
+    }
 
     //Wildflowers: little rosettes rather than dots — a ring of petals around a bright eye, each with its
     //own petal count, size, rotation and colour. One per grid cell that draws one, faded against the
@@ -1022,14 +1035,12 @@ float4 MeadowField(float3 worldPosition, float3 worldNormal, float4 carve, bool 
     //field, and nothing drawn on the ground plane is — every other term here is isotropic or combed along the
     //wind. A fine noise stretched along the ground direction TOWARDS THE CAMERA projects to exactly those
     //strokes: lines radiating from the vanishing point, upright in front of the lens. Light where a tip catches
-    //the sky, dark in the gaps. Two octaves, band-limited like everything at this scale, so it is the near
-    //field's and is gone well before it could shimmer.
+    //the sky, dark in the gaps. Band-limited like everything at this scale, so it is the near field's and is gone
+    //well before it could shimmer. Fixed to the ground and faded out as the view turns steep (#1190; GrassStrokes in
+    //Grass.fxh says why the domain is never turned about a point far from the pixel).
     //The reduced program's other cut.
     if (detail)
     {
-        float strokeFrequency = GrassReliefFrequency * 4.0;
-        float strokes = Fbm2Combed(worldPosition.xz * strokeFrequency, CameraPosition.xz - worldPosition.xz,
-            6.0, 2, footprint * strokeFrequency);
         grass *= 1.0 + 0.85 * GrassTipStrength * strokes;
         grass = lerp(grass, GrassTipColor, 0.5 * GrassTipStrength * saturate(strokes * 2.0));
     }

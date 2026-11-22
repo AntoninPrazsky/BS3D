@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-22 — #1190 louka: stébla se netřpytí — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: tahy „stébel z boku“ (`Meadow.fx`) točily šum kolem počátku světa podle úhlu ke kameře, takže vznikal vějíř přilepený k obrazovce, který se měnil každý snímek. Nové `GrassStrokes` v `Grass.fxh` točí doménu kolem čtyř kotev mřížky na zemi (jedna délka tahu), tah dál míří přesně ke kameře, ve strmém pohledu mizí (37° až 55°), je pásmově omezený a v herním pohledu se vůbec nepočítá. Low program je bajtově stejný. Cena +0,10/+0,08 ms proti +0,07/+0,06 ms.
+- ⚠ Doména otočená kolem bodu pod kamerou je vějíř pevný na obrazovce. Na spodním okraji orbity u balíků drží tahy ze snímku na snímek jen asi 2/3 vzoru na zemi (`docs/scenes/meadow.md`).
+- Otevřené: `verdict-eye` (pohyb nikdo nesledoval okem); savana má stejnou chybu (#1232).
+
 ## 2026-11-22 — #1196 paprsek míření tenký a tichý, konec slábne u koule — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: trychtýř pěti čar (1354190c) majitel 2026-11-21 odmítl; zápis níže i jeho otázka po `RAY_LUMINANCE` už neplatí. `AimBeam` je zase jedna přerušovaná čára, tenčí a tlumenější (0,12 / 2,4 místo 0,15 / 3,5). Od `FAR_FROM` (půlka) se čárky plynule (smoothstep) rozšíří na `FAR_WIDTH` 0,26, prodlouží a zeslábnou podél sebe (`TrailHeadFade` v `ShotTrail.fx`, i GamePi) do nuly; končí na okraji koule, jak ji vidí kamera (`VisibleEnd`), nikdy přes ni. Řezač (`FarEnd.Strike`) je prostá čára zastavená u koule.
