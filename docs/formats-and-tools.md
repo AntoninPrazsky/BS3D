@@ -16,7 +16,7 @@ What is written to disk and what edits, checks and generates it: the map, level 
 - [The semantic search](formats-and-tools/semantic-search.md): usage (run it before filing an issue) and how far to trust it.
 - [Checking tools](formats-and-tools/checking-tools.md): DocDrift, WindingCheck, VectorBoundary, doc-comment warnings.
 - [The lattice probe](formats-and-tools/lattice-probe.md): finding a repeating grid in a screenshot.
-- [The map editor](formats-and-tools/map-editor.md): keys, render pipeline, the removed scene-config panel.
+- [The map editor](formats-and-tools/map-editor.md): keys, the key help, the command line (`width=`/`height=`/`shot=`), render pipeline, the removed scene-config panel.
 - [The `[build]` lines](formats-and-tools/build-lines.md): what a run says it is; `width=`/`height=` in the Game.
 - [The application icon](formats-and-tools/application-icon.md): the ladder, DIB/PNG encoding, the window icon.
 

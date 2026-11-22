@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-22 — #1209 seznam kláves editoru map se vejde do okna — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: MapEditor kreslí vlastní nápovědu kláves (`MapEditor/GUI/KeyHelpOverlay.cs`) ve skupinách na tmavém průsvitném panelu vlevo nahoře. Jako první a vždy vidět je SOUBOR (F2 otevřít nebo přetáhnout soubor, F4 uložit level, F1 uložit mapu, F3 nový). Řádků je 26 místo 39 a poprvé jsou v seznamu i klávesy létání a pravé tlačítko myši. H sbalí všechno kromě souborových kláves, F8 uloží snímek. `KeyHelpLayout` rozloží skupiny do sloupců a písmo zmenší, jen když se jinak nevejdou. Kříž os se přesunul doprava dolů. Editor nově bere `width=`, `height=` a `shot=`. Testy `MapEditorKeyHelpTests` hlídají, že se nápověda vejde od 100x60 do 3840x2160.
+- ⚠ Snímek obrazovky zachytil okno jiného programu před editorem. Editor bez fokusu nespouští Update, ale kreslí dál, proto se fotí sám přes `shot=`.
+- Otevřené: `verdict-eye`. Žádný běh nestiskl klávesu (H, F8, F12, F11) a nikdo okno nezměnil táhnutím. Má nápověda v malém okně začínat sbalená?
+
 ## 2026-11-22 — #1190 louka: stébla se netřpytí — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: tahy „stébel z boku“ (`Meadow.fx`) točily šum kolem počátku světa podle úhlu ke kameře, takže vznikal vějíř přilepený k obrazovce, který se měnil každý snímek. Nové `GrassStrokes` v `Grass.fxh` točí doménu kolem čtyř kotev mřížky na zemi (jedna délka tahu), tah dál míří přesně ke kameře, ve strmém pohledu mizí (37° až 55°), je pásmově omezený a v herním pohledu se vůbec nepočítá. Low program je bajtově stejný. Cena +0,10/+0,08 ms proti +0,07/+0,06 ms.

@@ -268,6 +268,14 @@
     <Compile Include="..\..\Game\Screens\GunPass.cs" />
   </ItemGroup>
 
+  <!--The map editor's key help (#1209): what it says and where it goes in a window of any size, strings and arithmetic
+      over widths handed in, no device. The MapEditor is net10.0-windows, which this project is not; KeyHelpOverlay, which
+      draws it, stays there.-->
+  <ItemGroup>
+    <Compile Include="..\..\MapEditor\GUI\EditorKeyHelp.cs" />
+    <Compile Include="..\..\MapEditor\GUI\KeyHelpLayout.cs" />
+  </ItemGroup>
+
   <!--The website capture's parts that have no device in them (#946): its clock and window, the stated camera's keys and curves,
       the PNG encoder and the writer threads the frames go out through, and the frames' own size (#1177). CaptureRun, which reads
       the back buffer, is read as source.-->
