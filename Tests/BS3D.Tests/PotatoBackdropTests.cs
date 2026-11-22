@@ -247,6 +247,63 @@ namespace BS3D.Tests
             Assert.True(least > 0f, $"dream bodies {leastA} and {leastB} come {least:F1} into each other at {leastAt:F2} s");
         }
 
+        //The game's lens as DreamIntroShotsTests stands it: 29, 37 and 45 out on twelve bearings, a little under the gun,
+        //the look on the arena, in the game's field of view (GameplayScreen.GAME_FOV)
+        private static readonly float[] TourPoseRadii = { 29f, 37f, 45f };
+        private const int TOUR_BEARINGS = 12;
+        private const float TOUR_POSE_Y = -8.2f, TOUR_GAME_FOV = MathF.PI / 4.2f, TOUR_START_STEP = 211f;
+        private static readonly Vector3 TourTarget = new(0f, -1.2f, 0f);
+
+        /// <summary>
+        /// The Potato path's chapter tour against the dream's bodies (#1219). This path draws no scenery, so the tour has
+        /// no prologue and no viewpoint and opens on its rim shot, 1.9 to 2.4 times the stand-off out: at the widest pose
+        /// that reaches towards the inner ring, which before the rings came to about 80 of the axis and could put a body
+        /// in the lens. Flown frame by frame through the real <see cref="BS3D.Effects.ChapterIntro"/> at the second of
+        /// the clock each frame plays, the lens never comes within a body's reach (<see cref="PotatoBackdrop.DreamBodyReach"/>).
+        /// Seen to fail with <see cref="PotatoBackdrop.DREAM_INNER_ORBIT"/> at 1, the inner ring's reach 97 from the axis.
+        /// </summary>
+        [Fact]
+        public void TheChapterTourNeverEntersADreamBody()
+        {
+            var shapes = new DreamShapesConfig();
+            const float FRAME = 1f / 60f;
+            int intros = 0;
+            float nearest = float.MaxValue, farthest = 0f;
+
+            foreach (float radius in TourPoseRadii)
+                for (int bearing = 0; bearing < TOUR_BEARINGS; bearing++)
+                    for (float start = 0f; start <= 3600f; start += TOUR_START_STEP)
+                    {
+                        float angle = MathHelper.TwoPi * bearing / TOUR_BEARINGS;
+                        var pose = new Vector3(MathF.Cos(angle) * radius, TOUR_POSE_Y, MathF.Sin(angle) * radius);
+                        var intro = new BS3D.Effects.ChapterIntro();
+                        intro.Begin(TourTarget, radius, TOUR_GAME_FOV, pose, TourTarget, null, new Random(intros), null);
+                        intros++;
+
+                        for (int frame = 0; intro.Running; frame++)
+                        {
+                            Assert.True(frame < 60 * 60, "the tour never ended");
+                            intro.Update(FRAME);
+                            if (!intro.Running) break;
+
+                            float t = start + intro.Elapsed;
+                            farthest = MathF.Max(farthest, new Vector2(intro.Position.X, intro.Position.Z).Length());
+                            for (int i = 0; i < PotatoBackdrop.DREAM_SOLIDS; i++)
+                            {
+                                Vector3 centre = PotatoBackdrop.DreamSolidWorld(shapes, i, t).Translation;
+                                float clearance = Vector3.Distance(intro.Position, centre) - PotatoBackdrop.DreamBodyReach(shapes, i);
+                                nearest = MathF.Min(nearest, clearance);
+                                Assert.True(clearance > 0f,
+                                    $"pose {radius} out at bearing {bearing}, start {start} s: the lens is {-clearance:F1} inside body {i}'s reach {intro.Elapsed:F2} s in");
+                            }
+                        }
+                    }
+
+            //The rim shot was flown at its widest: 2.4 times the widest stand-off, seen from no more than 16 degrees up
+            Assert.True(farthest > TourPoseRadii[^1] * 2.3f * MathF.Cos(MathHelper.ToRadians(16f)),
+                $"the tour reached only {farthest:F1} from the axis over {intros} intros (nearest {nearest:F1} off a body)");
+        }
+
         [Fact]
         public void TheNormalsFollowTheHeightAndPointUp()
         {

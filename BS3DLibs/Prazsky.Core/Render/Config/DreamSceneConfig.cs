@@ -103,8 +103,8 @@ namespace Prazsky.Core.Render
     }
 
     /// <summary>
-    /// The floating solids: <see cref="SceneRenderer.DREAM_SOLID_COUNT"/> raymarched forms that tumble on their own
-    /// slow orbits, each melting between a sphere, a rounded box and a torus.
+    /// The floating solids: <see cref="SceneRenderer.DREAM_SOLID_COUNT"/> raymarched forms that tumble while riding
+    /// two slow rings (<see cref="DreamBackdrop.SolidOrbit"/>), each melting between a sphere, a rounded box and a torus.
     /// </summary>
     public sealed class DreamShapesConfig
     {

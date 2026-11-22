@@ -222,10 +222,10 @@ float ShapeOrbit(float i)
 
 //Where solid i stands now (#1219). They used to orbit each on its own rate round one band and met for most of the clock:
 //the march shades only the nearest hit, so two meeting solids drew a hard crease and the one behind vanished inside the
-//other. Now the rings keep them apart across (ShapeOrbit) and each ring turns as one, its half of the solids in even
-//places a little off true (a twelfth of a turn between the rings at the clock's start, then drifting, the inner ring
-//faster), so two of a ring never close on each other either. Only the height swings each on its own, which nothing has
-//to keep apart. DreamBackdrop.SolidCenter is the host's copy, which the chapter intro lays its lenses against and
+//other. Now the rings keep them apart across (ShapeOrbit) and each ring turns as one at its own rate, the inner faster:
+//it holds half the solids, evenly spaced round it and each nudged off its place by SHAPE_SLOT_JITTER, so two of a ring
+//never close on each other either. The two rings start half a place apart and drift past each other as they turn. Only
+//the height swings each on its own, which nothing has to keep apart. DreamBackdrop.SolidCenter is the host's copy, which the chapter intro lays its lenses against and
 //DreamSolidsApartTests holds apart over an hour of the clock.
 float3 ShapeCenter(float i, float t)
 {

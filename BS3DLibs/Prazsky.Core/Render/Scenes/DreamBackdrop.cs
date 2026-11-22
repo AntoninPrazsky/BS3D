@@ -200,9 +200,9 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// See <see cref="SceneRenderer.DreamSolidCenter"/>: <c>Dream.fx</c>'s <c>ShapeCenter</c> on
         /// <paramref name="shapes"/>, and the bound its march is gated on. The solids fly in two rings
-        /// (<see cref="SolidOrbit"/>) and every solid of a ring turns at its ring's rate, half the solids a ring in
-        /// even places (a twelfth of a turn apart between the rings at the clock's start, then drifting as the rings
-        /// turn at their own rates) a little off true, so no two of a ring ever close on each other either; only the
+        /// (<see cref="SolidOrbit"/>), and each ring turns as one at its own rate: it holds half the solids, evenly spaced
+        /// round it and each nudged off its place by <see cref="SOLID_SLOT_JITTER"/>, so no two of a ring ever close on
+        /// each other either. The two rings start half a place apart and drift past each other as they turn. Only the
         /// height swings each solid on its own.
         /// </summary>
         public static Vector3 SolidCenter(DreamShapesConfig shapes, int index, float time, out float bound)
@@ -212,7 +212,8 @@ namespace Prazsky.Core.Render
             float place = MathHelper.TwoPi / (SceneRenderer.DREAM_SOLID_COUNT / 2);
             float a = time * (inner ? SOLID_RATE_INNER : SOLID_RATE_OUTER) + MathF.Floor(i * 0.5f) * place
                 + (inner ? place * 0.5f : 0f) + SOLID_SLOT_JITTER * MathF.Sin(i * 7.7f);
-            float r = SolidOrbit(shapes, index);            float y = 26f + 46f * MathF.Sin(time * 0.013f + i * 2.7f);
+            float r = SolidOrbit(shapes, index);
+            float y = 26f + 46f * MathF.Sin(time * 0.013f + i * 2.7f);
 
             bound = SolidRadius(shapes, index) * SOLID_BOUND_IN_RADII;
             return new Vector3(MathF.Cos(a) * r, y, MathF.Sin(a) * r);

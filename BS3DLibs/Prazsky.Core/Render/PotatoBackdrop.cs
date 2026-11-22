@@ -783,7 +783,8 @@ namespace Prazsky.Core.Render
         //(in the config's size), so a body of one ring never meets one of the other. The rings turn opposite ways, the inner
         //at DREAM_RATE_INNER and the outer at DREAM_RATE_OUTER (radians a second), every body of a ring at its ring's rate, so
         //two of a ring never close on each other either. The inner ring's nearest reach, 113 from the axis, is past the
-        //chapter tour's rim shot (108 out at the widest stand-off)
+        //chapter tour's rim shot (108 out at the widest stand-off), with little to spare: at 1.03 the tour flies into a body
+        //(PotatoBackdropTests flies it against them)
         internal const float DREAM_INNER_ORBIT = 1.12f, DREAM_RING_GAP = 0.1f;
         internal const float DREAM_RATE_INNER = 0.024f, DREAM_RATE_OUTER = -0.018f;
 
@@ -822,7 +823,9 @@ namespace Prazsky.Core.Render
             float radius = inner ? innerRadius
                 : innerRadius + shapes.Size * ((1f + DREAM_BREATH) * (1f + MathF.Sqrt(3f)) + DREAM_RING_GAP);
             float place = MathHelper.TwoPi / (DREAM_SOLIDS / 2);
-            float angle = MathF.Floor(index * 0.5f) * place + (inner ? place * 0.5f : 0f) + time * (inner ? DREAM_RATE_INNER : DREAM_RATE_OUTER);            float height = 25f + 45f * MathF.Sin(time * 0.013f + phase) + 10f * (index % 3);
+            float angle = MathF.Floor(index * 0.5f) * place + (inner ? place * 0.5f : 0f)
+                + time * (inner ? DREAM_RATE_INNER : DREAM_RATE_OUTER);
+            float height = 25f + 45f * MathF.Sin(time * 0.013f + phase) + 10f * (index % 3);
             Vector3 centre = new(MathF.Cos(angle) * radius, height, MathF.Sin(angle) * radius);
 
             float morph = time * shapes.MorphSpeed;
