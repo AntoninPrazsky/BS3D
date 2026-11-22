@@ -22,7 +22,8 @@ namespace BS3D.Tests
     {
         private static readonly string ShaderDirectory = Path.Combine("BS3DLibs", "Prazsky.Shaders", "Content", "Shaders");
 
-        private static string FindFile(string relative)
+        //The readers below are SavannaStrokesSourceTests' too: the savanna draws the same GrassStrokes (#1234)
+        internal static string FindFile(string relative)
         {
             for (DirectoryInfo directory = new(AppContext.BaseDirectory); directory != null; directory = directory.Parent)
             {
@@ -34,11 +35,11 @@ namespace BS3D.Tests
         }
 
         //The text of an effect file without its comments, so a word in a note is not taken for code
-        private static string Code(string file) =>
+        internal static string Code(string file) =>
             Regex.Replace(File.ReadAllText(FindFile(Path.Combine(ShaderDirectory, file))), @"//[^\n]*", string.Empty);
 
         //The body of a function, from its signature to the closing brace at the same depth
-        private static string Body(string code, string signature)
+        internal static string Body(string code, string signature)
         {
             int start = code.IndexOf(signature, StringComparison.Ordinal);
             Assert.True(start >= 0, $"No {signature} was found");
@@ -54,7 +55,7 @@ namespace BS3D.Tests
         }
 
         //A static const's value
-        private static double Constant(string code, string name)
+        internal static double Constant(string code, string name)
         {
             Match match = Regex.Match(code, $@"static\s+const\s+float\s+{name}\s*=\s*([^;]+);");
             Assert.True(match.Success, $"No {name} is defined");
@@ -63,7 +64,7 @@ namespace BS3D.Tests
         }
 
         //Every call of a function, with its whole argument list (nested parentheses included)
-        private static string[] Calls(string code, string function)
+        internal static string[] Calls(string code, string function)
         {
             System.Collections.Generic.List<string> calls = new();
             foreach (Match match in Regex.Matches(code, $@"\b{function}\s*\("))

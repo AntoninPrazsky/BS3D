@@ -4,9 +4,8 @@
 //GRASS_COMB_STRETCH and GRASS_FBM_GAIN (the same figures today, a lush lawn and a dry veld meant to be free
 //to differ; the savanna's copy says what each answers), and its GrassReliefStrength/Frequency and
 //WindDirection uniforms, before including this. Needs Noise.fxh (Fbm2Combed, Fbm2BandLimited, NoiseHash22). The
-//blades seen from the side (GrassStrokes, below) are here too, with their own scale passed in: the meadow's. The
-//savanna still combs its own along the bearing to the lens (Savanna.fx), the construction GrassStrokes warns
-//against, until #1232 moves it onto GrassStrokes.
+//blades seen from the side (GrassStrokes, below) are here too, both scenes', each passing its own frequency (its
+//GRASS_STROKE_FREQUENCY times GrassReliefFrequency: the savanna's strokes are wider and longer, #1234).
 //
 //A fine grass texture, band-limited against the footprint so it fades to smooth grass towards the horizon
 //instead of aliasing.
