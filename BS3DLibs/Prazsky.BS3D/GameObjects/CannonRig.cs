@@ -505,20 +505,35 @@ namespace Prazsky.BS3D
         public static readonly Vector3 FRAME_COLOR = new(0.30f, 0.30f, 0.33f);
         public const float FRAME_SPECULAR_AMBIENT = 0.22f;
 
-        //The omni wheel's two tones, and they cost nothing: colour is a per-draw uniform and the body and the
-        //rollers are two draws anyway (they have to turn independently), so the rollers can be told apart from
-        //the plates that carry them WITHOUT motion — which is what keeps the wheel legible standing still.
-        //Dark anodised plates against a pale grey polymer roller.
-        private static readonly Vector3 WHEEL_COLOR = new(0.085f, 0.088f, 0.095f);
-        //Read the numbers before retuning this: it is a NEUTRAL pale polymer and the figure is not neutral,
-        //because the key light is not. A grey lit by a golden sun renders warm, and at a genuinely neutral
-        //(0.48, 0.49, 0.505) the rollers came out bronze — measured over the roller band, R − B = 40 against
-        //the barrel steel's 31 in the same frame. Cooled until it lands where the steel does: R − B = 33.
-        //Raising the brightness alone does not fix it and made it slightly worse, because the warmth is in
-        //the light and not in the material.
-        private static readonly Vector3 ROLLER_COLOR = new(0.50f, 0.545f, 0.615f);
-        private const float WHEEL_SPECULAR_AMBIENT = 0.30f;   //machined metal, brighter than the old wood's 0.08
-        private const float ROLLER_SPECULAR_AMBIENT = 0.05f;  //a roller is rubbery and barely reflects
+        //The omni wheel's two materials (#1212), and they cost nothing: colour and highlight are per-draw uniforms and
+        //the body and the rollers are two draws anyway (they have to turn independently). Machined metal plates, hub and
+        //hub face, lighter than the carriage's iron and short of the barrel's steel, round DARK RUBBER rollers - what an
+        //omni wheel is, and what keeps the rollers a material of their own: they used to be a pale polymer tuned to the
+        //barrel's grey, the lightest part of the gun, under near-black plates.
+        //
+        //⚠ Both halves of the contrast are load-bearing. The plates are lighter than the rubber so the rollers are told
+        //apart from them STANDING STILL, which is what keeps the wheel legible when nothing turns; and the rubber is dark
+        //but not black so the helical flutes still shade, which is what shows the rollers turning (OmniRollerMesh's
+        //class note). Measured from pixels against a mask of the two parts, the Game at High in the meadow's daylight
+        //(the gun at rest, 1920x1080, side-on and from behind the flank): the rollers' mean luma 38 to 40 of 255 with
+        //their flutes spread over 93 to 96 (10th to 90th percentile), the plates 62 to 66, a step of +22 to +28 (x1.6
+        //to x1.75 in linear luminance); in the neon city's night 49 against 101. Measure both again before retuning.
+        //
+        //The hub face is the body's own material: a colour of its own would be a third draw (with its shadow and
+        //motion passes) for a part its shape already sets apart (OmniWheelMesh.AddHubFace).
+        private static readonly Vector3 WHEEL_COLOR = new(0.40f, 0.40f, 0.415f);
+        private const float WHEEL_SPECULAR_AMBIENT = 0.32f;   //machined metal: some of the sky, under the barrel's 0.5
+
+        //Neutral charcoal, cooled a touch because the key light is not neutral: a grey lit by a golden sun renders warm,
+        //and rubber is not bronze. In the meadow it lands at R − B = 15 against the plates' 19 to 24.
+        private static readonly Vector3 ROLLER_COLOR = new(0.24f, 0.245f, 0.26f);
+        private const float ROLLER_SPECULAR_AMBIENT = 0.08f;  //rubber barely mirrors the sky
+
+        //The rubber's highlight: a soft, broad sheen rather than the renderer's default white at 16, under which a dark
+        //albedo reads as glossy plastic. Not much less, though: the sheen running along the flutes' crests is a good
+        //half of what shows the rollers turning (InstancedModelRenderer.SetMaterialSpecular).
+        private static readonly Vector3 ROLLER_SPECULAR = new(0.45f, 0.45f, 0.45f);
+        private const float ROLLER_SPECULAR_POWER = 12f;
 
         #endregion
 
@@ -696,10 +711,12 @@ namespace Prazsky.BS3D
 
             _rollerMesh = new OmniRollerMesh(graphicsDevice, WHEEL_RADIUS, ROLLER_RADIUS, ROLLER_HALF_LENGTH);
 
+            //The rubber's own highlight, where every other part of the gun keeps the renderer's default
             _rollerRenderer = new InstancedModelRenderer(graphicsDevice, _rollerMesh, ROLLER_COLOR, instancingEffect)
             {
                 SpecularAmbientStrength = ROLLER_SPECULAR_AMBIENT
             };
+            _rollerRenderer.SetMaterialSpecular(ROLLER_SPECULAR, ROLLER_SPECULAR_POWER);
 
             //Solved once — and this is where a set of figures that would grow the rollers through each other
             //is refused, at load rather than on screen

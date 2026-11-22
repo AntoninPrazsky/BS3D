@@ -47,8 +47,8 @@ void main() {
 precision highp float;
 in vec3 vWorld;
 in vec3 vNormal;
-uniform vec3 uColor, uEmissive, uEye, uShadowAt, uAmbient;
-uniform float uSky, uAlpha, uFade, uGame;
+uniform vec3 uColor, uEmissive, uEye, uShadowAt, uAmbient, uSpec;
+uniform float uSky, uAlpha, uFade, uGame, uPower;
 out vec4 outColor;
 
 // The light: a warm key from up and to the left, a cool fill from the other side, the sky over it all and a floor under it,
@@ -64,8 +64,9 @@ vec3 aces(vec3 x) { return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59
 
 // The cannon's metal parts are lit as the game lights them (#1203): InstancedModel's ShadePixel (Lighting.fxh) with the
 // three-light rig the game takes from BasicEffect's defaults (DefaultLighting.cs, decoded to linear as LinearLightRig does),
-// a daylight hemisphere, the Blinn-Phong highlight at the renderer's power 16, and the sky mirrored as a dielectric mirrors it,
-// 4 % head-on rising to all of it at a grazing angle (Schlick), times the part's own sky figure. The directions are the page's:
+// a daylight hemisphere, the Blinn-Phong highlight at the part's own tint and power (the renderer's white at 16, the rollers'
+// rubber its own, #1212), and the sky mirrored as a dielectric mirrors it, 4 % of that tint head-on rising to all of it at a
+// grazing angle (Schlick), times the part's own sky figure. The directions are the page's:
 // the game's key is each scene's sun and its warm fill comes up from below the sun's side, and the page turns the pair to its
 // own lens, the key from up and to the left as the page has always had it and the fill up from the right, so the faces it
 // shows are lit as the game lights the faces its play camera sees. Painted steel, not polished: the page once drew a
@@ -75,7 +76,7 @@ const vec3 G_FILL_DIR = normalize(vec3(0.45, -0.8, 0.4));
 const vec3 G_FILL = vec3(0.9216, 0.5395, 0.1384);
 const vec3 G_BACK_DIR = normalize(vec3(-0.4545195, 0.7660444, -0.4545195));
 const vec3 G_BACK = vec3(0.0849, 0.1065, 0.1284);
-const float G_POWER = 16.0, G_F0 = 0.04, G_EXPOSURE = 1.1;
+const float G_F0 = 0.04, G_EXPOSURE = 1.1;
 // A daylight dome over the island's grey stone, as the Meadow's rig derives it (the zenith's blue, the horizon's bounce)
 const vec3 G_SKY = vec3(0.30, 0.42, 0.62);
 const vec3 G_GROUND = vec3(0.20, 0.19, 0.17);
@@ -86,11 +87,12 @@ vec3 gameShade(vec3 n, vec3 v, float sky) {
   vec3 lit = diffuse * uColor + mix(G_GROUND, G_SKY, n.y * 0.5 + 0.5) * uAmbient;
   float kh = max(dot(n, normalize(KEY_DIR + v)), 0.0) * step(0.0, dot(n, KEY_DIR));
   float bh = max(dot(n, normalize(G_BACK_DIR + v)), 0.0) * step(0.0, dot(n, G_BACK_DIR));
-  lit += G_KEY * pow(kh, G_POWER) + G_BACK * pow(bh, G_POWER);
-  // Roughness from the exponent, sqrt(2 / (n + 2)): the mirror sample a third of the way to the sky's average
+  lit += (G_KEY * pow(kh, uPower) + G_BACK * pow(bh, uPower)) * uSpec;
+  // Roughness from the exponent, sqrt(2 / (n + 2)): at the default 16 the mirror sample a third of the way to the sky's average
   vec3 r = reflect(-v, n);
-  vec3 environment = mix(mix(G_GROUND, G_SKY, r.y * 0.5 + 0.5), (G_SKY + G_GROUND) * 0.5, sqrt(2.0 / (G_POWER + 2.0)));
-  float fresnel = G_F0 + (1.0 - G_F0) * pow(1.0 - clamp(dot(n, v), 0.0, 1.0), 5.0);
+  vec3 environment = mix(mix(G_GROUND, G_SKY, r.y * 0.5 + 0.5), (G_SKY + G_GROUND) * 0.5, sqrt(2.0 / (uPower + 2.0)));
+  vec3 f0 = G_F0 * uSpec;
+  vec3 fresnel = f0 + (1.0 - f0) * pow(1.0 - clamp(dot(n, v), 0.0, 1.0), 5.0);
   return lit + environment * fresnel * sky;
 }
 
@@ -128,7 +130,7 @@ void main() {
   vec3 c = pow(aces(lit), vec3(1.0 / 2.2));
   outColor = vec4(c * alpha, alpha);
 }`);
-  const u = uniforms(gl, program, ["uModel", "uViewProj", "uScale", "uColor", "uEmissive", "uEye", "uSky", "uAlpha", "uFade", "uShadowAt", "uAmbient", "uGame"]);
+  const u = uniforms(gl, program, ["uModel", "uViewProj", "uScale", "uColor", "uEmissive", "uEye", "uSky", "uAlpha", "uFade", "uShadowAt", "uAmbient", "uGame", "uSpec", "uPower"]);
 
   // --- The meshes: one vertex buffer and one index buffer for every part, each part's attributes pointed at its own first vertex
   const vbo = gl.createBuffer();
@@ -158,6 +160,7 @@ void main() {
     const material = meta.materials[name], game = GAME_PARTS.has(name);
     parts[name] = { vao, count: p.indexCount, offset: p.indexStart * 2, material, scale: meta.positionScale, game,
       albedo: game ? material.color.map(linear) : null,
+      spec: (material.specular || [1, 1, 1]).map(linear), power: material.power || 16,
       ambient: game ? material.color.map((c, i) => linear(c * AMBIENT_LIGHT[i])) : [0, 0, 0] };
   }
   parts.ball = sphere(gl, f.ballRadius, 24, 16);
@@ -295,6 +298,8 @@ void main() {
     gl.uniform3fv(u.uColor, color || part.albedo || m.color || [0.5, 0.5, 0.5]);
     gl.uniform1f(u.uGame, part.game ? 1 : 0);
     gl.uniform3fv(u.uAmbient, part.ambient || [0, 0, 0]);
+    gl.uniform3fv(u.uSpec, part.spec || [1, 1, 1]);
+    gl.uniform1f(u.uPower, part.power || 16);
     gl.uniform1f(u.uSky, sky ?? m.sky ?? 0.2);
     gl.uniform1f(u.uAlpha, alpha ?? m.alpha ?? 1);
     gl.uniform3fv(u.uEmissive, emissive || [0, 0, 0]);

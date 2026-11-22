@@ -686,6 +686,34 @@ namespace Prazsky.Core.Render
         public float Metalness { get; set; }
 
         /// <summary>
+        /// Sets the material's own highlight, which every part of a renderer built from a procedural mesh otherwise takes at
+        /// white and an exponent of 16 (<c>DEFAULT_SPECULAR_COLOR</c>, <c>DEFAULT_SPECULAR_POWER</c>): the tint of the key
+        /// light's Blinn-Phong highlight and of the ~4 % dielectric sky reflection (see <see cref="SpecularAmbientStrength"/>),
+        /// and the exponent the reflection's roughness is taken from. A matte material wants both down: at the default a dark
+        /// albedo under a white highlight reads as glossy plastic, however little sky it reflects (#1212, the cannon's
+        /// rubber rollers). Like every material figure it yields to a caller's <see cref="BasicEffectParams"/> that states a
+        /// specular colour of its own; the scene's effect parameters state none. Read on both paths, the desktop's and the
+        /// Potato's. Set once at load: it writes the parts, it is not a per-frame dial.
+        /// </summary>
+        /// <param name="color">The highlight's tint, sRGB as the material colours are (the shader linearizes it).</param>
+        /// <param name="power">The Blinn-Phong exponent: lower is broader and rougher.</param>
+        public void SetMaterialSpecular(Vector3 color, float power)
+        {
+            for (int i = 0; i < _parts.Length; i++)
+            {
+                _parts[i].SpecularColor = color;
+                _parts[i].SpecularPower = power;
+            }
+        }
+
+        /// <summary>The first part's highlight tint, as <see cref="SetMaterialSpecular"/> left it or the default: what the
+        /// website's cannon export reads (<c>Tools/WindingCheck --export-cannon</c>), so it shades a part as the game does.</summary>
+        public Vector3 MaterialSpecularColor => _parts[0].SpecularColor;
+
+        /// <summary>The first part's Blinn-Phong exponent, as <see cref="MaterialSpecularColor"/>.</summary>
+        public float MaterialSpecularPower => _parts[0].SpecularPower;
+
+        /// <summary>
         /// Draws the plain material as <b>polished metal</b> (#602): the <c>InstancedPolishedMetal</c> technique,
         /// which mirrors a sharp version of the dome — a horizon that is an edge, a bright band along it, a dark
         /// one under it, the sun as a glint — with no diffuse at all, the <see cref="BasicEffectParams.SpecularColor"/>
