@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-22 — #1198 kamera po výhře rovnou do výsledků — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: po výhře s nevystřelenými koulemi drží `SpareVolley` kameru u boku děla od konce odpočtu až do `Reset`, takže `ResultPage.Enter` ji převezme odtamtud a už se nevrací přes herní pózu. Přeskočení během příletu kamery ji nechá doletět. Odpočet výsledkového beatu čeká na `ClearedBeatCountdown.Waits` (ptá se na `volley.Running`, ne na držení kamery). Stránka přijde o 0,45 s dřív. Nový přepínač `loglens` vypisuje pózu kamery každý snímek.
+- ⚠ Kdyby odpočet čekal na `CameraTakeoverEngaged`, výsledky by nikdy nepřišly; hlídají to testy v `SpareVolleyTests`.
+- Otevřené: `verdict-eye`. Finále kampaně teď stojí 18 s nad bočním pohledem místo herního (dvojice `finale-*.png`). Pohyb nikdo nesledoval okem, s gamepadem ani na telefonu se nezkoušelo.
+
 ## 2026-11-22 — #1215 cena deseti stylů koulí — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: jedna změřená tabulka v `docs/rendering/ball-styles.md` („Cost“), barevný klíč zapnutý i vypnutý, Game v Ultra na Girandole a Spyglass a tři pevné kamery v Testbedu. Proti vinylu: bublina +1,82 ms, led +1,28, plasma −0,90, ostatní v šumu. Cena roste s pixely koule. Na desktopu se nic nezlevňuje: nejdražší snímek kapitoly bubliny (Amphora, 9,02 ms) je 4,3 ms pod rozpočtem Ultra. Opraveno i zastaralé `balls=<beach|bubble>`.
