@@ -53,10 +53,12 @@ namespace BS3D.Tests
         public void TheStrokesShowInTheGrassHomesNearField()
         {
             //The intro's grass home (SavannaLanding) flies up to ABOVE_MAX over the grass, looking ahead, so the nearest ground
-            //in its frame is that height over the tangent of half the field of view out. On a 1080-row frame at Ultra's
-            //supersampling, GrassStrokes' footprint there (a step across the grain, the along step divided by the stretch,
-            //grown by the bearing's spin) must leave the coarser octave at least half its strength: a frequency the meadow's
-            //width (96 a unit) leaves the savanna's low shots with almost no strokes at all.
+            //in its frame is that height over the tangent of half the field of view out. On a 1080-row window supersampled as
+            //High and Ultra draw the scene, GrassStrokes' footprint there (a step across the grain, the along step divided by
+            //the stretch, grown by the bearing's spin) must leave the coarser octave at least half its strength: a frequency
+            //the meadow's width (96 a unit) leaves the savanna's low shots with almost no strokes at all. Medium and the phones
+            //draw the scene unsupersampled, where the same footprint is twice as wide and the nearest strokes fainter, and this
+            //does not hold them: docs/scenes/savanna.md has what they keep there, measured.
             string grass = Code("Grass.fxh");
             double stretch = Constant(grass, "GRASS_STROKE_STRETCH");
             Match spin = Regex.Match(Body(grass, "float GrassStrokes("), @"\(\s*1\.0\s*\+\s*([0-9.]+)\s*\*\s*spacing\s*/\s*max\(\s*lensDistance");
@@ -69,7 +71,8 @@ namespace BS3D.Tests
             double height = SavannaLanding.ABOVE_MAX;
             double halfFov = MeadowIntroShotsTests.INTRO_FIELD_OF_VIEW / 2.0;
             double ahead = height / Math.Tan(halfFov);
-            const int rows = 1080 * 2;
+            int rows = 1080 * Math.Min(QualityPreset.Presets[(int)QualityLevel.High].SupersampleFactor,
+                QualityPreset.Presets[(int)QualityLevel.Ultra].SupersampleFactor);
             double pixel = 2.0 * Math.Tan(halfFov) / rows;
 
             //At the bottom of the frame, looking level: across the grain one pixel is the depth (here the distance ahead) times
