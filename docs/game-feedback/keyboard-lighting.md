@@ -4,7 +4,7 @@ Part of [The game: feedback](../game-feedback.md).
 
 A backlit keyboard shows the game (#987):
 - while playing, the round about to fire and the balls after it;
-- at a clear, a rainbow and then the cup's colour; at a loss, red;
+- at a clear, a pastel rainbow and then the cup's colour; at a loss, red;
 - under a tutorial card, the keys the card asks for, blinking white.
 
 It goes through **Windows' own lighting API, `Windows.Devices.Lights.LampArray`**: the HID LampArray standard behind Windows 11's Dynamic Lighting. There is no vendor SDK and no DLL, so any keyboard Dynamic Lighting lists works the same.
@@ -24,9 +24,14 @@ Logitech's own LED SDK was the first idea. It needs a DLL shipped under its EULA
 |---|---|
 | Playing | Every key in the loaded round's colour at `PLAY_BASE` (0.4). **Space**, which fires, at full. **F1 to F4**: the magazine's next four balls at full, F1 next, so the queue reads left to right as the strip on screen does. The colours are `GameplayScreen.LoadedTint`'s, the ones the muzzle collar and the aim beam take, so a wildcard's keys cycle with it and a cutter's are the Cut's accent. The queue stops where the strip stops, at the shots the budget has left. |
 | A tutorial card is asking | Its keys blink white at `BLINK_HERTZ` (2) over whatever else is drawn: Fire's card blinks Space ("Space fires too"), Traverse A and D, Walk W and S, the lean-and-walk card A and D at its second step, Swap E, Brake Q, Cut R. Only while the card is arriving or shown, not while it praises or leaves, and only while the player's hand is on the keyboard and mouse (`Tutorial.AskingLesson`). |
-| Won (the result page over a clear, and the campaign's finale in front of it) | A full-brightness rainbow sweeps across the board for `RAINBOW_SECONDS` (3). It then hands over in `CUP_FADE_SECONDS` to the cup's colour, breathing between 0.7 and 1. Bronze is orange, Silver a cool white, Gold gold, Diamond an icy blue with a tenth of the keys twinkling white. They are not the podium's metals: an LED has no specular, so a silver and a diamond would be one white. |
+| Won (the result page over a clear, and the campaign's finale in front of it) | A full-brightness pastel rainbow sweeps across the board for `RAINBOW_SECONDS` (3), in the colours of the NEW BEST banner (below). It then hands over in `CUP_FADE_SECONDS` to the cup's colour, breathing between 0.7 and 1. Bronze is orange, Silver a cool white, Gold gold, Diamond an icy blue with a tenth of the keys twinkling white. They are not the podium's metals: an LED has no specular, so a silver and a diamond would be one white. |
 | Lost | Red, pulsing between 0.35 and full every 1.25 s, whether the cluster reached the line or the balls ran out. |
 | The menus, a pause, the note page | A dim rainbow (value 0.22) drifting slowly across the board. |
+
+**The clear's rainbow is NEW BEST's pastel as light (#1201).** `KeyLightModel.WonRainbow` takes the banner's fill (`NewBestCelebration.Pastel`), decodes it from sRGB to the light a screen gives off for it, and scales its brightest channel to full:
+- The keys are sent values as they are (`ToColour`, 8 bits a channel, no gamma), and an LED is taken to light in proportion to them. The banner's sRGB values sent raw would put every channel at least `LIFT` (0.52) of the way to white: near white, which the owner ruled out.
+- Decoded, they keep HSV saturation 0.63 to 0.72 round the wheel, against the pure spectrum's 1. Each key reads as a soft colour and none as white. `KeyLightModelTests` hold that band (0.55 to 0.8) and the hue within 10° of the spectrum's, so the sweep moves as before.
+- A keyboard that applies a gamma of its own shows the keys deeper than the banner, never paler.
 
 The ending is the result page's own figures (`ResultPage.Result`), so the keyboard and the page cannot disagree, and a page the `result` argument stages lights it too. Before the page, the record a level that has ended keeps (`GameplayScreen.KeyLightEnding`) stands in: the campaign's finale is in front of the page.
 
