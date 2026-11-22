@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-22 — #1234 savana: stébla z boku ukotvená k zemi — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: stébla savany viděná z boku už nejsou vějíř připnutý k obrazovce (`Fbm2Combed` s pozicí kamery), ale luční `GrassStrokes` z `Grass.fxh`, jen v detailním programu, se stejným mícháním 0,85/0,5 a `tipCover` (stezky a spálenina kolem ohňů je dál vypínají). Frekvence 20 (40 na jednotku), aby v blízkém poli domova trávy zůstala šíře na obrazovce; 72 na jednotku v nízkých záběrech skoro zmizelo. Snímek po snímku drží vzor 0,92–0,98 (dřív 0,03–0,42). Herní pohled o 0,2 ms levnější, nejdražší vteřina intra +0,1 ms. Testy `SavannaStrokesSourceTests`. #1232 je totéž (z review #1190) a je tímto opravené.
+- ⚠ Na Medium a telefonech (bez supersamplingu) jsou blízká stébla slabší než starý vějíř (RMS 1,03 proti 1,90 při 1080p).
+- Otevřené: `verdict-eye` (měkčí blízká stébla, pohyb nikdo neviděl okem).
+
 ## 2026-11-22 — #1212 gumová omni kola děla — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: kola děla mají dva materiály. Válečky jsou tmavá uhlová guma (0,24) s vlastním měkkým leskem (0,45 při exponentu 12) přes nové `InstancedModelRenderer.SetMaterialSpecular`. Desky a náboj jsou světlejší obráběný kov (0,40). Nová čelní strana náboje (`OmniWheelMesh.AddHubFace`) má lem, přírubu s osmi šestihrannými maticemi a kopuli s maticí osy. Je to tatáž síť i barva, takže žádné kreslení navíc, a síť kola je teď uzavřená (`WindingCheck --openness` už výjimku nepotřebuje). Válečky 38–40 z 255 proti deskám 62–66 (dřív 99–104 proti 15–23). Export děla pro web nese lesk každého dílu a odmítne válečky bez gumy.
