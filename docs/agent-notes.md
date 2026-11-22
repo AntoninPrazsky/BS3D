@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-22 — #1217 brouk dělá stopu pod každou nohou — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: pouštní brouk klade jednu stopu za každou nohu tam, kde dosedne, a stojící noha na ní zůstane, dokud se nezvedne. Chůze je v `CritterGait.cs`, zrcadlená řádek po řádku v `Foot()` v `Critter.fx` (test ji čte ze shaderu); stojná fáze už neklouže a na zatáčce noha jede s tělem (`Custom.w` nese zatáčení). Jedna tabulka nohou (`CritterMesh.BeetleFoot`) pro obě sítě i stopy. Stopa se zvedá k objektivu, písek se vzorkuje jednou při položení (0,048 ms za 588 stop). V záběru z intra je stopa nejvýš 0,004 px od nohy.
+- ⚠ Stopa zvednutá rovně nahoru vypadala 15 px vedle nohy; zvedá se proto po paprsku k objektivu.
+- Otevřené: `verdict-eye` — delší krok brouka (0,114 délky těla), štír rychleji (3,5 kroku na délku); Low/Medium, Android a pohyb nikdo neviděl.
+
 ## 2026-11-21 — #1229 článek na blog o tetelení vzduchu — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: článek „Hot air from a copy of the frame“ (`/blog/hot-air-from-a-copy-of-the-frame/`, datum 2026-11-21) začíná smyčkou silnějšího tetelení z #1135 a pro čtenáře, který není grafik, vysvětluje skutečné tetelení a fata morgánu, proč to nejde namalovat, krok označit–zkopírovat–lomit, prstenec na 620, úhel místo pixelů, „moc malé, má být větší“ a co stálo čtyřnásobné zvětšení, a cenu 0,09 ms. Dva klipy 1056x336, rozdílový snímek celého pohledu, náhled. Nástroj smyčky s prolnutím je nově `Tools/web-capture-loop.py`.
