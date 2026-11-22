@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-22 — #1196 paprsek míření tenký a tichý, konec slábne u koule — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: trychtýř pěti čar (1354190c) majitel 2026-11-21 odmítl; zápis níže i jeho otázka po `RAY_LUMINANCE` už neplatí. `AimBeam` je zase jedna přerušovaná čára, tenčí a tlumenější (0,12 / 2,4 místo 0,15 / 3,5). Od `FAR_FROM` (půlka) se čárky plynule (smoothstep) rozšíří na `FAR_WIDTH` 0,26, prodlouží a zeslábnou podél sebe (`TrailHeadFade` v `ShotTrail.fx`, i GamePi) do nuly; končí na okraji koule, jak ji vidí kamera (`VisibleEnd`), nikdy přes ni. Řezač (`FarEnd.Strike`) je prostá čára zastavená u koule.
+- ⚠ Úplné doznění stojí dosah: jádro klesne pod desetinu světla 34 px před okrajem koule (medián, 1080 řádků). Páky `FarAlpha`, `FAR_DASH_FRACTION`.
+- Otevřené: `verdict-eye` (dost tenký a tichý? čárky při přejezdu míření přes hranici koulí). Pohyb, pad, telefon, Pi, cena neověřeny.
+
 ## 2026-11-22 — #1217 brouk dělá stopu pod každou nohou — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: pouštní brouk klade jednu stopu za každou nohu tam, kde dosedne, a stojící noha na ní zůstane, dokud se nezvedne. Chůze je v `CritterGait.cs`, zrcadlená řádek po řádku v `Foot()` v `Critter.fx` (test ji čte ze shaderu); stojná fáze už neklouže a na zatáčce noha jede s tělem (`Custom.w` nese zatáčení). Jedna tabulka nohou (`CritterMesh.BeetleFoot`) pro obě sítě i stopy. Stopa se zvedá k objektivu, písek se vzorkuje jednou při položení (0,048 ms za 588 stop). V záběru z intra je stopa nejvýš 0,004 px od nohy.

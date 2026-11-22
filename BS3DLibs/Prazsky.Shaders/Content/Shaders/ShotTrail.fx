@@ -9,13 +9,6 @@
 //in front hide it) but writes no depth. Its overall alpha fades over the shot's first fraction of a second
 //(TrailAlpha, set on the CPU), so it is a launch burst that leaves the ball crisp. Built by the Testbed
 //and the Game (the editor never shoots). SM 5.0.
-//
-//The second technique, AimRay, is the aim beam's far end (#1196, AimBeam): the same billboard drawn as a CRISP thin
-//line instead of a soft streak - covered whole across it but for a pixel's anti-aliasing at its edges, no fades at its
-//ends, its alpha running from RayTailAlpha to RayHeadAlpha along it - for premultiplied alpha blending
-//(BlendState.AlphaBlend), so it lays its colour over what is behind it and never adds light to it. A technique of its
-//own rather than a switch on ShotTrail, because the effect is shared with LaunchSmears and LineSparks, whose pass is
-//this file's first technique and who set none of the ray's parameters.
 
 #include "ShaderTarget.fxh"
 
@@ -29,9 +22,9 @@ float TrailHeadWidth;   //half-width at the head
 float TrailTailWidth;   //half-width at the tail
 float3 TrailColor;      //linear radiance, already boosted and hue-floored on the CPU
 float TrailAlpha;       //overall launch fade, 1 at the shot down to 0
-
-float RayTailAlpha;     //AimRay only: the line's alpha at its tail
-float RayHeadAlpha;     //AimRay only: the line's alpha at its head
+float TrailHeadFade;    //the share of TrailAlpha gone by the head, lerped along the streak: the aim beam's far dashes fade
+                        //along themselves (AimBeam). LaunchSmears and LineSparks never set it, so it is 0 for them, an even
+                        //alpha, and AimBeam puts 0 back after its last dash
 
 struct TrailVertexInput
 {
@@ -86,35 +79,15 @@ float4 TrailPS(TrailVertexOutput input) : COLOR
     //No clip. With additive blending a zero-alpha pixel adds nothing, so the streak can fade smoothly to
     //nothing everywhere. A clip on (profile * TrailAlpha) would sweep inward as the smear fades and cut it
     //with a hard moving edge halfway through the fade - which read as the streak being sliced off.
-    float a = profile * lengthFade * TrailAlpha;
+    float a = profile * lengthFade * TrailAlpha * (1.0 - TrailHeadFade * along);
     return float4(TrailColor * a, a);
 }
 
-//The aim beam's crisp line: covered whole across, the edge anti-aliased over the pixel the side coordinate crosses it
-//in (fwidth), so a line a few pixels wide reads as drawn geometry rather than a glow, and a sub-pixel one fades by its
-//coverage instead of flickering. Premultiplied, for BlendState.AlphaBlend.
-float4 RayPS(TrailVertexOutput input) : COLOR
-{
-    float coverage = saturate((1.0 - abs(input.UV.x)) / max(fwidth(input.UV.x), 1e-4));
-    float a = coverage * saturate(lerp(RayTailAlpha, RayHeadAlpha, input.UV.y));
-    return float4(TrailColor * a, a);
-}
-
-//The first technique, so CurrentTechnique.Passes[0] (what LaunchSmears and LineSparks cache) is still the streak
 technique ShotTrail
 {
     pass P0
     {
         VertexShader = compile VS_SHADERMODEL TrailVS();
         PixelShader = compile PS_SHADERMODEL TrailPS();
-    }
-};
-
-technique AimRay
-{
-    pass P0
-    {
-        VertexShader = compile VS_SHADERMODEL TrailVS();
-        PixelShader = compile PS_SHADERMODEL RayPS();
     }
 };

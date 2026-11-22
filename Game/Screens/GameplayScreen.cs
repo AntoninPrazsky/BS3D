@@ -1277,6 +1277,13 @@ namespace BS3D.Screens
         /// <summary>Where it ends: the point a shot would touch, or a reach out along the aim when it would touch nothing.</summary>
         private Vector3 _previewBeamEnd;
 
+        /// <summary>
+        /// The centre of the ball the shot would touch, this frame, while <see cref="_previewReachesCluster"/>: the beam's
+        /// far dashes fade out, and a cutter's line stops, where the lens sees the beam reach it (#1196,
+        /// <c>AimBeam.VisibleEnd</c>).
+        /// </summary>
+        private Vector3 _previewBallTouched;
+
         /// <summary>Whether there is a beam at all — false only before a session is standing and while a cinematic has the gun.</summary>
         private bool _previewBeamVisible;
 
@@ -1367,8 +1374,7 @@ namespace BS3D.Screens
 
             //The aim beam borrows the SAME effect instance — it is the same billboard between two world points,
             //and a short segment of it comes out as a dash for free. Sharing it is why both components now push
-            //the trail's two widths per draw instead of once; see AimBeam's remarks. Its far end's crisp lines are the
-            //effect's second technique, which the Potato path's port has as well (#1196)
+            //the trail's two widths per draw instead of once; see AimBeam's remarks
             _aimBeam = new AimBeam(GraphicsDevice, Game.Content.Load<Effect>("Shaders/ShotTrail"));
 
             //Its OWN effect and not the trail's, unlike the two above: this billboard is placed from a centre
@@ -2184,12 +2190,9 @@ namespace BS3D.Screens
             if (paneBeforeLayers) DrawCeilingPane();
 
             //The aim beam opens the layers over the opaque scene, depth-read, so the cluster and the gun occlude it.
-            //Its dashes are light added to the frame and bloom through the glare; the funnel of rays its far end
-            //splits into (#1196) is laid OVER the frame with premultiplied alpha, in a colour under the glare
-            //threshold, and blooms nowhere (AimBeam's remarks). That blend is why the beam comes BEFORE the smears
-            //and the sparks: a blend covers what is already drawn, so a ray drawn after them would dim a shot's
-            //flare wherever the two cross, where drawn before them the flare is added over the guide that aimed it.
-            //It puts back the states it found.
+            //Its dashes are light added to the frame, as the smears, the sparks and the blasts after it are, so the
+            //order among them changes nothing: a shot's flare adds over the guide that aimed it wherever the two
+            //cross. It puts back the states it found.
             if (!Game.HidesAimPreview) DrawShotPreviewBeam();
 
             //Over the opaque scene (which the depth buffer now holds, so the cluster and the gun occlude
