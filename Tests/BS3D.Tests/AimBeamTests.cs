@@ -477,8 +477,11 @@ namespace BS3D.Tests
         /// never rises over the line's.
         /// <para>
         /// <b>Seen to fail</b> with the fade left out (the far dashes at full alpha): their light grows with their width.
-        /// And with one alpha a dash, its middle's, under the old fade <c>1 - along³</c>: the last dash drawn kept up to 0.37
-        /// of the line's light on the side-on flight and 0.45 through the overview, and stopped a gap short of the ball.
+        /// And with what was reviewed (one alpha a dash, its middle's, the fade <c>1 - along³</c> and a sliver measured
+        /// against the far period): the last dash drawn ended on 0.36 of the line's light 2.4 units short of the ball side on,
+        /// and through the overview on 0.21 at the median, 0.39 at the 95th percentile. Each of those alone fails too: one
+        /// alpha a dash (0.14), the old fade lerped along (0.23), a sliver against the period (0.15) or against the dash's
+        /// own length whatever its light (0.12).
         /// </para>
         /// </summary>
         [Fact]
@@ -490,12 +493,15 @@ namespace BS3D.Tests
             XVector3[] path = [Muzzle, Touch];
             float total = Total(path), cycle = AimBeam.SPACING / AimBeam.CRAWL;
 
+            //Every beam laid, held to never bolder once the last dashes are asked about
+            List<AimBeam.Piece[]> laid = new();
+
             float worst = 0f, worstPhase = 0f, worstShort = 0f, mostShort = 0f;
             int phases = 0;
             for (float phase = 0f; phase < cycle; phase += 0.001f, phases++)
             {
                 AimBeam.Piece[] pieces = Lay(path, phase, AimBeam.FarEnd.Landing);
-                NeverBolder(pieces);
+                laid.Add(pieces);
 
                 AimBeam.Piece final = pieces[^1];
                 float light = EndLight(final), shortOfTouch = total - XVector3.Distance(Muzzle, final.Head);
@@ -506,8 +512,6 @@ namespace BS3D.Tests
             output.WriteLine($"side on, over {phases} phases of the crawl's {cycle:0.0000} s cycle: the last dash drawn ends on at most " +
                 $"{worst:0.000} of the line's light (phase {worstPhase:0.000}, its head {worstShort:0.00} short of the touch); " +
                 $"it ends at most {mostShort:0.00} short");
-            Assert.True(worst <= EndBound, $"at phase {worstPhase:0.000} the last dash ends on {worst:0.000} of the line's light, {worstShort:0.00} short of the ball");
-
             //Over the measured aims through the Game's overview, at eight phases across the cycle
             List<float> ends = new();
             foreach (Aim aim in Measure(40))
@@ -516,14 +520,17 @@ namespace BS3D.Tests
                 for (int k = 0; k < 8; k++)
                 {
                     AimBeam.Piece[] pieces = Lay(aim.Path, k * cycle / 8f, AimBeam.FarEnd.Landing, aim.Hit, eye);
-                    NeverBolder(pieces);
+                    laid.Add(pieces);
                     ends.Add(EndLight(pieces[^1]));
                 }
             }
 
             output.WriteLine($"through the overview over {ends.Count} aims and phases: the last dash drawn ends on {Percentile(ends, 0.5):0.000} " +
                 $"of the line's light at the median, {Percentile(ends, 0.95):0.000} at the 95th percentile, {Percentile(ends, 1):0.000} at the most");
+            Assert.True(worst <= EndBound, $"at phase {worstPhase:0.000} the last dash ends on {worst:0.000} of the line's light, {worstShort:0.00} short of the ball");
             Assert.True(Percentile(ends, 1) <= EndBound, $"through the overview the last dash drawn ends on up to {Percentile(ends, 1):0.000} of the line's light");
+
+            foreach (AimBeam.Piece[] pieces in laid) NeverBolder(pieces);
 
             //The curve itself, sampled: the light at a dash's core smoothly to nothing at the ball, never back up, and flat
             //where it leaves the plain line

@@ -57,7 +57,7 @@ namespace Prazsky.Core.Render
     /// <para>
     /// <b>A far dash fades along itself, not dash by dash.</b> The far dashes are long (the period grows to
     /// <see cref="FAR_STRETCH"/> times <see cref="SPACING"/>) and the fade has half a beam to run over, a few dashes, so a dash
-    /// holding one alpha left the last one drawn with up to two fifths of the line's light and a gap short of the ball. So
+    /// holding one alpha left the last one drawn with up to nearly half the line's light and a gap short of the ball. So
     /// every piece carries the fade's alpha at each of its two ends and the shader lerps between them
     /// (<c>TrailHeadFade</c>): the dash crawling into the ball reaches it at nothing, and the one a gap behind it ends at
     /// next to nothing.
