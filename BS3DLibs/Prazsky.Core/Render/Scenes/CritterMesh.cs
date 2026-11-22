@@ -19,6 +19,23 @@ namespace Prazsky.Core.Render
     {
         internal const float BODY = -1f, TAIL = -2f;
 
+        /// <summary>The beetle's feet (#1217), numbered front to back, the -X one of each pair (the beetle's right, facing +Z)
+        /// first: foot <c>leg * 2</c> is leg <c>leg</c>'s on side -1, <c>leg * 2 + 1</c> its partner's on side +1.</summary>
+        internal const int BEETLE_FEET = 6;
+
+        //Where the beetle's feet stand at rest, front to back, on its +X side (the -X side mirrors them): the one table both
+        //beetles' legs end on and DesertCritters lays the prints by, so a print lies where a foot steps (#1217)
+        private const float BEETLE_FOOT_OUT = 0.52f;
+        private static readonly float[] BeetleFootAlong = { 0.3825f, 0.04f, -0.3025f };
+
+        /// <summary>Where the beetle's foot of leg <paramref name="leg"/> (0 the front) on <paramref name="side"/> (-1 the -X
+        /// side, +1 the +X) stands at rest, on the sand.</summary>
+        internal static Vector3 BeetleFoot(int leg, int side) => new(BEETLE_FOOT_OUT * side, 0f, BeetleFootAlong[leg]);
+
+        /// <summary>A leg's gait phase in radians, every creature's (<see cref="CritterGait"/>): a tripod, each leg out of step
+        /// with the legs beside it along its side and with its partner across the body.</summary>
+        internal static float LegPhase(int leg, int side) => ((leg % 2 == 1) == (side > 0)) ? 0f : MathF.PI;
+
         internal static (VertexPositionNormalTexture[] Vertices, short[] Indices) Beetle()
         {
             var v = new List<VertexPositionNormalTexture>();
@@ -30,15 +47,15 @@ namespace Prazsky.Core.Render
             //Antennae
             Leg(v, idx, new Vector3(0.04f, 0.18f, 0.48f), new Vector3(0.12f, 0.24f, 0.62f), new Vector3(0.16f, 0.22f, 0.72f), 0.012f, BODY);
             Leg(v, idx, new Vector3(-0.04f, 0.18f, 0.48f), new Vector3(-0.12f, 0.24f, 0.62f), new Vector3(-0.16f, 0.22f, 0.72f), 0.012f, BODY);
-            //Six legs, long and thin, in a tripod: front and back of one side with the middle of the other
+            //Six legs, long and thin, in a tripod: front and back of one side with the middle of the other, each ending on
+            //its foot in the table the prints are laid by
             float[] along = { 0.26f, 0.05f, -0.18f };
             for (int i = 0; i < 3; i++)
                 for (int side = -1; side <= 1; side += 2)
                 {
-                    float phase = ((i == 1) == (side > 0)) ? 0f : MathF.PI;
                     float z = along[i];
                     Leg(v, idx, new Vector3(0.15f * side, 0.14f, z), new Vector3(0.36f * side, 0.24f, z + 0.06f * (1 - i)),
-                        new Vector3(0.48f * side, 0f, z + 0.12f * (1 - i)), 0.022f, phase);
+                        BeetleFoot(i, side), 0.022f, LegPhase(i, side));
                 }
             return (v.ToArray(), idx.ToArray());
         }
@@ -81,10 +98,9 @@ namespace Prazsky.Core.Render
             for (int i = 0; i < 4; i++)
                 for (int side = -1; side <= 1; side += 2)
                 {
-                    float phase = ((i % 2 == 1) == (side > 0)) ? 0f : MathF.PI;
                     float z = along[i];
                     Leg(v, idx, new Vector3(0.11f * side, 0.09f, z), new Vector3(0.3f * side, 0.17f, z + 0.03f * (1.5f - i)),
-                        new Vector3(0.4f * side, 0f, z + 0.07f * (1.5f - i)), 0.018f, phase);
+                        new Vector3(0.4f * side, 0f, z + 0.07f * (1.5f - i)), 0.018f, LegPhase(i, side));
                 }
             return (v.ToArray(), idx.ToArray());
         }
@@ -140,19 +156,19 @@ namespace Prazsky.Core.Render
             }
 
             //Six legs in a tripod, as the coarse beetle's: the femur thick, up to a knee over the back's middle, the tibia thin
-            //and down to the sand, the tarsus three beads along it; the front pair reaching forwards, the hind pair back
+            //and down to the sand, the tarsus three beads along it to its foot in the table; the front pair reaching
+            //forwards, the hind pair back
             float[] along = { 0.26f, 0.04f, -0.18f };
             for (int i = 0; i < 3; i++)
                 for (int side = -1; side <= 1; side += 2)
                 {
-                    float phase = ((i == 1) == (side > 0)) ? 0f : MathF.PI;
                     float z = along[i], reach = 0.07f * (1 - i);
                     Vector3[] joints =
                     {
                         new(0.11f * side, 0.13f, z), new(0.31f * side, 0.27f, z + reach * 0.6f), new(0.43f * side, 0.045f, z + reach * 1.3f),
-                        new(0.46f * side, 0.025f, z + reach * 1.45f), new(0.49f * side, 0.01f, z + reach * 1.6f), new(0.52f * side, 0f, z + reach * 1.75f),
+                        new(0.46f * side, 0.025f, z + reach * 1.45f), new(0.49f * side, 0.01f, z + reach * 1.6f), BeetleFoot(i, side),
                     };
-                    Limb(v, idx, joints, new[] { 0.03f, 0.024f, 0.015f, 0.011f, 0.01f, 0.005f }, 6, 4, phase, 0f, 1f);
+                    Limb(v, idx, joints, new[] { 0.03f, 0.024f, 0.015f, 0.011f, 0.01f, 0.005f }, 6, 4, LegPhase(i, side), 0f, 1f);
                 }
             return (v.ToArray(), idx.ToArray());
         }
@@ -238,7 +254,7 @@ namespace Prazsky.Core.Render
             for (int i = 0; i < 4; i++)
                 for (int side = -1; side <= 1; side += 2)
                 {
-                    float phase = ((i % 2 == 1) == (side > 0)) ? 0f : MathF.PI;
+                    float phase = LegPhase(i, side);
                     float z = along[i], reach = 0.045f * (1.5f - i);
                     Vector3[] joints =
                     {

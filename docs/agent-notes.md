@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-22 — #1217 brouk dělá stopu pod každou nohou — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: pouštní brouk klade jednu stopu za každou nohu tam, kde dosedne, a stojící noha na ní zůstane, dokud se nezvedne. Chůze je v `CritterGait.cs`, zrcadlená řádek po řádku v `Foot()` v `Critter.fx` (test ji čte ze shaderu); stojná fáze už neklouže a na zatáčce noha jede s tělem (`Custom.w` nese zatáčení). Jedna tabulka nohou (`CritterMesh.BeetleFoot`) pro obě sítě i stopy. Stopa se zvedá k objektivu, písek se vzorkuje jednou při položení (0,048 ms za 588 stop). V záběru z intra je stopa nejvýš 0,004 px od nohy.
+- ⚠ Stopa zvednutá rovně nahoru vypadala 15 px vedle nohy; zvedá se proto po paprsku k objektivu.
+- Otevřené: `verdict-eye` — delší krok brouka (0,114 délky těla), štír rychleji (3,5 kroku na délku); Low/Medium, Android a pohyb nikdo neviděl.
+
 ## 2026-11-21 — #1193 blikání trychtýře z dálky — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: příčinou byla přesnost hloubky, ne stínový box. Z údolí louky (172–203 jednotek od trychtýře) při near 0,05 vyhrával tmavý plášť jámy nad sklem: pruhy po vnitřních stěnách a zuby na zlatém límci, v každém snímku jinak. `RecoilCamera.NearPlaneAt` drží 0,05 do 36 jednotek od trychtýře, dál roste se čtvercem vzdálenosti až po 0,75; blízký cíl ho jen drží dole. Hra ani menu se nemění (bitově stejné snímky). Pohled vpřed v průjezdech míří 1000 daleko (Grid). Blikání v ústí z 38,9 na 6,4 promile.

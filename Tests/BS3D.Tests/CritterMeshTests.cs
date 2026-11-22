@@ -78,6 +78,39 @@ namespace BS3D.Tests
             if (kind == "scorpion") Assert.Contains(fine, v => v.TextureCoordinate.X == CritterMesh.TAIL);
         }
 
+        /// <summary>
+        /// Both beetles end their legs on the one foot table the prints are laid by (#1217, <see cref="CritterMesh.BeetleFoot"/>):
+        /// every foot, where its leg's vertices of full weight ring round, within two thousandths of a body length of its
+        /// table entry in plan, on the sand, with its leg's phase (<see cref="CritterMesh.LegPhase"/>), and no foot that is
+        /// not in the table. The coarse beetle's feet stood 0.04 nearer its body before #1217, and fail it.
+        /// </summary>
+        [Fact]
+        public void Both_beetles_stand_on_the_feet_the_prints_are_laid_by()
+        {
+            foreach ((string name, VertexPositionNormalTexture[] vertices) in new[] { ("coarse", CritterMesh.Beetle().Vertices), ("fine", CritterMesh.FineBeetle().Vertices) })
+            {
+                var tips = vertices.Where(v => v.TextureCoordinate.X >= 0f && v.TextureCoordinate.Y > 0.999f).ToList();
+                int claimed = 0;
+                for (int foot = 0; foot < CritterMesh.BEETLE_FEET; foot++)
+                {
+                    int leg = foot >> 1, side = (foot & 1) == 0 ? -1 : 1;
+                    Vector3 table = CritterMesh.BeetleFoot(leg, side);
+                    var ring = tips.Where(v => new Vector2(v.Position.X - table.X, v.Position.Z - table.Z).Length() < 0.08f).ToArray();
+                    Assert.True(ring.Length > 0, $"the {name} beetle has no foot near foot {foot}'s place in the table");
+                    //Its ring's centre, the seam's repeated vertex counted once
+                    Vector3[] round = ring.Select(v => v.Position).Distinct().ToArray();
+                    Vector3 centre = round.Aggregate(Vector3.Zero, (sum, p) => sum + p) / round.Length;
+                    float off = new Vector2(centre.X - table.X, centre.Z - table.Z).Length();
+                    _output.WriteLine(FormattableString.Invariant($"{name} foot {foot}: {ring.Length} vertices round ({centre.X:F4}, {centre.Y:F4}, {centre.Z:F4}), {off:F5} off the table"));
+                    Assert.True(off < 0.002f, $"the {name} beetle's foot {foot} stands {off:F4} off the table");
+                    Assert.InRange(centre.Y, -0.01f, 0.01f);
+                    Assert.All(ring, v => Assert.Equal(CritterMesh.LegPhase(leg, side), v.TextureCoordinate.X));
+                    claimed += ring.Length;
+                }
+                Assert.Equal(tips.Count, claimed);
+            }
+        }
+
         [Theory]
         [MemberData(nameof(Kinds))]
         public void The_fine_creature_is_wound_as_every_procedural_mesh_is_and_fits_its_buffer(string kind)
