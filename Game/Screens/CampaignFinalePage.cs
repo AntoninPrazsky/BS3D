@@ -19,6 +19,12 @@ namespace BS3D.Screens
     /// the text, because the lettering has to read over a lit, moving arena.
     /// </para>
     /// <para>
+    /// <b>Nothing writes the camera under it</b>: the session's <c>UpdateUnderResult</c> writes none, and the release onto the
+    /// orbit is the result page's. So the lens stands still where the level ended it: the play pose, or after a clear with
+    /// unused balls (the last level has a budget, so nearly every finale) the volley's view from beside the gun, which the
+    /// session holds to the page (#1198, <see cref="BS3D.Effects.SpareVolley"/>).
+    /// </para>
+    /// <para>
     /// <b>It stands aside</b> (<see cref="StandsAside"/>, #861): the host draws and feeds none of a tree and hands the page
     /// no walk, no Enter and no Back, so the press that skips cannot also choose a button of the page that comes next, and
     /// Escape skips rather than pausing a game that is over. It draws with the host's overlay batch in

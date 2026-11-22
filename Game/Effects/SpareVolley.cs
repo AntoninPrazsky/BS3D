@@ -20,7 +20,7 @@ namespace BS3D.Effects
     /// <b>The camera</b> is a pose and a blend, as <see cref="LineLossCinematic"/> is (the host composes it with the others and
     /// <c>CameraTakeoverEngaged</c> counts it, so the gun does not answer): to one side of the gun and a little behind and
     /// above it, looking along the barrel at the field the balls fly into. The cleared beat's countdown waits for the count
-    /// (<see cref="Running"/>), not for the lens.
+    /// (<see cref="Running"/>), not for the lens: <c>ClearedBeatCountdown.Waits</c> is that rule.
     /// </para>
     /// <para>
     /// <b>The lens is held after the count, until <see cref="Reset"/></b> (#1198). The owner: the camera looked at the gun from
@@ -28,7 +28,9 @@ namespace BS3D.Effects
     /// result page, and the return should go, because the player will not play any more. It was this class letting go
     /// after the count and the beat then holding the play pose, which the result page captured and eased out from. Now the
     /// beat after the count runs with the lens still beside the gun, and the result page eases out from there onto its
-    /// orbit in one move. A skip during the lens's arrival lets it finish arriving rather than turning back.
+    /// orbit in one move. A skip during the lens's arrival lets it finish arriving rather than turning back. On the
+    /// campaign's last clear the finale (<c>CampaignFinalePage</c>, #880) comes first and writes no camera, so it stands over
+    /// this lens, still, until the result page takes it.
     /// </para>
     /// </summary>
     internal sealed class SpareVolley
@@ -87,7 +89,10 @@ namespace BS3D.Effects
         public static float Interval(int balls) =>
             balls <= 1 ? MAX_INTERVAL : Math.Clamp(MAX_SECONDS / balls, MIN_INTERVAL, MAX_INTERVAL);
 
-        /// <summary>How long a volley of <paramref name="balls"/> holds the lens, from the start to the last shot's tail.</summary>
+        /// <summary>
+        /// How long the count of a volley of <paramref name="balls"/> takes, from the start to the last shot's tail: where
+        /// <see cref="Running"/> ends and the lens goes on being held beside the gun (#1198).
+        /// </summary>
         public static float Duration(int balls) => LEAD_IN + Math.Max(balls - 1, 0) * Interval(balls) + TAIL;
 
         /// <summary>The count once <paramref name="fired"/> of <paramref name="balls"/> have left: their share of the bonus, rounded down, the last one the whole of it.</summary>

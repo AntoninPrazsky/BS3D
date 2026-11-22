@@ -852,7 +852,7 @@ namespace BS3D.Screens
         /// <summary>
         /// Seconds left of <see cref="LevelPhase.ClearedBeat"/>, the pause between the field emptying and the
         /// level actually ending. Data of that phase and nothing else: armed on entering it, counted down while it
-        /// lasts and not while a camera takeover is playing out (<see cref="TakeoverHoldsTheClearedBeat"/>), and read by
+        /// lasts and not while a camera takeover is playing out (<see cref="ClearedBeatCountdown.Waits"/>), and read by
         /// nobody as a flag — the phase says whether the level is still being played.
         /// <para>
         /// The pause is the point. Balls leave the map at <b>release</b> time, while their bodies are still
@@ -1134,13 +1134,6 @@ namespace BS3D.Screens
         /// a skip finds nothing left to skip.
         /// </summary>
         private bool CameraTakeoverEngaged => _cinematic.Engaged || _chapterIntro.Engaged || _lineLoss.Engaged || _spareVolley.Engaged;
-
-        /// <summary>
-        /// Whether a takeover is still playing out, which a clear's beat waits for before its countdown runs: every one but the
-        /// volley's lens once its count is done (#1198). That lens is held beside the gun to the result page, which eases out
-        /// from it; a countdown waiting for it to be let go would wait for good.
-        /// </summary>
-        private bool TakeoverHoldsTheClearedBeat => _cinematic.Engaged || _chapterIntro.Engaged || _lineLoss.Engaged || _spareVolley.Running;
 
         /// <summary>Skips whichever takeover is currently running — see <see cref="CameraTakeoverEngaged"/>
         /// for why asking them all is safe. The line loss has no skip of its own.</summary>
@@ -1858,8 +1851,10 @@ namespace BS3D.Screens
             if (_phase == LevelPhase.ClearedBeat) _clearedElapsed += elapsed;
 
             //Frozen under a drop cinematic and the volley's count, not under the volley's held lens (#1198): the rest of the beat
-            //runs beside the gun, and the result page eases out from there
-            if (_phase == LevelPhase.ClearedBeat && !TakeoverHoldsTheClearedBeat)
+            //runs beside the gun, and the result page eases out from there. ⚠ Not CameraTakeoverEngaged, which the held lens
+            //keeps true: the countdown would never end (ClearedBeatCountdown, held by SpareVolleyTests)
+            if (_phase == LevelPhase.ClearedBeat
+                && !ClearedBeatCountdown.Waits(_cinematic.Engaged, _chapterIntro.Engaged, _lineLoss.Engaged, _spareVolley))
             {
                 _clearedCountdown -= elapsed;
                 if (_clearedCountdown <= 0f) FinishLevel();

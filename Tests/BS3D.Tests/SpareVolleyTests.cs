@@ -1,4 +1,5 @@
 using BS3D.Effects;
+using BS3D.Screens;
 using Microsoft.Xna.Framework;
 using System;
 using Xunit;
@@ -95,6 +96,9 @@ namespace BS3D.Tests
             Assert.Equal(0, after);
             Assert.True(volley.Engaged, "a skip let the lens go");
             Assert.Equal(1f, volley.Blend);
+
+            //And the cleared beat's countdown runs on under that lens, or the result page would never come
+            Assert.False(ClearedBeatCountdown.Waits(false, false, false, volley), "the held lens stopped the beat's countdown");
         }
 
         [Fact]
@@ -218,6 +222,55 @@ namespace BS3D.Tests
             Assert.Equal(0f, volley.Blend);
             Assert.Equal(0, volley.Update(STEP));
             Assert.Equal(0f, volley.Blend);
+        }
+
+        /// <summary>
+        /// The screen's half of #1198 (<see cref="ClearedBeatCountdown"/>): the beat after the count runs down under the held
+        /// lens, frame by frame as <c>GameplayScreen</c> runs it, and ends on schedule with the lens still beside the gun. A
+        /// countdown that waited for the lens, as it waited for <see cref="SpareVolley.Engaged"/> before, would never end, and
+        /// every clear with unused balls would be left without its result page.
+        /// </summary>
+        [Theory]
+        [InlineData(1)]
+        [InlineData(29)]
+        [InlineData(90)]
+        public void TheBeatsCountdownRunsDownUnderTheHeldLens(int balls)
+        {
+            //Any beat will do; the screen's is its AFTER_VOLLEY_BEAT, which the count cuts the countdown to
+            const float beat = 1.6f;
+
+            SpareVolley volley = Begun(balls, balls * 15);
+            float countdown = beat, t = 0f;
+            while (countdown > 0f && t < 30f)
+            {
+                volley.Update(STEP);
+                t += STEP;
+                if (!ClearedBeatCountdown.Waits(false, false, false, volley)) countdown -= STEP;
+            }
+
+            Assert.True(countdown <= 0f, $"the countdown was still at {countdown:0.00} s after {t:0.0} s: no result page");
+            Assert.InRange(t, SpareVolley.Duration(balls) + beat - 2f * STEP, SpareVolley.Duration(balls) + beat + 2f * STEP);
+            Assert.True(volley.Engaged, "the lens was let go before the page could take it");
+            Assert.Equal(1f, volley.Blend);
+        }
+
+        /// <summary>
+        /// What does hold the beat (<see cref="ClearedBeatCountdown"/>): a drop cinematic, a chapter intro, the line loss, and
+        /// the volley while it counts.
+        /// </summary>
+        [Fact]
+        public void TheCountAndEveryOtherTakeoverHoldTheBeat()
+        {
+            var idle = new SpareVolley();
+            Assert.False(ClearedBeatCountdown.Waits(false, false, false, idle));
+            Assert.True(ClearedBeatCountdown.Waits(true, false, false, idle));
+            Assert.True(ClearedBeatCountdown.Waits(false, true, false, idle));
+            Assert.True(ClearedBeatCountdown.Waits(false, false, true, idle));
+
+            SpareVolley counting = Begun(29, 1624);
+            counting.Update(STEP);
+            Assert.True(counting.Running);
+            Assert.True(ClearedBeatCountdown.Waits(false, false, false, counting), "the beat ran down while the balls were counted");
         }
     }
 }
