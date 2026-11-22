@@ -58,7 +58,7 @@ Code comments cite sections of this document by title; this table resolves them.
 | The menus are drivable from a gamepad (#61), and that decides who owns the highlight | [Menu navigation](game-shell/menu-navigation.md) |
 | The keys are drawn in the UI, beside what they do (#799) | [Menu navigation](game-shell/menu-navigation.md#the-keys-are-drawn-in-the-ui-799) |
 | The menu camera (and its sub-bullets: the wide leg, once a cycle, the framing is the hanging map's, what the wide leg's length is really holding) | [The menu camera](game-shell/menu-camera.md) |
-| `preview=<n\|name>`, `pick`, `pickfocus=<level>@<s>`, `about`, `scenes`, `settings`, `balls=<beach\|bubble>`, `detonate=<t1,t2,…>`, `tomenu=<s>`, `wind=<scale>`, `seed=<n>` | [Launch arguments](game-shell/front-end-launch-arguments.md) |
+| `preview=<n\|name>`, `pick`, `pickfocus=<level>@<s>`, `about`, `scenes`, `settings`, `balls=<style>`, `detonate=<t1,t2,…>`, `tomenu=<s>`, `wind=<scale>`, `seed=<n>` | [Launch arguments](game-shell/front-end-launch-arguments.md) |
 | Extras and the Jukebox (#704) (the pages) | [The front end: pages](game-shell/front-end-pages.md) (written by the first half); its arguments `extras`, `jukebox` in [Launch arguments](game-shell/front-end-launch-arguments.md) |
 | The scene is a real setting, not a menu backdrop | [The front end: pages](game-shell/front-end-pages.md) (written by the first half) |
 | The pointer is the game's own, generated at load, and it is the one piece of the chrome WINDOWS draws (#350) | [The menu's look](game-shell/menu-look.md) (written by the first half) |

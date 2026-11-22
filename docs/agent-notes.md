@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-22 — #1215 cena deseti stylů koulí — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: jedna změřená tabulka v `docs/rendering/ball-styles.md` („Cost“), barevný klíč zapnutý i vypnutý, Game v Ultra na Girandole a Spyglass a tři pevné kamery v Testbedu. Proti vinylu: bublina +1,82 ms, led +1,28, plasma −0,90, ostatní v šumu. Cena roste s pixely koule. Na desktopu se nic nezlevňuje: nejdražší snímek kapitoly bubliny (Amphora, 9,02 ms) je 4,3 ms pod rozpočtem Ultra. Opraveno i zastaralé `balls=<beach|bubble>`.
+- ⚠ Buildy jiných agentů zatěžují CPU a kontrola procesů to nevidí (sekundy na Spyglass se ztrojnásobily). Běhy ve hře se párují s vinylem téhož kola a běhy s velkým rozptylem se zahazují.
+- Otevřené: cena bubliny a ledu na referenčním APU (Low, Amphora) a na telefonu. Úvodní záběr potoka na louce má v Ultra 13–15 ms, to je scéna, ne koule.
+
 ## 2026-11-22 — #1219 skleněná tělesa snu se neprolínají — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: dvanáct těles snu letí ve dvou prstencích (lichá, větší, uvnitř na 80–94; sudá venku na 142–152). Každý prstenec se točí jako celek, mezera mezi nimi je dána konstrukcí, takže se dvě tělesa nikdy nepotkají. Pravidlo je v `Dream.fx` i v `DreamBackdrop` a `DreamSolidsSourceTests` hlídá, že říkají totéž. `DreamSolidsApartTests` (hodina scény) i nový test Potato cesty selhaly se starými drahami. Potato tělesa mají vlastní dva prstence (146 a 237) a test, že jimi neproletí ani tour kapitoly.

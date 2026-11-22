@@ -249,13 +249,19 @@ and 20 minutes into a continuous session, which said the spread was the level an
   is not empty since #249 and its camera is framed for whatever is hanging since #254 — a small map is
   watched from a different stand-off than a big one, and once a cycle the lens flies in at it — so two
   front-end runs that did not pin the same preview measured two different scenes from two different places.
-- `balls=<beach|bubble>` — pin what every ball is **made of** (#258), overriding what each level file names.
-  The glass bubble is a second technique with a heavier pixel shader and it puts the shell out **twice**
-  (two walls, opposite cull modes), so it is a real fill-rate difference and it is the *map* that decides it:
-  a run that did not pin this measured whatever style the level happened to be authored in. Measured with it,
-  959 balls under the cavern at ssaa 2×: windowed 1600×900, vinyl 576.7 / 593.9 FPS against bubble 537.1 /
-  536.3 (~8 %); at 3840×1600, vinyl 166.1 / 166.3 against bubble 149.5 / 149.9 (~10 %). The figure does not
-  move with how opaque the film is, nor with its screening fade — same passes, same instructions.
+- `balls=<beach|bubble|marble|wool|metal|ice|gem|plasma|lava|porcelain>` (`vinyl` is `beach`) — pin what every
+  ball is **made of** (#258), overriding what each level file names, and `colourcue=<motif|none>` whether its
+  colour's figure is painted on (`motif`, each style its own set, is the default and what a player gets). It
+  is the *map* that decides the style, so a run that did not pin it measured whatever the level was authored
+  in, and two styles are a real difference: the bubble puts its shell out **twice** (two walls, opposite cull
+  modes) and the ice runs a crack net of 1233 slots. In the Game at `Ultra`, 3840×1500, Girandole's 1204 balls,
+  against the vinyl with the cue on (8.50 ms): bubble **+1.82 ms**, ice **+1.28**, plasma −0.90, the other six
+  within the Game's noise of 0.3 ms (#1215). Both arguments are Testbed `alt=` dials too, and alternated they read
+  what one form a process reads, within 0.02 ms (checked on the vinyl, the bubble and the ice, the cue on and
+  off). ⚠ The Game's frame drifts between sessions (Girandole's vinyl 8.32 to 8.61 ms), so pair each run with a
+  vinyl run of its own round, and a build or another agent's game beside a run loads it unseen: drop a run whose
+  seconds spread more than about 0.6 ms. The whole table, its cameras and its method: "Cost" in
+  `docs/rendering/ball-styles.md`.
 
 ## The Testbed measures too, and it is the one that can aim
 

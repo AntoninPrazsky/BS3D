@@ -875,7 +875,7 @@ namespace BS3D
             //every cycle's excursion that pass. Anything else leaves what a player gets.
             Row.Text("menugun", (o, v) => o.MenuGun = v == "off" ? Screens.MenuGunMode.Off : Screens.MenuGunMode.Pass,
                 v => v is "off" or "pass"),
-            //"balls=<beach|bubble>" overrides what every level says it is made of (#258), the way "scene="
+            //"balls=<style>" overrides what every level says it is made of (#258), the way "scene="
             //overrides the backdrop each one names. Parsed through BallStyles, so the spellings are the
             //ones a level file takes; an unknown one leaves the levels' own answers standing.
             Row.Value<BallStyle>("balls", BallStyles.TryParse, (o, v) => o.BallStyle = v),
