@@ -49,11 +49,15 @@ namespace BS3D.Tests
 
         //The wheels, in the carriage's frame (trunnions at the origin, ahead is -Z): a disc each side round the axle,
         //its centre WHEEL_TRACK out and AXLE_DROP down, the rollers' envelope's radius and the plates' and rollers' width
-        //either side of it - a hair over CannonRig's figures
+        //either side of it, the lip round the plates' edge included - a hair over CannonRig's figures. And a narrower,
+        //thicker disc on the same axle for the hub face that stands proud of the plates near the centre (#1212): out to
+        //the bolt flange's edge and the axle nut's top. OmniWheelTests holds the wheel's own mesh inside the two.
         private const float WHEEL_X = 1.5f;
         private const float WHEEL_Y = -1.45f;
-        private const float WHEEL_RADIUS = 1.17f;
-        private const float WHEEL_HALF_WIDTH = 0.41f;
+        internal const float WHEEL_RADIUS = 1.17f;
+        internal const float WHEEL_HALF_WIDTH = 0.41f;
+        internal const float HUB_FACE_RADIUS = 0.70f;
+        internal const float HUB_FACE_HALF_WIDTH = 0.39f + OmniWheelMesh.HUB_FACE_PROUD + 0.01f;
 
         //Everything else of the carriage, as boxes: the cheeks, the trunnion pins and the axle between the wheels (ahead no
         //further than the cheeks' front), and the split trail behind, down to its feet
@@ -165,12 +169,13 @@ namespace BS3D.Tests
                 foreach ((Vector3 min, Vector3 max) in CARRIAGE_BOXES)
                     worst = MathF.Min(worst, Vector3.Distance(local, Vector3.Clamp(local, min, max)) - radius);
 
-                //A wheel: the distance to a disc about the X axis, its width and its radius
+                //A wheel: the distance to a disc about the X axis, its width and its radius, and to its hub face's disc
                 for (int side = -1; side <= 1; side += 2)
                 {
-                    float dx = MathF.Max(0f, MathF.Abs(local.X - side * WHEEL_X) - WHEEL_HALF_WIDTH);
-                    float dr = MathF.Max(0f, MathF.Sqrt((local.Y - WHEEL_Y) * (local.Y - WHEEL_Y) + local.Z * local.Z) - WHEEL_RADIUS);
-                    worst = MathF.Min(worst, MathF.Sqrt(dx * dx + dr * dr) - radius);
+                    float across = MathF.Abs(local.X - side * WHEEL_X);
+                    float r = MathF.Sqrt((local.Y - WHEEL_Y) * (local.Y - WHEEL_Y) + local.Z * local.Z);
+                    worst = MathF.Min(worst, DiscDistance(across, r, WHEEL_HALF_WIDTH, WHEEL_RADIUS) - radius);
+                    worst = MathF.Min(worst, DiscDistance(across, r, HUB_FACE_HALF_WIDTH, HUB_FACE_RADIUS) - radius);
                 }
 
                 float t = MathHelper.Clamp(Vector3.Dot(point - a, ab) / ab.LengthSquared(), 0f, 1f);
@@ -178,6 +183,14 @@ namespace BS3D.Tests
             }
 
             return worst;
+        }
+
+        //How far a point is from a disc about the wheel's axle: `across` the axle from the wheel's mid-plane, `r` from it
+        private static float DiscDistance(float across, float r, float halfWidth, float discRadius)
+        {
+            float dx = MathF.Max(0f, across - halfWidth);
+            float dr = MathF.Max(0f, r - discRadius);
+            return MathF.Sqrt(dx * dx + dr * dr);
         }
 
         private static Cannon StandAt(float bearing, float radius)

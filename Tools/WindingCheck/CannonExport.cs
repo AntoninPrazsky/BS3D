@@ -63,6 +63,20 @@ namespace BS3D.Tools.WindingCheck
                 read.Add((name, part));
             }
 
+            //The rollers' rubber is the one highlight on the gun that is not the renderer's default (#1212), and no logic
+            //test can see a rig give it: none has a device to build one on. So it is refused here, where it is read back and
+            //before anything is written, rather than the page's rollers drawn as the glossy plastic the default makes of a
+            //dark albedo (CannonRig's ROLLER_SPECULAR)
+            Vector3 rubber = RigVector("ROLLER_SPECULAR");
+            float rubberPower = RigConstant("ROLLER_SPECULAR_POWER");
+            if (rig.RollerRenderer.MaterialSpecularColor != rubber || rig.RollerRenderer.MaterialSpecularPower != rubberPower)
+            {
+                Console.Error.WriteLine($"[export] the rollers' highlight is {rig.RollerRenderer.MaterialSpecularColor} at " +
+                    $"{rig.RollerRenderer.MaterialSpecularPower}, not the rig's ROLLER_SPECULAR {rubber} at ROLLER_SPECULAR_POWER " +
+                    $"{rubberPower}: CannonRig no longer gives its roller renderer the rubber (InstancedModelRenderer.SetMaterialSpecular)");
+                return 3;
+            }
+
             //One scale for every position, the widest coordinate of any part, so the page needs one figure
             float extent = read.SelectMany(p => p.Part.Positions).Max(v => MathF.Max(MathF.Abs(v.X), MathF.Max(MathF.Abs(v.Y), MathF.Abs(v.Z))));
             float scale = extent * 1.0001f;
@@ -117,15 +131,17 @@ namespace BS3D.Tools.WindingCheck
                 ["rollerSeats"] = seats.Select(Row).ToArray(),
             };
 
-            //Each part's colour (linear radiance, as the renderers take it), its sky reflection and its alpha
+            //Each part's colour (linear radiance, as the renderers take it), its sky reflection and its alpha, and the
+            //highlight its renderer was given (tint and exponent: the rollers' rubber has its own, #1212)
+            var collar = (InstancedModelRenderer)typeof(CannonRig).GetField("_collarRenderer", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(rig);
             var materials = new Dictionary<string, object>
             {
-                ["barrel"] = Material(CannonRig.STEEL_COLOR, CannonRig.SPECULAR_AMBIENT_STRENGTH, 1f),
-                ["glass"] = Material(CannonRig.GLASS_COLOR, CannonRig.GLASS_SPECULAR_AMBIENT, CannonRig.GLASS_ALPHA),
-                ["collar"] = Material(RigVector("COLLAR_STEEL"), CannonRig.SPECULAR_AMBIENT_STRENGTH, 1f),
-                ["carriage"] = Material(CannonRig.FRAME_COLOR, CannonRig.FRAME_SPECULAR_AMBIENT, 1f),
-                ["wheel"] = Material(RigVector("WHEEL_COLOR"), RigConstant("WHEEL_SPECULAR_AMBIENT"), 1f),
-                ["roller"] = Material(RigVector("ROLLER_COLOR"), RigConstant("ROLLER_SPECULAR_AMBIENT"), 1f),
+                ["barrel"] = Material(CannonRig.STEEL_COLOR, CannonRig.SPECULAR_AMBIENT_STRENGTH, 1f, rig.Renderer),
+                ["glass"] = Material(CannonRig.GLASS_COLOR, CannonRig.GLASS_SPECULAR_AMBIENT, CannonRig.GLASS_ALPHA, rig.GlassRenderer),
+                ["collar"] = Material(RigVector("COLLAR_STEEL"), CannonRig.SPECULAR_AMBIENT_STRENGTH, 1f, collar),
+                ["carriage"] = Material(CannonRig.FRAME_COLOR, CannonRig.FRAME_SPECULAR_AMBIENT, 1f, rig.CarriageRenderer),
+                ["wheel"] = Material(RigVector("WHEEL_COLOR"), RigConstant("WHEEL_SPECULAR_AMBIENT"), 1f, rig.WheelRenderer),
+                ["roller"] = Material(RigVector("ROLLER_COLOR"), RigConstant("ROLLER_SPECULAR_AMBIENT"), 1f, rig.RollerRenderer),
             };
 
             //The thirteen ball colours, authored sRGB as a ball's tint is
@@ -165,8 +181,12 @@ namespace BS3D.Tools.WindingCheck
 
         private static float Round(float v) => MathF.Round(v, 5);
 
-        private static Dictionary<string, object> Material(Vector3 color, float sky, float alpha) =>
-            new() { ["color"] = Vec(color), ["sky"] = Round(sky), ["alpha"] = Round(alpha) };
+        private static Dictionary<string, object> Material(Vector3 color, float sky, float alpha, InstancedModelRenderer renderer) =>
+            new()
+            {
+                ["color"] = Vec(color), ["sky"] = Round(sky), ["alpha"] = Round(alpha),
+                ["specular"] = Vec(renderer.MaterialSpecularColor), ["power"] = Round(renderer.MaterialSpecularPower),
+            };
 
         private static float[] Row(Matrix m) => new[]
         {

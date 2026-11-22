@@ -85,7 +85,6 @@ namespace BS3D.Tools.WindingCheck
             ("CannonRig._glassMesh", 1, "the pane is one thin curved sheet laid in the window's rebate, its rim on the rebate"),
             ("CannonRig._collarMesh", 2, "a band round the muzzle: both rims lie on the tube's swell"),
             ("CannonRig._carriageMesh", 1, "a socket's face laid flush on the cheek's outer plane: coplanar with the plate that hides it"),
-            ("CannonRig._wheelMesh", 1, "the hub's inner face, where the axle stub goes in"),
 
             //---- twig bases the burial test cannot call inside; the logic tests hold where each one starts
             ("MeadowScatter._owned[6].Wood", 2, "a shrub twig's base ring on the thin end of a stem: the hexagonal stem leaves under 0.001 of the shrub's height to spare"),

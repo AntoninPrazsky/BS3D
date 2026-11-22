@@ -2,7 +2,7 @@
   "about": "The cannon of Bubble Shooter 3D, exported from the game\u0027s own meshes by Tools/WindingCheck --export-cannon (#949). Positions are 16-bit over positionScale, normals bytes over 127; matrices are the game\u0027s, row vectors, in row order.",
   "positionScale": 3.40034,
   "vertexStride": 12,
-  "indexOffset": 266616,
+  "indexOffset": 338616,
   "parts": {
     "barrel": {
       "vertexStart": 0,
@@ -30,14 +30,14 @@
     },
     "wheel": {
       "vertexStart": 13074,
-      "vertexCount": 2808,
+      "vertexCount": 8808,
       "indexStart": 13650,
-      "indexCount": 2808
+      "indexCount": 8808
     },
     "roller": {
-      "vertexStart": 15882,
+      "vertexStart": 21882,
       "vertexCount": 6336,
-      "indexStart": 16458,
+      "indexStart": 22458,
       "indexCount": 6336
     }
   },
@@ -49,7 +49,13 @@
         0.48
       ],
       "sky": 0.5,
-      "alpha": 1
+      "alpha": 1,
+      "specular": [
+        1,
+        1,
+        1
+      ],
+      "power": 16
     },
     "glass": {
       "color": [
@@ -58,7 +64,13 @@
         0.25081
       ],
       "sky": 0.15476,
-      "alpha": 0.84
+      "alpha": 0.84,
+      "specular": [
+        1,
+        1,
+        1
+      ],
+      "power": 16
     },
     "collar": {
       "color": [
@@ -67,7 +79,13 @@
         0.07
       ],
       "sky": 0.5,
-      "alpha": 1
+      "alpha": 1,
+      "specular": [
+        1,
+        1,
+        1
+      ],
+      "power": 16
     },
     "carriage": {
       "color": [
@@ -76,25 +94,43 @@
         0.33
       ],
       "sky": 0.22,
-      "alpha": 1
+      "alpha": 1,
+      "specular": [
+        1,
+        1,
+        1
+      ],
+      "power": 16
     },
     "wheel": {
       "color": [
-        0.085,
-        0.088,
-        0.095
+        0.4,
+        0.4,
+        0.415
       ],
-      "sky": 0.3,
-      "alpha": 1
+      "sky": 0.32,
+      "alpha": 1,
+      "specular": [
+        1,
+        1,
+        1
+      ],
+      "power": 16
     },
     "roller": {
       "color": [
-        0.5,
-        0.545,
-        0.615
+        0.24,
+        0.245,
+        0.26
       ],
-      "sky": 0.05,
-      "alpha": 1
+      "sky": 0.08,
+      "alpha": 1,
+      "specular": [
+        0.45,
+        0.45,
+        0.45
+      ],
+      "power": 12
     }
   },
   "figures": {

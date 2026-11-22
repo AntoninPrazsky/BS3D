@@ -42,20 +42,66 @@ namespace Prazsky.Core.Render
         private const int PLATE_SEGMENTS = 24;
         private const int HUB_SEGMENTS = 12;
 
-        //The hub face detail (#485): a chamfered, stepped centre cap and a ring of hex bolt heads, both
-        //standing proud of the plates' own flat faces — a real wheel's hub is machined, not a bare disc.
-        //Every figure here is a FRACTION of the plate radius rather than an absolute one, so the detail
-        //scales cleanly if the wheel is ever re-tuned; only the step and the bolts' own size are absolute,
-        //since those read as a fixed manufactured part regardless of the wheel's own size.
-        private const int HUBCAP_SEGMENTS = 20;
-        private const float HUBCAP_RADIUS_FRACTION = 0.42f;  //the cap's own radius, short of the bolt ring
-        private const float HUBCAP_TOP_FRACTION = 0.80f;     //the flat top, the chamfer being the remainder
-        private const float HUBCAP_STEP = 0.045f;            //how far the cap stands proud of the plate face
-        private const int BOLT_COUNT = 8;                    //an armoured road wheel's flange, not a car's five
-        private const int BOLT_SEGMENTS = 6;                 //hex heads, not round rivets
-        private const float BOLT_RADIUS_FRACTION = 0.62f;    //the ring the bolts sit on, outside the cap
-        private const float BOLT_HEAD_RADIUS = 0.055f;
-        private const float BOLT_HEAD_HEIGHT = 0.03f;
+        //The hub face (#485, reshaped by #1212): three raised rings and the nuts on them, so the plate reads as a dished
+        //disc rather than a flat one and the centre as a machined hub - a lip round the plate's edge, a bolt flange with
+        //eight hex nuts standing proud on it, and a cap that steps up to a shallow dome with the axle's own nut on its
+        //crown, a groove of bare plate between the flange and the cap. A cap a few hundredths proud with a flat top, as
+        //the first one was, reads from the game's cameras as a flat disc with a faint ring: these stand up to
+        //HUB_FACE_PROUD. Every radius is a FRACTION of the plate radius, so the face scales with the wheel; the heights
+        //and the nuts are absolute, a manufactured part's sizes whatever the wheel's. All of it lies inside the plate's
+        //radius, which is inside the rollers' envelope, so nothing but a roller ever touches the ground.
+        private const int HUB_FACE_SEGMENTS = 32;
+
+        //Every raised part's foot is sunk this far into the plate, so its base ring is buried in the plate's solid rather
+        //than laid on its face: a ring on a face is open to the openness check's eye, and a hair under it is shut.
+        private const float FOOT_SINK = 0.005f;
+
+        //The lip round the plate's edge: its outer edge a hair inside the plate's own, so it never stands past the
+        //plate's 24-sided rim (whose edges come in to cos(π/24) of the radius), and laid on PLATE_SEGMENTS so its corners
+        //are the plate's corners. Its inner edge is chamfered.
+        private const float LIP_INNER_FRACTION = 0.88f;
+        private const float LIP_INSET = 0.01f;
+        private const float LIP_CHAMFER = 0.006f;
+
+        /// <summary>How far the lip round the plate's edge stands proud of its face: the wheel's width at its rim is the
+        /// plates' and this.</summary>
+        public const float LIP_PROUD = 0.018f;
+
+        //The bolt flange, chamfered at both edges, and the nuts on it: an armoured road wheel's eight, hex and standing
+        //proud, midway across the flange.
+        private const float FLANGE_INNER_FRACTION = 0.48f;
+        private const float FLANGE_HEIGHT = 0.022f;
+        private const float FLANGE_CHAMFER = 0.012f;
+        private const int NUT_COUNT = 8;
+        private const int NUT_SIDES = 6;
+        private const float NUT_RADIUS = 0.048f;
+        private const float NUT_HEIGHT = 0.05f;   //above the flange's top
+        private const float NUT_CHAMFER_FRACTION = 0.35f;   //of a nut's radius, taken off its top's edge
+
+        /// <summary>
+        /// The bolt flange's outer edge as a fraction of the plate's radius: the widest the hub face stands proud of the
+        /// plate by more than its lip.
+        /// </summary>
+        public const float HUB_FACE_RADIUS_FRACTION = 0.70f;
+
+        //The cap: a wall up to a chamfer, a flat step, then a shallow dome to its crown, where the axle's nut stands.
+        //Radii as fractions of the cap's own radius, which is a fraction of the plate's.
+        private const float CAP_RADIUS_FRACTION = 0.40f;
+        private const float CAP_WALL_HEIGHT = 0.058f;
+        private const float CAP_STEP_FRACTION = 0.86f;   //where the chamfer ends and the flat step begins
+        private const float CAP_STEP_HEIGHT = 0.072f;
+        private const float CAP_DOME_FRACTION = 0.72f;   //where the dome rises off the step
+        private const float CAP_DOME_FOOT = 0.084f;
+        private const float CAP_CROWN = 0.11f;
+        private const float AXLE_NUT_RADIUS = 0.07f;
+        private const float AXLE_NUT_HEIGHT = 0.04f;     //above the crown
+
+        /// <summary>
+        /// How far the hub face stands proud of a plate's outer face at its furthest, the axle nut's top: the wheel is this
+        /// much wider along its axle near the centre than at its rim. The laser emitters' clearance test models the wheels
+        /// with it (<c>LaserEmitterClearanceTests</c>).
+        /// </summary>
+        public const float HUB_FACE_PROUD = CAP_CROWN + AXLE_NUT_HEIGHT;
 
         /// <param name="radius">Outer radius of the wheel — the circle the rollers' envelope must trace.</param>
         /// <param name="rollerRadius">The rollers' fattest radius. The plates stop at <c>radius - this</c>, so
@@ -65,6 +111,15 @@ namespace Prazsky.Core.Render
         /// <param name="plateThickness">Thickness of one side plate.</param>
         public OmniWheelMesh(GraphicsDevice graphicsDevice, float radius, float rollerRadius,
             float rollerRowOffset, float hubRadius, float plateThickness)
+        {
+            (VertexBuffer, IndexBuffer, PrimitiveCount) =
+                Compose(radius, rollerRadius, rollerRowOffset, hubRadius, plateThickness).Build(graphicsDevice);
+            BoundingSphere = new BoundingSphere(Vector3.Zero, radius);
+        }
+
+        /// <summary>The body's triangles, with no device: what the constructor uploads, and what a test reads.</summary>
+        internal static MeshBuilder Compose(float radius, float rollerRadius, float rollerRowOffset, float hubRadius,
+            float plateThickness)
         {
             MeshBuilder builder = new();
 
@@ -81,14 +136,12 @@ namespace Prazsky.Core.Render
             //The hub between them, its ends showing on both sides
             builder.AddTubeX(Vector3.Zero, plateOuterX, hubRadius, HUB_SEGMENTS);
 
-            //The hub cap and its bolt ring, on each plate's OUTWARD face — the one a camera outside the
-            //wheel actually sees. Drawn on top of the flat face above rather than carved out of it: see
-            //AddHubcap's own remarks on why the hidden geometry underneath is not worth a second code path.
-            AddHubcap(builder, plateOuterX, plateRadius);
-            AddHubcap(builder, -plateOuterX, plateRadius);
+            //The hub face, on each plate's OUTWARD face — the one a camera outside the wheel actually sees. Laid on
+            //top of the flat face above rather than carved out of it: see AddHubFace's own remarks.
+            AddHubFace(builder, plateOuterX, plateRadius);
+            AddHubFace(builder, -plateOuterX, plateRadius);
 
-            (VertexBuffer, IndexBuffer, PrimitiveCount) = builder.Build(graphicsDevice);
-            BoundingSphere = new BoundingSphere(Vector3.Zero, radius);
+            return builder;
         }
 
         //One annular plate spanning x in [x0, x1]: the outer rim wall, the inner bore wall and the two annular
@@ -124,65 +177,94 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// The hub face detail (#485): a chamfered, stepped centre cap plus a ring of hex bolt heads, standing
-        /// proud of the flat annular face <see cref="AddPlate"/> already drew at <paramref name="outerFaceX"/>
-        /// — a real wheel's hub is machined, not a bare disc, and #129's own design comment named the plain
-        /// hub as deliberately unfinished business, the roller ring being that issue's whole payoff.
+        /// The hub face (#485, reshaped by #1212), standing proud of the flat annular face <see cref="AddPlate"/> already
+        /// drew at <paramref name="outerFaceX"/>: the lip round the plate's edge, the bolt flange and its nuts, the cap with
+        /// its dome and the axle's nut. The rings are lathed (<see cref="MeshBuilder.AddLathe"/>) with the lathe's axis laid
+        /// along the wheel's, outward, so a profile is written as (radius, height off the plate's face).
         /// <para>
-        /// Drawn <b>on top of</b> the existing flat face rather than carved out of it: the cap and the bolts
-        /// sit strictly farther along X (outward, away from the wheel's mid-plane) than anything already
-        /// there, so they occlude it cleanly with no depth fight, and the handful of triangles left hidden
-        /// underneath is not worth a second code path splitting <see cref="AddPlate"/>'s annulus around them —
-        /// this wheel draws as two instances in total.
+        /// Laid <b>on top of</b> the existing flat face rather than carved out of it: everything here stands strictly
+        /// farther out along X than the face, its feet sunk <see cref="FOOT_SINK"/> into the plate, so it occludes the face
+        /// with no depth fight, and the triangles left hidden underneath are not worth a second code path splitting
+        /// <see cref="AddPlate"/>'s annulus round them - this wheel draws as two instances in total. The groove between the
+        /// flange and the cap, and the field between the flange and the lip, are the plate's own face showing.
         /// </para>
         /// </summary>
-        private static void AddHubcap(MeshBuilder builder, float outerFaceX, float plateRadius)
+        private static void AddHubFace(MeshBuilder builder, float outerFaceX, float plateRadius)
         {
             float sign = MathF.Sign(outerFaceX);
-            float baseRadius = plateRadius * HUBCAP_RADIUS_FRACTION;
-            float topRadius = baseRadius * HUBCAP_TOP_FRACTION;
-            float baseX = outerFaceX;
-            float topX = outerFaceX + sign * HUBCAP_STEP;
-            Vector3 baseCentre = new(baseX, 0f, 0f), topCentre = new(topX, 0f, 0f);
-            Vector3 axisOut = new(sign, 0f, 0f);
 
-            //The chamfer's slope, constant along its straight profile — the same surface-of-revolution
-            //normal OmniRollerMesh.Surface uses for its own (curved) profile, with no angular term since
-            //this one has none: a cone's outward normal leans along its own taper as well as radially.
-            float slope = (topRadius - baseRadius) / (sign * HUBCAP_STEP);
-            Vector3 axial = new(-slope, 0f, 0f);
+            //The lathe's +Y onto the wheel's outward axis, its foot on the plate's face. A quarter turn about Z takes Y to
+            //+X (or -X turned the other way); a turn keeps the faces' winding, which AddLathe corrects against the normals.
+            Matrix placement = Matrix.CreateRotationZ(-sign * MathHelper.PiOver2) * Matrix.CreateTranslation(outerFaceX, 0f, 0f);
 
-            for (int i = 0; i < HUBCAP_SEGMENTS; i++)
+            //The lip: up its chamfered inner edge, across, down its outer wall. On the plate's own segments, so its corners
+            //are the plate's (the lathe's angles land on the plate's set, mirrored).
+            float lipInner = plateRadius * LIP_INNER_FRACTION, lipOuter = plateRadius - LIP_INSET;
+            builder.AddLathe(new[]
             {
-                float a0 = i / (float)HUBCAP_SEGMENTS * MathHelper.TwoPi;
-                float a1 = (i + 1) / (float)HUBCAP_SEGMENTS * MathHelper.TwoPi;
+                new LathePoint(lipInner, -FOOT_SINK),
+                new LathePoint(lipInner, LIP_PROUD - LIP_CHAMFER, crease: true),
+                new LathePoint(lipInner + LIP_CHAMFER, LIP_PROUD, crease: true),
+                new LathePoint(lipOuter, LIP_PROUD, crease: true),
+                new LathePoint(lipOuter, -FOOT_SINK),
+            }, PLATE_SEGMENTS, placement, Vector2.Zero);
 
-                Vector3 d0 = new(0f, MathF.Cos(a0), MathF.Sin(a0));
-                Vector3 d1 = new(0f, MathF.Cos(a1), MathF.Sin(a1));
-
-                Vector3 n0 = Vector3.Normalize(axial + d0), n1 = Vector3.Normalize(axial + d1);
-
-                //The chamfer wall, base ring to top ring
-                builder.AddQuad(d0 * baseRadius + baseCentre, d1 * baseRadius + baseCentre,
-                    d1 * topRadius + topCentre, d0 * topRadius + topCentre, n0, n1, n1, n0, n0 + n1);
-
-                //The flat top, closing the cone
-                builder.AddTriangle(topCentre, d0 * topRadius + topCentre, d1 * topRadius + topCentre,
-                    axisOut, axisOut, axisOut, axisOut);
-            }
-
-            //The bolt ring, outside the cap on the plate's own flat face — each a short hex prism standing
-            //proud of it, embedded flush with its base so nothing shows beneath it.
-            float boltRingRadius = plateRadius * BOLT_RADIUS_FRACTION;
-
-            for (int i = 0; i < BOLT_COUNT; i++)
+            //The bolt flange, chamfered at both edges
+            float flangeInner = plateRadius * FLANGE_INNER_FRACTION, flangeOuter = plateRadius * HUB_FACE_RADIUS_FRACTION;
+            builder.AddLathe(new[]
             {
-                float angle = i / (float)BOLT_COUNT * MathHelper.TwoPi;
-                Vector3 boltCentre = new(outerFaceX + sign * BOLT_HEAD_HEIGHT * 0.5f,
-                    MathF.Cos(angle) * boltRingRadius, MathF.Sin(angle) * boltRingRadius);
+                new LathePoint(flangeInner, -FOOT_SINK),
+                new LathePoint(flangeInner, FLANGE_HEIGHT - FLANGE_CHAMFER, crease: true),
+                new LathePoint(flangeInner + FLANGE_CHAMFER, FLANGE_HEIGHT, crease: true),
+                new LathePoint(flangeOuter - FLANGE_CHAMFER, FLANGE_HEIGHT, crease: true),
+                new LathePoint(flangeOuter, FLANGE_HEIGHT - FLANGE_CHAMFER, crease: true),
+                new LathePoint(flangeOuter, -FOOT_SINK),
+            }, HUB_FACE_SEGMENTS, placement, Vector2.Zero);
 
-                builder.AddTubeX(boltCentre, BOLT_HEAD_HEIGHT * 0.5f, BOLT_HEAD_RADIUS, BOLT_SEGMENTS);
+            //The cap, from its crown out and down: the dome (smooth), a step, the flat, the chamfer, the wall
+            float cap = plateRadius * CAP_RADIUS_FRACTION;
+            builder.AddLathe(new[]
+            {
+                new LathePoint(0f, CAP_CROWN),
+                new LathePoint(cap * 0.35f, CAP_CROWN - (CAP_CROWN - CAP_DOME_FOOT) * 0.18f),
+                new LathePoint(cap * 0.58f, CAP_CROWN - (CAP_CROWN - CAP_DOME_FOOT) * 0.58f),
+                new LathePoint(cap * CAP_DOME_FRACTION, CAP_DOME_FOOT, crease: true),
+                new LathePoint(cap * CAP_DOME_FRACTION, CAP_STEP_HEIGHT, crease: true),
+                new LathePoint(cap * CAP_STEP_FRACTION, CAP_STEP_HEIGHT, crease: true),
+                new LathePoint(cap, CAP_WALL_HEIGHT, crease: true),
+                new LathePoint(cap, -FOOT_SINK),
+            }, HUB_FACE_SEGMENTS, placement, Vector2.Zero);
+
+            //The axle's nut on the crown, its foot sunk into the dome
+            AddNut(builder, placement, Vector3.Zero, AXLE_NUT_RADIUS, CAP_CROWN - FOOT_SINK * 2f, CAP_CROWN + AXLE_NUT_HEIGHT);
+
+            //The flange's nuts, midway across it, each standing proud of its top with its foot sunk into it
+            float nutRing = (flangeInner + flangeOuter) * 0.5f;
+
+            for (int i = 0; i < NUT_COUNT; i++)
+            {
+                float angle = i / (float)NUT_COUNT * MathHelper.TwoPi;
+                AddNut(builder, placement, new Vector3(MathF.Cos(angle) * nutRing, 0f, MathF.Sin(angle) * nutRing), NUT_RADIUS,
+                    FLANGE_HEIGHT - FOOT_SINK, FLANGE_HEIGHT + NUT_HEIGHT);
             }
+        }
+
+        /// <summary>
+        /// One hex nut, a shut solid in the lathe's frame of <see cref="AddHubFace"/> (<paramref name="at"/> on the plate's
+        /// face, heights off it), its top's edge chamfered. Seen square on, a nut's flat top has the very normal of the face
+        /// it stands on and shades as the same flat: the chamfer is the ring of another normal that draws its outline.
+        /// </summary>
+        private static void AddNut(MeshBuilder builder, Matrix placement, Vector3 at, float radius, float foot, float top)
+        {
+            float chamfer = radius * NUT_CHAMFER_FRACTION;
+            builder.AddLathe(new[]
+            {
+                new LathePoint(0f, top),
+                new LathePoint(radius - chamfer, top, crease: true),
+                new LathePoint(radius, top - chamfer, crease: true),
+                new LathePoint(radius, foot, crease: true),
+                new LathePoint(0f, foot),
+            }, NUT_SIDES, Matrix.CreateTranslation(at) * placement, Vector2.Zero);
         }
 
         /// <summary>

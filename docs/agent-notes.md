@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-22 — #1212 gumová omni kola děla — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: kola děla mají dva materiály. Válečky jsou tmavá uhlová guma (0,24) s vlastním měkkým leskem (0,45 při exponentu 12) přes nové `InstancedModelRenderer.SetMaterialSpecular`. Desky a náboj jsou světlejší obráběný kov (0,40). Nová čelní strana náboje (`OmniWheelMesh.AddHubFace`) má lem, přírubu s osmi šestihrannými maticemi a kopuli s maticí osy. Je to tatáž síť i barva, takže žádné kreslení navíc, a síť kola je teď uzavřená (`WindingCheck --openness` už výjimku nepotřebuje). Válečky 38–40 z 255 proti deskám 62–66 (dřív 99–104 proti 15–23). Export děla pro web nese lesk každého dílu a odmítne válečky bez gumy.
+- ⚠ Výchozí bílý odlesk při 16 dělá z tmavého albeda lesklý plast; tmavý materiál potřebuje vlastní lesk.
+- Otevřené: `verdict-eye` (tón gumy a desek, tvar náboje). Kola se točící v pohybu nikdo neviděl; hráč je vidí jen v menu a na webu.
+
 ## 2026-11-22 — #1188 louka: delší průlet potokem a kolem vrb — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: orbity u balíků a lavičky jsou 2 s pohledy (64° při 32°/s z #945, místo 3,4 s a 108°). Let domů začíná 46–54 proti proudu (bylo 28–38), uvnitř úseku s rákosím (`BROOK_CARVE_FADE`), plynule zpomalí na 14 u/s a vrbami u ústí proplouvá rovnoměrně; za středem jezírka jedním nájezdem zrychlí do kroužení. Nízká část k jezírku trvá 3,2–3,8 s místo 1,8–2,3, intro 20,4–21,0 s, přistání na herní póze beze změny. Strop testu prologu 21,5 s.
