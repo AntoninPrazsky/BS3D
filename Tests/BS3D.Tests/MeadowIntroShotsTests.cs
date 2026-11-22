@@ -609,21 +609,21 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void TheWholePrologueRunsNoLongerThanTwentyTwoSeconds()
+        public void TheWholePrologueRunsNoLongerThanTwentyOneAndAHalfSeconds()
         {
             //The docs state 11-17 s for a prologue (chapter-intro-prologues.md). The meadow ran 24.9 s with its two half circles
             //(#945); since #1107 the orbits are shorter and the brook home lands, so no tour leg follows it: this holds the whole
-            //intro under 22 s, the meadow's own ceiling, the tour's last leg (4.5 s) counted where the reel has no landing. It was
-            //the cities' length when #1107 set it; the cities have run longer since their facades (#1119). #1188 moved the time
-            //the orbits gave up into the brook home's run down the brook and past the willows, and the ceiling stayed: the owner
-            //has asked for a shorter intro, never a longer one
+            //intro under the meadow's own ceiling, the tour's last leg (4.5 s) counted where the reel has no landing. Since #1188
+            //moved the time the orbits gave up into the brook home's glide down the brook and past the willows, the intro runs
+            //20.4 to 21.0 s over these rolls, where it ran 21.0 to 21.7 before: the ceiling stands under the old longest, so the
+            //intro cannot grow back to it unnoticed (the owner has asked for a shorter intro, never a longer one)
             for (int seed = 1; seed <= ROLLS; seed++)
             {
                 IntroShot[] shots = Shots(Plant(seed), seed);
                 float seconds = shots[^1].Lands ? 0f : 4.5f;
                 foreach (IntroShot shot in shots) seconds += shot.Seconds;
 
-                Assert.True(seconds <= 22f, $"seed {seed}: the meadow's intro runs {seconds:F1} s");
+                Assert.True(seconds <= 21.5f, $"seed {seed}: the meadow's intro runs {seconds:F2} s");
             }
         }
 

@@ -42,11 +42,15 @@ namespace BS3D.Tests
         private const float MIN_SECONDS = 4.5f, MAX_SECONDS = 14.5f;
 
         //The fly-by down the brook and past the willows (#1188): at least this long from the shot's first frame to the pond's
-        //middle (1.8 to 2.3 s at the level's own pose before #1188), and past each willow at no more than this, on the shot's
-        //eased clock: the trees' 14 u/s went past them at 14.6 to 15.2 over 24 layouts, the brook's 20 at 20.4 to 21.2 over five.
-        //A figure of its own, not MeadowLanding.TREES_SPEED's: a limit read off the constant moves with it.
+        //middle (1.8 to 2.3 s at the level's own pose before #1188, 3.5 to 3.9 since), and past each willow at no more than
+        //this, on the shot's eased clock: the trees' 14 u/s goes past them at 14.8 to 15.3 over 24 layouts, the brook's 20 went
+        //past at 20.4 to 21.2 over five. A figure of its own, not MeadowLanding.TREES_SPEED's: a limit read off the constant
+        //moves with it. And at the level's own pose, the glide's pace read over PACE_WINDOW either side of a pose changes by
+        //no more than LOW_ACCELERATION until the pond's middle: 4.3 u/s² at the most over 24 layouts.
         private const float LOW_SECONDS = 3f;
         private const float TREES_PACE = 17f;
+        private const float LOW_ACCELERATION = 6f;
+        private const float PACE_WINDOW = 0.15f;
 
         //How finely the shot is walked, and how far from everything every pose must stay (the builder keeps 1.5 at its points;
         //the lens runs a spline through them)
@@ -200,6 +204,67 @@ namespace BS3D.Tests
             }
 
             Assert.True(shortest < float.MaxValue, "no flight home was walked");
+        }
+
+        /// <summary>
+        /// The fly-by is one even glide (#1188): at the level's own pose the lens goes no faster than <see cref="TREES_PACE"/>
+        /// from the shot's first frame until it is past the second willow, and its pace changes by no more than
+        /// <see cref="LOW_ACCELERATION"/> from the first frame to the pond's middle. Held at the brook's pace until 30 short of
+        /// the middle, the lens sped up to 19 u/s as the shot's clock eased in and then braked for the trees; given back to
+        /// the brook's pace a few units past the middle, it surged off the willows at 18 u/s². Held at the level's own pose,
+        /// the gun's bearing every level opens on: the shot's clock is eased over its whole length (<c>IntroShot.EASE</c>), so
+        /// the sweep's shortest flights play the same route faster, and a release straight off the pond onto a pose on its own
+        /// side picks the pace up steeply at its middle.
+        /// </summary>
+        [Fact]
+        public void At_the_levels_pose_the_lens_glides_evenly_down_the_brook_past_the_willows_and_onto_the_pond()
+        {
+            for (int layout = 1; layout <= 24; layout++)
+            {
+                MeadowIntroShotsTests.Planting planting = MeadowIntroShotsTests.Plant(layout);
+                MeadowSceneConfig config = planting.Config;
+                IntroShot shot = Home(planting, MeadowIntroShotsTests.GamePosition, layout);
+                Assert.NotNull(shot);
+
+                var poses = new Vector3[POSES + 1];
+                for (int i = 0; i <= POSES; i++) shot.Pose(i / (float)POSES, out poses[i], out _);
+                float dt = shot.Seconds / POSES;
+
+                int middle = 0;
+                for (int i = 1; i <= POSES; i++)
+                    if (MeadowPath.PondShore(poses[i].X, poses[i].Z, config) < MeadowPath.PondShore(poses[middle].X, poses[middle].Z, config)) middle = i;
+
+                //Past the willows: the later of the two poses nearest their trunks
+                int pastTheTrees = 0;
+                foreach (PlantFigure willow in planting.Figures.Trees)
+                {
+                    if (MeadowPath.PondShore(willow.Root.X, willow.Root.Z, config) >= 6f) continue;
+                    Vector2 trunk = new(willow.Root.X, willow.Root.Z);
+                    int nearest = 0;
+                    for (int i = 1; i < middle; i++)
+                        if (Vector2.DistanceSquared(new Vector2(poses[i].X, poses[i].Z), trunk) < Vector2.DistanceSquared(new Vector2(poses[nearest].X, poses[nearest].Z), trunk))
+                            nearest = i;
+                    pastTheTrees = Math.Max(pastTheTrees, nearest);
+                }
+                Assert.True(pastTheTrees > 0, $"layout {layout}: no willow passed before the pond's middle");
+
+                //The pace over PACE_WINDOW either side of each pose, and its change over the same
+                int k = Math.Max(1, (int)MathF.Round(PACE_WINDOW / dt));
+                var pace = new float[POSES + 1];
+                for (int i = 0; i <= POSES; i++)
+                {
+                    int a = Math.Max(i - k, 0), b = Math.Min(i + k, POSES);
+                    pace[i] = Vector3.Distance(poses[a], poses[b]) / ((b - a) * dt);
+                }
+
+                for (int i = 0; i <= pastTheTrees; i++)
+                    Assert.True(pace[i] <= TREES_PACE, $"layout {layout}: {pace[i]:F1} u/s {i * dt:F2} s into the shot, before it is past the willows");
+                for (int i = 2 * k; i <= Math.Min(middle, POSES - k); i++)
+                {
+                    float change = MathF.Abs(pace[i + k] - pace[i - k]) / (2 * k * dt);
+                    Assert.True(change <= LOW_ACCELERATION, $"layout {layout}: the pace changes at {change:F1} u/s² {i * dt:F2} s into the shot, before the pond's middle");
+                }
+            }
         }
 
         [Fact]
