@@ -217,6 +217,11 @@ namespace BS3D.Screens
         /// Captures the pose the level ended on. The move is a plain Lerp away from it, so there is no first
         /// frame on which anything jumps — the same one-reversible-scalar shape precise aim and the drop
         /// cinematic use, and for the same reason.
+        /// <para>
+        /// Whatever the session's lens was showing: the play pose, a line loss's flight on its way back, or after a clear
+        /// with unused balls the volley's view from beside the gun, which the session holds to this frame so the release goes
+        /// out from there in one move and never back over the play pose first (#1198).
+        /// </para>
         /// </summary>
         public override void Enter()
         {

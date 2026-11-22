@@ -11,8 +11,9 @@ namespace BS3D.Screens
     /// <summary>
     /// The unused balls fired off and counted (#881, <see cref="SpareVolley"/>): the cleared beat's answer to "what were the balls
     /// I did not fire worth". Armed by <c>CheckLevelCleared</c> with what the keeper paid for them, begun once the drop
-    /// cinematic has let the lens go, and finished when the last ball has left or the player skips; the result page waits for
-    /// it because it is a camera takeover, and the beat after it is cut to what the bonus's throw needs.
+    /// cinematic has let the lens go, and finished when the last ball has left or the player skips; the cleared beat's
+    /// countdown waits for the count, and what is left of it after is cut to what the bonus's throw needs. The lens is not
+    /// let go (#1198): that rest of the beat is watched from beside the gun, and the result page eases out from there.
     /// </summary>
     internal sealed partial class GameplayScreen
     {
@@ -28,7 +29,8 @@ namespace BS3D.Screens
         private const float VOLLEY_KICK = 0.3f;
 
         //What is left of the cleared beat once the count is done: the bonus read at its whole figure, thrown and counted into
-        //the score (PlayHud.BONUS_AFTER_COUNT, the throw's 0.55 s, AwardZoom.BONUS_COUNT_IN), and a breath
+        //the score (PlayHud.BONUS_AFTER_COUNT, the throw's 0.55 s, AwardZoom.BONUS_COUNT_IN), and a breath, all with the lens
+        //still beside the gun (#1198)
         private const float AFTER_VOLLEY_BEAT = 1.6f;
 
         //The gun's buzz under each ball, a fraction of a shot's

@@ -12,14 +12,23 @@ namespace BS3D.Effects
     /// <para>
     /// <b>The schedule</b> is pure, so <c>SpareVolleyTests</c> holds it: <see cref="Balls"/> shots at <see cref="Interval"/>,
     /// which is <see cref="MAX_INTERVAL"/> for a few and shrinks so a whole budget is fired within <see cref="MAX_SECONDS"/>,
-    /// the first after <see cref="LEAD_IN"/> (the lens arriving), the camera let go <see cref="TAIL"/> after the last. The
+    /// the first after <see cref="LEAD_IN"/> (the lens arriving), the count done <see cref="TAIL"/> after the last. The
     /// count after each shot is its share of the bonus (<see cref="CountAt"/>), the last one exactly the bonus, and a skip
     /// lands on the bonus too: the figure is the same however it is reached.
     /// </para>
     /// <para>
     /// <b>The camera</b> is a pose and a blend, as <see cref="LineLossCinematic"/> is (the host composes it with the others and
-    /// <c>CameraTakeoverEngaged</c> counts it, so the gun does not answer and the cleared beat's countdown waits for it): to
-    /// one side of the gun and a little behind and above it, looking along the barrel at the field the balls fly into.
+    /// <c>CameraTakeoverEngaged</c> counts it, so the gun does not answer): to one side of the gun and a little behind and
+    /// above it, looking along the barrel at the field the balls fly into. The cleared beat's countdown waits for the count
+    /// (<see cref="Running"/>), not for the lens.
+    /// </para>
+    /// <para>
+    /// <b>The lens is held after the count, until <see cref="Reset"/></b> (#1198). The owner: the camera looked at the gun from
+    /// the side, then "returns somewhat to the game position above the cannon and then drives away from it again" for the
+    /// result page, and the return should go, because the player will not play any more. It was this class letting go
+    /// after the count and the beat then holding the play pose, which the result page captured and eased out from. Now the
+    /// beat after the count runs with the lens still beside the gun, and the result page eases out from there onto its
+    /// orbit in one move. A skip during the lens's arrival lets it finish arriving rather than turning back.
     /// </para>
     /// </summary>
     internal sealed class SpareVolley
@@ -29,7 +38,7 @@ namespace BS3D.Effects
         internal const float MAX_INTERVAL = 0.11f, MIN_INTERVAL = 0.025f;
         internal const float MAX_SECONDS = 2.2f;
 
-        //The lens arriving before the first shot, and the last balls in the air after the last one before it goes back
+        //The lens arriving before the first shot, and the last balls in the air after the last one before the count is done
         internal const float LEAD_IN = 0.45f;
         internal const float TAIL = 0.55f;
 
@@ -42,9 +51,12 @@ namespace BS3D.Effects
         //glass with the gun half out at the bottom); and a field of view wider than the player's so the gun and the flight fit
         private const float SIDE = 7f, BACK = 3.2f, RISE = 2.4f, LOOK_AHEAD = 3f, LOOK_DOWN = 1.6f;
         private const float FIELD_OF_VIEW_SCALE = 1.15f;
-        private const float BLEND_IN = 0.35f, BLEND_OUT = 0.45f;
 
-        private bool _running;
+        //How long the lens takes to come over from the player's pose. There is no way back (#1198): the result page takes it from here
+        private const float BLEND_IN = 0.35f;
+
+        //Counting, then holding the lens beside the gun once the count is done, until Reset
+        private bool _running, _holding;
         private float _elapsed, _blend, _playerFov;
         private bool _skipped;
         private Vector3 _from, _fromTarget, _to, _toTarget;
@@ -58,10 +70,10 @@ namespace BS3D.Effects
         public int Launched { get; private set; }
         public int Counted => CountAt(Fired, Balls, Bonus);
 
-        /// <summary>Whether the lens is held or still on its way back.</summary>
-        public bool Engaged => _running || _blend > 0f;
+        /// <summary>Whether the volley has the lens: from <see cref="Begin"/> to <see cref="Reset"/>, through the count and after it (#1198).</summary>
+        public bool Engaged => _running || _holding;
 
-        /// <summary>Whether the volley is under way: the lens held and the count still to finish.</summary>
+        /// <summary>Whether the count is under way, which the cleared beat waits for: the lens is held past it (#1198).</summary>
         public bool Running => _running;
 
         /// <summary>How much of this pose is mixed into the player's, 0 to 1.</summary>
@@ -97,6 +109,7 @@ namespace BS3D.Effects
             Bonus = Math.Max(bonus, 0);
             Fired = Launched = 0;
             _running = Balls > 0;
+            _holding = false;
             _skipped = false;
             _elapsed = 0f;
             _blend = 0f;
@@ -120,14 +133,16 @@ namespace BS3D.Effects
 
         /// <summary>
         /// Advances by <paramref name="elapsed"/> and answers how many balls are due to leave this frame (none once skipped).
-        /// The lens lets go <see cref="TAIL"/> after the last.
+        /// The count is done <see cref="TAIL"/> after the last; the lens stays where it is, beside the gun (#1198).
         /// </summary>
         public int Update(float elapsed)
         {
+            if (!_running && !_holding) return 0;
+
             int due = 0;
+            _elapsed += elapsed;
             if (_running)
             {
-                _elapsed += elapsed;
                 if (!_skipped)
                 {
                     float interval = Interval(Balls);
@@ -135,20 +150,25 @@ namespace BS3D.Effects
                     due = shouldHave - Fired;
                     Fired = Launched = shouldHave;
                 }
-                if (_elapsed >= Duration(Balls)) _running = false;
+                if (_elapsed >= Duration(Balls)) Hold();
+            }
 
-                float t = MathHelper.Clamp(_elapsed / LEAD_IN, 0f, 1f);
-                float eased = MathHelper.SmoothStep(0f, 1f, t);
-                Position = Vector3.Lerp(_from, _to, eased);
-                Target = Vector3.Lerp(_fromTarget, _toTarget, eased);
-                FieldOfView = MathHelper.Lerp(_playerFov, _playerFov * FIELD_OF_VIEW_SCALE, eased);
-                _blend = MathF.Min(1f, _blend + elapsed / BLEND_IN);
-            }
-            else if (_blend > 0f)
-            {
-                _blend = MathF.Max(0f, _blend - elapsed / BLEND_OUT);
-            }
+            //The lens, counting or holding alike: on its way over for LEAD_IN and the blend's own BLEND_IN, then still. A skip
+            //inside the arrival lets it arrive, so nothing turns back; arrived, these write the same pose every frame
+            float t = MathHelper.Clamp(_elapsed / LEAD_IN, 0f, 1f);
+            float eased = MathHelper.SmoothStep(0f, 1f, t);
+            Position = Vector3.Lerp(_from, _to, eased);
+            Target = Vector3.Lerp(_fromTarget, _toTarget, eased);
+            FieldOfView = MathHelper.Lerp(_playerFov, _playerFov * FIELD_OF_VIEW_SCALE, eased);
+            _blend = MathF.Min(1f, _blend + elapsed / BLEND_IN);
             return due;
+        }
+
+        //The count done, by its last ball's tail or a skip: the lens is kept, for the result page to ease out from
+        private void Hold()
+        {
+            _running = false;
+            _holding = true;
         }
 
         /// <summary>The rest counted at once and no more fired: the same figure, sooner. False when there is nothing to skip.</summary>
@@ -156,15 +176,16 @@ namespace BS3D.Effects
         {
             if (!_running || _skipped || _elapsed < SKIP_LOCKOUT) return false;
             _skipped = true;
-            _running = false;
+            Hold();
             Fired = Balls;
             return true;
         }
 
-        /// <summary>Back to nothing: a fresh level has no volley behind it.</summary>
+        /// <summary>Back to nothing, the lens let go with it: a fresh level, or a session torn down, has no volley behind it.</summary>
         public void Reset()
         {
             _running = false;
+            _holding = false;
             _skipped = false;
             _blend = 0f;
             _elapsed = 0f;
