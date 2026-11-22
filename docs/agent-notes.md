@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-22 — #1188 louka: delší průlet potokem a kolem vrb — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: orbity u balíků a lavičky jsou 2 s pohledy (64° při 32°/s z #945, místo 3,4 s a 108°). Let domů začíná 46–54 proti proudu (bylo 28–38), uvnitř úseku s rákosím (`BROOK_CARVE_FADE`), plynule zpomalí na 14 u/s a vrbami u ústí proplouvá rovnoměrně; za středem jezírka jedním nájezdem zrychlí do kroužení. Nízká část k jezírku trvá 3,2–3,8 s místo 1,8–2,3, intro 20,4–21,0 s, přistání na herní póze beze změny. Strop testu prologu 21,5 s.
+- ⚠ Úhyb kolem vrby, který u středu jezírka ještě není zpět na čáře potoka, ohne křivku na kruh a pohled vyjede z ostrova (32° v 36° záběru).
+- Otevřené: `verdict-eye`; otázka, zda „kolem stromů“ znamenalo průlet vrbami, nebo orbitu kolem dubu. #1187 (vyhlazení) zůstává.
+
 ## 2026-11-22 — #1215 cena deseti stylů koulí — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: jedna změřená tabulka v `docs/rendering/ball-styles.md` („Cost“), barevný klíč zapnutý i vypnutý, Game v Ultra na Girandole a Spyglass a tři pevné kamery v Testbedu. Proti vinylu: bublina +1,82 ms, led +1,28, plasma −0,90, ostatní v šumu. Cena roste s pixely koule. Na desktopu se nic nezlevňuje: nejdražší snímek kapitoly bubliny (Amphora, 9,02 ms) je 4,3 ms pod rozpočtem Ultra. Opraveno i zastaralé `balls=<beach|bubble>`.
