@@ -90,7 +90,9 @@ namespace MapEditor.GUI
             Matrix projection = Matrix.CreateOrthographic(3f, 3f, 0.1f, 6f);
 
             //A little square in the bottom-RIGHT corner (#1209). The key help on the left now runs as far down as the window
-            //lets it, so the bottom-left corner this sat in was under the help's panel; the top right is the status line's
+            //lets it, so the bottom-left corner this sat in was under the help's panel; the top right is the status line's.
+            //Clear of the panel at the usual window sizes only: a small window that needs the help in several columns can
+            //spread the panel over this corner too, and the help, drawn after, covers the cross rather than the reverse
             Viewport corner = new(full.Width - SIZE - MARGIN, full.Height - SIZE - MARGIN, SIZE, SIZE);
             _graphicsDevice.Viewport = corner;
 

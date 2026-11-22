@@ -147,7 +147,7 @@ namespace MapEditor
         private City _city;
 
         //The scene's procedural roll, rolled once per launch and added to every seeded arrangement (both
-        //cities, their roofs, the wood, the savanna's planting, the palms). The editor has no command line
+        //cities, their roofs, the wood, the savanna's planting, the palms). The editor takes no sceneseed=
         //to pin it with, and wants none: an author is looking at whether a MAP reads against a backdrop,
         //and a backdrop that is a different city each session is a better test of that than one that is not.
         private readonly int _sceneSeedOffset = Random.Shared.Next();

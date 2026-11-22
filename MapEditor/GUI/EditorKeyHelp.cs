@@ -71,7 +71,9 @@ namespace MapEditor.GUI
 
         public static readonly KeyHelpRow Fly = new(KeyGroup.Camera, "W A S D", "Fly forward, left, back, right");
         public static readonly KeyHelpRow FlyVertically = new(KeyGroup.Camera, "Q / E", "Fly down, up (Shift: faster)");
-        public static readonly KeyHelpRow MouseLook = new(KeyGroup.Camera, "Right mouse", "Click: mouse look on or off. Hold: pan");
+        //Each press toggles look and a hold pans on top of it (CameraInputHelper), so a pan also leaves look flipped:
+        //the line says both rather than promise a pan that leaves look alone
+        public static readonly KeyHelpRow MouseLook = new(KeyGroup.Camera, "Right mouse", "Mouse look on or off at each press; pan while held");
         public static readonly KeyHelpRow Views = new(KeyGroup.Camera, "1-6", "Six views that frame the whole field");
         public static readonly KeyHelpRow ResetCamera = new(KeyGroup.Camera, "R", "Reset the camera");
 

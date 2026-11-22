@@ -439,8 +439,9 @@ MapEditor.exe parity.json     # then D1, F12 (text)
 ```
 
 Hand **one level file** to both rather than a map plus flags: a level carries the scene, the dome and the ball
-style, so neither program is left on its own defaults (the editor's are City and dome 1, and it has no
-command line at all beyond the file path).
+style, so neither program is left on its own defaults (the editor's are City and dome 1, and its command line
+takes only `[file] width= height= shot=`: no scene, dome or style. `shot=` photographs it without focus, see
+"The command line" in `docs/formats-and-tools/map-editor.md`).
 
 **Measured that way, 2026-09-05, the two programs agree.** Four captures each at stepped settles, means
 compared: **green 2.46 dE, red 1.57, yellow 2.27, magenta 2.02** — every one of them *three to five times

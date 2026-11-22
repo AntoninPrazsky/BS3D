@@ -1,5 +1,6 @@
 using MapEditor.GUI;
 using Microsoft.Xna.Framework;
+using Prazsky.BS3D.GameStructure;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,7 +12,7 @@ namespace BS3D.Tests
     /// <summary>
     /// The map editor's key help (#1209): every line it has is drawn, the file keys first and on screen folded or not,
     /// and the panel lies inside the window at every size it can be dragged to, every line of it, with no two strings
-    /// over each other. <c>EditorKeyHelp</c> and <c>KeyHelpLayout</c> are compiled in from the MapEditor. The help used to
+    /// over each other, every description of a column starting at one x and the long ones wrapped. <c>EditorKeyHelp</c> and <c>KeyHelpLayout</c> are compiled in from the MapEditor. The help used to
     /// be one 39-line block that ran off the bottom of the window with load and save as its last lines.
     /// <para>
     /// The widths come from a stand-in for the editor's 48-point Segoe UI (its line spacing, 1.33 em, and advances of
@@ -179,6 +180,70 @@ namespace BS3D.Tests
             string[] headings = layout.Items.Where(i => i.Piece == KeyHelpPiece.Heading).Select(i => i.Text).ToArray();
             string[] wanted = rows.Select(r => EditorKeyHelp.Heading(r.Group)).Where(h => h != null).Distinct().ToArray();
             Assert.Equal(wanted, headings);
+        }
+
+        [Theory]
+        [MemberData(nameof(Windows))]
+        public void Every_description_in_a_column_starts_at_one_x_right_of_every_key(int width, int height, bool expanded,
+            bool wider)
+        {
+            Func<string, float> measure = wider ? Wider : SegoeLike;
+            IReadOnlyList<KeyHelpRow> rows = EditorKeyHelp.Visible(expanded);
+            KeyHelpLayout layout = KeyHelpLayout.Compute(rows, measure, LINE, width, height);
+
+            //A column's left edge is where its headings and keys stand; every column has one
+            float[] lefts = layout.Items.Where(i => i.Piece != KeyHelpPiece.Text).Select(i => i.Position.X)
+                .Distinct().OrderBy(x => x).ToArray();
+            Assert.Equal(layout.Columns, lefts.Length);
+
+            //Each description's offset from its column's edge: one figure for all of them, past the widest key
+            float[] offsets = layout.Items.Where(i => i.Piece == KeyHelpPiece.Text)
+                .Select(i => i.Position.X - lefts.Last(left => left <= i.Position.X + EPSILON))
+                .ToArray();
+            Assert.NotEmpty(offsets);
+
+            float widestKey = rows.Max(r => measure(r.Keys)) * layout.Scale;
+            foreach (float offset in offsets)
+            {
+                Assert.True(MathF.Abs(offset - offsets[0]) <= EPSILON,
+                    $"{width}x{height}: descriptions start {offsets[0]} and {offset} from their column's edge");
+                Assert.True(offset >= widestKey - EPSILON,
+                    $"{width}x{height}: a description starts {offset} from its edge, inside the widest key ({widestKey})");
+            }
+        }
+
+        [Theory]
+        [MemberData(nameof(Windows))]
+        public void A_long_description_is_wrapped_and_no_line_runs_past_the_wrap_width(int width, int height,
+            bool expanded, bool wider)
+        {
+            Func<string, float> measure = wider ? Wider : SegoeLike;
+            KeyHelpLayout layout = KeyHelpLayout.Compute(EditorKeyHelp.Visible(expanded), measure, LINE, width, height);
+            float max = KeyHelpLayout.WRAP_WIDTH * LINE;
+
+            foreach (KeyHelpItem item in layout.Items.Where(i => i.Piece == KeyHelpPiece.Text))
+                Assert.True(measure(item.Text) <= max + EPSILON || !item.Text.Contains(' '),
+                    $"{width}x{height}: '{item.Text}' runs past the wrap width");
+
+            if (!expanded) return; //Folded, the colour line is not drawn
+
+            //The colour line is the longest, and is drawn as more than one line under its key
+            Assert.True(measure(EditorKeyHelp.PickColour.Text) > max,
+                "the colour line fits unwrapped now; hold another long line here");
+            int key = Array.FindIndex(layout.Items,
+                i => i.Piece == KeyHelpPiece.Key && i.Text == EditorKeyHelp.PickColour.Keys);
+            Assert.True(key >= 0 && key + 2 < layout.Items.Length);
+            Assert.Equal(KeyHelpPiece.Text, layout.Items[key + 1].Piece);
+            Assert.Equal(KeyHelpPiece.Text, layout.Items[key + 2].Piece);
+        }
+
+        [Fact]
+        public void There_is_a_colour_name_for_every_ball_type_the_cycle_walks()
+        {
+            //The cycle keys walk BallTypes.Count, and the help's "all N colours" reads the name table's length
+            Assert.Equal(BallTypes.Count, EditorKeyHelp.BallTypeNames.Length);
+            Assert.InRange(EditorKeyHelp.DIRECT_COLOUR_KEYS, 1, BallTypes.Count);
+            Assert.Contains($" {BallTypes.Count} ", EditorKeyHelp.CycleColour.Text);
         }
 
         [Theory]
