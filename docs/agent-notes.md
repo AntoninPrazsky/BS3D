@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-22 — #1201 pastelová duha klávesnice — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: duha klávesnice po dohraném levelu bere pastelové barvy banneru NEW BEST místo čistého spektra. `KeyLightModel.WonRainbow` převede `NewBestCelebration.Pastel` ze sRGB na světlo (`ColorSpace.SrgbToLinear`) a natáhne nejsilnější kanál na plno; klávesy mají sytost 0,63–0,72 místo 1. Rychlost, rozpětí, 3 s i 0,6 s doznění do barvy poháru zůstaly, odstín do 6° od starého. Testy hlídají pásmo sytosti 0,55–0,8 a že každá lampa svítí `WonRainbow` svého místa.
+- ⚠ Hodnoty banneru poslané rovnou by klávesy vybělily (každý kanál ≥ 0,52, sytost 0,36–0,43): `ToColour` posílá hodnoty bez gamy.
+- Otevřené: `verdict-eye`. Na skutečné G513 se nikdo nedíval; má-li firmware vlastní gamu, vyjde sytost 0,89–0,94, tedy skoro jako dřív.
+
 ## 2026-11-22 — #1215 cena deseti stylů koulí — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: jedna změřená tabulka v `docs/rendering/ball-styles.md` („Cost“), barevný klíč zapnutý i vypnutý, Game v Ultra na Girandole a Spyglass a tři pevné kamery v Testbedu. Proti vinylu: bublina +1,82 ms, led +1,28, plasma −0,90, ostatní v šumu. Cena roste s pixely koule. Na desktopu se nic nezlevňuje: nejdražší snímek kapitoly bubliny (Amphora, 9,02 ms) je 4,3 ms pod rozpočtem Ultra. Opraveno i zastaralé `balls=<beach|bubble>`.
