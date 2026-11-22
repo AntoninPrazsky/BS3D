@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-22 — #1219 skleněná tělesa snu se neprolínají — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: dvanáct těles snu letí ve dvou prstencích (lichá, větší, uvnitř na 80–94; sudá venku na 142–152). Každý prstenec se točí jako celek, mezera mezi nimi je dána konstrukcí, takže se dvě tělesa nikdy nepotkají. Pravidlo je v `Dream.fx` i v `DreamBackdrop` a `DreamSolidsSourceTests` hlídá, že říkají totéž. `DreamSolidsApartTests` (hodina scény) i nový test Potato cesty selhaly se starými drahami. Potato tělesa mají vlastní dva prstence (146 a 237) a test, že jimi neproletí ani tour kapitoly.
+- ⚠ Cena jednoho okna měří jen to, kde zrovna tělesa jsou (8–40 s: 18 % snímku pod tělesem proti 11 %); průměr přes šest oken Testbedu je stejný (5,06 proti 5,05 ms).
+- Otevřené: `verdict-eye` (prstence, které se točí jako celek, a větší tělesa blíž; Potato menší a dál). Telefon ani Pi nezkoušeny.
+
 ## 2026-11-21 — web #1203–#1206, #1208 podle majitele — desktop (RDT-PC), Claude Code (bs3d-cc)
 
 - Hotovo, sloučeno: #1204 věta u děla, #1206 boxy ke stažení (tři stejné sloupce, 84rem, příkazy se zalamují), #1205 dělo ostré při zoomu (celý devicePixelRatio, překreslení i v pauze). #1203 dělo stínované jako ve hře (`gameShade`), `verdict-eye`. Hudba stránky se při traileru ztiší i během načítání.
