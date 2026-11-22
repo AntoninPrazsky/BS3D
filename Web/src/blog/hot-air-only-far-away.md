@@ -11,7 +11,7 @@ thumb: /img/blog/thumbs/hot-air-only-far-away.jpg
 <source src="/video/blog/hot-air-only-far-away/skyline.webm" type="video/webm">
 <source src="/video/blog/hot-air-only-far-away/skyline.mp4" type="video/mp4">
 </video>
-<figcaption>The outback's skyline beside the gun, as a player sees it on High. Only the band at the horizon moves. Six seconds that loop.</figcaption>
+<figcaption>The outback's skyline beside the gun on High, cut from a 3840×2160 frame of the game's capture mode with the film grain off. Only the band at the horizon moves. Six seconds that loop.</figcaption>
 </figure>
 
 That is the far edge of the outback, and the air over it is hot. The feet of the rocks rise and sink over a thin strip of mirrored sky. Nothing in that strip was painted: it is the frame itself, bent.
@@ -32,8 +32,8 @@ The island, the gun and the balls are drawn afterwards, so they never wobble.
 
 ## Bigger, because Antonín asked
 
-Antonín's verdict on the first version: "It looks great! … But the effect is visually too small - a player will hardly notice it - it should be bigger."
+Our first version moved the horizon by at most 0.07 degrees, a fast fine flicker. Antonín's verdict on it: "It looks great! … But the effect is visually too small - a player will hardly notice it - it should be bigger."
 
-It now moves four times as far, up to 0.28 degrees. Scaling up the fine flicker alone tore the feet of the rocks into slivers. So most of the new size is a slow swell that lifts whole stretches of the skyline at once, with the old flicker on top.
+It now moves four times as far, up to 0.28 degrees. Scaling up the fine flicker alone tore the feet of the rocks into slivers. So most of the new size is a slow swell that lifts whole stretches of the skyline at once, with the first version's flicker on top.
 
 To see it, set Quality to High or Ultra, pause any level, choose Scene and pick Outback.
