@@ -255,10 +255,13 @@ static const float GRASS_COMB_STRETCH = 2.6;
 static const float GRASS_FBM_GAIN = 5.0;
 
 //The blades seen from the side (GrassStrokes): this many strokes across, in the coarser of their two octaves, to one
-//grass feature of the relief (GrassReliefFrequency): at its 2, 72 to the unit. Three quarters of the meadow's
-//GRASS_STROKE_FREQUENCY, as the savanna's old strokes were three quarters of the meadow's old ones: wider and, the anchors
-//being a stroke's length apart (GRASS_STROKE_STRETCH over the frequency), longer, the savanna's grass being tall.
-static const float GRASS_STROKE_FREQUENCY = 36.0;
+//grass feature of the relief (GrassReliefFrequency): at its 2, 40 to the unit, and with the anchors a stroke's length
+//apart (GRASS_STROKE_STRETCH over the frequency) a stroke a unit long, as the old ones were. Wider than the meadow's
+//(GRASS_STROKE_FREQUENCY there), the savanna's grass being tall, and because its lens flies higher over it: the intro's
+//grass home runs 3 to 4.2 over the grass, where the meadow's bales orbit is 0.9 over its own, so the near field starts
+//about nine units out, and there a stroke the meadow's width is all but under the band limit. At 40 the strokes keep the
+//old ones' width on the screen there (docs/scenes/savanna.md has the figures).
+static const float GRASS_STROKE_FREQUENCY = 20.0;
 
 #include "Grass.fxh"
 
