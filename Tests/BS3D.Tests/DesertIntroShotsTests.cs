@@ -257,6 +257,79 @@ namespace BS3D.Tests
             }
         }
 
+        /// <summary>
+        /// The beetle shot shows each print under the foot that made it (#1217, the issue's measure, in pixels): on every
+        /// frame of every roll while the beetle walks, each foot that stands on the sand and the print it laid as it touched
+        /// down (its newest; the first frame of a stance is the frame that print appears in) fall within
+        /// <see cref="PRINT_PIXELS"/> of each other in a 1920 x 1080 frame at the shot's own lens: the foot's spot on the
+        /// sand where <c>Critter.fx</c> puts the foot (<c>DesertCritterTests.FootOnSand</c>, the sand's height under it)
+        /// against the print's middle as the scene draws it (<see cref="DesertCritters.PrintCentre"/>, drawn towards the
+        /// lens). Seen to fire (BestPractices.md, section 10): the print lifted straight up as the other discs are, and laid
+        /// where the foot stands at rest rather than where it reaches as it lands, both fall many pixels off.
+        /// </summary>
+        [Fact]
+        public void The_beetle_shot_shows_each_print_under_the_foot_that_made_it()
+        {
+            float worst = 0f, upright = float.MaxValue, unreached = float.MaxValue, radius = float.MaxValue;
+            int planted = 0, appeared = 0;
+            for (int seed = 1; seed <= ROLLS; seed++)
+            {
+                var cue = new Cue();
+                IntroShot shot = DesertIntroShots.Beetle(cue.Take, Desert, Ground, FieldOfView, new Random(seed));
+                shot.Track(0f);
+                var heights = new DesertCritters.SandHeights(Ground);
+                var wasDown = new bool[CritterMesh.BEETLE_FEET];
+                float walkEnds = MathF.Min(SceneRenderer.DesertFeatureWalkEnds(scorpion: false) + cue.Onset, shot.Seconds);
+                for (float seconds = 0f; seconds <= walkEnds; seconds += 1f / 60f)
+                {
+                    Assert.True(DesertCritters.TryFeaturePose(cue.At, cue.Yaw, cue.Onset, seconds, Ground, out DesertCritters.Pose pose, scorpion: false));
+                    float t = seconds / shot.Seconds;
+                    shot.Pose(t, out Vector3 lens, out Vector3 look);
+                    float fov = shot.FieldOfViewAt(t);
+                    Vector2 Pixel(Vector3 point)
+                    {
+                        Vector2 screen = DesertLandingTests.Screen(lens, look, point, fov, 16f / 9f);
+                        return new Vector2((screen.X + 1f) * 960f, (1f - screen.Y) * 540f);
+                    }
+
+                    for (int foot = 0; foot < CritterMesh.BEETLE_FEET; foot++)
+                    {
+                        bool down = CritterGait.Planted(DesertCritterTests.FootPhase(pose, foot));
+                        bool justDown = down && !wasDown[foot] && seconds > 0f;
+                        wasDown[foot] = down;
+                        if (!down || !DesertCritters.PrintCentre(pose, DesertCritters.SandHeights.TRAILS - 1, foot, 0, lens, heights, out Vector3 centre, out _))
+                            continue;
+
+                        Vector2 plan = DesertCritterTests.FootOnSand(pose, foot);
+                        Vector2 spot = Pixel(new Vector3(plan.X, Ground(plan.X, plan.Y), plan.Y));
+                        worst = MathF.Max(worst, Vector2.Distance(spot, Pixel(centre)));
+                        planted++;
+                        if (justDown) appeared++;
+
+                        //The same print lifted straight up, and laid where the foot stands at rest rather than where it
+                        //reaches as it lands (the beetle walks straight, along its yaw)
+                        Assert.True(DesertCritters.TrailPrint(pose, foot, 0, out Vector2 at, out _));
+                        var sand = new Vector3(at.X, Ground(at.X, at.Y), at.Y);
+                        upright = MathF.Min(upright, Vector2.Distance(spot, Pixel(sand + Vector3.Up * 0.03f)));
+                        Vector2 back = at - new Vector2(MathF.Sin(pose.Yaw), MathF.Cos(pose.Yaw)) * (CritterGait.Stride(scorpion: false) * DesertCritters.BEETLE_SIZE);
+                        unreached = MathF.Min(unreached, Vector2.Distance(spot, Pixel(new Vector3(back.X, Ground(back.X, back.Y), back.Y))));
+                        //Its radius across the frame (along the lens's level right, where the sand does not foreshorten it)
+                        Vector3 across = Vector3.Normalize(Vector3.Cross(look - lens, Vector3.Up));
+                        radius = MathF.Min(radius, Vector2.Distance(Pixel(sand), Pixel(sand + across * (DesertCritters.BEETLE_SIZE * DesertCritters.PRINT_RADIUS))));
+                    }
+                }
+            }
+
+            _output.WriteLine(FormattableString.Invariant(
+                $"{planted} planted feet over {ROLLS} rolls ({appeared} on the frame their print appeared): each at most {worst:F3} px from its print in 1920 x 1080; lifted straight up at least {upright:F1} px off, laid at the foot's rest at least {unreached:F1} px; a print's radius across the frame at least {radius:F1} px"));
+            Assert.True(appeared > 20 * ROLLS && planted > 100 * ROLLS, $"too little walking to judge: {planted} planted feet, {appeared} touchdowns");
+            Assert.True(worst < PRINT_PIXELS, $"a planted foot stands {worst:F3} px from its print in the beetle shot");
+            Assert.True(upright > 5f * PRINT_PIXELS && unreached > 5f * PRINT_PIXELS, $"seen to fire: lifted straight up {upright:F1} px, a foot at rest {unreached:F1} px");
+        }
+
+        //How far a planted foot's spot may stand from the middle of its print in the beetle shot's 1920 x 1080 frame
+        private const float PRINT_PIXELS = 0.5f;
+
         //A creature's body as drawn, as a share of a 16:9 frame's width: at most these (the owner's "somewhat farther": the
         //beetle under a fifth, the scorpion about a quarter, its pincers and its tail's curl reaching past its body), and at least
         //this (small but readable)

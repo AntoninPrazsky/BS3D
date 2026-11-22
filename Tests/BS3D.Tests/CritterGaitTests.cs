@@ -22,7 +22,8 @@ namespace BS3D.Tests
 
         public CritterGaitTests(ITestOutputHelper output) => _output = output;
 
-        //The lines of Critter.fx that CritterGait mirrors, whitespace aside
+        //The lines of Critter.fx that CritterGait.Foot mirrors, whitespace aside, and the ones that feed it what
+        //DesertCritters gives it: the kind's stride and the instance's turn (InstanceCustom)
         private static readonly string[] MirroredLines =
         {
             "float c = frac(phase / TWO_PI + 0.25);",
@@ -30,12 +31,33 @@ namespace BS3D.Tests
             "float v = saturate(c * 2.0 - 1.0);",
             "float forward = c < 0.5 ? 4.0 * u * u * (3.0 - 2.0 * u) - 2.0 * u - 1.0 : 1.0 - 2.0 * v;",
             "float up = c < 0.5 ? sin(PI * u) : 0.0;",
-            "float2 foot = Foot(gait + input.Part.x);",
-            "p.z += foot.x * input.Custom.w * input.Part.y;",
+            "float walked = 2.0 * stride * (c < 0.5 ? 1.0 : v);",
+            "float a = turn * walked;",
+            "float2 down = rest + float2(0.0, stride);",
+            "float2 w = down - walked * float2(a * (0.5 - a * a / 24.0), 1.0 - a * a / 6.0);",
+            "float2 carried = float2(w.x * cos(a) - w.y * sin(a), w.x * sin(a) + w.y * cos(a)) - (down - float2(0.0, walked));",
+            "float2 off = float2(0.0, stride * forward) + carried * (c < 0.5 ? 1.0 - u * u * (3.0 - 2.0 * u) : 1.0);",
+            "return float3(off.x, up, off.y);",
+            "float stride = lerp(BeetleStride, ScorpionStride, input.Custom.z);",
+            "float3 foot = Foot(gait + input.Part.x, stride, input.Custom.w, p.xz);",
+            "p.xz += foot.xz * input.Part.y;",
             "p.y += foot.y * LIFT * input.Part.y;",
         };
 
+        //The lines of DesertCritters that give the shader the gait's stride and turn, and draw each print where
+        //DesertCritters.PrintCentre puts it
+        private static readonly string[] DrawLines =
+        {
+            "p[\"BeetleStride\"].SetValue(CritterGait.Stride(scorpion: false));",
+            "p[\"ScorpionStride\"].SetValue(CritterGait.Stride(scorpion: true));",
+            "new ModelInstance(World(pose, scorpion), InstanceCustom(pose, i, scorpion));",
+            "if (PrintCentre(pose, slot >= 0 ? BEETLES : i, foot, step, lens, _printHeights, out Vector3 centre, out float fade))",
+            "Quad(ref discs, centre, Vector3.UnitX * (size * PRINT_RADIUS), Vector3.UnitZ * (size * PRINT_RADIUS),",
+        };
+
         private static string Shader() => File.ReadAllText(Path.Combine(RepoRoot(), "BS3DLibs", "Prazsky.Shaders", "Content", "Shaders", "Critter.fx"));
+
+        private static string Critters() => File.ReadAllText(Path.Combine(RepoRoot(), "BS3DLibs", "Prazsky.Core", "Render", "Scenes", "DesertCritters.cs"));
 
         private static string RepoRoot()
         {
@@ -46,19 +68,30 @@ namespace BS3D.Tests
 
         private static string Squash(string s) => Regex.Replace(s, @"\s+", " ");
 
-        //Every mirrored line in the shader's code (its comments left out), and TWO_PI and PI what CritterGait takes them as
+        //The source's code with its comments left out, whitespace squashed
+        private static string Code(string source) => Squash(string.Join("\n", source.Split('\n').Select(line => line.Split("//")[0])));
+
+        //Every mirrored line in the shader's code, and TWO_PI and PI what CritterGait takes them as
         private static bool MirrorsTheGait(string shader)
         {
-            string code = Squash(string.Join("\n", shader.Split('\n').Select(line => line.Split("//")[0])));
+            string code = Code(shader);
             return MirroredLines.All(line => code.Contains(Squash(line), StringComparison.Ordinal))
                 && Regex.IsMatch(code, @"static const float PI = 3\.14159265;")
                 && Regex.IsMatch(code, @"static const float TWO_PI = 6\.28318531;");
+        }
+
+        private static bool FeedsTheGait(string critters)
+        {
+            string code = Code(critters);
+            return DrawLines.All(line => code.Contains(Squash(line), StringComparison.Ordinal));
         }
 
         [Fact]
         public void The_shader_swings_a_leg_by_the_gait_the_prints_are_laid_by()
         {
             Assert.True(MirrorsTheGait(Shader()), "Critter.fx no longer has the gait lines CritterGait mirrors: change CritterGait (and the prints) with them");
+            Assert.True(FeedsTheGait(Critters()),
+                "DesertCritters no longer gives the effect the gait's strides and the instance's turn (InstanceCustom), or no longer draws a print at PrintCentre");
         }
 
         [Fact]
@@ -68,8 +101,88 @@ namespace BS3D.Tests
             string shader = Shader();
             Assert.False(MirrorsTheGait(shader.Replace("1.0 - 2.0 * v", "1.0 - 1.6 * v", StringComparison.Ordinal)));
             Assert.False(MirrorsTheGait(shader.Replace("phase / TWO_PI + 0.25", "phase / TWO_PI", StringComparison.Ordinal)));
-            Assert.False(MirrorsTheGait(shader.Replace("foot.x * input.Custom.w", "foot.x * 0.07", StringComparison.Ordinal)));
+            Assert.False(MirrorsTheGait(shader.Replace("stride, input.Custom.w, p.xz", "stride, 0.0, p.xz", StringComparison.Ordinal)));
+            Assert.False(MirrorsTheGait(shader.Replace("a * a / 6.0", "a * a / 2.0", StringComparison.Ordinal)));
             Assert.False(MirrorsTheGait("//" + string.Join("\n//", MirroredLines)));
+
+            string critters = Critters();
+            Assert.False(FeedsTheGait(critters.Replace("InstanceCustom(pose, i, scorpion));", "new Vector4(pose.Gait, i * 0.137f, kind, 0f));", StringComparison.Ordinal)));
+            Assert.False(FeedsTheGait(critters.Replace("CritterGait.Stride(scorpion: true));", "CritterGait.Stride(scorpion: false));", StringComparison.Ordinal)));
+            Assert.False(FeedsTheGait(critters.Replace("Quad(ref discs, centre,", "FlatDisc(ref discs, centre,", StringComparison.Ordinal)));
+        }
+
+        /// <summary>
+        /// A planted foot stands still on the sand while the body walks a curve over it (#1217): a body walking an arc that
+        /// turns <c>turn</c> radians a body length, its feet carried by <see cref="CritterGait.Foot"/>, keeps every foot of
+        /// either mesh where it touched down, in the plan of the world, from its touchdown to its lift-off, within
+        /// <see cref="CURVE_STILL"/> body lengths, turning either way up to the roaming creatures' sharpest
+        /// (<c>DesertCritters.TURN</c>, 0.35 radians a length); through the whole cycle the foot never jumps, going at most
+        /// four times the body's pace (three at mid-swing walking straight, the turn and the carry easing out adding the
+        /// rest; a jump of the carry would be some two hundred samples' walking in one); and walking straight the carry is
+        /// nought, to the bit. Swept straight back along the body, the beetle's foot turned 0.05 body lengths off its
+        /// touchdown on the sharpest curve.
+        /// </summary>
+        [Theory]
+        [MemberData(nameof(Kinds))]
+        public void A_planted_foot_stands_still_while_the_body_turns_over_it(bool scorpion)
+        {
+            float steps = CritterGait.StepsPerLength(scorpion), stride = CritterGait.Stride(scorpion);
+            var mesh = scorpion ? CritterMesh.FineScorpion() : CritterMesh.FineBeetle();
+            const int SAMPLES = 2000;
+            float worstStill = 0f, worstStep = 0f, unturned = 0f;
+            foreach (float turn in new[] { -0.35f, -0.12f, 0.2f, 0.35f })
+                foreach ((Vector3 rest, float legPhase) in Feet(mesh.Vertices))
+                {
+                    var restXZ = new Vector2(rest.X, rest.Z);
+                    Vector2 touchdown = new(float.NaN), touchdownUnturned = new(float.NaN), last = new(float.NaN);
+                    for (int s = 0; s <= SAMPLES * 3; s++)
+                    {
+                        float walked = s / (float)SAMPLES / steps;
+                        float phase = CritterGait.Phase(walked, 1f, scorpion) + legPhase;
+                        Vector3 carried = CritterGait.Foot(phase, stride, turn, restXZ);
+                        Vector2 at = OnArc(walked, turn, restXZ + new Vector2(carried.X, carried.Z));
+                        Vector2 unturnedAt = OnArc(walked, turn, restXZ + new Vector2(0f, stride * CritterGait.Forward(phase)));
+                        if (CritterGait.Planted(phase))
+                        {
+                            if (float.IsNaN(touchdown.X)) { touchdown = at; touchdownUnturned = unturnedAt; }
+                            worstStill = MathF.Max(worstStill, Vector2.Distance(at, touchdown));
+                            unturned = MathF.Max(unturned, Vector2.Distance(unturnedAt, touchdownUnturned));
+                        }
+                        else touchdown = touchdownUnturned = new(float.NaN);
+                        if (!float.IsNaN(last.X)) worstStep = MathF.Max(worstStep, Vector2.Distance(at, last));
+                        last = at;
+                    }
+                }
+
+            //Walking straight, the carry is the straight gait's own
+            for (float phase = 0f; phase < MathHelper.TwoPi * 2f; phase += 0.01f)
+            {
+                Vector3 straight = CritterGait.Foot(phase, stride, 0f, new Vector2(0.5f, 0.3f));
+                Assert.Equal(0f, straight.X);
+                Assert.Equal(stride * CritterGait.Forward(phase), straight.Z);
+                Assert.Equal(CritterGait.Lift(phase), straight.Y);
+            }
+
+            _output.WriteLine(FormattableString.Invariant(
+                $"{(scorpion ? "scorpion" : "beetle")}: a planted foot moves {worstStill:E1} body lengths on a curve (unturned {unturned:F3}), the largest step {worstStep:E2} (a sample is {1f / SAMPLES / steps:E2} of walking)"));
+            Assert.True(worstStill < CURVE_STILL, $"a planted foot moves {worstStill} body lengths on a curve");
+            Assert.True(worstStep < 4f / SAMPLES / steps, $"a foot jumps {worstStep} body lengths in one sample");
+            //Seen to fire (BestPractices.md, section 10): swept straight back, the turning body carries the foot off
+            Assert.True(unturned > 20f * CURVE_STILL, $"swept straight back, a planted foot moves only {unturned} on a curve");
+        }
+
+        private const float CURVE_STILL = 1e-4f;
+
+        //Where a point the body carries at `local` (x across, z along, body lengths) stands in plan, the body having walked
+        //`walked` body lengths along an arc from the origin heading +Z and turning `turn` radians a length towards +X, as
+        //DesertCritters.Arc and World place it
+        private static Vector2 OnArc(float walked, float turn, Vector2 local)
+        {
+            double yaw = turn * (double)walked;
+            Vector2 body = MathF.Abs(turn) < 1e-6f ? new Vector2(0f, walked)
+                : new Vector2((float)((1.0 - Math.Cos(yaw)) / turn), (float)(Math.Sin(yaw) / turn));
+            float cos = (float)Math.Cos(yaw), sin = (float)Math.Sin(yaw);
+            return body + new Vector2(local.X * cos + local.Y * sin, -local.X * sin + local.Y * cos);
         }
 
         public static TheoryData<bool> Kinds => new() { false, true };

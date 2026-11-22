@@ -115,20 +115,32 @@ namespace BS3D.Tests
         }
 
         //Where a beetle's foot stands on the sand in plan as Critter.fx draws it: its place at rest (CritterMesh.BeetleFoot)
-        //swung forwards by the gait (`forward`, in strides of `stride` body lengths) and placed by the body's matrix
-        private static Vector2 FootOnSand(in DesertCritters.Pose pose, int foot, Func<float, float> forward, float stride)
+        //carried by the gait (CritterGait.Foot, at the beetle's stride, turning `turn` radians a body length) and placed by
+        //the body's matrix
+        private static Vector2 FootOnSand(in DesertCritters.Pose pose, int foot, float turn)
         {
             int leg = foot >> 1, side = (foot & 1) == 0 ? -1 : 1;
-            float phase = pose.Gait + CritterMesh.LegPhase(leg, side);
-            Vector3 local = CritterMesh.BeetleFoot(leg, side) + new Vector3(0f, 0f, stride * forward(phase));
+            Vector3 rest = CritterMesh.BeetleFoot(leg, side);
+            Vector3 carried = CritterGait.Foot(pose.Gait + CritterMesh.LegPhase(leg, side), CritterGait.Stride(scorpion: false), turn, new Vector2(rest.X, rest.Z));
+            Vector3 world = Vector3.Transform(rest + new Vector3(carried.X, 0f, carried.Z), DesertCritters.World(pose, scorpion: false));
+            return new Vector2(world.X, world.Z);
+        }
+
+        /// <summary>Where a beetle's foot stands on the sand in plan as the scene draws it: the turn its instance carries
+        /// (<see cref="DesertCritters.InstanceCustom"/>'s w, what <see cref="DesertCritters.Draw"/> passes).</summary>
+        internal static Vector2 FootOnSand(in DesertCritters.Pose pose, int foot) =>
+            FootOnSand(pose, foot, DesertCritters.InstanceCustom(pose, 0, scorpion: false).W);
+
+        //The old sine stance's foot (0.07 body lengths either way on the sine of its phase), which skated
+        private static Vector2 SineFootOnSand(in DesertCritters.Pose pose, int foot)
+        {
+            int leg = foot >> 1, side = (foot & 1) == 0 ? -1 : 1;
+            Vector3 local = CritterMesh.BeetleFoot(leg, side) + new Vector3(0f, 0f, 0.07f * MathF.Sin(FootPhase(pose, foot)));
             Vector3 world = Vector3.Transform(local, DesertCritters.World(pose, scorpion: false));
             return new Vector2(world.X, world.Z);
         }
 
-        private static Vector2 FootOnSand(in DesertCritters.Pose pose, int foot) =>
-            FootOnSand(pose, foot, CritterGait.Forward, CritterGait.Stride(scorpion: false));
-
-        private static float FootPhase(in DesertCritters.Pose pose, int foot) =>
+        internal static float FootPhase(in DesertCritters.Pose pose, int foot) =>
             pose.Gait + CritterMesh.LegPhase(foot >> 1, (foot & 1) == 0 ? -1 : 1);
 
         /// <summary>
@@ -200,6 +212,45 @@ namespace BS3D.Tests
             _output.WriteLine(FormattableString.Invariant(
                 $"prints held {held}, laid {laid}, dropped {dropped}; the closest two {closestStraight / DesertCritters.BEETLE_SIZE:F3} of a length apart on a straight walk, {closest / DesertCritters.BEETLE_SIZE:F3} on a curve"));
             Assert.True(held > 1000 && laid > 50 && dropped > 20, $"too little walking to judge: held {held}, laid {laid}, dropped {dropped}");
+            //Each foot's print stands on its own walking straight: the closest two further apart than two prints' radii
+            //(PRINT_RADIUS 0.07 runs the nearest two of a side together)
+            Assert.True(closestStraight / DesertCritters.BEETLE_SIZE > 2f * DesertCritters.PRINT_RADIUS,
+                FormattableString.Invariant($"the closest two prints walking straight are {closestStraight / DesertCritters.BEETLE_SIZE:F3} of a length apart, under two radii of {DesertCritters.PRINT_RADIUS}"));
+        }
+
+        /// <summary>
+        /// A print's sand is sampled once (#1217): <see cref="DesertCritters.SandHeights"/> answers every frame after the
+        /// one a print is laid in with the height it sampled then, because a print keeps its place to the bit until it fades
+        /// and no two prints a trail holds at once share a slot; so the sand is sampled once a print, against once a print a
+        /// frame, every roaming beetle and the featured one drawn together as the scene draws them, and the centre drawn is the
+        /// one sampling the sand every frame gives, to the bit.
+        /// </summary>
+        [Fact]
+        public void A_prints_sand_is_sampled_once_it_lies()
+        {
+            int drawn = 0;
+            var heights = new DesertCritters.SandHeights(Ground);
+            var places = new HashSet<Vector2>();
+            var lens = new Vector3(0f, 30f, 0f);
+            for (float t = 0f; t < 120f; t += 1f / 60f)
+                foreach (int i in Beetles())
+                {
+                    if (!BeetlePose(i, t, out DesertCritters.Pose pose)) continue;
+                    int trail = i < 0 ? DesertCritters.SandHeights.TRAILS - 1 : i;
+                    for (int step = 0; step < DesertCritters.TRAIL_STEPS; step++)
+                        for (int foot = 0; foot < CritterMesh.BEETLE_FEET; foot++)
+                            if (DesertCritters.PrintCentre(pose, trail, foot, step, lens, heights, out Vector3 centre, out _))
+                            {
+                                Assert.True(DesertCritters.TrailPrint(pose, foot, step, out Vector2 at, out _));
+                                Assert.Equal(DesertCritters.PrintSeenFrom(new Vector3(at.X, Ground(at.X, at.Y), at.Y), lens), centre);
+                                places.Add(at);
+                                drawn++;
+                            }
+                }
+            _output.WriteLine($"{drawn} prints drawn over the frames, {places.Count} places, the sand sampled {heights.Samples} times");
+            Assert.True(places.Count > 1000, $"only {places.Count} prints laid");
+            Assert.Equal(places.Count, heights.Samples);
+            Assert.True(drawn > 20 * heights.Samples, $"{drawn} prints drawn against {heights.Samples} samples");
         }
 
         /// <summary>
@@ -279,40 +330,49 @@ namespace BS3D.Tests
 
         /// <summary>
         /// A foot that stands on the sand stays where it touched down until it lifts (#1217), so it stands on its print the
-        /// whole stance: the stance sweeps the foot back as far as the body walks over it (<see cref="CritterGait"/>). Within a
-        /// thousandth of a unit for the intro's featured beetle, which walks straight; the roaming ones walk curves, and a
-        /// foot turns a little with the body over it, within <see cref="CURVE_DRIFT"/>. The sine stance the shader once swept
-        /// with (0.07 body lengths either way, against the 0.23 the body walks over a stance) skates the featured beetle's
-        /// foot 0.048 units over the sand.
+        /// whole stance: the stance sweeps the foot back as far as the body walks over it, and on a curve carries it round as
+        /// the body turns over it (<see cref="CritterGait.Foot"/>, the turn the instance carries). Within
+        /// <see cref="STANCE_DRIFT"/> for the intro's featured beetle, which walks straight, and for the roaming ones on their
+        /// curves alike. Swept straight back along the body without the turn, a roaming beetle's planted foot turned 0.028
+        /// units off its print, at its rim (<see cref="DesertCritters.PRINT_RADIUS"/> of 0.55 is 0.0275); the sine stance the
+        /// shader once swept with (0.07 body lengths either way, against the 0.23 the body walks over a stance) skated the
+        /// featured beetle's foot 0.048 units over the sand.
         /// </summary>
         [Fact]
         public void A_planted_foot_stays_on_its_print_until_it_lifts()
         {
-            float straight = 0f, curved = 0f;
+            float straight = 0f, curved = 0f, unturned = 0f;
             foreach (int i in Beetles())
             {
-                float worst = WorstStance(i, CritterGait.Forward, CritterGait.Planted, CritterGait.Stride(scorpion: false), onPrint: true);
+                float worst = WorstStance(i, FootOnSand, CritterGait.Planted, onPrint: true);
                 if (i < 0) straight = worst; else curved = MathF.Max(curved, worst);
+                if (i >= 0) unturned = MathF.Max(unturned, WorstStance(i, (in DesertCritters.Pose p, int foot) => FootOnSand(p, foot, 0f), CritterGait.Planted, onPrint: true));
             }
-            float sine = WorstStance(-1, MathF.Sin, phase => MathF.Cos(phase) < 0f, 0.07f, onPrint: false);
+            float sine = WorstStance(-1, SineFootOnSand, phase => MathF.Cos(phase) < 0f, onPrint: false);
             _output.WriteLine(FormattableString.Invariant(
-                $"a planted foot off its print: {straight:F5} units walking straight, {curved:F4} on the roaming beetles' curves; the old sine stance skated {sine:F4}"));
+                $"a planted foot off its print: {straight:F6} units walking straight, {curved:F6} on the roaming beetles' curves; without the turn {unturned:F4}, the old sine stance skated {sine:F4}"));
 
-            Assert.True(straight < 1e-3f, $"the featured beetle's planted foot moves {straight:F5} units off its print");
-            Assert.True(curved < CURVE_DRIFT, $"a roaming beetle's planted foot moves {curved:F4} units off its print");
-            //Seen to fire (BestPractices.md, section 10): the old gait's skating is caught by the same measure
+            Assert.True(straight < STANCE_DRIFT, $"the featured beetle's planted foot moves {straight:F6} units off its print");
+            Assert.True(curved < STANCE_DRIFT, $"a roaming beetle's planted foot moves {curved:F6} units off its print");
+            //Seen to fire (BestPractices.md, section 10): the turn left out of the instance, and the old gait's skating
+            Assert.True(unturned > 0.02f, $"without the turn a roaming beetle's planted foot moves only {unturned:F4}");
             Assert.True(sine > 0.03f, $"the old sine stance skated only {sine:F4}");
         }
 
-        //How far a roaming beetle's planted foot may turn off its print as the body turns over it on its curve (TURN), units
-        private const float CURVE_DRIFT = 0.035f;
+        //How far a planted foot may move off its print, units: float rounding, a twenty-fifth of the print's radius
+        private const float STANCE_DRIFT = 1e-3f;
+
+        private delegate Vector2 FootAt(in DesertCritters.Pose pose, int foot);
 
         /// <summary>
         /// A print is seen where it lies on the sand (#1217): drawn nearer the lens along the line to it
         /// (<see cref="DesertCritters.PrintSeenFrom"/>), it falls within a twentieth of a pixel (float rounding) of its spot on the sand in a
-        /// 1600 x 900 frame through a 30-degree lens, from lenses 5 to 85 degrees over the sand and 1.5 to 7.5 off, and stands
-        /// 0.03 nearer the lens than the sand there, clear of its depth. Lifted straight up as the other discs are, it fell
-        /// 15 pixels from its spot seen 30 degrees down from 2.8 off, behind the planted foot standing on that spot.
+        /// 1600 x 900 frame through a 30-degree lens, from lenses 5 to 85 degrees over the sand and 1.5 to 7.5 off; and it
+        /// stands 0.03 over the sand there (as high as the other discs, clear of the sand's depth as they are) from every lens
+        /// higher than about 14.5 degrees, and from a lower one goes 0.12 along the line, no further. Lifted straight up as
+        /// the other discs are, it fell 15 pixels from its spot seen 30 degrees down from 2.8 off, behind the planted foot
+        /// standing on that spot; moved 0.03 along the line, it stood only 0.03 times the sine of the lens's height over the
+        /// sand.
         /// </summary>
         [Fact]
         public void A_print_is_seen_where_it_lies_on_the_sand()
@@ -320,6 +380,7 @@ namespace BS3D.Tests
             Matrix projection = Matrix.CreatePerspectiveFieldOfView(MathHelper.ToRadians(30f), 1600f / 900f, 0.1f, 1000f);
             var rng = new Random(1217);
             float worst = 0f;
+            int low = 0, high = 0;
             for (int n = 0; n < 500; n++)
             {
                 var sand = new Vector3(-10f + (float)rng.NextDouble(), -13.5f, -80f + (float)rng.NextDouble());
@@ -332,8 +393,18 @@ namespace BS3D.Tests
 
                 Vector3 drawn = DesertCritters.PrintSeenFrom(sand, lens);
                 worst = MathF.Max(worst, Vector2.Distance(Pixel(sand, viewProjection), Pixel(drawn, viewProjection)));
-                Assert.Equal(0.03f, Vector3.Distance(lens, sand) - Vector3.Distance(lens, drawn), 4);
+                if (MathF.Sin(elevation) >= 0.25f)
+                {
+                    Assert.Equal(0.03f, drawn.Y - sand.Y, 4);
+                    high++;
+                }
+                else
+                {
+                    Assert.Equal(0.12f, Vector3.Distance(drawn, sand), 4);
+                    low++;
+                }
             }
+            Assert.True(low > 20 && high > 300, $"lenses low {low}, high {high}");
 
             //Seen to fire (BestPractices.md, section 10): lifted straight up, from 30 degrees over the sand and 2.8 off
             var spot = new Vector3(-10.80f, -13.50f, -79.91f);
@@ -352,8 +423,8 @@ namespace BS3D.Tests
         }
 
         //The furthest beetle `i`'s planted feet get from where each touched down (or, `onPrint`, from its newest print) over
-        //its cycles, its feet swung by `forward` and down while `planted`
-        private static float WorstStance(int i, Func<float, float> forward, Func<float, bool> planted, float stride, bool onPrint)
+        //its cycles, its feet where `footAt` puts them and down while `planted`
+        private static float WorstStance(int i, FootAt footAt, Func<float, bool> planted, bool onPrint)
         {
             const float STEP = 1f / 120f;
             float worst = 0f;
@@ -370,7 +441,7 @@ namespace BS3D.Tests
                 for (int foot = 0; foot < CritterMesh.BEETLE_FEET; foot++)
                 {
                     if (!planted(FootPhase(pose, foot))) { down[foot] = false; continue; }
-                    Vector2 at = FootOnSand(pose, foot, forward, stride);
+                    Vector2 at = footAt(pose, foot);
                     if (onPrint)
                     {
                         //Before its first touchdown of a walk a foot stands where it stood as the beetle came up: no print
