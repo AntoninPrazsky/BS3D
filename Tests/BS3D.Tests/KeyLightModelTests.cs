@@ -9,7 +9,8 @@ namespace BS3D.Tests
     /// <summary>
     /// #987: what the backlit keyboard shows, held as colours a lamp without a device. Whether it looks good is the owner's eye on his
     /// own keyboard; what a test can refuse is a fire key that is not the loaded ball, a queue in the wrong keys or order, a card's key
-    /// that does not blink, a clear that is not a rainbow and then its cup, and a loss that is not red.
+    /// that does not blink, a clear that is not a rainbow and then its cup, a clear's rainbow that is not NEW BEST's pastel (#1201),
+    /// and a loss that is not red.
     /// </summary>
     public class KeyLightModelTests
     {
@@ -118,6 +119,69 @@ namespace BS3D.Tests
                     Assert.InRange(share, KeyLightModel.CUP_BREATH_LOW - 1e-3f, 1f + 1e-3f);
                     Near(cup * share, c);
                 }
+            }
+        }
+
+        //#1201: the band the clear's rainbow keeps, as HSV saturation. Above it is the pure spectrum the owner asked to soften (1); below
+        //it a lit key reads near white: NEW BEST's own sRGB values sent to the keys raw reach only 0.36 to 0.43
+        private const float PASTEL_LOWEST = 0.55f, PASTEL_HIGHEST = 0.8f;
+
+        private static float Saturation(Vector3 c)
+        {
+            float max = MathF.Max(c.X, MathF.Max(c.Y, c.Z));
+            return 1f - MathF.Min(c.X, MathF.Min(c.Y, c.Z)) / max;
+        }
+
+        //The HSV hue, in turns from red
+        private static float Hue(Vector3 c)
+        {
+            float max = MathF.Max(c.X, MathF.Max(c.Y, c.Z)), min = MathF.Min(c.X, MathF.Min(c.Y, c.Z)), span = max - min;
+            float sixths = max == c.X ? (c.Y - c.Z) / span : max == c.Y ? 2f + (c.Z - c.X) / span : 4f + (c.X - c.Y) / span;
+            return (sixths / 6f + 1f) % 1f;
+        }
+
+        [Fact]
+        public void A_clears_rainbow_is_pastel_and_every_key_still_a_colour()
+        {
+            //Every lamp at every moment of the sweep, before the cup's colour starts to take over: WonRainbow at the lamp's own turn,
+            //its place across the board less the distance the sweep has run
+            KeyLightLayout board = Board();
+            for (float t = 0f; t < KeyLightModel.RAINBOW_SECONDS; t += 0.05f)
+            {
+                Vector3[] lamps = Compose(new KeyLightInput { Mode = KeyLightMode.Won, Stars = 2, ModeSeconds = t });
+                for (int i = 0; i < lamps.Length; i++)
+                {
+                    Assert.InRange(Saturation(lamps[i]), PASTEL_LOWEST, PASTEL_HIGHEST);
+                    Near(KeyLightModel.WonRainbow(board.X[i] * KeyLightModel.RAINBOW_SPAN - t * KeyLightModel.RAINBOW_SPEED), lamps[i]);
+                }
+            }
+
+            //And the whole wheel, finer than any board's lamps sample it: the hue where the spectrum had it, so the sweep moves as it did
+            for (int i = 0; i < 720; i++)
+            {
+                float turn = i / 720f;
+                Vector3 c = KeyLightModel.WonRainbow(turn);
+                Assert.InRange(Saturation(c), PASTEL_LOWEST, PASTEL_HIGHEST);
+                Assert.Equal(1f, MathF.Max(c.X, MathF.Max(c.Y, c.Z)), 3);
+
+                float off = MathF.Abs((Hue(c) - Hue(KeyLightModel.Hsv(turn, 1f, 1f)) + 1.5f) % 1f - 0.5f);
+                Assert.True(off < 1f / 36f, $"turn {turn}: hue {Hue(c)} against the spectrum's {turn}");
+            }
+        }
+
+        [Fact]
+        public void A_clears_rainbow_gives_the_light_the_new_best_banner_does()
+        {
+            //The banner's sRGB fill as a screen lights it (the sRGB standard's decode, written out here rather than taken from the
+            //renderer's helper), scaled to full: the keys are sent that light, channel for channel
+            static float Light(float srgb) => srgb <= 0.04045f ? srgb / 12.92f : MathF.Pow((srgb + 0.055f) / 1.055f, 2.4f);
+
+            for (int i = 0; i < 360; i++)
+            {
+                float turn = i / 360f;
+                Vector3 fill = NewBestCelebration.Pastel(turn);
+                Vector3 banner = new(Light(fill.X), Light(fill.Y), Light(fill.Z));
+                Near(banner / MathF.Max(banner.X, MathF.Max(banner.Y, banner.Z)), KeyLightModel.WonRainbow(turn));
             }
         }
 

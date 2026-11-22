@@ -1,5 +1,6 @@
 using BS3D.Screens;
 using Microsoft.Xna.Framework;
+using Prazsky.Core.Tools;
 using System;
 
 namespace BS3D.Lighting
@@ -75,7 +76,8 @@ namespace BS3D.Lighting
     /// does. A wildcard's keys cycle with it and a cutter's take the Cut's accent, because the tint is the one the muzzle collar and the
     /// aim beam are given.</description></item>
     /// <item><description><b>A tutorial card</b> that asks for a key makes it blink white at <see cref="BLINK_HERTZ"/>.</description></item>
-    /// <item><description><b>Won</b>: a full-brightness rainbow sweeps across the board for <see cref="RAINBOW_SECONDS"/>, then the
+    /// <item><description><b>Won</b>: a full-brightness pastel rainbow, the NEW BEST banner's colours (<see cref="WonRainbow"/>), sweeps
+    /// across the board for <see cref="RAINBOW_SECONDS"/>, then the
     /// board settles into the cup's colour (<see cref="CupColour"/>), breathing, with a Diamond's keys twinkling white. At the loud
     /// end on purpose: the owner's standing ruling on celebrations.</description></item>
     /// <item><description><b>Lost</b>: red, pulsing slowly, whether the cluster reached the line or the balls ran out.</description></item>
@@ -154,8 +156,13 @@ namespace BS3D.Lighting
         public static int Bit(LitKey key) => 1 << (int)key;
 
         /// <summary>
-        /// Fills <paramref name="lamps"/> (one colour a lamp of <paramref name="layout"/>, authored sRGB 0 to 1) with what
+        /// Fills <paramref name="lamps"/> (one colour a lamp of <paramref name="layout"/>, 0 to 1 a channel) with what
         /// <paramref name="input"/> asks for. <paramref name="queue"/> holds the magazine's next balls, next first. Allocates nothing.
+        /// <para>
+        /// A lamp holds the value its LED is sent, as it is (<c>KeyboardLights.ToColour</c>: 8 bits a channel, no gamma). Every colour
+        /// but one is authored sRGB handed over unchanged: the loaded round and the queue, the cups, the loss's red, the idle drift and a
+        /// card's white. The clear's rainbow (<see cref="WonRainbow"/>) is the one decoded to light first.
+        /// </para>
         /// </summary>
         public static void Compose(in KeyLightInput input, Vector3[] queue, KeyLightLayout layout, Vector3[] lamps)
         {
@@ -209,8 +216,28 @@ namespace BS3D.Lighting
 
                 lamps[i] = cupShare >= 1f
                     ? settled
-                    : Vector3.Lerp(Hsv(layout.X[i] * RAINBOW_SPAN - t * RAINBOW_SPEED, 1f, 1f), settled, cupShare);
+                    : Vector3.Lerp(WonRainbow(layout.X[i] * RAINBOW_SPAN - t * RAINBOW_SPEED), settled, cupShare);
             }
+        }
+
+        /// <summary>
+        /// The clear's rainbow at <paramref name="turn"/> (any value, one rainbow a turn, red at 0 and then yellow, green, cyan, blue
+        /// and violet, as <see cref="Hsv"/> runs): <b>the NEW BEST banner's pastel</b> (<see cref="NewBestCelebration.Pastel"/>, #1201),
+        /// sent as the light the screen gives off for it, with its brightest channel at full.
+        /// <para>
+        /// The banner's colours are sRGB values, which a screen decodes before it lights a pixel. The keyboard is sent its values as they
+        /// are (<c>KeyboardLights.ToColour</c>, no gamma), and a key's LED is taken to give light in proportion to them, so the banner's
+        /// values sent raw would light every channel of every key at no less than <see cref="NewBestCelebration.LIFT"/> of full: near
+        /// white, which the owner ruled out. Decoded first, the values keep HSV saturation 0.63 to 0.72 round the wheel against the pure
+        /// spectrum's 1: on an LED that lights in proportion, the keys give the light the banner gives, a soft colour and never white.
+        /// A keyboard that applies a gamma of its own would show them deeper than the banner, never paler (at 2.2, saturation 0.89 to
+        /// 0.94, close to the spectrum).
+        /// </para>
+        /// </summary>
+        public static Vector3 WonRainbow(float turn)
+        {
+            Vector3 light = ColorSpace.SrgbToLinear(NewBestCelebration.Pastel(turn));
+            return light / MathF.Max(light.X, MathF.Max(light.Y, light.Z));
         }
 
         private static void Fill(Vector3[] lamps, int count, Vector3 colour)

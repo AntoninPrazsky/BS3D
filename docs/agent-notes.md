@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-22 — #1201 pastelová duha klávesnice — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: duha klávesnice po dohraném levelu bere pastelové barvy banneru NEW BEST místo čistého spektra. `KeyLightModel.WonRainbow` převede `NewBestCelebration.Pastel` ze sRGB na světlo (`ColorSpace.SrgbToLinear`) a natáhne nejsilnější kanál na plno; klávesy mají sytost 0,63–0,72 místo 1. Rychlost, rozpětí, 3 s i 0,6 s doznění do barvy poháru zůstaly, odstín do 6° od starého. Testy hlídají pásmo sytosti 0,55–0,8 a že každá lampa svítí `WonRainbow` svého místa.
+- ⚠ Hodnoty banneru poslané rovnou by klávesy vybělily (každý kanál ≥ 0,52, sytost 0,36–0,43): `ToColour` posílá hodnoty bez gamy.
+- Otevřené: `verdict-eye`. Na skutečné G513 se nikdo nedíval; má-li firmware vlastní gamu, vyjde sytost 0,89–0,94, tedy skoro jako dřív.
+
 ## 2026-11-22 — #1198 kamera po výhře rovnou do výsledků — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: po výhře s nevystřelenými koulemi drží `SpareVolley` kameru u boku děla od konce odpočtu až do `Reset`, takže `ResultPage.Enter` ji převezme odtamtud a už se nevrací přes herní pózu. Přeskočení během příletu kamery ji nechá doletět. Odpočet výsledkového beatu čeká na `ClearedBeatCountdown.Waits` (ptá se na `volley.Running`, ne na držení kamery). Stránka přijde o 0,45 s dřív. Nový přepínač `loglens` vypisuje pózu kamery každý snímek.
