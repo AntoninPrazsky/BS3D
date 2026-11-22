@@ -6,7 +6,7 @@
 //WindDirection uniforms, before including this. Needs Noise.fxh (Fbm2Combed, Fbm2BandLimited, NoiseHash22). The
 //blades seen from the side (GrassStrokes, below) are here too, with their own scale passed in: the meadow's. The
 //savanna still combs its own along the bearing to the lens (Savanna.fx), the construction GrassStrokes warns
-//against.
+//against, until #1232 moves it onto GrassStrokes.
 //
 //A fine grass texture, band-limited against the footprint so it fades to smooth grass towards the horizon
 //instead of aliasing.

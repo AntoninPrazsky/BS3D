@@ -148,8 +148,48 @@ namespace BS3D.Tests
                 $"GRASS_STROKE_FLANK_GONE is {gone:0.###}: the strokes must be gone by 60 degrees over the ground, or a view looking down keeps their fan (#1190)");
             Assert.True(full > 0.0 && full < gone, $"GRASS_STROKE_FLANK_FULL ({full:0.###}) must lie between 0 and GRASS_STROKE_FLANK_GONE ({gone:0.###})");
 
-            Assert.Matches(@"1\.0\s*-\s*smoothstep\(\s*GRASS_STROKE_FLANK_FULL\s*,\s*GRASS_STROKE_FLANK_GONE\s*,\s*dot\(\s*normal\s*,\s*toCamera\s*\)\s*\)",
-                Body(grass, "float GrassStrokes("));
+            string strokes = Body(grass, "float GrassStrokes(");
+            Assert.Matches(@"float\s+flank\s*=\s*1\.0\s*-\s*smoothstep\(\s*GRASS_STROKE_FLANK_FULL\s*,\s*GRASS_STROKE_FLANK_GONE\s*,\s*dot\(\s*normal\s*,\s*toCamera\s*\)\s*\)",
+                strokes);
+
+            //And the flank fades what is drawn, not only whether the branch runs: gating alone would draw the strokes whole up
+            //to the angle where they vanish at once
+            Assert.Matches(@"strokes\s*=\s*flank\s*\*\s*sum\s*\*\s*rsqrt\(\s*spread\s*\)\s*;", strokes);
+        }
+
+        [Fact]
+        public void TheBandLimitSeesTheStrokesAxisAndItsSpin()
+        {
+            string grass = Code("Grass.fxh");
+            string strokes = Body(grass, "float GrassStrokes(");
+
+            //The footprint is measured in the strokes' own stretched domain, and grown by the bearing's turn over a pixel: the
+            //domain is turned about an anchor up to a spacing and a half away, so a pixel's step turns it by that over the
+            //distance to the lens. Without the growth the axis's spin near the lens aliases, which the screen steps alone do
+            //not see (#1190's second "Wanted")
+            Match footprint = Regex.Match(strokes,
+                @"float\s+footprint\s*=\s*GrassStrokeFootprint\(\s*axis\s*,\s*dpdx\s*,\s*dpdy\s*\)\s*\*\s*frequency\s*\*\s*"
+                + @"\(\s*1\.0\s*\+\s*([0-9.]+)\s*\*\s*spacing\s*/\s*max\(\s*lensDistance\s*,\s*[0-9.e-]+\s*\)\s*\)\s*;");
+            Assert.True(footprint.Success, "GrassStrokes' footprint is not GrassStrokeFootprint(...) * frequency * (1.0 + k * spacing / max(lensDistance, ...))");
+            double reach = double.Parse(footprint.Groups[1].Value, CultureInfo.InvariantCulture);
+            Assert.True(reach >= 1.0, $"The spin's reach is {reach:0.##} spacings: the blend reaches anchors a spacing away and more");
+
+            //Every anchor's noise is band-limited by that footprint, and so is the branch that skips them
+            Assert.Matches(@"Fbm2BandLimited\(\s*p\s*,\s*2\s*,\s*footprint\s*\)", Body(grass, "float GrassStrokeAnchor("));
+            Assert.Matches(@"if\s*\(\s*flank\s*\*\s*saturate\(\s*1\.0\s*-\s*2\.0\s*\*\s*footprint\s*\)\s*>\s*0\.0\s*\)", strokes);
+        }
+
+        [Fact]
+        public void TheStrokesFootprintIsAnisotropic()
+        {
+            string footprint = Body(Code("Grass.fxh"), "float GrassStrokeFootprint(");
+
+            //Each screen step measured across the grain as it is and along it over the stretch, as the domain is: the strokes
+            //run along the very direction a grazing view foreshortens, so an isotropic footprint (the longer side) faded them
+            //where they still had pixels across them
+            foreach (string step in new[] { "dpdx", "dpdy" })
+                Assert.Matches($@"float2\(\s*dot\(\s*{step}\s*,\s*axis\s*\)\s*/\s*GRASS_STROKE_STRETCH\s*,\s*dot\(\s*{step}\s*,\s*across\s*\)\s*\)", footprint);
+            Assert.Matches(@"max\(\s*length\(\s*stepX\s*\)\s*,\s*length\(\s*stepY\s*\)\s*\)", footprint);
         }
     }
 }
