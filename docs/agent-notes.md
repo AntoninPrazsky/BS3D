@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-22 — #1209 seznam kláves editoru map se vejde do okna — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: MapEditor kreslí vlastní nápovědu kláves (`MapEditor/GUI/KeyHelpOverlay.cs`) ve skupinách na tmavém průsvitném panelu vlevo nahoře. Jako první a vždy vidět je SOUBOR (F2 otevřít nebo přetáhnout soubor, F4 uložit level, F1 uložit mapu, F3 nový). Řádků je 26 místo 39 a poprvé jsou v seznamu i klávesy létání a pravé tlačítko myši. H sbalí všechno kromě souborových kláves, F8 uloží snímek. `KeyHelpLayout` rozloží skupiny do sloupců a písmo zmenší, jen když se jinak nevejdou. Kříž os se přesunul doprava dolů. Editor nově bere `width=`, `height=` a `shot=`. Testy `MapEditorKeyHelpTests` hlídají, že se nápověda vejde od 100x60 do 3840x2160.
+- ⚠ Snímek obrazovky zachytil okno jiného programu před editorem. Editor bez fokusu nespouští Update, ale kreslí dál, proto se fotí sám přes `shot=`.
+- Otevřené: `verdict-eye`. Žádný běh nestiskl klávesu (H, F8, F12, F11) a nikdo okno nezměnil táhnutím. Má nápověda v malém okně začínat sbalená?
+
 ## 2026-11-21 — #1196 paprsek míření se na konci rozevře do trychtýře čar — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: záře na konci paprsku je pryč. Do `SPLIT_FROM` (55 % letu) zůstává starý ostrý přerušovaný paprsek, pak se rozdělí do pěti tenkých nepřerušených čar (nová technika `AimRay` v `ShotTrail.fx`, i v GamePi). Prostřední je míření samo, krajní se rozevřou na `LANDING_SPREAD` (0,65, změřená oblast dopadu z #1144) a za dotykem běží souběžně a slábnou. Ghost je v trychtýři na obrazovce u 477 z 478 mířů z přehledové kamery. Rozevírají se kolmo k letu i k pohledu, proto jsou z přehledu vidět vedle sebe (rozevření 119 px při 1080 řádcích).
