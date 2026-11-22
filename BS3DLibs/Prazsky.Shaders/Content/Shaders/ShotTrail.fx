@@ -22,6 +22,9 @@ float TrailHeadWidth;   //half-width at the head
 float TrailTailWidth;   //half-width at the tail
 float3 TrailColor;      //linear radiance, already boosted and hue-floored on the CPU
 float TrailAlpha;       //overall launch fade, 1 at the shot down to 0
+float TrailHeadFade;    //the share of TrailAlpha gone by the head, lerped along the streak: the aim beam's far dashes fade
+                        //along themselves (AimBeam). LaunchSmears and LineSparks never set it, so it is 0 for them, an even
+                        //alpha, and AimBeam puts 0 back after its last dash
 
 struct TrailVertexInput
 {
@@ -76,7 +79,7 @@ float4 TrailPS(TrailVertexOutput input) : COLOR
     //No clip. With additive blending a zero-alpha pixel adds nothing, so the streak can fade smoothly to
     //nothing everywhere. A clip on (profile * TrailAlpha) would sweep inward as the smear fades and cut it
     //with a hard moving edge halfway through the fade - which read as the streak being sliced off.
-    float a = profile * lengthFade * TrailAlpha;
+    float a = profile * lengthFade * TrailAlpha * (1.0 - TrailHeadFade * along);
     return float4(TrailColor * a, a);
 }
 

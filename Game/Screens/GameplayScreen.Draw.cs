@@ -200,7 +200,8 @@ namespace BS3D.Screens
         /// <summary>
         /// Draws the aim beam. Coloured by what the far end means — the loaded ball's own tint where the shot
         /// sticks, <see cref="PREVIEW_REFUSED"/> where it certainly will not — and where the shot snaps into a cell its
-        /// far dashes widen a little and fade out where the lens sees the beam reach the ball it touches (#1144, #1196).
+        /// far dashes widen a little and fade out where the lens sees the beam reach the ball it touches (#1144, #1196); a
+        /// cutter's stops there at full strength.
         /// </summary>
         /// <remarks>
         /// This is what gives the <b>overview</b> the refusal signal the crosshair cannot: the crosshair is only
@@ -239,10 +240,12 @@ namespace BS3D.Screens
             //THE FAR END POINTS AT A REGION WHERE THE SHOT SNAPS INTO A CELL (#1144). The beam ends at the touch, and the
             //ghost stands in the free cell beside the ball touched, up to two thirds of a ball off the line: the far dashes
             //widen a little and fade out where the beam reaches that ball on screen (#1196), so the line says "about here",
-            //covers nothing, and the ghost says where. Not on a beam that reaches nothing, and not for a cutter, which
-            //strikes the very ball the beam ends on and has no cell to snap to: its line runs to the touch at full
-            //strength. A refusal keeps it, in red.
-            Vector3? ballTouched = _previewReachesCluster && !CutterLoaded ? _previewBallTouched : null;
+            //covers nothing, and the ghost says where. A refusal keeps it, in red. A cutter strikes the very ball the beam
+            //ends on and has no cell to snap to, so its line stays the plain one at full strength, and it too stops where it
+            //reaches that ball on screen rather than running on over it to the touch behind
+            AimBeam.FarEnd farEnd = !_previewReachesCluster ? AimBeam.FarEnd.OpenAir
+                : CutterLoaded ? AimBeam.FarEnd.Strike
+                : AimBeam.FarEnd.Landing;
 
             //THE BEAM FOLLOWS THE FLIGHT (#332), which on a level with no wells is one segment and exactly what
             //it always was. A shot bent by a well reaches a contact the straight line between muzzle and contact
@@ -254,8 +257,7 @@ namespace BS3D.Screens
                 ? CollectionsMarshal.AsSpan(_previewPath)
                 : stackalloc Vector3[] { _previewMuzzle, _previewBeamEnd };
 
-            _aimBeam.Draw(Camera, path, tint, WallClock, openEnded: !_previewReachesCluster, ballTouched: ballTouched,
-                opacity: opacity);
+            _aimBeam.Draw(Camera, path, tint, WallClock, farEnd, _previewBallTouched, opacity);
         }
 
         /// <summary>

@@ -1279,7 +1279,8 @@ namespace BS3D.Screens
 
         /// <summary>
         /// The centre of the ball the shot would touch, this frame, while <see cref="_previewReachesCluster"/>: the beam's
-        /// far dashes fade out where the lens sees the beam reach it (#1196, <c>AimBeam.VisibleEnd</c>).
+        /// far dashes fade out, and a cutter's line stops, where the lens sees the beam reach it (#1196,
+        /// <c>AimBeam.VisibleEnd</c>).
         /// </summary>
         private Vector3 _previewBallTouched;
 

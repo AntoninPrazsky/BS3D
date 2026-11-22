@@ -14,13 +14,13 @@ using XVector3 = Microsoft.Xna.Framework.Vector3;
 namespace BS3D.Tests
 {
     /// <summary>
-    /// #1144 and #1196: the aim beam is one dashed line from the muzzle to the touch, and where the shot snaps into a lattice
-    /// cell its far dashes widen a little along one smooth curve, lengthen with it and fade out where the lens sees the beam
-    /// reach the ball it touches, never bolder than the line and never over that ball. <see cref="AimBeam.Lay"/> is asked
-    /// without a graphics device. The
-    /// dashes' light is reckoned as <c>ShotTrail.fx</c>'s streak draws it: the alpha across a piece <c>(1 - |x|/w)²</c>,
-    /// its quarter-length fades along, and the additive blend weighing the alpha twice; in the world (<see cref="Light"/>)
-    /// or on a lens's screen (<see cref="ScreenLight"/>).
+    /// #1144 and #1196: the aim beam is one dashed line from the muzzle to the ball it reaches. Where the shot snaps into a
+    /// lattice cell its far dashes widen a little along one smooth curve, lengthen with it and fade out, each along itself,
+    /// where the lens sees the beam reach the ball it touches; a cutter's line stops there at full strength. Never bolder
+    /// than the line and never over that ball. <see cref="AimBeam.Lay"/> is asked without a graphics device. The dashes'
+    /// light is reckoned as <c>ShotTrail.fx</c>'s streak draws it: the alpha across a piece <c>(1 - |x|/w)²</c>, lerped along
+    /// it from its tail's to its head's (<c>TrailHeadFade</c>), its quarter-length fades along, and the additive blend
+    /// weighing the alpha twice; in the world (<see cref="Light"/>) or on a lens's screen (<see cref="ScreenLight"/>).
     /// </summary>
     public class AimBeamTests(ITestOutputHelper output)
     {
@@ -103,6 +103,42 @@ namespace BS3D.Tests
         /// <summary>Pixels a unit of the image plane is at a 1080-line frame through the play lens the capture logs (39.4 degrees).</summary>
         private static readonly float PixelsPerUnit = 540f / MathF.Tan(MathHelper.ToRadians(39.4f) * 0.5f);
 
+        //A piece's alpha a fraction of the way from its tail to its head, as the shader lerps it (TrailHeadFade)
+        private static float AlphaAt(in AimBeam.Piece piece, float t) => piece.TailAlpha + (piece.HeadAlpha - piece.TailAlpha) * t;
+
+        //A piece's half-width a fraction of the way from its tail to its head, as the shader lerps it
+        private static float WidthAt(in AimBeam.Piece piece, float t) => piece.TailWidth + (piece.HeadWidth - piece.TailWidth) * t;
+
+        //The light at a piece's core a fraction of the way along it, in units of a dash's core: its alpha there through its
+        //quarter fades, squared
+        private static float CoreLight(in AimBeam.Piece piece, float t)
+        {
+            float alpha = AlphaAt(piece, t) * SmoothStep(0f, 0.25f, t) * SmoothStep(1f, 0.75f, t);
+            return alpha * alpha;
+        }
+
+        //The light a dash ends on: at three quarters of its length, where its own fade-out begins, which is the most it puts
+        //anywhere along its last quarter
+        private static float EndLight(in AimBeam.Piece piece)
+        {
+            float alpha = AlphaAt(piece, 0.75f);
+            return alpha * alpha;
+        }
+
+        /// <summary>
+        /// The last point of the beam whose core still carries <paramref name="threshold"/> of a dash's light, and the piece
+        /// it lies on: the head of what reads as the line.
+        /// </summary>
+        private static (XVector3 Point, AimBeam.Piece Piece) LastLit(AimBeam.Piece[] pieces, float threshold)
+        {
+            for (int i = pieces.Length - 1; i >= 0; i--)
+                for (int k = 100; k >= 0; k--)
+                    if (CoreLight(pieces[i], k / 100f) >= threshold)
+                        return (XVector3.Lerp(pieces[i].Tail, pieces[i].Head, k / 100f), pieces[i]);
+
+            return (pieces[0].Tail, pieces[0]);
+        }
+
         /// <summary>
         /// The light a dash <paramref name="piece"/> puts at <paramref name="at"/>, in units of a dash's core, as
         /// <c>ShotTrail.fx</c>'s streak draws it, for a point in the plane the billboard turns into.
@@ -118,11 +154,10 @@ namespace BS3D.Tests
             if (t < 0f || t > 1f) return 0f;
 
             float distance = (at - (piece.Tail + direction * (t * length))).Length();
-            float width = piece.TailWidth + (piece.HeadWidth - piece.TailWidth) * t;
-            float across = 1f - distance / width;
+            float across = 1f - distance / WidthAt(piece, t);
             if (across <= 0f) return 0f;
 
-            float alpha = across * across * SmoothStep(0f, 0.25f, t) * SmoothStep(1f, 0.75f, t) * piece.Alpha;
+            float alpha = across * across * SmoothStep(0f, 0.25f, t) * SmoothStep(1f, 0.75f, t) * AlphaAt(piece, t);
             return alpha * alpha;
         }
 
@@ -143,11 +178,11 @@ namespace BS3D.Tests
             if (s < 0f || s > 1f) return 0f;
 
             float u = s / zHead / ((1f - s) / zTail + s / zHead);
-            float halfWidth = (piece.TailWidth + (piece.HeadWidth - piece.TailWidth) * u) / (zTail + (zHead - zTail) * u);
+            float halfWidth = WidthAt(piece, u) / (zTail + (zHead - zTail) * u);
             float across = 1f - (at - (a + ab * s)).Length() / halfWidth;
             if (across <= 0f) return 0f;
 
-            float alpha = across * across * SmoothStep(0f, 0.25f, u) * SmoothStep(1f, 0.75f, u) * piece.Alpha;
+            float alpha = across * across * SmoothStep(0f, 0.25f, u) * SmoothStep(1f, 0.75f, u) * AlphaAt(piece, u);
             return alpha * alpha;
         }
 
@@ -189,17 +224,17 @@ namespace BS3D.Tests
             return most;
         }
 
-        private static AimBeam.Piece[] Lay(XVector3[] path, float phase, bool openEnded, XVector3? ballTouched, XVector3 viewer)
+        private static AimBeam.Piece[] Lay(XVector3[] path, float phase, AimBeam.FarEnd farEnd, XVector3 ballTouched, XVector3 viewer)
         {
             AimBeam.Piece[] pieces = new AimBeam.Piece[AimBeam.MAX_PIECES];
-            int count = AimBeam.Lay(path, phase, openEnded, ballTouched, viewer, pieces);
+            int count = AimBeam.Lay(path, phase, farEnd, ballTouched, viewer, pieces);
             return pieces[..count];
         }
 
         //The tests of the layout's own shape: the ball touched straight ahead of the touch, seen by a lens square to the
-        //beam there, from which the beam reaches the ball at the touch
-        private static AimBeam.Piece[] Lay(XVector3[] path, float phase, bool openEnded, bool landsInCell) =>
-            Lay(path, phase, openEnded, landsInCell ? BallAhead(path) : null, SideOn(path));
+        //beam there, from which the beam reaches the ball at the touch, so a strike is the plain line run to the touch
+        private static AimBeam.Piece[] Lay(XVector3[] path, float phase, AimBeam.FarEnd farEnd) =>
+            Lay(path, phase, farEnd, BallAhead(path), SideOn(path));
 
         //The centre of a ball the flight touches head on at its end
         private static XVector3 BallAhead(XVector3[] path) =>
@@ -299,16 +334,16 @@ namespace BS3D.Tests
 
             foreach (float phase in new[] { 0f, 0.13f, 0.41f, 0.66f })
             {
-                AimBeam.Piece[] landing = Lay(path, phase, false, true);
-                AimBeam.Piece[] plain = Lay(path, phase, false, false);
+                AimBeam.Piece[] landing = Lay(path, phase, AimBeam.FarEnd.Landing);
+                AimBeam.Piece[] plain = Lay(path, phase, AimBeam.FarEnd.Strike);
 
                 bool Near(AimBeam.Piece p) => XVector3.Distance(Muzzle, p.Head) <= AimBeam.FAR_FROM * total;
 
                 AimBeam.Piece[] nearLanding = Array.FindAll(landing, Near);
                 Assert.NotEmpty(nearLanding);
                 Assert.Equal(Array.FindAll(plain, Near), nearLanding);
-                Assert.All(nearLanding, p => Assert.True(p.TailWidth == AimBeam.WIDTH && p.HeadWidth == AimBeam.WIDTH && p.Alpha == 1f,
-                    $"a dash of the near end is {p}"));
+                Assert.All(nearLanding, p => Assert.True(p.TailWidth == AimBeam.WIDTH && p.HeadWidth == AimBeam.WIDTH
+                    && p.TailAlpha == 1f && p.HeadAlpha == 1f, $"a dash of the near end is {p}"));
 
                 //A third of the way out, which the overview cannot do without, every dash is there at full light
                 Assert.Contains(nearLanding, p => XVector3.Distance(Muzzle, p.Head) > total / 3f);
@@ -330,7 +365,7 @@ namespace BS3D.Tests
 
                 foreach (float phase in new[] { 0f, 0.21f, 0.5f, 0.77f })
                 {
-                    AimBeam.Piece[] pieces = Lay(path, phase, false, true);
+                    AimBeam.Piece[] pieces = Lay(path, phase, AimBeam.FarEnd.Landing);
                     Assert.NotEmpty(pieces);
 
                     float last = 0f, gaps = 0f;
@@ -370,10 +405,10 @@ namespace BS3D.Tests
         /// <summary>
         /// <b>The far dashes widen along one smooth curve: no corner, no step, nothing that reads as prongs.</b> The curve
         /// (<see cref="AimBeam.Ease"/> over <see cref="AimBeam.FarAlong"/>) is flat where it leaves the plain line and where
-        /// it reaches the ball, and in between its slope changes gradually: sampled finely, the width never narrows, never
+        /// it reaches the touch, and in between its slope changes gradually: sampled finely, the width never narrows, never
         /// jumps, and its slope never turns by more than a smooth curve's. The pieces carry it: each one's two widths are
         /// the curve's at its two ends, so a dash is a slim trapezoid and the dashes widen one after another. And it stays
-        /// narrow: at the ball <see cref="AimBeam.FAR_WIDTH"/>, under the measured landing region's reach.
+        /// narrow: at the touch <see cref="AimBeam.FAR_WIDTH"/>, under the measured landing region's reach.
         /// <para>
         /// <b>Seen to fail</b> with the smoothstep replaced by a straight ramp: the slope turns at once where the far part
         /// begins and where it ends.
@@ -418,7 +453,7 @@ namespace BS3D.Tests
             XVector3[] path = [Muzzle, Touch];
             float flown = Total(path);
             float last = 0f;
-            foreach (AimBeam.Piece p in Lay(path, 0.3f, false, true))
+            foreach (AimBeam.Piece p in Lay(path, 0.3f, AimBeam.FarEnd.Landing))
             {
                 float tail = XVector3.Distance(Muzzle, p.Tail), head = XVector3.Distance(Muzzle, p.Head);
                 Assert.Equal(AimBeam.FarWidth(AimBeam.FarAlong(tail, AimBeam.FAR_FROM * flown, flown)), p.TailWidth, 5);
@@ -431,46 +466,64 @@ namespace BS3D.Tests
         }
 
         /// <summary>
-        /// <b>The far dashes fade out by the touch, and the far end never grows bolder than the line</b> (the owner: "it
-        /// must not disturb: thin, not as conspicuous and bold"). Dash after dash the alpha falls, smoothly, to about nothing
-        /// at the touch; the light each dash adds across its whole width (its alpha squared times its width) and at its
-        /// brightest point (its alpha squared) never rises along the beam and is never over a near dash's; and so is the
-        /// light a unit of the beam carries, the dashes lengthening with their gaps.
+        /// <b>The far dashes fade out by the ball, each along itself, and the far end never grows bolder than the line</b>
+        /// (the owner: "turn transparent, and they stop at the ball"; "it must not disturb: thin, not as conspicuous and
+        /// bold"). Over every phase of the crawl's whole cycle (<see cref="AimBeam.SPACING"/> over <see cref="AimBeam.CRAWL"/>)
+        /// on a side-on flight, and at eight phases of it over the measured aims through the Game's overview: the alpha
+        /// never rises from the muzzle out, piece after piece and along each; the light a dash adds across its whole width
+        /// (its alpha squared times its width) and at its brightest point (its alpha squared) is never over the line's
+        /// anywhere along it; and the last dash drawn ends on next to nothing, whichever dash the crawl has just carried
+        /// into the ball. The curve itself falls smoothly to nothing at the ball and the light a unit of the beam carries
+        /// never rises over the line's.
         /// <para>
         /// <b>Seen to fail</b> with the fade left out (the far dashes at full alpha): their light grows with their width.
+        /// And with one alpha a dash, its middle's, under the old fade <c>1 - along³</c>: the last dash drawn kept up to 0.37
+        /// of the line's light on the side-on flight and 0.45 through the overview, and stopped a gap short of the ball.
         /// </para>
         /// </summary>
         [Fact]
-        public void TheFarDashesFadeOutAndNeverGrowBolder()
+        public void TheFarDashesFadeOutByTheBallAndNeverGrowBolder()
         {
+            //A tenth of the line's light at the most, where the last dash's own fade-out begins
+            const float EndBound = 0.1f;
+
             XVector3[] path = [Muzzle, Touch];
-            float total = Total(path);
+            float total = Total(path), cycle = AimBeam.SPACING / AimBeam.CRAWL;
 
-            foreach (float phase in new[] { 0f, 0.3f, 0.6f })
+            float worst = 0f, worstPhase = 0f, worstShort = 0f, mostShort = 0f;
+            int phases = 0;
+            for (float phase = 0f; phase < cycle; phase += 0.001f, phases++)
             {
-                AimBeam.Piece[] pieces = Lay(path, phase, false, true);
+                AimBeam.Piece[] pieces = Lay(path, phase, AimBeam.FarEnd.Landing);
+                NeverBolder(pieces);
 
-                float lastAcross = float.MaxValue, lastPeak = float.MaxValue, lastAlpha = float.MaxValue;
                 AimBeam.Piece final = pieces[^1];
-
-                foreach (AimBeam.Piece p in pieces)
-                {
-                    float across = p.Alpha * p.Alpha * (p.TailWidth + p.HeadWidth) * 0.5f;
-                    float peak = p.Alpha * p.Alpha;
-
-                    Assert.True(across <= AimBeam.WIDTH * 1.0001f && peak <= 1.0001f, $"a dash bolder than the line: {p}");
-                    Assert.True(across <= lastAcross * 1.0001f && peak <= lastPeak * 1.0001f && p.Alpha <= lastAlpha + 1e-6f,
-                        $"a dash bolder than the one before it: {p}");
-
-                    lastAcross = across;
-                    lastPeak = peak;
-                    lastAlpha = p.Alpha;
-                }
-
-                output.WriteLine($"phase {phase}: the last dash ends {total - XVector3.Distance(Muzzle, final.Head):0.00} short of the touch at alpha " +
-                    $"{final.Alpha:0.000} (light {final.Alpha * final.Alpha:0.000} of the line's)");
-                Assert.True(final.Alpha * final.Alpha < 0.35f, $"the last dash still carries {final.Alpha * final.Alpha:0.00} of the line's light");
+                float light = EndLight(final), shortOfTouch = total - XVector3.Distance(Muzzle, final.Head);
+                mostShort = MathF.Max(mostShort, shortOfTouch);
+                if (light > worst) (worst, worstPhase, worstShort) = (light, phase, shortOfTouch);
             }
+
+            output.WriteLine($"side on, over {phases} phases of the crawl's {cycle:0.0000} s cycle: the last dash drawn ends on at most " +
+                $"{worst:0.000} of the line's light (phase {worstPhase:0.000}, its head {worstShort:0.00} short of the touch); " +
+                $"it ends at most {mostShort:0.00} short");
+            Assert.True(worst <= EndBound, $"at phase {worstPhase:0.000} the last dash ends on {worst:0.000} of the line's light, {worstShort:0.00} short of the ball");
+
+            //Over the measured aims through the Game's overview, at eight phases across the cycle
+            List<float> ends = new();
+            foreach (Aim aim in Measure(40))
+            {
+                XVector3 eye = Overview(aim.Path[0]);
+                for (int k = 0; k < 8; k++)
+                {
+                    AimBeam.Piece[] pieces = Lay(aim.Path, k * cycle / 8f, AimBeam.FarEnd.Landing, aim.Hit, eye);
+                    NeverBolder(pieces);
+                    ends.Add(EndLight(pieces[^1]));
+                }
+            }
+
+            output.WriteLine($"through the overview over {ends.Count} aims and phases: the last dash drawn ends on {Percentile(ends, 0.5):0.000} " +
+                $"of the line's light at the median, {Percentile(ends, 0.95):0.000} at the 95th percentile, {Percentile(ends, 1):0.000} at the most");
+            Assert.True(Percentile(ends, 1) <= EndBound, $"through the overview the last dash drawn ends on up to {Percentile(ends, 1):0.000} of the line's light");
 
             //The curve itself, sampled: the light at a dash's core smoothly to nothing at the ball, never back up, and flat
             //where it leaves the plain line
@@ -493,20 +546,40 @@ namespace BS3D.Tests
                 float perUnit = alpha * alpha * AimBeam.FarWidth(along);
                 Assert.True(perUnit <= AimBeam.WIDTH + 1e-5f, $"at {along:0.00} of the far part a unit of the beam carries {perUnit:0.0000}");
             }
+
+            //Piece after piece from the muzzle out, and along each as the shader lerps it
+            static void NeverBolder(AimBeam.Piece[] pieces)
+            {
+                float lastAlpha = float.MaxValue;
+                foreach (AimBeam.Piece p in pieces)
+                {
+                    Assert.True(p.TailAlpha <= lastAlpha + 1e-6f && p.HeadAlpha <= p.TailAlpha + 1e-6f,
+                        $"a dash brighter than the beam before it: {p}");
+                    lastAlpha = p.HeadAlpha;
+
+                    for (int k = 0; k <= 10; k++)
+                    {
+                        float alpha = AlphaAt(p, k / 10f);
+                        Assert.True(alpha * alpha * WidthAt(p, k / 10f) <= AimBeam.WIDTH * 1.0001f && alpha * alpha <= 1.0001f,
+                            $"a dash bolder than the line {k}0 % of the way along it: {p}");
+                    }
+                }
+            }
         }
 
         /// <summary>
         /// <b>The beam stops at the ball it hits: nothing of it lies over that ball or past it, in the world or on screen</b>
         /// (the owner on the fan: "it covers the ball, goes behind it"). For every measured aim, laid for the Game's overview
-        /// and for the lens leaning in half way: no piece reaches past the touch along the flight or comes inside the ball;
-        /// the beam ends where the lens sees it reach the ball's disc (<see cref="AimBeam.VisibleEnd"/>: the sight line there
-        /// grazes the ball), short of the touch from the overview, and no dash is laid past it; and the light it puts anywhere
-        /// over that disc, at the beam's opacity for the lens (<c>1 - blend</c> leaning in), is under a fiftieth of a dash's
-        /// core for 95 % of the aims.
+        /// and for the lens leaning in half way, both as a landing's beam and as a cutter's strike: no piece reaches past the
+        /// touch along the flight or comes inside the ball; the beam ends where the lens sees it reach the ball's disc
+        /// (<see cref="AimBeam.VisibleEnd"/>: the sight line there grazes the ball), short of the touch from the overview, and
+        /// no dash is laid past it; and the light the beam puts anywhere over that disc, at the beam's opacity for the lens
+        /// (<c>1 - blend</c> leaning in), is under a fiftieth of a dash's core for 95 % of the aims: a landing's faded out
+        /// there, and a strike's too, at full strength up to the disc's edge.
         /// <para>
-        /// <b>And the same question must fail where it should</b> (BestPractices.md §10): the plain line, which runs to the
-        /// touch at full strength (a cutter's beam, and the whole beam before #1144), lies over the ball it hits from the
-        /// overview for most aims, and so does the far part run to the touch rather than to the disc.
+        /// <b>And the same question must fail where it should</b> (BestPractices.md §10): the plain line run to the touch
+        /// (a cutter's beam before #1196, and the whole beam before #1144) lies over the ball it hits from the overview for
+        /// most aims, and so does the far part run to the touch rather than to the disc.
         /// </para>
         /// </summary>
         [Fact]
@@ -516,7 +589,8 @@ namespace BS3D.Tests
             Assert.True(aims.Count >= 200, $"only {aims.Count} of 240 aims had a ghost");
 
             const float LeanBlend = 0.57f, Visible = 0.02f;
-            List<float> overview = new(), leaning = new(), plainOverview = new(), toTheTouch = new(), shortOfTouch = new(), gapPx = new();
+            List<float> overview = new(), leaning = new(), strikeOverview = new(), strikeLeaning = new();
+            List<float> plainOverview = new(), toTheTouch = new(), shortOfTouch = new(), gapPx = new();
 
             foreach (Aim aim in aims)
             {
@@ -529,19 +603,25 @@ namespace BS3D.Tests
                 })
                 {
                     Lens lens = Lens.LookingAt(eye, aim.Path[^1]);
-                    AimBeam.Piece[] pieces = Lay(aim.Path, 0.37f, false, aim.Hit, eye);
-
-                    //Laid no further than where the lens sees the beam reach the ball, which is never past the touch
                     float end = AimBeam.VisibleEnd(aim.Path, total, aim.Hit, eye);
                     Assert.True(end <= total, $"the beam reaches the ball at {end:0.000}, past the touch at {total:0.000}");
 
-                    foreach (AimBeam.Piece p in pieces)
-                    {
-                        float reach = AlongPath(aim.Path, p.Head);
-                        Assert.True(reach <= end + 1e-3f, $"a dash reaches {reach - end:0.000} past where the beam meets the ball: {p}");
-                        Assert.True(XVector3.Distance(p.Head, aim.Hit) >= BallsConstraintsBuilder.BALL_RADIUS - 1e-3f,
-                            $"a dash inside the ball it hits: {p}");
-                    }
+                    AimBeam.Piece[] pieces = Lay(aim.Path, 0.37f, AimBeam.FarEnd.Landing, aim.Hit, eye);
+                    AimBeam.Piece[] strike = Lay(aim.Path, 0.37f, AimBeam.FarEnd.Strike, aim.Hit, eye);
+
+                    //Laid no further than where the lens sees the beam reach the ball, which is never past the touch
+                    foreach (AimBeam.Piece[] laid in new[] { pieces, strike })
+                        foreach (AimBeam.Piece p in laid)
+                        {
+                            float reach = AlongPath(aim.Path, p.Head);
+                            Assert.True(reach <= end + 1e-3f, $"a dash reaches {reach - end:0.000} past where the beam meets the ball: {p}");
+                            Assert.True(XVector3.Distance(p.Head, aim.Hit) >= BallsConstraintsBuilder.BALL_RADIUS - 1e-3f,
+                                $"a dash inside the ball it hits: {p}");
+                        }
+
+                    //A strike's is the plain line all the way
+                    Assert.All(strike, p => Assert.True(p.TailWidth == AimBeam.WIDTH && p.HeadWidth == AimBeam.WIDTH
+                        && p.TailAlpha == 1f && p.HeadAlpha == 1f, $"a strike's dash is {p}"));
 
                     //Where the beam ends, the sight line grazes the ball, unless that is the touch itself
                     if (end < total)
@@ -555,35 +635,40 @@ namespace BS3D.Tests
 
                     //Its light goes as the square of the opacity the Game draws it at
                     (fromOverview ? overview : leaning).Add(LightOverBall(pieces, lens, aim.Hit) * opacity * opacity);
+                    (fromOverview ? strikeOverview : strikeLeaning).Add(LightOverBall(strike, lens, aim.Hit) * opacity * opacity);
 
                     if (fromOverview)
                     {
                         shortOfTouch.Add(total - end);
-                        plainOverview.Add(LightOverBall(Lay(aim.Path, 0.37f, false, null, eye), lens, aim.Hit));
 
-                        //The far part run to the touch, as a lens that cannot see the ball's disc would lay it
-                        toTheTouch.Add(LightOverBall(Lay(aim.Path, 0.37f, false, aim.Hit, SideOn(aim.Path)), lens, aim.Hit));
+                        //The plain line and the far part run to the touch, as a lens that cannot see the ball's disc lays them
+                        plainOverview.Add(LightOverBall(Lay(aim.Path, 0.37f, AimBeam.FarEnd.Strike, aim.Hit, SideOn(aim.Path)), lens, aim.Hit));
+                        toTheTouch.Add(LightOverBall(Lay(aim.Path, 0.37f, AimBeam.FarEnd.Landing, aim.Hit, SideOn(aim.Path)), lens, aim.Hit));
 
-                        //How far on screen the last dash with a tenth of the light stops short of the ball's disc
-                        AimBeam.Piece lastVisible = Array.FindLast(pieces, p => p.Alpha * p.Alpha >= 0.1f);
-                        gapPx.Add(((lens.Project(lastVisible.Head) - lens.Project(aim.Hit)).Length()
+                        //How far on screen the line, where its core still carries a tenth of the light, stops short of the ball's disc
+                        XVector3 lastLit = LastLit(pieces, 0.1f).Point;
+                        gapPx.Add(((lens.Project(lastLit) - lens.Project(aim.Hit)).Length()
                             - BallsConstraintsBuilder.BALL_RADIUS / lens.Depth(aim.Hit)) * PixelsPerUnit);
                     }
                 }
             }
 
             output.WriteLine($"from the overview the beam reaches the ball's disc {Percentile(shortOfTouch, 0.5):0.00} short of the touch at the median " +
-                $"({Percentile(shortOfTouch, 0):0.00} to {Percentile(shortOfTouch, 1):0.00}); its last dash with a tenth of the light stops " +
-                $"{Percentile(gapPx, 0.5):0} px short of the disc at a 1080-line frame (95th {Percentile(gapPx, 0.95):0})");
-            output.WriteLine($"the most light over the ball hit, in units of a dash's core: from the overview median {Percentile(overview, 0.5):0.000}, " +
+                $"({Percentile(shortOfTouch, 0):0.00} to {Percentile(shortOfTouch, 1):0.00}); where its core still carries a tenth of the light " +
+                $"it stops {Percentile(gapPx, 0.5):0} px short of the disc at a 1080-line frame (95th {Percentile(gapPx, 0.95):0})");
+            output.WriteLine($"the most light over the ball hit, in units of a dash's core: a landing from the overview median {Percentile(overview, 0.5):0.000}, " +
                 $"95th {Percentile(overview, 0.95):0.000}, most {Percentile(overview, 1):0.000}; leaning in half way median {Percentile(leaning, 0.5):0.000}, " +
-                $"95th {Percentile(leaning, 0.95):0.000}; the plain line from the overview median {Percentile(plainOverview, 0.5):0.000}; " +
+                $"95th {Percentile(leaning, 0.95):0.000}; a strike from the overview median {Percentile(strikeOverview, 0.5):0.000}, " +
+                $"95th {Percentile(strikeOverview, 0.95):0.000}, most {Percentile(strikeOverview, 1):0.000}; leaning in 95th {Percentile(strikeLeaning, 0.95):0.000}; " +
+                $"the plain line run to the touch median {Percentile(plainOverview, 0.5):0.000}; " +
                 $"the far part run to the touch median {Percentile(toTheTouch, 0.5):0.000}, 95th {Percentile(toTheTouch, 0.95):0.000}");
 
             Assert.True(Percentile(overview, 0.95) <= Visible, $"from the overview the beam lays {Percentile(overview, 0.95):0.000} of its light over the ball it hits at the 95th percentile");
             Assert.True(Percentile(leaning, 0.95) <= Visible, $"leaning in the beam lays {Percentile(leaning, 0.95):0.000} of its light over the ball it hits at the 95th percentile");
+            Assert.True(Percentile(strikeOverview, 0.95) <= Visible && Percentile(strikeLeaning, 0.95) <= Visible,
+                $"a strike lays {Percentile(strikeOverview, 0.95):0.000} (overview) and {Percentile(strikeLeaning, 0.95):0.000} (leaning in) of its light over the ball it hits at the 95th percentile");
             Assert.True(Percentile(plainOverview, 0.5) > Visible,
-                $"the plain line lays only {Percentile(plainOverview, 0.5):0.000} of its light over the ball it hits: the question cannot tell");
+                $"the plain line run to the touch lays only {Percentile(plainOverview, 0.5):0.000} of its light over the ball it hits: the question cannot tell");
             Assert.True(Percentile(toTheTouch, 0.95) > Visible,
                 $"the far part run to the touch lays only {Percentile(toTheTouch, 0.95):0.000} over the ball at the 95th percentile: the question cannot tell");
         }
@@ -599,6 +684,59 @@ namespace BS3D.Tests
             }
 
             return path[^1];
+        }
+
+        /// <summary>
+        /// <b>The lens fades the far dashes and does not move them</b>: where a landing's dashes lie and how wide they are is
+        /// the flight's, so a lens that sees the beam reach the ball elsewhere (from the side, from the overview, leaning in)
+        /// lays every dash both of them lay in the same place at the same widths, and only their light differs. So the far
+        /// dashes hold still while the camera leans in or is shaken by a shot.
+        /// <para>
+        /// <b>Seen to fail</b> with the far part laid from where the lens sees the beam reach the ball instead of from the
+        /// touch: the far dashes slide with the lens.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void TheLensFadesTheFarDashesAndDoesNotMoveThem()
+        {
+            foreach (XVector3[] path in new[] { new[] { Muzzle, Touch }, Bent() })
+            {
+                float total = Total(path);
+                XVector3 ball = BallAhead(path);
+                XVector3[] eyes = [SideOn(path), Overview(path[0]), LeaningIn(path, 0.57f)];
+
+                float[] ends = Array.ConvertAll(eyes, eye => AimBeam.VisibleEnd(path, total, ball, eye));
+                output.WriteLine($"the lenses see the beam reach the ball at {string.Join(", ", Array.ConvertAll(ends, e => e.ToString("0.00")))} of {total:0.00}");
+
+                //On the straight flight the overview and the lens leaning in see it well short of the touch (the bent one
+                //turns away from them, and they see it reach the ball nearly at the touch)
+                if (path.Length == 2)
+                    Assert.True(ends[0] - MathF.Max(ends[1], ends[2]) > 1f, "the lenses see the beam reach the ball at the same point: the question cannot tell");
+
+                foreach (float phase in new[] { 0f, 0.3f, 0.6f })
+                {
+                    AimBeam.Piece[] reference = Lay(path, phase, AimBeam.FarEnd.Landing, ball, eyes[0]);
+                    int compared = 0;
+
+                    for (int e = 1; e < eyes.Length; e++)
+                    {
+                        AimBeam.Piece[] pieces = Lay(path, phase, AimBeam.FarEnd.Landing, ball, eyes[e]);
+
+                        //Every piece clear of the shorter beam's end, which clips the last one there
+                        for (int i = 0; i < pieces.Length && AlongPath(path, pieces[i].Head) < ends[e] - 1e-3f; i++)
+                        {
+                            Assert.True(XVector3.Distance(reference[i].Tail, pieces[i].Tail) < 1e-4f
+                                && XVector3.Distance(reference[i].Head, pieces[i].Head) < 1e-4f,
+                                $"lens {e} lays piece {i} elsewhere: {pieces[i]} against {reference[i]}");
+                            Assert.Equal(reference[i].TailWidth, pieces[i].TailWidth, 5);
+                            Assert.Equal(reference[i].HeadWidth, pieces[i].HeadWidth, 5);
+                            if (AlongPath(path, pieces[i].Tail) > AimBeam.FAR_FROM * total) compared++;
+                        }
+                    }
+
+                    Assert.True(compared > 0, "no far dash compared");
+                }
+            }
         }
 
         /// <summary>
@@ -628,10 +766,10 @@ namespace BS3D.Tests
                 Lens lens = Lens.LookingAt(eye, aim.Path[^1]);
                 float end = AimBeam.VisibleEnd(aim.Path, total, aim.Hit, eye);
 
-                AimBeam.Piece[] pieces = Lay(aim.Path, 0.37f, false, aim.Hit, eye);
+                AimBeam.Piece[] pieces = Lay(aim.Path, 0.37f, AimBeam.FarEnd.Landing, aim.Hit, eye);
                 drawn.Add(pieces.Length);
 
-                float least = Squattest(pieces), plain = Squattest(Lay(aim.Path, 0.37f, false, null, eye));
+                float least = Squattest(pieces), plain = Squattest(Lay(aim.Path, 0.37f, AimBeam.FarEnd.Strike, aim.Hit, eye));
                 if (least < float.MaxValue && plain < float.MaxValue)
                 {
                     squattest.Add(least);
@@ -639,12 +777,13 @@ namespace BS3D.Tests
                     againstPlain.Add(least / plain);
                 }
 
-                //The half-light width on screen at the muzzle's first dash, half way and the last visible dash, for the record
+                //The half-light width on screen at the muzzle's first dash, half way and the last dash with a tenth of the
+                //light, for the record
                 muzzlePx.Add(HalfLightPixels(pieces[0], lens));
                 middlePx.Add(HalfLightPixels(Nearest(pieces, aim.Path, 0.5f * total), lens));
-                AimBeam.Piece lastVisible = Array.FindLast(pieces, p => p.Alpha * p.Alpha >= 0.1f);
+                (XVector3 lastLit, AimBeam.Piece lastVisible) = LastLit(pieces, 0.1f);
                 endPx.Add(HalfLightPixels(lastVisible, lens));
-                reach.Add(AlongPath(aim.Path, lastVisible.Head) / total);
+                reach.Add(AlongPath(aim.Path, lastLit) / total);
 
                 //The squattest dash with a tenth of the light over the far part, [FAR_FROM * end, end] of the flight
                 float Squattest(AimBeam.Piece[] laid)
@@ -658,7 +797,7 @@ namespace BS3D.Tests
 
                         float at = AlongPath(aim.Path, middle);
                         if (laid == pieces && at < AimBeam.FAR_FROM * end && at > 0.1f * end) nearAspect.Add(length / width);
-                        if (at >= AimBeam.FAR_FROM * end && at <= end && p.Alpha * p.Alpha >= 0.1f) most = MathF.Min(most, length / width);
+                        if (at >= AimBeam.FAR_FROM * end && at <= end && p.TailAlpha * p.TailAlpha >= 0.1f) most = MathF.Min(most, length / width);
                     }
 
                     return most;
@@ -670,7 +809,7 @@ namespace BS3D.Tests
                 $"median {Percentile(plainSquattest, 0.5):0.00}, 5th percentile {Percentile(plainSquattest, 0.05):0.00}; the beam's over the plain line's " +
                 $"5th percentile {Percentile(againstPlain, 0.05):0.00}, median {Percentile(againstPlain, 0.5):0.00}; the near dashes' median {Percentile(nearAspect, 0.5):0.00}");
             output.WriteLine($"half-light width at a 1080-line frame: the muzzle's dash {Percentile(muzzlePx, 0.5):0.0} px, half way {Percentile(middlePx, 0.5):0.0} px, " +
-                $"the last dash with a tenth of the light {Percentile(endPx, 0.5):0.0} px (at {Percentile(reach, 0.5):0.00} of the flight); " +
+                $"the last dash with a tenth of the light {Percentile(endPx, 0.5):0.0} px (the light falling under a tenth at {Percentile(reach, 0.5):0.00} of the flight); " +
                 $"draws a beam {Percentile(drawn, 0.5):0} at the median ({Percentile(drawn, 0):0} to {Percentile(drawn, 1):0})");
 
             Assert.True(Percentile(squattest, 0.5) >= 1f, $"the median beam's squattest far dash is {Percentile(squattest, 0.5):0.00} as long as wide on screen: rungs");
@@ -695,7 +834,7 @@ namespace BS3D.Tests
         /// <b>Where the ghost stands against the far end</b>, re-measured and reported (#1144): the ghost's centre off the line
         /// through the touch over the aims (held under <see cref="AimBeam.LANDING_SPREAD"/> at the 99th percentile, which is
         /// the constant's own claim), how many of them <see cref="AimBeam.FAR_WIDTH"/> still reaches, and through the overview
-        /// how far on screen the ghost stands from the touch and from the beam's last visible dash.
+        /// how far on screen the ghost stands from the touch and from where the line's core falls under a tenth of the light.
         /// </summary>
         [Fact]
         public void WhereTheGhostStandsAgainstTheFarEnd()
@@ -725,16 +864,15 @@ namespace BS3D.Tests
                 XVector2 ghost = lens.Project(aim.Ghost);
                 fromTouch.Add((ghost - lens.Project(aim.Path[^1])).Length() * PixelsPerUnit);
 
-                AimBeam.Piece lastVisible = Array.FindLast(Lay(aim.Path, 0.37f, false, aim.Hit, Overview(aim.Path[0])),
-                    p => p.Alpha * p.Alpha >= 0.1f);
-                fromEnd.Add((ghost - lens.Project(lastVisible.Head)).Length() * PixelsPerUnit);
+                XVector3 lastLit = LastLit(Lay(aim.Path, 0.37f, AimBeam.FarEnd.Landing, aim.Hit, Overview(aim.Path[0])), 0.1f).Point;
+                fromEnd.Add((ghost - lens.Project(lastLit)).Length() * PixelsPerUnit);
             }
 
             output.WriteLine($"FAR_WIDTH {AimBeam.FAR_WIDTH} reaches the ghost's centre in {reached} of {aims.Count} aims ({100f * reached / aims.Count:0} %) " +
                 $"and some of the ghost in {reachedWithBall} ({100f * reachedWithBall / aims.Count:0} %)");
             output.WriteLine($"the overview sees the far leg {Percentile(angles, 0):0.0} to {Percentile(angles, 1):0.0} degrees off end on, {Percentile(angles, 0.5):0.0} at the median");
             output.WriteLine($"through the overview at a 1080-line frame the ghost stands {Percentile(fromTouch, 0.5):0} px from the touch at the median " +
-                $"(95th {Percentile(fromTouch, 0.95):0}) and {Percentile(fromEnd, 0.5):0} px from the head of the last dash with a tenth of the light (95th {Percentile(fromEnd, 0.95):0})");
+                $"(95th {Percentile(fromTouch, 0.95):0}) and {Percentile(fromEnd, 0.5):0} px from where the line's core falls under a tenth of the light (95th {Percentile(fromEnd, 0.95):0})");
         }
 
         /// <summary>
@@ -749,11 +887,11 @@ namespace BS3D.Tests
             XVector3[] straight = [Muzzle, Touch];
             XVector3[] cut = [Muzzle, OnLine(0.17f), OnLine(0.48f), OnLine(0.62f), OnLine(0.71f), OnLine(0.86f), OnLine(0.93f), Touch];
 
-            AimBeam.Piece[] straightPieces = Lay(straight, 0.3f, false, true);
-            AimBeam.Piece[] cutPieces = Lay(cut, 0.3f, false, true);
+            AimBeam.Piece[] straightPieces = Lay(straight, 0.3f, AimBeam.FarEnd.Landing);
+            AimBeam.Piece[] cutPieces = Lay(cut, 0.3f, AimBeam.FarEnd.Landing);
 
-            //A dash cut at a knot is the same dash in two pieces, end to end: the same two ends, the same alpha, the same width
-            //at either end
+            //A dash cut at a knot is the same dash in two pieces, end to end: the same two ends, and the same width and
+            //alpha at either end, carried on unbroken through the knot
             List<List<AimBeam.Piece>> dashes = new();
             foreach (AimBeam.Piece p in cutPieces)
             {
@@ -770,7 +908,13 @@ namespace BS3D.Tests
                     $"dash {i} lies elsewhere on a flight cut into legs: {whole} against {first} .. {last}");
                 Assert.Equal(whole.TailWidth, first.TailWidth, 4);
                 Assert.Equal(whole.HeadWidth, last.HeadWidth, 4);
-                Assert.All(dashes[i], p => Assert.Equal(whole.Alpha, p.Alpha, 4));
+                Assert.Equal(whole.TailAlpha, first.TailAlpha, 4);
+                Assert.Equal(whole.HeadAlpha, last.HeadAlpha, 4);
+                for (int k = 1; k < dashes[i].Count; k++)
+                {
+                    Assert.Equal(dashes[i][k - 1].HeadWidth, dashes[i][k].TailWidth, 5);
+                    Assert.Equal(dashes[i][k - 1].HeadAlpha, dashes[i][k].TailAlpha, 5);
+                }
             }
 
             //And so, away from a knot (where a piece's own quarter fades fall), the same light on the plain part of the line
@@ -778,14 +922,14 @@ namespace BS3D.Tests
                 if (!NearKnot(f)) Assert.Equal(LightAt(straightPieces, OnLine(f)), LightAt(cutPieces, OnLine(f)), 3);
 
             XVector3[] bent = Bent();
-            float end = AimBeam.VisibleEnd(bent, Total(bent), BallAhead(bent), SideOn(bent));
-            AimBeam.Piece[] bentPieces = Lay(bent, 0.3f, false, true);
+            float flown = Total(bent);
+            AimBeam.Piece[] bentPieces = Lay(bent, 0.3f, AimBeam.FarEnd.Landing);
 
             Assert.Contains(bentPieces, p => p.HeadWidth > AimBeam.WIDTH);
             foreach (AimBeam.Piece p in bentPieces)
             {
                 Assert.True(DistanceToPath(bent, p.Tail) < 1e-3f && DistanceToPath(bent, p.Head) < 1e-3f, $"a piece off a bent flight: {p}");
-                float expected = AimBeam.FarWidth(AimBeam.FarAlong(AlongPath(bent, p.Head), AimBeam.FAR_FROM * end, end));
+                float expected = AimBeam.FarWidth(AimBeam.FarAlong(AlongPath(bent, p.Head), AimBeam.FAR_FROM * flown, flown));
                 Assert.True(MathF.Abs(p.HeadWidth - expected) < 2e-3f,
                     $"a piece of a bent flight {p.HeadWidth:0.000} wide where the distance flown says {expected:0.000}");
             }
@@ -799,8 +943,8 @@ namespace BS3D.Tests
         }
 
         /// <summary>
-        /// <b>A beam that reaches nothing is the fading line it was</b>: no far part (there is no landing to show) whatever
-        /// it is asked, the line's width all the way, nothing laid past its end, and its light dying away towards the tip.
+        /// <b>A beam that reaches nothing is the fading line it was</b>: no far part (there is no landing to show), the line's
+        /// width all the way, one alpha a dash, nothing laid past its end, and its light dying away towards the tip.
         /// <para>
         /// <b>And so is the longest one the Game hands over</b>: a flight bent by a gravity well that reaches nothing is a
         /// knot every step, a hundred units long (<c>ShotPlacement</c>'s flight budget), and it is laid whole, out to its
@@ -829,11 +973,10 @@ namespace BS3D.Tests
 
             void Check(XVector3[] path, float length)
             {
-                AimBeam.Piece[] pieces = Lay(path, 0.2f, true, true);
+                AimBeam.Piece[] pieces = Lay(path, 0.2f, AimBeam.FarEnd.OpenAir);
 
                 Assert.NotEmpty(pieces);
-                Assert.Equal(Lay(path, 0.2f, true, false), pieces);
-                Assert.All(pieces, p => Assert.True(p.TailWidth == AimBeam.WIDTH && p.HeadWidth == AimBeam.WIDTH));
+                Assert.All(pieces, p => Assert.True(p.TailWidth == AimBeam.WIDTH && p.HeadWidth == AimBeam.WIDTH && p.TailAlpha == p.HeadAlpha));
 
                 //Laid out to the end and not past it: the farthest dash's head within a period of it, along the flight
                 float farthest = 0f;
@@ -841,8 +984,8 @@ namespace BS3D.Tests
                 Assert.True(farthest >= length - AimBeam.SPACING - 1e-3f && farthest <= length + 1e-3f,
                     $"an open beam {length:0.0} long is laid out to {farthest:0.0}");
 
-                Assert.True(pieces[^1].Alpha < 0.5f, $"the last dash of an open beam {length:0.0} long is at {pieces[^1].Alpha:0.00}, not dying away");
-                Assert.True(pieces[0].Alpha == 1f);
+                Assert.True(pieces[^1].HeadAlpha < 0.5f, $"the last dash of an open beam {length:0.0} long is at {pieces[^1].HeadAlpha:0.00}, not dying away");
+                Assert.True(pieces[0].TailAlpha == 1f);
             }
         }
 
@@ -857,48 +1000,60 @@ namespace BS3D.Tests
         {
             XVector3 direction = XVector3.Normalize(Touch - Muzzle);
 
-            AimBeam.Piece[] plain = Lay([Muzzle, Touch], 0f, false, true);
+            AimBeam.Piece[] plain = Lay([Muzzle, Touch], 0f, AimBeam.FarEnd.Landing);
             foreach (XVector3[] knotted in new[] { new[] { Muzzle, Touch - direction * 0.0005f, Touch }, new[] { Muzzle, Touch, Touch } })
             {
-                AimBeam.Piece[] pieces = Lay(knotted, 0f, false, true);
+                AimBeam.Piece[] pieces = Lay(knotted, 0f, AimBeam.FarEnd.Landing);
                 Assert.Equal(plain.Length, pieces.Length);
                 for (int i = 0; i < plain.Length; i++)
                 {
                     Assert.True(XVector3.Distance(plain[i].Head, pieces[i].Head) < 1e-3f, $"piece {i} moved: {plain[i]} against {pieces[i]}");
                     Assert.Equal(plain[i].HeadWidth, pieces[i].HeadWidth, 3);
-                    Assert.Equal(plain[i].Alpha, pieces[i].Alpha, 3);
+                    Assert.Equal(plain[i].TailAlpha, pieces[i].TailAlpha, 3);
+                    Assert.Equal(plain[i].HeadAlpha, pieces[i].HeadAlpha, 3);
                 }
             }
 
             XVector3 far = Muzzle + direction * 24f;
             foreach (XVector3[] open in new[] { new[] { Muzzle, far - direction * 0.0005f, far }, new[] { Muzzle, far, far } })
             {
-                AimBeam.Piece[] pieces = Lay(open, 0.2f, true, false);
+                AimBeam.Piece[] pieces = Lay(open, 0.2f, AimBeam.FarEnd.OpenAir);
                 Assert.NotEmpty(pieces);
-                Assert.True(pieces[0].Alpha == 1f && pieces[^1].Alpha < 0.5f,
-                    $"an open beam with a knot at its end runs from {pieces[0].Alpha:0.00} to {pieces[^1].Alpha:0.00}, not the fading line");
+                Assert.True(pieces[0].TailAlpha == 1f && pieces[^1].HeadAlpha < 0.5f,
+                    $"an open beam with a knot at its end runs from {pieces[0].TailAlpha:0.00} to {pieces[^1].HeadAlpha:0.00}, not the fading line");
             }
         }
 
         /// <summary>
-        /// <b>No cell is a plain line ending at the touch</b>, which is what a cutter's beam is (it strikes the ball the
-        /// beam ends on): dashes of the line's width at full light all the way, the period the line's, nothing past the touch,
-        /// and a dash within a period of it.
+        /// <b>A strike is the plain line, stopping at the ball</b>, which is what a cutter's beam is (it strikes the ball the
+        /// beam ends on and has no cell to show): dashes of the line's width at full light all the way, the period the line's,
+        /// a dash within a period of where the lens sees the beam reach the ball and none past it. From the side that is the
+        /// touch; from the overview, short of it, so the line does not run on over the ball it strikes.
         /// </summary>
         [Fact]
-        public void NoCellIsAPlainLineEndingAtTheTouch()
+        public void AStrikeIsThePlainLineStoppingAtTheBall()
         {
-            float total = Total([Muzzle, Touch]);
-            AimBeam.Piece[] pieces = Lay([Muzzle, Touch], 0.5f, false, false);
+            XVector3[] path = [Muzzle, Touch];
+            float total = Total(path);
+            XVector3 ball = BallAhead(path);
 
-            Assert.NotEmpty(pieces);
-            Assert.All(pieces, p => Assert.True(p.TailWidth == AimBeam.WIDTH && p.HeadWidth == AimBeam.WIDTH && p.Alpha == 1f));
-            Assert.All(pieces, p => Assert.True(XVector3.Distance(Muzzle, p.Head) <= total + 1e-3f));
-            Assert.Contains(pieces, p => XVector3.Distance(Muzzle, p.Head) > total - AimBeam.SPACING);
+            foreach (XVector3 eye in new[] { SideOn(path), Overview(Muzzle) })
+            {
+                float end = AimBeam.VisibleEnd(path, total, ball, eye);
+                AimBeam.Piece[] pieces = Lay(path, 0.5f, AimBeam.FarEnd.Strike, ball, eye);
 
-            //The first dash may be clipped at the muzzle; from the second on they stand a period apart
-            for (int i = 2; i < pieces.Length; i++)
-                Assert.Equal(AimBeam.SPACING, XVector3.Distance(pieces[i - 1].Tail, pieces[i].Tail), 3);
+                Assert.NotEmpty(pieces);
+                Assert.All(pieces, p => Assert.True(p.TailWidth == AimBeam.WIDTH && p.HeadWidth == AimBeam.WIDTH && p.TailAlpha == 1f && p.HeadAlpha == 1f));
+                Assert.All(pieces, p => Assert.True(XVector3.Distance(Muzzle, p.Head) <= end + 1e-3f));
+                Assert.Contains(pieces, p => XVector3.Distance(Muzzle, p.Head) > end - AimBeam.SPACING);
+
+                //The first dash may be clipped at the muzzle; from the second on they stand a period apart
+                for (int i = 2; i < pieces.Length; i++)
+                    Assert.Equal(AimBeam.SPACING, XVector3.Distance(pieces[i - 1].Tail, pieces[i].Tail), 3);
+            }
+
+            Assert.Equal(total, AimBeam.VisibleEnd(path, total, ball, SideOn(path)), 3);
+            Assert.True(AimBeam.VisibleEnd(path, total, ball, Overview(Muzzle)) < total - 0.5f, "the overview sees the beam reach the ball at the touch");
         }
     }
 }
