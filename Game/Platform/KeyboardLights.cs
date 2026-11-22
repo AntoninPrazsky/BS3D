@@ -111,8 +111,10 @@ namespace BS3D.Platform
         }
 
         /// <summary>
-        /// Hands the frame's colours over (one a lamp of <see cref="Layout"/>, authored sRGB 0 to 1) to be sent at the device's
-        /// pace. <paramref name="resend"/> sends the whole board even where nothing changed: the window has just come back.
+        /// Hands the frame's colours over (one a lamp of <see cref="Layout"/>, 0 to 1 a channel) to be sent at the device's
+        /// pace, as they are: 8 bits a channel and no gamma (<see cref="ToColour"/>). Most are authored sRGB; the clear's rainbow is
+        /// decoded light (<c>KeyLightModel.Compose</c> says which). <paramref name="resend"/> sends the whole board even where nothing
+        /// changed: the window has just come back.
         /// </summary>
         internal static void Submit(XnaVector3[] lamps, bool resend)
         {

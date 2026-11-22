@@ -156,8 +156,13 @@ namespace BS3D.Lighting
         public static int Bit(LitKey key) => 1 << (int)key;
 
         /// <summary>
-        /// Fills <paramref name="lamps"/> (one colour a lamp of <paramref name="layout"/>, authored sRGB 0 to 1) with what
+        /// Fills <paramref name="lamps"/> (one colour a lamp of <paramref name="layout"/>, 0 to 1 a channel) with what
         /// <paramref name="input"/> asks for. <paramref name="queue"/> holds the magazine's next balls, next first. Allocates nothing.
+        /// <para>
+        /// A lamp holds the value its LED is sent, as it is (<c>KeyboardLights.ToColour</c>: 8 bits a channel, no gamma). Every colour
+        /// but one is authored sRGB handed over unchanged: the loaded round and the queue, the cups, the loss's red, the idle drift and a
+        /// card's white. The clear's rainbow (<see cref="WonRainbow"/>) is the one decoded to light first.
+        /// </para>
         /// </summary>
         public static void Compose(in KeyLightInput input, Vector3[] queue, KeyLightLayout layout, Vector3[] lamps)
         {
@@ -223,9 +228,10 @@ namespace BS3D.Lighting
         /// The banner's colours are sRGB values, which a screen decodes before it lights a pixel. The keyboard is sent its values as they
         /// are (<c>KeyboardLights.ToColour</c>, no gamma), and a key's LED is taken to give light in proportion to them, so the banner's
         /// values sent raw would light every channel of every key at no less than <see cref="NewBestCelebration.LIFT"/> of full: near
-        /// white, which the owner ruled out. Decoded first, the keys give the light the banner gives: HSV saturation 0.63 to 0.72
-        /// round the wheel against the pure spectrum's 1, so each key is a soft colour and none is white. A keyboard that applies a gamma
-        /// of its own would show the keys deeper than the banner, never paler.
+        /// white, which the owner ruled out. Decoded first, the values keep HSV saturation 0.63 to 0.72 round the wheel against the pure
+        /// spectrum's 1: on an LED that lights in proportion, the keys give the light the banner gives, a soft colour and never white.
+        /// A keyboard that applies a gamma of its own would show them deeper than the banner, never paler (at 2.2, saturation 0.89 to
+        /// 0.94, close to the spectrum).
         /// </para>
         /// </summary>
         public static Vector3 WonRainbow(float turn)

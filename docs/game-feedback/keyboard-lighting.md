@@ -30,8 +30,8 @@ Logitech's own LED SDK was the first idea. It needs a DLL shipped under its EULA
 
 **The clear's rainbow is NEW BEST's pastel as light (#1201).** `KeyLightModel.WonRainbow` takes the banner's fill (`NewBestCelebration.Pastel`), decodes it from sRGB to the light a screen gives off for it, and scales its brightest channel to full:
 - The keys are sent values as they are (`ToColour`, 8 bits a channel, no gamma), and an LED is taken to light in proportion to them. The banner's sRGB values sent raw would put every channel at least `LIFT` (0.52) of the way to white: near white, which the owner ruled out.
-- Decoded, they keep HSV saturation 0.63 to 0.72 round the wheel, against the pure spectrum's 1. Each key reads as a soft colour and none as white. `KeyLightModelTests` hold that band (0.55 to 0.8) and the hue within 10° of the spectrum's, so the sweep moves as before.
-- A keyboard that applies a gamma of its own shows the keys deeper than the banner, never paler.
+- Decoded, they keep HSV saturation 0.63 to 0.72 round the wheel, against the pure spectrum's 1. On an LED that lights in proportion to its value, that is the banner's own light: a soft colour on every key and white on none. `KeyLightModelTests` hold that band (0.55 to 0.8), every lamp at `WonRainbow` of its own turn (`X * RAINBOW_SPAN - t * RAINBOW_SPEED`) and the hue within 10° of the spectrum's, so the sweep crosses the board at `RAINBOW_SPEED` in the spectrum's order of colours.
+- A keyboard that applies a gamma of its own shows the keys deeper than the banner, never paler: at a gamma of 2.2, saturation 0.89 to 0.94, close to the pure spectrum.
 
 The ending is the result page's own figures (`ResultPage.Result`), so the keyboard and the page cannot disagree, and a page the `result` argument stages lights it too. Before the page, the record a level that has ended keeps (`GameplayScreen.KeyLightEnding`) stands in: the campaign's finale is in front of the page.
 

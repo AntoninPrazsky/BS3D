@@ -143,10 +143,18 @@ namespace BS3D.Tests
         [Fact]
         public void A_clears_rainbow_is_pastel_and_every_key_still_a_colour()
         {
-            //Every lamp at every moment of the sweep, before the cup's colour starts to take over
+            //Every lamp at every moment of the sweep, before the cup's colour starts to take over: WonRainbow at the lamp's own turn,
+            //its place across the board less the distance the sweep has run
+            KeyLightLayout board = Board();
             for (float t = 0f; t < KeyLightModel.RAINBOW_SECONDS; t += 0.05f)
-                foreach (Vector3 c in Compose(new KeyLightInput { Mode = KeyLightMode.Won, Stars = 2, ModeSeconds = t }))
-                    Assert.InRange(Saturation(c), PASTEL_LOWEST, PASTEL_HIGHEST);
+            {
+                Vector3[] lamps = Compose(new KeyLightInput { Mode = KeyLightMode.Won, Stars = 2, ModeSeconds = t });
+                for (int i = 0; i < lamps.Length; i++)
+                {
+                    Assert.InRange(Saturation(lamps[i]), PASTEL_LOWEST, PASTEL_HIGHEST);
+                    Near(KeyLightModel.WonRainbow(board.X[i] * KeyLightModel.RAINBOW_SPAN - t * KeyLightModel.RAINBOW_SPEED), lamps[i]);
+                }
+            }
 
             //And the whole wheel, finer than any board's lamps sample it: the hue where the spectrum had it, so the sweep moves as it did
             for (int i = 0; i < 720; i++)
@@ -164,11 +172,15 @@ namespace BS3D.Tests
         [Fact]
         public void A_clears_rainbow_gives_the_light_the_new_best_banner_does()
         {
-            //The banner's sRGB fill as a screen lights it, scaled to full: the keys are sent that light, channel for channel
+            //The banner's sRGB fill as a screen lights it (the sRGB standard's decode, written out here rather than taken from the
+            //renderer's helper), scaled to full: the keys are sent that light, channel for channel
+            static float Light(float srgb) => srgb <= 0.04045f ? srgb / 12.92f : MathF.Pow((srgb + 0.055f) / 1.055f, 2.4f);
+
             for (int i = 0; i < 360; i++)
             {
                 float turn = i / 360f;
-                Vector3 banner = Prazsky.Core.Tools.ColorSpace.SrgbToLinear(NewBestCelebration.Pastel(turn));
+                Vector3 fill = NewBestCelebration.Pastel(turn);
+                Vector3 banner = new(Light(fill.X), Light(fill.Y), Light(fill.Z));
                 Near(banner / MathF.Max(banner.X, MathF.Max(banner.Y, banner.Z)), KeyLightModel.WonRainbow(turn));
             }
         }
