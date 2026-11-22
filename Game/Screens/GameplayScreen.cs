@@ -852,8 +852,8 @@ namespace BS3D.Screens
         /// <summary>
         /// Seconds left of <see cref="LevelPhase.ClearedBeat"/>, the pause between the field emptying and the
         /// level actually ending. Data of that phase and nothing else: armed on entering it, counted down while it
-        /// lasts and not while a camera takeover holds it, and read by nobody as a flag — the phase says whether
-        /// the level is still being played.
+        /// lasts and not while a camera takeover is playing out (<see cref="ClearedBeatCountdown.Waits"/>), and read by
+        /// nobody as a flag — the phase says whether the level is still being played.
         /// <para>
         /// The pause is the point. Balls leave the map at <b>release</b> time, while their bodies are still
         /// falling: ending the level the instant the last group is cut would take the collapse the player just
@@ -1129,7 +1129,9 @@ namespace BS3D.Screens
         /// go of it". At most one is ever engaged at once: the intro blocks the very shot the drop cinematic needs to begin,
         /// <see cref="BuildLevel"/> resets every one before a new level's own intro could start, the loss and the volley belong
         /// to two different endings, and the volley begins only once the drop cinematic has let go. Asking them all costs
-        /// nothing and needs no further flag to say which one is live.
+        /// nothing and needs no further flag to say which one is live. The volley holds the lens beside the gun past its count
+        /// (#1198), so this stays true through the rest of a clear's beat: the gun does not answer under that lens either, and
+        /// a skip finds nothing left to skip.
         /// </summary>
         private bool CameraTakeoverEngaged => _cinematic.Engaged || _chapterIntro.Engaged || _lineLoss.Engaged || _spareVolley.Engaged;
 
@@ -1848,7 +1850,11 @@ namespace BS3D.Screens
             //The readouts of playing fade from the beat's first frame (#862), a drop cinematic's or not
             if (_phase == LevelPhase.ClearedBeat) _clearedElapsed += elapsed;
 
-            if (_phase == LevelPhase.ClearedBeat && !CameraTakeoverEngaged)
+            //Frozen under a drop cinematic and the volley's count, not under the volley's held lens (#1198): the rest of the beat
+            //runs beside the gun, and the result page eases out from there. ⚠ Not CameraTakeoverEngaged, which the held lens
+            //keeps true: the countdown would never end (ClearedBeatCountdown, held by SpareVolleyTests)
+            if (_phase == LevelPhase.ClearedBeat
+                && !ClearedBeatCountdown.Waits(_cinematic.Engaged, _chapterIntro.Engaged, _lineLoss.Engaged, _spareVolley))
             {
                 _clearedCountdown -= elapsed;
                 if (_clearedCountdown <= 0f) FinishLevel();

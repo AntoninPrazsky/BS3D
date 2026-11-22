@@ -976,6 +976,7 @@ namespace BS3D
             _startupScene = launch.Scene;
             _startupSkyDome = launch.SkyDome;
             _logFrameRate = launch.LogFrameRate;
+            _logLens = launch.LogLens;
 
             //Any of these is the player's decision and settles the question for good: a named tier, a named
             //factor, or Auto quality turned off in Settings (#390) — which has to win even when no tier was ever
@@ -2340,6 +2341,9 @@ namespace BS3D
 
             _screens.Update(gameTime);
 
+            //The camera's pose as the stack left it, when asked (#1198): after every screen that may write it this frame
+            if (_logLens) LogLens();
+
             //The pad's own decay, and the one write to its motors a frame (#378, #188). Play's rumble belongs to play:
             //the frame a pause goes up or the level is left, whatever play started is silenced on the spot rather than
             //left to decay under a menu. The result page counts as play on purpose: it covers the gameplay screen without
@@ -2577,6 +2581,10 @@ namespace BS3D
         //which part of the fixed per-frame cost is the expensive one, and that question cannot be answered
         //without a number a script can read.
         private readonly bool _logFrameRate;
+
+        //"loglens" (#1198): the camera's pose once a frame, LogLens
+        private readonly bool _logLens;
+
         private float _fpsWindow;
         private int _fpsFrames;
 
@@ -2585,6 +2593,21 @@ namespace BS3D
         //steps ran from 10 to 16 ms round it. Double, because the variance is the small difference of two large sums.
         private double _paceSumSquares;
         private float _paceMin = float.MaxValue, _paceMax;
+
+        /// <summary>
+        /// The <c>loglens</c> line (#1198), once a frame and only on request: the wall clock, the screen on top of the stack, and
+        /// the camera's base pose (no shake in it) and field of view as the stack's update left them. The session's lens and the
+        /// result page's release write the same camera in turn, so a hand-over between the two is read off consecutive lines.
+        /// </summary>
+        private void LogLens()
+        {
+            Vector3 position = _camera.BasePosition, target = _camera.BaseTarget;
+
+            Console.WriteLine(FormattableString.Invariant(
+                $"[lens] t {_wallClock:F3} {ActiveScreenName} pos {position.X:F3},{position.Y:F3},{position.Z:F3}")
+                + FormattableString.Invariant(
+                $" target {target.X:F3},{target.Y:F3},{target.Z:F3} fov {MathHelper.ToDegrees(_camera.FieldOfView):F2}"));
+        }
 
         /// <summary>
         /// Writes one line a second: the frame rate and every setting that changes what it means, so two runs —

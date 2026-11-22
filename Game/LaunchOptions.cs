@@ -164,6 +164,10 @@ namespace BS3D
         //end sit in the frame, once a frame
         internal bool LogTilt { get; private set; }
 
+        //Testing only (#1198): log the camera's pose once a frame, whichever screen wrote it: the play lens, a takeover, or the
+        //result page's release onto the menu's orbit
+        internal bool LogLens { get; private set; }
+
         //Trying a slower shot (#1007): the speed a shot leaves the barrel at, in units a second, for the gun and the aim's
         //preview alike, or null for the shipped one (GameplayScreen.SHOOT_SPEED)
         internal float? ShotSpeed { get; private set; }
@@ -715,6 +719,9 @@ namespace BS3D
             //"logtilt" prints the overview lens's tilt with the aim every frame (#720): a press or a release of precise aim
             //is shown not to move the pose by consecutive lines, which no screenshot schedule can give.
             Row.Flag("logtilt", o => o.LogTilt = true),
+            //"loglens" prints the camera's pose once a frame after the stack has updated (#1198): a lens path that crosses from
+            //one screen to another (a clear's volley into the result page's release) is read off consecutive lines
+            Row.Flag("loglens", o => o.LogLens = true),
             //"shotspeed=<units/s>" fires every shot, and solves every preview, at that speed (#1007): the owner's question
             //of what a slower shot would do, asked in play. 30 to 400; the shipped speed is 200, and the benchmark keeps it.
             Row.Float("shotspeed", (o, v) => o.ShotSpeed = v, v => v >= 30f && v <= 400f),

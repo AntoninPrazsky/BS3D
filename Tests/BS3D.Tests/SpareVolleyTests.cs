@@ -1,21 +1,45 @@
 using BS3D.Effects;
+using BS3D.Screens;
 using Microsoft.Xna.Framework;
+using System;
 using Xunit;
 
 namespace BS3D.Tests
 {
     /// <summary>
     /// The unused balls fired off and counted (#881): every ball leaves once, the count climbs with them to exactly the bonus,
-    /// a skip lands on the same figure, a whole budget is fired within the cap, and the lens is let go after the last.
+    /// a skip lands on the same figure, a whole budget is fired within the cap, and the count is done after the last. And the
+    /// lens is not let go when it is (#1198): it stays beside the gun, where the result page takes it from, and never comes
+    /// back over the play pose in between.
     /// </summary>
     public class SpareVolleyTests
     {
+        //The play lens the volley takes the frame from, standing still: what GameplayScreen.UpdateCamera lerps the volley's pose over
+        private static readonly Vector3 PLAY_EYE = new(0f, 3f, 12f);
+        private static readonly Vector3 PLAY_TARGET = new(0f, 2f, -10f);
+
+        //Longer than anything the cleared beat waits after the count (GameplayScreen's AFTER_VOLLEY_BEAT) before the result page
+        private const float AFTER_COUNT_CHECKED = 5f;
+
+        private const float STEP = 1f / 144f;
+
         private static SpareVolley Begun(int balls, int bonus)
         {
             var volley = new SpareVolley();
             volley.Begin(balls, bonus, Vector3.Zero, new Vector3(0f, 1f, -2f), Vector3.Normalize(new Vector3(0f, 0.3f, -1f)),
-                new Vector3(0f, 3f, 12f), new Vector3(0f, 2f, -10f), MathHelper.ToRadians(55f));
+                PLAY_EYE, PLAY_TARGET, MathHelper.ToRadians(55f));
             return volley;
+        }
+
+        /// <summary>The pose the camera is given: the play pose with the volley's lerped over it by its blend, as the screen composes it.</summary>
+        private static Vector3 Composed(SpareVolley volley) => Vector3.Lerp(PLAY_EYE, volley.Position, volley.Blend);
+
+        /// <summary>Where the lens stands beside the gun once it has arrived, read off a volley left to arrive.</summary>
+        private static Vector3 SidePose()
+        {
+            SpareVolley volley = Begun(29, 1624);
+            volley.Update(SpareVolley.LEAD_IN + 0.01f);
+            return volley.Position;
         }
 
         [Theory]
@@ -29,18 +53,18 @@ namespace BS3D.Tests
             SpareVolley volley = Begun(balls, bonus);
             int fired = 0, lastCount = 0;
             float t = 0f;
-            while (volley.Engaged && t < 20f)
+            while (volley.Running && t < 20f)
             {
-                fired += volley.Update(1f / 144f);
-                t += 1f / 144f;
+                fired += volley.Update(STEP);
+                t += STEP;
                 Assert.True(volley.Counted >= lastCount, "the count went down");
                 lastCount = volley.Counted;
             }
 
             Assert.Equal(balls, fired);
             Assert.Equal(bonus, volley.Counted);
-            Assert.False(volley.Engaged);
-            Assert.True(t <= SpareVolley.Duration(balls) + 0.5f + 0.01f, $"held {t:0.00} s");
+            Assert.False(volley.Running);
+            Assert.True(t <= SpareVolley.Duration(balls) + 0.01f, $"counted for {t:0.00} s");
         }
 
         [Fact]
@@ -53,7 +77,7 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void ASkipLandsOnTheSameFigureAndLetsTheLensGo()
+        public void ASkipLandsOnTheSameFigureAndKeepsTheLens()
         {
             SpareVolley volley = Begun(29, 1624);
             int fired = 0;
@@ -66,11 +90,15 @@ namespace BS3D.Tests
             Assert.False(volley.Running);
             Assert.False(volley.TrySkip());
 
-            //No more leave after it, and the lens goes back
+            //No more leave after it, and the lens stays beside the gun for the result page to take (#1198)
             int after = 0;
             for (int i = 0; i < 120; i++) after += volley.Update(1f / 60f);
             Assert.Equal(0, after);
-            Assert.False(volley.Engaged);
+            Assert.True(volley.Engaged, "a skip let the lens go");
+            Assert.Equal(1f, volley.Blend);
+
+            //And the cleared beat's countdown runs on under that lens, or the result page would never come
+            Assert.False(ClearedBeatCountdown.Waits(false, false, false, volley), "the held lens stopped the beat's countdown");
         }
 
         [Fact]
@@ -92,6 +120,157 @@ namespace BS3D.Tests
             Assert.Equal(1568, SpareVolley.CountAt(28, 29, 1624));
             Assert.Equal(1624, SpareVolley.CountAt(29, 29, 1624));
             Assert.Equal(0, SpareVolley.CountAt(0, 0, 0));
+        }
+
+        /// <summary>
+        /// #1198, the owner: the camera looked at the gun from the side through the volley, then returned part way to the play
+        /// pose and drove away again for the result page. From the volley's first frame to long after its count the lens moves
+        /// only away from the play pose (out to the gun's side, then held there), it never jumps, and it ends beside the gun,
+        /// where the result page captures it.
+        /// </summary>
+        [Theory]
+        [InlineData(1)]
+        [InlineData(5)]
+        [InlineData(30)]
+        [InlineData(90)]
+        public void TheLensNeverComesBackTowardsThePlayPose(int balls)
+        {
+            SpareVolley volley = Begun(balls, balls * 15);
+            Vector3 side = SidePose();
+            float farthest = 0f, end = SpareVolley.Duration(balls) + AFTER_COUNT_CHECKED;
+            Vector3 previous = Composed(volley);
+
+            for (float t = STEP; t <= end; t += STEP)
+            {
+                volley.Update(STEP);
+                Vector3 lens = Composed(volley);
+                float away = Vector3.Distance(lens, PLAY_EYE);
+
+                Assert.True(away >= farthest - 1e-4f, $"at {t:0.000} s the lens came {farthest - away:0.000} back towards the play pose");
+                //The arrival's own peak is about 0.5 a step here (its two smoothsteps over 11 units at 144 a second): a jump is a snap
+                Assert.True(Vector3.Distance(lens, previous) < 1f, $"at {t:0.000} s the lens jumped {Vector3.Distance(lens, previous):0.000}");
+
+                farthest = MathF.Max(farthest, away);
+                previous = lens;
+            }
+
+            Assert.False(volley.Running);
+            Assert.Equal(1f, volley.Blend);
+            Assert.True(Vector3.Distance(Composed(volley), side) < 1e-3f, $"the lens ended {Vector3.Distance(Composed(volley), side):0.000} off the gun's side");
+        }
+
+        /// <summary>
+        /// A skip taken while the lens is still arriving (<see cref="SpareVolley.SKIP_LOCKOUT"/> is under <see cref="SpareVolley.LEAD_IN"/>)
+        /// lets the lens finish its arrival beside the gun and stay there (#1198): it used to turn round where it was and go back.
+        /// </summary>
+        [Fact]
+        public void ASkipWhileTheLensArrivesGoesOnToTheGunsSide()
+        {
+            SpareVolley volley = Begun(29, 1624);
+            Vector3 side = SidePose();
+            float farthest = 0f, t = 0f;
+
+            while (t < SpareVolley.SKIP_LOCKOUT)
+            {
+                volley.Update(STEP);
+                t += STEP;
+                farthest = MathF.Max(farthest, Vector3.Distance(Composed(volley), PLAY_EYE));
+            }
+
+            Assert.True(volley.Blend < 1f, "the skip was meant to land while the lens is still arriving");
+            Assert.True(volley.TrySkip());
+
+            for (; t < SpareVolley.LEAD_IN + AFTER_COUNT_CHECKED; t += STEP)
+            {
+                volley.Update(STEP);
+                float away = Vector3.Distance(Composed(volley), PLAY_EYE);
+                Assert.True(away >= farthest - 1e-4f, $"at {t:0.000} s the lens came {farthest - away:0.000} back towards the play pose");
+                farthest = MathF.Max(farthest, away);
+            }
+
+            Assert.Equal(1f, volley.Blend);
+            Assert.True(Vector3.Distance(Composed(volley), side) < 1e-3f);
+        }
+
+        /// <summary>
+        /// The count is what the cleared beat waits for, and it ends on schedule; the lens outlasts it, held until a new level's
+        /// <see cref="SpareVolley.Reset"/> (#1198). So the screen's countdown runs on <see cref="SpareVolley.Running"/>, with the
+        /// lens still beside the gun, and the gun still not answering while it is (<see cref="SpareVolley.Engaged"/>).
+        /// </summary>
+        [Fact]
+        public void TheCountEndsOnScheduleAndTheLensIsHeldUntilReset()
+        {
+            SpareVolley volley = Begun(7, 1120);
+            float t = 0f;
+            while (volley.Running && t < 20f)
+            {
+                volley.Update(STEP);
+                t += STEP;
+            }
+
+            Assert.InRange(t, SpareVolley.Duration(7) - STEP, SpareVolley.Duration(7) + STEP);
+
+            for (float held = 0f; held < AFTER_COUNT_CHECKED; held += STEP)
+            {
+                volley.Update(STEP);
+                Assert.False(volley.Running);
+                Assert.True(volley.Engaged, $"the lens was let go {held:0.00} s after the count");
+            }
+
+            volley.Reset();
+            Assert.False(volley.Engaged);
+            Assert.Equal(0f, volley.Blend);
+            Assert.Equal(0, volley.Update(STEP));
+            Assert.Equal(0f, volley.Blend);
+        }
+
+        /// <summary>
+        /// The screen's half of #1198 (<see cref="ClearedBeatCountdown"/>): the beat after the count runs down under the held
+        /// lens, frame by frame as <c>GameplayScreen</c> runs it, and ends on schedule with the lens still beside the gun. A
+        /// countdown that waited for the lens, as it waited for <see cref="SpareVolley.Engaged"/> before, would never end, and
+        /// every clear with unused balls would be left without its result page.
+        /// </summary>
+        [Theory]
+        [InlineData(1)]
+        [InlineData(29)]
+        [InlineData(90)]
+        public void TheBeatsCountdownRunsDownUnderTheHeldLens(int balls)
+        {
+            //Any beat will do; the screen's is its AFTER_VOLLEY_BEAT, which the count cuts the countdown to
+            const float beat = 1.6f;
+
+            SpareVolley volley = Begun(balls, balls * 15);
+            float countdown = beat, t = 0f;
+            while (countdown > 0f && t < 30f)
+            {
+                volley.Update(STEP);
+                t += STEP;
+                if (!ClearedBeatCountdown.Waits(false, false, false, volley)) countdown -= STEP;
+            }
+
+            Assert.True(countdown <= 0f, $"the countdown was still at {countdown:0.00} s after {t:0.0} s: no result page");
+            Assert.InRange(t, SpareVolley.Duration(balls) + beat - 2f * STEP, SpareVolley.Duration(balls) + beat + 2f * STEP);
+            Assert.True(volley.Engaged, "the lens was let go before the page could take it");
+            Assert.Equal(1f, volley.Blend);
+        }
+
+        /// <summary>
+        /// What does hold the beat (<see cref="ClearedBeatCountdown"/>): a drop cinematic, a chapter intro, the line loss, and
+        /// the volley while it counts.
+        /// </summary>
+        [Fact]
+        public void TheCountAndEveryOtherTakeoverHoldTheBeat()
+        {
+            var idle = new SpareVolley();
+            Assert.False(ClearedBeatCountdown.Waits(false, false, false, idle));
+            Assert.True(ClearedBeatCountdown.Waits(true, false, false, idle));
+            Assert.True(ClearedBeatCountdown.Waits(false, true, false, idle));
+            Assert.True(ClearedBeatCountdown.Waits(false, false, true, idle));
+
+            SpareVolley counting = Begun(29, 1624);
+            counting.Update(STEP);
+            Assert.True(counting.Running);
+            Assert.True(ClearedBeatCountdown.Waits(false, false, false, counting), "the beat ran down while the balls were counted");
         }
     }
 }

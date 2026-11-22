@@ -94,6 +94,8 @@
     <Compile Include="..\..\Game\Screens\BenchmarkVerdict.cs" />
     <Compile Include="..\..\Game\Screens\FrameProbe.cs" />
     <Compile Include="..\..\Game\Effects\SpareVolley.cs" />
+    <!--What the cleared beat's countdown waits for (#1198): a rule over three flags and the volley, no device.-->
+    <Compile Include="..\..\Game\Screens\ClearedBeatCountdown.cs" />
     <Compile Include="..\..\Game\Effects\BenchmarkDemo.cs" />
     <Compile Include="..\..\Game\Screens\PhysicsBench.cs" />
     <Compile Include="..\..\Game\Screens\PhysicsWarmup.cs" />

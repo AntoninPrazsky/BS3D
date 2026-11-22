@@ -1364,11 +1364,11 @@ namespace BS3D.Screens
 
             if (next != LevelPhase.Over) return;
 
-            //Leaving the line's hold for its page: the flight is released first, so the blend back towards the
-            //player's pose is already running when the result page takes the camera from it — the page eases from
-            //wherever the lens stands, and a lens still pinned at the crossing point would make that ease start
-            //from a pose nothing else knows about. (A Retry out of the hold, from the pause page, needs nothing:
-            //TearDown has already reset the flight.)
+            //Leaving the line's hold for its page: the flight is released, so it blends back whenever the session's own
+            //frame steps it again. Not under the page: this frame's camera still composes it at its full blend and
+            //UpdateUnderResult steps no flight, so the page takes the camera from the view held at the crossing and eases
+            //out from there (LineLossCinematic: nothing is spent flying back out). (A Retry out of the hold, from the
+            //pause page, needs nothing: TearDown has already reset the flight.)
             if (previous == LevelPhase.LossHold) _lineLoss.Release();
 
             ShowResultScreen();
