@@ -39,7 +39,14 @@ namespace BS3D.Tests
         private const float MAX_PITCH_RATE = 80f;
         private const float MAX_ROLL_DEGREES = 8f;
         private const float MAX_LANDING_SPEED = 8f;
-        private const float MIN_SECONDS = 4.5f, MAX_SECONDS = 13f;
+        private const float MIN_SECONDS = 4.5f, MAX_SECONDS = 14.5f;
+
+        //The fly-by down the brook and past the willows (#1188): at least this long from the shot's first frame to the pond's
+        //middle (1.8 to 2.3 s at the level's own pose before #1188), and past each willow at no more than this, on the shot's
+        //eased clock: the trees' 14 u/s went past them at 14.6 to 15.2 over 24 layouts, the brook's 20 at 20.4 to 21.2 over five.
+        //A figure of its own, not MeadowLanding.TREES_SPEED's: a limit read off the constant moves with it.
+        private const float LOW_SECONDS = 3f;
+        private const float TREES_PACE = 17f;
 
         //How finely the shot is walked, and how far from everything every pose must stay (the builder keeps 1.5 at its points;
         //the lens runs a spline through them)
@@ -123,8 +130,11 @@ namespace BS3D.Tests
                 shot.Pose(0f, out Vector3 first, out _);
                 Assert.True(MathF.Abs(MeadowPath.BrookLateral(first.X, first.Z, config)) < 0.5f, $"{where}: opens off the brook's line");
                 Assert.InRange(first.Y - TerrainMirror.MeadowGround(first.X, first.Z, config), MeadowLanding.BROOK_ABOVE - 0.1f, MeadowLanding.BROOK_ABOVE + 0.1f);
-                //(a run of at least 28 up the brook from the pond's middle, which is about 11 inside its shore)
-                Assert.True(MeadowPath.PondShore(first.X, first.Z, config) > 14f, $"{where}: opens too near the pond");
+                //(a run of at least 46 up the brook from the pond's middle, which is about 11 inside its shore, since #1188: the
+                //28 it had before opened a few units short of the willows; and no farther up than the reeds and the stones line it)
+                Assert.True(MeadowPath.PondShore(first.X, first.Z, config) > 30f, $"{where}: opens too near the pond");
+                Assert.True(new Vector2(first.X, first.Z).Length() <= MeadowCarve.BROOK_CARVE_FADE,
+                    $"{where}: opens {new Vector2(first.X, first.Z).Length():F1} out, past the reeds' stretch of the brook");
 
                 //And passes over the pond's water, well inside its shore
                 float deepest = float.MaxValue;
@@ -135,6 +145,61 @@ namespace BS3D.Tests
                 }
                 Assert.True(deepest < -config.PondRadius * 0.5f, $"{where}: the lens comes no further over the pond than {deepest:F1} inside its shore");
             }
+        }
+
+        /// <summary>
+        /// The fly-by down the brook and between the willows at its mouth is the long part of the shot (#1188, the owner:
+        /// "shorten the shots on the hay rolls and on the bench, and lengthen the fly-by round the trees and over the brook"):
+        /// the lens is low on the brook and among the willows for at least <see cref="LOW_SECONDS"/> from the shot's first
+        /// frame to the pond's middle, and goes past each willow at the trees' pace (<see cref="MeadowLanding.TREES_SPEED"/>),
+        /// under <see cref="TREES_PACE"/>, which the brook's own pace is not.
+        /// </summary>
+        [Fact]
+        public void The_fly_by_down_the_brook_and_between_the_willows_is_long_and_slow_past_the_trees()
+        {
+            var flights = new List<(string Where, MeadowIntroShotsTests.Planting Planting, IntroShot Shot)>();
+            foreach (var (layout, bearing, radius, planting, shot) in Sweep.Value)
+                if (shot != null) flights.Add(($"layout {layout}, bearing {bearing}, radius {radius}", planting, shot));
+            for (int layout = 1; layout <= 24; layout++)
+            {
+                MeadowIntroShotsTests.Planting planting = MeadowIntroShotsTests.Plant(layout);
+                flights.Add(($"layout {layout} at the level's pose", planting, Home(planting, MeadowIntroShotsTests.GamePosition, layout)));
+            }
+
+            float shortest = float.MaxValue;
+            foreach (var (where, planting, shot) in flights)
+            {
+                MeadowSceneConfig config = planting.Config;
+
+                //The willows: the planting stands them WILLOW_FROM_SHORE (3.5) out of the pond, and every other tree farther
+                var willows = new List<PlantFigure>(planting.Figures.Trees).FindAll(tree => MeadowPath.PondShore(tree.Root.X, tree.Root.Z, config) < 6f);
+                Assert.Equal(2, willows.Count);
+
+                var poses = new Vector3[POSES + 1];
+                for (int i = 0; i <= POSES; i++) shot.Pose(i / (float)POSES, out poses[i], out _);
+
+                int middle = 0;
+                for (int i = 1; i <= POSES; i++)
+                    if (MeadowPath.PondShore(poses[i].X, poses[i].Z, config) < MeadowPath.PondShore(poses[middle].X, poses[middle].Z, config)) middle = i;
+
+                float low = middle / (float)POSES * shot.Seconds;
+                shortest = MathF.Min(shortest, low);
+                Assert.True(low >= LOW_SECONDS, $"{where}: over the pond's middle {low:F2} s into the shot");
+
+                foreach (PlantFigure willow in willows)
+                {
+                    Vector2 trunk = new(willow.Root.X, willow.Root.Z);
+                    int nearest = 1;
+                    for (int i = 1; i < middle; i++)
+                        if (Vector2.DistanceSquared(new Vector2(poses[i].X, poses[i].Z), trunk) < Vector2.DistanceSquared(new Vector2(poses[nearest].X, poses[nearest].Z), trunk))
+                            nearest = i;
+
+                    float speed = Vector3.Distance(poses[nearest + 1], poses[nearest - 1]) / (2f * shot.Seconds / POSES);
+                    Assert.True(speed <= TREES_PACE, $"{where}: past the willow at {trunk} at {speed:F1} u/s, the trees' pace at most {TREES_PACE}");
+                }
+            }
+
+            Assert.True(shortest < float.MaxValue, "no flight home was walked");
         }
 
         [Fact]

@@ -9,7 +9,8 @@ namespace BS3D.Effects
     /// The meadow's own shots for a chapter intro's prologue (#559, #609, #893, #1107): the valley from a hilltop, then a
     /// slow arc round a group of hay bales, then along the footpath beside its fence to the old oak on its knoll, then a
     /// slow arc round the bench under that oak, and last <b>the brook home</b> (<see cref="MeadowLanding"/>): down the brook
-    /// at the height of its reeds, across the pond it runs into and round the island onto the gameplay pose itself, so no
+    /// at the height of its reeds, between the willows at its mouth, across the pond it runs into and round the island onto
+    /// the gameplay pose itself, so no
     /// tour leg and no cut follow. Where no flight home is clear, the brook is the old run to the pond, third, and the reel
     /// cuts to the tour's last leg after the bench. The meadow opens the whole campaign, so this is the first thing the game
     /// shows a new player after its menu.
@@ -37,8 +38,9 @@ namespace BS3D.Effects
     /// the owner's playtest: "a detailed low-angle shot of the bench under the tree and of the cylindrical hay bales — the
     /// camera moves in a half circle very slowly and is close to the objects"). Each is <see cref="IntroGround.Arc"/> of
     /// <see cref="ORBIT_TURN"/> round the subject, 0.7 rising to 1.1 over the ground (the owner's note says 0.6 to 1.5),
-    /// <see cref="ORBIT_SECONDS"/> long, the lens held on the subject's middle. A half circle each until #1107, where the owner
-    /// found both close-ups too long and asked for the time to go to flights: the arc is shorter, the pace round it the same. The radius is the subject's own figure and
+    /// <see cref="ORBIT_SECONDS"/> long, the lens held on the subject's middle. A half circle each until #1107 and 108 degrees
+    /// until #1188, where the owner twice found both close-ups too long and asked for the time to go to the flight down the
+    /// brook and past the trees: the arc is shorter, the pace round it the same. The radius is the subject's own figure and
     /// nothing written here — the bench and the bales were resized once each (#891, #864) and will be again — searched out
     /// from the figure's sphere until the whole subject is in frame, so it follows them. ⚠ <b>The lens keeps off the
     /// old trees by their STEM, not their crown</b> (<see cref="MeadowFigures.Trees"/>): the oak's crown sphere is its
@@ -74,17 +76,19 @@ namespace BS3D.Effects
         private const float PATH_TREE_LOOK_UP = 7f;         //the point on the tree the lens holds: the trunk under the crown
         private const float PATH_SECONDS = 3.2f;
 
-        //The two orbits (#893): this far round the subject, this long. The pace is the owner's "very slowly", and since #945
-        //"a little more slowly" still: 32 degrees a second round the subject (39 before #945). Since #1107 ("the close-ups of the
-        //hay bales and the bench are too long; I would rather spend the time on animated fly-throughs") each goes 108 degrees
-        //round at that pace where it went 180. The brook home that ends the reel since (8-9 s) flies about a second longer than
-        //the brook and the tour's last leg did (7.7), so most of the 4.4 s the two gave up shortened the intro. The lens stands
-        //this high over the ground under it, rising a little: a low angle, looking up at the subject. Over 48 layouts the
-        //bales' mean radius was 10.2 with the lens at 0.7 to 1.1 and 10.3 at 0.9 to 1.3: it is the subject's height (3.2 for a
-        //bale) against the lens's 47 degrees that sets the radius, not the lens's.
-        //(internal: MeadowIntroShotsTests holds the arc, the length and the bales' distance)
-        internal const float ORBIT_TURN = MathF.PI * 0.6f;
-        internal const float ORBIT_SECONDS = 3.4f;
+        //The two orbits (#893): this long, at this pace round the subject, so this far round it. The pace is the owner's "very
+        //slowly", and since #945 "a little more slowly" still: 32 degrees a second (39 before #945). The length is what the
+        //owner has cut twice: a half circle until #1107 ("the close-ups of the hay bales and the bench are too long; I would
+        //rather spend the time on animated fly-throughs"), 108 degrees until #1188 ("shorten the shots on the hay rolls and
+        //on the bench, and lengthen the fly-by round the trees and over the brook"), a glance of 2 s since, the time gone to
+        //the brook home's run down the brook and between the willows (MeadowLanding). The lens stands this high over the
+        //ground under it, rising a little: a low angle, looking up at the subject. Over 48 layouts the bales' mean radius was
+        //10.2 with the lens at 0.7 to 1.1 and 10.3 at 0.9 to 1.3: it is the subject's height (3.2 for a bale) against the
+        //lens's 47 degrees that sets the radius, not the lens's.
+        //(internal: MeadowIntroShotsTests holds the arc, the length, the pace and the bales' distance)
+        internal const float ORBIT_SECONDS = 2f;
+        internal const float ORBIT_DEGREES_PER_SECOND = 32f;
+        internal const float ORBIT_TURN = MathF.PI / 180f * ORBIT_DEGREES_PER_SECOND * ORBIT_SECONDS;
         //(internal: MeadowIntroShotsTests holds the lens to this band - the shot's own, inside the owner's 0.6 to 1.5)
         internal const float ORBIT_ABOVE_FROM = 0.7f;
         internal const float ORBIT_ABOVE_TO = 1.1f;
@@ -280,9 +284,10 @@ namespace BS3D.Effects
         /// point keeps <see cref="MARGIN"/> off every solid, and the subject is seen from every stand.
         /// <para>
         /// ⚠ <b>The half circle is what is asked, and its middle is flown</b> (#1107). The radius is searched out from the
-        /// nearest until an arc passes, and a shorter arc passes nearer: asked of the 108 degrees alone, the bales' mean radius fell
+        /// nearest until an arc passes, and a shorter arc passes nearer: asked of 108 degrees alone, the bales' mean radius fell
         /// from 11.5 over 24 layouts (#945's figure) to 10.1, against the owner's "a little farther from the hay bales". Asked
-        /// of the half circle, the subject stands where #945 put it (<c>MeadowIntroShotsTests</c> holds the bales' mean).
+        /// of the half circle, the subject stands where #945 put it however little of it is flown (<c>MeadowIntroShotsTests</c>
+        /// holds the bales' mean).
         /// </para>
         /// </summary>
         private static IntroShot Orbit(string name, IntroGround low, MeadowSceneConfig meadow, Vector3 look,

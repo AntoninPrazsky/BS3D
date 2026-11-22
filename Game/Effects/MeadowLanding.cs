@@ -23,8 +23,10 @@ namespace BS3D.Effects
     /// instead of through it. Where the pose stands on the pond's own side, a release leaves the pond straight onto it.
     /// </para>
     /// <para>
-    /// <b>The pace.</b> The brook at a run's pace, accelerating over the pond to a cruise round the island, then the shared
-    /// deceleration to rest on the pose; the look down the brook, turning in towards the arena off it
+    /// <b>The pace.</b> The brook at a run's pace, easing down as the lens comes between the willows at its mouth (#1188: the
+    /// owner asked for a longer "fly-by round the trees and over the brook", so the run starts farther up it and passes the
+    /// trees slowly), accelerating over the pond to a cruise round the island, then the shared deceleration to rest on the
+    /// pose; the look down the brook, turning in towards the arena off it
     /// (<see cref="IntroLanding.Style.LookInward"/>), so the island, the gun and the cluster stay in the frame while the lens
     /// goes round them; a light bank into the turn.
     /// </para>
@@ -47,10 +49,25 @@ namespace BS3D.Effects
         internal const string NAME = "the brook home";
 
         //The brook: how much of it the lens flies down before the pond's middle, at what pace, and how high over the uncut
-        //field, the old brook shot's (MeadowIntroShots), where the reeds and the bank stones pass either side
-        private const float BROOK_RUN_MIN = 28f, BROOK_RUN_MAX = 38f;
+        //field, the old brook shot's (MeadowIntroShots), where the reeds and the bank stones pass either side. 46 to 54 since
+        //#1188 (the owner: "lengthen the fly-by round the trees and over the brook"), where 28 to 38 opened the shot a few
+        //units short of the willows at the mouth, so the brook was a second of it: the run now starts near the head of the
+        //stretch the reeds and the stones line (MeadowCarve.BROOK_CARVE_FADE, 56 up the brook from the pond's middle), and
+        //the willows come up out of the distance down it. (internal: MeadowLandingTests holds the run inside that stretch)
+        internal const float BROOK_RUN_MIN = 46f, BROOK_RUN_MAX = 54f;
         private const float BROOK_SPEED = 20f;
         internal const float BROOK_ABOVE = 1.8f;
+
+        //Between the willows (#1188): the pace eases from the brook's down to TREES_SPEED from TREES_SLOW_FROM to
+        //TREES_SLOW_TO short of the pond's middle, holds it to TREES_HOLD_TO short of it and eases back up to the run's own
+        //pace by TREES_BACK_PAST past it, so the lens goes past the two trees at the brook's mouth slowly. The planting stands
+        //them on the pond's far side from the arena, where the brook comes in, WILLOW_FROM_SHORE (3.5) out of the water
+        //(MeadowScatter): the run passes nearest them 7 to 11 short of the middle. (internal: MeadowLandingTests holds the
+        //lens at the trees' pace where it passes nearest each) The run's own pace is given back a few units past the pond's
+        //middle, so the lens comes off the pond and onto the circle at the pace it always had.
+        internal const float TREES_SPEED = 14f;
+        private const float TREES_SLOW_FROM = 30f, TREES_SLOW_TO = 18f;
+        private const float TREES_HOLD_TO = 6f, TREES_BACK_PAST = 6f;
 
         //The climb: from this far past the pond's middle (low until then, under the willows' crowns, see the class's note),
         //over this long a run, to the cruise's height over the highest ground the lens passes after the pond. The earlier the
@@ -97,8 +114,10 @@ namespace BS3D.Effects
         private const float MIN_TURN_RADIUS = 16f;
         private const float RELEASE_TURN_RADIUS = 10f;
 
-        //How long the flight should be: among clear candidates the one nearest it is preferred
-        private const float TARGET_SECONDS = 8f;
+        //How long the flight should be: among clear candidates the one nearest it is preferred. 8 until #1188 lengthened the
+        //brook and slowed the pass between the willows, which added 1.6 to 1.8 seconds to the flight onto the level's own pose;
+        //10 asks of the rest of the route what 8 asked of it before
+        private const float TARGET_SECONDS = 10f;
 
         //The plan's spacing, and the candidates rolled
         private const float STEP = 0.5f;
@@ -121,10 +140,17 @@ namespace BS3D.Effects
         //the lens keeps TRUNK_AIR past them. ⚠ The willow on the brook's left as it comes into the pond stands 5.5 off its line:
         //flown down the line, the trunk filled a quarter of the frame and its roots ran under the lens. So the run swerves off
         //the line by what it lacks, over DEFLECT_UPSTREAM before the nearest point and DEFLECT_DOWNSTREAM after it; within
-        //1.8 of the line by the mouth it is still over the brook's own bank, where the pond plants no reeds.
+        //1.8 of the line by the mouth it is still over the brook's own bank, where the pond plants no reeds. ⚠ The swerve is
+        //as long as the pace past it is slow (#1188): the look's direction is averaged over a time (Landing's
+        //LookSmoothSeconds), so at the trees' pace it spans fewer units of the swerve, and over the 6 and 9 it had at the
+        //brook's pace the view turned at up to 71 degrees a second there (53 at the brook's pace); over 16 and 14, 41 (over
+        //24 layouts at the level's own pose). ⚠ The run is back on the line by the pond's middle however near it the tree
+        //stands (PassTheTrunks): still off it there, the curve off the brook left from a point and along a heading the route
+        //had not been laid for, and came onto the circle with the look turned out off the island, the axis 31.6 degrees off
+        //it in a frame 36 wide where the same route had held it at 28.9 (MeadowLandingTests holds it 5 inside the edge).
         private const float ROOT_REACH = 2.1f;
         private const float TRUNK_AIR = 2.5f;
-        private const float DEFLECT_UPSTREAM = 6f, DEFLECT_DOWNSTREAM = 9f;
+        private const float DEFLECT_UPSTREAM = 16f, DEFLECT_DOWNSTREAM = 14f;
         private const float REED_INSIDE = 0.9f + MARGIN, REED_OUTSIDE = 1.5f + MARGIN, REED_TOP = 4f;
         private const float REED_GAP = 0.25f;
         private const float ARRIVAL_SLACK = 0.5f;
@@ -273,8 +299,8 @@ namespace BS3D.Effects
             float cruiseY = top + above;
 
             //The heights and the speeds: the brook's height over the field easing up to the cruise's over the climb, and the
-            //brook's pace up to the cruise's; over the release, the height eased from where it was onto the pose's while the
-            //shared landing decelerates
+            //brook's pace up to the cruise's, but for the trees' pace between the willows (TreesWeight); over the release, the
+            //height eased from where it was onto the pose's while the shared landing decelerates
             var path = new List<Vector3>(plan.Count);
             var speed = new float[plan.Count];
             var lean = new float[plan.Count];
@@ -291,8 +317,8 @@ namespace BS3D.Effects
                 else y = MathHelper.Lerp(releaseY, endPosition.Y, MathHelper.SmoothStep(0f, 1f, (s - sRelease) / MathF.Max(total - sRelease, 1e-3f)));
 
                 if (i <= settleFrom)
-                    speed[i] = MathHelper.Lerp(BROOK_SPEED, cruise, MathHelper.SmoothStep(0f, 1f,
-                        MathHelper.Clamp((s - sAccelerate) / MathF.Max(sCruise - sAccelerate, 1f), 0f, 1f)));
+                    speed[i] = MathHelper.Lerp(MathHelper.Lerp(BROOK_SPEED, cruise, MathHelper.SmoothStep(0f, 1f,
+                        MathHelper.Clamp((s - sAccelerate) / MathF.Max(sCruise - sAccelerate, 1f), 0f, 1f))), TREES_SPEED, TreesWeight(s - length[brookEnd]));
 
                 //The look down the brook and over the pond, turning in towards the island as the lens comes off the brook's line
                 lean[i] = MathHelper.SmoothStep(0f, 1f, MathHelper.Clamp((s - length[brookEnd]) / MathF.Max(sCruise - length[brookEnd], 1f), 0f, 1f));
@@ -337,12 +363,18 @@ namespace BS3D.Effects
                 float side = Vector2.Dot(trunk - run[nearest], across);
                 float lacks = side - MathF.Sign(side == 0f ? 1f : side) * MathF.Sqrt(MathF.Max(need * need - Vector2.DistanceSquared(run[nearest], trunk) + side * side, 0f));
 
+                //Back on the line by the run's end, the pond's middle, at the latest, so the curve off it leaves from there along
+                //the brook as it does with no tree to pass
+                float toEnd = 0f;
+                for (int i = nearest + 1; i < run.Count; i++) toEnd += Vector2.Distance(run[i - 1], run[i]);
+                float downstream = MathF.Max(MathF.Min(DEFLECT_DOWNSTREAM, toEnd), STEP);
+
                 float s = 0f;
                 for (int i = nearest; i < run.Count; i++)
                 {
                     if (i > nearest) s += Vector2.Distance(run[i - 1], run[i]);
-                    if (s >= DEFLECT_DOWNSTREAM) break;
-                    offset[i] += lacks * Bump(s / DEFLECT_DOWNSTREAM);
+                    if (s >= downstream) break;
+                    offset[i] += lacks * Bump(s / downstream);
                 }
                 s = 0f;
                 for (int i = nearest - 1; i >= 0; i--)
@@ -360,6 +392,18 @@ namespace BS3D.Effects
 
         //A cosine ease from 1 at 0 to 0 at 1, flat at both ends
         private static float Bump(float x) => 0.5f + 0.5f * MathF.Cos(MathF.PI * MathHelper.Clamp(x, 0f, 1f));
+
+        /// <summary>
+        /// How far the lens's pace is taken from the run's own towards the trees' (<see cref="TREES_SPEED"/>),
+        /// <paramref name="pastMiddle"/> past the pond's middle (negative short of it): none of the way but between the willows
+        /// at the brook's mouth (#1188), where it eases to all of it, holds and eases back.
+        /// </summary>
+        private static float TreesWeight(float pastMiddle)
+        {
+            float down = MathHelper.SmoothStep(0f, 1f, MathHelper.Clamp((pastMiddle + TREES_SLOW_FROM) / (TREES_SLOW_FROM - TREES_SLOW_TO), 0f, 1f));
+            float up = MathHelper.SmoothStep(0f, 1f, MathHelper.Clamp((pastMiddle + TREES_HOLD_TO) / (TREES_HOLD_TO + TREES_BACK_PAST), 0f, 1f));
+            return down * (1f - up);
+        }
 
         //The unit vector to the left of a run at a point
         private static Vector2 Across(List<Vector2> run, int i)
