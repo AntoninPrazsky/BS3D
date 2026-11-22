@@ -254,6 +254,17 @@ static const float GRASS_COMB_STRETCH = 2.6;
 //is the effect gone rather than the effect softened. This is the trap #97 hit on the acacia crowns.
 static const float GRASS_FBM_GAIN = 5.0;
 
+//The blades seen from the side (GrassStrokes): this many strokes across, in the coarser of their two octaves, to one
+//grass feature of the relief, so that times GrassReliefFrequency is the strokes a unit, and a stroke is as long as the
+//anchors are apart (GRASS_STROKE_STRETCH over that frequency). Wider than the meadow's (GRASS_STROKE_FREQUENCY there),
+//the savanna's grass being tall, and because its lens flies higher over it: the intro's grass home runs
+//SavannaLanding.ABOVE_MIN to ABOVE_MAX over the grass, several times the meadow's bales orbit
+//(MeadowIntroShots.ORBIT_ABOVE_FROM to ORBIT_ABOVE_TO), so the nearest ground in its frame is that height over the
+//tangent of half the field of view out, and there a stroke the meadow's width is all but under the band limit.
+//SavannaStrokesSourceTests holds the nearest strokes there to half their strength on a frame supersampled as High and
+//Ultra draw it; docs/scenes/savanna.md has the widths this gives and what the tiers that do not supersample keep.
+static const float GRASS_STROKE_FREQUENCY = 20.0;
+
 #include "Grass.fxh"
 
 //How burnt this spot is: 1 in the char at a fire's foot, 0 where the grass has it back at HearthRadius.
@@ -318,6 +329,18 @@ float4 SavannaField(SavannaVertexOutput input, bool detail)
     float hx = PlainHeight(worldPosition.xz + float2(e, 0.0));
     float hz = PlainHeight(worldPosition.xz + float2(0.0, e));
     float3 baseNormal = normalize(float3(-((hx - h) / e + input.MoundSlope.x), 1.0, -((hz - h) / e + input.MoundSlope.y)));
+
+    //The blades seen from the side, which shade the grass further down (BLADES SEEN FROM THE SIDE): worked out here,
+    //where little else is live yet, because their four anchors' noises are the program's widest point, and this
+    //program is the one Noise.fxh's ONE OCTAVE warning measured falling off an occupancy cliff. The two screen steps are
+    //for their footprint across the grain (GrassStrokeFootprint).
+    float strokes = 0.0;
+    if (detail)
+    {
+        strokes = GrassStrokes(worldPosition.xz, CameraPosition.xz - worldPosition.xz, baseNormal,
+            normalize(CameraPosition - worldPosition),
+            GrassReliefFrequency * GRASS_STROKE_FREQUENCY, ddx(worldPosition.xz), ddy(worldPosition.xz));
+    }
 
     //ONE gust field, and everything the wind does reads off it (#276): the grass leans by it here and the
     //shading darkens by it below. The speed handed over is the old plane wave's own phase speed,
@@ -402,14 +425,11 @@ float4 SavannaField(SavannaVertexOutput input, bool detail)
 
     //BLADES SEEN FROM THE SIDE (#281), the meadow's strokes: a fine noise stretched along the ground towards the
     //camera projects to upright strokes in front of the lens - longer here, the savanna's grass being tall. The
-    //reduced program's other cut. ⚠ Still the call #1190 took out of the meadow: it turns the domain about the world
-    //origin, so every stroke is a whole ray from the point under the lens, a fan fixed to the screen and re-rolled as
-    //the lens moves (BLADES SEEN FROM THE SIDE in Grass.fxh). #1232 moves it onto GrassStrokes.
+    //reduced program's other cut. Worked out above (GrassStrokes in Grass.fxh): fixed to the ground, faded out as the
+    //view turns steep, band-limited across the grain (#1190, #1234; Grass.fxh says why the domain is never turned about
+    //a point far from the pixel). Kept off the trails and the char by tipCover, as the tips are.
     if (detail)
     {
-        float strokeFrequency = GrassReliefFrequency * 3.0;
-        float strokes = Fbm2Combed(worldPosition.xz * strokeFrequency, CameraPosition.xz - worldPosition.xz,
-            6.0, 2, footprint * strokeFrequency);
         grass *= 1.0 + 0.85 * GrassTipStrength * strokes * tipCover;
         grass = lerp(grass, GrassTipColor, 0.5 * GrassTipStrength * saturate(strokes * 2.0) * tipCover);
     }

@@ -4,9 +4,8 @@
 //GRASS_COMB_STRETCH and GRASS_FBM_GAIN (the same figures today, a lush lawn and a dry veld meant to be free
 //to differ; the savanna's copy says what each answers), and its GrassReliefStrength/Frequency and
 //WindDirection uniforms, before including this. Needs Noise.fxh (Fbm2Combed, Fbm2BandLimited, NoiseHash22). The
-//blades seen from the side (GrassStrokes, below) are here too, with their own scale passed in: the meadow's. The
-//savanna still combs its own along the bearing to the lens (Savanna.fx), the construction GrassStrokes warns
-//against, until #1232 moves it onto GrassStrokes.
+//blades seen from the side (GrassStrokes, below) are here too, both scenes', each passing its own frequency (its
+//GRASS_STROKE_FREQUENCY times GrassReliefFrequency: the savanna's strokes are wider and longer, #1234).
 //
 //A fine grass texture, band-limited against the footprint so it fades to smooth grass towards the horizon
 //instead of aliasing.
@@ -67,9 +66,11 @@ float GrassRelief(float2 xz, float footprint, float gust)
 //bearing, about the point of it nearest its anchor, so for each unit the lens moves across, the field drifts over the
 //ground by up to about the spacing over the distance to the lens: the parallax of a blade whose stroke on the ground is
 //a stroke long (a blade of height H seen from a height h lies H/h of the distance along the ground). A closer grid would
-//drift less and chop the strokes shorter than they are. The drift is largest in the intro's bales orbit, the lens low
-//and going round fast, where the four anchors' layers turn about four points: docs/scenes/meadow.md has what it measured
-//there, frame to frame.
+//drift less and chop the strokes shorter than they are. Counted in stroke widths the drift is the same at any frequency
+//(a spacing is GRASS_STROKE_STRETCH widths), so a scene's wider strokes drift no more for being longer. It is largest in
+//the meadow intro's bales orbit, the lens low and going round fast, where the four anchors' layers turn about four
+//points: docs/scenes/meadow.md has what it measured there, frame to frame, and docs/scenes/savanna.md what the
+//savanna's grass home keeps.
 static const float GRASS_STROKE_STRETCH = 40.0;    //a stroke is this many times longer towards the lens than across
 static const float GRASS_STROKE_SCATTER = 61.0;    //how far into the noise each anchor's offset reaches, in noise cells
 

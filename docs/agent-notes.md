@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-22 — #1234 savana: stébla z boku ukotvená k zemi — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: stébla savany viděná z boku už nejsou vějíř připnutý k obrazovce (`Fbm2Combed` s pozicí kamery), ale luční `GrassStrokes` z `Grass.fxh`, jen v detailním programu, se stejným mícháním 0,85/0,5 a `tipCover` (stezky a spálenina kolem ohňů je dál vypínají). Frekvence 20 (40 na jednotku), aby v blízkém poli domova trávy zůstala šíře na obrazovce; 72 na jednotku v nízkých záběrech skoro zmizelo. Snímek po snímku drží vzor 0,92–0,98 (dřív 0,03–0,42). Herní pohled o 0,2 ms levnější, nejdražší vteřina intra +0,1 ms. Testy `SavannaStrokesSourceTests`. #1232 je totéž (z review #1190) a je tímto opravené.
+- ⚠ Na Medium a telefonech (bez supersamplingu) jsou blízká stébla slabší než starý vějíř (RMS 1,03 proti 1,90 při 1080p).
+- Otevřené: `verdict-eye` (měkčí blízká stébla, pohyb nikdo neviděl okem).
+
 ## 2026-11-22 — #1229 kratší článek o tetelení — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: dlouhý článek o horkém vzduchu (8a9870f6, 2 536 slov) je pryč i s klipy, rozdílovým obrázkem a náhledem. Místo něj „Hot air, only far away“ (/blog/hot-air-only-far-away/): smyčka silnějšího tetelení hned nahoře, 368 slov v krátkých odstavcích pod třemi podnadpisy, čísla jen „čtyřikrát“ a 0,28°. `docs/website.md` má pravidlo pro články o jedné věci: klip první, ~350 slov, odstavce o dvou třech větách.
