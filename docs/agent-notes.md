@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-22 — #1188 louka: delší průlet potokem a kolem vrb — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: orbity u balíků a lavičky jsou 2 s pohledy (64° při 32°/s z #945, místo 3,4 s a 108°). Let domů začíná 46–54 proti proudu (bylo 28–38), uvnitř úseku s rákosím (`BROOK_CARVE_FADE`), plynule zpomalí na 14 u/s a vrbami u ústí proplouvá rovnoměrně; za středem jezírka jedním nájezdem zrychlí do kroužení. Nízká část k jezírku trvá 3,2–3,8 s místo 1,8–2,3, intro 20,4–21,0 s, přistání na herní póze beze změny. Strop testu prologu 21,5 s.
+- ⚠ Úhyb kolem vrby, který u středu jezírka ještě není zpět na čáře potoka, ohne křivku na kruh a pohled vyjede z ostrova (32° v 36° záběru).
+- Otevřené: `verdict-eye`; otázka, zda „kolem stromů“ znamenalo průlet vrbami, nebo orbitu kolem dubu. #1187 (vyhlazení) zůstává.
+
 ## 2026-11-22 — #1201 pastelová duha klávesnice — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: duha klávesnice po dohraném levelu bere pastelové barvy banneru NEW BEST místo čistého spektra. `KeyLightModel.WonRainbow` převede `NewBestCelebration.Pastel` ze sRGB na světlo (`ColorSpace.SrgbToLinear`) a natáhne nejsilnější kanál na plno; klávesy mají sytost 0,63–0,72 místo 1. Rychlost, rozpětí, 3 s i 0,6 s doznění do barvy poháru zůstaly, odstín do 6° od starého. Testy hlídají pásmo sytosti 0,55–0,8 a že každá lampa svítí `WonRainbow` svého místa.

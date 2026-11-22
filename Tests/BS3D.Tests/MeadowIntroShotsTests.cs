@@ -11,7 +11,7 @@ namespace BS3D.Tests
     /// The meadow's chapter-intro prologue with its two close, slow orbits (#893): the owner's playtest asked for "a detailed
     /// low-angle shot of the bench under the tree and of the cylindrical hay bales — the camera moves in a half circle very
     /// slowly and is close to the objects". What is checked here is what a number can say: each is an arc of
-    /// <c>MeadowIntroShots.ORBIT_TURN</c> (108 degrees since #1107, a half circle before) round its subject, at the pace #945 set,
+    /// <c>MeadowIntroShots.ORBIT_TURN</c> (64 degrees since #1188, 108 since #1107, a half circle before) round its subject, at the pace #945 set,
     /// over the ground by the shot's own band, keeping off the old trees' stems and every low solid and out of the water, with the
     /// whole subject in frame — and above the skip hint at the bottom of it — from the first pose to the last at three window
     /// shapes; and the reel ends on the brook home, which lands (<see cref="MeadowLandingTests"/>). How it reads, and how slow it
@@ -352,11 +352,12 @@ namespace BS3D.Tests
                     IntroShot shot = Named(shots, name);
                     if (shot == null) continue;
 
-                    //108 degrees round (#1107: the owner found the half circles too long) at the 30-34 degrees a second #945
-                    //asked for ("a little more slowly"), so 3.2-3.6 s
-                    Assert.InRange(MathHelper.ToDegrees(MeadowIntroShots.ORBIT_TURN), 100f, 115f);
+                    //A glance of about 2 s (#1188: "shorten the shots on the hay rolls and on the bench further", which
+                    //reverses #1107's 108 degrees and 3.4 s, a half circle before that) at the 30-34 degrees a second #945
+                    //asked for ("a little more slowly"), so 60-70 degrees round
+                    Assert.InRange(shot.Seconds, 1.8f, 2.2f);
                     Assert.InRange(MathHelper.ToDegrees(MeadowIntroShots.ORBIT_TURN) / shot.Seconds, 30f, 34f);
-                    Assert.InRange(shot.Seconds, 3.2f, 3.6f);
+                    Assert.InRange(MathHelper.ToDegrees(MeadowIntroShots.ORBIT_TURN), 60f, 70f);
 
                     //Walked pose by pose: the lens stays one distance from the look, and goes ORBIT_TURN round it
                     Vector3 look = LookOf(shot);
@@ -608,19 +609,21 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void TheWholePrologueRunsNoLongerThanTwentyTwoSeconds()
+        public void TheWholePrologueRunsNoLongerThanTwentyOneAndAHalfSeconds()
         {
             //The docs state 11-17 s for a prologue (chapter-intro-prologues.md). The meadow ran 24.9 s with its two half circles
             //(#945); since #1107 the orbits are shorter and the brook home lands, so no tour leg follows it: this holds the whole
-            //intro under 22 s, the meadow's own ceiling, the tour's last leg (4.5 s) counted where the reel has no landing. It was
-            //the cities' length when #1107 set it; the cities have run longer since their facades (#1119)
+            //intro under the meadow's own ceiling, the tour's last leg (4.5 s) counted where the reel has no landing. Since #1188
+            //moved the time the orbits gave up into the brook home's glide down the brook and past the willows, the intro runs
+            //20.4 to 21.0 s over these rolls, where it ran 21.0 to 21.7 before: the ceiling stands under the old longest, so the
+            //intro cannot grow back to it unnoticed (the owner has asked for a shorter intro, never a longer one)
             for (int seed = 1; seed <= ROLLS; seed++)
             {
                 IntroShot[] shots = Shots(Plant(seed), seed);
                 float seconds = shots[^1].Lands ? 0f : 4.5f;
                 foreach (IntroShot shot in shots) seconds += shot.Seconds;
 
-                Assert.True(seconds <= 22f, $"seed {seed}: the meadow's intro runs {seconds:F1} s");
+                Assert.True(seconds <= 21.5f, $"seed {seed}: the meadow's intro runs {seconds:F2} s");
             }
         }
 
