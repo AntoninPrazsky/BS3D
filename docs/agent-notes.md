@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-22 — #1212 gumová omni kola děla — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: kola děla mají dva materiály. Válečky jsou tmavá uhlová guma (0,24) s vlastním měkkým leskem (0,45 při exponentu 12) přes nové `InstancedModelRenderer.SetMaterialSpecular`. Desky a náboj jsou světlejší obráběný kov (0,40). Nová čelní strana náboje (`OmniWheelMesh.AddHubFace`) má lem, přírubu s osmi šestihrannými maticemi a kopuli s maticí osy. Je to tatáž síť i barva, takže žádné kreslení navíc, a síť kola je teď uzavřená (`WindingCheck --openness` už výjimku nepotřebuje). Válečky 38–40 z 255 proti deskám 62–66 (dřív 99–104 proti 15–23). Export děla pro web nese lesk každého dílu a odmítne válečky bez gumy.
+- ⚠ Výchozí bílý odlesk při 16 dělá z tmavého albeda lesklý plast; tmavý materiál potřebuje vlastní lesk.
+- Otevřené: `verdict-eye` (tón gumy a desek, tvar náboje). Kola se točící v pohybu nikdo neviděl; hráč je vidí jen v menu a na webu.
+
 ## 2026-11-22 — #1215 cena deseti stylů koulí — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: jedna změřená tabulka v `docs/rendering/ball-styles.md` („Cost“), barevný klíč zapnutý i vypnutý, Game v Ultra na Girandole a Spyglass a tři pevné kamery v Testbedu. Proti vinylu: bublina +1,82 ms, led +1,28, plasma −0,90, ostatní v šumu. Cena roste s pixely koule. Na desktopu se nic nezlevňuje: nejdražší snímek kapitoly bubliny (Amphora, 9,02 ms) je 4,3 ms pod rozpočtem Ultra. Opraveno i zastaralé `balls=<beach|bubble>`.
