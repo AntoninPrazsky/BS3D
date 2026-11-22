@@ -2,7 +2,7 @@
   "about": "The cannon of Bubble Shooter 3D, exported from the game\u0027s own meshes by Tools/WindingCheck --export-cannon (#949). Positions are 16-bit over positionScale, normals bytes over 127; matrices are the game\u0027s, row vectors, in row order.",
   "positionScale": 3.40034,
   "vertexStride": 12,
-  "indexOffset": 330840,
+  "indexOffset": 338616,
   "parts": {
     "barrel": {
       "vertexStart": 0,
@@ -30,14 +30,14 @@
     },
     "wheel": {
       "vertexStart": 13074,
-      "vertexCount": 8160,
+      "vertexCount": 8808,
       "indexStart": 13650,
-      "indexCount": 8160
+      "indexCount": 8808
     },
     "roller": {
-      "vertexStart": 21234,
+      "vertexStart": 21882,
       "vertexCount": 6336,
-      "indexStart": 21810,
+      "indexStart": 22458,
       "indexCount": 6336
     }
   },

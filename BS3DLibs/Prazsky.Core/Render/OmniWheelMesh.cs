@@ -76,6 +76,7 @@ namespace Prazsky.Core.Render
         private const int NUT_SIDES = 6;
         private const float NUT_RADIUS = 0.048f;
         private const float NUT_HEIGHT = 0.05f;   //above the flange's top
+        private const float NUT_CHAMFER_FRACTION = 0.35f;   //of a nut's radius, taken off its top's edge
 
         /// <summary>
         /// The bolt flange's outer edge as a fraction of the plate's radius: the widest the hub face stands proud of the
@@ -235,22 +236,35 @@ namespace Prazsky.Core.Render
             }, HUB_FACE_SEGMENTS, placement, Vector2.Zero);
 
             //The axle's nut on the crown, its foot sunk into the dome
-            float nutFoot = CAP_CROWN - FOOT_SINK * 2f, nutTop = CAP_CROWN + AXLE_NUT_HEIGHT;
-            builder.AddTubeX(new Vector3(outerFaceX + sign * (nutFoot + nutTop) * 0.5f, 0f, 0f), (nutTop - nutFoot) * 0.5f,
-                AXLE_NUT_RADIUS, NUT_SIDES);
+            AddNut(builder, placement, Vector3.Zero, AXLE_NUT_RADIUS, CAP_CROWN - FOOT_SINK * 2f, CAP_CROWN + AXLE_NUT_HEIGHT);
 
-            //The flange's nuts, midway across it, each a hex prism standing proud of its top with its foot sunk into it
+            //The flange's nuts, midway across it, each standing proud of its top with its foot sunk into it
             float nutRing = (flangeInner + flangeOuter) * 0.5f;
-            float boltFoot = FLANGE_HEIGHT - FOOT_SINK, boltTop = FLANGE_HEIGHT + NUT_HEIGHT;
 
             for (int i = 0; i < NUT_COUNT; i++)
             {
                 float angle = i / (float)NUT_COUNT * MathHelper.TwoPi;
-                Vector3 centre = new(outerFaceX + sign * (boltFoot + boltTop) * 0.5f, MathF.Cos(angle) * nutRing,
-                    MathF.Sin(angle) * nutRing);
-
-                builder.AddTubeX(centre, (boltTop - boltFoot) * 0.5f, NUT_RADIUS, NUT_SIDES);
+                AddNut(builder, placement, new Vector3(MathF.Cos(angle) * nutRing, 0f, MathF.Sin(angle) * nutRing), NUT_RADIUS,
+                    FLANGE_HEIGHT - FOOT_SINK, FLANGE_HEIGHT + NUT_HEIGHT);
             }
+        }
+
+        /// <summary>
+        /// One hex nut, a shut solid in the lathe's frame of <see cref="AddHubFace"/> (<paramref name="at"/> on the plate's
+        /// face, heights off it), its top's edge chamfered. Seen square on, a nut's flat top has the very normal of the face
+        /// it stands on and shades as the same flat: the chamfer is the ring of another normal that draws its outline.
+        /// </summary>
+        private static void AddNut(MeshBuilder builder, Matrix placement, Vector3 at, float radius, float foot, float top)
+        {
+            float chamfer = radius * NUT_CHAMFER_FRACTION;
+            builder.AddLathe(new[]
+            {
+                new LathePoint(0f, top),
+                new LathePoint(radius - chamfer, top, crease: true),
+                new LathePoint(radius, top - chamfer, crease: true),
+                new LathePoint(radius, foot, crease: true),
+                new LathePoint(0f, foot),
+            }, NUT_SIDES, Matrix.CreateTranslation(at) * placement, Vector2.Zero);
         }
 
         /// <summary>

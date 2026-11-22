@@ -516,8 +516,8 @@ namespace Prazsky.BS3D
         //but not black so the helical flutes still shade, which is what shows the rollers turning (OmniRollerMesh's
         //class note). Measured from pixels against a mask of the two parts, the Game at High in the meadow's daylight
         //(the gun at rest, 1920x1080, side-on and from behind the flank): the rollers' mean luma 38 to 40 of 255 with
-        //their flutes spread over 93 to 96 (10th to 90th percentile), the plates 62 to 66, a step of +22 to +28 (x1.6
-        //to x1.75 in linear luminance); in the neon city's night 49 against 101. Measure both again before retuning.
+        //their flutes spread over 93 to 96 (10th to 90th percentile), the plates 62 to 66, a step of +22 to +29 (x1.6
+        //to x1.8 in linear luminance); in the neon city's night 49 against 101. Measure both again before retuning.
         //
         //The hub face is the body's own material: a colour of its own would be a third draw (with its shadow and
         //motion passes) for a part its shape already sets apart (OmniWheelMesh.AddHubFace).
