@@ -103,7 +103,9 @@ namespace BS3D.Tests
             //meadow's daylight and read as black; the floor is the linear luminance of a 0.2 grey.
             Assert.True(roller >= ColorSpace.SrgbToLinear(0.2f), $"the rollers' luminance {roller} is black");
 
-            //And a rubber's highlight, under the renderer's default white at 16 that makes a dark albedo glossy plastic
+            //And a rubber's highlight, under the renderer's default white at 16 that makes a dark albedo glossy plastic. That
+            //the rig hands it to the rollers' renderer needs a device to see: Tools/WindingCheck --export-cannon refuses a rig
+            //that does not.
             Assert.True(Luminance(RigColour("ROLLER_SPECULAR")) < 1f && Rig("ROLLER_SPECULAR_POWER") < 16f);
         }
 

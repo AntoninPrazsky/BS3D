@@ -63,6 +63,20 @@ namespace BS3D.Tools.WindingCheck
                 read.Add((name, part));
             }
 
+            //The rollers' rubber is the one highlight on the gun that is not the renderer's default (#1212), and no logic
+            //test can see a rig give it: none has a device to build one on. So it is refused here, where it is read back and
+            //before anything is written, rather than the page's rollers drawn as the glossy plastic the default makes of a
+            //dark albedo (CannonRig's ROLLER_SPECULAR)
+            Vector3 rubber = RigVector("ROLLER_SPECULAR");
+            float rubberPower = RigConstant("ROLLER_SPECULAR_POWER");
+            if (rig.RollerRenderer.MaterialSpecularColor != rubber || rig.RollerRenderer.MaterialSpecularPower != rubberPower)
+            {
+                Console.Error.WriteLine($"[export] the rollers' highlight is {rig.RollerRenderer.MaterialSpecularColor} at " +
+                    $"{rig.RollerRenderer.MaterialSpecularPower}, not the rig's ROLLER_SPECULAR {rubber} at ROLLER_SPECULAR_POWER " +
+                    $"{rubberPower}: CannonRig no longer gives its roller renderer the rubber (InstancedModelRenderer.SetMaterialSpecular)");
+                return 3;
+            }
+
             //One scale for every position, the widest coordinate of any part, so the page needs one figure
             float extent = read.SelectMany(p => p.Part.Positions).Max(v => MathF.Max(MathF.Abs(v.X), MathF.Max(MathF.Abs(v.Y), MathF.Abs(v.Z))));
             float scale = extent * 1.0001f;

@@ -23,7 +23,7 @@ Sweeps for conventions no test covers. DocDrift and WindingCheck's winding judge
 
 ### `--export-cannon <dir>`: the cannon for the website (#949)
 
-Not a check: the same WARP device and read-back, used to write the game's cannon (`CannonRig`'s six meshes and the figures that join them) as `cannon.bin` and `cannon.json` for the landing page's live canvas. What it writes and when to run it: "The live cannon" in [The website](../website.md).
+Not a check: the same WARP device and read-back, used to write the game's cannon (`CannonRig`'s six meshes and the figures that join them) as `cannon.bin` and `cannon.json` for the landing page's live canvas. What it writes and when to run it: "The live cannon" in [The website](../website.md). It refuses (**exit 3**, nothing written) a rig whose fields no longer hold the six meshes, and one whose rollers' renderer lacks the rubber's own highlight (`ROLLER_SPECULAR` at `ROLLER_SPECULAR_POWER`, #1212): no logic test has a device to build a rig on, so a rig that stopped giving it is caught here, the next time the cannon is exported, and by no gate.
 
 ### `--openness`: is every mesh shut? A gate (#974)
 
