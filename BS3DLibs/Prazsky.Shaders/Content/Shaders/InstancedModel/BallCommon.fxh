@@ -12,10 +12,10 @@
 //register allocations in every wavefront, and these passes are occupancy-bound.
 //
 //THE COST OF THAT IS NOT WHAT IT LOOKS LIKE. A frame draws ONE ball technique, because a level names
-//one style - so the bubble's measured cost over vinyl (with the ice's, the only one that shows: "Cost"
-//in docs/rendering/ball-styles.md) is what a BUBBLE LEVEL pays, not a tax the other levels carry, and N
-//styles are not N times anything per frame. What N styles cost is N programs
-//to compile here and N looks to keep working across the eighteen domes.
+//one style - so the bubble's and the ice's measured costs over the vinyl (the only two that show in
+//the Game: "Cost" in docs/rendering/ball-styles.md) are what a bubble or an ice level pays, not a tax
+//the other levels carry, and N styles are not N times anything per frame. What N styles cost is N
+//programs to compile here and N looks to keep working across the eighteen domes.
 //
 //WHAT EVERY ONE OF THEM MUST CARRY. A ball technique is not "PatternPS with different lighting": most
 //of what it does has nothing to do with what the ball is MADE of, and a new one that drops a line of

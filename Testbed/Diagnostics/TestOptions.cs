@@ -420,8 +420,8 @@ namespace Testbed.Diagnostics
         /// spelled <c>motif</c>); <c>none</c> draws no figure, <c>motif:N</c> (or the set's own name) puts set N on
         /// every style. Spelled through <see cref="ColourCues.TryParse"/>, which the Game's argument also takes, and
         /// alternable (<c>alt=colourcue=none;colourcue=motif:2</c>): a switch is a technique and a few uniforms chosen
-        /// per draw and leaves nothing behind. For a set's COST, run one per process all the same, as the
-        /// benchmark skill does ("The colour cue" in <c>docs/rendering/ball-styles.md</c>).
+        /// per draw and leaves nothing behind, so a cost sweep may alternate it beside <c>balls=</c>: alternated, the
+        /// cue on and off read what one form a process reads ("Cost" in <c>docs/rendering/ball-styles.md</c>).
         /// </summary>
         public int ColourCue { get; private set; } = ColourCues.DEFAULT;
 

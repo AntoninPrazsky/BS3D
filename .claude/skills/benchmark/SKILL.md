@@ -255,9 +255,12 @@ and 20 minutes into a continuous session, which said the spread was the level an
   is the *map* that decides the style, so a run that did not pin it measured whatever the level was authored
   in, and two styles are a real difference: the bubble puts its shell out **twice** (two walls, opposite cull
   modes) and the ice runs a crack net of 1233 slots. In the Game at `Ultra`, 3840×1500, Girandole's 1204 balls,
-  against the vinyl with the cue on (8.48 ms): bubble **+1.78 ms**, ice **+1.25**, plasma −0.91, the other six
-  within noise (#1215). Both arguments are Testbed `alt=` dials too, and alternated they read what one style a
-  process reads, within 0.01 ms. The whole table, its cameras and its method: "Cost" in
+  against the vinyl with the cue on (8.50 ms): bubble **+1.82 ms**, ice **+1.28**, plasma −0.90, the other six
+  within the Game's noise of 0.3 ms (#1215). Both arguments are Testbed `alt=` dials too, and alternated they read
+  what one form a process reads, within 0.02 ms (checked on the vinyl, the bubble and the ice, the cue on and
+  off). ⚠ The Game's frame drifts between sessions (Girandole's vinyl 8.32 to 8.61 ms), so pair each run with a
+  vinyl run of its own round, and a build or another agent's game beside a run loads it unseen: drop a run whose
+  seconds spread more than about 0.6 ms. The whole table, its cameras and its method: "Cost" in
   `docs/rendering/ball-styles.md`.
 
 ## The Testbed measures too, and it is the one that can aim
