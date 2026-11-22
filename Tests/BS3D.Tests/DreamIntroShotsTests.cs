@@ -39,10 +39,9 @@ namespace BS3D.Tests
         private const float MARGIN_SLACK = 1f;
 
         //How far out the solids' bounds stay from the arena's axis, at every height: past the game's lens (28 to 45 out)
-        //and the front end's orbit (about 44). It held at 44.6 before #1126 (the bounds were 30.4 for every solid) and the
-        //surfaces at 59.9; at 1.4 times the size with the orbit lifted, the bounds at 61.3. The tour's last leg reaches
-        //further out than the lens (54 from the axis at the farthest over the sweep below) and is flown against the bounds
-        //themselves.
+        //and the front end's orbit (about 44). Every bound of the inner ring comes to the ring's edge, 61.1 since the rings
+        //of #1219 (DreamBackdrop.SOLID_INNER_EDGE). The tour's last leg reaches further out than the lens (54 from the axis
+        //at the farthest over the sweep below) and is flown against the bounds themselves.
         private const float BOUND_KEEP_OUT = 60f;
 
         //The game's lens, as the landing tests stand it: 28 to 45 out, a little under the gun, the look on the arena

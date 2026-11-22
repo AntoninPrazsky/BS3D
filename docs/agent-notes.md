@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-22 — #1219 skleněná tělesa snu se neprolínají — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: dvanáct těles snu letí ve dvou prstencích (lichá, větší, uvnitř na 80–94; sudá venku na 142–152). Každý prstenec se točí jako celek, mezera mezi nimi je dána konstrukcí, takže se dvě tělesa nikdy nepotkají. Pravidlo je v `Dream.fx` i v `DreamBackdrop` a `DreamSolidsSourceTests` hlídá, že říkají totéž. `DreamSolidsApartTests` (hodina scény) i nový test Potato cesty selhaly se starými drahami. Potato tělesa mají vlastní dva prstence (146 a 237) a test, že jimi neproletí ani tour kapitoly.
+- ⚠ Cena jednoho okna měří jen to, kde zrovna tělesa jsou (8–40 s: 18 % snímku pod tělesem proti 11 %); průměr přes šest oken Testbedu je stejný (5,06 proti 5,05 ms).
+- Otevřené: `verdict-eye` (prstence, které se točí jako celek, a větší tělesa blíž; Potato menší a dál). Telefon ani Pi nezkoušeny.
+
 ## 2026-11-22 — #1209 seznam kláves editoru map se vejde do okna — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: MapEditor kreslí vlastní nápovědu kláves (`MapEditor/GUI/KeyHelpOverlay.cs`) ve skupinách na tmavém průsvitném panelu vlevo nahoře. Jako první a vždy vidět je SOUBOR (F2 otevřít nebo přetáhnout soubor, F4 uložit level, F1 uložit mapu, F3 nový). Řádků je 26 místo 39 a poprvé jsou v seznamu i klávesy létání a pravé tlačítko myši. H sbalí všechno kromě souborových kláves, F8 uloží snímek. `KeyHelpLayout` rozloží skupiny do sloupců a písmo zmenší, jen když se jinak nevejdou. Kříž os se přesunul doprava dolů. Editor nově bere `width=`, `height=` a `shot=`. Testy `MapEditorKeyHelpTests` hlídají, že se nápověda vejde od 100x60 do 3840x2160.

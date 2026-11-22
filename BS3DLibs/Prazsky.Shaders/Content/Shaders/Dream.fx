@@ -1,6 +1,6 @@
 //Draws the dream: a hallucinatory skyscape - slow marbled colour flowing across the whole sphere of the
-//sky, hard glassy solids that tumble, morph and melt into one another, soft luminous orbs breathing in and
-//out of the murk, and fast sparks whipping between them. The tenth scene, and deliberately a scene of
+//sky, hard glassy solids that tumble and melt from form to form (never into each other), soft luminous orbs
+//breathing in and out of the murk, and fast sparks whipping between them. The tenth scene, and deliberately a scene of
 //CONTRASTS: sharp against blurred (raymarched surfaces with crisp silhouettes against pure gaussian glows),
 //fast against slow (the background marbling drifts over minutes while the sparks cross the sky in seconds),
 //near against far. It is the picture of a hallucination the way Space.fx is the picture of space.
@@ -56,12 +56,18 @@
 //eight smaller ones did (see "Cost" in docs/scenes/dream.md). DreamBackdrop.SOLID_BOUND_IN_RADII is the host's copy.
 #define SHAPE_BOUND_IN_RADII 1.45
 
-//Where the solids orbit, as a share of ShapeOrbitRadius: SHAPE_ORBIT_BASE plus SHAPE_ORBIT_SWING x sin, so 0.64 to 1.
-//It was 0.78 plus 0.22 (0.56 to 1), and the solids grew 1.4 times in #1126: lifted, the nearest surface stays as far
-//out as before, past the game's lens, the front end's orbit and the chapter tour's leg into the pose
-//(DreamIntroShotsTests; DreamBackdrop.SOLID_ORBIT_BASE/SWING are the host's copy).
-#define SHAPE_ORBIT_BASE 0.82
-#define SHAPE_ORBIT_SWING 0.18
+//Where the solids orbit (#1219): in two rings, so that no two of them ever pass through each other (see ShapeCenter).
+//SHAPE_INNER_EDGE is how near the axis the inner ring's bounds come, as a share of ShapeOrbitRadius (61 of 130): past
+//the game's lens, the front end's orbit and the chapter tour's leg into the pose (DreamIntroShotsTests). The outer
+//ring's bounds come no nearer than the widest inner bound can reach plus SHAPE_RING_GAP, in ShapeSize. Each ring turns
+//as one at its own rate, radians a second, and a solid stands SHAPE_SLOT_JITTER x a sine of its index off its even place
+//in its ring. DreamBackdrop.SOLID_INNER_EDGE, SOLID_RING_GAP, SOLID_RATE_INNER/OUTER and SOLID_SLOT_JITTER are the
+//host's copies.
+#define SHAPE_INNER_EDGE 0.47
+#define SHAPE_RING_GAP 0.1
+#define SHAPE_RATE_INNER 0.029
+#define SHAPE_RATE_OUTER 0.022
+#define SHAPE_SLOT_JITTER 0.1
 
 float4x4 ViewRayBasis;  //the lens's axes over the projection's slopes - see SkyRay.Basis
 float3 CameraPosition;
@@ -190,22 +196,47 @@ float3 Background(float3 d, int warpOctaves)
 }
 
 //--- The floating solids ---------------------------------------------------------------------------------
-//Where solid i stands now: a slow independent orbit, each at its own radius, height swing and rate, so the
-//constellation never repeats and two solids occasionally drift close enough to melt together.
-//DreamBackdrop.SolidCenter is the host's copy, which the chapter intro lays its lenses against.
-float3 ShapeCenter(float i, float t)
-{
-    float a = t * (0.020 + 0.011 * frac(i * 0.371)) + i * 2.399;
-    float r = ShapeOrbitRadius * (SHAPE_ORBIT_BASE + SHAPE_ORBIT_SWING * sin(i * 5.3));
-    float y = 26.0 + 46.0 * sin(t * 0.013 + i * 2.7);
-
-    return float3(cos(a) * r, y, sin(a) * r);
-}
-
 //Solid i's own radius: ShapeSize scaled 0.4 to 1 by a hash of its index, so the sky has big solids and small.
 float ShapeRadius(float i)
 {
     return ShapeSize * (0.7 + 0.3 * sin(i * 9.1));
+}
+
+//Which ring solid i flies in: the odd indices, which ShapeRadius's hash makes the bigger solids, inner.
+bool ShapeInner(float i)
+{
+    return frac(i * 0.5) > 0.25;
+}
+
+//Solid i's distance from the axis, which the clock never changes: its ring's nearest edge plus its own bound, so every
+//bound of a ring comes exactly as near the axis as the ring's edge. The outer ring's edge is the inner one's plus the
+//widest any bound can be (ShapeSize x SHAPE_BOUND_IN_RADII, ShapeRadius's most) on both sides of a centre, and the gap:
+//a solid of one ring is that much nearer or farther than any of the other, so the two never meet at any bearing or height.
+float ShapeOrbit(float i)
+{
+    float edge = ShapeOrbitRadius * SHAPE_INNER_EDGE;
+    if (!ShapeInner(i)) edge += ShapeSize * (2.0 * SHAPE_BOUND_IN_RADII + SHAPE_RING_GAP);
+
+    return edge + ShapeRadius(i) * SHAPE_BOUND_IN_RADII;
+}
+
+//Where solid i stands now (#1219). They used to orbit each on its own rate round one band and met for most of the clock:
+//the march shades only the nearest hit, so two meeting solids drew a hard crease and the one behind vanished inside the
+//other. Now the rings keep them apart across (ShapeOrbit) and each ring turns as one at its own rate, the inner faster:
+//it holds half the solids, evenly spaced round it and each nudged off its place by SHAPE_SLOT_JITTER, so two of a ring
+//never close on each other either. The two rings start half a place apart and drift past each other as they turn. Only
+//the height swings each on its own, which nothing has to keep apart. DreamBackdrop.SolidCenter is the host's copy, which the chapter intro lays its lenses against and
+//DreamSolidsApartTests holds apart over an hour of the clock.
+float3 ShapeCenter(float i, float t)
+{
+    bool inner = ShapeInner(i);
+    float place = 2.0 * PI / (SHAPE_COUNT / 2);
+    float a = t * (inner ? SHAPE_RATE_INNER : SHAPE_RATE_OUTER) + floor(i * 0.5) * place
+        + (inner ? place * 0.5 : 0.0) + SHAPE_SLOT_JITTER * sin(i * 7.7);
+    float r = ShapeOrbit(i);
+    float y = 26.0 + 46.0 * sin(t * 0.013 + i * 2.7);
+
+    return float3(cos(a) * r, y, sin(a) * r);
 }
 
 //One solid's distance field, in its own tumbling frame: a sphere, a rounded box and a torus, melted into

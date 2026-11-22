@@ -4,7 +4,7 @@ namespace Prazsky.Core.Render
 {
     /// <summary>
     /// Configuration of the dream backdrop: a hallucinatory skyscape — slow marbled colour across the whole
-    /// sky, hard morphing solids melting into one another, soft luminous orbs and fast sparks. The tenth
+    /// sky, hard solids melting from form to form, soft luminous orbs and fast sparks. The tenth
     /// scene, and like Space it replaces the SKY rather than the ground: no dome, no weather, no horizon,
     /// and its own light rig (<see cref="Lighting"/>). Deliberately a scene of contrasts — sharp against
     /// blurred, fast against slow — which is what the groups below dial.
@@ -103,17 +103,18 @@ namespace Prazsky.Core.Render
     }
 
     /// <summary>
-    /// The floating solids: <see cref="SceneRenderer.DREAM_SOLID_COUNT"/> raymarched forms that tumble on their own
-    /// slow orbits, each melting between a sphere, a rounded box and a torus.
+    /// The floating solids: <see cref="SceneRenderer.DREAM_SOLID_COUNT"/> raymarched forms that tumble while riding
+    /// two slow rings (<see cref="DreamBackdrop.SolidOrbit"/>), each melting between a sphere, a rounded box and a torus.
     /// </summary>
     public sealed class DreamShapesConfig
     {
         /// <summary>
-        /// How far out the solids roam (world units): each orbits at 0.64 to 1 of it
-        /// (<see cref="DreamBackdrop.SOLID_ORBIT_BASE"/>, <see cref="DreamBackdrop.SOLID_ORBIT_SWING"/>). They write no
-        /// depth — the whole sky is drawn behind the scene — so they must stay well outside anything the camera can
-        /// stand near (the island is 26, the game's lens 28 to 45 out, the menu orbit 44): a solid that drifted
-        /// between the lens and the island would draw BEHIND it. The soft orbs roam at 1.25 of it.
+        /// How far out the solids roam (world units): the inner ring's bounds come no nearer the axis than
+        /// <see cref="DreamBackdrop.SOLID_INNER_EDGE"/> of it, and the outer ring stands past the inner one
+        /// (<see cref="DreamBackdrop.SolidOrbit"/>). They write no depth — the whole sky is drawn behind the scene — so
+        /// they must stay well outside anything the camera can stand near (the island is 26, the game's lens 28 to 45
+        /// out, the menu orbit 44): a solid that drifted between the lens and the island would draw BEHIND it. The soft
+        /// orbs roam at 1.25 of it.
         /// </summary>
         public float OrbitRadius { get; set; } = 130f;
 
