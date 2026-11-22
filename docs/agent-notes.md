@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-22 — #1215 cena deseti stylů koulí — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: jedna změřená tabulka v `docs/rendering/ball-styles.md` („Cost“), barevný klíč zapnutý i vypnutý, Game v Ultra na Girandole a Spyglass a tři pevné kamery v Testbedu. Proti vinylu: bublina +1,82 ms, led +1,28, plasma −0,90, ostatní v šumu. Cena roste s pixely koule. Na desktopu se nic nezlevňuje: nejdražší snímek kapitoly bubliny (Amphora, 9,02 ms) je 4,3 ms pod rozpočtem Ultra. Opraveno i zastaralé `balls=<beach|bubble>`.
+- ⚠ Buildy jiných agentů zatěžují CPU a kontrola procesů to nevidí (sekundy na Spyglass se ztrojnásobily). Běhy ve hře se párují s vinylem téhož kola a běhy s velkým rozptylem se zahazují.
+- Otevřené: cena bubliny a ledu na referenčním APU (Low, Amphora) a na telefonu. Úvodní záběr potoka na louce má v Ultra 13–15 ms, to je scéna, ne koule.
+
 ## 2026-11-21 — #1196 paprsek míření se na konci rozevře do trychtýře čar — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: záře na konci paprsku je pryč. Do `SPLIT_FROM` (55 % letu) zůstává starý ostrý přerušovaný paprsek, pak se rozdělí do pěti tenkých nepřerušených čar (nová technika `AimRay` v `ShotTrail.fx`, i v GamePi). Prostřední je míření samo, krajní se rozevřou na `LANDING_SPREAD` (0,65, změřená oblast dopadu z #1144) a za dotykem běží souběžně a slábnou. Ghost je v trychtýři na obrazovce u 477 z 478 mířů z přehledové kamery. Rozevírají se kolmo k letu i k pohledu, proto jsou z přehledu vidět vedle sebe (rozevření 119 px při 1080 řádcích).
