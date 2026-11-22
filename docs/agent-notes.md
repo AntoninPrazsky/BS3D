@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-22 — #1196 paprsek míření tenký a tichý, konec slábne u koule — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: trychtýř pěti čar (1354190c) majitel 2026-11-21 odmítl; zápis níže i jeho otázka po `RAY_LUMINANCE` už neplatí. `AimBeam` je zase jedna přerušovaná čára, tenčí a tlumenější (0,12 / 2,4 místo 0,15 / 3,5). Od `FAR_FROM` (půlka) se čárky plynule (smoothstep) rozšíří na `FAR_WIDTH` 0,26, prodlouží a zeslábnou podél sebe (`TrailHeadFade` v `ShotTrail.fx`, i GamePi) do nuly; končí na okraji koule, jak ji vidí kamera (`VisibleEnd`), nikdy přes ni. Řezač (`FarEnd.Strike`) je prostá čára zastavená u koule.
+- ⚠ Úplné doznění stojí dosah: jádro klesne pod desetinu světla 34 px před okrajem koule (medián, 1080 řádků). Páky `FarAlpha`, `FAR_DASH_FRACTION`.
+- Otevřené: `verdict-eye` (dost tenký a tichý? čárky při přejezdu míření přes hranici koulí). Pohyb, pad, telefon, Pi, cena neověřeny.
+
 ## 2026-11-21 — #1196 paprsek míření se na konci rozevře do trychtýře čar — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: záře na konci paprsku je pryč. Do `SPLIT_FROM` (55 % letu) zůstává starý ostrý přerušovaný paprsek, pak se rozdělí do pěti tenkých nepřerušených čar (nová technika `AimRay` v `ShotTrail.fx`, i v GamePi). Prostřední je míření samo, krajní se rozevřou na `LANDING_SPREAD` (0,65, změřená oblast dopadu z #1144) a za dotykem běží souběžně a slábnou. Ghost je v trychtýři na obrazovce u 477 z 478 mířů z přehledové kamery. Rozevírají se kolmo k letu i k pohledu, proto jsou z přehledu vidět vedle sebe (rozevření 119 px při 1080 řádcích).
