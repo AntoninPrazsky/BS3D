@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-22 — #1229 kratší článek o tetelení — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: dlouhý článek o horkém vzduchu (8a9870f6, 2 536 slov) je pryč i s klipy, rozdílovým obrázkem a náhledem. Místo něj „Hot air, only far away“ (/blog/hot-air-only-far-away/): smyčka silnějšího tetelení hned nahoře, 368 slov v krátkých odstavcích pod třemi podnadpisy, čísla jen „čtyřikrát“ a 0,28°. `docs/website.md` má pravidlo pro články o jedné věci: klip první, ~350 slov, odstavce o dvou třech větách.
+- majitel: dlouhý článek „Vrať“ (2026-11-21), stěny textu.
+- Otevřené: `verdict-eye` (délka a tón). Web nezveřejněn (publish-web.cmd spouští majitel), datum 2026-11-22 posunout, půjde-li ven později. Užší výřez klipu pro telefon (teď 358×114) lze vyříznout z uložených snímků #1135.
+
 ## 2026-11-22 — #1212 gumová omni kola děla — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: kola děla mají dva materiály. Válečky jsou tmavá uhlová guma (0,24) s vlastním měkkým leskem (0,45 při exponentu 12) přes nové `InstancedModelRenderer.SetMaterialSpecular`. Desky a náboj jsou světlejší obráběný kov (0,40). Nová čelní strana náboje (`OmniWheelMesh.AddHubFace`) má lem, přírubu s osmi šestihrannými maticemi a kopuli s maticí osy. Je to tatáž síť i barva, takže žádné kreslení navíc, a síť kola je teď uzavřená (`WindingCheck --openness` už výjimku nepotřebuje). Válečky 38–40 z 255 proti deskám 62–66 (dřív 99–104 proti 15–23). Export děla pro web nese lesk každého dílu a odmítne válečky bez gumy.
