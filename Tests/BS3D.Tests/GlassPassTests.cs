@@ -140,10 +140,13 @@ namespace BS3D.Tests
         /// The whole flight, blend and all, over every shipped level: the lens never enters the box everything the map hangs
         /// stands in (the footprint, from the cluster's lowest ball to the winches on the glass) with the cluster's own pass's
         /// air round it (CLOSE_CLEARANCE, 1.5); over the face it keeps its air off every cable; it moves no faster than a
-        /// flight should, so nothing jumps; and it never looks within the tilt of straight down nor turns the frame round. The
-        /// framing is <c>BackdropScreen.SolveFraming</c>'s (the same lines over the same helpers), the wide pose its
-        /// <c>WideRadius</c>'s, and the far height is capped in a second run as the lowest roof over the island caps it: the
-        /// Big Top's crown (<c>CircusTentConfig.CrownY</c>, the canvas a little over it) less <see cref="GlassPass.ROOF_AIR"/>.
+        /// flight should, so nothing jumps; it never looks within the tilt of straight down nor turns the frame round; and it
+        /// stays <see cref="GlassPass.ROOF_AIR"/> under a roof. The framing is <c>BackdropScreen.SolveFraming</c>'s (the same
+        /// lines over the same helpers), the wide pose its <c>WideRadius</c>'s (both held to the source by
+        /// <see cref="TheMirroredFiguresAreBackdropScreensOwn"/>), and the far height is <c>GlassFarHeight</c>'s: under an open
+        /// sky, and under a roof low enough that the cap binds on every level (<see cref="LowRoofOver"/>; the Big Top's canvas,
+        /// 73.5 over the axis, caps none of them, the highest far lens being Organ's at 60.8), with <c>BeginGlassPass</c>'s
+        /// refusal where there is no room under it for the near height.
         /// </summary>
         [Theory]
         [InlineData(1.7778f)]
@@ -167,12 +170,21 @@ namespace BS3D.Tests
                     MathF.Max(StandOff(f.HalfHeight, vertical, WideMapShare), StandOff(f.SpanXZ, horizontal, WideMapShare)));
                 float wideY = MathF.Max(LensFloorY, f.CentreY - WideLensDrop);
 
-                foreach (float roof in new[] { float.PositiveInfinity, new CircusTentConfig().CrownY - GlassPass.ROOF_AIR })
+                foreach (float roof in new[] { float.PositiveInfinity, LowRoofOver(f) })
                     foreach (var roll in Rolls)
                         for (int start = 0; start < 12; start++)
                         {
+                            //BeginGlassPass: no pass where the roof leaves no room for the highest near height
+                            float ceiling = roof - GlassPass.ROOF_AIR;
+                            if (ceiling - f.PlateTopY < Rolls[^1].Near) continue;
+
+                            //GlassFarHeight: framed, capped under the roof, never under the near height's floor
+                            float framedFar = GlassPass.FarHeight(f.SpanXZ, MathF.Min(vertical, horizontal));
+                            float far = MathF.Max(MathF.Min(framedFar, ceiling - f.PlateTopY), Rolls[0].Near);
+                            if (float.IsFinite(roof) && framedFar <= ceiling - f.PlateTopY)
+                                failures.Add($"{Path.GetFileName(file)}: the low roof does not cap the far height, so it tests nothing");
+
                             float angle = start * MathHelper.TwoPi / 12f + 0.13f;
-                            float far = MathF.Max(MathF.Min(GlassPass.FarHeight(f.SpanXZ, MathF.Min(vertical, horizontal)), roof - f.PlateTopY), 3.5f);
                             float near = MathF.Min(roll.Near, far);
                             float bearing0 = GlassPass.FirstBearing(angle + WideRate * roll.Approach);
                             float swing = 0f;
@@ -203,6 +215,9 @@ namespace BS3D.Tests
                                     MathF.Max(MathF.Abs(position.X) - (f.HalfX + clusterAir), MathF.Abs(position.Z) - (f.HalfZ + clusterAir)));
                                 tightestCluster = MathF.Min(tightestCluster, clusterMargin);
                                 if (clusterMargin < 0f) failures.Add($"{at}: {clusterMargin:F2} inside the box the map stands in");
+
+                                //Under the roof by its air, the whole way
+                                if (position.Y > ceiling + 1e-3f) failures.Add($"{at}: {position.Y - ceiling:F2} over the roof's air");
 
                                 //Off every cable while over the face
                                 if (position.Y > f.PlateTopY)
@@ -253,6 +268,72 @@ namespace BS3D.Tests
             float crowns = BallsConstraintsBuilder.CeilingRestY(ceilingCentreY) + BallRenderSet.BALL_RADIUS;
 
             Assert.Equal(CeilingPlate.TopFaceY(ceilingCentreY), crowns + CeilingPlate.THICKNESS, 4);
+        }
+
+        /// <summary>
+        /// <b>The figures this file flies the pass on are BackdropScreen's own</b>, read off its source: the screen cannot be
+        /// built here, so the wide turn's rules and the glass pass's rolls are mirrored above, and a change to either there
+        /// would leave the flight test passing against a flight the game no longer flies. Each declaration (and the lines
+        /// that use the wide figures and find the plate's top face) must stand in the source as this file assumes it.
+        /// </summary>
+        [Fact]
+        public void TheMirroredFiguresAreBackdropScreensOwn()
+        {
+            string source = Squeezed(File.ReadAllText(Path.Combine(FindUnderRepository("Game/Screens"), "BackdropScreen.cs")));
+
+            List<string> missing = new();
+            foreach (string expected in MirroredSource)
+                if (!source.Contains(Squeezed(expected), StringComparison.Ordinal)) missing.Add(expected);
+
+            Assert.True(missing.Count == 0, "BackdropScreen.cs no longer says what GlassPassTests mirrors:\n" + string.Join("\n", missing));
+        }
+
+        /// <summary>
+        /// What <see cref="TheMirroredFiguresAreBackdropScreensOwn"/> looks for: the declarations behind <see cref="Fov"/>,
+        /// <see cref="WideRate"/>, <see cref="IslandShare"/>, <see cref="WideMapShare"/>, <see cref="WideLensDrop"/>,
+        /// <see cref="LensFloorY"/> and <see cref="Rolls"/>, and the lines of <c>WideRadius</c>, <c>SolveFraming</c> and
+        /// <c>GlassFarHeight</c> that <see cref="FramingFor"/> and the flight re-state.
+        /// </summary>
+        private static readonly string[] MirroredSource =
+        {
+            "private static readonly float FOV = MathF.PI / 3f;",
+            "private const float WIDE_ROTATION_SPEED = MathHelper.TwoPi / 90f;",
+            "private const float ISLAND_FRAME_SHARE = 0.95f;",
+            "private const float WIDE_MAP_SHARE = 0.72f;",
+            "private const float WIDE_LENS_DROP = 2f;",
+            "private static readonly float LENS_FLOOR_Y = ArenaIsland.TOP_Y + 4f;",
+            "private const float GLASS_APPROACH_SECONDS = 5f, GLASS_APPROACH_JITTER_SECONDS = 2f;",
+            "private const float GLASS_CLOSE_SECONDS = 14f, GLASS_CLOSE_JITTER_SECONDS = 6f;",
+            "private const float GLASS_RETREAT_SECONDS = 6f, GLASS_RETREAT_JITTER_SECONDS = 3f;",
+            "private const float GLASS_NEAR_HEIGHT = 3.5f, GLASS_NEAR_JITTER = 2.5f;",
+            "StandOffFor(ArenaIsland.RADIUS, horizontal, ISLAND_FRAME_SHARE),",
+            "StandOffFor(framing.HalfHeight, vertical, WIDE_MAP_SHARE),",
+            "StandOffFor(framing.SpanXZ, horizontal, WIDE_MAP_SHARE)));",
+            "float halfX = CeilingPlate.FootprintFor(map.StageSizeX) * Constants.HALF;",
+            "float halfZ = CeilingPlate.FootprintFor(map.StageSizeZ) * Constants.HALF;",
+            "Vector2 cable = CeilingRigging.CableOffset(map.StageSizeX, map.StageSizeZ);",
+            "topY + CeilingPlate.THICKNESS,",
+            "float far = MathF.Min(GlassPass.FarHeight(_framing.SpanXZ, MathF.Min(vertical, horizontal)), _glassCeilingY - _glassPlateTop);",
+            "return MathF.Max(far, GLASS_NEAR_HEIGHT);",
+            "if (_glassRoofY - GlassPass.ROOF_AIR - _hungFraming.PlateTopY < GLASS_NEAR_HEIGHT + GLASS_NEAR_JITTER)",
+        };
+
+        //A roof that caps the far height over every shipped plate and still leaves the near height room: twelve units for the
+        //lens over the face, well under the lowest framed far height (about 32, over a twelve-wide field)
+        private static float LowRoofOver(in Framing f) => f.PlateTopY + GlassPass.ROOF_AIR + 12f;
+
+        //Whitespace run together, so a re-wrapped line is the same line
+        private static string Squeezed(string text) => System.Text.RegularExpressions.Regex.Replace(text, @"\s+", " ");
+
+        private static string FindUnderRepository(string relative)
+        {
+            for (DirectoryInfo directory = new(AppContext.BaseDirectory); directory != null; directory = directory.Parent)
+            {
+                string candidate = Path.Combine(directory.FullName, relative.Replace('/', Path.DirectorySeparatorChar));
+                if (Directory.Exists(candidate)) return candidate;
+            }
+
+            throw new DirectoryNotFoundException($"No {relative} was found above the test assembly.");
         }
 
         //The horizontal distance from the lens to the nearest of the four cables at (+-x, +-z)

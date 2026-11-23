@@ -259,7 +259,12 @@ namespace BS3D
         /// What is being judged, for the log line: "menu" or "level". Named by the caller because the probe
         /// cannot see which screen is on top, and the distinction is the whole point of the second caller.
         /// </param>
-        internal void TuneQualityToFrameRate(float elapsed, string where)
+        /// <param name="judged">
+        /// Whether this frame is one a verdict may be taken on. The front end says no for the whole of its pass over the glass
+        /// (#1214), which refracts a pane that fills the frame: the verdict is about the wide turn, and four routes reopen the
+        /// probe wherever the flight has got to (see <see cref="Screens.BackdropScreen"/>'s cycle). The heat is watched either way.
+        /// </param>
+        internal void TuneQualityToFrameRate(float elapsed, string where, bool judged = true)
         {
             WatchDeviceHeat(elapsed, where);
 
@@ -271,6 +276,10 @@ namespace BS3D
                 _qualityWarmupLeft -= elapsed;
                 return;
             }
+
+            //Nor on a frame its caller rules out (#1214): the window waits, its frames and seconds both, so what it averages
+            //is the frames it may judge
+            if (!judged) return;
 
             //Nor while the physics warm-up steps its throwaway world on the other cores (#1086): it is no part of what a frame
             //of this game costs, and a window it shared could take a tier off the menu for the whole session

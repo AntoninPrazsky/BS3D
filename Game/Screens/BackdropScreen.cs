@@ -594,8 +594,9 @@ namespace BS3D.Screens
         //jitters either way, so the same map is never visited the same way twice. The crane's direction was
         //rolled too until #599 — over the top as often as from under the bottom — and is not any more: it
         //always climbs from its low, steep look to its shallow one, because the owner's ruling is that the
-        //camera starts low and looks up the whole way, and a pass that started over the top began by looking
-        //down on the map.
+        //cluster's pass starts low and looks up the whole way, and a pass that started over the top began by
+        //looking down on the map. (The pass over the glass, #1214, is the one excursion that looks down: the
+        //owner's own ask, a leg of its own, below.)
         //
         //THE WIDE LEG'S ROLL HAS A FLOOR, and the reason is not variety: BS3DGame.TuneQualityToFrameRate is
         //driven off this screen's Update, and it reaches a verdict from a 1.5 s warm-up and 1.5 s windows —
@@ -603,12 +604,16 @@ namespace BS3D.Screens
         //twelve so that every verdict is a wide one (the jitter only ever lengthens the hold; #261 cut the
         //hold itself from 30, which stood three times longer than the ask it was serving). A cycle that flew
         //in sooner would be handing the probe a frame with the cluster filling it and letting THAT decide
-        //the tier the whole game runs at. Every route that reopens the probe from the front end puts the
+        //the tier the whole game runs at. Three routes that reopen the probe from the front end put the
         //flight back at the top of the wide leg with it: a fresh program, a rolled preview (returning from a
         //level, which is what ReopenQualityProbe answers) and a release from the result screen all start the
-        //clock at zero. The one that does not is the fullscreen toggle, which reopens the probe wherever the
-        //flight has got to — measured, the pass is not the expensive half anyway (see the frame-rate figures
-        //under "The menu camera" in docs/game-shell.md), and the probe only ever steps down.
+        //clock at zero. Four reopen it wherever the flight has got to: the fullscreen toggle, a change of the
+        //render resolution and Auto quality turned back on (all three while the flight goes on under Settings),
+        //and a hot phone's re-measure (BS3DGame.WatchDeviceHeat). Over the cluster's pass and the gun's that is
+        //left alone — measured, the cluster's pass is not the expensive half (see "The wide leg's length is the
+        //probe's" in docs/game-shell/menu-camera.md), and the probe only ever steps down. The pass over the glass
+        //(#1214) is not judged at all: Update tells the probe so for as long as it flies, because its pane fills
+        //the frame and bends a copy of the scene taken at it every frame, and no phone's price for that is known.
         private const float WIDE_SECONDS = 12f, WIDE_JITTER_SECONDS = 8f;
         private const float APPROACH_SECONDS = 3.5f, APPROACH_JITTER_SECONDS = 1.5f;
         private const float CLOSE_SECONDS = 16f, CLOSE_JITTER_SECONDS = 8f;
@@ -862,7 +867,8 @@ namespace BS3D.Screens
 
             camera.Update(elapsed);
 
-            Game.TuneQualityToFrameRate(elapsed, "menu");
+            //Not judged while the pass over the glass flies (#1214): see the wide leg's floor in the cycle's notes
+            Game.TuneQualityToFrameRate(elapsed, "menu", judged: !_glassPass);
         }
 
         /// <summary>
@@ -1627,8 +1633,10 @@ namespace BS3D.Screens
             //in whatever that level is made of (#258).
             Game.Balls.Style = _previewStyle;
 
-            //The glass clears as the lens comes over it on the pass over the glass (#1214), on the flight's own curve
-            Game.SetMenuCeilingClarity(_glassPass ? Closeness(_flightClock) : 0f);
+            //The glass clears as the lens comes over it on the pass over the glass (#1214), on the flight's own curve, and
+            //goes back to the menu's as a replayed tour takes the camera off the flight (the flight's clock waits for it, so
+            //the closeness would hold the clear pane over the tour's nearly level shots)
+            Game.SetMenuCeilingClarity(_glassPass ? Closeness(_flightClock) * (1f - _tour.Blend) : 0f);
 
             BallDrawFrame ballFrame = Game.Balls.BeginFrame(Game.Camera);
             ballFrame.AddMap(_previewMap, _previewOffset);
