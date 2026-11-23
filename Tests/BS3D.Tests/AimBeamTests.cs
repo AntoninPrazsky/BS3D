@@ -337,7 +337,7 @@ namespace BS3D.Tests
                 AimBeam.Piece[] landing = Lay(path, phase, AimBeam.FarEnd.Landing);
                 AimBeam.Piece[] plain = Lay(path, phase, AimBeam.FarEnd.Strike);
 
-                bool Near(AimBeam.Piece p) => XVector3.Distance(Muzzle, p.Head) <= AimBeam.FAR_FROM * total;
+                bool Near(AimBeam.Piece p) => XVector3.Distance(Muzzle, p.Head) <= AimBeam.FADE_FROM * total;
 
                 AimBeam.Piece[] nearLanding = Array.FindAll(landing, Near);
                 Assert.NotEmpty(nearLanding);
@@ -345,8 +345,9 @@ namespace BS3D.Tests
                 Assert.All(nearLanding, p => Assert.True(p.TailWidth == AimBeam.WIDTH && p.HeadWidth == AimBeam.WIDTH
                     && p.TailAlpha == 1f && p.HeadAlpha == 1f, $"a dash of the near end is {p}"));
 
-                //A third of the way out, which the overview cannot do without, every dash is there at full light
-                Assert.Contains(nearLanding, p => XVector3.Distance(Muzzle, p.Head) > total / 3f);
+                //Out to where the fade starts (FADE_FROM, a quarter of the way since #1235, nearly half the beam on the
+                //overview's screen) every dash is there at full light: the last of them ends within a period of it
+                Assert.Contains(nearLanding, p => XVector3.Distance(Muzzle, p.Head) > AimBeam.FADE_FROM * total - AimBeam.SPACING);
             }
         }
 

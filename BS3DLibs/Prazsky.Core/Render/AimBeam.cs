@@ -24,9 +24,9 @@ namespace Prazsky.Core.Render
     /// asked for the region the shot lands in; the owner turned down a soft glow and then a fan of lines for it, #1196, and
     /// asked for the one dashed line, thin and quiet, whose dashes "widen slightly and smoothly towards the end, turn
     /// transparent, and stop at the ball"). On a <see cref="FarEnd.Landing"/> the beam is the plain line up to
-    /// <see cref="FAR_FROM"/> of its length; over the rest its dashes widen along one smooth curve to
-    /// <see cref="FAR_WIDTH"/>, lengthen with it (<see cref="FAR_STRETCH"/>, <see cref="FAR_DASH_FRACTION"/>) and give up
-    /// their light, each dash along itself, to nothing where the beam reaches the ball it touches. A
+    /// <see cref="FADE_FROM"/> of its length, from where its dashes give up their light, each dash along itself, to nothing
+    /// where the beam reaches the ball it touches; past <see cref="FAR_FROM"/> they also widen along one smooth curve to
+    /// <see cref="FAR_WIDTH"/> and lengthen with it (<see cref="FAR_STRETCH"/>, <see cref="FAR_DASH_FRACTION"/>). A
     /// <see cref="FarEnd.Strike"/> (a cutter's, which strikes that ball itself and has no cell to show) is the plain line at
     /// full strength, and it stops there too. Either way it is one dashed line from the muzzle on, and nothing is drawn
     /// over the ball or past it.
@@ -197,13 +197,23 @@ namespace Prazsky.Core.Render
         internal const float LANDING_SPREAD = 0.65f;
 
         /// <summary>
-        /// Where the far part begins, as a fraction of the beam's length: before it the beam is the plain line, from it its
-        /// dashes widen and lengthen (that share of the flight on, to the touch) and fade (that share of the length to where
-        /// the lens sees the beam reach the ball on, to there, <see cref="VisibleEnd"/>). Half way, so the overview, which
-        /// reads the aim off the near part, keeps the plain line over half of it, and the fade has the other half to be
-        /// gradual in.
+        /// Where the far part's dashes begin to widen and lengthen, as a fraction of the beam's length (that share of the
+        /// flight on, to the touch). Half way, so the overview, which reads the aim off the near part, keeps the plain line's
+        /// shape over half of it. Their light fades from earlier (<see cref="FADE_FROM"/>).
         /// </summary>
         internal const float FAR_FROM = 0.5f;
+
+        /// <summary>
+        /// Where a landing's light begins to fade, as a share of the length to where the lens sees the beam reach the ball
+        /// (<see cref="VisibleEnd"/>), to nothing there: the middle line's and the fork's prongs' alike. A quarter of the way,
+        /// before the fork starts to open (<see cref="FORK_FROM"/>), because the owner asked of the fork, "it could start turning
+        /// transparent earlier, so it grows gradually more transparent ... nearly the whole fork should already be transparent"
+        /// (#1235): faded from <see cref="FAR_FROM"/>, half way, the prongs stood at nine tenths of the line's light where they
+        /// cleared it. From here a prong is at its brightest, about two thirds of the line's light, where it clears the line,
+        /// under two fifths at the fork's full spread, and gone at the ball. The plain line keeps its full light over the first
+        /// quarter, which on the overview's screen is nearly half the beam.
+        /// </summary>
+        internal const float FADE_FROM = 0.25f;
 
         /// <summary>
         /// Half-width of a dash at the touch, in world units: a little over twice the line's
@@ -516,7 +526,7 @@ namespace Prazsky.Core.Render
             {
                 end = VisibleEnd(path, total, ballTouched, viewer);
                 if (farEnd == FarEnd.Landing)
-                    far = new FarPart(FAR_FROM * total, total, FAR_FROM * end, end, FORK_FROM * end, FORK_FULL * end);
+                    far = new FarPart(FAR_FROM * total, total, FADE_FROM * end, end, FORK_FROM * end, FORK_FULL * end);
             }
 
             if (end < SPACING * MIN_DASH_FRACTION) return 0;
@@ -527,9 +537,10 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// A landing's far part: where its dashes widen and lengthen, from <see cref="From"/> to <see cref="To"/> along the
-        /// flight (<see cref="FAR_FROM"/> of it on, to the touch), and where their light fades, from <see cref="FadeFrom"/>
-        /// to nothing at <see cref="FadeTo"/> (<see cref="FAR_FROM"/> of the way to where the lens sees the beam reach the
-        /// ball on, to there). <see cref="None"/> is the plain line's: nothing grows and nothing fades.
+        /// flight (<see cref="FAR_FROM"/> of it on, to the touch), where their light fades, from <see cref="FadeFrom"/>
+        /// to nothing at <see cref="FadeTo"/> (<see cref="FADE_FROM"/> of the way to where the lens sees the beam reach the
+        /// ball on, to there), and where the fork opens (<see cref="ForkFrom"/> to <see cref="ForkTo"/>). <see cref="None"/> is
+        /// the plain line's: nothing grows, fades or forks.
         /// </summary>
         private readonly record struct FarPart(float From, float To, float FadeFrom, float FadeTo, float ForkFrom, float ForkTo)
         {
