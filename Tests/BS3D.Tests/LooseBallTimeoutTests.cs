@@ -131,8 +131,10 @@ namespace BS3D.Tests
             float floorY = hung.WorldOffset.Y;
 
             PhysicsBall ball = Loose(hung, floorY + 3f);
-            while (ball.Vanish <= 0f) LooseBallTimeout.Advance(ball, FRAME, floorY);
+            for (float clock = 0f; ball.Vanish <= 0f && clock < LooseBallTimeout.BACKSTOP_SECONDS; clock += FRAME)
+                LooseBallTimeout.Advance(ball, FRAME, floorY);
 
+            Assert.True(ball.Vanish > 0f, "a ball in the field never began to go");
             float vanish = ball.Vanish;
             ball.BallReference.Pose.Position = new System.Numerics.Vector3(0f, floorY - 3f, 0f);
 
