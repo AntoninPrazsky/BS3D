@@ -49,8 +49,8 @@ float2 OriginXZ;
 float VolcanoTime;
 
 //Radius of the platform footprint cut out of the terrain around the world origin, so the drain funnel below
-//the island reads as a drain into a pit rather than a bowl in flat ground. The Testbed sets this to the
-//island's radius; the map editor draws no island, so it leaves it 0 and nothing is cut.
+//the island reads as a drain into a pit rather than a bowl in flat ground. The Game and the Testbed set this to
+//the island's radius, the map editor while its island is shown (I); 0 cuts nothing.
 float IslandHoleRadius;
 
 //--- The massing -------------------------------------------------------------------------------------------
@@ -194,8 +194,8 @@ float3 LandHazeColor;
 
 //The deck as the sky shader draws it over the dome, for the last fade (VolcanoFadeToSky, #1164). CloudOpacity and
 //CloudShadowColor arrive with the rest of the deck (CloudField.ApplyTo, through the frame's ApplyClouds); CloudHorizonFade is
-//CloudField.HORIZON_FADE, stated by VolcanoBackdrop at load. With no weather (the map editor) the deck's gain stays 0, and
-//there is no lid.
+//CloudField.HORIZON_FADE, stated by VolcanoBackdrop at load. With no weather (the map editor's game sky off) the deck's gain
+//is 0, and there is no lid.
 float CloudOpacity;
 float3 CloudShadowColor;
 float CloudHorizonFade;
@@ -1156,7 +1156,7 @@ bool Shaded(float3 worldPosition)
 //before the ground shows (TerrainDepthTwinSourceTests fails on it). Below those tiers nothing would show it.
 void VolcanoCuts(float2 xz)
 {
-    //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
+    //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 (no island drawn) keeps it all.
     clip(length(xz) - IslandHoleRadius);
     FarRingClip(xz);
 }

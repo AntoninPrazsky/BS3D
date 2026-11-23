@@ -39,8 +39,8 @@ float2 OriginXZ;
 
 //Radius of the platform footprint cut out of the terrain around the world origin, so the drain funnel below
 //the island reads as a drain into a pit rather than a bowl in flat ground (the flat clearing otherwise slices
-//across the funnel just below its rim, hiding its depth and swallowing the balls falling through). The Testbed
-//sets this to the island's radius; the map editor draws no island, so it leaves it 0 and nothing is cut.
+//across the funnel just below its rim, hiding its depth and swallowing the balls falling through). The Game
+//and the Testbed set this to the island's radius, the map editor while its island is shown (I); 0 cuts nothing.
 float IslandHoleRadius;
 
 float ForestLevelY;
@@ -154,7 +154,7 @@ float3 ForestMurk;
 
 //The deck as the sky shader draws it over the dome, for the lid in ForestSkyBehind. CloudOpacity and CloudShadowColor arrive
 //with the rest of the deck (CloudField.ApplyTo, through the frame's ApplyClouds); CloudHorizonFade is CloudField.HORIZON_FADE,
-//stated by ForestBackdrop at load. With no weather (the map editor) the deck's gain stays 0, and there is no lid.
+//stated by ForestBackdrop at load. With no weather (the map editor's game sky off) the deck's gain is 0, and there is no lid.
 float CloudOpacity;
 float3 CloudShadowColor;
 float CloudHorizonFade;
@@ -491,7 +491,7 @@ float4 ForestFloorAt(float3 worldPosition, float3 baseNormal, bool detail)
 //before the ground shows (TerrainDepthTwinSourceTests fails on it). Below those tiers nothing would show it.
 void ForestCuts(float2 xz)
 {
-    //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
+    //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 (no island drawn) keeps it all.
     clip(length(xz) - IslandHoleRadius);
     FarRingClip(xz);
 

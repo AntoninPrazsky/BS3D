@@ -30,8 +30,8 @@ float2 OriginXZ;
 
 //Radius of the platform footprint cut out of the terrain around the world origin, so the drain funnel below
 //the island reads as a drain into a pit rather than a bowl in flat ground (the flat clearing otherwise slices
-//across the funnel just below its rim, hiding its depth and swallowing the balls falling through). The Testbed
-//sets this to the island's radius; the map editor draws no island, so it leaves it 0 and nothing is cut.
+//across the funnel just below its rim, hiding its depth and swallowing the balls falling through). The Game
+//and the Testbed set this to the island's radius, the map editor while its island is shown (I); 0 cuts nothing.
 float IslandHoleRadius;
 
 float MeadowLevelY;
@@ -811,7 +811,7 @@ void MeadowCuts(float2 xz, float brookLateral)
 
 float4 MeadowField(float3 worldPosition, float3 worldNormal, float4 carve, bool detail, bool grid)
 {
-    //Cut the island's footprint out of the terrain (see IslandHoleRadius; 0 in the map editor keeps it all), and the far
+    //Cut the island's footprint out of the terrain (see IslandHoleRadius; 0, no island drawn, keeps it all), and the far
     //ring where the grid covers. And the camera grid and the far ring give way to the patch where the brook and the pond
     //are cut (#892): the patch reaches past this hole on every side, so nothing between them is left open. The patch
     //itself has NO clip: it never reaches the island or past the grid's far edge, and a program that can discard loses

@@ -24,7 +24,8 @@ namespace Prazsky.Core.Render
     /// <para>
     /// <b>Which renderers take part is deliberately not this class's business.</b> Each executable keeps its
     /// own enrolment list and its own reasons — the Testbed's ceiling is always there while the Game's is
-    /// rebuilt per level and may be null, the map editor lights only the balls and the city, and all of them
+    /// rebuilt per level and may be null, the map editor lights what its switches may show whether or not they show
+    /// it (the island, the ceiling glass and its rigging beside the balls, the city and the wood), and all of them
     /// exclude the drain's pit shaft on purpose so no dome bleaches the inside of a hole in the ground. The
     /// rig is handed a list and never learns what a ceiling or a pit is.
     /// </para>

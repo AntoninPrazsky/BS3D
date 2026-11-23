@@ -48,7 +48,7 @@ float SeaLevelY;
 float GridCell;
 
 //Radius of the island's footprint cut out of the surface around the world origin, so the sea does not run
-//through the drain funnel's open throat. 0 keeps it all (the map editor draws no island). See IslandHoleRadius
+//through the drain funnel's open throat. 0 keeps it all (no island drawn). See IslandHoleRadius
 //in the terrain shaders, which cut the same footprint for the same reason.
 float IslandHoleRadius;
 
@@ -56,7 +56,7 @@ float IslandHoleRadius;
 //level, buried a hair into the glass (see DrawSea, which derives it from ArenaIsland's own figures). The cut
 //above is an annulus now, not a disc: water inside this radius is kept — calmed to a standstill by the calm
 //ramp below — so the drain holds standing water instead of going bone dry, and only the ring hidden inside
-//the island's stone is clipped. Ignored wherever IslandHoleRadius is 0 (the map editor), where nothing is cut.
+//the island's stone is clipped. Ignored wherever IslandHoleRadius is 0 (no island drawn), where nothing is cut.
 float FunnelPoolRadius;
 
 //Deep body color of the water and the paler shade its up-facing faces take, both linear and both treated
@@ -117,8 +117,8 @@ float CloudOpacity;
 
 //THE SUN PAST THE HEAPS (#1172). On High and Ultra the deck near the lens gives way to the heaps (CloudVolumes; the sky
 //shader's CloudVolumeCut), so the sun's disc is hidden by them alone and the weather layer under them hides nothing the
-//player sees. CloudSunHeaps is how far the deck has given way (1 on those tiers under cumulus; 0 below High, under a lid and
-//where nothing pushes the weather), CloudSunPastHeaps how much of the disc the lens sees past the heaps this frame, which
+//player sees. CloudSunHeaps is how far the deck has given way (1 on those tiers under cumulus; 0 below High, under a lid,
+//where nothing pushes the weather and where CloudField.SuppressOn takes the deck away), CloudSunPastHeaps how much of the disc the lens sees past the heaps this frame, which
 //CloudVolumes.SunPast works out on the CPU along the lens's own sun ray as CloudVolume.fx marches it. Both come through
 //CloudField.ApplyTo.
 float CloudSunHeaps;
@@ -392,7 +392,7 @@ SeaVertexOutput SeaVS(SeaVertexInput input)
 
     //The island's shelter (#132): the swell dies completely under the stone, so the pool standing in the
     //drain is exactly the flat rest grid at SeaLevelY. Keyed on the REST position — displacement is zero
-    //wherever it matters, so the pixel shader sees the same radius. IslandHoleRadius 0 (the map editor)
+    //wherever it matters, so the pixel shader sees the same radius. IslandHoleRadius 0 (no island drawn)
     //makes this saturate to 0 and the open sea is untouched.
     float calm = saturate((IslandHoleRadius - length(restXZ)) / CALM_BAND);
 
@@ -467,8 +467,8 @@ float4 SeaPS(SeaVertexOutput input) : COLOR
 
     //Cut the ring of the island's footprint out of the surface, keeping BOTH sides of it: the open sea past
     //IslandHoleRadius and the pool standing inside the drain (#132) — max() keeps a pixel that survives on
-    //either count. Only the annulus between them, hidden inside the island's stone, is discarded. 0 in the
-    //map editor keeps it all: r - 0 is never negative, whatever the pool radius says.
+    //either count. Only the annulus between them, hidden inside the island's stone, is discarded. 0 (no
+    //island drawn) keeps it all: r - 0 is never negative, whatever the pool radius says.
     float r = length(worldPosition.xz);
     clip(max(r - IslandHoleRadius, FunnelPoolRadius - r));
     FarRingClip(worldPosition.xz);
@@ -494,7 +494,7 @@ float4 SeaPS(SeaVertexOutput input) : COLOR
     //Capillary climb at the glass (#132): over the last MENISCUS_BAND before the pool's edge the surface
     //reads as curling up the wall — the normal tilts away from the outward radial, so the rim catches the
     //sky at a different angle than the flat pool and the water meets the glass in a soft bright ring rather
-    //than a razor-cut circle. Scaled by calm, so the open sea (and the map editor) never sees it.
+    //than a razor-cut circle. Scaled by calm, so the open sea (and a field with no island under it) never sees it.
     float meniscus = saturate(1.0 - (FunnelPoolRadius - r) / MENISCUS_BAND) * calm;
     float2 outward = worldPosition.xz / max(r, 1e-3);
     normal = normalize(normal - float3(outward.x, 0.0, outward.y) * (meniscus * meniscus * MENISCUS_TILT));

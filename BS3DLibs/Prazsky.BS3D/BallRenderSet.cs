@@ -1846,10 +1846,11 @@ namespace Prazsky.BS3D
         /// </para>
         /// <para>
         /// Asked of the caller rather than measured off the device, though the ratio of the bound viewport to the
-        /// back buffer would give it: <see cref="BeginFrame"/> runs <b>before</b> the scene target is bound in the
-        /// Game and <b>after</b> it in the Testbed and the map editor, so what a device read means here depends on
-        /// which executable is asking — the same asymmetry that makes the LOD pick read the back buffer's size,
-        /// which is true whatever is bound (see <see cref="SolveLodDistances"/>).
+        /// back buffer would give it: <see cref="BeginFrame"/> runs <b>before</b> the scene target is bound (every
+        /// executable collects its balls before the sun's shadow map, which casts them), so a device read here would
+        /// see whatever an executable happened to leave bound, not the target the balls are drawn into — the same
+        /// reason the LOD pick reads the back buffer's size, which is true whatever is bound (see
+        /// <see cref="SolveLodDistances"/>).
         /// </para>
         /// </summary>
         public int SupersampleFactor { get; set; } = 1;

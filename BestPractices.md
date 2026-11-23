@@ -140,7 +140,8 @@ Two cases found:
   `CityNeon = 0` — in the *default* scene. Now `[branch] if (CityNeon > 0.0)`, with the plain-city defaults
   in the else path and the lerps kept inside so a fractional `CityNeon` stays bit-identical.
 - `CloudSunlight` evaluated eight hash calls per lit pixel only to multiply the result by a coverage gain
-  of zero in the MapEditor (which never sets the cloud uniforms). One early-out line.
+  of zero in the MapEditor (which then never set the cloud uniforms; today the same zero stands wherever
+  no deck is drawn). One early-out line.
 
 **But a branch not taken still costs its registers.** The GPU allocates a program for its widest path, so a big
 optional block behind a uniform branch lowers the occupancy of every pixel the program shades, taken or not, and a

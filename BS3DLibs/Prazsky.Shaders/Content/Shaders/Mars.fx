@@ -65,8 +65,8 @@ float3 HorizonColor;
 //world while the mesh slides under it
 float2 OriginXZ;
 
-//Radius of the island's footprint cut out of the terrain around the world origin. The map editor draws no
-//island and leaves it 0.
+//Radius of the island's footprint cut out of the terrain around the world origin. 0 with no island drawn (the
+//map editor's I off).
 float IslandHoleRadius;
 
 //The plain: its mean level (the island's foot), and the clearing it stands in - gates the crater field only,

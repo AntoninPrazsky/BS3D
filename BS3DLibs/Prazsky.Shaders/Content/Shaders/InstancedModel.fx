@@ -22,8 +22,8 @@ float3 SrgbToLinear(float3 color)
     return color * (color * (color * 0.305306011 + 0.682171111) + 0.012522878);
 }
 
-//Cloud shadows. The map editor has no weather and never sets the cloud uniforms, so there CloudCoverageGain
-//stays zero and CloudSunlight falls straight through to a flat 1.0 - full sun, no shadow - on its own.
+//Cloud shadows. Where no deck is drawn (a sky-replacing scene, the map editor's game sky off) CloudField.SuppressOn
+//zeroes CloudCoverageGain, and CloudSunlight falls straight through to a flat 1.0 - full sun, no shadow - on its own.
 #include "Clouds.fxh"
 
 //The shared noise library, for the one field in here a sum of waves genuinely cannot be: the ice's

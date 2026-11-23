@@ -213,8 +213,9 @@ namespace MapEditor
         private PendingLoad _pendingLoad;
         private readonly object _pendingLoadLock = new();
 
-        //What a worker parsed: a level (map, scene, sky, style…) or a plain map file's layout alone.
-        private sealed record PendingLoad(Level Level, BallsMap Map);
+        //What a worker parsed: a level (map, scene, sky, style…) or a plain map file's layout alone, and whether it is the file
+        //named on the command line (the one save= writes back, and no other).
+        private sealed record PendingLoad(Level Level, BallsMap Map, bool FromCommandLine);
 
         //Wall-clock seconds the scene motion runs off (waves, wind, birds, snow), so the environment keeps
         //moving the way it does in the game instead of freezing
@@ -282,7 +283,8 @@ namespace MapEditor
         /// <summary>
         /// <c>save=&lt;path&gt;</c>: once the file opened on the command line is applied, write it out as F4 writes a level, then
         /// carry on. With the view switches above it is how a run shows that a switch is a view and not data: the same level
-        /// saved with them on and off is the same file.
+        /// saved with them on and off is the same file. Only that file: one missing, unreadable or refused writes nothing,
+        /// and a file dropped or opened later is never written to this path.
         /// </summary>
         public string SaveLevelOnStart { get; set; }
 
@@ -577,6 +579,11 @@ namespace MapEditor
                 CityRooftops.DEFAULT_SEED + _sceneSeedOffset);
             _streets = new CityStreets(GraphicsDevice, Content.Load<Effect>("Shaders/CityStreets"), _city);
 
+            //The city's sun shadows, registered as the Game and the Testbed register them: the renderer does not own the
+            //city, so without this it fits no map there and the towers, the island and the cluster cast nothing in the
+            //editor's default scene (DrawShadowCasters' city arm never runs)
+            _sceneRenderer.SetHostCityShadows(_cityConfig);
+
             //After the scene renderer, because the rig consults it for the scenes that state their own lighting. The cloud
             //hook is captured once (a method group at a per-frame call site builds a delegate each time) and asks the G
             //switch itself, so the scenes' shaders take the deck exactly while the game's sky is up (ApplyCloudsToScene).
@@ -632,7 +639,17 @@ namespace MapEditor
 
             //Load a map or level handed on the command line (it stashes to _pendingLoad and lands next Update)
             if (!string.IsNullOrEmpty(StartupFilePath) && File.Exists(StartupFilePath))
-                DeserializeMapFromJsonFile(StartupFilePath);
+                DeserializeMapFromJsonFile(StartupFilePath, fromCommandLine: true);
+
+            //save= has nothing to write when no file of the command line's was parked (none named, missing, or it would not
+            //parse), and is disarmed so it can never fire on another
+            bool parked;
+            lock (_pendingLoadLock) parked = _pendingLoad != null;
+            if (SaveLevelOnStart != null && !parked)
+            {
+                Console.WriteLine($"[level] save= writes nothing: no file on the command line was read ('{StartupFilePath}')");
+                SaveLevelOnStart = null;
+            }
         }
 
         /// <summary>
@@ -937,11 +954,14 @@ namespace MapEditor
         protected override void Update(GameTime gameTime)
         {
             //A map or level dropped/opened on a background thread is applied here, on the main thread, before
-            //the focus guard so it lands even if the window briefly lost focus during the drop. The first one applied
-            //is the command line's file, which save= writes back out (before the guard too: a scripted run has no focus).
-            if (ApplyPendingLoad() && SaveLevelOnStart != null)
+            //the focus guard so it lands even if the window briefly lost focus during the drop. save= writes back the command
+            //line's file and no other (before the guard too: a scripted run has no focus): one that is missing, will not parse
+            //or will not apply leaves nothing to write, and a file dropped or opened after it is never written to that path.
+            bool applied = ApplyPendingLoad(out bool fromCommandLine);
+            if (fromCommandLine && SaveLevelOnStart != null)
             {
-                SaveLevelTo(SaveLevelOnStart);
+                if (applied) SaveLevelTo(SaveLevelOnStart);
+                else Console.WriteLine("[level] save= writes nothing: the file on the command line would not apply");
                 SaveLevelOnStart = null;
             }
 
@@ -1060,8 +1080,9 @@ namespace MapEditor
         /// Parses a map or level file into NEW objects and parks them in <see cref="_pendingLoad"/> for
         /// <see cref="ApplyPendingLoad"/> — it runs on a worker for a drop or the open dialog, so it must not
         /// write anything the render thread reads (#573). A file that will not parse leaves the slot alone.
+        /// <paramref name="fromCommandLine"/> marks the file the command line named, the one <c>save=</c> writes back.
         /// </summary>
-        private void DeserializeMapFromJsonFile(string filePath)
+        private void DeserializeMapFromJsonFile(string filePath, bool fromCommandLine = false)
         {
             try
             {
@@ -1070,7 +1091,7 @@ namespace MapEditor
                 if (Level.IsLevelFile(filePath))
                 {
                     Level level = Level.Load(filePath);
-                    lock (_pendingLoadLock) _pendingLoad = new PendingLoad(level, null);
+                    lock (_pendingLoadLock) _pendingLoad = new PendingLoad(level, null, fromCommandLine);
                     return;
                 }
 
@@ -1085,7 +1106,7 @@ namespace MapEditor
                 //It is refused here so it cannot be swapped in and walked by Draw.
                 if (map.Levels == 0) throw new InvalidDataException("the file carries no ball data");
 
-                lock (_pendingLoadLock) _pendingLoad = new PendingLoad(null, map);
+                lock (_pendingLoadLock) _pendingLoad = new PendingLoad(null, map, fromCommandLine);
             }
             catch (Exception e)
             {
@@ -1103,12 +1124,14 @@ namespace MapEditor
         /// author, ball style); a level also switches to the scene backdrop it names and sets the sky dome — so a
         /// level previews in the editor exactly the way it plays. Mirrors the Testbed's LoadLevel, minus the
         /// physics/cannon/camera the game derives. Whether a file was applied comes back, false for nothing pending and for
-        /// a level that would not apply (so <c>save=</c> never writes the map that was up before it).
+        /// a level that would not apply (so <c>save=</c> never writes the map that was up before it), with whether it was the
+        /// command line's file (so <c>save=</c> never writes one dropped or opened after it).
         /// </summary>
-        private bool ApplyPendingLoad()
+        private bool ApplyPendingLoad(out bool fromCommandLine)
         {
             PendingLoad pending;
             lock (_pendingLoadLock) { pending = _pendingLoad; _pendingLoad = null; }
+            fromCommandLine = pending?.FromCommandLine ?? false;
             if (pending == null) return false;
 
             if (pending.Level == null)

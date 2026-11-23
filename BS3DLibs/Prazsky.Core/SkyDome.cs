@@ -573,8 +573,8 @@ namespace Prazsky.Core
 
         /// <summary>
         /// Draws the dome over everything in the bound target, with the depth test off: the frame's first draw, which is how
-        /// the map editor and the Potato path draw it. The Game and the Testbed draw it through <see cref="Render.SkyPass"/>,
-        /// behind the opaque scene.
+        /// the map editor's plain dome (its game sky off) and the Potato path draw it. The Game, the Testbed and the map editor's
+        /// game sky draw it through <see cref="Render.SkyPass"/>, behind the opaque scene.
         /// </summary>
         public void Draw(ICamera camera) => Draw(camera, DepthStencilState.None);
 

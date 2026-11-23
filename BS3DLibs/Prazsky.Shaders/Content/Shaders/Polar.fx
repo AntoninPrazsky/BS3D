@@ -36,7 +36,7 @@
 //
 //Shared between the game and the map editor, and it borrows the scene toolkit like every other backdrop: the
 //dome's gradient in linear radiance, band-limiting against the pixel footprint, and the one shared cloud
-//shadow field (the editor sets no cloud uniforms, so CloudSunlight is a flat 1.0 there).
+//shadow field (with no deck pushed, or one CloudField.SuppressOn zeroed, CloudSunlight is a flat 1.0).
 
 #include "ShaderTarget.fxh"
 
@@ -67,7 +67,7 @@ float3 HorizonColor;
 float2 OriginXZ;
 
 //Radius of the platform footprint cut out of the terrain around the world origin, so the drain funnel reads
-//as a drain into a pit rather than a bowl in flat ground. The map editor draws no island and leaves it 0.
+//as a drain into a pit rather than a bowl in flat ground. 0 with no island drawn (the map editor's I off).
 float IslandHoleRadius;
 
 float PolarLevelY;

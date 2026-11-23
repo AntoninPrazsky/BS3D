@@ -145,8 +145,9 @@ namespace Prazsky.Core.Render
     /// the sky palette in <b>linear</b> radiance (zenith and horizon), the sun's own radiance already tinted
     /// by the dome (for the sea glint and the warm cast on the terrain), the wall-clock time its motion runs
     /// off, and an optional hook that hands the shared cloud field to an effect. <see cref="ApplyClouds"/> is
-    /// null when there is no weather to apply — the map editor draws no clouds, so it leaves the cloud
-    /// uniforms at zero and <c>CloudSunlight</c> returns a flat 1.0 (full sun, no shadow).
+    /// null when there is no weather to apply, and an effect nothing pushed to keeps the cloud uniforms at zero,
+    /// so <c>CloudSunlight</c> returns a flat 1.0 (full sun, no shadow). The map editor's hook applies the deck
+    /// with its game sky on and zeroes it (<see cref="CloudField.SuppressOn"/>) with it off.
     /// </summary>
     public readonly struct SceneFrame
     {
@@ -315,8 +316,8 @@ namespace Prazsky.Core.Render
         /// the sea otherwise runs its wave mesh straight through the funnel's open throat (#132). The sea's cut
         /// is an annulus rather than the full disc: inside the funnel the water survives as a calm standing
         /// pool where the glass cone crosses the mean level (see the pool derivation in <c>SeaBackdrop.Draw</c>). The
-        /// Testbed sets this to the island's radius; the map editor draws no island, so it leaves it 0 (the
-        /// default) and nothing is cut.
+        /// Game and the Testbed set this to the island's radius, and the map editor while its island is shown (its I
+        /// switch, #1210); 0 (the default) cuts nothing.
         /// </summary>
         public float TerrainHoleRadius { get => _services.TerrainHoleRadius; set => _services.TerrainHoleRadius = value; }
 
@@ -1173,11 +1174,36 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
+        /// The two cities' sun shadows (#471), registered in one copy for every host: <paramref name="city"/>'s
+        /// <see cref="SceneConfig.Shadows"/> over its street level (<see cref="CitySceneConfig.BaseY"/>), the box reaching
+        /// <see cref="CitySceneConfig.SHADOW_BELOW"/> under it and <see cref="CitySceneConfig.SHADOW_ABOVE"/> over it. Called
+        /// once at load by the Game, the Testbed and the map editor, each with the config its towers are built from; a host
+        /// that does not call it gets no map in either city, its casters never run, and nothing in the frame says why.
+        /// <para>
+        /// Both kinds are registered. The neon city's sun is under <c>SHADOW_MIN_SUN_HEIGHT</c>, so it costs nothing and the
+        /// day/night decision stays in that one gate rather than being restated here as "the city only".
+        /// </para>
+        /// <para>
+        /// No receiver is handed in. <c>CityStreets.fx</c> carried one for a session and it came back out: the towers receive
+        /// through the shared instanced effect (#470), and a street-level capture showed the pavement barely moving between
+        /// <c>shadow=0</c> and <c>shadow=1</c>, because the occupancy term the street already shades a canyon by reads as
+        /// shadowed at every sun height ("The city's shadows" in <c>docs/rendering.md</c>).
+        /// </para>
+        /// </summary>
+        public void SetHostCityShadows(CitySceneConfig city)
+        {
+            SetHostShadowScene(SceneKind.City, city.Shadows, city.BaseY, CitySceneConfig.SHADOW_BELOW,
+                CitySceneConfig.SHADOW_ABOVE);
+            SetHostShadowScene(SceneKind.NeonCity, city.Shadows, city.BaseY, CitySceneConfig.SHADOW_BELOW,
+                CitySceneConfig.SHADOW_ABOVE);
+        }
+
+        /// <summary>
         /// Gives a <b>host-owned</b> backdrop a sun shadow map (#471): its dials, where its ground sits and how
         /// far the map's box must reach below and above it, plus whatever of the host's effects receive. Called
         /// once at load, never per frame.
         /// <para>
-        /// <b>The city is why this exists and is the only caller today.</b> It is the one backdrop this
+        /// <b>The city is why this exists and is the only caller today</b>, through <see cref="SetHostCityShadows"/>. It is the one backdrop this
         /// renderer does not own — <see cref="GetSceneConfig"/> answers <c>null</c> for it, its towers are the
         /// host's <see cref="InstancedModelRenderer"/>s and <c>CityStreets.fx</c> is loaded by the host — so
         /// all three parts of a shadow live outside this file. Everything after the registration is the same
@@ -1822,11 +1848,11 @@ namespace Prazsky.Core.Render
         /// <see cref="SceneKind.City"/>/<see cref="SceneKind.NeonCity"/>, which the caller draws itself. It stands in for the city as the thing the arena glass
         /// shows beneath it; it leaves the alpha-blend / back-face-cull state the rest of the opaque scene wants.
         /// <para>
-        /// The two halves in one call, for a host with nothing to draw between them: the map editor, which draws no
-        /// island, and its wood (the forest's and the aurora's) after both halves, which is the same picture because
-        /// neither of those scenes has a second half. The Game and the Testbed call <see cref="DrawEnvironmentOpaque"/> and
-        /// <see cref="DrawEnvironmentBlended"/> themselves, with their own wood between the two, and lay the island's
-        /// depth into the frame first where <see cref="EnvironmentFollowsIslandDepth"/> lets them (#1098).
+        /// The two halves in one call, for a host with nothing to draw between them. No executable is such a host: the
+        /// Game, the Testbed and the map editor (#1210) all call <see cref="DrawEnvironmentOpaque"/> and
+        /// <see cref="DrawEnvironmentBlended"/> themselves, with their own wood and the sky behind the opaque scene between
+        /// the two, and lay the island's depth into the frame first where <see cref="EnvironmentFollowsIslandDepth"/> lets
+        /// them (#1098).
         /// </para>
         /// <para>
         /// The sky-replacing draws also touch the <b>depth</b> state: space and the dream are backgrounds

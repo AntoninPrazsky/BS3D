@@ -22,15 +22,15 @@
 # on the development instrument's content directory.
 #
 # Every effect is built for every referencer, including the ones an executable never loads (the MapEditor has
-# no gun and no Sky.fx dome, so ShotTrail, Fireworks, Confetti, LaserGrid, Blast, Wormhole, MuzzleRays, MotionBlur and Sky sit
+# no gun and no shots, so ShotTrail, Fireworks, Confetti, LaserGrid, Blast, Wormhole, MuzzleRays and MotionBlur sit
 # unused beside it): a few hundred kilobytes of unused .xnb is the price of one list instead of three.
 #
 # /platform:Windows is DirectX 11, Shader Model 5.0. The content task passes /platform:$(MonoGamePlatform)
 # after this file, which is why Prazsky.Shaders.csproj sets MonoGamePlatform to Windows itself - see there.
 #
-# The one shader here only the Game loads on purpose is Sky.fx: the MapEditor draws its dome through its own
-# BasicEffect, so it gets no cloud deck and no sun disc (Sky.fx's own header, and "The storm" in
-# docs/scenes.md).
+# Sky.fx is the one the MapEditor draws only on request: as its game sky (the G switch, #1210), with the cloud
+# deck and the sun disc; with G off it draws the dome's plain gradient through SkyDome's own BasicEffect (Sky.fx's
+# own header, and "The storm" in docs/scenes.md).
 
 #begin Shaders/InstancedModel.fx
 /importer:EffectImporter
