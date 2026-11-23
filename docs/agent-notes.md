@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-23 — #1229 krátký článek o tetelení: obrázky, klip a kód zpět — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: „Hot air, only far away“ zůstal krátký (397 slov v odstavcích), ale dostal zpět média dlouhého článku byte po bytu z 8a9870f6: klip prvního, slabšího tetelení v „Bigger, because Antonín asked“ a rozdílový obrázek herního pohledu (vše odlišné ≥ 2/255 leží u obzoru). Nově ukázka kódu: 17 řádků HLSL z `RefractPS` (posun čtení o úhel, ne pixely), nejvýš 34 znaků na řádek, aby se vešla na 360px telefon. `docs/website.md`: krátký je text, ne obrázky; ukázka pod dvacet řádků.
+- majitel: i kratší článek má mít původní obrázky, animaci a ukázku kódu (poznámka k #1229).
+- ⚠ Řádky o 36 znacích přetekly box kódu na 360 px (330 > 326).
+- Otevřené: `verdict-eye` (délka se čtyřmi bloky, čitelnost kódu). Web nezveřejněn; klipy nikdo neviděl hrát okem.
+
 ## 2026-11-23 — #1235 vidlička na konci zaměřovací linky — desktop (RDT-PC), Claude Code (bs3d-cc)
 
 - majitel: tenká linka (#1196) je dobrá, ale rozšíření na konci není vidět; nákres `aimer.png` v kořeni hlavního checkoutu: konec se plynule rozvětví do trojité vidličky, která hasne (rozptyl dopadu).
