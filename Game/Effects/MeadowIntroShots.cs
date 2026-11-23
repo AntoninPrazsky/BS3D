@@ -93,6 +93,20 @@ namespace BS3D.Effects
         internal const float ORBIT_ABOVE_FROM = 0.7f;
         internal const float ORBIT_ABOVE_TO = 1.1f;
 
+        //The lens's height is rounded over this much of the shot, seconds at its peak pace (#1187): held over the cut ground
+        //point by point, it took every crease of the field (where the brook's banks and the pond's level ground ease into it)
+        //as a jump, 328 u/s³ in one of 400 layouts against the drone's 150 (IntroShotSmoothnessTests). Rounded over the 0.7 s
+        //the terrain shots are (AridIntroPaths.ROUNDING_SECONDS), a third of this shot, it stood up to 1.67 over the ground,
+        //out of the owner's band.
+        private const float ORBIT_ROUNDING_SECONDS = 0.15f;
+
+        //And no faster than this does the view pitch round the subject, degrees a second (#1187): a lens this low follows the
+        //ground, so on a hillside it climbs and drops as it goes round and the view tilts with it, and a drone's gimbal tilts
+        //at 20 at the most (IntroShotSmoothnessTests). An arc that would tilt it faster is refused, as one that loses the
+        //subject is, and another bearing round it is tried: 3 of 400 layouts tilted it at 20.2 to 21.4, each on a slope
+        //running down across the arc. A degree under the limit, for the spline between the points it is read at.
+        private const float ORBIT_PITCH_RATE = 19f;
+
         //The lens is never nearer the ground than this, whatever the ground does between the points the path is built at
         private const float LOWEST_LENS = 0.5f;
 
@@ -306,13 +320,36 @@ namespace BS3D.Effects
             if (!low.Clear(half, MARGIN, LOWEST_LENS)) return null;
             if (!low.SightClear(half, look, reach + SIGHT_SLACK)) return null;
 
-            //Its middle, the lens at the heights the half circle has there
+            //Its middle, the lens at the heights the half circle has there, rounded over ORBIT_ROUNDING_SECONDS
             float skip = (MathF.PI - ORBIT_TURN) * 0.5f / MathF.PI;
             Vector3[] path = low.Arc(centre, radius, from + sign * MathF.PI * skip, from + sign * MathF.PI * (1f - skip),
                 MathHelper.Lerp(ORBIT_ABOVE_FROM, ORBIT_ABOVE_TO, skip), MathHelper.Lerp(ORBIT_ABOVE_FROM, ORBIT_ABOVE_TO, 1f - skip),
                 IntroGround.PATH_POINTS);
+            var heights = new float[path.Length];
+            for (int i = 0; i < path.Length; i++) heights[i] = path[i].Y;
+            heights = AridIntroPaths.Rounded(heights, ORBIT_ROUNDING_SECONDS * IntroShot.PEAK_PACE * (path.Length - 1) / ORBIT_SECONDS, turnOver: true);
+            for (int i = 0; i < path.Length; i++) path[i].Y = heights[i];
 
+            if (PitchRate(path, look) > ORBIT_PITCH_RATE) return null;
             return new IntroShot(name, path, ORBIT_SECONDS, lens, lookAt: look);
+        }
+
+        /// <summary>
+        /// The fastest the view pitches, degrees a second, on a path of <see cref="ORBIT_SECONDS"/> held on
+        /// <paramref name="look"/>, its points read at the shot's peak pace (<see cref="IntroShot.PEAK_PACE"/>).
+        /// </summary>
+        internal static float PitchRate(Vector3[] path, Vector3 look)
+        {
+            float perPoint = IntroShot.PEAK_PACE * (path.Length - 1) / ORBIT_SECONDS, fastest = 0f, last = 0f;
+            for (int i = 0; i < path.Length; i++)
+            {
+                Vector3 to = look - path[i];
+                float pitch = MathF.Atan2(to.Y, new Vector2(to.X, to.Z).Length());
+                if (i > 0) fastest = MathF.Max(fastest, MathF.Abs(pitch - last) * perPoint);
+                last = pitch;
+            }
+
+            return MathHelper.ToDegrees(fastest);
         }
 
         /// <summary>

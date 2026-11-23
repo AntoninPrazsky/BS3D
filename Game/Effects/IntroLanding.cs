@@ -350,7 +350,7 @@ namespace BS3D.Effects
             //A drone's rounded over a moment of its own clock (DRONE_ROUNDING_SECONDS), so the route's points, which it runs
             //through as a polyline at a speed that steps from one to the next, do not reach the lens
             float dt = seconds / (points - 1);
-            if (drone) Round(positions, DRONE_ROUNDING_SECONDS / dt);
+            if (drone) positions = Rounded(positions, DRONE_ROUNDING_SECONDS / dt, turnOver: true);
 
             //The look: along the travel, a little ahead and following some of its rise and fall, easing onto the pose's own
             //look over the last seconds; the bank off the heading's rate of turn, levelling out as the look lands
@@ -372,7 +372,7 @@ namespace BS3D.Effects
             //⚠ A drone's by a Gaussian with its ends carried on (#1187): a box cut short at the shot's start is a sum that grows
             //until the box first fits whole and then slides, and the look's turn rate kinked there, LookSmoothSeconds in (the
             //meadow's look swung at 185 °/s² 0.3 s into its flight home)
-            if (drone) direction = Gaussian(direction, 0.5f * style.DroneSeconds / dt);
+            if (drone) direction = Rounded(direction, 0.5f * style.DroneSeconds / dt, turnOver: false);
             else direction = BoxBlur(direction, Math.Max(1, (int)MathF.Round(style.LookSmoothSeconds / dt)));
 
             //The subject's point and how much of the look is on it at each point, read at the second of the shot the point is
@@ -530,31 +530,23 @@ namespace BS3D.Effects
         /// </summary>
         internal const float DRONE_ROUNDING_SECONDS = 0.08f;
 
-        //Rounded by a Gaussian of sigma `sigma` points, each end turned over itself (the point k past an end is twice the end
-        //less the point k before it), so it starts and ends where it did and leaves and arrives the way it was going
-        private static void Round(Vector3[] values, float sigma)
+        //AridIntroPaths.Rounded, an axis at a time: by a Gaussian of `sigma` points, each end turned over itself (so the points
+        //start and end where they did and leave and arrive the way they were going) or carried on (a direction for the look)
+        private static Vector3[] Rounded(Vector3[] values, float sigma, bool turnOver)
         {
-            int reach = Math.Max(1, (int)MathF.Ceiling(3f * sigma)), last = values.Length - 1;
-            var weights = new float[reach + 1];
-            float total = 0f;
-            for (int d = 0; d <= reach; d++)
-            {
-                weights[d] = MathF.Exp(-d * d / (2f * sigma * sigma));
-                total += d == 0 ? weights[d] : 2f * weights[d];
-            }
+            int n = values.Length;
+            var x = new float[n];
+            var y = new float[n];
+            var z = new float[n];
+            for (int i = 0; i < n; i++) (x[i], y[i], z[i]) = (values[i].X, values[i].Y, values[i].Z);
 
-            var source = (Vector3[])values.Clone();
-            for (int i = 0; i <= last; i++)
-            {
-                Vector3 sum = Vector3.Zero;
-                for (int d = -reach; d <= reach; d++)
-                {
-                    int k = i + d;
-                    Vector3 v = k < 0 ? 2f * source[0] - source[Math.Min(-k, last)] : k > last ? 2f * source[last] - source[Math.Max(2 * last - k, 0)] : source[k];
-                    sum += v * weights[Math.Abs(d)];
-                }
-                values[i] = sum / total;
-            }
+            x = AridIntroPaths.Rounded(x, sigma, turnOver);
+            y = AridIntroPaths.Rounded(y, sigma, turnOver);
+            z = AridIntroPaths.Rounded(z, sigma, turnOver);
+
+            var rounded = new Vector3[n];
+            for (int i = 0; i < n; i++) rounded[i] = new Vector3(x[i], y[i], z[i]);
+            return rounded;
         }
 
         /// <summary>
@@ -575,55 +567,13 @@ namespace BS3D.Effects
                 if (k > 0) off[k] = off[k - 1] + MathHelper.WrapAngle(off[k] - off[k - 1]);
             }
 
-            float[] steady = Gaussian(off, sigma);
+            float[] steady = AridIntroPaths.Rounded(off, sigma, turnOver: false);
             for (int k = 0; k < n; k++)
             {
                 Vector3 look = ahead[k] - positions[k];
                 float flat = MathF.Sqrt(look.X * look.X + look.Z * look.Z), turned = bearing[k] + steady[k];
                 ahead[k] = positions[k] + new Vector3(MathF.Cos(turned) * flat, look.Y, MathF.Sin(turned) * flat);
             }
-        }
-
-        //A Gaussian average of sigma `sigma` points, the first and last values carried on past the ends
-        private static float[] Gaussian(float[] values, float sigma)
-        {
-            int reach = Math.Max(1, (int)MathF.Ceiling(3f * sigma));
-            var weights = new float[reach + 1];
-            float total = 0f;
-            for (int d = 0; d <= reach; d++)
-            {
-                weights[d] = MathF.Exp(-d * d / (2f * sigma * sigma));
-                total += d == 0 ? weights[d] : 2f * weights[d];
-            }
-
-            var result = new float[values.Length];
-            for (int i = 0; i < values.Length; i++)
-            {
-                float sum = 0f;
-                for (int d = -reach; d <= reach; d++) sum += values[Math.Clamp(i + d, 0, values.Length - 1)] * weights[Math.Abs(d)];
-                result[i] = sum / total;
-            }
-
-            return result;
-        }
-
-        //A Gaussian of sigma `sigma` points, the first and last values carried on past the ends: the look's directions are
-        //normalized after, so they are not divided
-        private static Vector3[] Gaussian(Vector3[] values, float sigma)
-        {
-            int reach = Math.Max(1, (int)MathF.Ceiling(3f * sigma));
-            var weights = new float[reach + 1];
-            for (int d = 0; d <= reach; d++) weights[d] = MathF.Exp(-d * d / (2f * sigma * sigma));
-
-            var result = new Vector3[values.Length];
-            for (int i = 0; i < values.Length; i++)
-            {
-                Vector3 sum = Vector3.Zero;
-                for (int d = -reach; d <= reach; d++) sum += values[Math.Clamp(i + d, 0, values.Length - 1)] * weights[Math.Abs(d)];
-                result[i] = sum;
-            }
-
-            return result;
         }
 
         //A running sum over ±half: the look's directions are normalized after, so they are not divided

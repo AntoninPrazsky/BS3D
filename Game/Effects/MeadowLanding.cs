@@ -101,6 +101,13 @@ namespace BS3D.Effects
         private const float CLIMB_LEAD = 0.5f;
         private const float CRUISE_ABOVE_MIN = 6f, CRUISE_ABOVE_MAX = 10f;
 
+        //And the brook's height it climbs from, BROOK_ABOVE over the field, is rounded along the plan by a Gaussian of this many
+        //units (#1187): the field eases into the pond's level ground on a smoothstep, whose second derivative steps, and the
+        //climb carried every such crease it crossed half-risen into the lens, up to 195 u/s³ off the gun's bearing (the drone
+        //limit is 150, MeadowLandingTests' sweep). Down the brook, the field is near enough level along it that the lens still
+        //opens at the brook's height.
+        private const float LOW_ROUNDING = 6f;
+
         //The pace reaches the cruise's no sooner than half this past where the climb begins, so the lens is not flown at the
         //cruise's pace while it is still low over the pond's shore
         private const float CLIMB_MIN = 22f, CLIMB_MAX = 40f;
@@ -384,24 +391,26 @@ namespace BS3D.Effects
                     : clock[settleFrom] + settleSeconds * IntroLanding.DroneSettled((length[i] - length[settleFrom]) / MathF.Max(settleLength, 1e-3f));
 
             //The heights, eased on that clock, as a drone's climb rate changes (#1187): the brook's over the field, climbing to
-            //the cruise's over climbSeconds from CLIMB_LEAD before sRise; over the release, from where it was onto the pose's
-            //while the landing decelerates
+            //the cruise's over climbSeconds from CLIMB_LEAD before sRise; over the release, from that onto the pose's while the
+            //landing decelerates
             int rise = 0;
             while (rise < plan.Count - 1 && length[rise] < sRise) rise++;
             float climbFrom = clock[rise] - CLIMB_LEAD;
 
+            //The brook's height it climbs from, over the field and rounded along the plan (LOW_ROUNDING)
+            var low = new float[plan.Count];
+            for (int i = 0; i < plan.Count; i++) low[i] = TerrainMirror.MeadowGround(plan[i].X, plan[i].Y, meadow) + BROOK_ABOVE;
+            low = AridIntroPaths.Rounded(low, LOW_ROUNDING / STEP, turnOver: true);
+
+            //⚠ The descent eases in off the climb as it is still going, not off the height it had at the release: where the
+            //circle is short, the climb is still rising there, and held at that height from one frame to the next the lens
+            //stopped climbing at up to 20 u/s² (the drone limit, MeadowLandingTests' sweep)
             var path = new List<Vector3>(plan.Count);
-            float releaseY = 0f;
+            float descend = MathF.Max(clock[^1] - clock[releaseStart], 1e-3f);
             for (int i = 0; i < plan.Count; i++)
             {
-                float y;
-                if (i <= releaseStart)
-                {
-                    float low = TerrainMirror.MeadowGround(plan[i].X, plan[i].Y, meadow) + BROOK_ABOVE;
-                    y = releaseY = MathHelper.Lerp(low, cruiseY, IntroLanding.Smoother((clock[i] - climbFrom) / climbSeconds));
-                }
-                else y = MathHelper.Lerp(releaseY, endPosition.Y,
-                    IntroLanding.Smoother((clock[i] - clock[releaseStart]) / MathF.Max(clock[^1] - clock[releaseStart], 1e-3f)));
+                float y = MathHelper.Lerp(low[i], cruiseY, IntroLanding.Smoother((clock[i] - climbFrom) / climbSeconds));
+                if (i > releaseStart) y = MathHelper.Lerp(y, endPosition.Y, IntroLanding.Smoother((clock[i] - clock[releaseStart]) / descend));
 
                 path.Add(new Vector3(plan[i].X, y, plan[i].Y));
             }
@@ -472,33 +481,19 @@ namespace BS3D.Effects
         private static float Bump(float x) => 0.5f + 0.5f * MathF.Cos(MathF.PI * MathHelper.Clamp(x, 0f, 1f));
 
         /// <summary>
-        /// A plan rounded by a Gaussian of <paramref name="sigma"/> points (#1187), each end turned over itself (the point k
-        /// past an end is twice the end less the point k before it), so the rounded plan starts and ends exactly where it was
-        /// laid and leaves and arrives the way it was going.
+        /// A plan rounded by a Gaussian of <paramref name="sigma"/> points (#1187, <see cref="AridIntroPaths.Rounded"/>), each
+        /// end turned over itself, so the rounded plan starts and ends exactly where it was laid and leaves and arrives the
+        /// way it was going.
         /// </summary>
         private static void Round(List<Vector2> plan, float sigma)
         {
-            int reach = Math.Max(1, (int)MathF.Ceiling(3f * sigma)), last = plan.Count - 1;
-            var weights = new float[reach + 1];
-            float total = 0f;
-            for (int d = 0; d <= reach; d++)
-            {
-                weights[d] = MathF.Exp(-d * d / (2f * sigma * sigma));
-                total += d == 0 ? weights[d] : 2f * weights[d];
-            }
+            var x = new float[plan.Count];
+            var z = new float[plan.Count];
+            for (int i = 0; i < plan.Count; i++) (x[i], z[i]) = (plan[i].X, plan[i].Y);
 
-            Vector2[] source = plan.ToArray();
-            for (int i = 0; i <= last; i++)
-            {
-                Vector2 sum = Vector2.Zero;
-                for (int d = -reach; d <= reach; d++)
-                {
-                    int k = i + d;
-                    sum += weights[Math.Abs(d)] * (k < 0 ? 2f * source[0] - source[Math.Min(-k, last)]
-                        : k > last ? 2f * source[last] - source[Math.Max(2 * last - k, 0)] : source[k]);
-                }
-                plan[i] = sum / total;
-            }
+            x = AridIntroPaths.Rounded(x, sigma, turnOver: true);
+            z = AridIntroPaths.Rounded(z, sigma, turnOver: true);
+            for (int i = 0; i < plan.Count; i++) plan[i] = new Vector2(x[i], z[i]);
         }
 
         //The unit vector to the left of a run at a point

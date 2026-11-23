@@ -212,8 +212,38 @@ namespace BS3D.Effects
             return highest;
         }
 
-        //Half of a Gaussian's weights, 0..reach, normalised over the whole of it (-reach..reach).
-        private static float[] Gaussian(float sigma, int reach)
+        /// <summary>
+        /// <paramref name="values"/> averaged by a Gaussian of <paramref name="sigma"/> places (#1187), the one rounding every
+        /// prologue path shares: past each end, <paramref name="turnOver"/> turns the values over the end (the place k past it
+        /// is twice the end less the place k before it), so a rounded path starts and ends where it was laid and leaves and
+        /// arrives the way it was going; otherwise the end's own value is carried on, which a direction averaged for the look
+        /// wants. Built once when the intro begins.
+        /// </summary>
+        internal static float[] Rounded(float[] values, float sigma, bool turnOver)
+        {
+            int reach = Math.Max(1, (int)MathF.Ceiling(3f * sigma)), last = values.Length - 1;
+            float[] weights = Gaussian(sigma, reach);
+
+            var rounded = new float[values.Length];
+            for (int i = 0; i <= last; i++)
+            {
+                float sum = 0f;
+                for (int d = -reach; d <= reach; d++)
+                {
+                    int k = i + d;
+                    float v = k < 0 ? (turnOver ? 2f * values[0] - values[Math.Min(-k, last)] : values[0])
+                        : k > last ? (turnOver ? 2f * values[last] - values[Math.Max(2 * last - k, 0)] : values[last])
+                        : values[k];
+                    sum += v * weights[Math.Abs(d)];
+                }
+                rounded[i] = sum;
+            }
+
+            return rounded;
+        }
+
+        /// <summary>Half of a Gaussian's weights, 0..<paramref name="reach"/>, normalised over the whole of it (-reach..reach).</summary>
+        internal static float[] Gaussian(float sigma, int reach)
         {
             var weights = new float[reach + 1];
             float total = 0f;
