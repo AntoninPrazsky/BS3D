@@ -28,7 +28,8 @@
 //===================================================================================================
 
 //Wave count of the brush grain over the ball. High: a brushed finish is many fine parallel lines, and
-//the band-limit inside ReliefOctave fades them out honestly as the ball shrinks.
+//each octave's band limit fades it out as the ball shrinks, its slope going into the streak instead
+//(MetalSkyBrushed, #1216).
 float MetalBrushFrequency;
 
 //Peak height of a brush ridge in world units. Very small - this is a polish direction, not a corrugation,
@@ -43,6 +44,11 @@ float MetalReflectance;
 //The brush direction. The wave runs along it, so the RIDGES run ACROSS it - fine parallel lines, which is
 //what brushing leaves - and every octave of the grain shares it (see MetalPS).
 static const float3 MetalBrushA = float3(0.31, 0.88, 0.36);
+
+//The four octaves of the brush along it: each one's frequency as a multiple of MetalBrushFrequency and its
+//share of MetalBrushDepth (the shares sum to one, so the depth is the peak height).
+static const float4 MetalBrushOctaves = float4(1, 1.61, 2.63, 4.27);
+static const float4 MetalBrushWeights = float4(0.36, 0.28, 0.21, 0.15);
 
 //And a direction PERPENDICULAR to it, which is a correction and not a tuning (#336). This used to be
 //(0.27, 0.91, 0.31) - a few degrees off MetalBrushA - carrying a second octave at 1.73x the frequency.
@@ -190,14 +196,17 @@ float4 MetalShade(PatternVertexShaderOutput input, bool motifCue, ColourCuePaint
     //one-dimensional profile, and a one-dimensional profile on a surface is a set of parallel grooves of
     //unequal depth and spacing - a wire brush's own signature. Put the octaves on DIFFERENT directions,
     //as this did, and they interfere into blobs instead (see MetalBrushB). The ratios are irrational-ish
-    //so the profile never repeats, and each octave band-limits itself, so the finest simply drop out as
-    //the ball recedes and the coarse streak direction is what survives - which was always the intent.
-    float f = MetalBrushFrequency;
+    //so the profile never repeats, and each octave band-limits itself as ReliefOctave does, so the finest
+    //drop out as the ball recedes - and what they drop is handed to the reflection as a streak below
+    //(#1216), so the ball stays brushed at every size.
+    //
+    //Written as four lanes of one vector rather than four ReliefOctave calls (the same arithmetic) so the
+    //octaves the grain keeps and the octaves the streak takes are one list and cannot drift apart.
+    float4 brushFrequency = MetalBrushFrequency * MetalBrushOctaves;
+    float4 brushKept = saturate(1 - footprint * brushFrequency / 3.14159265);
+    float brushCoordinate = dot(direction, MetalBrushA);
 
-    float grain = 0.36 * ReliefOctave(direction, MetalBrushA, f, footprint)
-        + 0.28 * ReliefOctave(direction, MetalBrushA, f * 1.61, footprint)
-        + 0.21 * ReliefOctave(direction, MetalBrushA, f * 2.63, footprint)
-        + 0.15 * ReliefOctave(direction, MetalBrushA, f * 4.27, footprint);
+    float grain = dot(MetalBrushWeights * brushKept, sin(brushCoordinate * brushFrequency));
 
     //How hard the brush bit, varying ACROSS the scratches so it varies along their length.
     float bite = lerp(1 - MetalScratchVariation, 1,
@@ -206,15 +215,13 @@ float4 MetalShade(PatternVertexShaderOutput input, bool motifCue, ColourCuePaint
     grain *= bite;
 
     float3 smoothNormal = normalize(input.WorldNormal);
-    float3 worldNormal = PerturbNormalFromHeight(smoothNormal, input.WorldPosition, grain * MetalBrushDepth);
+    float3 worldNormal = PerturbNormalFromHeightAtAnySize(smoothNormal, input.WorldPosition, grain * MetalBrushDepth);
     float3 eyeVector = normalize(EyePosition - input.WorldPosition);
 
     //THE SLOPE THE BAND LIMIT TOOK (#1216, see MetalSkyBrushed's header): each octave's slope variance
-    //(amplitude times frequency, squared, halved for a sine) times the share its fade removed, 1 - fade^2.
-    //The fades are ReliefOctave's own, so what is kept above and what is lost here are one octave split.
-    float4 brushFrequency = f * float4(1, 1.61, 2.63, 4.27);
-    float4 brushSlope = float4(0.36, 0.28, 0.21, 0.15) * brushFrequency;
-    float4 brushKept = saturate(1 - footprint * brushFrequency / 3.14159265);
+    //(amplitude times frequency, squared, halved for a sine) times the share its fade removed, 1 - kept^2,
+    //so what the grain keeps above and what is lost here add up to the whole brush.
+    float4 brushSlope = MetalBrushWeights * brushFrequency;
     float lostOctaves = 0.5 * dot(brushSlope * brushSlope, 1 - brushKept * brushKept);
 
     //Into world slope: the octaves are waves in the brush coordinate s = dot(direction, MetalBrushA),
@@ -222,7 +229,6 @@ float4 MetalShade(PatternVertexShaderOutput input, bool motifCue, ColourCuePaint
     //object space without a rotation (its length), while its DIRECTION in world space is read off the
     //screen the way PerturbNormalFromHeight reads a height's. Where the gradient vanishes (the brush's two
     //poles, which the scratches circle) nothing is spread, so the direction's own breakdown there is moot.
-    float brushCoordinate = dot(direction, MetalBrushA);
     float gradientSquared = saturate(1 - brushCoordinate * brushCoordinate) / (radius * radius);
     float spread = lostOctaves * gradientSquared * (MetalBrushDepth * bite) * (MetalBrushDepth * bite);
 

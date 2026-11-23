@@ -424,7 +424,8 @@ namespace Prazsky.BS3D
         /// shader lays along one direction. Far finer than the wool's winding, because a brushed finish is many
         /// lines and not a few: what has to survive at the stand-off a level is played from is not an
         /// individual line — it is the <i>direction</i> the highlight streaks along, and that reads even once
-        /// the lines themselves are below a pixel and the per-octave band-limit has faded them.
+        /// the lines themselves are below a pixel and the per-octave band-limit has faded them, because the
+        /// slope a faded octave loses is handed to the reflection as that streak (#1216).
         /// <para>
         /// Raised from 26 by #336, but the number was never the fault. It was <b>two waves along directions a
         /// few degrees apart</b>: near-parallel waves of different frequency <i>beat</i>, and a beat is a row

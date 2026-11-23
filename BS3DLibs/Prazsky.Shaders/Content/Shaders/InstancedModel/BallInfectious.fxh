@@ -181,7 +181,7 @@ float4 InfectiousPS(PatternVertexShaderOutput input) : COLOR
     //Contract point 6's other half, and the reason the relief is positive: the crust is matter lying on
     //the shell, lumpy, and the heads and the rim stand proudest.
     float height = (crust * (0.4 + 0.6 * lumps) + heads * 0.8 + rim * 0.5 + bead * 0.5) * InfectRelief;
-    float3 worldNormal = PerturbNormalFromHeight(normal, input.WorldPosition, height);
+    float3 worldNormal = PerturbNormalFromHeightAtAnySize(normal, input.WorldPosition, height);
 
     SurfaceSpecular surface;
     surface.Highlight = lerp(InfectCleanHighlight, InfectCrustHighlight, crust);

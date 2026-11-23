@@ -209,7 +209,7 @@ float4 HeavyPS(PatternVertexShaderOutput input) : COLOR
     //metal that escaped between the mould halves), the sand is pitted, so the grain cuts IN.
     float height = lip * HeavySeamRelief + boss * HeavyBossRelief + rim * (teeth - 0.5) * HeavyBossRelief
         - grain * HeavyGrainDepth;
-    float3 worldNormal = PerturbNormalFromHeight(normal, input.WorldPosition, height);
+    float3 worldNormal = PerturbNormalFromHeightAtAnySize(normal, input.WorldPosition, height);
 
     //Matte everywhere but the machined face.
     SurfaceSpecular surface;

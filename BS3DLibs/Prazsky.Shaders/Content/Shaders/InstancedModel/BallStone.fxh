@@ -425,7 +425,7 @@ float4 StonePS(PatternVertexShaderOutput input) : COLOR
     float height = (StoneLumpShare * lumps * lerp(1.0, StoneFaceLumps, face) + (1 - StoneLumpShare) * fleck) * StoneRoughness
         - crack * StoneCrackDepth;
 
-    float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, height);
+    float3 worldNormal = PerturbNormalFromHeightAtAnySize(normalize(input.WorldNormal), input.WorldPosition, height);
 
     //Matte, and every figure of it stated rather than inherited: this is the only ball in the set that
     //must not pick the dome up, and a smoothness left at 1 would put a mirror rim round it.

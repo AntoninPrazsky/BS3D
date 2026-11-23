@@ -72,7 +72,7 @@ float4 PatternShade(PatternVertexShaderOutput input, bool motifCue, ColourCuePai
 
     float height = SurfaceRelief(direction, footprint) * PatternReliefStrength - seams * PatternSeamDepth;
 
-    float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, height);
+    float3 worldNormal = PerturbNormalFromHeightAtAnySize(normalize(input.WorldNormal), input.WorldPosition, height);
 
     //The balls carry their own relief; the scene cavity term is not it
     float4 shaded = ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(color, 1), 1, 1);

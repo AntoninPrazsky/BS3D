@@ -101,28 +101,23 @@ static const float IcePlateShade = 0.16;
 //two plates of an 8-ball from each other.
 static const float IcePlateWhite = 0.35;
 
-//Where the two halves of the figure stop being worth drawing, each measured against ITS OWN size - which
-//is the whole point, and is #326's lesson stated the other way round. There the bomb's glow was faded on
-//the finest thing in the pattern and the coarse read went down with it; here the two halves are different
-//sizes by a factor of ten and are faded separately.
+//How the two halves of the figure meet a pixel that cannot hold them, each measured against ITS OWN size -
+//#326's lesson stated the other way round. There the bomb's glow was faded on the finest thing in the
+//pattern and the coarse read went down with it; here the two halves are different sizes by a factor of
+//ten and are treated separately.
 //
-//The CRACK is faded against its own WIDTH, not against the cell it runs round: a border is a line of
-//width/frequency in direction units, so footprint * frequency / width is that line measured in pixels (in
-//pairs of them, since footprint is ddx plus ddy). It is faded against the WANDERED width rather than the
-//mean, so the hairline stretches drop out first and the open ones hold - which is how a fracture recedes
-//anyway. At the shipped figures this crosses over at about play distance, and that is not a defect but
-//the design: what carries the ball there is the plate.
-//
-//The 1.5 IS THE POINT OF THAT CONSTANT and not a fudge: it holds the crack at full strength until the
-//line is down to about a pixel across and only then fades it over the last octave. Written as a plain
-//ramp from zero footprint - which is what every other limit in this file is, because every other one
-//rides a whole WAVELENGTH - the crack came out 43 % faded on a ball ninety-nine pixels wide, where the
-//line was still four and a half pixels across and perfectly sharp. A limit on a thin line has to start
-//late; a limit on a wave can start at once.
+//The CRACK is measured against its own WIDTH, not against the cell it runs round, and the WANDERED width
+//rather than the mean. It is never faded out (#1216): a crack thinner than a pixel is drawn a pixel wide
+//at the share of the pixel it covers (IceFracture), so a hairline goes faint as the ball recedes and the
+//net stays at its true weight. Faded out instead - held to about a pixel, then gone over the last octave,
+//which is how this read until #1216 - the net was gone at the play camera and the plates it framed were
+//left on their own as blotches: the same ball read as cracked ice close up and as a mottled one in play.
+//A plain ramp from zero footprint was worse again (the crack 43 % faded on a ball ninety-nine pixels
+//wide, while the line was four and a half pixels across and sharp): a limit on a thin line starts late.
 //
 //The PLATE is faded against the cell, and at the shipped frequency it never engages except on the
-//smallest LOD - a plate is most of a ball, and a ball is off the screen before one is sub-pixel.
-static const float IceCrackBandLimit = 1.5;
+//smallest LOD - a plate is most of a ball, and a ball is off the screen before one is sub-pixel. The
+//cracks go down with it there, the whole net converging on its mean.
 static const float IcePlateBandLimit = 0.5;
 
 //How deep a crack cuts, in world units, and how brightly it glows along its length. The groove is what
@@ -253,7 +248,7 @@ float4 IceShade(PatternVertexShaderOutput input, bool motifCue, ColourCuePaint c
 
     //The crack is a GROOVE first. Normal-space figure, so it reads at every tint - the lesson #305 and
     //#311 paid for between them.
-    float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition,
+    float3 worldNormal = PerturbNormalFromHeightAtAnySize(normalize(input.WorldNormal), input.WorldPosition,
         (frost - cracks) * IceCrackDepth);
 
     float3 primary = SrgbToLinear(PatternPrimaryColor);

@@ -221,7 +221,7 @@ float4 FrozenPS(EyeRayVertexShaderOutput input) : COLOR
         ReliefOctave(direction, float3(0.58, -0.79, 0.19), 2.1, footprint));
     float crack = SeamLine(bent, FrozenCrackAxis, FrozenCrackFrequency, FrozenCrackWidth, footprint);
 
-    float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition,
+    float3 worldNormal = PerturbNormalFromHeightAtAnySize(normalize(input.WorldNormal), input.WorldPosition,
         frostGrain * frostWhere * FrozenFrostDepth);
 
     float3 primary = SrgbToLinear(PatternPrimaryColor);

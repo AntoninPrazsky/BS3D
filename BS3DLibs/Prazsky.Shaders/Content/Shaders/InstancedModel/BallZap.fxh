@@ -45,8 +45,8 @@
 //
 //The bomb's own hard lesson applies over all of it: WHAT A SPECIAL IS READ BY AT PLAY DISTANCE IS THE
 //SIZE OF THE LIT FIGURE, NOT THE AMOUNT OF LIGHT IN IT. So the arcs are wide enough to survive a ball
-//two dozen pixels across, band-limited on the ice crack's rule (a limit on a thin LINE has to start
-//late - see IceCrackBandLimit), and carried by a floor the burial rule cannot reach, which is the
+//two dozen pixels across, band-limited on the late-starting rule (a limit on a thin LINE has to start
+//late - see ZapArcBandLimit), and carried by a floor the burial rule cannot reach, which is the
 //measured fault #326 records twice.
 //
 //THE SIX-POINT CONTRACT, in the ball-technique header's order:
@@ -82,10 +82,10 @@ static const float ZapArcSharpness = 2.0;
 static const float ZapArcWander = 0.085;
 static const float ZapArcWaves = 4.3;
 
-//The band limit, on the ice crack's rule rather than on the ordinary one: an arc is a thin line, so a
+//The band limit, on the late-starting rule rather than on the ordinary one: an arc is a thin line, so a
 //ramp that begins at zero footprint has already halved it while it is still several pixels wide and
-//perfectly sharp. Hold full strength until the line is about a pixel, then fade. See IceCrackBandLimit,
-//which is the same figure for the same reason.
+//perfectly sharp. Hold full strength until the line is about a pixel, then fade. PorcelainCrazeBandLimit
+//is the same figure for the same reason.
 static const float ZapArcBandLimit = 1.6;
 
 //The electrodes at the ends of ZapAxisA: where the dot product with it exceeds this, the shell is lit
@@ -295,7 +295,7 @@ float4 ZapPS(PatternVertexShaderOutput input) : COLOR
     //what makes the two figures read as two things rather than as one dented shell.
     float height = poles * ZapArcDepth * 0.5 - arcs * ZapArcDepth;
 
-    float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, height);
+    float3 worldNormal = PerturbNormalFromHeightAtAnySize(normalize(input.WorldNormal), input.WorldPosition, height);
 
     SurfaceSpecular surface;
     surface.Highlight = ZapHighlight;

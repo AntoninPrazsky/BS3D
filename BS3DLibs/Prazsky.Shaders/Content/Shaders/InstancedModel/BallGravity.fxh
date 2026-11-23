@@ -154,7 +154,7 @@ float4 GravityPS(PatternVertexShaderOutput input) : COLOR
     //Contract point 6's other half: the dark streaks are troughs cut INTO the shell. Negative, where the
     //acid's meniscus is positive, and the sign is the second half of what makes this read as a pull.
     float height = -dark * GravityStreakRelief;
-    float3 worldNormal = PerturbNormalFromHeight(normal, input.WorldPosition, height);
+    float3 worldNormal = PerturbNormalFromHeightAtAnySize(normal, input.WorldPosition, height);
 
     //The lens, and it is a fake: the scene is not re-sampled. What it does is bend the normal the
     //environment term reflects about, outward and hardest at the rim, which at a grazing angle is most of

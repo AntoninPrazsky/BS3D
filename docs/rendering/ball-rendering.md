@@ -26,7 +26,7 @@ Balls are procedural `SphereMesh`es drawn with GPU instancing. The meshes, LOD l
 
 ## Relief, supersampling and the scene's other objects
 
-- The vinyl's relief tilts the normal through `PerturbNormalFromHeight`; each octave **band-limits against the screen-space pixel footprint** (not camera distance), because the derivative-driven perturbation becomes a checkerboard near pixel size. So the scene renders supersampled (`ssaa=<n>`, default 2) and box-filtered; MSAA fixes edges, not shading, so it is off while supersampling.
+- The vinyl's relief tilts the normal through `PerturbNormalFromHeightAtAnySize` (every ball's does: its floor is a share of the pixel's own area, so the relief is as strong close up as in play, #1216, [the shared headers](noise-and-shared-headers.md)); each octave **band-limits against the screen-space pixel footprint** (not camera distance), because the derivative-driven perturbation becomes a checkerboard near pixel size. So the scene renders supersampled (`ssaa=<n>`, default 2) and box-filtered; MSAA fixes edges, not shading, so it is off while supersampling. What each style's layers do as a ball shrinks: "What fades where" in [the styles](ball-styles.md).
 - The island's surfaces (`SurfaceReliefStrength`/`Frequency`) use world-space gradient noise on the triplanar planes (#674); the earlier sines **wove on a flat face** ("The relief on the cap" in `docs/scenes.md`). Noise fades against the geometric mean of the pixel's two extents (the longer one made a grazing floor go smooth at once). ⚠ That admits an octave undersampled along the view at steep grazing angles: possible crawl or sparkle on the far cap under a moving camera, mostly without supersampling; not seen in stills.
 
 ## Testbed arguments for judging balls

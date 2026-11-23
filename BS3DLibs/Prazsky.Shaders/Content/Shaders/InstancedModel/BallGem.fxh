@@ -116,7 +116,7 @@ float4 GemShade(PatternVertexShaderOutput input, bool motifCue, ColourCuePaint c
     float height = (dot(local, facet) - 1) * GemFacetDepth * faceted;
 
     float3 smoothNormal = normalize(input.WorldNormal);
-    float3 worldNormal = PerturbNormalFromHeight(smoothNormal, input.WorldPosition, height);
+    float3 worldNormal = PerturbNormalFromHeightAtAnySize(smoothNormal, input.WorldPosition, height);
 
     float3 eyeVector = normalize(EyePosition - input.WorldPosition);
     float3 primary = SrgbToLinear(PatternPrimaryColor);

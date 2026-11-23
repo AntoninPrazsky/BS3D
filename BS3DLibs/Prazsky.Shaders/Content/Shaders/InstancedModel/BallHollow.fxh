@@ -103,7 +103,7 @@ float4 HollowPS(EyeRayVertexShaderOutput input) : COLOR
     //The ridge tilts the normal along the seam's own direction. A height field rather than a modelled
     //bulge, exactly as the gem's facets are, because a pixel shader cannot move a vertex and does not
     //have to: PerturbNormalFromHeight gives the mapping for free.
-    normal = normalize(PerturbNormalFromHeight(normal, input.WorldPosition, seam * HollowSeamRelief));
+    normal = normalize(PerturbNormalFromHeightAtAnySize(normal, input.WorldPosition, seam * HollowSeamRelief));
 
     float facing = saturate(dot(normal, eyeVector));
 

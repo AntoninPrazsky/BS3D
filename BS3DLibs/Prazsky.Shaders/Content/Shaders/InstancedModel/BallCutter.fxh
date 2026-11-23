@@ -161,7 +161,7 @@ float4 CutterPS(PatternVertexShaderOutput input) : COLOR
         * saturate(1 - footprint * CutterNickFrequency * 2.0);
 
     float relief = rings * CutterRingDepth * (1 - groove) - groove * 0.006 + bolt * 0.004 - nick * 0.004 - saw * 0.003;
-    float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, relief);
+    float3 worldNormal = PerturbNormalFromHeightAtAnySize(normalize(input.WorldNormal), input.WorldPosition, relief);
     float3 eyeVector = normalize(EyePosition - input.WorldPosition);
 
     //Contract point 4.
@@ -215,7 +215,7 @@ float4 CutterBladePS(PatternVertexShaderOutput input) : COLOR
 
     //The grinder's circular marks: a profile in the radius, band-limited on its own wavelength
     float grind = sin(r * CutterBladeGrindFrequency) * saturate(1 - footprint * CutterBladeGrindFrequency * 0.5 / 3.14159265);
-    float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, grind * CutterBladeGrindDepth);
+    float3 worldNormal = PerturbNormalFromHeightAtAnySize(normalize(input.WorldNormal), input.WorldPosition, grind * CutterBladeGrindDepth);
     float3 eyeVector = normalize(EyePosition - input.WorldPosition);
 
     float occlusion = SurfaceOcclusion(input.WorldPosition, worldNormal, input.OcclusionData);

@@ -509,16 +509,45 @@ float2 VoronoiEdgeCell3(float3 p)
 //white speck on a far surface. It was found on the mountains' far peaks and it was never theirs alone:
 //the dunes, the sea, the moon's regolith and the island's own stone are all height fields seen at
 //grazing angles.
-float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height)
+//
+//⚠ THE FLOOR IS AN AREA, AND WHOSE AREA IT IS DECIDES HOW STRONG THE RELIEF IS. The determinant is about
+//the pixel's own area on the surface (|dpdx| |dpdy| times the cosine the surface is seen at), and the
+//tilt comes out as the true slope times determinant / max(determinant, floor). A floor in world units
+//(1e-4 below, a pixel of 0.01 units square) is nothing on a landscape, whose pixels are far bigger, and
+//everything on a ball half a unit across: there a pixel is under 0.01 units whenever the ball is more
+//than about 25 display pixels in radius at ssaa 2, and the relief came out at (pixel / 0.01)^2 of itself -
+//a seventh on the menu's close pass, full in play. That was #1216's "detail only from afar". The balls
+//take PerturbNormalFromHeightAtAnySize, whose floor is the pixel's own area times a constant, so the tilt
+//is the same function of the viewing angle at every distance; the scenes keep the world floor they were
+//tuned under. Both go through this one body.
+float3 TiltNormalByHeight(float3 normal, float3 dpdx, float3 dpdy, float dhdx, float dhdy, float determinantFloor)
 {
-    float3 dpdx = ddx(worldPosition);
-    float3 dpdy = ddy(worldPosition);
-
     float3 r1 = cross(dpdy, normal);
     float3 r2 = cross(normal, dpdx);
 
     float determinant = dot(dpdx, r1);
-    float3 surfaceGradient = sign(determinant) * (ddx(height) * r1 + ddy(height) * r2);
+    float3 surfaceGradient = sign(determinant) * (dhdx * r1 + dhdy * r2);
 
-    return normalize(max(abs(determinant), 1e-4) * normal - surfaceGradient);
+    return normalize(max(abs(determinant), determinantFloor) * normal - surfaceGradient);
+}
+
+float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height)
+{
+    return TiltNormalByHeight(normal, ddx(worldPosition), ddy(worldPosition), ddx(height), ddy(height), 1e-4);
+}
+
+//The floor as a share of the pixel's own area, |dpdx| |dpdy|: the tilt is the slope times the cosine the
+//surface is seen at while that cosine is over the share, whatever the pixel's size. Half: the play camera's
+//balls had about a pixel's area (a ball 25 display pixels in radius at ssaa 2, the desktop's play view) to a
+//quarter of one (the laptop's 1080 rows) under the world floor, which is what every style was tuned at, and
+//this sits between the two.
+static const float RELIEF_FLOOR_SHARE = 0.5;
+
+float3 PerturbNormalFromHeightAtAnySize(float3 normal, float3 worldPosition, float height)
+{
+    float3 dpdx = ddx(worldPosition);
+    float3 dpdy = ddy(worldPosition);
+
+    return TiltNormalByHeight(normal, dpdx, dpdy, ddx(height), ddy(height),
+        max(RELIEF_FLOOR_SHARE * sqrt(dot(dpdx, dpdx) * dot(dpdy, dpdy)), 1e-20));
 }
