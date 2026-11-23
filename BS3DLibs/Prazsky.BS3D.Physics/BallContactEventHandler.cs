@@ -109,6 +109,18 @@ namespace Prazsky.BS3D.Physics
         /// </summary>
         public BepuPhysics.Constraints.SpringSettings? LatticeSpring { get; set; }
 
+        /// <summary>
+        /// What multiplies the push a shot gives the balls it strikes (#1192, <see cref="ShotPush"/>): 1 as shipped, 0 for
+        /// none. Set only by the Game's <c>shotpush=</c> testing argument and by the tests that compare a push with none.
+        /// </summary>
+        public float PushScale { get; set; } = 1f;
+
+        /// <summary>What the last push did (#1192): how many balls it reached and the momentum it handed them.</summary>
+        public ShotPush.Result LastPush { get; private set; }
+
+        //The push's walk and its scratch, one per handler as the handler is one per field
+        private readonly ShotPush _push = new();
+
         public BallContactEventHandler(Simulation simulation, ContactEvents contactEvents, KinematicBody ceiling,
             BallsMap map, PhysicsBall[,,] physicsBalls, List<PhysicsBall> shotBalls, List<PhysicsBall> fallingBalls,
             Vector3 worldOffset)
@@ -626,6 +638,13 @@ namespace Prazsky.BS3D.Physics
 
                 solved = ShotPlacement.TrySolveAgainstBall(_map, hitBall, worldContact, _worldOffset, out cell,
                     out clusterDrift);
+
+                //THE GHOST'S CELL, WHEN THE SHOT STRUCK THE BALL IT WAS SOLVED AGAINST (#1192): a cluster the last shot pushed
+                //moves in the few steps this one flies, and a touch near the line between two free cells then picks the
+                //other. The drift stays the one measured above: it is the hit ball's, and both cells are placed off it
+                if (solved && ShotPlacement.KeepsPromise(_map, hitBall, worldContact, _worldOffset, clusterDrift, cell,
+                        physicsBall.PromisedCell, physicsBall.PromisedAgainst))
+                    cell = physicsBall.PromisedCell.Value;
             }
             else
             {
@@ -653,6 +672,11 @@ namespace Prazsky.BS3D.Physics
                 {
                     _lastRefused = shotHandle.Value;
                     Console.WriteLine("[shot] bounced: no free cell in either ring");
+
+                    //A REFUSED SHOT STILL STRIKES (#1192, the owner: "even when the ball does not attach, the map should be
+                    //affected by the impact"): the ball it met takes the push a landing gives, once a shot, as the line above
+                    //is printed once. Read before the bounce below puts the shot back, while it still listens
+                    LastPush = Push(hitBall.ArrayPosition, physicsBall, contact.EventSource);
                 }
 
                 //A REFUSED SHOT BOUNCES (#696): it is put back where its surfaces first met the ball - the sweep let it fly the
@@ -666,6 +690,9 @@ namespace Prazsky.BS3D.Physics
 
                 return false;
             }
+
+            //What it was FIRED as, for the push's share (ShotPush.ShareFor), before the line below makes a wildcard Normal
+            BallKind shotKind = physicsBall.Kind;
 
             //A WILDCARD STOPS BEING ONE HERE (#330), and this is the only place it can: everything below reads
             //the shot ball's Type — the cell it is written into, the colour the glass takes, the colour a zap
@@ -731,6 +758,11 @@ namespace Prazsky.BS3D.Physics
 
             _shotBalls.Remove(physicsBall);                                  //not in flight any more
             _physicsBalls[cell.X, cell.Z, cell.Level] = physicsBall;         //part of the structure now
+
+            //What the shot carried into the cluster (#1192), read before the velocity is zeroed below and while the shot
+            //still listens: it is handed to the balls round the cell once the landing is done (Push, further down)
+            System.Numerics.Vector3 struckWith = StrikeVelocity(contact.EventSource, physicsBall);
+            float shotMass = ShotMass(physicsBall);
 
             //Both velocities, not just the linear one: residual spin would drag the constraint anchors that
             //are about to be created around with it
@@ -878,6 +910,12 @@ namespace Prazsky.BS3D.Physics
                 released = released.Plus(BallsConstraintsBuilder.DetonateBombs(
                     _armedBombs, _physicsBalls, _map, _simulation, _fallingBalls, _detonations));
 
+            //THE SHOT PUSHES WHAT IT HIT (#1192), and LAST: the cell was decided before anything moved, the body stands in
+            //it and its sockets were built with no error, and the four removals above have taken what they take, so the
+            //push goes to the balls still hanging round the cell and a group that fell falls as it always did
+            LastPush = _push.Apply(_simulation, _physicsBalls, cell,
+                ShotPush.ImpulseOf(shotMass, struckWith, shotKind, PushScale));
+
             //Everything the four removals just let go of is LOOSE from here on, and a shot still in the air passes
             //through it (#410; the filter is NarrowPhaseCallbacks'). Marked here because this is the one place a
             //player's shot releases anything; PhysicsWorld.RetireBall clears the mark when the ball is culled.
@@ -921,10 +959,34 @@ namespace Prazsky.BS3D.Physics
                 + $" beside a group of {released.Matched}");
 
             BallLanded?.Invoke(new BallLanding(released, restPosition, physicsBall.Type, cell, coloured,
-                _thawedCells.Count, _detonations));
+                _thawedCells.Count, _detonations, push: LastPush));
 
             return true;
         }
+
+        /// <summary>
+        /// The velocity a shot struck with: the one its striking step began with, the line the sweep landed it along
+        /// (<see cref="TrySweep"/>), and not the body's now, which the solve may have turned. The body's only where no record
+        /// stands. Asked while the shot still listens, because only a listener keeps that record.
+        /// </summary>
+        private System.Numerics.Vector3 StrikeVelocity(CollidableReference shot, PhysicsBall ball) =>
+            _contactEvents.TryGetStepStart(shot, out _, out System.Numerics.Vector3 stepVelocity, out _)
+                ? stepVelocity : ball.BallReference.Velocity.Linear;
+
+        /// <summary>The shot's own mass, off its body (every round leaves at <see cref="BallsConstraintsBuilder.BALL_MASS"/> today).</summary>
+        private static float ShotMass(PhysicsBall ball)
+        {
+            float inverse = ball.BallReference.LocalInertia.InverseMass;
+            return inverse > 0f ? 1f / inverse : 0f;
+        }
+
+        /// <summary>
+        /// Pushes the balls round <paramref name="origin"/> with what the shot <paramref name="ball"/> carried (#1192): the
+        /// refusal's and the cutter's push, which a landing gives in line with its own order.
+        /// </summary>
+        private ShotPush.Result Push(XZLevel origin, PhysicsBall ball, CollidableReference shot) =>
+            _push.Apply(_simulation, _physicsBalls, origin,
+                ShotPush.ImpulseOf(ShotMass(ball), StrikeVelocity(shot, ball), ball.Kind, PushScale));
 
         /// <summary>
         /// A cutter round (<see cref="BallKind.Cutter"/>) has struck a ball of the structure: destroy that ball's storey (#692),
@@ -983,11 +1045,16 @@ namespace Prazsky.BS3D.Physics
             for (int i = fallingBefore; i < _fallingBalls.Count; i++)
                 _contactEvents.MarkLoose(_fallingBalls[i].BallReference.Handle);
 
+            //And what is left round the hole takes the strike's push (#1192), after the cut on the landing's own reasoning:
+            //what the cut let go of falls as it fell, and the balls still hanging answer the blow
+            LastPush = _push.Apply(_simulation, _physicsBalls, cell,
+                ShotPush.ImpulseOf(ShotMass(cutter), flying, BallKind.Cutter, PushScale));
+
             Console.WriteLine($"[shot] cutter struck cell ({cell.X},{cell.Z},{cell.Level}):"
                 + $" destroyed {released.Destroyed}, orphaned {released.Orphaned}, {_detonations.Count} bomb(s) fired");
 
             BallLanded?.Invoke(new BallLanding(released, world, cutter.Type, cell, 0, 0, _detonations, BallKind.Cutter,
-                shotDirection));
+                shotDirection, LastPush));
 
             return true;
         }

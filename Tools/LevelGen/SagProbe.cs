@@ -923,6 +923,9 @@ namespace BS3D.Tools.LevelGen
         /// </summary>
         private static readonly GravityWells _wells = new();
 
+        /// <summary>The push a landing gives the cluster (#1192), its walk's scratch reused as <see cref="_wells"/> is.</summary>
+        private static readonly ShotPush _push = new();
+
         //The level's crates (#257), stood where the game stands them (Crates.AddSpecs) and handed to the shot's sweep -
         //the game's own preview banks a shot off them, so the probe's landing must too - and to the world as statics,
         //so what a shot releases falls round them rather than through them. Set per run like the wind clock.
@@ -1148,6 +1151,13 @@ namespace BS3D.Tools.LevelGen
             if (armed.Count > 0)
                 released = released.Plus(BallsConstraintsBuilder.DetonateBombs(
                     armed, balls, map, world.Simulation, falling));
+
+            //THE SHOT PUSHES WHAT IT HIT (#1192), last, as the handler gives it: the momentum the shot flew in with, handed to
+            //the balls still hanging round the cell. A step of a landing that lives in the handler, so it is repeated here,
+            //or the gate would measure a cluster that never swings under a hit. The flight is not simulated, so the velocity
+            //is the one it leaves with, which is what it strikes with to a hundredth.
+            _push.Apply(world.Simulation, balls, cell, ShotPush.ImpulseOf(BallsConstraintsBuilder.BALL_MASS,
+                (cannon.AimDirection * SHOT_SPEED).ToNumerics(), BallKind.Normal));
 
             return Shot.Landed;
         }

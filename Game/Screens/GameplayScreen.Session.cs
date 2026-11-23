@@ -470,6 +470,8 @@ namespace BS3D.Screens
             Console.WriteLine($"[session] seed {_seed}" + (_run.Benchmark ? " (the benchmark's)" : _test.Seed.HasValue ? " (pinned)" : " (rolled; replay it with seed=)"));
             if (ShotSpeed != SHOOT_SPEED)
                 Console.WriteLine(FormattableString.Invariant($"[session] shots leave at {ShotSpeed:0.#} units/s (shotspeed=; the shipped speed is {SHOOT_SPEED:0})"));
+            if (!_run.Benchmark && _test.ShotPush is float push && push != 1f)
+                Console.WriteLine(FormattableString.Invariant($"[session] a shot pushes what it hits at {push:0.##} times the shipped push (shotpush=)"));
         }
 
         /// <summary>
@@ -682,7 +684,12 @@ namespace BS3D.Screens
             //match rule. It gets the very list instances the frame draws from, and the same offset, so it can
             //take a world contact down into the grid frame to ask the map about it and bring the answer back up.
             _eventHandler = new BallContactEventHandler(_world.Simulation, _world.Events, _ceiling, _map,
-                _physicsBalls, _shotBalls, _fallingBalls, _clusterWorldOffset);
+                _physicsBalls, _shotBalls, _fallingBalls, _clusterWorldOffset)
+            {
+                //The push a shot gives what it strikes (#1192): the shipped one, unless shotpush= asks to try another. The
+                //benchmark keeps the shipped one, as it keeps the shot's speed
+                PushScale = _run.Benchmark ? 1f : _test.ShotPush ?? 1f,
+            };
 
             //The handler reports what a shot did; what it is worth is the scorer's business. Subscribed on the
             //handler the level just built, and the handler is rebuilt with it, so there is nothing to unhook.

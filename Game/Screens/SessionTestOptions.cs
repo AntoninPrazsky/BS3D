@@ -87,6 +87,8 @@ namespace BS3D.Screens
     /// load and every capture's own hitch move the wall clock's <c>shot=</c> off the flight.</param>
     /// <param name="ShotSpeed">The <c>shotspeed=</c> argument (#1007): the speed every shot leaves at and every preview is solved
     /// for, or null for the shipped <c>SHOOT_SPEED</c>.</param>
+    /// <param name="ShotPush">The <c>shotpush=</c> argument (#1192): what multiplies the push a shot gives the balls it strikes
+    /// (<c>BallContactEventHandler.PushScale</c>), 0 for none, or null for the shipped push.</param>
     internal sealed record SessionTestOptions(
         int? ForcedStreak,
         int ForcedWildcardEvery,
@@ -107,7 +109,8 @@ namespace BS3D.Screens
         IReadOnlyList<float> SwapShotSeconds = null,
         IReadOnlyList<float> RevealShotSeconds = null,
         IReadOnlyList<float> IntroShotSeconds = null,
-        float? ShotSpeed = null)
+        float? ShotSpeed = null,
+        float? ShotPush = null)
     {
         /// <summary>
         /// Reads the levers out of what the command line said. The one place their interpretation lives: any
@@ -136,6 +139,7 @@ namespace BS3D.Screens
             SwapShotSeconds: launch.SwapShotSeconds ?? Array.Empty<float>(),
             RevealShotSeconds: launch.RevealShotSeconds ?? Array.Empty<float>(),
             IntroShotSeconds: launch.IntroShotSeconds ?? Array.Empty<float>(),
-            ShotSpeed: launch.ShotSpeed);
+            ShotSpeed: launch.ShotSpeed,
+            ShotPush: launch.ShotPush);
     }
 }

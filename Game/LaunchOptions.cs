@@ -172,6 +172,10 @@ namespace BS3D
         //preview alike, or null for the shipped one (GameplayScreen.SHOOT_SPEED)
         internal float? ShotSpeed { get; private set; }
 
+        //Trying the push a shot gives the cluster (#1192): what multiplies it, 0 for none, or null for the shipped one
+        //(ShotPush.MOMENTUM_SHARE of the shot's momentum)
+        internal float? ShotPush { get; private set; }
+
         //Testing only: offer every tutorial card as if none had been taught, and record none (#189). The
         //cards are gated on the save — a lesson done is never shown again — so on a save that finished the
         //chapter months ago they are otherwise unreachable, and a run that taught them for real would write
@@ -730,6 +734,9 @@ namespace BS3D
             //"shotspeed=<units/s>" fires every shot, and solves every preview, at that speed (#1007): the owner's question
             //of what a slower shot would do, asked in play. 30 to 400; the shipped speed is 200, and the benchmark keeps it.
             Row.Float("shotspeed", (o, v) => o.ShotSpeed = v, v => v >= 30f && v <= 400f),
+            //"shotpush=<scale>" multiplies the push every shot gives the balls it strikes (#1192): 0 is none, 1 the shipped one
+            //(the shot's whole momentum), up to 4. For the owner's hands to compare; the benchmark keeps the shipped one.
+            Row.Float("shotpush", (o, v) => o.ShotPush = v, v => v >= 0f && v <= 4f),
             //"tutorial" offers every tutorial card and records nothing, "tutorial=demo" reels them (#189) —
             //see the property's own note.
             Row.Flag("tutorial", o => o.Tutorial = "force"),
