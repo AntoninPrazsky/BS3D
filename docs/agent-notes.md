@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-23 — #1195 savana: tvarované keře místo kopulí u objektivu — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: na High a Ultra se křoviny a masy lesního okraje savany blízko objektivu kreslí jako luční keř (`MeadowShrubMesh` s novým `ShrubForm`, tři tvary na kopuli, list 0,72 barvy kopule), dál zůstávají kopule. Přepínání dělá nový `ScatterSwap` podle vodorovné vzdálenosti od objektivu, i ve stínovém průchodu (`BackdropServices.ShadowLens`). Poloměry: křoviny 400, okraj 240 na High a 600 na Ultra; žádná herní póza ani orbit menu je nepřekročí (test). `SavannaScatter.Solids` a lety intra beze změny. Cena Ultra hra 7,26 → 8,00 ms, High 7,11 → 7,39. Low, Medium a Potato beze změny.
+- ⚠ Na svazích visely paty kmenů okraje ve vzduchu (13 % výsadeb); `FootSlope` je zapouští pod nejstrmější svah, test to hlídá.
+- Otevřené: `verdict-eye` (barva, mezery mezi kmeny, tvrdý střih v intru na High, poloměr Ultra).
+
 ## 2026-11-22 — #1234 savana: stébla z boku ukotvená k zemi — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: stébla savany viděná z boku už nejsou vějíř připnutý k obrazovce (`Fbm2Combed` s pozicí kamery), ale luční `GrassStrokes` z `Grass.fxh`, jen v detailním programu, se stejným mícháním 0,85/0,5 a `tipCover` (stezky a spálenina kolem ohňů je dál vypínají). Frekvence 20 (40 na jednotku), aby v blízkém poli domova trávy zůstala šíře na obrazovce; 72 na jednotku v nízkých záběrech skoro zmizelo. Snímek po snímku drží vzor 0,92–0,98 (dřív 0,03–0,42). Herní pohled o 0,2 ms levnější, nejdražší vteřina intra +0,1 ms. Testy `SavannaStrokesSourceTests`. #1232 je totéž (z review #1190) a je tímto opravené.
