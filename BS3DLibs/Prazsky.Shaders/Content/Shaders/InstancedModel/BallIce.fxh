@@ -115,9 +115,10 @@ static const float IcePlateWhite = 0.35;
 //A plain ramp from zero footprint was worse again (the crack 43 % faded on a ball ninety-nine pixels
 //wide, while the line was four and a half pixels across and sharp): a limit on a thin line starts late.
 //
-//The PLATE is faded against the cell, and at the shipped frequency it never engages except on the
-//smallest LOD - a plate is most of a ball, and a ball is off the screen before one is sub-pixel. The
-//cracks go down with it there, the whole net converging on its mean.
+//The PLATE is faded against the cell, and at the shipped frequency it does not matter except on the
+//smallest LOD - a plate is most of a ball, and a ball is off the screen before one is sub-pixel. Every
+//crack is multiplied by the same limit, so the net goes down with the plates there, converging on its
+//mean; at the sizes the game draws that dims it by cells * IcePlateBandLimit, a few per cent.
 static const float IcePlateBandLimit = 0.5;
 
 //How deep a crack cuts, in world units, and how brightly it glows along its length. The groove is what
@@ -174,7 +175,7 @@ float SeamLine(float3 direction, float3 waveDirection, float frequency, float wi
 
 //THE FRACTURE, in one call: the crack running between the plates and the plate the pixel is standing on.
 //Returns (crack, this plate's own value in 0..1, how much of the plate figure the pixels can still carry),
-//the crack already faded on its own terms and the plate handed over with its limit for the caller to
+//the crack already at its coverage of the pixel and the plate handed over with its limit for the caller to
 //fade towards ITS no-op, which is not zero but a half - a plate that cannot be resolved has to converge
 //on the average of all of them, or the ball's whole value walks as it recedes.
 //
@@ -210,9 +211,10 @@ float3 IceFracture(float3 direction, float footprint)
     //last octave instead, and what that did to the look was the issue: the net was there close up and gone
     //at the play camera, where the plates were left on their own and read as blotches. The edge field
     //runs at about two of its units per unit of distance across a border, as a pixel runs at `cells` of
-    //them, so `cells` is the pixel measured in the field. Where the line is wider than that, the profile
-    //is exactly the one it always was. The plate's own limit takes the cracks down with the plates on the
-    //smallest balls, where the whole net is converging on its mean anyway.
+    //them, so `cells` is the pixel measured in the field. Where the line is wider than that, its profile
+    //is the one it always was. Every crack, wide or not, is also multiplied by the plate's limit, which
+    //takes the net down with the plates on the smallest balls, where it is converging on its mean anyway;
+    //at the sizes the game draws that is a dimming of a few per cent (IcePlateBandLimit's header).
     float drawn = max(width, cells);
     float crack = (1 - smoothstep(0, drawn, fracture.x)) * (width / drawn) * plateLimit;
 

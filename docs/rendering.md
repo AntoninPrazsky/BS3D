@@ -6,7 +6,7 @@ Three rules govern most of it. **The scene renders in linear radiance and is ton
 
 ## Sub-documents
 
-- [The noise library and shared headers](rendering/noise-and-shared-headers.md): `Noise.fxh`, the guarded `PerturbNormalFromHeight`, the shared-header rules.
+- [The noise library and shared headers](rendering/noise-and-shared-headers.md): `Noise.fxh`, the guarded `PerturbNormalFromHeight` and the balls' `PerturbNormalFromHeightAtAnySize` (whose floor keeps a ball's relief whole at every size), the shared-header rules.
 - [The city](rendering/city.md): why it is drawn near to far, its windows at distance, and their reflections of the towers round them.
 - [Scene point lights](rendering/scene-lights.md): shader slots, `SceneLights`, which scenes carry lights, a blast's flash.
 - [Sun shadows](rendering/sun-shadows.md): the map, its fit, bias and cost, which scenes have it, the city, the ceiling glass's analytic shadow, photographing a shadow.
@@ -17,7 +17,7 @@ Three rules govern most of it. **The scene renders in linear radiance and is ton
 - [The instanced effect's files](rendering/instanced-effect.md): `InstancedModel.fx`'s includes, the constant-buffer rule, shader warnings.
 - [Ball rendering](rendering/ball-rendering.md): buckets, burial, emission, the LOD ladder, the display-pixel dissolve, relief, Testbed arguments.
 - [The palette](rendering/ball-palette.md): the thirteen colours, measuring them, navy and olive, `nooverc`.
-- [Ball shading styles](rendering/ball-styles.md): the style system, what every technique owes, the ten styles and their traps, the #737 colour cue (a painted figure per colour, one of four figure sets per style, on by default), and what each style costs with the cue on and off (#1215).
+- [Ball shading styles](rendering/ball-styles.md): the style system, what every technique owes, the ten styles and their traps, the #737 colour cue (a painted figure per colour, one of four figure sets per style, on by default), what each layer of each style does as a ball shrinks on screen and the check that a ball keeps its detail between the menu's close pass and the play view ("What fades where", #1216), and what each style costs with the cue on and off (#1215).
 - [Special ball kinds](rendering/ball-kinds.md): rock, clear glass, bomb, zap, acid, frozen, infectious, gravity, heavy, wildcard, and the crossings.
 - [Motion blur, resolution and aspect](rendering/motion-blur-and-resolution.md): the velocity pass, the shutter, the distance trap, the shot stretch, 16:9 to 21:9, what supersampling costs.
 - [The Potato path](rendering/potato-path.md): GamePi's forward path, its DirectX build, cost levers, drawn edges.

@@ -510,15 +510,15 @@ float2 VoronoiEdgeCell3(float3 p)
 //the dunes, the sea, the moon's regolith and the island's own stone are all height fields seen at
 //grazing angles.
 //
-//⚠ THE FLOOR IS AN AREA, AND WHOSE AREA IT IS DECIDES HOW STRONG THE RELIEF IS. The determinant is about
-//the pixel's own area on the surface (|dpdx| |dpdy| times the cosine the surface is seen at), and the
-//tilt comes out as the true slope times determinant / max(determinant, floor). A floor in world units
-//(1e-4 below, a pixel of 0.01 units square) is nothing on a landscape, whose pixels are far bigger, and
-//everything on a ball half a unit across: there a pixel is under 0.01 units whenever the ball is more
-//than about 25 display pixels in radius at ssaa 2, and the relief came out at (pixel / 0.01)^2 of itself -
-//a seventh on the menu's close pass, full in play. That was #1216's "detail only from afar". The balls
-//take PerturbNormalFromHeightAtAnySize, whose floor is the pixel's own area times a constant, so the tilt
-//is the same function of the viewing angle at every distance; the scenes keep the world floor they were
+//⚠ THE FLOOR IS AN AREA, AND WHOSE AREA IT IS DECIDES HOW STRONG THE RELIEF IS. The determinant is the
+//pixel's own area on the surface, |dpdx x dpdy| (|dpdx| |dpdy| times the sine of the angle between the
+//two), and the tilt comes out as the true slope times determinant / max(determinant, floor). A floor in
+//world units (1e-4 below, a pixel of 0.01 units square) is nothing on a landscape, whose pixels are far
+//bigger, and everything on a ball half a unit in radius: there a pixel is under 0.01 units whenever the
+//ball is more than about 25 display pixels in radius at ssaa 2, and the relief came out at
+//(pixel / 0.01)^2 of itself - a seventh on the menu's close pass, full in play. That was #1216's "detail
+//only from afar". The balls take PerturbNormalFromHeightAtAnySize, whose floor is a share of the pixel's
+//own size, so the tilt is the true slope at every distance; the scenes keep the world floor they were
 //tuned under. Both go through this one body.
 float3 TiltNormalByHeight(float3 normal, float3 dpdx, float3 dpdy, float dhdx, float dhdy, float determinantFloor)
 {
@@ -536,11 +536,14 @@ float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height
     return TiltNormalByHeight(normal, ddx(worldPosition), ddy(worldPosition), ddx(height), ddy(height), 1e-4);
 }
 
-//The floor as a share of the pixel's own area, |dpdx| |dpdy|: the tilt is the slope times the cosine the
-//surface is seen at while that cosine is over the share, whatever the pixel's size. Half: the play camera's
-//balls had about a pixel's area (a ball 25 display pixels in radius at ssaa 2, the desktop's play view) to a
-//quarter of one (the laptop's 1080 rows) under the world floor, which is what every style was tuned at, and
-//this sits between the two.
+//The floor as a share of |dpdx| |dpdy|, the area the pixel would have if its two derivatives were square
+//to each other. The determinant is that times the sine of the angle between them, so the floor engages
+//only where they shear towards parallel, the angle closing under asin(RELIEF_FLOOR_SHARE) (30 degrees) -
+//on a ball, at the limb where the surface tilts away along a diagonal of the screen, about 75 degrees from
+//face-on - and everywhere else the tilt is the true slope, whatever the pixel's size. Where it engages it
+//scales the tilt by sine / share, so it guards the near-degenerate frame the world floor guards and
+//nothing more. A share, not a size: the styles were tuned at the play camera, where the world floor came
+//to about the pixel's own area at the disc's centre and left the relief whole or nearly.
 static const float RELIEF_FLOOR_SHARE = 0.5;
 
 float3 PerturbNormalFromHeightAtAnySize(float3 normal, float3 worldPosition, float height)

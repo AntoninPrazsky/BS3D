@@ -411,6 +411,21 @@ never affected by scene-space effects like the underwater blur — don't judge a
 exception is the Game's HUD under a page's blur, a pause: since #438 it is drawn into a layer and softened
 with the frame, so a paused Game capture is *supposed* to show a soft HUD.)
 
+### Does a ball keep its detail at every size? `ball-detail-sweep.ps1` and `ball-detail.py` (#1216)
+
+A change to a ball style's relief, a band limit or the shared normal tilt is checked against the rule "What fades
+where" in `docs/rendering/ball-styles.md` states: the same ball at the play view and at the menu's close pass keeps
+the same detail. `ball-detail-sweep.ps1` photographs every style at both sizes (R 69 and R 25 display pixels, one
+Testbed run each, `F5` on the first frame so every run hangs the same pose), and `ball-detail.py` reads the detail
+in one band relative to the ball's size, in L*, and prints each style's play-over-close ratio; `--check 0.8,1.1`
+exits 1 when a style leaves the range. Take the cue off and on and `-Ssaa 1` when the change touches either; the
+header of each script has the rest. Python needs numpy, scipy and Pillow.
+
+```powershell
+.\ball-detail-sweep.ps1 -OutDir C:\scratch\detail
+python ball-detail.py C:\scratch\detail --check 0.8,1.1
+```
+
 ## Comparing the Testbed against the map editor (#367)
 
 The editor is the only cross-check the Testbed has, so "do the two agree about a ball's colour" is worth being

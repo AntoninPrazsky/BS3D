@@ -80,9 +80,11 @@ took effort to get right:
   branch cut. The white type (tint = white) intentionally renders plain.
 - **Inflatable-ball surface** (same technique): a height field — four summed sines along mixed
   directions for the molded micro-relief, plus a groove along every gore boundary and disc rim for
-  the panel welds — tilts the normal via `PerturbNormalFromHeight` (Schueler's tangent-free bump,
+  the panel welds — tilts the normal via `PerturbNormalFromHeightAtAnySize` (Schueler's tangent-free bump,
   the height-field sibling of his normal-mapping cotangent frame), so the highlight breaks up instead of reading as a
-  perfect sphere. The grazing-angle sky sheen is `ShadePixel`'s specular ambient, scaled by `SurfaceOcclusion` so
+  perfect sphere. ⚠ **Every ball style calls the `AtAnySize` entry, never the scenes' `PerturbNormalFromHeight`**:
+  the scenes' floor is a world-unit area that flattens a ball's relief as the ball grows on screen (a seventh of
+  itself on the menu's close pass, #1216), and `BallReliefSizeSourceTests` refuses a ball file that calls it. The grazing-angle sky sheen is `ShadePixel`'s specular ambient, scaled by `SurfaceOcclusion` so
   balls buried in the pile stay dark. Two traps, both hit while building it: *multiplying* sines
   lays down a regular crosshatch (sum them instead), and any wave approaching pixel size aliases
   into a hard checkerboard, because the perturbation is driven by `ddx/ddy`.

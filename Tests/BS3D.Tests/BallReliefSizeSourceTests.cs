@@ -11,7 +11,7 @@ namespace BS3D.Tests
     /// A ball's material looks the same close up and from afar (#1216). The owner saw some styles carry their surface
     /// detail only from afar and others only close up, and two causes were measured in the Testbed's sweep of the ten
     /// styles over seven distances: <c>PerturbNormalFromHeight</c>'s determinant floor is a world-unit area, which on a
-    /// ball half a unit across scaled every style's relief by (pixel / 0.01)² once a target pixel was under 0.01 units
+    /// ball half a unit in radius scaled every style's relief by (pixel / 0.01)² once a target pixel was under 0.01 units
     /// (a seventh of itself on the menu's close pass, whole in play); and the band limits took the metal's brush and the
     /// ice's hairlines out at the play camera without leaving what they average to ("What fades where" in
     /// <c>docs/rendering/ball-styles.md</c>). No test can run a pixel shader without a graphics device and a tidy-up that

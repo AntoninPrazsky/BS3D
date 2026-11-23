@@ -256,7 +256,8 @@ float4 ZapPS(PatternVertexShaderOutput input) : COLOR
     float footprint = (length(ddx(input.WorldPosition)) + length(ddy(input.WorldPosition))) / radius;
 
     //An arc spans about ZapArcWidth of the surface parameter, so the limit is measured against THAT and
-    //not against the whole sphere - the ice crack's rule, and the constant carries the late start.
+    //not against the whole sphere - a line's own width, as the porcelain's craze is limited, and the
+    //constant carries the late start.
     //⚠ The figure is the discharge tree since #626; the three arcs' construction below is gone. The limit
     //is each bolt's own width at the pixel, on the same late-start rule.
     //TWO TREES, one from the node and one from the point opposite it (the owner's verdict on the first cut:
