@@ -12,8 +12,8 @@ namespace BS3D.Tests
     /// <summary>
     /// The chapter-intro shots that fly over rough ground ride like drone footage (#645, #530, #1109, #1112). Every
     /// shot whose height <see cref="AridIntroPaths.Hug"/> lays — the desert's erg, pyramids and crest, the
-    /// mountains' range, pass and summit, the outback's plain, approach and crown, the volcano's crater run and its orbit
-    /// round the village (#1127), the Moon's and Mars's tracks (#1114, #1115) and the polar camp's arc (#1128) — the
+    /// mountains' range, pass and summit, the outback's plain, approach and crown, the volcano's run up its river (#1220), its
+    /// crater run and its orbit round the village (#1127), the Moon's and Mars's tracks (#1114, #1115) and the polar camp's arc (#1128) — the
     /// desert's shots low over its sand (#1110: the beetle, the scorpion and the scorpion home's take-off) and every shot of
     /// the meadow's (#1187: the valley, the two low orbits, the path, the brook and the brook home, on the test planting of
     /// <see cref="MeadowIntroShotsTests"/>) is built through its real builder on the shipped scene config over a dozen rolls
@@ -139,6 +139,8 @@ namespace BS3D.Tests
                 ["outback: the plain"] = new(r => OutbackIntroShots.Plain(monolith, plain, FieldOfView, r), plain, OutbackIntroShots.WIDE_CLEARANCE, false, false),
                 ["outback: the approach"] = new(r => OutbackIntroShots.Approach(outback, monolith, plain, FieldOfView, r), plain, OutbackIntroShots.APPROACH_CLEARANCE, false, true),
                 ["outback: the crown"] = new(r => OutbackIntroShots.Crown(outback, monolith, plain, FieldOfView, r), plain, OutbackIntroShots.CRANE_CLEARANCE, false, false),
+                //A run up the water at about 40 u/s, its subject far ahead (#1220): held to the ride, not to the low runs' speed
+                ["volcano: the river"] = new(r => VolcanoIntroShots.River(cone, vent, volcano, FieldOfView, r), cone, VolcanoIntroShots.RIVER_LOW, false, false),
                 ["volcano: the crater"] = new(r => VolcanoIntroShots.Crater(cone, vent, volcano, FieldOfView, r), cone, VolcanoIntroShots.CLIMB_CLEARANCE, true, false),
                 //An orbit high over the land (#1127), not a run along the ground: held to the ride, not to the low runs' speed
                 ["volcano: the village"] = new(r => VolcanoIntroShots.Village(cone, vent, volcano, FieldOfView, r), cone,
