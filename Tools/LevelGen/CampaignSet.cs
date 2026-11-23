@@ -156,6 +156,12 @@ namespace BS3D.Tools.LevelGen
         /// frame at 4K-class fill, and the opening block hangs the smallest clusters in the campaign — 385
         /// balls at the top of it, against the Quarry's 959.
         /// </para>
+        /// <para>
+        /// <b>A Meadow design hangs no brown beside black or orange</b> (#1194): the bubble's spots draw brown as a
+        /// near-black ball with orange-brown dots, and in a cluster it reads as either of the two. The measurement is in
+        /// "Decisions already measured" in <c>docs/rendering/ball-palette.md</c>, and <c>BubblePaletteTests</c> refuses
+        /// a bubble level that hangs either pair.
+        /// </para>
         /// </summary>
         internal const BallStyle BALLS_MEADOW = BallStyle.Bubble;
 
