@@ -303,6 +303,13 @@ namespace Prazsky.Core.Render
         public bool FarDetail { get; set; }
 
         /// <summary>
+        /// The lens of the frame whose sun's map is being drawn: <see cref="SceneRenderer.DrawShadowMaps"/> states it before the
+        /// backdrop's casters, which are handed only the map's matrix, so a rule by the distance from the lens casts what the
+        /// camera's pass of the same frame draws (the savanna's scrub and treeline, #1195, <see cref="ScatterSwap"/>).
+        /// </summary>
+        public Vector3 ShadowLens { get; set; }
+
+        /// <summary>
         /// True while the renderer has a backdrop drawing into its own display-resolution target (#155) rather than the
         /// caller's: whatever depth the backdrop writes then stays in that target and never reaches the scene's.
         /// </summary>

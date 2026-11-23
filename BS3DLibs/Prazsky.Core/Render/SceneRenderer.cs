@@ -2169,7 +2169,9 @@ namespace Prazsky.Core.Render
             //for both: two-sided blades, fans and fronds, and a closed solid drawn from both sides cannot
             //peter-pan out of its own shadow. The FOREST's wood is not here because it is no backdrop's: the
             //hosts own their ForestScatterRenderer, so it casts through extraCasters below with the island and
-            //the gun.
+            //the gun. The frame's lens first, which the casters are not handed: a rule by the distance from it casts what the
+            //camera's pass draws (#1195, the savanna's ScatterSwaps)
+            _services.ShadowLens = camera.Position;
             if (sceneryCasts) BackdropFor(scene)?.DrawShadowCasters(_sunShadowMap.ViewProjection);
 
             //And whatever the caller casts (#470): the island and the gun, which are the executable's objects

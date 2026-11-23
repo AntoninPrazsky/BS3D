@@ -99,8 +99,12 @@ namespace Prazsky.Core.Render
         /// <param name="cardSize">A leaf card's side against its clump's radius; the meadow's by default. Bigger is bigger leaves
         /// and fewer cards: the tropical beach's sea grape (#753) has leaves several times a hawthorn's.</param>
         /// <param name="cover">How many cards' worth of leaf a clump's shell is covered with; the meadow's by default.</param>
-        public MeadowShrubMesh(GraphicsDevice device, float reach, float top, int seed, float cardSize = SHRUB_CARD, float cover = SHRUB_COVER)
-            : this(device, Build(reach, top, seed, cardSize, cover))
+        /// <param name="rootSpread">How far from the axis the stems leave the ground, a share of the reach; the meadow's
+        /// <see cref="ROOT_SPREAD"/> by default, one rooted spot. The savanna's treeline masses (#1195) spread them wide, a stand of
+        /// trunks under one mass of leaf rather than one giant shrub's vase.</param>
+        public MeadowShrubMesh(GraphicsDevice device, float reach, float top, int seed, float cardSize = SHRUB_CARD, float cover = SHRUB_COVER,
+            float rootSpread = ROOT_SPREAD)
+            : this(device, Build(reach, top, seed, cardSize, cover, rootSpread))
         {
         }
 
@@ -120,7 +124,8 @@ namespace Prazsky.Core.Render
         /// out or the highest is <paramref name="top"/> up, whichever binds first: the loaf it stands in for is the volume the
         /// meadow was planted by, and its sphere is what a camera keeps out of.
         /// </summary>
-        internal static MeadowShrubGeometry Build(float reach, float top, int seed, float cardSize = SHRUB_CARD, float cover = SHRUB_COVER)
+        internal static MeadowShrubGeometry Build(float reach, float top, int seed, float cardSize = SHRUB_CARD, float cover = SHRUB_COVER,
+            float rootSpread = ROOT_SPREAD)
         {
             var g = new MeadowShrubGeometry();
             Random rng = new(seed);
@@ -188,7 +193,7 @@ namespace Prazsky.Core.Render
                 }
                 led[lead] = true;
 
-                Vector3 foot = dir * (R * ROOT_SPREAD * 0.5f) + Vector3.Down * (H * FOOT_DEPTH);
+                Vector3 foot = dir * (R * rootSpread * 0.5f) + Vector3.Down * (H * FOOT_DEPTH);
                 Vector3 target = clumps[lead].Centre;
                 //Into the clump to a third of its radius short of the centre, where its twigs fan out (the tree's rule)
                 Vector3 spray = target - Vector3.Normalize(target - foot) * (clumps[lead].Radius * 0.33f);
@@ -196,7 +201,7 @@ namespace Prazsky.Core.Render
 
                 //A quadratic curve: up out of the ground near the axis, the control point over the foot so the stem leaves steeply
                 //and leans out above, as a vase's sides do
-                Vector3 control = dir * (R * ROOT_SPREAD) + Vector3.Up * (spray.Y * (0.55f + 0.15f * (float)rng.NextDouble()));
+                Vector3 control = dir * (R * rootSpread) + Vector3.Up * (spray.Y * (0.55f + 0.15f * (float)rng.NextDouble()));
                 var points = new Vector3[STEM_PIECES + 1];
                 var radii = new float[STEM_PIECES + 1];
                 for (int k = 0; k <= STEM_PIECES; k++)

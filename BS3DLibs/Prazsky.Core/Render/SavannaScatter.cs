@@ -126,13 +126,26 @@ namespace Prazsky.Core.Render
         /// </summary>
         public InstanceCells Cells { get; }
 
+        /// <summary>
+        /// The distance swap this bucket is one side of (#1195), null for every bucket drawn whole: the savanna's scrub and treeline
+        /// masses, whose dome (<see cref="FineMeshes"/> <c>null</c>) draws on High and Ultra only the plants beyond the swap's radius
+        /// from the lens and whose shaped shrub (<see cref="FineMeshes"/> <c>true</c>) only those within it (<see cref="ScatterSwap.For"/>).
+        /// Below High the dome draws all of them, and the Potato path takes the dome as a bucket like any other.
+        /// </summary>
+        public ScatterSwap Swap { get; }
+
+        /// <summary>Which of its <see cref="Swap"/>'s shrubs a shaped bucket draws (<see cref="ScatterSwap.ShapeOf"/>); 0 for the dome.</summary>
+        public int SwapShape { get; }
+
         internal ScatterBucket(GraphicsDevice device, IProceduralMesh mesh, List<ModelInstance> instances,
             Vector3 diffuse, Vector3 diffuseDry, float dapple, float bark, bool detailOnly,
             bool lowOnly = false, float leaves = 0f, bool earthed = false, bool? castsShadow = null, bool? fineMeshes = null,
             float stone = 0f, Vector3 footDust = default, IProceduralMesh casterMesh = null, float straw = 0f, float barkRelief = 0f,
-            Vector3 emissive = default, bool cells = false)
+            Vector3 emissive = default, bool cells = false, ScatterSwap swap = null, int swapShape = 0)
         {
             Mesh = mesh;
+            Swap = swap;
+            SwapShape = swapShape;
             Emissive = emissive;
             CasterMesh = casterMesh ?? mesh;
             Stone = stone;
@@ -355,6 +368,40 @@ namespace Prazsky.Core.Render
             return (reach, top);
         }
 
+        //The scrub and the treeline masses as shrubs of stems and leaf clumps near the lens on High and Ultra (#1195): how many
+        //shapes stand in for each dome mesh (its instances dealt round them in turn, as the thorn bushes' are), their own seeds (no
+        //roll of the planting moves), and how far from the lens, horizontally, a plant is drawn shaped on High and on Ultra
+        //(ScatterSwap). The scrub's: past the plain's whole reach from any pose the play camera takes (the plain is
+        //AcaciaConfig.MaxRadius, 340, round the axis and the play lens stands within some 40 of it), so play never swaps one, and
+        //only a chapter intro's lens far out on the plain sees the far side's scrub as domes, 400 off, under 35 pixels across a
+        //3840-wide frame. The treeline's: High keeps the domes everywhere the play camera stands (the band starts 300 out, so
+        //from any play pose it is over 255 away) and shapes the masses a chapter intro flies near; Ultra shapes every mass from
+        //any play pose (the band and its masses pushed out of the rocks end within 480 of the axis) and leaves the domes to the
+        //intro's far side, 600 off and two thirds of the way into the plants' haze
+        internal const int SCRUB_SHAPES = 3, TREELINE_SHAPES = 3;
+        private const int SCRUB_SHAPE_SEED = 11950, TREELINE_SHAPE_SEED = 11960;
+        internal const float SCRUB_SWAP_RADIUS = 400f, SCRUB_FAR_DETAIL_SWAP_RADIUS = 400f;
+        internal const float TREELINE_SWAP_RADIUS = 250f, TREELINE_FAR_DETAIL_SWAP_RADIUS = 600f;
+
+        //The shaped scrub's leaf card against its clump and its clumps' cover (the meadow's shrub is 0.55 and 2.4), and the shaped
+        //treeline mass's, with how far from the axis its stems leave the ground (a share of its reach: a stand of trunks under
+        //one mass, not one shrub's vase)
+        internal const float SCRUB_CARD = MeadowShrubMesh.SHRUB_CARD, SCRUB_COVER = MeadowShrubMesh.SHRUB_COVER;
+        internal const float TREELINE_CARD = MeadowShrubMesh.SHRUB_CARD, TREELINE_COVER = MeadowShrubMesh.SHRUB_COVER;
+        internal const float TREELINE_ROOT_SPREAD = 0.45f;
+
+        //Acacia.fx's LeafStrength for the shaped scrub's and treeline's cards: the meadow shrub's broad leaves (BroadLeafMask), the
+        //dark evergreen thicket the references draw (C:\Users\panrd\AI\sd\out\1195-*), not the thorn bush's silver-green tufts
+        private const float BROAD_LEAVES = 2f;
+
+        /// <summary>
+        /// The size a shaped scrub or treeline mass is built to (#1195): the slab its dome was planted by (<see cref="Bodies"/>), as
+        /// its reach and its top at scale 1, so the shrub stands inside the volume the planting kept clear, of its neighbours and of
+        /// the rocks (#1157), and not one plant has to move. <see cref="MeadowShrubMesh.Build"/> fits the whole shrub, cards
+        /// included, under both.
+        /// </summary>
+        internal static (float Reach, float Top) ShapedSize(Slab[] body) => (body[0].Radius, body[0].Top);
+
         //Acacia.fx's LeafStrength for the acacias' and the thorn bushes' sprays (#964): twiglets of twice-pinnate leaves (its
         //TuftMask), not the fern frond (1) the baobab's tufts keep
         private const float ACACIA_TUFTS = 4f;
@@ -386,6 +433,13 @@ namespace Prazsky.Core.Render
         /// <summary>Every draw of the scatter, in draw order. Never empty buckets — a kind with a count of
         /// zero simply has none.</summary>
         public ScatterBucket[] Buckets { get; private set; }
+
+        /// <summary>
+        /// The distance swaps among <see cref="Buckets"/> (#1195): the scrub's and the treeline masses', each one dome mesh's
+        /// instances drawn as shrubs near the lens and as the dome beyond on High and Ultra. A pass selects each one
+        /// (<see cref="ScatterSwap.Select"/>) before drawing the buckets that carry it.
+        /// </summary>
+        public ScatterSwap[] Swaps { get; private set; } = Array.Empty<ScatterSwap>();
 
         /// <summary>
         /// Everything the planting put on the ground, with its own footprint radius - the list
@@ -444,6 +498,16 @@ namespace Prazsky.Core.Render
         /// (<see cref="RockMesh.Off"/>). What a test holds the plain's rocks against.
         /// </summary>
         internal Dictionary<IProceduralMesh, (string Kind, Slab[] Body)> Bodies { get; } = new(ReferenceEqualityComparer.Instance);
+
+        /// <summary>
+        /// Every shrub the scrub and the treeline masses are drawn as near the lens (#1195), with its dome and what it was built from,
+        /// so a test rebuilds its very geometry with no device (<see cref="MeadowShrubMesh.Build"/>) and holds it inside its dome.
+        /// </summary>
+        internal List<ShapedPlant> Shaped { get; } = new();
+
+        /// <summary>One shaped shrub (<see cref="Shaped"/>): the dome it stands in for, its own mesh, and the arguments it was built with.</summary>
+        internal readonly record struct ShapedPlant(string Kind, FoliageMesh Dome, MeadowShrubMesh Shrub, float Reach, float Top, int Seed,
+            float Card, float Cover, float RootSpread);
 
         /// <summary>
         /// Every site the last sweep settled for at negative clearance (#1157): where none of a thing's proposals stood clear, the
@@ -539,6 +603,18 @@ namespace Prazsky.Core.Render
                 scrubVolume[m] = new Slab[] { new(0f, 1.8f * hh, r * 0.9f) };
             }
 
+            //The shrubs High and Ultra draw near the lens in the scrub's place (#1195): the meadow's shrub (#890), stems and clumps
+            //of broad-leaf cards, built to the slab each dome was planted by, SCRUB_SHAPES of them to a dome. Off seeds of their own,
+            //so not one roll of the planting moves
+            var scrubShapes = new MeadowShrubMesh[SCRUB * SCRUB_SHAPES];
+            for (int m = 0; m < scrubShapes.Length; m++)
+            {
+                (float reach, float top) = ShapedSize(scrubVolume[m / SCRUB_SHAPES]);
+                scrubShapes[m] = Own(new MeadowShrubMesh(device, reach, top, SCRUB_SHAPE_SEED + m, SCRUB_CARD, SCRUB_COVER));
+                Shaped.Add(new ShapedPlant("scrub", scrub[m / SCRUB_SHAPES], scrubShapes[m], reach, top, SCRUB_SHAPE_SEED + m, SCRUB_CARD,
+                    SCRUB_COVER, MeadowShrubMesh.ROOT_SPREAD));
+            }
+
             var tufts = new GrassTuftMesh[TUFT];
             var tuftBody = new Slab[TUFT][];
             for (int m = 0; m < TUFT; m++)
@@ -604,6 +680,18 @@ namespace Prazsky.Core.Render
                 //Its body (#1157): the mass stands from under the ground (its middle sinks into it) to 1.6 of its half-height
                 treelineBody[m] = new Slab[] { new(0f, 1.6f * hh, 0.9f * r) };
                 treeline[m] = Own(new FoliageMesh(device, r, hh, centreY: hh * 0.6f, seed: 4600 + m, FoliageStyle.Scrub));
+            }
+
+            //And the treeline's masses near the lens (#1195): the same shrub at the mass's size, its stems spread into a stand of
+            //trunks under it, built to the slab the mass was planted and pushed out of the rocks by
+            var treelineShapes = new MeadowShrubMesh[TREELINE * TREELINE_SHAPES];
+            for (int m = 0; m < treelineShapes.Length; m++)
+            {
+                (float reach, float top) = ShapedSize(treelineBody[m / TREELINE_SHAPES]);
+                treelineShapes[m] = Own(new MeadowShrubMesh(device, reach, top, TREELINE_SHAPE_SEED + m, TREELINE_CARD, TREELINE_COVER,
+                    TREELINE_ROOT_SPREAD));
+                Shaped.Add(new ShapedPlant("treeline", treeline[m / TREELINE_SHAPES], treelineShapes[m], reach, top, TREELINE_SHAPE_SEED + m,
+                    TREELINE_CARD, TREELINE_COVER, TREELINE_ROOT_SPREAD));
             }
 
             //--- The instance lists, one per mesh (a tree's canopy and wood share one).
@@ -1307,6 +1395,7 @@ namespace Prazsky.Core.Render
             }
 
             //--- The buckets, in draw order: a tree's canopy then its wood, then everything else by kind.
+            var swaps = new List<ScatterSwap>();
             Vector3 canopy = ac.CanopyColor.ToVector3();
             Vector3 canopyDry = ac.CanopyDry.ToVector3();
             Vector3 trunk = ac.TrunkColor.ToVector3();
@@ -1355,7 +1444,8 @@ namespace Prazsky.Core.Render
                     detailOnly: false, leaves: ACACIA_TUFTS, fineMeshes: true));
             }
             Vector3 scrubColor = dr.ScrubColor.ToVector3();
-            Add(buckets, device, scrub, scrubInstances, scrubColor, scrubColor * new Vector3(1.5f, 1.25f, 0.9f), dapple: 0.5f, bark: 0f, detailOnly: false);
+            AddSwapped(buckets, swaps, device, scrub, scrubShapes, SCRUB_SHAPES, scrubInstances, scrubColor, scrubColor * new Vector3(1.5f, 1.25f, 0.9f),
+                SCRUB_SWAP_RADIUS, SCRUB_FAR_DETAIL_SWAP_RADIUS, trunk * SHAPED_WOOD);
             Vector3 moundColor = dr.MoundColor.ToVector3();
             Add(buckets, device, mounds, moundInstances, moundColor, moundColor * new Vector3(1.15f, 1.2f, 1.3f), dapple: 0f, bark: 0.45f, detailOnly: false);
 
@@ -1386,7 +1476,9 @@ namespace Prazsky.Core.Render
             Vector3 tuftColor = dr.TuftColor.ToVector3();
             Add(buckets, device, tufts, tuftInstances, tuftColor, tuftColor * new Vector3(0.6f, 0.8f, 0.6f), dapple: 0.8f, bark: 0f, detailOnly: true);
             Vector3 treelineColor = dr.TreelineColor.ToVector3();
-            Add(buckets, device, treeline, treelineInstances, treelineColor, treelineColor * 1.6f, dapple: 0.4f, bark: 0f, detailOnly: false);
+            AddSwapped(buckets, swaps, device, treeline, treelineShapes, TREELINE_SHAPES, treelineInstances, treelineColor, treelineColor * 1.6f,
+                TREELINE_SWAP_RADIUS, TREELINE_FAR_DETAIL_SWAP_RADIUS, trunk * SHAPED_WOOD, dapple: 0.4f);
+            Swaps = swaps.ToArray();
 
             //The bank the island sits in (#608): dry grass over packed earth, one instance where it was built
             var bermAt = new List<ModelInstance> { new(Matrix.Identity, new Vector4(0.3f, 0f, 0f, 0f)) };
@@ -1432,12 +1524,17 @@ namespace Prazsky.Core.Render
             var solids = new List<PlantFigure>();
             var besideTrees = new List<PlantFigure>();
             foreach (ScatterBucket bucket in Buckets)
+            {
+                //A shaped scrub or treeline mass (#1195) stands inside its dome's sphere (SavannaShapedScrubTests), which is here
+                //already: a lens kept out of the one is out of the other, and the chapter intro's flights are the ones they were
+                if (bucket.Swap != null && bucket.FineMeshes == true) continue;
                 foreach (ModelInstance instance in bucket.Placed)
                 {
                     PlantFigure solid = PlantFigure.Of(bucket.Mesh.BoundingSphere, instance.World, 0f);
                     solids.Add(solid);
                     if (!treeMeshes.Contains(bucket.Mesh)) besideTrees.Add(solid);
                 }
+            }
             Solids = solids;
             SolidsBesideTrees = besideTrees;
         }
@@ -1464,6 +1561,43 @@ namespace Prazsky.Core.Render
             }
         }
 
+        //The shaped scrub's and treeline's wood (#1195): the trees' trunk, darkened, a thicket's stems seen in its own shade
+        private const float SHAPED_WOOD = 0.55f;
+
+        /// <summary>
+        /// The domes of a kind drawn as they always were, each now one side of a <see cref="ScatterSwap"/> (#1195), and after them
+        /// the <paramref name="perDome"/> shrubs each dome's instances are dealt round in turn (instance i of dome m wears shape
+        /// <c>m * perDome + i % perDome</c>), their wood and their leaf on the swap's near side: the dome's bucket is the one it
+        /// was, in the same place in the list, so Low, Medium and the Potato path draw what they drew. The leaf takes the dome's
+        /// colours, a broad leaf (<see cref="BROAD_LEAVES"/>) with no mottle of its own, and casts; the stems do not (too thin to
+        /// cast anything the leaf over them does not, the meadow's rule).
+        /// </summary>
+        private static void AddSwapped(List<ScatterBucket> buckets, List<ScatterSwap> swaps, GraphicsDevice device, FoliageMesh[] domes,
+            MeadowShrubMesh[] shapes, int perDome, List<ModelInstance>[] instances, Vector3 diffuse, Vector3 diffuseDry, float radius,
+            float farDetailRadius, Vector3 wood, float dapple = 0.5f)
+        {
+            for (int m = 0; m < domes.Length; m++)
+            {
+                if (instances[m].Count == 0) continue;
+                BoundingSphere local = domes[m].BoundingSphere;
+                for (int k = 0; k < perDome; k++)
+                    local = BoundingSphere.CreateMerged(local, shapes[m * perDome + k].Wood.BoundingSphere);
+                var swap = new ScatterSwap(device, instances[m], perDome, local, radius, farDetailRadius);
+                swaps.Add(swap);
+
+                buckets.Add(new ScatterBucket(device, domes[m], instances[m], diffuse, diffuseDry, dapple, bark: 0f, detailOnly: false, swap: swap));
+                for (int k = 0; k < perDome; k++)
+                {
+                    MeadowShrubMesh shape = shapes[m * perDome + k];
+                    List<ModelInstance> dealt = ScatterSwap.Dealt(instances[m], perDome, k);
+                    buckets.Add(new ScatterBucket(device, shape.Wood, dealt, wood, wood * 1.15f, dapple: 0f, bark: 0.35f, detailOnly: false,
+                        castsShadow: false, fineMeshes: true, swap: swap, swapShape: k));
+                    buckets.Add(new ScatterBucket(device, shape.Leaves, dealt, diffuse, diffuseDry, dapple: 0f, bark: 0f, detailOnly: false,
+                        leaves: BROAD_LEAVES, fineMeshes: true, swap: swap, swapShape: k));
+                }
+            }
+        }
+
         /// <summary>A linear colour taken <paramref name="amount"/> of the way to the grey of its own luminance.</summary>
         private static Vector3 Greyed(Vector3 colour, float amount)
         {
@@ -1481,6 +1615,8 @@ namespace Prazsky.Core.Render
         {
             if (Buckets != null) foreach (ScatterBucket bucket in Buckets) bucket.Dispose();
             Buckets = null;
+            foreach (ScatterSwap swap in Swaps) swap.Dispose();
+            Swaps = Array.Empty<ScatterSwap>();
             foreach (IDisposable mesh in _meshes) mesh.Dispose();
             _meshes.Clear();
         }

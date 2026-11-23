@@ -606,12 +606,18 @@ namespace Prazsky.Core.Render
             ScatterBucket[] buckets = _savannaScatter.Buckets;
             bool detail = _sceneDetail > 0.5f;
             bool fine = Services.FineMeshes;
+
+            //The scrub and the treeline as shrubs near the lens and domes beyond it, on High and Ultra (#1195)
+            if (fine) SelectSwaps(frame.Camera.View * frame.Camera.Projection, frame.Camera.Position);
+
             for (int b = 0; b < buckets.Length; b++)
             {
                 ScatterBucket bucket = buckets[b];
                 if (bucket.DetailOnly && !detail) continue;
                 if (bucket.LowOnly && detail) continue;
                 if (bucket.FineMeshes is bool meshes && meshes != fine) continue;
+                (VertexBuffer instances, int count) = Drawn(bucket, fine);
+                if (count == 0) continue;
 
                 _acaciaDiffuseParam.SetValue(bucket.Diffuse);
                 _acaciaDiffuseDryParam.SetValue(bucket.DiffuseDry);
@@ -625,9 +631,9 @@ namespace Prazsky.Core.Render
                 _acaciaAddedLightParam.SetValue(Vector3.Zero);
                 _acaciaEffect.CurrentTechnique.Passes[0].Apply();
 
-                InstanceBinding.Set(_graphicsDevice, bucket.Mesh.VertexBuffer, 0, bucket.Instances, 0);
+                InstanceBinding.Set(_graphicsDevice, bucket.Mesh.VertexBuffer, 0, instances, 0);
                 _graphicsDevice.Indices = bucket.Mesh.IndexBuffer;
-                _graphicsDevice.DrawInstanced(PrimitiveType.TriangleList, 0, 0, bucket.Mesh.PrimitiveCount, bucket.Count);
+                _graphicsDevice.DrawInstanced(PrimitiveType.TriangleList, 0, 0, bucket.Mesh.PrimitiveCount, count);
             }
 
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
@@ -638,6 +644,26 @@ namespace Prazsky.Core.Render
             //own fire's and they do not flicker together.
             DrawHearthStones(frame);
         }
+
+        //The frustum a pass splits the scatter's swaps by: the camera's, or the sun's map's box. One instance, set per pass
+        private readonly BoundingFrustum _swapFrustum = new(Matrix.Identity);
+
+        /// <summary>
+        /// Splits every swap of the plain (#1195, <see cref="SavannaScatter.Swaps"/>) for one pass: the plants
+        /// <paramref name="viewProjection"/>'s frustum meets, shrubs within the tier's radius of <paramref name="lens"/> and domes
+        /// beyond. The camera's pass and the sun's of one frame are handed the same lens, so a plant casts what it is drawn as.
+        /// </summary>
+        private void SelectSwaps(in Matrix viewProjection, Vector3 lens)
+        {
+            _swapFrustum.Matrix = viewProjection;
+            ScatterSwap[] swaps = _savannaScatter.Swaps;
+            for (int s = 0; s < swaps.Length; s++) swaps[s].Select(_swapFrustum, lens, swaps[s].RadiusFor(Services.FarDetail));
+        }
+
+        /// <summary>What a pass draws of <paramref name="bucket"/>: its own instances, or on High and Ultra (<paramref name="fine"/>)
+        /// a swap's side of this pass's split (<see cref="ScatterSwap.For"/>).</summary>
+        private static (VertexBuffer Instances, int Count) Drawn(ScatterBucket bucket, bool fine) =>
+            fine && bucket.Swap != null ? bucket.Swap.For(bucket) : (bucket.Instances, bucket.Count);
 
         /// <summary>
         /// Draws the ring of stones around each campfire (#282) on the acacia's own instanced path, one draw
@@ -861,6 +887,11 @@ namespace Prazsky.Core.Render
             _acaciaEffect.CurrentTechnique.Passes[0].Apply();
 
             ScatterBucket[] buckets = _savannaScatter.Buckets;
+            bool fine = Services.FineMeshes;
+
+            //The swaps split by the map's box and by the frame's lens, the one the camera's pass splits by (#1195)
+            if (fine) SelectSwaps(shadowViewProjection, Services.ShadowLens);
+
             for (int b = 0; b < buckets.Length; b++)
             {
                 ScatterBucket bucket = buckets[b];
@@ -869,13 +900,15 @@ namespace Prazsky.Core.Render
                 //do, their leaflets cut out here as on screen (#610) — the dapple under a tree is the leaves'.
                 //One wood a tree, the tier's (#758)
                 if (!bucket.CastsShadow) continue;
-                if (bucket.FineMeshes is bool meshes && meshes != Services.FineMeshes) continue;
+                if (bucket.FineMeshes is bool meshes && meshes != fine) continue;
+                (VertexBuffer instances, int count) = Drawn(bucket, fine);
+                if (count == 0) continue;
                 _acaciaLeavesParam.SetValue(bucket.Leaves);
                 _acaciaEffect.CurrentTechnique.Passes[0].Apply();
 
-                InstanceBinding.Set(_graphicsDevice, bucket.Mesh.VertexBuffer, 0, bucket.Instances, 0);
+                InstanceBinding.Set(_graphicsDevice, bucket.Mesh.VertexBuffer, 0, instances, 0);
                 _graphicsDevice.Indices = bucket.Mesh.IndexBuffer;
-                _graphicsDevice.DrawInstanced(PrimitiveType.TriangleList, 0, 0, bucket.Mesh.PrimitiveCount, bucket.Count);
+                _graphicsDevice.DrawInstanced(PrimitiveType.TriangleList, 0, 0, bucket.Mesh.PrimitiveCount, count);
             }
 
             if (_hearthStoneInstances != null && _hearthStoneMeshes != null)
