@@ -28,8 +28,18 @@ namespace Prazsky.Core.Render
     /// <see cref="FAR_WIDTH"/>, lengthen with it (<see cref="FAR_STRETCH"/>, <see cref="FAR_DASH_FRACTION"/>) and give up
     /// their light, each dash along itself, to nothing where the beam reaches the ball it touches. A
     /// <see cref="FarEnd.Strike"/> (a cutter's, which strikes that ball itself and has no cell to show) is the plain line at
-    /// full strength, and it stops there too. Either way it is one dashed line from the muzzle on, with nothing beside it,
+    /// full strength, and it stops there too. Either way it is one dashed line from the muzzle on, and nothing is drawn
     /// over the ball or past it.
+    /// </para>
+    /// <para>
+    /// <b>And a landing's line opens into a thin three-pronged fork that fades out</b> (#1235, the owner's sketch, "so that it
+    /// is a little visible that the ball does not land exactly where the line ends"): from <see cref="FORK_FROM"/> of the way
+    /// to where the lens sees the beam reach the ball, two prongs peel off the line on either side along a smoothstep (no
+    /// corner, not a pitchfork), part to the measured landing region (<see cref="FORK_SPREAD"/>) by <see cref="FORK_FULL"/>
+    /// and run on parallel, dashed with the line's own dashes at the line's width, a little fainter than it
+    /// (<see cref="FORK_LIGHT"/>), and fading out with it at the ball. They part square to the lens's line of sight, so the
+    /// overview, which sees the beam nearly end on, shows them apart: 74 px across at the median on a 1080-line frame.
+    /// The middle line is laid exactly as without them (<see cref="LayProngs"/>).
     /// </para>
     /// </summary>
     /// <remarks>
@@ -248,6 +258,53 @@ namespace Prazsky.Core.Render
         /// </summary>
         internal const int MAX_PIECES = 3 * MAX_DASHES;
 
+        /// <summary>
+        /// <b>How far to the side the fork's two outer prongs part</b>, in world units, at their widest (#1235): the
+        /// measured landing region (<see cref="LANDING_SPREAD"/>), so the fork says what the owner asked it to say, "that the
+        /// ball does not land exactly where the line ends", and no more.
+        /// </summary>
+        internal const float FORK_SPREAD = LANDING_SPREAD;
+
+        /// <summary>
+        /// Where the fork's outer prongs start to peel off the line, as a share of the beam's length to where the lens sees it
+        /// reach the ball (<see cref="VisibleEnd"/>). Earlier than the far part (<see cref="FAR_FROM"/>) on purpose: the overview
+        /// sees the beam foreshortened, the muzzle eleven units off and the far end twenty-five, so the far half of the flight
+        /// is only its last third on screen, mostly over the cluster already, and a fork opening there was hidden among the
+        /// balls. From 0.35 of the flight the fork takes about the last two fifths of the beam on screen, as the owner's sketch
+        /// has it, and opens in the open air under the cluster.
+        /// </summary>
+        internal const float FORK_FROM = 0.35f;
+
+        /// <summary>
+        /// Where the outer prongs have parted to <see cref="FORK_SPREAD"/>, as the same share: along a smoothstep from
+        /// <see cref="FORK_FROM"/> (no corner where they leave the line), after which they run on parallel and fade out with the
+        /// line at the ball. At 0.65 of the flight, about five sixths of the beam on screen, while a third of the line's
+        /// light is still left there.
+        /// </summary>
+        internal const float FORK_FULL = 0.65f;
+
+        /// <summary>
+        /// How far apart the outer prongs are, as a share of <see cref="FORK_SPREAD"/>, when they have their whole light
+        /// (<see cref="FORK_LIGHT"/>): they gain it along a smoothstep as they leave the line, so a prong still lying over it
+        /// adds next to nothing to it, and one clear of it (a third of the spread is about two of the line's widths aside)
+        /// shows whole. Tied to the whole opening, a prong had a quarter of its light half way open and was lost against a
+        /// daylight sky.
+        /// </summary>
+        internal const float FORK_SHOW = 0.35f;
+
+        /// <summary>
+        /// An outer prong's alpha, once clear of the line, against the plain line's under the same fade, at the plain line's
+        /// own width: a little under it, so no prong is bolder than the line the owner accepted and the middle one reads as
+        /// the aim, and so the farthest prong ends within the tenth of the line's light the line itself ends at (a prong does
+        /// not widen, so at the same fade its core is brighter than the middle dash's; at 1 it ended at 0.106). At 0.8 tied to
+        /// how far it had opened, a prong carried a fifth of the line's light half way open and did not show against a
+        /// daylight sky.
+        /// </summary>
+        internal const float FORK_LIGHT = 0.9f;
+
+        /// <summary>Pieces the fork's two outer prongs can be laid as: two for every piece of the middle line.</summary>
+        internal const int MAX_FORK_PIECES = 2 * MAX_PIECES;
+
         #endregion
 
         /// <summary>What the beam's far end is: what a shot fired now would reach, and so how the beam ends.</summary>
@@ -287,8 +344,9 @@ namespace Prazsky.Core.Render
 
         private readonly EffectPass _pass;
 
-        //The frame's layout, reused: laid into, drawn from, never reallocated
+        //The frame's layout, reused: laid into, drawn from, never reallocated. The fork's outer prongs apart (#1235)
         private readonly Piece[] _pieces = new Piece[MAX_PIECES];
+        private readonly Piece[] _forks = new Piece[MAX_FORK_PIECES];
 
         private VertexBuffer _vertexBuffer;
         private IndexBuffer _indexBuffer;
@@ -344,7 +402,7 @@ namespace Prazsky.Core.Render
         {
             if (opacity <= MIN_OPACITY) return;
 
-            int count = Lay(path, phase, farEnd, ballTouched, camera.Position, _pieces);
+            int count = Lay(path, phase, farEnd, ballTouched, camera.Position, _pieces, _forks, out int forkCount);
             if (count == 0) return;
 
             Vector3 linear = ColorSpace.SrgbToLinear(srgbTint);
@@ -373,9 +431,24 @@ namespace Prazsky.Core.Render
             //The head fade as every Draw leaves the effect, and as the smear and the sparks, which never set it, draw with
             float headFade = 0f;
 
+            DrawPieces(_pieces, count, opacity, ref tailWidth, ref headWidth, ref headFade);
+            DrawPieces(_forks, forkCount, opacity, ref tailWidth, ref headWidth, ref headFade);
+
+            if (headFade != 0f) _headFadeParam.SetValue(0f);
+
+            _device.BlendState = blend;
+            _device.DepthStencilState = depth;
+            _device.RasterizerState = raster;
+        }
+
+        //The pieces of one laid run, the middle line's or the fork's, each one draw of the shared quad; the widths and the
+        //head fade last sent are carried between the runs, so nothing is sent twice
+        private void DrawPieces(Piece[] pieces, int count, float opacity, ref float tailWidth, ref float headWidth,
+            ref float headFade)
+        {
             for (int i = 0; i < count; i++)
             {
-                ref readonly Piece piece = ref _pieces[i];
+                ref readonly Piece piece = ref pieces[i];
 
                 _tailParam.SetValue(piece.Tail);
                 _headParam.SetValue(piece.Head);
@@ -387,7 +460,8 @@ namespace Prazsky.Core.Render
                 if (piece.HeadWidth != headWidth) _headWidthParam.SetValue(headWidth = piece.HeadWidth);
 
                 //The alpha at the tail, and the share of it gone by the head, which the shader lerps along: 0 on the plain
-                //line, so sent only over a landing's far part
+                //line, so sent only over a landing's far part. Negative where a fork's prong brightens along a dash as it
+                //peels off the line (the shader lerps it up as readily)
                 float fade = piece.TailAlpha > 0f ? 1f - piece.HeadAlpha / piece.TailAlpha : 0f;
                 if (fade != headFade) _headFadeParam.SetValue(headFade = fade);
 
@@ -396,12 +470,6 @@ namespace Prazsky.Core.Render
                 _pass.Apply();
                 _device.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, 2);
             }
-
-            if (headFade != 0f) _headFadeParam.SetValue(0f);
-
-            _device.BlendState = blend;
-            _device.DepthStencilState = depth;
-            _device.RasterizerState = raster;
         }
 
         /// <summary>
@@ -423,8 +491,17 @@ namespace Prazsky.Core.Render
         /// <param name="viewer">Where the camera is: a landing or a strike ends where it sees the beam reach the ball
         /// touched.</param>
         internal static int Lay(ReadOnlySpan<Vector3> path, float phase, FarEnd farEnd, Vector3 ballTouched, Vector3 viewer,
-            Span<Piece> pieces)
+            Span<Piece> pieces) => Lay(path, phase, farEnd, ballTouched, viewer, pieces, Span<Piece>.Empty, out _);
+
+        /// <summary>
+        /// <see cref="Lay(ReadOnlySpan{Vector3}, float, FarEnd, Vector3, Vector3, Span{Piece})"/>, and the fork's two outer
+        /// prongs over a landing's far part into <paramref name="forks"/> (<see cref="MAX_FORK_PIECES"/> is always enough),
+        /// <paramref name="forkCount"/> of them (#1235). The middle line is laid exactly as without them.
+        /// </summary>
+        internal static int Lay(ReadOnlySpan<Vector3> path, float phase, FarEnd farEnd, Vector3 ballTouched, Vector3 viewer,
+            Span<Piece> pieces, Span<Piece> forks, out int forkCount)
         {
+            forkCount = 0;
             if (path.Length < 2 || pieces.Length == 0) return 0;
 
             float total = 0f;
@@ -438,12 +515,14 @@ namespace Prazsky.Core.Render
             if (farEnd != FarEnd.OpenAir)
             {
                 end = VisibleEnd(path, total, ballTouched, viewer);
-                if (farEnd == FarEnd.Landing) far = new FarPart(FAR_FROM * total, total, FAR_FROM * end, end);
+                if (farEnd == FarEnd.Landing)
+                    far = new FarPart(FAR_FROM * total, total, FAR_FROM * end, end, FORK_FROM * end, FORK_FULL * end);
             }
 
             if (end < SPACING * MIN_DASH_FRACTION) return 0;
 
-            return LayDashes(path, end, far, LastLeg(path), phase, farEnd == FarEnd.OpenAir, pieces);
+            return LayDashes(path, end, far, LastLeg(path), phase, farEnd == FarEnd.OpenAir, pieces, viewer, forks,
+                ref forkCount);
         }
 
         /// <summary>
@@ -452,10 +531,10 @@ namespace Prazsky.Core.Render
         /// to nothing at <see cref="FadeTo"/> (<see cref="FAR_FROM"/> of the way to where the lens sees the beam reach the
         /// ball on, to there). <see cref="None"/> is the plain line's: nothing grows and nothing fades.
         /// </summary>
-        private readonly record struct FarPart(float From, float To, float FadeFrom, float FadeTo)
+        private readonly record struct FarPart(float From, float To, float FadeFrom, float FadeTo, float ForkFrom, float ForkTo)
         {
             public static FarPart None => new(float.PositiveInfinity, float.PositiveInfinity, float.PositiveInfinity,
-                float.PositiveInfinity);
+                float.PositiveInfinity, float.PositiveInfinity, float.PositiveInfinity);
 
             /// <summary>A dash's half-width at a distance along the flight.</summary>
             public float Width(float distance) => FarWidth(FarAlong(distance, From, To));
@@ -468,7 +547,15 @@ namespace Prazsky.Core.Render
 
             /// <summary>The alpha at a distance along the flight: exactly 1 short of both the far part and its fade.</summary>
             public float Alpha(float distance) => FarAlpha(FarAlong(distance, FadeFrom, FadeTo), Width(distance));
+
+            /// <summary>How far the fork's outer prongs have parted at a distance along the flight, 0 to 1 (#1235).</summary>
+            public float Fork(float distance) => Ease(FarAlong(distance, ForkFrom, ForkTo));
+
+            /// <summary>The alpha of a dash of the plain line's width under the fade at a distance along the flight: the
+            /// fork's prongs', which never widen (#1235).</summary>
+            public float ThinAlpha(float distance) => FarAlpha(FarAlong(distance, FadeFrom, FadeTo), WIDTH);
         }
+
 
         /// <summary>The last leg of <paramref name="path"/> longer than a thousandth, or the first leg when none is.</summary>
         private static int LastLeg(ReadOnlySpan<Vector3> path)
@@ -614,7 +701,7 @@ namespace Prazsky.Core.Render
         /// open fade over the last leg of a beam that reaches nothing.
         /// </summary>
         private static int LayDashes(ReadOnlySpan<Vector3> path, float end, in FarPart far, int finalLeg, float phase,
-            bool openEnded, Span<Piece> pieces)
+            bool openEnded, Span<Piece> pieces, Vector3 viewer, Span<Piece> forks, ref int forkCount)
         {
             //The open fade runs over the last leg, as it did when each leg was drawn on its own: a bank shot that
             //reaches nothing keeps its first leg whole and dies away after the bounce
@@ -683,9 +770,13 @@ namespace Prazsky.Core.Render
 
                     if (b - a > Constants.THOUSANDTH)
                     {
-                        pieces[count++] = new Piece(PointOnLeg(path, at, atStart, atLength, a),
-                            PointOnLeg(path, at, atStart, atLength, b), far.Width(a), far.Width(b),
+                        Vector3 tail = PointOnLeg(path, at, atStart, atLength, a), head = PointOnLeg(path, at, atStart, atLength, b);
+                        pieces[count++] = new Piece(tail, head, far.Width(a), far.Width(b),
                             openEnded ? alpha : far.Alpha(a), openEnded ? alpha : far.Alpha(b));
+
+                        //The fork's outer prongs beside it, over a landing's far part (#1235)
+                        if (!openEnded && forkCount + 2 <= forks.Length)
+                            forkCount = LayProngs(path, at, tail, head, a, b, far, viewer, forks, forkCount);
                     }
 
                     if (b >= to || at + 2 >= path.Length) break;
@@ -700,6 +791,52 @@ namespace Prazsky.Core.Render
             }
 
             return count;
+        }
+
+        /// <summary>
+        /// The fork's two outer prongs beside one piece of the middle line, from <paramref name="a"/> to <paramref name="b"/>
+        /// along the flight on leg <paramref name="leg"/> (#1235): the owner's sketch, the line opening at its end into a
+        /// thin three-pronged fork that fades out, "so that it is a little visible that the ball does not land exactly where
+        /// the line ends". Each prong is the piece moved aside by how far the fork has opened there (<see cref="FORK_FROM"/> to
+        /// <see cref="FORK_FULL"/>) of <see cref="FORK_SPREAD"/>, square to
+        /// the flight and to the lens's line of sight (<see cref="Across"/>), so the two part on screen on either side of the
+        /// line whatever the angle; at the line's own <see cref="WIDTH"/>, never widened; and with the plain line's alpha under
+        /// the same fade, times <see cref="FORK_LIGHT"/>, gained as they leave it (<see cref="FORK_SHOW"/>), so they peel off it
+        /// from nothing and fade out with it at the ball. Laid only where they have parted at all: the plain line, a strike and an open beam have none.
+        /// </summary>
+        private static int LayProngs(ReadOnlySpan<Vector3> path, int leg, Vector3 tail, Vector3 head, float a, float b,
+            in FarPart far, Vector3 viewer, Span<Piece> forks, int forkCount)
+        {
+            float openA = far.Fork(a), openB = far.Fork(b);
+            if (openB <= 0f) return forkCount;
+
+            float alphaA = far.ThinAlpha(a) * Ease(MathF.Min(1f, openA / FORK_SHOW)) * FORK_LIGHT;
+            float alphaB = far.ThinAlpha(b) * Ease(MathF.Min(1f, openB / FORK_SHOW)) * FORK_LIGHT;
+            if (MathF.Max(alphaA, alphaB) <= MIN_OPACITY) return forkCount;
+
+            //A tail at nothing would leave the shader no alpha to lerp from: a fiftieth of the head's, all but nothing
+            alphaA = MathF.Max(alphaA, alphaB * 0.02f);
+
+            Vector3 flight = path[leg + 1] - path[leg];
+            Vector3 asideA = Across(flight, tail - viewer) * (FORK_SPREAD * openA);
+            Vector3 asideB = Across(flight, head - viewer) * (FORK_SPREAD * openB);
+
+            forks[forkCount++] = new Piece(tail + asideA, head + asideB, WIDTH, WIDTH, alphaA, alphaB);
+            forks[forkCount++] = new Piece(tail - asideA, head - asideB, WIDTH, WIDTH, alphaA, alphaB);
+            return forkCount;
+        }
+
+        /// <summary>
+        /// The unit direction square to <paramref name="flight"/> and to the lens's line of <paramref name="sight"/>, the one
+        /// a step aside shows longest on screen (the fan of #1196 parted its rays the same way). Seen straight along the
+        /// flight there is none: square to the flight and up then, or to the flight and across the world.
+        /// </summary>
+        internal static Vector3 Across(Vector3 flight, Vector3 sight)
+        {
+            Vector3 across = Vector3.Cross(flight, sight);
+            if (across.LengthSquared() < 1e-8f) across = Vector3.Cross(flight, Vector3.Up);
+            if (across.LengthSquared() < 1e-8f) across = Vector3.Cross(flight, Vector3.Right);
+            return Vector3.Normalize(across);
         }
 
         //A point at a distance along the flight, on the leg that covers it; a leg of nothing is its one point
