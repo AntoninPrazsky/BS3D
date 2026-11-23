@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-23 — #1191 uvolněné kuličky se po čase rozplynou — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: uvolněná kulička, která je 5 s po uvolnění pořád nad podlahou pole (`LooseBallTimeout.FIELD_SECONDS`, číslo majitele), se 1 s rozpouští ditherem mrtvé váhy a odejde přes `PhysicsWorld.RetireBall`. Hodiny jdou s hrou (pauza drží), skóre se nemění, náhradní dávka je `Untimed`, karta mrtvé váhy padá dřív. Podlaha jde se sklem dolů až k čáře smrti (`ClusterHang.FieldFloorY`); padající kulička (> 2 u/s) počká. `logshots` píše řádky `[loose]`.
+- ⚠ Pojistka 12 s všude rozpustila na Pennantu 52 kuliček uprostřed pádu do odtoku (odtok trvá až 12,9 s); pod podlahou proto žádný časovač.
+- Otevřené: `verdict-eye` (rychlost a pocit rozplynutí, karta na obrazovce i po odchodu kuličky). Rozhodnutí majiteli: chytat zaklíněné kuličky pod podlahou podle klidu? Délka 1 s?
+
 ## 2026-11-23 — #1194 Amfora: modrá místo hnědé — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: noha a hrdlo Amfory modré a červené místo hnědé a červené (44 koulí Type10 → Type3 v `AmphoraColour`, level přegenerován). Tvar, skupiny i obtížnost stejné (14 skupin, nejkratší dohrání 4).

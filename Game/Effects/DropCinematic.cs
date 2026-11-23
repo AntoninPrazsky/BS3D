@@ -79,10 +79,11 @@ namespace BS3D.Effects
         //Prazsky.BS3D.DropTrigger's since #719, with the reasoning for each: one copy of the rule, which the game, the
         //tests and `LevelGen --drops` (the measurement the dials are set by) all read.
 
-        //Wall-clock ceiling on one shot. It is a backstop rather than a pace: the game only culls at the
-        //kill plane (see RemoveFallenBalls), and a ball can still come to rest short of it — rarely since
-        //the stone ring dished, but a pile propping itself up near the drain's mouth still does — so "the
-        //subject is gone" is not a condition that always arrives.
+        //Wall-clock ceiling on one shot. It is a backstop rather than a pace: below the field's floor only the
+        //kill plane culls a ball (see RemoveFallenBalls; the loose timeout takes a released ball only up in the
+        //field, #1191), and a ball can still come to rest short of it — rarely since the stone ring dished, but
+        //a pile propping itself up near the drain's mouth still does — so "the subject is gone" is not a
+        //condition that always arrives.
         private const float MAX_SECONDS = 6.5f;
 
         //The camera grabs the frame faster than it gives it back: the grab has to keep up with balls that
@@ -340,9 +341,9 @@ namespace BS3D.Effects
         /// <summary>
         /// Has the drop stopped being a drop? The subject descending by less than <see cref="STALL_DROP"/>
         /// over <see cref="STALL_SECONDS"/> means the last of it has stopped falling — wedged in a
-        /// slow-draining pile near the drain's mouth, or (rarely, since the stone ring dished) at rest where
-        /// only the kill plane could remove it (see <c>RemoveFallenBalls</c>) — so waiting for that plane
-        /// leaves the camera holding on a straggler, which is a shot with nothing in it. It is what a first
+        /// slow-draining pile near the drain's mouth, or (rarely, since the stone ring dished) at rest on the
+        /// stone, below the field, where only the kill plane removes a ball (see <c>RemoveFallenBalls</c>) — so
+        /// waiting for that plane leaves the camera holding on a straggler, which is a shot with nothing in it. It is what a first
         /// pass did, and the sea's last frames were an empty blue rectangle with one ball in the corner.
         /// <para>
         /// Measured in the frame's own seconds, which are the world's (the cinematic never slows the clock, #877), each

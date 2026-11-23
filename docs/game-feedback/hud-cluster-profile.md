@@ -18,6 +18,7 @@ A counter says *when* the glass steps, which the player can see; not **where it 
 
 - **A ball in the air is a RING** (#89; `DrawDisc` with an inner radius), from `_shotBalls` and `_fallingBalls`. **A climbing shot under the death line stays culled**, or every shot would read as *lost* for half its climb.
 - **A ball crossing the death line dissolves rather than pops** (#134): whole for `PROFILE_SINK_HOLD` of a fall measured in **world units**, then dissolving. The fall runs to just above the balls-left readout (`BallsLeftTop`), never shorter than `PROFILE_SINK_FADE`, never longer than the fall to `KILL_PLANE_Y` (the kill plane would take a ball mid-fade).
+- **A released ball dissolving away in the field fades out of the panel with it** (#1191): `BallMarker.Vanish` is the ball's `PhysicsBall.Vanish`, and the ring's alpha is multiplied by what is left of it ([Dead weight](dead-weight.md#it-goes-after-its-time-1191)).
 - **"Falling" is where the ball came from, not its velocity** (#822): `BallMarker.FromAbove`, decided once per ball (a released ball always came down; a shot has once above the death line, `PhysicsBall.RoseAboveDeathLine`). Velocity flickers in the funnel, and the list cannot decide (a missed shot is still in `_shotBalls`).
 - **A CLUSTER ball under the line is drawn whole, ringed in `PROFILE_ALARM` red** (#643): the panel stays up through a loss so the player reads what beat them.
 
