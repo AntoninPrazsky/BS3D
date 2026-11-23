@@ -434,6 +434,17 @@ namespace Prazsky.Core.Render
         private const float HEAP_HEIGHT = 0.26f;
         private const float FLAT_HEAP_HEIGHT = 0.1f;
 
+        /// <summary>
+        /// Every shrub the scrub and the treeline masses are drawn as near the lens (#1195), with its dome and what it was built from,
+        /// so a test rebuilds its very geometry with no device (<see cref="MeadowShrubMesh.Build"/>) and holds it inside its dome.
+        /// Declared before <see cref="Buckets"/>, so <c>Tools/WindingCheck</c> names each shrub by its place here, not by a bucket's.
+        /// </summary>
+        internal List<ShapedPlant> Shaped { get; } = new();
+
+        /// <summary>One shaped shrub (<see cref="Shaped"/>): the dome it stands in for, its own mesh, and the arguments it was built with.</summary>
+        internal readonly record struct ShapedPlant(string Kind, FoliageMesh Dome, MeadowShrubMesh Shrub, float Reach, float Top, int Seed,
+            float Card, float Cover, MeadowShrubMesh.ShrubForm Form);
+
         /// <summary>Every draw of the scatter, in draw order. Never empty buckets — a kind with a count of
         /// zero simply has none.</summary>
         public ScatterBucket[] Buckets { get; private set; }
@@ -502,16 +513,6 @@ namespace Prazsky.Core.Render
         /// (<see cref="RockMesh.Off"/>). What a test holds the plain's rocks against.
         /// </summary>
         internal Dictionary<IProceduralMesh, (string Kind, Slab[] Body)> Bodies { get; } = new(ReferenceEqualityComparer.Instance);
-
-        /// <summary>
-        /// Every shrub the scrub and the treeline masses are drawn as near the lens (#1195), with its dome and what it was built from,
-        /// so a test rebuilds its very geometry with no device (<see cref="MeadowShrubMesh.Build"/>) and holds it inside its dome.
-        /// </summary>
-        internal List<ShapedPlant> Shaped { get; } = new();
-
-        /// <summary>One shaped shrub (<see cref="Shaped"/>): the dome it stands in for, its own mesh, and the arguments it was built with.</summary>
-        internal readonly record struct ShapedPlant(string Kind, FoliageMesh Dome, MeadowShrubMesh Shrub, float Reach, float Top, int Seed,
-            float Card, float Cover, MeadowShrubMesh.ShrubForm Form);
 
         /// <summary>
         /// Every site the last sweep settled for at negative clearance (#1157): where none of a thing's proposals stood clear, the

@@ -68,7 +68,8 @@ namespace BS3D.Tools.WindingCheck
             ("PalmMesh[3].Fronds", ANY, "CullNone leaflet ribbons, shaded per face (Palm.fx): a sheet's outline"),
             ("SavannaScatter.Buckets", CARDS, "the savanna's leaf cards and grass fans (two-sided ribbons)"),
             ("ForestDressing._owned", CARDS, "the forest's leaf and fern cards on High and Ultra (#962: two-sided ribbons)"),
-            ("SavannaScatter._meshes[30].Leaves", ANY, "the savanna's leaf cards (two-sided ribbons)"),
+            ("SavannaScatter._meshes[36].Leaves", ANY, "the savanna's leaf cards (two-sided ribbons)"),
+            ("].Shrub.Leaves", ANY, "the savanna scrub's and treeline's shrubs' leaf cards (#1195: two-sided ribbons)"),
             (".Leaves <UploadedMesh>", ANY, "the meadow's leaf cards (two-sided ribbons)"),
             ("BirdMesh", ANY, "the wings are single sheets and the body a shell: drawn CullNone, a bird is 0.9 across"),
             ("FunnelRimsMesh", ANY, "zero-thickness ribbons drawn CullNone (as the winding check names them)"),
@@ -92,6 +93,7 @@ namespace BS3D.Tools.WindingCheck
             ("MeadowScatter._owned[10].Wood", 3, "a shrub twig's base ring on the thin end of a stem: the hexagonal stem leaves under 0.001 of the shrub's height to spare"),
             ("OutbackPlanting._owned[19].Wood", 3, "the saltbush's shrub (#749, the meadow's at a metre across): a twig's base ring on the thin end of a stem, as the meadow's"),
             ("OutbackPlanting._owned[21].Wood", 9, "the saltbush's shrub (#749, the meadow's at a metre across): a twig's base ring on the thin end of a stem, as the meadow's"),
+            ("SavannaScatter.Shaped[", 8, "the savanna scrub's and treeline's shrubs (#1195, the meadow's in a form of their own): a twig's base ring on the thin end of a stem or a branch, as the meadow's (SavannaShapedScrubTests holds every open edge of their wood to a twig's base); their domes are shut"),
             ("MeadowScatter._owned[4] {FineWood+Twigs}", 2, "the willow's twig bases on a fine branch's end, which arrives a few degrees off the coarse branch's direction"),
 
             //---- the spruces on High and Ultra (#960): every bough roots in the stem with its root ring left open, and the leader's foot is a rim round it
