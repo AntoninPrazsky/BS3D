@@ -1,3 +1,4 @@
+using Microsoft.Xna.Framework;
 using Prazsky.Core.Render;
 using Prazsky.Core.Tools;
 using System;
@@ -20,19 +21,25 @@ namespace MapEditor
             //through the previous shader.
             BuildStamp.Report();
 
-            //The map or level to open is the first argument that is not one of the three options (#1209 added them, so
-            //the editor's own screen can be photographed at a stated size the way the Testbed's is): width= and height=
-            //size the window's client area, shot= saves frames on a schedule in seconds. An argument is an option only by
-            //its exact prefix, so a file path stays a file path.
+            //The map or level to open is the first argument that is not an option. The options are there so the editor's
+            //own screen can be photographed the way the Testbed's is (#1209, #1210): width= and height= size the window's
+            //client area, shot= saves frames on a schedule in seconds, campos= and camtarget= place the camera (in the
+            //editor's grid frame, the one the selector and the six views work in), and notext starts with the text hidden,
+            //as F12 hides it. An argument is an option only by its exact prefix, so a file path stays a file path.
             string filePath = null;
             int width = DEFAULT_WINDOW_WIDTH, height = DEFAULT_WINDOW_HEIGHT;
             float[] shotSeconds = null;
+            Vector3? cameraPosition = null, cameraTarget = null;
+            bool hideText = false;
 
             foreach (string arg in args ?? Array.Empty<string>())
             {
                 if (TryOption(arg, "width=", out string value)) width = PositiveOr(value, width);
                 else if (TryOption(arg, "height=", out value)) height = PositiveOr(value, height);
                 else if (TryOption(arg, "shot=", out value)) shotSeconds = ScreenshotWriter.ParseSeconds(value);
+                else if (TryOption(arg, "campos=", out value)) cameraPosition = VectorOr(value, cameraPosition);
+                else if (TryOption(arg, "camtarget=", out value)) cameraTarget = VectorOr(value, cameraTarget);
+                else if (arg.Equals("notext", StringComparison.OrdinalIgnoreCase)) hideText = true;
                 else filePath ??= arg;
             }
 
@@ -40,6 +47,9 @@ namespace MapEditor
             {
                 StartupFilePath = filePath,
                 ShotSeconds = shotSeconds,
+                StartCameraPosition = cameraPosition,
+                StartCameraTarget = cameraTarget,
+                StartWithTextHidden = hideText,
             };
             game.Run();
         }
@@ -49,6 +59,19 @@ namespace MapEditor
             bool match = arg.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
             value = match ? arg.Substring(prefix.Length) : null;
             return match;
+        }
+
+        //"x,y,z" in invariant numbers; anything else keeps what was there rather than failing the launch
+        private static Vector3? VectorOr(string value, Vector3? fallback)
+        {
+            string[] parts = value.Split(',');
+            if (parts.Length != 3) return fallback;
+
+            float[] xyz = new float[3];
+            for (int i = 0; i < 3; i++)
+                if (!float.TryParse(parts[i], NumberStyles.Float, CultureInfo.InvariantCulture, out xyz[i])) return fallback;
+
+            return new Vector3(xyz[0], xyz[1], xyz[2]);
         }
 
         //A value that will not parse, or is not above zero, keeps the default rather than failing the launch

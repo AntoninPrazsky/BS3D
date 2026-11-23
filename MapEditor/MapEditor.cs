@@ -31,6 +31,16 @@ namespace MapEditor
         /// <summary>The <c>shot=</c> schedule in seconds, or null for none (see <see cref="ScreenshotWriter"/>).</summary>
         public float[] ShotSeconds { get; set; }
 
+        /// <summary><c>campos=</c> and <c>camtarget=</c>: where the camera starts and what it looks at, in the editor's grid
+        /// frame, or null for the default. R returns to them, as it returns to the default.</summary>
+        public Vector3? StartCameraPosition { get; set; }
+
+        /// <inheritdoc cref="StartCameraPosition"/>
+        public Vector3? StartCameraTarget { get; set; }
+
+        /// <summary><c>notext</c>: the run starts with the text hidden, as F12 hides it, so a photograph shows the scene whole.</summary>
+        public bool StartWithTextHidden { get; set; }
+
         //The editor's own frame written to a PNG (#1209): the shot= schedule, so its screen can be photographed at a
         //stated window size without focus, a screen grab or a window in front of it getting into the picture
         private ScreenshotWriter _shots;
@@ -263,8 +273,13 @@ namespace MapEditor
 
             Camera3D = new BasicCamera3D(new Vector3(5f, 3.2f, 20f), GraphicsDevice.Viewport.AspectRatio);
             Camera3D.SetCircularMovementProperties(15f);
-            Info = new InfoRenderer(this, "Content/Fonts/segoeui") { DrawOrder = int.MaxValue };
+            Info = new InfoRenderer(this, "Content/Fonts/segoeui") { DrawOrder = int.MaxValue, Visible = !StartWithTextHidden };
             Components.Add(Info);
+
+            //The command line's camera, before the helper below takes the pose R returns to
+            if (StartCameraPosition is Vector3 position) Camera3D.Position = position;
+            if (StartCameraTarget is Vector3 target) Camera3D.Target = target;
+            Camera3D.Recalculate();
 
             _cih = new CameraInputHelper(Camera3D, this);
 
@@ -342,7 +357,7 @@ namespace MapEditor
 
             //The key help is the editor's own (#1209); the shared overlay keeps the FPS line and the status line and
             //is given no hint text
-            _keyHelp = new KeyHelpOverlay(this, "Fonts/segoeui") { DrawOrder = int.MaxValue };
+            _keyHelp = new KeyHelpOverlay(this, "Fonts/segoeui") { DrawOrder = int.MaxValue, Visible = Info.Visible };
             Components.Add(_keyHelp);
 
             #endregion
