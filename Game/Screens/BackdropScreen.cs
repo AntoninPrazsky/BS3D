@@ -746,7 +746,12 @@ namespace BS3D.Screens
         /// </summary>
         private void RollCycle()
         {
-            _wideSeconds = WIDE_SECONDS + (float)RANDOM.NextDouble() * WIDE_JITTER_SECONDS;
+            //menuglass=pass flies every cycle on the floors of its rolls (#1214): the wide leg's and the glass pass's own, so a
+            //shot= lands on the same moment of the pass in every run - what a pair with plainceiling, or a before and an after,
+            //has to compare
+            bool scheduled = Game.MenuGlassMode == MenuGlassMode.Pass;
+
+            _wideSeconds = WIDE_SECONDS + (scheduled ? 0f : (float)RANDOM.NextDouble() * WIDE_JITTER_SECONDS);
             _approachSeconds = APPROACH_SECONDS + (float)RANDOM.NextDouble() * APPROACH_JITTER_SECONDS;
             _closeSeconds = CLOSE_SECONDS + (float)RANDOM.NextDouble() * CLOSE_JITTER_SECONDS;
             _retreatSeconds = RETREAT_SECONDS + (float)RANDOM.NextDouble() * RETREAT_JITTER_SECONDS;
@@ -761,10 +766,11 @@ namespace BS3D.Screens
             _glassIntent = Game.MenuGlassMode == MenuGlassMode.Pass
                 || (Game.MenuGlassMode == MenuGlassMode.Normal && Game.MenuGunMode != MenuGunMode.Pass && kind < GLASS_PASS_SHARE);
             _glassPass = false;
-            _glassApproachSeconds = GLASS_APPROACH_SECONDS + (float)RANDOM.NextDouble() * GLASS_APPROACH_JITTER_SECONDS;
-            _glassCloseSeconds = GLASS_CLOSE_SECONDS + (float)RANDOM.NextDouble() * GLASS_CLOSE_JITTER_SECONDS;
-            _glassRetreatSeconds = GLASS_RETREAT_SECONDS + (float)RANDOM.NextDouble() * GLASS_RETREAT_JITTER_SECONDS;
-            _glassNearHeight = GLASS_NEAR_HEIGHT + (float)RANDOM.NextDouble() * GLASS_NEAR_JITTER;
+            float glassRoll = scheduled ? 0f : 1f;
+            _glassApproachSeconds = GLASS_APPROACH_SECONDS + glassRoll * (float)RANDOM.NextDouble() * GLASS_APPROACH_JITTER_SECONDS;
+            _glassCloseSeconds = GLASS_CLOSE_SECONDS + glassRoll * (float)RANDOM.NextDouble() * GLASS_CLOSE_JITTER_SECONDS;
+            _glassRetreatSeconds = GLASS_RETREAT_SECONDS + glassRoll * (float)RANDOM.NextDouble() * GLASS_RETREAT_JITTER_SECONDS;
+            _glassNearHeight = GLASS_NEAR_HEIGHT + glassRoll * (float)RANDOM.NextDouble() * GLASS_NEAR_JITTER;
 
             _gunIntent = !_glassIntent && (Game.MenuGunMode == MenuGunMode.Pass
                 || (Game.MenuGunMode == MenuGunMode.Normal && kind >= GLASS_PASS_SHARE && kind < GLASS_PASS_SHARE + GUN_PASS_SHARE));
@@ -1617,6 +1623,9 @@ namespace BS3D.Screens
             //Stated, not inherited: the set is the whole program's and a session hangs its own level through it
             //in whatever that level is made of (#258).
             Game.Balls.Style = _previewStyle;
+
+            //The glass clears as the lens comes over it on the pass over the glass (#1214), on the flight's own curve
+            Game.SetMenuCeilingClarity(_glassPass ? Closeness(_flightClock) : 0f);
 
             BallDrawFrame ballFrame = Game.Balls.BeginFrame(Game.Camera);
             ballFrame.AddMap(_previewMap, _previewOffset);

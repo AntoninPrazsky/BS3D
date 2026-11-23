@@ -103,8 +103,9 @@ namespace BS3D.Screens
 
         /// <summary>
         /// How far down towards the glass the pass is: 0 at the far height, through the approach, 1 at the near height. The
-        /// descent takes <see cref="DESCENT_SHARE"/> of the close leg and arrives at rest; the retreat climbs on the very
-        /// curve <see cref="Closeness"/> falls on, so the lens rises as it pulls out and passes over the plate's rim high.
+        /// descent takes <see cref="DESCENT_SHARE"/> of the close leg and arrives at rest; the retreat climbs back to the far
+        /// height in the first <see cref="CLIMB_SHARE"/> of the retreat, ahead of the closeness's fall, so the lens rises off
+        /// the glass before it swings out and passes the plate's rim high.
         /// </summary>
         public static float Depth(float since, float approach, float close, float retreat)
         {
@@ -113,8 +114,15 @@ namespace BS3D.Screens
             since -= approach;
             if (since < close) return MathHelper.SmoothStep(0f, 1f, MathHelper.Clamp(since / (close * DESCENT_SHARE), 0f, 1f));
 
-            return MathHelper.SmoothStep(1f, 0f, MathHelper.Clamp((since - close) / retreat, 0f, 1f));
+            return MathHelper.SmoothStep(1f, 0f, MathHelper.Clamp((since - close) / (retreat * CLIMB_SHARE), 0f, 1f));
         }
+
+        /// <summary>
+        /// How much of the retreat the climb back to the far height takes (<see cref="Depth"/>). On the closeness's own curve the
+        /// lens slid out a few units over the glass and came down past the rim of the tallest column's plate (<c>Bolt</c>, in a
+        /// 21:9 window) within a unit and a half of it (<c>GlassPassTests</c>); climbing ahead of it, it pulls up first.
+        /// </summary>
+        public const float CLIMB_SHARE = 0.6f;
 
         /// <summary>How far through its quarter turn the pass is (<see cref="TURN"/>): across the close leg, at rest at both ends.</summary>
         public static float Turn(float since, float approach, float close) =>
