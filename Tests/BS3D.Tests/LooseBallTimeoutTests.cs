@@ -93,14 +93,17 @@ namespace BS3D.Tests
             Assert.Equal(0, keeper.OrphanedBalls);
         }
 
+        //How long a ball below the field is aged without going: past the longest drain measured (Pennant's clearing shot,
+        //232 balls, up to 13 s to the kill plane) with room to spare
+        private const float LONG_DRAIN_SECONDS = 60f;
+
         /// <summary>
-        /// A ball below the field's floor is on its way out (the drain, the island's edge) and is left its fall past
-        /// <see cref="LooseBallTimeout.FIELD_SECONDS"/>; only <see cref="LooseBallTimeout.BACKSTOP_SECONDS"/> takes it, and then
-        /// over the same dissolve. One above the floor goes at the field's figure. Aged without stepping the world, so the ball
-        /// stands where it was put.
+        /// A ball below the field's floor is on its way out (the drain, the island's edge) and is left its fall however long
+        /// it takes; one above the floor goes at <see cref="LooseBallTimeout.FIELD_SECONDS"/>, over
+        /// <see cref="LooseBallTimeout.VANISH_SECONDS"/>. Aged without stepping the world, so each ball stands where it was put.
         /// </summary>
         [Fact]
-        public void ABallBelowTheFieldIsLeftItsFallUntilTheBackstop()
+        public void ABallBelowTheFieldIsLeftItsFall()
         {
             using HungLevel hung = new(OneBall());
             float floorY = hung.WorldOffset.Y;
@@ -108,16 +111,16 @@ namespace BS3D.Tests
             PhysicsBall below = Loose(hung, floorY - 3f);
             PhysicsBall above = Loose(hung, floorY + 3f);
 
-            float belowGoneAt = AgeUntilGone(below, floorY, LooseBallTimeout.BACKSTOP_SECONDS + 5f, out float belowStartedAt);
-            float aboveGoneAt = AgeUntilGone(above, floorY, LooseBallTimeout.BACKSTOP_SECONDS + 5f, out float aboveStartedAt);
+            float belowGoneAt = AgeUntilGone(below, floorY, LONG_DRAIN_SECONDS, out float belowStartedAt);
+            float aboveGoneAt = AgeUntilGone(above, floorY, LONG_DRAIN_SECONDS, out float aboveStartedAt);
 
             Assert.InRange(aboveStartedAt, LooseBallTimeout.FIELD_SECONDS, LooseBallTimeout.FIELD_SECONDS + FRAME);
             Assert.InRange(aboveGoneAt, LooseBallTimeout.FIELD_SECONDS + LooseBallTimeout.VANISH_SECONDS,
                 LooseBallTimeout.FIELD_SECONDS + LooseBallTimeout.VANISH_SECONDS + 2f * FRAME);
 
-            Assert.InRange(belowStartedAt, LooseBallTimeout.BACKSTOP_SECONDS, LooseBallTimeout.BACKSTOP_SECONDS + FRAME);
-            Assert.InRange(belowGoneAt, LooseBallTimeout.BACKSTOP_SECONDS + LooseBallTimeout.VANISH_SECONDS,
-                LooseBallTimeout.BACKSTOP_SECONDS + LooseBallTimeout.VANISH_SECONDS + 2f * FRAME);
+            Assert.True(float.IsNaN(belowStartedAt), $"a ball under the field's floor began to go at {belowStartedAt:F2} s");
+            Assert.Equal(float.PositiveInfinity, belowGoneAt);
+            Assert.Equal(0f, below.Vanish);
         }
 
         /// <summary>
@@ -131,7 +134,7 @@ namespace BS3D.Tests
             float floorY = hung.WorldOffset.Y;
 
             PhysicsBall ball = Loose(hung, floorY + 3f);
-            for (float clock = 0f; ball.Vanish <= 0f && clock < LooseBallTimeout.BACKSTOP_SECONDS; clock += FRAME)
+            for (float clock = 0f; ball.Vanish <= 0f && clock < LONG_DRAIN_SECONDS; clock += FRAME)
                 LooseBallTimeout.Advance(ball, FRAME, floorY);
 
             Assert.True(ball.Vanish > 0f, "a ball in the field never began to go");
@@ -159,7 +162,7 @@ namespace BS3D.Tests
             PhysicsBall volley = Loose(hung, floorY + 3f);
             volley.Untimed = true;
 
-            for (float clock = 0f; clock < 2f * LooseBallTimeout.BACKSTOP_SECONDS; clock += FRAME)
+            for (float clock = 0f; clock < LONG_DRAIN_SECONDS; clock += FRAME)
                 Assert.False(LooseBallTimeout.Advance(volley, FRAME, floorY));
 
             Assert.Equal(0f, volley.Vanish);

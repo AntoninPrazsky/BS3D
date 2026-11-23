@@ -206,13 +206,14 @@ namespace BS3D.Screens
         /// fall asleep, and a sleeping body leaves Bepu's active set, so they are drawn but barely simulated.
         /// </para>
         /// <para>
-        /// <b>A released ball that outstays its time is dissolved, then retired (#1191)</b>: one still in the field
-        /// <see cref="LooseBallTimeout.FIELD_SECONDS"/> after its release (wedged up among the balls, where a shot passes
-        /// through it and nothing can attach to it, which confused players), and one anywhere after
-        /// <see cref="LooseBallTimeout.BACKSTOP_SECONDS"/> (the pile at the mouth above). It goes over
-        /// <see cref="LooseBallTimeout.VANISH_SECONDS"/> in the dead weight's dither carried the whole way, which is what
-        /// answers the objection above: it is seen going, it does not wink out. The field's floor is the one the dead
-        /// weight is marked above. The spare volley's balls are left alone (<see cref="PhysicsBall.Untimed"/>).
+        /// <b>A released ball that outstays its time in the field is dissolved, then retired (#1191)</b>: one still above
+        /// the field's floor (the one the dead weight is marked above) <see cref="LooseBallTimeout.FIELD_SECONDS"/> after
+        /// its release, wedged up among the balls, where a shot passes through it and nothing can attach to it, which
+        /// confused players. It goes over <see cref="LooseBallTimeout.VANISH_SECONDS"/> in the dead weight's dither carried
+        /// the whole way, which is what answers the objection above: it is seen going, it does not wink out. Below the floor
+        /// nothing is timed, the pile at the mouth included: a big drop drains through the hole for up to 13 s, and a
+        /// timeout there took balls in mid-fall (see <see cref="LooseBallTimeout"/>). The spare volley's balls are left
+        /// alone (<see cref="PhysicsBall.Untimed"/>).
         /// </para>
         /// <para>
         /// <b>And a spent cutter (#823)</b> is retired on the step it struck: it has done its work there, and
@@ -279,11 +280,12 @@ namespace BS3D.Screens
         private void LogLooseBallGone(PhysicsBall ball, bool belowKillPlane, bool spentCutter)
         {
             float y = ball.BallReference.Pose.Position.Y;
+            float speed = ball.BallReference.Velocity.Linear.Length();
             string cause = belowKillPlane ? "the kill plane" : spentCutter ? "spent cutter" : "dissolved";
 
             Console.WriteLine(FormattableString.Invariant(
                 $"[loose] {ball.Type} {ball.Kind} gone at {WallClock:F2} s after {ball.LooseSeconds:F2} s loose: {cause}")
-                + FormattableString.Invariant($", at y {y:F1} ({(y > _clusterWorldOffset.Y ? "in" : "below")} the field)")
+                + FormattableString.Invariant($", at y {y:F1} ({(y > _clusterWorldOffset.Y ? "in" : "below")} the field), {speed:F2} u/s")
                 + (ball.Untimed ? ", untimed" : "") + $", {_fallingBalls.Count - 1} still loose");
         }
 

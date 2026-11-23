@@ -3,9 +3,9 @@ using System;
 namespace Prazsky.BS3D.Physics
 {
     /// <summary>
-    /// How long a ball the cluster has let go of may stay, and its going (#1191): a released ball still up in the field
-    /// <see cref="FIELD_SECONDS"/> after its release, or anywhere <see cref="BACKSTOP_SECONDS"/> after it, dissolves the
-    /// whole way over <see cref="VANISH_SECONDS"/> in the dither the dead weight is drawn with, and is retired.
+    /// How long a ball the cluster has let go of may stay up in the field, and its going (#1191): a released ball still
+    /// above the field's floor <see cref="FIELD_SECONDS"/> after its release dissolves the whole way over
+    /// <see cref="VANISH_SECONDS"/> in the dither the dead weight is drawn with, and is retired.
     /// <para>
     /// <b>Why it exists.</b> A released ball is loose: a shot passes through it (#410) and nothing can attach to it, so one
     /// that wedges up among the balls instead of falling hangs in the player's way as a ball that cannot be hit. The dither
@@ -13,12 +13,13 @@ namespace Prazsky.BS3D.Physics
     /// seconds they go. Only the kill plane removed them until then, and a ball resting on something never reached it.
     /// </para>
     /// <para>
-    /// <b>Two figures, because two kinds of ball outstay.</b> One wedged in the field, above the field's floor, is the one
-    /// in the way, and it goes after the owner's figure. One below the floor is on its way out through the drain or over
-    /// the island's edge, and its fall is the drop the cinematic films (#616) and the player watches: it is left its
-    /// natural end, and only the backstop, far past any measured fall, takes a ball that wedged in the funnel or on the
-    /// stone. The floor is the one the dead weight is marked above (<see cref="ClusterCollector"/>'s
-    /// <c>deadWeightAboveY</c>), so a ball that wears the mark is a ball this takes.
+    /// <b>Only in the field.</b> A ball below the field's floor is on its way out, through the drain or over the island's
+    /// edge, and its fall is the drop the cinematic films (#616) and the player watches, so it is left its natural end. That
+    /// end can be long: the funnel's hole lets a big drop through a few balls at a time, and measured on Pennant's clearing
+    /// shot (232 balls) the pile took up to 13 s to drain to the kill plane, the last balls still falling at the hole. A
+    /// timeout on age alone below the field dissolved 52 of them in mid-fall, so there is none. The floor is the one the
+    /// dead weight is marked above (<see cref="ClusterCollector"/>'s <c>deadWeightAboveY</c>), so a ball that wears the
+    /// mark is a ball this takes.
     /// </para>
     /// <para>
     /// <b>The world's clock</b>, not the draw's: the age is what the simulation lived through (a pause holds it, a capped
@@ -38,14 +39,6 @@ namespace Prazsky.BS3D.Physics
         /// fade) is on it by then, and the tutorial's card that explains the mark (#1023) has had its chance to fire.
         /// </summary>
         public const float FIELD_SECONDS = 5f;
-
-        /// <summary>
-        /// How long after its release a ball <b>anywhere</b> starts to dissolve, in seconds: the catch for one that wedged
-        /// below the field, in the funnel or on the stone, which the kill plane would never take. Far past a released
-        /// group's natural fall to the kill plane and past the drop cinematic's own backstop (6.5 s), so it never cuts a
-        /// fall short.
-        /// </summary>
-        public const float BACKSTOP_SECONDS = 12f;
 
         /// <summary>
         /// How long the last dissolve takes, in seconds: long enough to be seen happening rather than to read as a pop
@@ -79,9 +72,9 @@ namespace Prazsky.BS3D.Physics
 
         /// <summary>
         /// Whether a released ball of this age, standing at <paramref name="y"/>, has outstayed its time: past
-        /// <see cref="FIELD_SECONDS"/> above the field's floor, or past <see cref="BACKSTOP_SECONDS"/> anywhere.
+        /// <see cref="FIELD_SECONDS"/> and still above the field's floor.
         /// </summary>
         public static bool IsDue(float looseSeconds, float y, float fieldFloorY) =>
-            looseSeconds >= BACKSTOP_SECONDS || (looseSeconds >= FIELD_SECONDS && y > fieldFloorY);
+            looseSeconds >= FIELD_SECONDS && y > fieldFloorY;
     }
 }
