@@ -1062,5 +1062,146 @@ namespace BS3D.Tests
             Assert.Equal(total, AimBeam.VisibleEnd(path, total, ball, SideOn(path)), 3);
             Assert.True(AimBeam.VisibleEnd(path, total, ball, Overview(Muzzle)) < total - 0.5f, "the overview sees the beam reach the ball at the touch");
         }
+
+        //The middle line and the fork's prongs of one beam (#1235)
+        private static (AimBeam.Piece[] Line, AimBeam.Piece[] Forks) LayFork(XVector3[] path, float phase, AimBeam.FarEnd farEnd,
+            XVector3 ball, XVector3 eye)
+        {
+            var line = new AimBeam.Piece[AimBeam.MAX_PIECES];
+            var forks = new AimBeam.Piece[AimBeam.MAX_FORK_PIECES];
+            int count = AimBeam.Lay(path, phase, farEnd, ball, eye, line, forks, out int forkCount);
+            return (line[..count], forks[..forkCount]);
+        }
+
+        /// <summary>
+        /// <b>The fork opens smoothly beside the line and stays thin</b> (#1235, the owner's sketch: the line's far end
+        /// branching into a thin three-pronged fork that fades out): every prong is a piece of the middle line moved aside,
+        /// by <see cref="AimBeam.FORK_SPREAD"/> times one smoothstep from <see cref="AimBeam.FORK_FROM"/> of the way to where the
+        /// lens sees the beam reach the ball to <see cref="AimBeam.FORK_FULL"/> (so it leaves the line tangent to it, with no
+        /// corner, the owner's "not a pitchfork"), square to the flight and to the lens's line of sight (so the two part on
+        /// screen), at the line's own width and never brighter than the line. The middle line is laid exactly as without
+        /// the fork, so what the line promised before still holds of it.
+        /// <para>
+        /// <b>Seen to fail</b> with the prongs laid from the start of the far part's fade instead of from
+        /// <see cref="AimBeam.FORK_FROM"/> (the offsets disagree from the first prong on).
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void TheForkOpensSmoothlyBesideTheLineAndStaysThin()
+        {
+            XVector3[] path = [Muzzle, Touch];
+            float total = Total(path);
+            XVector3 ball = BallAhead(path), eye = Overview(Muzzle);
+            float end = AimBeam.VisibleEnd(path, total, ball, eye);
+            XVector3 flight = XVector3.Normalize(Touch - Muzzle);
+
+            foreach (float phase in new[] { 0f, 0.21f, 0.5f, 0.83f })
+            {
+                (AimBeam.Piece[] line, AimBeam.Piece[] forks) = LayFork(path, phase, AimBeam.FarEnd.Landing, ball, eye);
+                Assert.Equal(Lay(path, phase, AimBeam.FarEnd.Landing, ball, eye), line);
+                Assert.NotEmpty(forks);
+                Assert.True(forks.Length % 2 == 0, "the prongs come in pairs");
+
+                bool fullyOpen = false;
+                for (int i = 0; i < forks.Length; i += 2)
+                {
+                    AimBeam.Piece left = forks[i], right = forks[i + 1];
+                    foreach ((XVector3 a, XVector3 b) in new[] { (left.Tail, right.Tail), (left.Head, right.Head) })
+                    {
+                        //Either side of a point of the line, as far each way
+                        XVector3 middle = (a + b) * 0.5f;
+                        float along = AlongPath(path, middle);
+                        Assert.True((middle - PointOnPath(path, along)).Length() < 1e-3f, $"a prong pair is not centred on the line at {along:0.00}");
+                        Assert.True(along >= AimBeam.FORK_FROM * end - 1e-3f && along <= end + 1e-3f,
+                            $"a prong at {along:0.00} along the flight, where the fork runs from {AimBeam.FORK_FROM * end:0.00} to {end:0.00}");
+
+                        float open = AimBeam.Ease(AimBeam.FarAlong(along, AimBeam.FORK_FROM * end, AimBeam.FORK_FULL * end));
+                        XVector3 aside = a - middle;
+                        Assert.Equal(AimBeam.FORK_SPREAD * open, aside.Length(), 3);
+                        if (open > 0.999f) fullyOpen = true;
+
+                        //Square to the flight and to the lens's line of sight
+                        if (aside.Length() > 1e-3f)
+                        {
+                            XVector3 unit = XVector3.Normalize(aside);
+                            Assert.True(MathF.Abs(XVector3.Dot(unit, flight)) < 1e-3f, "a prong is moved along the flight");
+                            Assert.True(MathF.Abs(XVector3.Dot(unit, XVector3.Normalize(middle - eye))) < 1e-3f, "a prong is moved along the line of sight");
+                        }
+                    }
+
+                    //Thin and never brighter than the plain line
+                    foreach (AimBeam.Piece p in new[] { left, right })
+                        Assert.True(p.TailWidth == AimBeam.WIDTH && p.HeadWidth == AimBeam.WIDTH && p.TailAlpha is >= 0f and <= 1f
+                            && p.HeadAlpha is >= 0f and <= 1f, $"a prong is {p}");
+                }
+
+                Assert.True(fullyOpen, "no prong reaches the whole spread");
+            }
+        }
+
+        /// <summary>A strike (a cutter's plain line) and a beam into the open air have no fork: neither has a landing to spread.</summary>
+        [Fact]
+        public void OnlyALandingForks()
+        {
+            XVector3[] path = [Muzzle, Touch];
+            XVector3 ball = BallAhead(path), eye = Overview(Muzzle);
+            foreach (AimBeam.FarEnd farEnd in new[] { AimBeam.FarEnd.Strike, AimBeam.FarEnd.OpenAir })
+                Assert.Empty(LayFork(path, 0.4f, farEnd, ball, eye).Forks);
+        }
+
+        /// <summary>
+        /// <b>The fork stays off the ball the shot hits, and fades out by it</b> (#1235; the owner's #1196 ruling: never over or
+        /// behind the ball). Over the measured aims from the overview: the prongs' light over the disc of the ball hit, at the
+        /// 95th percentile, within what the line itself is held to; and the farthest prong carries a tenth of the line's
+        /// light at the most at its head, at every point of the crawl. It also prints how wide the fork opens on screen.
+        /// <para>
+        /// <b>Seen to fail</b> with the prongs left unfaded (their alpha the fork's opening alone): the farthest prong's head
+        /// carried 0.81 of the line's light. The light over the ball stayed at 0.018 at the 95th percentile even then, inside
+        /// the bound, since the prongs stand beside the ball rather than over it; that measure is
+        /// <see cref="TheBeamStopsAtTheBallItHits"/>'s, whose own question is shown able to tell (a line run to the touch).
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void TheForkStaysOffTheBallItHitsAndFadesOutByIt()
+        {
+            List<Aim> aims = Measure(40);
+            Assert.True(aims.Count >= 200, $"only {aims.Count} of 240 aims had a ghost");
+
+            const float Visible = 0.02f;
+            List<float> over = new(), headLight = new(), openingPx = new();
+
+            foreach (Aim aim in aims)
+            {
+                XVector3 eye = Overview(aim.Path[0]);
+                Lens lens = Lens.LookingAt(eye, aim.Path[^1]);
+
+                foreach (float phase in new[] { 0f, 0.25f, 0.5f, 0.75f })
+                {
+                    AimBeam.Piece[] forks = LayFork(aim.Path, phase, AimBeam.FarEnd.Landing, aim.Hit, eye).Forks;
+                    if (forks.Length == 0) continue;
+
+                    over.Add(LightOverBall(forks, lens, aim.Hit));
+
+                    AimBeam.Piece last = forks[^1];
+                    headLight.Add(last.HeadAlpha * last.HeadAlpha);
+
+                    if (phase == 0f)
+                    {
+                        float widest = 0f;
+                        for (int i = 0; i < forks.Length; i += 2)
+                            widest = MathF.Max(widest, (lens.Project(forks[i].Head) - lens.Project(forks[i + 1].Head)).Length() * PixelsPerUnit);
+                        openingPx.Add(widest);
+                    }
+                }
+            }
+
+            output.WriteLine($"the fork opens {Percentile(openingPx, 0.5):0} px wide at the median on a 1080-line frame from the overview " +
+                $"({Percentile(openingPx, 0.05):0} to {Percentile(openingPx, 0.95):0}, 5th to 95th); its light over the ball hit median " +
+                $"{Percentile(over, 0.5):0.000}, 95th {Percentile(over, 0.95):0.000}; the farthest prong's head carries {Percentile(headLight, 1):0.000} at the most");
+
+            Assert.NotEmpty(over);
+            Assert.True(Percentile(over, 0.95) <= Visible, $"the fork lays {Percentile(over, 0.95):0.000} of its light over the ball it hits at the 95th percentile");
+            Assert.True(Percentile(headLight, 1) <= 0.1f, $"the farthest prong ends at {Percentile(headLight, 1):0.000} of the line's light");
+        }
     }
 }
