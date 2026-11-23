@@ -975,6 +975,9 @@ namespace Testbed
             //island's and the ceiling's too.
             _cannonRig = new CannonRig(GraphicsDevice, _instancingEffect, Magazine.SIZE, Magazine.SPACING);
 
+            //Its metal worn as High and Ultra draw it (#1199) unless "wear=0" asks for Low and Medium's plain material
+            _cannonRig.Worn = _options.Wear ?? true;
+
             //The overlay's own batch, and the crosshair's one white texel stretched into each of its four bars
             _spriteBatch = new SpriteBatch(GraphicsDevice);
             _crosshair = new Crosshair(GraphicsDevice);
@@ -1468,7 +1471,7 @@ namespace Testbed
         /// behind alike and <see cref="MarkVariantSwitch"/> waits out (#1129).
         /// </summary>
         private static readonly string[] ALTERNATION_DIALS =
-            { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "finemeshes", "fardetail", "envorder", "skyorder", "skyres", "bdres", "cityreflect", "cityreflectreach", "cityreflectsteps", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano", "aurora", "cavern", "meadow", "mountain", "forest", "mars", "outback" };
+            { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "finemeshes", "fardetail", "wear", "envorder", "skyorder", "skyres", "bdres", "cityreflect", "cityreflectreach", "cityreflectsteps", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano", "aurora", "cavern", "meadow", "mountain", "forest", "mars", "outback" };
 
         /// <summary>
         /// Prints the sweep's plan before the first window, and names anything it will not switch. A pin that
@@ -1571,6 +1574,11 @@ namespace Testbed
                     //Ultra's farther reach (#1208): the aurora stand's spruces out to 300 instead of 200, read per draw
                     case "fardetail":
                         _sceneRenderer.FarDetail = pin.Value is not ("0" or "false" or "off");
+                        break;
+
+                    //The gun's worn metal or its plain material (#1199): a technique picked per draw
+                    case "wear":
+                        _cannonRig.Worn = pin.Value is not ("0" or "false" or "off");
                         break;
 
                     //The windows mirroring the towers (#1065): the technique is picked per draw, so nothing carries across

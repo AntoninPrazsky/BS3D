@@ -537,6 +537,61 @@ namespace Prazsky.BS3D
 
         #endregion
 
+        #region The metal's wear (#1199)
+
+        //How much of each flaw the gun's metals carry on High and Ultra (MetalWear.Amount: the use - scratches and rubbed
+        //edges -, the oxidation, the grime, the patina's mottle; the look of each is InstancedModel/WornMetal.fxh's). The
+        //barrel's steel is the handled part: the most scratched and rubbed, less tarnished than the iron under it, which
+        //stands nearer the stone and is cleaned least. The wheels' machined plates mostly show their machining's rings.
+        //Not the rollers (rubber), the collar (its colour is a statement, #425) or the glass. The laser emitters in the
+        //drain take the two figures that are public, as they take the colours (LaserEmitters).
+
+        /// <summary>The barrel's steel's wear, and the emitters' housings' (<see cref="MetalWear.Amount"/>).</summary>
+        public static readonly Vector4 STEEL_WEAR = new(1f, 0.85f, 0.8f, 1f);
+
+        /// <summary>The carriage's iron's wear, and the emitters' pedestals' and yokes' (<see cref="MetalWear.Amount"/>).</summary>
+        public static readonly Vector4 IRON_WEAR = new(0.7f, 1f, 1f, 1f);
+
+        private static readonly Vector4 WHEEL_WEAR = new(0.8f, 0.5f, 0.9f, 0.6f);
+
+        //How far a corner's wear reaches (MetalWear.Bands), as wide as the step it is on: the barrel's rings stand 0.055
+        //proud of the tube and their joins' dirt lies out onto it in front of them; the wheels' hub face and the emitters'
+        //collars and ribs are a few hundredths high, and a band as wide as the barrel's covered a whole wheel plate in rings
+        private const float BARREL_JOIN_WIDTH = 0.07f;
+        private const float BARREL_EDGE_WIDTH = 0.022f;
+
+        /// <summary>A small part's join band (<see cref="MetalWear.Bands"/>): the wheels' hub face, the emitters' housings
+        /// and pedestals.</summary>
+        public const float SMALL_JOIN_WIDTH = 0.022f;
+
+        /// <summary>A small part's edge band, as <see cref="SMALL_JOIN_WIDTH"/>.</summary>
+        public const float SMALL_EDGE_WIDTH = 0.012f;
+
+        //Each part's wear, built once; Worn hands them to the renderers or takes them back
+        private readonly MetalWear _barrelWear, _carriageWear, _wheelWear;
+        private bool _worn;
+
+        /// <summary>
+        /// Whether the gun's metal is drawn <b>worn by use</b> (#1199, <see cref="MetalWear"/>): scratches along the bore,
+        /// tarnish and grime in the profile's joins, rubbed crests, a patina, on the barrel, the carriage and the wheels'
+        /// plates. The Game turns it on for High and Ultra (<c>QualityPreset.MetalWear</c>) and the Testbed by default
+        /// (<c>wear=0</c> takes it off). Off, every part draws the plain material it always did. A plain switch of each
+        /// renderer's <see cref="InstancedModelRenderer.Wear"/>, so it may change on any frame.
+        /// </summary>
+        public bool Worn
+        {
+            get => _worn;
+            set
+            {
+                _worn = value;
+                _renderer.Wear = value ? _barrelWear : null;
+                _carriageRenderer.Wear = value ? _carriageWear : null;
+                _wheelRenderer.Wear = value ? _wheelWear : null;
+            }
+        }
+
+        #endregion
+
         private CannonMesh _mesh;
         private InstancedModelRenderer _renderer;
 
@@ -723,6 +778,16 @@ namespace Prazsky.BS3D
             _rollerSeats = OmniWheelMesh.RollerSeats(WHEEL_RADIUS, ROLLER_RADIUS, ROLLER_HALF_LENGTH,
                 ROLLER_ROW_OFFSET, ROLLER_ROWS, ROLLERS_PER_ROW);
             _rollerSpun = new Matrix[_rollerSeats.Length];
+
+            //The metal's wear (#1199), off until a host asks (Worn): the barrel scratched down its bore and turned about it,
+            //the wheels' plates ringed by their machining about the axle, both faces of each from one mirrored profile, and
+            //the carriage's plates, which turn about nothing, scratched every way
+            _barrelWear = new MetalWear(STEEL_WEAR, Vector3.UnitZ, axis: Vector3.UnitZ, corners: _mesh.WearCorners,
+                joinWidth: BARREL_JOIN_WIDTH, edgeWidth: BARREL_EDGE_WIDTH);
+            _carriageWear = new MetalWear(IRON_WEAR, Vector3.Zero);
+            _wheelWear = new MetalWear(WHEEL_WEAR, Vector3.Zero, aroundAxis: true, axis: Vector3.UnitX, mirrored: true,
+                corners: OmniWheelMesh.WearCorners(WHEEL_RADIUS, ROLLER_RADIUS, ROLLER_ROW_OFFSET, PLATE_THICKNESS),
+                joinWidth: SMALL_JOIN_WIDTH, edgeWidth: SMALL_EDGE_WIDTH);
         }
 
         /// <summary>

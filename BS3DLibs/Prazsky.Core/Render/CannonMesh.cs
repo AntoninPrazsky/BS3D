@@ -201,39 +201,8 @@ namespace Prazsky.Core.Render
 
             //=== The outer profile, muzzle face to cascabel pole ==================================
 
-            //The reinforce taper is one straight run from the girdle to the base ring; the station the
-            //window's end must land on sits partway along it, on the same line, so the shading crosses the
-            //slot's end without a seam even though the tessellation changes there.
-            float taperFrontZ = frontZ + GIRDLE_BACK_Z;
-            float taperBackZ = backZ - BASE_RING_FRONT_Z;
-            float seatR = outer + GIRDLE_SEAT;
-            float taperEndR = outer + BREECH_TAPER;
-            float slotEndR = MathHelper.Lerp(seatR, taperEndR, (slotEndZ - taperFrontZ) / (taperBackZ - taperFrontZ));
-            float springR = outer + BREECH_BAND;
-
-            var outerProfile = new List<Station>
-            {
-                new(frontZ, outer + MUZZLE_FACE_LIP, crease: true),
-                new(frontZ + SWELL_CREST_Z, outer + SWELL_CREST, crease: false),
-                new(frontZ + SWELL_NECK_Z, outer + SWELL_NECK, crease: false),
-                new(frontZ + CHASE_DIP_Z, outer + CHASE_DIP, crease: false),
-                new(frontZ + GIRDLE_FRONT_Z, seatR, crease: true),
-                new(frontZ + GIRDLE_FRONT_Z, outer + GIRDLE_RING, crease: true),
-                new(taperFrontZ, outer + GIRDLE_RING, crease: true),
-                new(taperFrontZ, seatR, crease: true),
-            };
-
-            int slotEndIndex = outerProfile.Count;
-            outerProfile.Add(new Station(slotEndZ, slotEndR, crease: false));
-
-            outerProfile.Add(new Station(taperBackZ, taperEndR, crease: true));
-            outerProfile.Add(new Station(taperBackZ, outer + BASE_RING, crease: true));
-            outerProfile.Add(new Station(backZ - BASE_RING_BACK_Z, outer + BASE_RING, crease: true));
-            outerProfile.Add(new Station(backZ - BASE_RING_BACK_Z, springR, crease: true));
-            outerProfile.Add(new Station(backZ, springR, crease: false));
-
-            foreach (Vector2 point in DOME_PROFILE)
-                outerProfile.Add(new Station(backZ + point.X, springR * point.Y, crease: false));
+            List<Station> outerProfile = OuterProfile(outer, frontZ, backZ, slotEndZ, out int slotEndIndex, out float slotEndR);
+            WearCorners = WearCornersOf(outerProfile, boreRadius, frontZ, backZ, outer);
 
             //The slotted run spans only the wall arc; the hooded run from the slot's end back is the full
             //revolution. They share the mid-taper station, so the surface is one skin.
@@ -328,6 +297,100 @@ namespace Prazsky.Core.Render
 
             BoundingSphere = new BoundingSphere(new Vector3(0f, 0f, (frontZ + poleZ) * Constants.HALF),
                 MathF.Sqrt(widest * widest + halfLength * halfLength));
+        }
+
+        /// <summary>
+        /// The outer profile's corners, which the metal's wear reads on High and Ultra (#1199, <see cref="MetalWear"/>): the
+        /// joins where the girdle, the base ring and the breech band meet the tube (tarnished, grimed) and their crests
+        /// (rubbed bright), the muzzle face's two lips, and the cascabel's neck and knob. (axial = Z, radial) in this mesh's
+        /// frame, about its Z axis.
+        /// </summary>
+        public IReadOnlyList<WearCorner> WearCorners { get; }
+
+        /// <summary><see cref="WearCorners"/> for a tube of these figures, without a device: the very profile the
+        /// constructor revolves.</summary>
+        public static IReadOnlyList<WearCorner> WearCornersFor(float boreRadius, float wallThickness, float frontZ, float backZ,
+            float slotEndZ)
+        {
+            float outer = boreRadius + wallThickness;
+            return WearCornersOf(OuterProfile(outer, frontZ, backZ, slotEndZ, out _, out _), boreRadius, frontZ, backZ, outer);
+        }
+
+        /// <summary>
+        /// The outer profile, muzzle face to cascabel pole, with the index of the station the window ends on and that
+        /// station's radius. One copy, for the mesh and for its wear's corners.
+        /// </summary>
+        private static List<Station> OuterProfile(float outer, float frontZ, float backZ, float slotEndZ, out int slotEndIndex,
+            out float slotEndR)
+        {
+            //The reinforce taper is one straight run from the girdle to the base ring; the station the
+            //window's end must land on sits partway along it, on the same line, so the shading crosses the
+            //slot's end without a seam even though the tessellation changes there.
+            float taperFrontZ = frontZ + GIRDLE_BACK_Z;
+            float taperBackZ = backZ - BASE_RING_FRONT_Z;
+            float seatR = outer + GIRDLE_SEAT;
+            float taperEndR = outer + BREECH_TAPER;
+            slotEndR = MathHelper.Lerp(seatR, taperEndR, (slotEndZ - taperFrontZ) / (taperBackZ - taperFrontZ));
+            float springR = outer + BREECH_BAND;
+
+            var outerProfile = new List<Station>
+            {
+                new(frontZ, outer + MUZZLE_FACE_LIP, crease: true),
+                new(frontZ + SWELL_CREST_Z, outer + SWELL_CREST, crease: false),
+                new(frontZ + SWELL_NECK_Z, outer + SWELL_NECK, crease: false),
+                new(frontZ + CHASE_DIP_Z, outer + CHASE_DIP, crease: false),
+                new(frontZ + GIRDLE_FRONT_Z, seatR, crease: true),
+                new(frontZ + GIRDLE_FRONT_Z, outer + GIRDLE_RING, crease: true),
+                new(taperFrontZ, outer + GIRDLE_RING, crease: true),
+                new(taperFrontZ, seatR, crease: true),
+            };
+
+            slotEndIndex = outerProfile.Count;
+            outerProfile.Add(new Station(slotEndZ, slotEndR, crease: false));
+
+            outerProfile.Add(new Station(taperBackZ, taperEndR, crease: true));
+            outerProfile.Add(new Station(taperBackZ, outer + BASE_RING, crease: true));
+            outerProfile.Add(new Station(backZ - BASE_RING_BACK_Z, outer + BASE_RING, crease: true));
+            outerProfile.Add(new Station(backZ - BASE_RING_BACK_Z, springR, crease: true));
+            outerProfile.Add(new Station(backZ, springR, crease: false));
+
+            foreach (Vector2 point in DOME_PROFILE)
+                outerProfile.Add(new Station(backZ + point.X, springR * point.Y, crease: false));
+
+            return outerProfile;
+        }
+
+        //The cascabel's neck and its knob in DOME_PROFILE: smooth stations, so not creases, but the one hollow a rag misses
+        //and the one crest a hand takes the gun by
+        private const int CASCABEL_NECK = 5;
+        private const int CASCABEL_KNOB = 6;
+
+        private static IReadOnlyList<WearCorner> WearCornersOf(List<Station> outerProfile, float boreRadius, float frontZ,
+            float backZ, float outer)
+        {
+            var corners = new List<WearCorner>
+            {
+                //The muzzle face's two lips, which the profile's ends cannot say for themselves: the bore's and the outer one
+                new(frontZ, boreRadius, edge: true),
+                new(frontZ, outer + MUZZLE_FACE_LIP, edge: true),
+            };
+
+            var points = new Vector2[outerProfile.Count];
+            var crease = new bool[outerProfile.Count];
+            for (int i = 0; i < outerProfile.Count; i++)
+            {
+                points[i] = new Vector2(outerProfile[i].Z, outerProfile[i].R);
+                crease[i] = outerProfile[i].Crease;
+            }
+
+            //Revolved with its normals turned towards +radius as the profile runs +Z: the outside is on the right
+            MetalWear.AddProfileCorners(corners, points, crease, latheWinding: false);
+
+            float springR = outer + BREECH_BAND;
+            corners.Add(new WearCorner(backZ + DOME_PROFILE[CASCABEL_NECK].X, springR * DOME_PROFILE[CASCABEL_NECK].Y, edge: false));
+            corners.Add(new WearCorner(backZ + DOME_PROFILE[CASCABEL_KNOB].X, springR * DOME_PROFILE[CASCABEL_KNOB].Y, edge: true));
+
+            return corners;
         }
 
         /// <summary>

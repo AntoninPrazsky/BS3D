@@ -428,6 +428,11 @@ namespace Prazsky.Core.Render
         private EffectTechnique _crystalTechnique;
         private EffectTechnique _drainGlassTechnique;
 
+        //The metal worn by use (#1199): its technique and the five uniforms only it reads. Looked up null-safe: GL drops a
+        //uniform no program reads, and the MapEditor's and the Testbed's older shader builds need not carry them
+        private EffectTechnique _wornMetalTechnique;
+        private EffectParameter _wearAmountParam, _wearGrainParam, _wearProfileParam, _wearCornersParam, _wearBandsParam;
+
         /// <summary>
         /// Optional detail texture modulating the material colors of the mesh. Applied to opaque meshes
         /// only; translucent ones (e.g. glass) stay clean. It is projected along the three world axes and
@@ -738,6 +743,16 @@ namespace Prazsky.Core.Render
         /// band inside the mouth - and a few seeds and a faint cord. The drain funnel sets it.
         /// </summary>
         public bool DrainGlass { get; set; }
+
+        /// <summary>
+        /// Draws the plain material as <b>metal worn by use</b> (#1199): the <c>InstancedWornMetal</c> technique, the plain
+        /// material's shading with a patina's mottle, oxidation and grime in the profile's joins and on the underside, rubbed
+        /// edges, scratches and pits laid into it, in the mesh's own space (<see cref="MetalWear"/>, and
+        /// <c>InstancedModel/WornMetal.fxh</c> for the look). <b>Null (the default) draws the plain material.</b> The gun's
+        /// steel and iron and the drain's laser emitters set it on High and Ultra (<c>CannonRig.Worn</c>); a part that selects
+        /// a city, ball, triplanar or glass technique ignores it, and so does the Potato path.
+        /// </summary>
+        public MetalWear Wear { get; set; }
 
         /// <summary>
         /// Draws through <c>PotatoBand</c> on the Potato path (#804): <c>PotatoLit</c> for a mesh whose vertices carry
@@ -1566,6 +1581,12 @@ namespace Prazsky.Core.Render
             _polishedMetalTechnique = _effect.Techniques["InstancedPolishedMetal"];
             _crystalTechnique = _effect.Techniques["InstancedCrystal"];
             _drainGlassTechnique = _effect.Techniques["InstancedDrainGlass"];
+            _wornMetalTechnique = _effect.Techniques["InstancedWornMetal"];
+            _wearAmountParam = _effect.Parameters["WearAmount"];
+            _wearGrainParam = _effect.Parameters["WearGrain"];
+            _wearProfileParam = _effect.Parameters["WearProfile"];
+            _wearCornersParam = _effect.Parameters["WearCorners"];
+            _wearBandsParam = _effect.Parameters["WearBands"];
             _glassBehindParam = _effect.Parameters["GlassBehind"];
             _glassHalfExtentsParam = _effect.Parameters["GlassHalfExtents"];
             _glassCutPeriodParam = _effect.Parameters["GlassCutPeriod"];
@@ -1987,7 +2008,8 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Picks the technique for one mesh part and sets the parameters that technique reads. The branches
         /// are mutually exclusive: a city facade, a ball shading, a triplanar detail-textured part, the
-        /// refracting glass, or the plain lit material (polished metal where <see cref="PolishedMetal"/> asks).
+        /// refracting glass, the worn metal (<see cref="Wear"/>), or the plain lit material (polished metal where
+        /// <see cref="PolishedMetal"/> asks).
         /// </summary>
         private void SelectTechniqueAndParameters(in MeshPartData part, bool usePattern, Vector3? diffuseTint)
         {
@@ -2238,6 +2260,18 @@ namespace Prazsky.Core.Render
                 _glassCrownInsetParam.SetValue(GlassCrownInset);
                 _glassCrownDropParam.SetValue(GlassCrownDrop);
                 _glassRimParam.SetValue(GlassRim);
+            }
+            else if (Wear != null && _wornMetalTechnique != null)
+            {
+                //The metal worn by use (#1199), on the tiers that ask for it
+                MetalWear wear = Wear;
+
+                _effect.CurrentTechnique = _wornMetalTechnique;
+                _wearAmountParam?.SetValue(wear.Amount);
+                _wearGrainParam?.SetValue(wear.Grain);
+                _wearProfileParam?.SetValue(wear.Profile);
+                _wearCornersParam?.SetValue(wear.Corners);
+                _wearBandsParam?.SetValue(wear.Bands);
             }
             else
             {

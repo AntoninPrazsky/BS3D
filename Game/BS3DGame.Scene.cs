@@ -129,8 +129,20 @@ namespace BS3D
         /// <summary>
         /// The session's four laser emitters inside the drain's funnel (#874): their renderers join the sky-lit walk for as long as
         /// they stand, as the crates' do, so a renderer made after the scene's lighting is not drawn under the library's default rig.
+        /// Handed in, they take the tier's wear as the gun does (#1199, <see cref="QualityPreset.MetalWear"/>), and
+        /// <see cref="ApplyQuality"/> keeps it.
         /// </summary>
-        internal BS3D.Effects.LaserEmitters SessionEmitters { get; set; }
+        internal BS3D.Effects.LaserEmitters SessionEmitters
+        {
+            get => _sessionEmitters;
+            set
+            {
+                _sessionEmitters = value;
+                if (value != null) value.Worn = QualityPreset.Presets[(int)_quality].MetalWear;
+            }
+        }
+
+        private BS3D.Effects.LaserEmitters _sessionEmitters;
 
         private Effect _instancingEffect;
 

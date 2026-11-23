@@ -17,6 +17,10 @@ Part of [Rendering](../rendering.md).
   - `SpecularAlphaWeight` (#228): how far specular is scaled by the material's alpha. 1 everywhere, 0 for the crystal trophy alone: reflection is light off the *front*, and unattenuated in a premultiplied target it composites as light added over the background.
   - `DirLightStrength` (#156): how much of the three-light rig reaches the surface; 1 except the ceiling glass, where `SkyLightRig.ApplyToGlass` dims it to the sky's own brightness (Rec. 709 luminance, `ColorSpace.Luminance`, of the sky ambient over `GLASS_FULL_RIG_LUMINANCE`, 0.25), so the plate is not a sunlit slab over a sky-replacing scene's black backdrop. Per-renderer because the `DirLight*` colours are one set per scene. Scene point lights sit above the scale on purpose.
 
+## Worn metal: the gun and the laser emitters (#1199)
+
+`InstancedModelRenderer.Wear` selects `InstancedWornMetal` (`InstancedModel/WornMetal.fxh`) on High and Ultra: `ShadePixel` itself, fed a worn albedo and a per-pixel `SurfaceSpecular` (rougher and duller in the tarnish, brighter on a rubbed edge), then the scratches laid over the shaded colour. Its five uniforms are per draw and read by no other program. What it draws and why: "The metal's wear on High and Ultra" in `docs/testbed/cannon.md`.
+
 ## Polished metal: the result page's cups (#602)
 
 `InstancedModelRenderer.PolishedMetal` selects `InstancedPolishedMetal` (`InstancedModel/PolishedMetal.fxh`) for the bronze, silver and gold trophies: **no diffuse**, `SpecularColor` as F0 through Schlick, the rig's highlight, and a sharp environment (`smoothstep` horizon, sky 1.9x the dome's ambient at the horizon falling to 0.55x overhead, half the dome's saturation since a whole cyan sky made gold olive, the sun as a glint); `SkyRadiance`'s ramp makes polished things read as painted. It declares no uniform and is included last, so no other program changes.
