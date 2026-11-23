@@ -58,7 +58,7 @@ namespace BS3D.Effects
         private const float VALLEY_FROM = 195f;
         private const float VALLEY_TO = 167f;
         private const float VALLEY_ABOVE_FROM = 26f;
-        private const float VALLEY_ABOVE_TO = 18f;
+        internal const float VALLEY_ABOVE_TO = 18f;
         private const float VALLEY_SECONDS = 2.8f;
 
         //The brook: down its centreline a little over the water, the reeds and the stones passing either side, the lens
@@ -72,7 +72,7 @@ namespace BS3D.Effects
         //stopping short of its crown
         private const float PATH_FROM = 22f;               //past the path's end, where the walk finishes
         private const float PATH_RUN = 40f;
-        private const float PATH_ABOVE = 1.7f;
+        internal const float PATH_ABOVE = 1.7f;
         private const float PATH_TREE_LOOK_UP = 7f;         //the point on the tree the lens holds: the trunk under the crown
         private const float PATH_SECONDS = 3.2f;
 
@@ -178,17 +178,21 @@ namespace BS3D.Effects
         }
 
         /// <summary>Down the brook a little over the water, the reeds passing either side, to the pond it runs into: the reel's
-        /// brook where no flight home is clear (<see cref="MeadowLanding"/>).</summary>
+        /// brook where no flight home is clear (<see cref="MeadowLanding"/>). Its height is laid the way a drone flies the
+        /// ground (<see cref="AridIntroPaths.Hug"/>, #1187): the field it runs over eases into the pond's level ground on a
+        /// smoothstep whose second derivative steps at both ends, and a lens held at <see cref="BROOK_ABOVE"/> over it point by
+        /// point jumped at 290 u/s³ there (the drone limit is 150, <c>IntroShotSmoothnessTests</c>).</summary>
         private static IntroShot Brook(MeadowSceneConfig meadow, float fieldOfView)
         {
             float end = meadow.ClearingRadius * MeadowPath.BROOK_START + BROOK_FROM;
-            var path = new Vector3[IntroPaths.FINE_POINTS];
-            for (int i = 0; i < path.Length; i++)
+            var plan = new Vector2[IntroPaths.FINE_POINTS];
+            for (int i = 0; i < plan.Length; i++)
             {
-                float d = end + BROOK_RUN * (1f - i / (path.Length - 1f));
-                (float x, float z) = MeadowPath.BrookPoint(d, 0f, meadow);
-                path[i] = new Vector3(x, TerrainMirror.MeadowGround(x, z, meadow) + BROOK_ABOVE, z);
+                (float x, float z) = MeadowPath.BrookPoint(end + BROOK_RUN * (1f - i / (plan.Length - 1f)), 0f, meadow);
+                plan[i] = new Vector2(x, z);
             }
+
+            Vector3[] path = AridIntroPaths.Hug(plan, (x, z) => TerrainMirror.MeadowGround(x, z, meadow), BROOK_ABOVE, 0f, BROOK_SECONDS);
 
             (float pondX, float pondZ) = MeadowPath.PondCentre(meadow);
             return new IntroShot("the brook", path, BROOK_SECONDS, fieldOfView * 1.1f,

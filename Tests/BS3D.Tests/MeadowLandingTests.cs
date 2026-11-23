@@ -32,11 +32,12 @@ namespace BS3D.Tests
         //pose, on the gun's bearing, gets one in every layout.
         private const float MIN_BUILT_SHARE = 0.95f;
 
-        //The ride: the city's limits (CitySwingTests) for the view's turn, pitch and the landing, and the meadow's own for the
-        //speed, the bank and the length. The bank is the meadow's lighter one (MeadowLanding.Landing).
+        //The ride: the drone's limits (IntroShotSmoothnessTests, #1187) for the view's turn and pitch over the whole sweep of
+        //poses, where the city's (CitySwingTests: 170 and 80 degrees a second) held it before; the city's for the landing; and
+        //the meadow's own for the speed, the bank and the length. The bank is the meadow's lighter one (MeadowLanding.Landing).
         private const float MAX_SPEED = 50f;
-        private const float MAX_YAW_RATE = 170f;
-        private const float MAX_PITCH_RATE = 80f;
+        private const float MAX_YAW_RATE = 50f;
+        private const float MAX_PITCH_RATE = 20f;
         private const float MAX_ROLL_DEGREES = 8f;
         private const float MAX_LANDING_SPEED = 8f;
         private const float MIN_SECONDS = 4.5f, MAX_SECONDS = 14.5f;

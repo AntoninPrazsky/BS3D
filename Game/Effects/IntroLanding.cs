@@ -70,9 +70,40 @@ namespace BS3D.Effects
         /// <paramref name="LookInward"/> is): 0 keeps the travel's, as the cities and the meadow do. For a route that runs
         /// round the arena close under the cluster (the big top's, #1118), whose look along a level circle put the cluster
         /// in the frame's top corner and the island's cap across its lower half.</param>
+        /// <param name="DroneSeconds">Over 0, the flight is eased to the second derivative everywhere, as a drone's is (#1187,
+        /// the meadow's): the travel's direction for the look is averaged by a Gaussian of this many seconds, its first and last
+        /// carried on past the ends, instead of the box of <paramref name="LookSmoothSeconds"/>; the look lands and the bank
+        /// levels on a smootherstep (<see cref="Smoother"/>); and the deceleration's speed falls on a smoothstep instead of
+        /// linearly, so it starts and ends with no step in the acceleration. 0 flies as every landing did before.</param>
         internal readonly record struct Style(float WideLens, float ReleaseTimeScale, float LookPitchFollow, float LookDistance,
             float LookSmoothSeconds, float LookLandSeconds, float LookInward, float RollPerTurn, float MaxRollDegrees,
-            float RollSmoothSeconds, int Points, float LookRise = 0f);
+            float RollSmoothSeconds, int Points, float LookRise = 0f, float DroneSeconds = 0f);
+
+        /// <summary>
+        /// How much of its seconds a drone's settle (<see cref="Style.DroneSeconds"/>) has run when it has covered
+        /// <paramref name="share"/> of its length: its share of the length at u of its seconds is 2(u - u³ + u⁴/2), solved
+        /// for u. A scene that lays something on the flight's own clock reads the settle's through this.
+        /// </summary>
+        internal static float DroneSettled(float share)
+        {
+            share = MathHelper.Clamp(share, 0f, 1f);
+            float lo = 0f, hi = 1f;
+            for (int i = 0; i < 32; i++)
+            {
+                float u = 0.5f * (lo + hi);
+                if (2f * (u - u * u * u + 0.5f * u * u * u * u) < share) lo = u; else hi = u;
+            }
+
+            return 0.5f * (lo + hi);
+        }
+
+        /// <summary>An ease in and out to the second derivative (a smootherstep), 0 to 1 over 0 to 1 and clamped: its
+        /// acceleration starts and ends at nothing, where a smoothstep's steps.</summary>
+        internal static float Smoother(float x)
+        {
+            x = MathHelper.Clamp(x, 0f, 1f);
+            return x * x * x * (x * (x * 6f - 15f) + 10f);
+        }
 
         /// <summary>
         /// A subject the look is held on from the shot's first frame (#1110, the desert's scorpion): the shot opens as a close
@@ -274,7 +305,12 @@ namespace BS3D.Effects
                 time[i] = time[i - 1] + (length[i] - length[i - 1]) / route.Speed[i];
 
             //The deceleration: distance along it on the cubic x(τ) = v0·T·h10 + L·h01, entering at the route's speed there,
-            //at rest on the pose
+            //at rest on the pose. A drone's (Style.DroneSeconds) falls from v0 to rest on a smoothstep instead, which covers L
+            //in the same 2L/v0 as the cubic's steady deceleration does at a ReleaseTimeScale of 2, and asks it
+            bool drone = style.DroneSeconds > 0f;
+            if (drone && style.ReleaseTimeScale != 2f)
+                throw new ArgumentException("A drone's settle covers its length in twice its length over its entry speed: ReleaseTimeScale 2.", nameof(style));
+
             float v0 = route.Speed[releaseFrom];
             float releaseLength = length[^1] - length[releaseFrom];
             float releaseSeconds = style.ReleaseTimeScale * releaseLength / v0;
@@ -288,6 +324,12 @@ namespace BS3D.Effects
                 float t = seconds * k / (points - 1);
                 float at;
                 if (t <= time[releaseFrom]) at = LengthAtTime(time, length, releaseFrom, t);
+                else if (drone)
+                {
+                    //The speed v0·(1 - smoothstep(u)), integrated: its share of the length is 2(u - u³ + u⁴/2), 1 at u = 1
+                    float u = (t - time[releaseFrom]) / releaseSeconds;
+                    at = length[releaseFrom] + releaseLength * 2f * (u - u * u * u + 0.5f * u * u * u * u);
+                }
                 else
                 {
                     float u = (t - time[releaseFrom]) / releaseSeconds;
@@ -300,9 +342,13 @@ namespace BS3D.Effects
             }
             positions[^1] = endPosition;
 
+            //A drone's rounded over a moment of its own clock (DRONE_ROUNDING_SECONDS), so the route's points, which it runs
+            //through as a polyline at a speed that steps from one to the next, do not reach the lens
+            float dt = seconds / (points - 1);
+            if (drone) Round(positions, DRONE_ROUNDING_SECONDS / dt);
+
             //The look: along the travel, a little ahead and following some of its rise and fall, easing onto the pose's own
             //look over the last seconds; the bank off the heading's rate of turn, levelling out as the look lands
-            float dt = seconds / (points - 1);
             var looks = new Vector3[points];
             var heading = new float[points];
             var land = new float[points];
@@ -318,8 +364,11 @@ namespace BS3D.Effects
                 direction[k] = tangent;
             }
 
-            int window = Math.Max(1, (int)MathF.Round(style.LookSmoothSeconds / dt));
-            direction = BoxBlur(direction, window);
+            //⚠ A drone's by a Gaussian with its ends carried on (#1187): a box cut short at the shot's start is a sum that grows
+            //until the box first fits whole and then slides, and the look's turn rate kinked there, LookSmoothSeconds in (the
+            //meadow's look swung at 185 °/s² 0.3 s into its flight home)
+            if (drone) direction = Gaussian(direction, style.DroneSeconds / dt);
+            else direction = BoxBlur(direction, Math.Max(1, (int)MathF.Round(style.LookSmoothSeconds / dt)));
 
             //The subject's point and how much of the look is on it at each point, read at the second of the shot the point is
             //shown at (Subject.At); from the moment the look starts to let go, its direction from the lens as it was then
@@ -347,6 +396,7 @@ namespace BS3D.Effects
                 }
             }
 
+            var ahead = new Vector3[points];
             for (int k = 0; k < points; k++)
             {
                 Vector3 travel = direction[k];
@@ -354,12 +404,16 @@ namespace BS3D.Effects
                 travel.Normalize();
 
                 heading[k] = MathF.Atan2(travel.Z, travel.X);
-                land[k] = MathHelper.SmoothStep(0f, 1f, MathHelper.Clamp((k * dt - (seconds - style.LookLandSeconds)) / style.LookLandSeconds, 0f, 1f));
-                Vector3 ahead = positions[k] + Leaned(travel, positions[k], endTarget, style.LookInward * (lean?[k] ?? 1f)) * style.LookDistance;
-                if (style.LookRise > 0f) ahead.Y = MathHelper.Lerp(ahead.Y, endTarget.Y, style.LookRise * (lean?[k] ?? 1f));
-                if (held != null && held[k] > 0f) ahead = Towards(positions[k], ahead, subjectAt[k], held[k]);
-                looks[k] = Vector3.Lerp(ahead, endTarget, land[k]);
+                float landing = (k * dt - (seconds - style.LookLandSeconds)) / style.LookLandSeconds;
+                land[k] = drone ? Smoother(landing) : MathHelper.SmoothStep(0f, 1f, MathHelper.Clamp(landing, 0f, 1f));
+                ahead[k] = positions[k] + Leaned(travel, positions[k], endTarget, style.LookInward * (lean?[k] ?? 1f)) * style.LookDistance;
+                if (style.LookRise > 0f) ahead[k].Y = MathHelper.Lerp(ahead[k].Y, endTarget.Y, style.LookRise * (lean?[k] ?? 1f));
+                if (held != null && held[k] > 0f) ahead[k] = Towards(positions[k], ahead[k], subjectAt[k], held[k]);
             }
+
+            if (drone) Steady(positions, ahead, endTarget, 2f * style.DroneSeconds / dt);
+
+            for (int k = 0; k < points; k++) looks[k] = Vector3.Lerp(ahead[k], endTarget, land[k]);
             looks[^1] = endTarget;
 
             var roll = new float[points];
@@ -459,6 +513,112 @@ namespace BS3D.Effects
 
             float span = length[hi] - length[lo];
             return span > 1e-6f ? Vector3.Lerp(path[lo], path[hi], (at - length[lo]) / span) : path[lo];
+        }
+
+        /// <summary>
+        /// How long a moment a drone's evenly timed points are rounded over (<see cref="Style.DroneSeconds"/>, #1187): the sigma
+        /// of a Gaussian, seconds. A route is laid as points half a unit apart, each with its own speed, and walked as a
+        /// polyline at a speed that steps from point to point; IntroShot's spline through the timed points is only as smooth
+        /// as they are, and with as many of them as a frame has the polyline's corners and the speed's steps jumped the lens's
+        /// acceleration by up to 28 u/s² a frame (the drone limit is 2.5 vertically). Over this it cuts a turn's inside by
+        /// about its sideways acceleration times half the square of this, a fifth of a unit at the meadow's hardest.
+        /// </summary>
+        internal const float DRONE_ROUNDING_SECONDS = 0.08f;
+
+        //Rounded by a Gaussian of sigma `sigma` points, each end turned over itself (the point k past an end is twice the end
+        //less the point k before it), so it starts and ends where it did and leaves and arrives the way it was going
+        private static void Round(Vector3[] values, float sigma)
+        {
+            int reach = Math.Max(1, (int)MathF.Ceiling(3f * sigma)), last = values.Length - 1;
+            var weights = new float[reach + 1];
+            float total = 0f;
+            for (int d = 0; d <= reach; d++)
+            {
+                weights[d] = MathF.Exp(-d * d / (2f * sigma * sigma));
+                total += d == 0 ? weights[d] : 2f * weights[d];
+            }
+
+            var source = (Vector3[])values.Clone();
+            for (int i = 0; i <= last; i++)
+            {
+                Vector3 sum = Vector3.Zero;
+                for (int d = -reach; d <= reach; d++)
+                {
+                    int k = i + d;
+                    Vector3 v = k < 0 ? 2f * source[0] - source[Math.Min(-k, last)] : k > last ? 2f * source[last] - source[Math.Max(2 * last - k, 0)] : source[k];
+                    sum += v * weights[Math.Abs(d)];
+                }
+                values[i] = sum / total;
+            }
+        }
+
+        /// <summary>
+        /// The look's bearing off the target's, as each point of the flight sees the target, averaged by a Gaussian of
+        /// <paramref name="sigma"/> points, its ends carried on (#1187): the look keeps the arena where it was in the frame
+        /// and lets it drift across it slowly, whatever the travel under it does. Each look keeps its own pitch and distance.
+        /// </summary>
+        private static void Steady(Vector3[] positions, Vector3[] ahead, Vector3 target, float sigma)
+        {
+            int n = ahead.Length;
+            var bearing = new float[n];
+            var off = new float[n];
+            for (int k = 0; k < n; k++)
+            {
+                Vector3 look = ahead[k] - positions[k], toTarget = target - positions[k];
+                bearing[k] = MathF.Atan2(toTarget.Z, toTarget.X);
+                off[k] = MathHelper.WrapAngle(MathF.Atan2(look.Z, look.X) - bearing[k]);
+                if (k > 0) off[k] = off[k - 1] + MathHelper.WrapAngle(off[k] - off[k - 1]);
+            }
+
+            float[] steady = Gaussian(off, sigma);
+            for (int k = 0; k < n; k++)
+            {
+                Vector3 look = ahead[k] - positions[k];
+                float flat = MathF.Sqrt(look.X * look.X + look.Z * look.Z), turned = bearing[k] + steady[k];
+                ahead[k] = positions[k] + new Vector3(MathF.Cos(turned) * flat, look.Y, MathF.Sin(turned) * flat);
+            }
+        }
+
+        //A Gaussian average of sigma `sigma` points, the first and last values carried on past the ends
+        private static float[] Gaussian(float[] values, float sigma)
+        {
+            int reach = Math.Max(1, (int)MathF.Ceiling(3f * sigma));
+            var weights = new float[reach + 1];
+            float total = 0f;
+            for (int d = 0; d <= reach; d++)
+            {
+                weights[d] = MathF.Exp(-d * d / (2f * sigma * sigma));
+                total += d == 0 ? weights[d] : 2f * weights[d];
+            }
+
+            var result = new float[values.Length];
+            for (int i = 0; i < values.Length; i++)
+            {
+                float sum = 0f;
+                for (int d = -reach; d <= reach; d++) sum += values[Math.Clamp(i + d, 0, values.Length - 1)] * weights[Math.Abs(d)];
+                result[i] = sum / total;
+            }
+
+            return result;
+        }
+
+        //A Gaussian of sigma `sigma` points, the first and last values carried on past the ends: the look's directions are
+        //normalized after, so they are not divided
+        private static Vector3[] Gaussian(Vector3[] values, float sigma)
+        {
+            int reach = Math.Max(1, (int)MathF.Ceiling(3f * sigma));
+            var weights = new float[reach + 1];
+            for (int d = 0; d <= reach; d++) weights[d] = MathF.Exp(-d * d / (2f * sigma * sigma));
+
+            var result = new Vector3[values.Length];
+            for (int i = 0; i < values.Length; i++)
+            {
+                Vector3 sum = Vector3.Zero;
+                for (int d = -reach; d <= reach; d++) sum += values[Math.Clamp(i + d, 0, values.Length - 1)] * weights[Math.Abs(d)];
+                result[i] = sum;
+            }
+
+            return result;
         }
 
         //A running sum over ±half: the look's directions are normalized after, so they are not divided
