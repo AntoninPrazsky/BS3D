@@ -124,8 +124,33 @@ namespace BS3D.Tests
         }
 
         /// <summary>
-        /// The dissolve, once begun, runs to its end wherever the ball goes: a ball that started to go in the field and then
-        /// dropped under the floor does not come back whole.
+        /// A ball still in the field past its time but falling out of it (faster than <see cref="LooseBallTimeout.FALLING_SPEED"/>:
+        /// knocked off a ledge late, the last of a big drop) is left its fall; the moment it stands still in the field again it
+        /// goes. The world is not stepped, so the ball keeps the speed it was given where it stands.
+        /// </summary>
+        [Fact]
+        public void ABallFallingOutOfTheFieldIsLeftItsFallUntilItStops()
+        {
+            using HungLevel hung = new(OneBall());
+            float floorY = hung.WorldOffset.Y;
+
+            PhysicsBall ball = Loose(hung, floorY + 3f);
+            ball.BallReference.Velocity.Linear = new System.Numerics.Vector3(0f, -2f * LooseBallTimeout.FALLING_SPEED, 0f);
+
+            for (float clock = 0f; clock < LooseBallTimeout.FIELD_SECONDS + 2f; clock += FRAME)
+                Assert.False(LooseBallTimeout.Advance(ball, FRAME, floorY));
+
+            Assert.Equal(0f, ball.Vanish);
+
+            ball.BallReference.Velocity.Linear = System.Numerics.Vector3.Zero;
+            LooseBallTimeout.Advance(ball, FRAME, floorY);
+
+            Assert.True(ball.Vanish > 0f, "a ball that stopped in the field past its time did not begin to go");
+        }
+
+        /// <summary>
+        /// The dissolve, once begun, runs to its end wherever the ball goes and however fast: a ball that started to go in the
+        /// field and then dropped under the floor does not come back whole.
         /// </summary>
         [Fact]
         public void ADissolveOnceBegunRunsToItsEnd()
@@ -140,6 +165,7 @@ namespace BS3D.Tests
             Assert.True(ball.Vanish > 0f, "a ball in the field never began to go");
             float vanish = ball.Vanish;
             ball.BallReference.Pose.Position = new System.Numerics.Vector3(0f, floorY - 3f, 0f);
+            ball.BallReference.Velocity.Linear = new System.Numerics.Vector3(0f, -2f * LooseBallTimeout.FALLING_SPEED, 0f);
 
             Assert.False(LooseBallTimeout.Advance(ball, FRAME, floorY));
             Assert.True(ball.Vanish > vanish, "the dissolve stopped when the ball dropped under the field's floor");

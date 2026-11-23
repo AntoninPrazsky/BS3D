@@ -208,8 +208,8 @@ namespace BS3D.Screens
         /// <para>
         /// <b>A released ball that outstays its time in the field is dissolved, then retired (#1191)</b>: one still above
         /// the field's floor (the one the dead weight is marked above) <see cref="LooseBallTimeout.FIELD_SECONDS"/> after
-        /// its release, wedged up among the balls, where a shot passes through it and nothing can attach to it, which
-        /// confused players. It goes over <see cref="LooseBallTimeout.VANISH_SECONDS"/> in the dead weight's dither carried
+        /// its release and not falling out of it (<see cref="LooseBallTimeout.FALLING_SPEED"/>), wedged up among the balls,
+        /// where a shot passes through it and nothing can attach to it, which confused players. It goes over <see cref="LooseBallTimeout.VANISH_SECONDS"/> in the dead weight's dither carried
         /// the whole way, which is what answers the objection above: it is seen going, it does not wink out. Below the floor
         /// nothing is timed, the pile at the mouth included: a big drop drains through the hole for up to 13 s, and a
         /// timeout there took balls in mid-fall (see <see cref="LooseBallTimeout"/>). The spare volley's balls are left

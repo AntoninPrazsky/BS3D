@@ -2,7 +2,7 @@
 
 Part of [The game: feedback](../game-feedback.md).
 
-A group the cluster has let go of usually falls into the drain. On some map shapes it does not: the balls wedge against their neighbours and stop, and from the 3D view they are indistinguishable from live cluster, so a player keeps shooting at colours that can no longer complete anything. The mark below is what says so (#342, remarked #620).
+A group the cluster has let go of usually falls into the drain. On some map shapes it does not: the balls wedge against their neighbours and stop, and from the 3D view they are indistinguishable from live cluster, so a player keeps shooting at colours that can no longer complete anything. The mark below is what says so (#342, remarked #620), and a few seconds after its release such a ball dissolves the rest of the way and is gone (#1191).
 
 ## What it looks like
 
@@ -17,10 +17,25 @@ A group the cluster has let go of usually falls into the drain. On some map shap
 - A released ball has to be under `DEAD_WEIGHT_SPEED` for `DEAD_WEIGHT_HOLD_SECONDS`, long enough that a group merely slow at the top of its fall never flashes it, **and** it has to be resting above the field's own floor, which the session passes in (`_clusterWorldOffset.Y`). The second test is what keeps it honest: a normal release drains without a mark because those balls come to rest on the island's stone or in the funnel, below the field, on their way out. A caller that passes no floor (the Testbed, the editor) marks nothing.
 - **The state is the ball's** (`PhysicsBall.StillSeconds`, `PhysicsBall.DeadWeight`), advanced by `ClusterCollector`'s single per-frame walk beside the occlusion ease, the arrival glide and the ripple, since each ball is visited exactly once. It reads the body's velocity, not a pose difference, because a resting body the solver still jitters reads as moving in a pose difference and as nearly zero in the velocity the threshold is set against.
 - **A shot passes through dead weight** (#410), as through anything a landing has released: the loose mark the contact handler puts on released balls stays on a ball that comes to rest. That is the honest reading of the landing preview, which solves against the hanging structure only and already draws its ghost behind a dead ball; a shot that bounced off one would break the ghost's promise.
+
+## It goes after its time (#1191)
+
+A ball that cannot be hit and will not fall confused players (the owner's QA notes), so it does not stay.
+
+- **A released ball still above the field's floor `LooseBallTimeout.FIELD_SECONDS` (5 s, the owner's figure) after its release dissolves the rest of the way over `VANISH_SECONDS` (1 s) and is retired** through `PhysicsWorld.RetireBall`, the kill plane's door (`GameplayScreen.RemoveFallenBalls`). The floor is the mark's (`_clusterWorldOffset.Y`), so every ball that wears the mark goes. **Unless it is falling out of the field** (faster than `FALLING_SPEED`, 2 u/s, which a free fall passes in a fifth of a second): one knocked off a ledge late, or the last of a big drop rolling off the cluster, is left its fall, and goes the moment it stands still in the field again.
+- **It happens.** Measured with `capturedemo` and `logshots` on eight levels (seed 946): on Koch 75 released balls stuck up in the field at rest (0.01 u/s, two groups of 27 and 40 near the glass) and dissolved at 6 s; on Spark one; on Saturn six, after the level was lost; on Pennant, Minaret, Organ, Sandbags and Girandole none.
+- **The going is the mark carried on**: an ordinary ball's dissolve is `BallRenderSet.ReleasedDissolve`, the mark's share plus that share of the rest, so it starts where the mark stands and spends its whole second on the pixels the mark left; a ball that never wore it (still moving, or a special kind, which keeps its own look at rest) dithers from whole in its own region. It is the instance's own `Dissolve`, so the shadow thins with it (#920), the Potato path draws it through its dither run, and the side cut's ring fades with it ([the cluster profile](hud-cluster-profile.md)). Once begun it runs to its end wherever the ball rolls.
+- **The world's clock**: `PhysicsBall.LooseSeconds` is advanced in the cull by the frame's simulated steps (`_simulatedThisFrame`), so a pause holds it and the result page's running world (#241) goes on with it. Its last dissolve is `PhysicsBall.Vanish`, read by `ClusterCollector` and never advanced there.
+- **Below the floor nothing is timed.** A ball there is on its way out, and its fall is the drop the player and the cinematic watch. That fall can be long: on Pennant's clearing shot (`capturedemo level=1`, 232 balls) the pile drained through the funnel's hole for up to 12.9 s to the kill plane (median 8 s), and a 12 s timeout on age alone dissolved 52 of them still falling at the hole; across the eight levels the slowest ball reached the kill plane 23.9 s after its release. A ball wedged in the funnel or on the stone therefore stays, as before.
+- **It counts nothing**: what a released ball is worth was settled when the landing released it (`ScoreKeeper.Landed`). The level's clear never waited for a released ball, so it is unchanged.
+- **Not the spare volley's balls** (#881): fired into the emptied field after a clear and kept with the released ones, they are `PhysicsBall.Untimed` and drain by themselves.
+- **The card still fires** ([below](#how-it-is-taught)): it reads `DeadWeight` reaching 1 (the hold and the fade, 1.15 s after a ball stops), and the mark goes on easing in while the ball dissolves, so any ball at rest by about 4.8 s after its release fires it before it is retired at 6 s.
+- `logshots` prints a `[loose]` line for every released ball that leaves: its age, what took it (the kill plane, the dissolve, a spent cutter), its height against the field and its speed. `LooseBallTimeoutTests` hang this page's scripted level in the real simulation and hold that a stuck group is still there whole just before its time and gone, each ball once, after it, with the release scored once.
+
 ## How it is taught
 
 - **The tutorial's card, once per player** (#1023, "The dead weight's card" in [the tutorial](tutorial.md)): the first ordinary ball to wear the mark in full fires *"This ball is already shot down"* / *"It just hasn’t fallen yet"*, with a ball drawn beside it as the map draws this one, in its colour.
-- **The Help page's Odd balls tab**, after the two kinds the cannon holds, under a line of its own: *Shot down*, with the same dithered ball in its square (`OddBallCopy.DeadName`/`DeadText`, `HelpPage.CollectBalls`). It is not a kind, so it is not an entry of the kinds' table.
+- **The Help page's Odd balls tab**, after the two kinds the cannon holds, under a line of its own: *Shot down*, with the same dithered ball in its square (`OddBallCopy.DeadName`/`DeadText`, `HelpPage.CollectBalls`). It is not a kind, so it is not an entry of the kinds' table. Its last sentence says the ball fades away after a few seconds (#1191).
 
 ## Making one in a scripted run
 

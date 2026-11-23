@@ -9,7 +9,7 @@ Everything the game says back to the player: the HUD, the tutorial, the sound, t
 - [The ripple](game-feedback/ripple.md) — how a landing's light travels through the cluster, what reaches the GPU, and the channel the alarm shares.
 - [Losing on the line](game-feedback/line-loss.md) — the line-loss cinematic: the camera, the net cutting, the sparks, staging a loss and its sound.
 - [The result page looks up at the fireworks](game-feedback/result-page-glance.md) — the result page's camera glance at the sky.
-- [Dead weight](game-feedback/dead-weight.md) — what qualifies as a released ball that never fell, how it looks, how it is taught, and how to make one in a scripted run.
+- [Dead weight](game-feedback/dead-weight.md) — what qualifies as a released ball that never fell, how it looks, how it dissolves away after its time in the field (#1191), how it is taught, and how to make one in a scripted run.
 - [A bomb goes off](game-feedback/bomb-blast.md) — what makes the blast possible and the effect itself.
 - [A cut is made](game-feedback/cut-staging.md) — the Cut's press, flight, severing and fall: what each beat draws, sounds and asks of the pad, the slash (the blasts' blade style), why nothing of it slows the world (#1046), the clocks, `cutshot=`.
 - [The Swap passes the rounds through each other](game-feedback/swap-effect.md) — the two rounds sliding through each other along the bore: the picture of an exchange already made, the complementary dither at the crossing, the motion blur and the streak, the bore's limit on the arc, where it reaches and where the dither stays, `swapshot=`.

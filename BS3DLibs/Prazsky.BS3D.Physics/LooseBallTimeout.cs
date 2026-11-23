@@ -4,8 +4,9 @@ namespace Prazsky.BS3D.Physics
 {
     /// <summary>
     /// How long a ball the cluster has let go of may stay up in the field, and its going (#1191): a released ball still
-    /// above the field's floor <see cref="FIELD_SECONDS"/> after its release dissolves the whole way over
-    /// <see cref="VANISH_SECONDS"/> in the dither the dead weight is drawn with, and is retired.
+    /// above the field's floor <see cref="FIELD_SECONDS"/> after its release, and not falling out of it
+    /// (<see cref="FALLING_SPEED"/>), dissolves the whole way over <see cref="VANISH_SECONDS"/> in the dither the dead
+    /// weight is drawn with, and is retired.
     /// <para>
     /// <b>Why it exists.</b> A released ball is loose: a shot passes through it (#410) and nothing can attach to it, so one
     /// that wedges up among the balls instead of falling hangs in the player's way as a ball that cannot be hit. The dither
@@ -41,6 +42,16 @@ namespace Prazsky.BS3D.Physics
         public const float FIELD_SECONDS = 5f;
 
         /// <summary>
+        /// How fast a ball in the field past its time has to be moving, in world units a second, for its going to wait: one
+        /// knocked off a ledge late, or the last of a big drop rolling off the cluster, is falling out of the field and is
+        /// left its fall (the issue's warning: the last balls of a drop must not dissolve just before they reach the
+        /// funnel). A free fall from rest passes it in a fifth of a second; a ball lying on a cluster the wind sways or a
+        /// landing shakes moves far slower (the stuck balls measured on Koch rested at 0.01). A deferred ball that stops
+        /// again in the field goes at once, and one that leaves it is the drain's.
+        /// </summary>
+        public const float FALLING_SPEED = 2f;
+
+        /// <summary>
         /// How long the last dissolve takes, in seconds: long enough to be seen happening rather than to read as a pop
         /// (a ball vanishing in shot reads as a bug), short enough to be over before the next shot lands. Twice the dead
         /// weight's own ease (<c>ClusterCollector.DEAD_WEIGHT_FADE_SECONDS</c>), since it carries the dither the whole way.
@@ -64,17 +75,19 @@ namespace Prazsky.BS3D.Physics
 
             //Once begun it runs to the end wherever the ball goes: a half-dissolved ball that rolled off the floor and came
             //whole again would read as a glitch, and so would one that stopped half-way
-            if (ball.Vanish <= 0f && !IsDue(ball.LooseSeconds, ball.BallReference.Pose.Position.Y, fieldFloorY)) return false;
+            if (ball.Vanish <= 0f && !IsDue(ball.LooseSeconds, ball.BallReference.Pose.Position.Y, fieldFloorY,
+                ball.BallReference.Velocity.Linear.Length())) return false;
 
             ball.Vanish = MathF.Min(1f, ball.Vanish + seconds / VANISH_SECONDS);
             return ball.Vanish >= 1f;
         }
 
         /// <summary>
-        /// Whether a released ball of this age, standing at <paramref name="y"/>, has outstayed its time: past
-        /// <see cref="FIELD_SECONDS"/> and still above the field's floor.
+        /// Whether a released ball of this age, standing at <paramref name="y"/> and moving at <paramref name="speed"/>, has
+        /// outstayed its time: past <see cref="FIELD_SECONDS"/>, still above the field's floor, and not falling out of it
+        /// (<see cref="FALLING_SPEED"/>).
         /// </summary>
-        public static bool IsDue(float looseSeconds, float y, float fieldFloorY) =>
-            looseSeconds >= FIELD_SECONDS && y > fieldFloorY;
+        public static bool IsDue(float looseSeconds, float y, float fieldFloorY, float speed) =>
+            looseSeconds >= FIELD_SECONDS && y > fieldFloorY && speed < FALLING_SPEED;
     }
 }
