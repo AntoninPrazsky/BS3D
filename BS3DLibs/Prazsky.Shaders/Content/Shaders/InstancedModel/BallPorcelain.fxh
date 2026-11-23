@@ -178,8 +178,11 @@ static const float PorcelainEnamelSheer = 0.22;
 static const float PorcelainOrnamentBandLimit = 1.5;
 
 //How deep a crack parts the glaze. Very shallow: it is there so the net survives on the tints where the
-//tone step is smallest, not to be seen as relief.
-static const float PorcelainCrackDepth = 0.007;
+//tone step is smallest, not to be seen as relief. A quarter of what it was until #1216, which is what
+//the craze actually showed: it is a close-range figure, and close up the world-unit floor under the tilt
+//(Noise.fxh) took all but a seventh to a quarter of the old 0.007. At full strength the grooves catch
+//the sky as WHITE hairlines across the glaze, the sparkle PorcelainCrazeBandLimit's note warns of.
+static const float PorcelainCrackDepth = 0.0018;
 
 //The glaze's own face: a tight bright lobe over the body, which is what puts the colour UNDER a surface
 //rather than on it.
