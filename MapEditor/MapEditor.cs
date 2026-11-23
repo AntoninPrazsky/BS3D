@@ -1209,10 +1209,11 @@ namespace MapEditor
             bool gameSky = domed && _gameSkyShown;
             bool skyBehind = gameSky && SkyPass.BehindScene(_pipeline.SceneTarget);
 
+            //Every frame, as the Game sets it: the scenes' own shaders take the deck through the rig's hook whatever sky is up
+            _clouds.Time = _sceneSeconds;
+
             if (gameSky)
             {
-                _clouds.Time = _sceneSeconds;
-
                 //The ground's light on the deck (the volcano's crater, #509), stated every frame so no scene inherits the last
                 if (_sceneRenderer.TryGetGroundGlow(_scene, _sceneSeconds, out Vector3 glowAt, out Vector3 glowColor, out float glowRange))
                     _clouds.SetGroundGlow(glowAt, glowColor, glowRange);
@@ -1529,7 +1530,14 @@ namespace MapEditor
             _auroraScatter?.Dispose();
             _forestFireflies?.Dispose();
             _forestLamps?.Dispose();
-            //The dome's two buffers and its owned BasicEffect (the editor's only dome draw path)
+            //The setting (#1210): the island's meshes and textures, the plate and its rigging, the sky's own target and the
+            //heaps' layer and noise
+            _island?.Dispose();
+            _ceilingPlate?.Dispose();
+            _ceilingRigging?.Dispose();
+            _skyPass?.Dispose();
+            _cloudVolumes?.Dispose();
+            //The dome's two buffers and its owned BasicEffect (the plain dome's draw; never Sky.fx, which Content owns)
             _sky?.Dispose();
             _unitBox?.Dispose();
             _aabb?.Dispose();
