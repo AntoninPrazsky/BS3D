@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-23 — #1214 menu: průlet nad skleněným stropem — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: třetí výlet kamery menu (`GlassPass`, každý čtvrtý cyklus; dělo dál 1/3, shluk 5/12). Klesne z 40–52 na 3,5–6 nad desku, 12° od svislice, čtvrtotočka, mezi lany, strop pod střechou. Jen kde tier láme sklo (`RefractsCeiling`); na Low a Potato shluk místo něj. Sklo menu se při průletu vyjasní z 0,7 na hrané 0,48. `menuglass=pass` (nejkratší hodnoty, stejné vteřiny v každém běhu). Sonda kvality průlet nesoudí.
+- ⚠ Cena: u skla 19,1 ms na louce s bublinami (High, 3840x1500), na Ultra 19,3 (Neon City 17,2); mimo rozpočet 75 Hz. Lom stojí 2,7 ms, bubliny zblízka asi 5,3.
+- ⚠ Ústup po křivce blízkosti vjel 0,19 do krabice mapy (Bolt, 21:9), proto `CLIMB_SHARE`: nejdřív stoupat.
+- Otevřené: `verdict-eye`; rozhodnutí o ceně (vyšší blízká výška, nebo bez průletu nad bublinami), podíly a průhlednost 0,48. Telefon neměřen.
+
 ## 2026-11-23 — #1235 vidlička na konci zaměřovací linky — desktop (RDT-PC), Claude Code (bs3d-cc)
 
 - majitel: tenká linka (#1196) je dobrá, ale rozšíření na konci není vidět; nákres `aimer.png` v kořeni hlavního checkoutu: konec se plynule rozvětví do trojité vidličky, která hasne (rozptyl dopadu).
