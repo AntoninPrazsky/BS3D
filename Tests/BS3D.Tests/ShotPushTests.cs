@@ -19,6 +19,156 @@ namespace BS3D.Tests
     /// </summary>
     public class ShotPushTests(ITestOutputHelper output)
     {
+        /// <summary>
+        /// The promise: a shot moves the cluster it hits, visibly and within a third of a second (the farthest ball at least
+        /// <c>0.03</c> units from where it would have been, where the push measured 0.06 on the dense One and 0.4 on the strand
+        /// Pendant); within what the lattice holds (no socket stretched more than 0.05 of a diameter beyond what the same
+        /// landing stretches it without the push, where it measured at most 0.02, and a heavy ball's whole envelope is 0.044);
+        /// never with more momentum than the shot carried; and the shot lands in the very cell it lands in without the push.
+        /// A cutter's strike pushes too. Shot four times as hard (<c>shotpush=4</c>, or a kind built to hit harder),
+        /// <see cref="ShotPush.MAX_KICK"/> keeps the sockets inside the same bound.
+        /// </summary>
+        [Theory]
+        [InlineData("One.json", 1f, BallKind.Normal)]
+        [InlineData("Pennant.json", 1f, BallKind.Normal)]
+        [InlineData("Pendant.json", 1f, BallKind.Normal)]
+        [InlineData("Pendant.json", 4f, BallKind.Normal)]
+        [InlineData("Colossus.json", 1f, BallKind.Cutter)]
+        public void AShotMovesTheClusterItHitsWithinWhatTheLatticeHolds(string level, float scale, BallKind kind)
+        {
+            Response r = Fire(level, 1, 1f, scale, kind: kind);
+            output.WriteLine(Row(level, 1, string.Create(CultureInfo.InvariantCulture, $"x{scale} {kind}"), r));
+
+            Assert.NotNull(r.Landed);
+            Assert.Equal(r.LandedWithout, r.Landed);
+
+            float early = 0f;
+            for (int step = 0; step <= (int)MathF.Round(0.3f / HungLevel.TIMESTEP); step++) early = MathF.Max(early, r.MaxDisplacement[step]);
+            Assert.True(early >= 0.03f, $"the push moved no ball more than {early:0.000} in the first 0.3 s");
+
+            Assert.True(r.PeakStretch - r.PeakStretchWithout < 0.05f,
+                $"the push stretched a socket {r.PeakStretch - r.PeakStretchWithout:0.000} of a diameter beyond the landing's own");
+            Assert.True(r.Push.Impulse <= scale * ShotRig.SHOOT_SPEED * BallsConstraintsBuilder.BALL_MASS * 1.01f,
+                $"the push handed out {r.Push.Impulse:0.0}, more than the shot carried");
+        }
+
+        /// <summary>
+        /// The push itself, on a cluster at rest: the momentum it hands out is the impulse it was given when no ball reaches
+        /// <see cref="ShotPush.MAX_KICK"/>, no ball beyond <see cref="ShotPush.REACH"/> hops through the sockets is touched,
+        /// every ball it reaches is awake afterwards, and an impulse a hundred times the shot's changes no ball's velocity by
+        /// more than <see cref="ShotPush.MAX_KICK"/>.
+        /// </summary>
+        [Fact]
+        public void ThePushHandsOutTheImpulseWithinItsReachAndItsCap()
+        {
+            using HungLevel hung = HungLevel.FromLevelFile(ShotRig.LevelPath("Kiln.json"), workerThreads: 1);
+            hung.Run(8f);
+
+            PhysicsBall struck = LowestBall(hung.Balls);
+            XZLevel origin = struck.ArrayPosition;
+            System.Numerics.Vector3 impulse = new(40f, 180f, 0f);
+
+            Dictionary<PhysicsBall, System.Numerics.Vector3> before = Velocities(hung.Balls);
+            bool anyAsleep = false;
+            foreach (PhysicsBall ball in hung.Balls)
+                if (ball != null && !ball.BallReference.Awake) anyAsleep = true;
+
+            ShotPush.Result result = new ShotPush().Apply(hung.World.Simulation, hung.Balls, origin, impulse);
+
+            System.Numerics.Vector3 handed = System.Numerics.Vector3.Zero;
+            int changed = 0;
+            foreach ((PhysicsBall ball, System.Numerics.Vector3 velocity) in before)
+            {
+                System.Numerics.Vector3 kick = ball.BallReference.Velocity.Linear - velocity;
+                if (kick.LengthSquared() == 0f) continue;
+
+                changed++;
+                handed += kick / ball.BallReference.LocalInertia.InverseMass;
+                Assert.True(kick.Length() <= ShotPush.MAX_KICK + 1e-3f, $"a ball's velocity changed by {kick.Length():0.00}");
+                Assert.True(Hops(hung.Balls, origin, ball.ArrayPosition) <= ShotPush.REACH, "a ball beyond the push's reach was pushed");
+                Assert.True(ball.BallReference.Awake, "a pushed ball was left asleep");
+            }
+
+            output.WriteLine($"Kiln: {changed} balls pushed, {result.Balls} reached, handed {handed}, cluster was {(anyAsleep ? "partly asleep" : "awake")}");
+            Assert.Equal(result.Balls, changed);
+            Assert.True(System.Numerics.Vector3.Distance(handed, impulse) < 0.01f * impulse.Length(),
+                $"the push handed out {handed} for an impulse of {impulse}");
+
+            //A hundred times the shot: every ball the walk reaches is held to the cap
+            new ShotPush().Apply(hung.World.Simulation, hung.Balls, origin, impulse * 100f);
+            foreach ((PhysicsBall ball, System.Numerics.Vector3 velocity) in Velocities(hung.Balls))
+                Assert.True((velocity - before[ball]).Length() <= 2f * ShotPush.MAX_KICK + 1e-3f,
+                    $"two pushes changed a ball's velocity by {(velocity - before[ball]).Length():0.00}");
+        }
+
+        /// <summary>
+        /// #696's promise, kept under the push: shots in quick succession, each fired 0.3 s after the last landed into a cluster
+        /// the last one set swinging, land in the cell their ghost showed. Measured over six levels and 180 shots: 98.9 % with
+        /// the ghost leading the moving cluster and the shot keeping its promise, 88.3 % with neither (and 98.3 % with no push
+        /// at all). These three levels are the ones that lost most without them; held at 90 %.
+        /// </summary>
+        [Fact]
+        public void ShotsIntoAPushedClusterLandWhereTheirGhostShowed()
+        {
+            int compared = 0, same = 0;
+            List<string> others = new();
+
+            foreach (string level in new[] { "Rainbow.json", "Zigzag.json", "Heart.json" })
+            {
+                (int c, int s, List<string> o) = Succession(level, 1192 + level.Length, 16, 0.3f, 1f);
+                compared += c;
+                same += s;
+                others.AddRange(o);
+            }
+
+            output.WriteLine($"{same} of {compared} in the ghost's cell; {string.Join("; ", others)}");
+            Assert.True(compared >= 40, $"only {compared} shots had a ghost to compare");
+            Assert.True(same >= 0.9 * compared, $"{same} of {compared} landed in the ghost's cell: {string.Join("; ", others)}");
+        }
+
+        private static PhysicsBall LowestBall(PhysicsBall[,,] balls)
+        {
+            PhysicsBall lowest = null;
+            foreach (PhysicsBall ball in balls)
+                if (ball != null && (lowest == null || ball.BallReference.Pose.Position.Y < lowest.BallReference.Pose.Position.Y))
+                    lowest = ball;
+
+            return lowest;
+        }
+
+        private static Dictionary<PhysicsBall, System.Numerics.Vector3> Velocities(PhysicsBall[,,] balls)
+        {
+            Dictionary<PhysicsBall, System.Numerics.Vector3> velocities = new();
+            foreach (PhysicsBall ball in balls)
+                if (ball != null) velocities[ball] = ball.BallReference.Velocity.Linear;
+
+            return velocities;
+        }
+
+        /// <summary>Hops from <paramref name="from"/> to <paramref name="to"/> through occupied cells, as the push walks them.</summary>
+        private static int Hops(PhysicsBall[,,] balls, XZLevel from, XZLevel to)
+        {
+            XZLevel size = XZLevel.FromArray(balls);
+            Dictionary<XZLevel, int> hops = new() { [from] = 0 };
+            Queue<XZLevel> queue = new();
+            queue.Enqueue(from);
+
+            while (queue.Count > 0)
+            {
+                XZLevel cell = queue.Dequeue();
+                if (cell.Equals(to)) return hops[cell];
+
+                foreach (XZLevel next in BallsMap.GetNeighboringCells(cell, size))
+                    if (!hops.ContainsKey(next) && balls[next.X, next.Z, next.Level] != null)
+                    {
+                        hops[next] = hops[cell] + 1;
+                        queue.Enqueue(next);
+                    }
+            }
+
+            return int.MaxValue;
+        }
+
         /// <summary>One shot into a level and its twin: the push's own effect, step by step.</summary>
         internal sealed record Response(
             XZLevel? Landed, XZLevel? LandedWithout, ShotPush.Result Push,

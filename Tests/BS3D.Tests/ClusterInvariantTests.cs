@@ -83,6 +83,47 @@ namespace BS3D.Tests
 
         internal readonly record struct Totals(int Attached, int Matches, int Released, int Detonations);
 
+        /// <summary>
+        /// The sequence with every landing pushing the cluster as a shot does (#1192), at a fast player's pace
+        /// (<see cref="PUSHED_STEPS_BETWEEN"/>, four shots a second), beside its twin without the push: the bookkeeping holds after
+        /// every operation, and the push never stretches a socket more than <see cref="PUSHED_STRETCH_MARGIN"/> of a diameter past
+        /// the most the twin stretches one. The landings and releases are the same in both, since the push moves bodies and
+        /// never the map. Each ball is landed where the cluster hangs round its cell, as the contact handler lands a shot; the
+        /// stretch is still compared with the twin's and not bounded outright, because a ball landed in a free cell on the
+        /// top level beside nothing, which this sequence allows and a shot never does, hangs off the glass alone.
+        /// </summary>
+        [Theory]
+        [InlineData("Kiln.json", 1192)]
+        [InlineData("Anchor.json", 1193)]
+        [InlineData("Vent.json", 1194)]
+        public void BookkeepingAndTheLatticeHoldThroughPushedLandings(string level, int seed)
+        {
+            using HungLevel pushed = Hang(level);
+            using HungLevel still = Hang(level);
+
+            Totals withPush = RunSequence(pushed, seed, PUSHED_OPERATIONS, verifyEach: true, push: new ShotPush(),
+                stepsBetween: PUSHED_STEPS_BETWEEN, peakStretch: out float stretchPushed);
+            Totals without = RunSequence(still, seed, PUSHED_OPERATIONS, verifyEach: true, push: null,
+                stepsBetween: PUSHED_STEPS_BETWEEN, peakStretch: out float stretchStill);
+
+            output.WriteLine(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                $"{level}: {withPush.Attached} landed, {withPush.Matches} matches, {withPush.Released} released; peak stretch {stretchPushed:0.000} pushed, {stretchStill:0.000} without"));
+
+            Assert.Equal(without, withPush);
+            Assert.True(withPush.Matches >= 5, $"only {withPush.Matches} landings completed a match");
+            Assert.True(stretchPushed <= stretchStill + PUSHED_STRETCH_MARGIN,
+                $"the push stretched a socket {stretchPushed:0.000} of a diameter, against {stretchStill:0.000} without it");
+        }
+
+        /// <summary>Operations of the pushed sequence: each is a quarter of a second of the world, so fewer than the plain one's.</summary>
+        private const int PUSHED_OPERATIONS = 120;
+
+        /// <summary>Steps between two pushed landings: a quarter of a second, four shots a second, faster than a player aims.</summary>
+        private const int PUSHED_STEPS_BETWEEN = 30;
+
+        /// <summary>How much further than its twin's the pushed sequence may stretch a socket, as a share of a diameter.</summary>
+        private const float PUSHED_STRETCH_MARGIN = 0.1f;
+
         internal static HungLevel Hang(string level)
         {
             if (level != "Full") return HungLevel.FromLevelFile(Shipped.Level(level));
@@ -98,8 +139,20 @@ namespace BS3D.Tests
         /// so orphans and orphaned bombs are covered too) and <see cref="STEPS_BETWEEN"/> steps. Released balls
         /// are taken out of the world, so their bodies' handles are reused as well.
         /// </summary>
-        internal static Totals RunSequence(HungLevel hung, int seed, int operations, bool verifyEach)
+        /// <param name="push">When set, every landing also gives the cluster a shot's push (#1192) from its cell, along a random
+        /// flight from below as the gun fires, after the release as the contact handler gives it. Its flights are drawn from a
+        /// generator of their own, so a sequence with the push lands and releases exactly what the same seed does without it.</param>
+        /// <param name="stepsBetween">Steps of the world after each operation.</param>
+        /// <param name="peakStretch">The most any socket between two balls stood stretched past its length after an operation.</param>
+        internal static Totals RunSequence(HungLevel hung, int seed, int operations, bool verifyEach, ShotPush push = null,
+            int stepsBetween = STEPS_BETWEEN) => RunSequence(hung, seed, operations, verifyEach, push, stepsBetween, out _);
+
+        /// <inheritdoc cref="RunSequence(HungLevel, int, int, bool, ShotPush, int)"/>
+        internal static Totals RunSequence(HungLevel hung, int seed, int operations, bool verifyEach, ShotPush push,
+            int stepsBetween, out float peakStretch)
         {
+            peakStretch = 0f;
+            Random flights = new(seed ^ 0x1192);
             Random random = new(seed);
             Simulation simulation = hung.World.Simulation;
             XZLevel size = hung.Map.GetStaticBallsArraySize();
@@ -154,7 +207,7 @@ namespace BS3D.Tests
                     }
                 }
 
-                PhysicsBall landed = Land(hung, at, type);
+                PhysicsBall landed = Land(hung, at, type, live: stepsBetween != STEPS_BETWEEN);
                 attached++;
 
                 released.Clear();
@@ -165,7 +218,16 @@ namespace BS3D.Tests
 
                 foreach (PhysicsBall gone in released) simulation.Bodies.Remove(gone.BallReference.Handle);
 
-                hung.Run(STEPS_BETWEEN * HungLevel.TIMESTEP);
+                if (push != null)
+                {
+                    double bearing = flights.NextDouble() * 2.0 * Math.PI;
+                    System.Numerics.Vector3 flight = System.Numerics.Vector3.Normalize(
+                        new System.Numerics.Vector3((float)Math.Cos(bearing), 0.4f + (float)flights.NextDouble(), (float)Math.Sin(bearing)));
+                    push.Apply(simulation, hung.Balls, at, ShotPush.ImpulseOf(BallsConstraintsBuilder.BALL_MASS, flight * 200f, BallKind.Normal));
+                }
+
+                hung.Run(stepsBetween * HungLevel.TIMESTEP);
+                if (stepsBetween != STEPS_BETWEEN) peakStretch = MathF.Max(peakStretch, ShotPushTests.PeakStretch(hung.Balls));
 
                 if (verifyEach)
                 {
@@ -179,9 +241,24 @@ namespace BS3D.Tests
         }
 
         /// <summary>A ball landed into <paramref name="cell"/> exactly as SagProbe lands a shot (and as <c>TopLevelAttachTests</c> does).</summary>
-        private static PhysicsBall Land(HungLevel hung, XZLevel cell, BallType type)
+        /// <param name="live">Placed where the cluster hangs round the cell, off a neighbour's drift
+        /// (<see cref="ShotPlacement.CellWorldPosition"/>), as the contact handler places a shot, rather than at the cell's ideal
+        /// lattice place: the paced sequences, which read the sockets' stretch, which a ball put a unit off its neighbours
+        /// would set by itself.</param>
+        private static PhysicsBall Land(HungLevel hung, XZLevel cell, BallType type, bool live = false)
         {
             Vector3 rest = hung.Map.GetRealCenteredPosition(cell) + hung.WorldOffset;
+
+            if (live)
+                foreach (XZLevel n in BallsMap.GetNeighboringCells(cell, hung.Map.GetStaticBallsArraySize()))
+                {
+                    PhysicsBall neighbour = hung.Balls[n.X, n.Z, n.Level];
+                    if (neighbour == null) continue;
+
+                    Vector3 drift = neighbour.BallReference.Pose.Position.ToXna() - (hung.Map.GetRealCenteredPosition(n) + hung.WorldOffset);
+                    rest = ShotPlacement.CellWorldPosition(hung.Map, cell, hung.WorldOffset, drift);
+                    break;
+                }
 
             BodyHandle handle = hung.World.Simulation.Bodies.Add(BodyDescription.CreateDynamic(
                 rest.ToNumerics(),
