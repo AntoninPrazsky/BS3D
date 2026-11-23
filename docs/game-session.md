@@ -7,7 +7,7 @@ What a level is while it is played: the simulation, the cluster, the gun, the le
 - [The session and the host](game-session/session-and-host.md): host versus session, the partial `GameplayScreen.*.cs` files, `SessionTestOptions`, the seeded generator.
 - [Controls, launch arguments and driving the Game](game-session/controls-and-testing.md): controls, every testing argument, `shot=`/F12, resize, cursor capture, test traps.
 - [Recoil, precise aim and the arena](game-session/recoil-and-presentation.md): shake and recoil, ADS in the Game, clouds, the occlusion direction, the dished island.
-- [The shot, the landing and the landing preview](game-session/landing-and-preview.md): how a shot lands, the ghost and beam, why preview and landing agree, the elevation clamp's rubber.
+- [The shot, the landing and the landing preview](game-session/landing-and-preview.md): how a shot lands, the ghost and beam, why preview and landing agree (a moving cluster led, a ghost's promise kept), the elevation clamp's rubber.
 - [Levels and the campaign](game-session/levels-and-campaign.md): `LevelSet`, the fourteen blocks, set-entry rules, authoring rules.
 - [A level from start to end](game-session/level-flow.md): winning, `LevelPhase`, losing (line, grace, ceiling sum), the start swing, soft lattices.
 - [The field, the camera fit and tall levels](game-session/field-and-camera.md): `FitFieldToMap`, the world offset, the solved camera and gun, tall columns.
@@ -20,7 +20,7 @@ What a level is while it is played: the simulation, the cluster, the gun, the le
 - [Boards, High Scores and Top Players](game-session/online-boards-ui.md): the result plate, level boards, the High Scores page, the players' ranking and its podium.
 - [Play statistics](game-session/play-statistics.md): starts, retries, clears, losses, quits and skips per level in `Stats.json`, the report, and the batches, naming no player, sent with online scores on.
 - [Crates](game-session/crates.md): the reflecting wall and its level field.
-- [Physics in the game](game-session/physics-in-the-game.md): fixed step and frame, lattice versus world frame, the contact handler, culling, wind.
+- [Physics in the game](game-session/physics-in-the-game.md): fixed step and frame, lattice versus world frame, the contact handler, the push a shot gives the cluster, culling, wind.
 
 ## Where the old sections went
 

@@ -15,7 +15,8 @@ namespace Prazsky.BS3D.Physics
     /// What happens when a shot ball touches something: it is snapped into the free lattice cell nearest the
     /// contact, wired into the hanging structure, and — if that completed a group of at least
     /// <see cref="BallsConstraintsBuilder.MINIMUM_CLUSTER_SIZE"/> of its own colour — the whole group is cut
-    /// loose and falls, along with anything it was the last anchor for.
+    /// loose and falls, along with anything it was the last anchor for. What is left hanging round it then takes the
+    /// momentum the shot flew in with (<see cref="ShotPush"/>, #1192), and so does the ball a refused shot met.
     /// <para>
     /// <b>The split between the two halves of this class is the whole point of it.</b> Bepu runs contact
     /// callbacks on its worker threads, from inside <c>Simulation.Timestep</c>; touching the simulation, the
