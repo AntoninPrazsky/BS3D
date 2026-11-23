@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-23 — #1187 louka: let domů jako dron — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: let potokem domů má dronové limity. Půdorys trasy je na spojích zaoblený (Gauss 8), úhyb kolem vrby se klade až po zaoblení, stoupání i sestup jsou smootherstep na vlastních hodinách letu, kroužení je omezené na 46 °/s (`CIRCLE_TURN`), 600 bodů. `IntroLanding.Style.DroneSeconds` (jen louka) drží pohled na aréně (`Steady` 0,8 s). Orbity u balíků a lavičky mají zaoblenou výšku a odmítají oblouk nad 19 °/s náklonu. Ryv 3111 → 186 u/s³, svislý 2700 → 77, natáčení 56 → 49 °/s. `IntroShotSmoothnessTests` přidal limity zrychlení natáčení 100 °/s² a ryvu 300 u/s³ všem záběrům.
+- ⚠ Čtyři krátké záběry, které issue podezíralo, byly v limitech už předtím; drsnost byla v posledním letu. Změřit dřív, než se opravuje.
+- Otevřené: `verdict-eye` (pohyb nikdo neviděl, kroužení o něco pomalejší 41 proti 44 u/s, tvrdé střihy zůstaly).
+
 ## 2026-11-22 — #1234 savana: stébla z boku ukotvená k zemi — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: stébla savany viděná z boku už nejsou vějíř připnutý k obrazovce (`Fbm2Combed` s pozicí kamery), ale luční `GrassStrokes` z `Grass.fxh`, jen v detailním programu, se stejným mícháním 0,85/0,5 a `tipCover` (stezky a spálenina kolem ohňů je dál vypínají). Frekvence 20 (40 na jednotku), aby v blízkém poli domova trávy zůstala šíře na obrazovce; 72 na jednotku v nízkých záběrech skoro zmizelo. Snímek po snímku drží vzor 0,92–0,98 (dřív 0,03–0,42). Herní pohled o 0,2 ms levnější, nejdražší vteřina intra +0,1 ms. Testy `SavannaStrokesSourceTests`. #1232 je totéž (z review #1190) a je tímto opravené.
