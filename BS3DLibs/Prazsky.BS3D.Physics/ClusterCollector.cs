@@ -250,9 +250,12 @@ namespace Prazsky.BS3D.Physics
                     //blinking effect" on the way down, which reads as the cluster still owning what it has just
                     //let go of. It is #252's rule one place over: the rounds in the magazine do not breathe
                     //either, for the same reason and by the same mechanism (the still plane).
+                    //And the ONLY POPULATION THAT GOES (#1191): its last dissolve is read here and not advanced, since
+                    //it ends a body and so runs on the world's clock in the caller's cull (LooseBallTimeout.Advance);
+                    //zero for every ball of a caller with no timeout, the Testbed's.
                     Collect(frame, falling[i], BallRenderSet.UNOCCLUDED, ease, glideRetained, elapsedSeconds,
                         interpolationAlpha, AdvanceDeadWeight(falling[i], elapsedSeconds, deadWeightAboveY),
-                        released: true);
+                        released: true, vanish: falling[i].Vanish);
                     visited++;
                 }
 
@@ -267,7 +270,7 @@ namespace Prazsky.BS3D.Physics
         //way the pose turns it, shaded by the eased occlusion and lit by however far its flare has got.
         private void Collect(in BallDrawFrame frame, PhysicsBall ball, Vector4 occlusionTarget, float ease,
             float glideRetained, float elapsedSeconds, float interpolationAlpha, float deadWeight = 0f,
-            bool released = false, bool stretched = false)
+            bool released = false, bool stretched = false, float vanish = 0f)
         {
             ball.InterpolatedPose(interpolationAlpha, out System.Numerics.Vector3 position,
                 out System.Numerics.Quaternion orientation);
@@ -301,7 +304,8 @@ namespace Prazsky.BS3D.Physics
                 //included — a cluster swinging after a hit is motion too, and BallRenderSet decides what is worth
                 //drawing.
                 _shutterSeconds > 0f ? (ball.BallReference.Velocity.Linear * _shutterSeconds).ToXna() : Vector3.Zero,
-                _shutterSeconds > 0f ? (ball.BallReference.Velocity.Angular * _shutterSeconds).ToXna() : Vector3.Zero);
+                _shutterSeconds > 0f ? (ball.BallReference.Velocity.Angular * _shutterSeconds).ToXna() : Vector3.Zero,
+                vanish);
         }
 
         /// <summary>

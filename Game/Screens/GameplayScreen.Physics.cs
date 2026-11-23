@@ -3,6 +3,7 @@ using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.BS3D.Physics;
 using Prazsky.Core.Render;
+using System;
 using System.Collections.Generic;
 
 namespace BS3D.Screens
@@ -157,7 +158,7 @@ namespace BS3D.Screens
             //under the result page too (#241), and the figures on it were taken off the keeper when the level
             //ended. The culling itself carries on — that is exactly what empties the drain behind the numbers.
             RemoveFallenBalls(_shotBalls, scoreMisses: !LevelOver);
-            RemoveFallenBalls(_fallingBalls, scoreMisses: false, retireSpentCutters: true);
+            RemoveFallenBalls(_fallingBalls, scoreMisses: false, released: true);
 
             //A shot a crate spent for being too slow to bounce (#257's review): already unregistered inside the step,
             //resolved here as the miss it is, through the one door every miss goes through
@@ -192,22 +193,29 @@ namespace BS3D.Screens
 
         /// <summary>
         /// Drops the balls that have left the game: those below <see cref="KILL_PLANE_Y"/>, having gone down
-        /// the drain or over the island's edge.
+        /// the drain or over the island's edge, and the released ones that have outstayed their time.
         /// <para>
-        /// <b>Falling below the map is the only thing that removes a ball</b>, but for one exception — deliberately, and this is where
-        /// the game parts company with the Testbed. The Testbed also culls any ball whose body has gone to
-        /// sleep, i.e. come to rest anywhere, which is cheap and keeps the scene tidy but means a ball that
-        /// settles on the island's stone winks out in front of the player. A ball vanishing while it is plainly
-        /// in shot reads as a bug, whatever it saves. So a ball that does come to rest stays there and stays
-        /// visible — a rare case now rather than the routine one: the stone ring is a dish
-        /// (<see cref="ArenaIsland.DISH_DEPTH"/>), so a ball that lands on it rolls into the drain and leaves
-        /// through the hole instead of accumulating over the session, and anything inside the funnel's rim
-        /// runs down its ~55° wall the way it always did. What can still rest is a pile propping itself up
-        /// near the mouth; those fall asleep, and a sleeping body leaves Bepu's active set, so they are drawn
-        /// but barely simulated.
+        /// <b>No ball is culled for coming to rest</b> — deliberately, and this is where the game parts company with the
+        /// Testbed. The Testbed culls any ball whose body has gone to sleep, i.e. come to rest anywhere, which is cheap
+        /// and keeps the scene tidy but means a ball that settles on the island's stone winks out in front of the
+        /// player. A ball vanishing while it is plainly in shot reads as a bug, whatever it saves. So a ball that does
+        /// come to rest stays there and stays visible — a rare case now rather than the routine one: the stone ring is a
+        /// dish (<see cref="ArenaIsland.DISH_DEPTH"/>), so a ball that lands on it rolls into the drain and leaves
+        /// through the hole instead of accumulating over the session, and anything inside the funnel's rim runs down
+        /// its ~55° wall the way it always did. What can still rest is a pile propping itself up near the mouth; those
+        /// fall asleep, and a sleeping body leaves Bepu's active set, so they are drawn but barely simulated.
         /// </para>
         /// <para>
-        /// <b>The exception is a spent cutter (#823)</b>, retired on the step it struck: it has done its work there, and
+        /// <b>A released ball that outstays its time is dissolved, then retired (#1191)</b>: one still in the field
+        /// <see cref="LooseBallTimeout.FIELD_SECONDS"/> after its release (wedged up among the balls, where a shot passes
+        /// through it and nothing can attach to it, which confused players), and one anywhere after
+        /// <see cref="LooseBallTimeout.BACKSTOP_SECONDS"/> (the pile at the mouth above). It goes over
+        /// <see cref="LooseBallTimeout.VANISH_SECONDS"/> in the dead weight's dither carried the whole way, which is what
+        /// answers the objection above: it is seen going, it does not wink out. The field's floor is the one the dead
+        /// weight is marked above. The spare volley's balls are left alone (<see cref="PhysicsBall.Untimed"/>).
+        /// </para>
+        /// <para>
+        /// <b>And a spent cutter (#823)</b> is retired on the step it struck: it has done its work there, and
         /// dropped among the falling balls it waited for a fall that only exists when the cut orphaned something. A cut that
         /// orphaned nothing left it pressed into balls still hung by their sockets, a black ball wedged in the cluster that
         /// the owner photographed on Gyroid.
@@ -221,16 +229,25 @@ namespace BS3D.Screens
         /// True for shot balls, which may still be undecided when they go over the edge. A released ball was
         /// unregistered when it attached, so it can never be still listening and has no miss to score.
         /// </param>
-        /// <param name="retireSpentCutters">True for the falling balls alone: a cutter there has struck and is spent (#823). A
-        /// cutter among the shot balls is still flying.</param>
-        private void RemoveFallenBalls(List<PhysicsBall> balls, bool scoreMisses, bool retireSpentCutters = false)
+        /// <param name="released">True for the falling balls alone: a cutter there has struck and is spent (#823), and
+        /// every other ball there is on the loose timeout (#1191), whose clock this advances once a frame. A cutter among
+        /// the shot balls is still flying, and a shot is no released ball.</param>
+        private void RemoveFallenBalls(List<PhysicsBall> balls, bool scoreMisses, bool released = false)
         {
             for (int i = balls.Count - 1; i >= 0; i--)
             {
                 BodyReference body = balls[i].BallReference;
 
-                //No sleep cull here, deliberately; but a spent cutter goes at once (#823) - see the remarks above
-                if (body.Pose.Position.Y >= KILL_PLANE_Y && !(retireSpentCutters && balls[i].Kind == BallKind.Cutter)) continue;
+                //No sleep cull here, deliberately; but a spent cutter goes at once (#823), and a released ball that has
+                //dissolved the whole way (#1191) - see the remarks above. The timeout is asked last, so every ball that
+                //stays is aged exactly once a frame and one that is leaving anyway is not
+                bool belowKillPlane = body.Pose.Position.Y < KILL_PLANE_Y;
+                bool spentCutter = released && balls[i].Kind == BallKind.Cutter;
+
+                if (!belowKillPlane && !spentCutter
+                    && !(released && LooseBallTimeout.Advance(balls[i], _simulatedThisFrame, _clusterWorldOffset.Y))) continue;
+
+                if (released && _test.LogShots) LogLooseBallGone(balls[i], belowKillPlane, spentCutter);
 
                 //Unregisters the listener if there still is one and then removes the body, in that one order
                 //that is safe (PhysicsWorld.RetireBall owns it), and answers whether the ball was STILL
@@ -251,6 +268,23 @@ namespace BS3D.Screens
 
                 balls.RemoveAt(i);
             }
+        }
+
+        /// <summary>
+        /// Testing only (<c>logshots</c>, #1191): one line for a released ball leaving, with how long it was loose, what
+        /// took it and where it stood against the field's floor - the record a timeout's figures are read off (how long a
+        /// natural fall takes to the kill plane, how many balls are still loose when the timeout comes). Opt-in, as every
+        /// diagnostic on the gameplay path is (BestPractices.md §4): a big drop is a hundred lines.
+        /// </summary>
+        private void LogLooseBallGone(PhysicsBall ball, bool belowKillPlane, bool spentCutter)
+        {
+            float y = ball.BallReference.Pose.Position.Y;
+            string cause = belowKillPlane ? "the kill plane" : spentCutter ? "spent cutter" : "dissolved";
+
+            Console.WriteLine(FormattableString.Invariant(
+                $"[loose] {ball.Type} {ball.Kind} gone at {WallClock:F2} s after {ball.LooseSeconds:F2} s loose: {cause}")
+                + FormattableString.Invariant($", at y {y:F1} ({(y > _clusterWorldOffset.Y ? "in" : "below")} the field)")
+                + (ball.Untimed ? ", untimed" : "") + $", {_fallingBalls.Count - 1} still loose");
         }
 
         #endregion

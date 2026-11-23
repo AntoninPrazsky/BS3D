@@ -1314,6 +1314,9 @@ namespace Prazsky.BS3D
         //Not much lower than half either — a ball with most of itself intact, standing still, reads as a ball that is
         //already there (the ghost's own remarks say it of a ghost that stood still), which is exactly the mistake a dead
         //ball is there to prevent.
+        //It is a stage and not an end since #1191: a released ball still in the field a few seconds after its release goes
+        //the rest of the way, the dither carried from here to the whole ball (Prazsky.BS3D.Physics.LooseBallTimeout), and is
+        //retired.
         //Public for the pictures of a dead ball the Game draws beside its words (#1023): the tutorial's card and the Help page
         public const float DEAD_DISSOLVE = 0.5f;
 
@@ -3453,9 +3456,16 @@ namespace Prazsky.BS3D
                     //instance. It cannot collide with the crossings above — they run while a ball is still
                     //lattice or has just landed, and this only ever runs on a ball already released — and the
                     //order here says which wins if a future rule ever puts them on the same frame.
+                    //
+                    //A released ball's LAST dissolve (#1191) arrives on the instance (AddOriented's vanish) and is
+                    //carried on from the mark: the mark's share of the ball plus that share of what is left, so the
+                    //going starts where the mark stands and spends its whole length on the pixels the mark left. A
+                    //ball that never wore the mark goes out on the instance's dissolve below, as every special kind
+                    //does in its own region above.
                     if (deadWeight > 0f)
                     {
-                        _set.Store(typeIndex, lod, instance.WithDissolve(deadWeight * BallRenderSet.DEAD_DISSOLVE), still);
+                        float mark = deadWeight * BallRenderSet.DEAD_DISSOLVE;
+                        _set.Store(typeIndex, lod, instance.WithDissolve(mark + (1f - mark) * instance.Dissolve), still);
                         break;
                     }
 
@@ -3489,11 +3499,16 @@ namespace Prazsky.BS3D
         /// ball is part of the hanging map, so a ball that has left it must not keep the beat. It cannot be a
         /// value on the instance — the pulse is a per-renderer uniform — so it routes the ball into the still
         /// plane and a draw of its own.</param>
+        /// <param name="vanish">How far a released ball is through its last dissolve before it is retired (#1191), 0 for
+        /// every other ball: the instance's own dissolve, so every kind's region dithers it away, and an ordinary ball
+        /// wearing the dead weight's mark carries it on from the mark (see <see cref="Route"/>). The crossings above it
+        /// write their own signed dissolve and would hide it, but they run on a ball in the lattice or just landed and
+        /// last under half a second, and a ball starts to go seconds after its release.</param>
         public void AddOriented(BallType type, Vector3 position, in Quaternion orientation, Vector4 occlusion,
             float ripple = 0f, BallKind kind = BallKind.Normal, float colourFade = 0f, float deadWeight = 0f,
             float thawFade = 0f, float infectFade = 0f, bool still = false, float lockFade = 0f,
             BallType lockFrom = default, Vector3 stretch = default, Vector3 shutterTravel = default,
-            Vector3 shutterTurn = default)
+            Vector3 shutterTurn = default, float vanish = 0f)
         {
             int typeIndex = (int)type - 1;
             if (typeIndex < 0 || typeIndex >= BallRenderSet.TYPE_COUNT) return;
@@ -3523,7 +3538,7 @@ namespace Prazsky.BS3D
             if (_set.RecordMotion) RecordMotion(world, shutterTravel, shutterTurn);
 
             Route(kind, typeIndex, _set.LodFor(Vector3.DistanceSquared(position, _eye)),
-                new ModelInstance(world, occlusion, 0f, ripple), still, colourFade, deadWeight, thawFade,
+                new ModelInstance(world, occlusion, vanish, ripple), still, colourFade, deadWeight, thawFade,
                 infectFade, lockFade, (int)lockFrom - 1);
         }
 
