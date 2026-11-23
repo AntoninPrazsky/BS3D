@@ -286,27 +286,33 @@ namespace BS3D.Tests
             }
         }
 
+        /// <summary>
+        /// Every cut inside the reel lands on another picture, with the land (the river into the eruption) and without it, at
+        /// Low (the volcano's wide shot into the eruption, the cut #975 was about).
+        /// </summary>
         [Fact]
         public void NoCutLandsOnTheSamePicture()
         {
-            for (int seed = 1; seed <= ROLLS; seed++)
-            {
-                IntroShot[] shots = Shots(seed, out _, out _, out _);
-
-                for (int i = 0; i + 1 < shots.Length; i++)
+            foreach (bool land in new[] { true, false })
+                for (int seed = 1; seed <= ROLLS; seed++)
                 {
-                    shots[i].Pose(1f, out Vector3 fromPosition, out Vector3 fromTarget);
-                    shots[i + 1].Pose(0f, out Vector3 toPosition, out Vector3 toTarget);
+                    IntroShot[] shots = Shots(seed, out _, out _, out _, land);
 
-                    Vector3 before = Vector3.Normalize(fromTarget - fromPosition);
-                    Vector3 after = Vector3.Normalize(toTarget - toPosition);
-                    float angle = MathHelper.ToDegrees(MathF.Acos(MathHelper.Clamp(Vector3.Dot(before, after), -1f, 1f)));
-                    float distance = Vector3.Distance(fromPosition, toPosition);
+                    for (int i = 0; i + 1 < shots.Length; i++)
+                    {
+                        shots[i].Pose(1f, out Vector3 fromPosition, out Vector3 fromTarget);
+                        shots[i + 1].Pose(0f, out Vector3 toPosition, out Vector3 toTarget);
 
-                    Assert.True(angle >= MIN_CUT_ANGLE_DEGREES && distance >= MIN_CUT_DISTANCE,
-                        $"seed {seed}: '{shots[i].Name}' -> '{shots[i + 1].Name}' cuts to a view {angle:F0} degrees and {distance:F0} units from the last");
+                        Vector3 before = Vector3.Normalize(fromTarget - fromPosition);
+                        Vector3 after = Vector3.Normalize(toTarget - toPosition);
+                        float angle = MathHelper.ToDegrees(MathF.Acos(MathHelper.Clamp(Vector3.Dot(before, after), -1f, 1f)));
+                        float distance = Vector3.Distance(fromPosition, toPosition);
+
+                        Assert.True(angle >= MIN_CUT_ANGLE_DEGREES && distance >= MIN_CUT_DISTANCE,
+                            $"seed {seed}, land {land}: '{shots[i].Name}' -> '{shots[i + 1].Name}' cuts to a view {angle:F0} degrees and "
+                            + $"{distance:F0} units from the last");
+                    }
                 }
-            }
         }
 
         /// <summary>
@@ -353,18 +359,20 @@ namespace BS3D.Tests
                     }
         }
 
+        /// <summary>Every lens of the reel, with the land and without it (Low's wide shot of the volcano), clears the ground.</summary>
         [Fact]
         public void EveryLensStaysClearOfTheCone()
         {
-            for (int seed = 1; seed <= ROLLS; seed++)
-                foreach (IntroShot shot in Shots(seed, out _, out Func<float, float, float> ground, out _))
-                    for (int i = 0; i < POSES; i++)
-                    {
-                        shot.Pose(i / (float)(POSES - 1), out Vector3 position, out _);
-                        float under = ground(position.X, position.Z);
-                        Assert.True(position.Y - under >= MIN_CLEARANCE,
-                            $"seed {seed}: '{shot.Name}' at {i}/{POSES} stands {position.Y - under:F1} over the ground");
-                    }
+            foreach (bool land in new[] { true, false })
+                for (int seed = 1; seed <= ROLLS; seed++)
+                    foreach (IntroShot shot in Shots(seed, out _, out Func<float, float, float> ground, out _, land))
+                        for (int i = 0; i < POSES; i++)
+                        {
+                            shot.Pose(i / (float)(POSES - 1), out Vector3 position, out _);
+                            float under = ground(position.X, position.Z);
+                            Assert.True(position.Y - under >= MIN_CLEARANCE,
+                                $"seed {seed}, land {land}: '{shot.Name}' at {i}/{POSES} stands {position.Y - under:F1} over the ground");
+                        }
         }
 
         /// <summary>

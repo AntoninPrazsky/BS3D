@@ -349,8 +349,10 @@ namespace BS3D.Tests
 
             var volcano = new VolcanoSceneConfig();
             Func<float, float, float> cone = (x, z) => TerrainMirror.Volcano(x, z, volcano);
-            yield return new Reel("volcano", VolcanoIntroShots.Shots(cone, new VolcanoLava(volcano, 0).VentPosition[0], volcano, fov, new Random(roll)),
-                cone, Over(cone));
+            Vector3 vent = new VolcanoLava(volcano, 0).VentPosition[0];
+            yield return new Reel("volcano", VolcanoIntroShots.Shots(cone, vent, volcano, fov, new Random(roll)), cone, Over(cone));
+            //Low draws no village or woods, and its reel opens on the volcano's wide shot where the others open on the river
+            yield return new Reel("volcano at Low", VolcanoIntroShots.Shots(cone, vent, volcano, fov, new Random(roll), land: false), cone, Over(cone));
 
             var moon = new MoonSceneConfig();
             Func<float, float, float> regolith = (x, z) => TerrainMirror.Moon(x, z, moon.Terrain);

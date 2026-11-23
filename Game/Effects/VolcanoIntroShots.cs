@@ -24,9 +24,10 @@ namespace BS3D.Effects
     /// down, and the reel is held to its length (<c>VolcanoIntroShotsTests</c>) with no room for both.
     /// </para>
     /// <para>
-    /// <b>The four stand on four different sides and at four distances.</b> The river runs up its valley on the far side of
-    /// the arena from the cone, eight hundred to a thousand units from it; the eruption is seen from the cone's foot, low; the crater run climbs
-    /// from the arena's side; the village is orbited on the far side of the arena from the cone, seven hundred units from it.
+    /// <b>Each shot stands somewhere else than the one before it.</b> The river runs up its valley on the far side of the
+    /// arena from the cone, eight hundred to a thousand units from it; the eruption is seen from the cone's foot, low, round
+    /// to one side; the crater run climbs from the arena's side; the village is orbited on the far side of the arena again,
+    /// seven hundred units from the cone, two cuts after the river.
     /// <c>VolcanoIntroShotsTests</c> holds every cut to a lens that moves at least <c>MIN_CUT_DISTANCE</c> AND a view
     /// that turns at least <c>MIN_CUT_ANGLE_DEGREES</c>, stricter than the cities' either-or, because a view that only
     /// slides along its own line is still the same picture. The village comes last, after the crater: it ends looking at
@@ -164,15 +165,18 @@ namespace BS3D.Effects
         private const float VILLAGE_END_DOWN_DEGREES = ChapterIntro.MAP_KEY_MIN_ELEVATION_DEGREES - CUT_TO_THE_MAP_DEGREES;
         private const float VILLAGE_FOV = 1.35f;
 
-        //The river (#1220): a run upstream over the river's east arm, from RIVER_FROM to RIVER_TO along its course
-        //(VolcanoCountry.RIVER_COURSE, measured from its source; both moved together by up to RIVER_ROLL), 135 units at about 40
-        //a second. It starts in the valley the water cuts between the ranges (where the course runs 700 and more from the arena
-        //the valley's walls stand 30 to 80 over the water 120 to 160 off it) and comes out towards the arena where the land falls
-        //away, past the banks' trees, climbing from RIVER_LOW to RIVER_HIGH over the water as the valley opens (the water lies
-        //level along the whole arm: a river never climbs, VolcanoCountry). The look is the bearing halfway between the village's
-        //roofs and the vent as the lens sees them, RIVER_LOOK_DOWN_DEGREES down: the village on the left, the cone and its
-        //column on the right, the island between and the river running into the frame under them. The hill on the left hides
-        //the village's roofs over the first half of the run, and it comes out from behind it: "then visible".
+        //The river (#1220): a run upstream over the river's east arm (its run back out from its turn beside the
+        //village, on +X: docs/scenes/volcano.md), from RIVER_FROM to RIVER_TO along its course
+        //(VolcanoCountry.RIVER_COURSE, measured from its source; both moved together by up to RIVER_ROLL), 141 to 143
+        //units of flight as the lens follows the meanders and climbs, at about 40 a second. It starts in the valley the
+        //water cuts between the ranges (where the course runs 700 and more from the arena the valley's walls stand 30
+        //to 80 over the water 120 to 160 off it) and comes out towards the arena where the land falls away, past the
+        //banks' trees, climbing from RIVER_LOW to RIVER_HIGH over the water as the valley opens (the water lies level
+        //along the whole arm: a river never climbs, VolcanoCountry). The look is the bearing halfway between the
+        //village's roofs and the vent as the lens sees them, RIVER_LOOK_DOWN_DEGREES down: the village on the left, the
+        //cone and its column on the right, the island between and the river running into the frame under them. The hill
+        //on the left hides the village's roofs over the first half of the run, and it comes out from behind it: "then
+        //visible".
         //
         //Only the east arm puts them so: flying up the west arm mirrors it (the village on the right). Where the run ends, the
         //village and the vent stand about 25 degrees either side of the middle of a frame whose half-width is 38 at 16:9; farther
