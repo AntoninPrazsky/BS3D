@@ -57,9 +57,10 @@ namespace BS3D.Tests
         private const int EDGE_FRAMES = 3;
 
         //The meadow's two orbits (#1187) are cheap to build, and what takes one past the limits is the ground under one
-        //layout in a hundred or more: a crease of the cut field under the arc (328 u/s³ in one of 400 layouts) or a hillside
-        //running down across it (the view tilted at 21.0 and 21.4 in two). Over a dozen rolls neither was ever met.
-        private const int ORBIT_ROLLS = 400;
+        //layout in a hundred or more: a crease of the cut field under the arc (260 u/s³ on roll 52 with the height held over
+        //the ground point by point) or a hillside running down across it (the view tilted at 20.6 and 21.0 on rolls 498 and
+        //938 with no arc refused for it). Over a dozen rolls neither was ever met.
+        private const int ORBIT_ROLLS = 1000;
 
         //What drone footage is, in world units and degrees per second (see the class remarks). (internal: MeadowLandingTests
         //holds the brook home to them over its whole sweep of poses)

@@ -94,10 +94,10 @@ namespace BS3D.Effects
         private const float CLIMB_SECONDS_MIN = 2.6f, CLIMB_SECONDS_MAX = 3.2f;
 
         //And it starts this long, seconds, before the lens reaches its point past the middle: a smootherstep rises slowly at
-        //first, and begun at that point it still had the lens 2 to 2.5 units under the old climb where it crosses the pond's
-        //near shore, the crater's bank close under it (the level's own pose, sceneseed 0). Half a second before the middle
-        //is as the lens passes the willows, 7 to 11 short of it at the trees' pace, so it is still at the brook's height
-        //between them.
+        //first, and begun at that point it had barely left the brook's height where it crosses the pond's near shore, the
+        //crater's bank close under it: 2.05 over the field on average at the level's own pose, 3.0 with the lead
+        //(MeadowLandingTests holds 2.5). Half a second before the middle is as the lens passes the willows, 7 to 11 short of
+        //it at the trees' pace, so it is still at the brook's height between them.
         private const float CLIMB_LEAD = 0.5f;
         private const float CRUISE_ABOVE_MIN = 6f, CRUISE_ABOVE_MAX = 10f;
 
@@ -365,7 +365,8 @@ namespace BS3D.Effects
 
             //The speeds: the brook's pace easing to the trees' before the willows and up from there to the cruise's (a smoothstep
             //of the distance, so the acceleration has no step); and the look down the brook and over the pond, turning in towards
-            //the island as the lens comes off the brook's line, eased to the second derivative, as the look's turn follows it
+            //the island as the lens comes off the brook's line, on a smootherstep: on a smoothstep the view turned at 50 degrees
+            //a second, the drone limit, onto one pose of MeadowLandingTests' sweep
             var speed = new float[plan.Count];
             var lean = new float[plan.Count];
             for (int i = 0; i < plan.Count; i++)
@@ -392,7 +393,9 @@ namespace BS3D.Effects
 
             //The heights, eased on that clock, as a drone's climb rate changes (#1187): the brook's over the field, climbing to
             //the cruise's over climbSeconds from CLIMB_LEAD before sRise; over the release, from that onto the pose's while the
-            //landing decelerates
+            //landing decelerates. Both on a smootherstep, a choice no limit tells from a smoothstep: the landing's rounding of
+            //its timed points (IntroLanding.DRONE_ROUNDING_SECONDS) turns a smoothstep's steps in the acceleration into ramps
+            //well inside the drone limits
             int rise = 0;
             while (rise < plan.Count - 1 && length[rise] < sRise) rise++;
             float climbFrom = clock[rise] - CLIMB_LEAD;

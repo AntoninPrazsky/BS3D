@@ -103,8 +103,9 @@ namespace BS3D.Effects
         //And no faster than this does the view pitch round the subject, degrees a second (#1187): a lens this low follows the
         //ground, so on a hillside it climbs and drops as it goes round and the view tilts with it, and a drone's gimbal tilts
         //at 20 at the most (IntroShotSmoothnessTests). An arc that would tilt it faster is refused, as one that loses the
-        //subject is, and another bearing round it is tried: 3 of 400 layouts tilted it at 20.2 to 21.4, each on a slope
-        //running down across the arc. A degree under the limit, for the spline between the points it is read at.
+        //subject is, and another bearing round it is tried: four layouts of 2000 tilted it at 20.0 to 21.0, each on a slope
+        //running down across the arc, which no rounding of the height takes off. A degree under the limit, for the spline
+        //between the points it is read at.
         private const float ORBIT_PITCH_RATE = 19f;
 
         //The lens is never nearer the ground than this, whatever the ground does between the points the path is built at
