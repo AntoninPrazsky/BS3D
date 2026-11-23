@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-23 — #1229 krátký článek o tetelení: obrázky, klip a kód zpět — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: „Hot air, only far away“ zůstal krátký (397 slov v odstavcích), ale dostal zpět média dlouhého článku byte po bytu z 8a9870f6: klip prvního, slabšího tetelení v „Bigger, because Antonín asked“ a rozdílový obrázek herního pohledu (vše odlišné ≥ 2/255 leží u obzoru). Nově ukázka kódu: 17 řádků HLSL z `RefractPS` (posun čtení o úhel, ne pixely), nejvýš 34 znaků na řádek, aby se vešla na 360px telefon. `docs/website.md`: krátký je text, ne obrázky; ukázka pod dvacet řádků.
+- majitel: i kratší článek má mít původní obrázky, animaci a ukázku kódu (poznámka k #1229).
+- ⚠ Řádky o 36 znacích přetekly box kódu na 360 px (330 > 326).
+- Otevřené: `verdict-eye` (délka se čtyřmi bloky, čitelnost kódu). Web nezveřejněn; klipy nikdo neviděl hrát okem.
+
 ## 2026-11-22 — #1234 savana: stébla z boku ukotvená k zemi — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: stébla savany viděná z boku už nejsou vějíř připnutý k obrazovce (`Fbm2Combed` s pozicí kamery), ale luční `GrassStrokes` z `Grass.fxh`, jen v detailním programu, se stejným mícháním 0,85/0,5 a `tipCover` (stezky a spálenina kolem ohňů je dál vypínají). Frekvence 20 (40 na jednotku), aby v blízkém poli domova trávy zůstala šíře na obrazovce; 72 na jednotku v nízkých záběrech skoro zmizelo. Snímek po snímku drží vzor 0,92–0,98 (dřív 0,03–0,42). Herní pohled o 0,2 ms levnější, nejdražší vteřina intra +0,1 ms. Testy `SavannaStrokesSourceTests`. #1232 je totéž (z review #1190) a je tímto opravené.
