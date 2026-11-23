@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-23 — #1194 Amfora: modrá místo hnědé — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: noha a hrdlo Amfory modré a červené místo hnědé a červené (44 koulí Type10 → Type3 v `AmphoraColour`, level přegenerován). Tvar, skupiny i obtížnost stejné (14 skupin, nejkratší dohrání 4).
+- ⚠ Rig barev sloučení neukáže (bublina ukazuje oblohu za sebou): černá/hnědá tam 28,1, v levelu jen 11,5–19,8 (CIEDE2000, medián koule). Příčina: tečky hnědé jsou světle oranžovohnědé na skoro černém podkladu (GROUND_MIN), skvrny oranžové jsou tmavě oranžové, tedy hnědé. Bez ozdob je to 31,6. Měřit v levelu, ne na rigu.
+- Nový test `BubblePaletteTests`: bublinový level nesmí věšet hnědou vedle černé nebo oranžové (viděn selhat na starém levelu).
+- Otevřené: `verdict-eye` (čte se modrá noha pořád jako amfora?); online žebříček Amfory začíná znovu (nový hash, potřebuje ceilings). Neměřeno: stejná hnědá s tmavým podkladem ve vlně, porcelánu a plazmě vedle černé.
+
 ## 2026-11-23 — #1214 menu: průlet nad skleněným stropem — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: třetí výlet kamery menu (`GlassPass`, každý čtvrtý cyklus; dělo dál 1/3, shluk 5/12). Klesne z 40–52 na 3,5–6 nad desku, 12° od svislice, čtvrtotočka, mezi lany, strop pod střechou. Jen kde tier láme sklo (`RefractsCeiling`); na Low a Potato shluk místo něj. Sklo menu se při průletu vyjasní z 0,7 na hrané 0,48. `menuglass=pass` (nejkratší hodnoty, stejné vteřiny v každém běhu). Sonda kvality průlet nesoudí.
