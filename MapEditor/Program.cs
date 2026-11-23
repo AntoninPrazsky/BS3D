@@ -33,6 +33,7 @@ namespace MapEditor
             int width = DEFAULT_WINDOW_WIDTH, height = DEFAULT_WINDOW_HEIGHT;
             float[] shotSeconds = null;
             Vector3? cameraPosition = null, cameraTarget = null;
+            int? sceneSeed = null;
             bool hideText = false, gameSky = true, island = true, glass = true;
 
             foreach (string arg in args ?? Array.Empty<string>())
@@ -43,6 +44,8 @@ namespace MapEditor
                 else if (TryOption(arg, "campos=", out value)) cameraPosition = VectorOr(value, cameraPosition);
                 else if (TryOption(arg, "camtarget=", out value)) cameraTarget = VectorOr(value, cameraTarget);
                 else if (arg.Equals("notext", StringComparison.OrdinalIgnoreCase)) hideText = true;
+                else if (TryOption(arg, "sceneseed=", out value))
+                    sceneSeed = int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int seed) ? seed : sceneSeed;
                 else if (TryOption(arg, "gamesky=", out value)) gameSky = OnOr(value, gameSky);
                 else if (TryOption(arg, "island=", out value)) island = OnOr(value, island);
                 else if (TryOption(arg, "glass=", out value)) glass = OnOr(value, glass);
@@ -57,6 +60,7 @@ namespace MapEditor
                 StartCameraPosition = cameraPosition,
                 StartCameraTarget = cameraTarget,
                 StartWithTextHidden = hideText,
+                SceneSeed = sceneSeed,
                 ShowGameSky = gameSky,
                 ShowIsland = island,
                 ShowCeilingGlass = glass,

@@ -158,10 +158,14 @@ namespace MapEditor
         private City _city;
 
         //The scene's procedural roll, rolled once per launch and added to every seeded arrangement (both
-        //cities, their roofs, the wood, the savanna's planting, the palms). The editor takes no sceneseed=
-        //to pin it with, and wants none: an author is looking at whether a MAP reads against a backdrop,
-        //and a backdrop that is a different city each session is a better test of that than one that is not.
-        private readonly int _sceneSeedOffset = Random.Shared.Next();
+        //cities, their roofs, the wood, the savanna's planting, the palms): an author is looking at whether a MAP reads
+        //against a backdrop, and a backdrop that is a different city each session is a better test of that than one that
+        //is not. Taken at LoadContent, where sceneseed= (SceneSeed) can pin it, so that two photographs of the editor show
+        //one arrangement and differ only in what they were taken to compare.
+        private int _sceneSeedOffset;
+
+        /// <summary><c>sceneseed=</c>: the scene's roll pinned, or null for a fresh one each launch, the editor's way.</summary>
+        public int? SceneSeed { get; set; }
 
         //Which of the two cities _city holds (#471's follow-up), so V rebuilds only when it crosses between them.
         private bool _cityIsNeon;
@@ -496,6 +500,9 @@ namespace MapEditor
 
         protected override void LoadContent()
         {
+            //Before anything seeded is built
+            _sceneSeedOffset = SceneSeed ?? Random.Shared.Next();
+
             _instancingEffect = Content.Load<Effect>("Shaders/InstancedModel");
 
             //The pipeline caches its parameters and sets each look value exactly once through the required
