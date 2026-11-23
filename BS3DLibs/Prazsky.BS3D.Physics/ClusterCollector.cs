@@ -375,7 +375,7 @@ namespace Prazsky.BS3D.Physics
         /// set against.
         /// </para>
         /// </summary>
-        private static float AdvanceDeadWeight(PhysicsBall ball, float elapsedSeconds, float aboveY)
+        internal static float AdvanceDeadWeight(PhysicsBall ball, float elapsedSeconds, float aboveY)
         {
             //The disabled case - the Testbed, the editor, anything with no field floor to speak of - is one
             //compare, and it also decays a mark left over from a caller that changed its mind
@@ -388,11 +388,15 @@ namespace Prazsky.BS3D.Physics
             else ball.StillSeconds = 0f;
 
             //Towards 1 while it holds still, back towards 0 the moment it moves again - one ramp read in both
-            //directions, so a group knocked loose mid-fade does not have a second timer to disagree with
+            //directions, so a group knocked loose mid-fade does not have a second timer to disagree with. But never
+            //back once the ball has begun its last dissolve (#1191, PhysicsBall.Vanish): the going is drawn carried on
+            //from the mark (BallRenderSet.ReleasedDissolve), so a mark easing out under it would hand a going ball
+            //pixels back, the glitch the going's own once-begun rule is there to prevent
             float step = elapsedSeconds / DEAD_WEIGHT_FADE_SECONDS;
+            float back = ball.Vanish > 0f ? 0f : -step;
 
             ball.DeadWeight = MathF.Max(0f, MathF.Min(1f,
-                ball.DeadWeight + (ball.StillSeconds >= DEAD_WEIGHT_HOLD_SECONDS ? step : -step)));
+                ball.DeadWeight + (ball.StillSeconds >= DEAD_WEIGHT_HOLD_SECONDS ? step : back)));
 
             return ball.DeadWeight;
         }

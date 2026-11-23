@@ -1,3 +1,4 @@
+using Prazsky.BS3D.GameStructure;
 using System;
 
 namespace Prazsky.BS3D.Physics
@@ -11,7 +12,7 @@ namespace Prazsky.BS3D.Physics
     /// <b>Why it exists.</b> A released ball is loose: a shot passes through it (#410) and nothing can attach to it, so one
     /// that wedges up among the balls instead of falling hangs in the player's way as a ball that cannot be hit. The dither
     /// already says so (#620), and the owner's QA notes asked for the rest: such balls confused players, so after a few
-    /// seconds they go. Only the kill plane removed them until then, and a ball resting on something never reached it.
+    /// seconds they go. The kill plane alone would never take one: a ball resting on something never reaches it.
     /// </para>
     /// <para>
     /// <b>Only in the field.</b> A ball below the field's floor is on its way out, through the drain or over the island's
@@ -20,7 +21,8 @@ namespace Prazsky.BS3D.Physics
     /// shot (232 balls) the pile took up to 13 s to drain to the kill plane, the last balls still falling at the hole. A
     /// timeout on age alone below the field dissolved 52 of them in mid-fall, so there is none. The floor is the one the
     /// dead weight is marked above (<see cref="ClusterCollector"/>'s <c>deadWeightAboveY</c>), so a ball that wears the
-    /// mark is a ball this takes.
+    /// mark is a ball this takes; the Game reads it off <see cref="Levels.ClusterHang.FieldFloorY"/>, which follows the
+    /// glass down and stops at the death line.
     /// </para>
     /// <para>
     /// <b>The world's clock</b>, not the draw's: the age is what the simulation lived through (a pause holds it, a capped
@@ -53,10 +55,33 @@ namespace Prazsky.BS3D.Physics
 
         /// <summary>
         /// How long the last dissolve takes, in seconds: long enough to be seen happening rather than to read as a pop
-        /// (a ball vanishing in shot reads as a bug), short enough to be over before the next shot lands. Twice the dead
-        /// weight's own ease (<c>ClusterCollector.DEAD_WEIGHT_FADE_SECONDS</c>), since it carries the dither the whole way.
+        /// (a ball vanishing in shot reads as a bug), short enough to be over before the next shot lands. About twice the
+        /// dead weight's own ease (<see cref="ClusterCollector.DEAD_WEIGHT_FADE_SECONDS"/>), since it carries the dither the
+        /// whole way rather than half of it.
         /// </summary>
         public const float VANISH_SECONDS = 1f;
+
+        /// <summary>
+        /// The Game's whole cull of one ball for one frame (<c>GameplayScreen.RemoveFallenBalls</c>), here so the tests run
+        /// the very decision the Game makes: any ball under <paramref name="killPlaneY"/> goes (down the drain or over the
+        /// island's edge); among the <paramref name="released"/> ones a cutter goes at once, spent on the step it struck
+        /// (#823), and every other is aged by <see cref="Advance"/> and goes once its dissolve has run. A shot is never aged:
+        /// it is no released ball, and a cutter among the shots is still flying. Asked in that order, so every released ball
+        /// that stays is aged exactly once a frame and one that is leaving anyway is not.
+        /// </summary>
+        /// <param name="ball">A ball the Game holds, a shot or a released one.</param>
+        /// <param name="released">Whether it is among the released balls rather than the shots.</param>
+        /// <param name="killPlaneY">The world Y under which every ball has left the game.</param>
+        /// <param name="seconds">What the world lived through this frame, as <see cref="Advance"/> takes it.</param>
+        /// <param name="fieldFloorY">The field's floor in world Y, as <see cref="Advance"/> takes it.</param>
+        public static BallExit Cull(PhysicsBall ball, bool released, float killPlaneY, float seconds, float fieldFloorY)
+        {
+            if (ball.BallReference.Pose.Position.Y < killPlaneY) return BallExit.KillPlane;
+            if (!released) return BallExit.Stays;
+            if (ball.Kind == BallKind.Cutter) return BallExit.SpentCutter;
+
+            return Advance(ball, seconds, fieldFloorY) ? BallExit.Dissolved : BallExit.Stays;
+        }
 
         /// <summary>
         /// Advances one released ball's clock by <paramref name="seconds"/> of the world's time and its last dissolve
@@ -89,5 +114,21 @@ namespace Prazsky.BS3D.Physics
         /// </summary>
         public static bool IsDue(float looseSeconds, float y, float fieldFloorY, float speed) =>
             looseSeconds >= FIELD_SECONDS && y > fieldFloorY && speed < FALLING_SPEED;
+    }
+
+    /// <summary>What a ball the Game holds leaves the game by this frame, if anything (<see cref="LooseBallTimeout.Cull"/>).</summary>
+    public enum BallExit : byte
+    {
+        /// <summary>It stays.</summary>
+        Stays,
+
+        /// <summary>Under the kill plane: down the drain or over the island's edge.</summary>
+        KillPlane,
+
+        /// <summary>A cutter among the released balls, spent on the step it struck (#823).</summary>
+        SpentCutter,
+
+        /// <summary>A released ball that outstayed its time in the field and has dissolved the whole way (#1191).</summary>
+        Dissolved,
     }
 }

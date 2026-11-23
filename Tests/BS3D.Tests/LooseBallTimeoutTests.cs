@@ -2,8 +2,11 @@ using BepuPhysics;
 using Prazsky.BS3D;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
+using Prazsky.BS3D.Levels;
 using Prazsky.BS3D.Physics;
 using Prazsky.BS3D.Scoring;
+using Prazsky.Core.Render;
+using Prazsky.Core.Tools;
 using System;
 using System.Collections.Generic;
 using Xunit;
@@ -13,8 +16,14 @@ namespace BS3D.Tests
     /// <summary>
     /// The loose ball's timeout (#1191, <see cref="LooseBallTimeout"/>): a released ball that wedged in the field goes after its
     /// time, dissolving the whole way, and is retired once, with nothing counted for it again; one below the field, or falling
-    /// out of it, is left its fall; the spare volley's balls never go; and the drawn dissolve carries the dead weight's mark on
-    /// to the whole ball.
+    /// out of it, is left its fall; the spare volley's balls never go; the field's floor follows the glass down to the death
+    /// line; the Game's cull takes what it should and ages only the released balls; and the drawn dissolve carries the dead
+    /// weight's mark on to the whole ball and never goes back.
+    /// <para>
+    /// What only a run checks: that <c>GameplayScreen.FireSpareBall</c> marks the volley's balls <c>Untimed</c>, and that the
+    /// ball's <c>Vanish</c> reaches the instance (<c>ClusterCollector.Collect</c> into <c>BallDrawFrame.AddOriented</c>); the
+    /// tests compile neither the Game's screen nor a frame's buckets.
+    /// </para>
     /// </summary>
     public class LooseBallTimeoutTests
     {
@@ -23,6 +32,12 @@ namespace BS3D.Tests
 
         //GameplayScreen.KILL_PLANE_Y, which the tests cannot reference (DropFocusTests' copy)
         private const float KILL_PLANE_Y = -42f;
+
+        //CeilingDescent.CEILING_DESCENT_PER_STEP, which the tests cannot reference (SagProbe's copy)
+        private const float DESCENT_PER_STEP = 0.6f;
+
+        /// <summary>The field's floor of a hung level whose glass is still at rest, as the Game reads it (<c>FieldFloorY</c>).</summary>
+        private static float FloorAtRest(HungLevel hung) => ClusterHang.FieldFloorY(hung.WorldOffset.Y, 0f);
 
         /// <summary>
         /// The owner's case: a group the cluster let go of comes to rest up in the field instead of falling (a shelf under it,
@@ -34,7 +49,7 @@ namespace BS3D.Tests
         public void AGroupStuckInTheFieldIsGoneAfterItsTimeAndCountedOnce()
         {
             using HungLevel hung = new(Shelf(out XZLevel groupCell, out int groupSize));
-            float floorY = hung.WorldOffset.Y;
+            float floorY = FloorAtRest(hung);
 
             //The cluster settled first, as a level does before the first shot lands
             hung.Run(1f);
@@ -106,7 +121,7 @@ namespace BS3D.Tests
         public void ABallBelowTheFieldIsLeftItsFall()
         {
             using HungLevel hung = new(OneBall());
-            float floorY = hung.WorldOffset.Y;
+            float floorY = FloorAtRest(hung);
 
             PhysicsBall below = Loose(hung, floorY - 3f);
             PhysicsBall above = Loose(hung, floorY + 3f);
@@ -132,7 +147,7 @@ namespace BS3D.Tests
         public void ABallFallingOutOfTheFieldIsLeftItsFallUntilItStops()
         {
             using HungLevel hung = new(OneBall());
-            float floorY = hung.WorldOffset.Y;
+            float floorY = FloorAtRest(hung);
 
             PhysicsBall ball = Loose(hung, floorY + 3f);
             ball.BallReference.Velocity.Linear = new System.Numerics.Vector3(0f, -2f * LooseBallTimeout.FALLING_SPEED, 0f);
@@ -156,7 +171,7 @@ namespace BS3D.Tests
         public void ADissolveOnceBegunRunsToItsEnd()
         {
             using HungLevel hung = new(OneBall());
-            float floorY = hung.WorldOffset.Y;
+            float floorY = FloorAtRest(hung);
 
             PhysicsBall ball = Loose(hung, floorY + 3f);
             for (float clock = 0f; ball.Vanish <= 0f && clock < LONG_DRAIN_SECONDS; clock += FRAME)
@@ -179,7 +194,7 @@ namespace BS3D.Tests
         public void APauseAgesNothingAndTheVolleysBallsNeverGo()
         {
             using HungLevel hung = new(OneBall());
-            float floorY = hung.WorldOffset.Y;
+            float floorY = FloorAtRest(hung);
 
             PhysicsBall paused = Loose(hung, floorY + 3f);
             for (int i = 0; i < 10_000; i++) Assert.False(LooseBallTimeout.Advance(paused, 0f, floorY));
@@ -218,9 +233,128 @@ namespace BS3D.Tests
         }
 
         /// <summary>
+        /// A ball that has begun to go never gets pixels back: nudged into moving again during its going (faster than the mark
+        /// allows, <see cref="ClusterCollector.DEAD_WEIGHT_SPEED"/>, slower than a fall), its mark holds under the going
+        /// (<c>ClusterCollector.AdvanceDeadWeight</c>), so the drawn dissolve (<see cref="BallRenderSet.ReleasedDissolve"/>)
+        /// only ever climbs, to the whole ball. Both clocks run as the Game runs them: the timeout in the cull, then the mark
+        /// in the draw's walk.
+        /// </summary>
+        [Fact]
+        public void AGoingBallNeverGetsItsPixelsBack()
+        {
+            using HungLevel hung = new(OneBall());
+            float floorY = FloorAtRest(hung);
+
+            PhysicsBall ball = Loose(hung, floorY + 3f);
+            for (float clock = 0f; ball.Vanish <= 0f && clock < LONG_DRAIN_SECONDS; clock += FRAME)
+            {
+                LooseBallTimeout.Advance(ball, FRAME, floorY);
+                ClusterCollector.AdvanceDeadWeight(ball, FRAME, floorY);
+            }
+
+            Assert.True(ball.Vanish > 0f, "a ball at rest in the field never began to go");
+            Assert.Equal(1f, ball.DeadWeight);
+
+            ball.BallReference.Velocity.Linear = new System.Numerics.Vector3(
+                (ClusterCollector.DEAD_WEIGHT_SPEED + LooseBallTimeout.FALLING_SPEED) * 0.5f, 0f, 0f);
+
+            float previous = BallRenderSet.ReleasedDissolve(ball.DeadWeight, ball.Vanish);
+            bool gone = false;
+
+            for (float clock = 0f; !gone && clock < LONG_DRAIN_SECONDS; clock += FRAME)
+            {
+                gone = LooseBallTimeout.Advance(ball, FRAME, floorY);
+                float drawn = BallRenderSet.ReleasedDissolve(ClusterCollector.AdvanceDeadWeight(ball, FRAME, floorY), ball.Vanish);
+
+                Assert.True(drawn >= previous, $"a going ball got pixels back: its dissolve fell from {previous:F3} to {drawn:F3}");
+                previous = drawn;
+            }
+
+            Assert.True(gone, "a going ball never went");
+            Assert.Equal(1f, previous, 5);
+        }
+
+        /// <summary>
+        /// The Game's cull of one ball (<see cref="LooseBallTimeout.Cull"/>, what <c>RemoveFallenBalls</c> asks of every ball it
+        /// holds): the kill plane takes any ball; a cutter among the released balls goes at once, spent, and one among the shots
+        /// is still flying; a shot is never aged however long it stands in the field, while a released ball beside it goes
+        /// when its time and its dissolve have run.
+        /// </summary>
+        [Fact]
+        public void TheCullTakesWhatTheGameTakesAndAgesOnlyTheReleased()
+        {
+            using HungLevel hung = new(OneBall());
+            float floorY = FloorAtRest(hung);
+
+            PhysicsBall fallen = Loose(hung, KILL_PLANE_Y - 1f);
+            Assert.Equal(BallExit.KillPlane, LooseBallTimeout.Cull(fallen, released: false, KILL_PLANE_Y, FRAME, floorY));
+            Assert.Equal(BallExit.KillPlane, LooseBallTimeout.Cull(fallen, released: true, KILL_PLANE_Y, FRAME, floorY));
+
+            PhysicsBall cutter = Loose(hung, floorY + 3f);
+            cutter.Kind = BallKind.Cutter;
+            Assert.Equal(BallExit.Stays, LooseBallTimeout.Cull(cutter, released: false, KILL_PLANE_Y, FRAME, floorY));
+            Assert.Equal(BallExit.SpentCutter, LooseBallTimeout.Cull(cutter, released: true, KILL_PLANE_Y, FRAME, floorY));
+            Assert.Equal(0f, cutter.LooseSeconds);
+
+            PhysicsBall shot = Loose(hung, floorY + 3f);
+            PhysicsBall loose = Loose(hung, floorY + 3f);
+            float looseGoneAt = float.NaN;
+
+            for (float clock = 0f; clock < LONG_DRAIN_SECONDS; clock += FRAME)
+            {
+                Assert.Equal(BallExit.Stays, LooseBallTimeout.Cull(shot, released: false, KILL_PLANE_Y, FRAME, floorY));
+
+                if (float.IsNaN(looseGoneAt)
+                    && LooseBallTimeout.Cull(loose, released: true, KILL_PLANE_Y, FRAME, floorY) == BallExit.Dissolved)
+                    looseGoneAt = clock + FRAME;
+            }
+
+            Assert.Equal(0f, shot.LooseSeconds);
+            Assert.Equal(0f, shot.Vanish);
+            Assert.InRange(looseGoneAt, LooseBallTimeout.FIELD_SECONDS + LooseBallTimeout.VANISH_SECONDS,
+                LooseBallTimeout.FIELD_SECONDS + LooseBallTimeout.VANISH_SECONDS + 2f * FRAME);
+        }
+
+        /// <summary>
+        /// The field's floor follows the glass down (<see cref="ClusterHang.FieldFloorY"/>) and stops at the death line. On a
+        /// 16-level field, once the glass has stepped the cluster's bottom near the line, a ball wedged on its lowest balls stands
+        /// under the floor the load hung, and is due all the same; while a ball at rest on the island's stone, under the line,
+        /// is never due however far the glass has come.
+        /// </summary>
+        [Fact]
+        public void TheFloorFollowsTheGlassDownToTheLine()
+        {
+            var map = new BallsMap(5, 5, 16);
+            map.PutBallAt(2, 2, 15, BallType.Type1);
+            float loadFloorY = ClusterHang.FitWorldOffset(map, out _).Y;
+
+            Assert.Equal(loadFloorY, ClusterHang.FieldFloorY(loadFloorY, 0f));
+            Assert.True(loadFloorY > ClusterHang.DEATH_Y + 4f * DESCENT_PER_STEP,
+                $"the 16-level field's floor hangs at {loadFloorY:F2}, too near the line at {ClusterHang.DEATH_Y:F2} to show the case");
+
+            //Resting on two of the cluster's lowest balls with the line just under them: a ball's centre 0.87 over theirs
+            float wedgedY = ClusterHang.DEATH_Y + Constants.HALF + 0.87f;
+            float late = ClusterHang.FieldFloorY(loadFloorY, 6f * DESCENT_PER_STEP);
+
+            Assert.True(wedgedY < loadFloorY, "the wedged ball stands over the load's floor, so the case shows nothing");
+            Assert.True(LooseBallTimeout.IsDue(LooseBallTimeout.FIELD_SECONDS, wedgedY, late, 0f),
+                $"a ball wedged on the cluster at {wedgedY:F2}, the glass six steps down, is not due (the floor at {late:F2})");
+
+            float stoneY = ArenaIsland.TOP_Y + Constants.HALF;
+            for (int steps = 0; steps < 60; steps++)
+            {
+                float floor = ClusterHang.FieldFloorY(loadFloorY, steps * DESCENT_PER_STEP);
+
+                Assert.True(floor >= ClusterHang.DEATH_Y, $"the floor went under the line {steps} steps down, to {floor:F2}");
+                Assert.False(LooseBallTimeout.IsDue(LooseBallTimeout.FIELD_SECONDS + 10f, stoneY, floor, 0f),
+                    $"a ball at rest on the island's stone is due {steps} steps down");
+            }
+        }
+
+        /// <summary>
         /// One of the Game's frames over the released balls, as <c>GameplayScreen.StepPhysics</c> spends it: the world's
-        /// steps, then the cull (<c>RemoveFallenBalls</c>): the kill plane first, then the timeout, each ball aged once and a
-        /// ball that leaves retired through the kill plane's own door.
+        /// steps, then the cull (<c>RemoveFallenBalls</c>, through the same <see cref="LooseBallTimeout.Cull"/>): the kill
+        /// plane first, then the timeout, each ball aged once and a ball that leaves retired through the kill plane's own door.
         /// </summary>
         private static void Frame(HungLevel hung, List<PhysicsBall> released, float floorY, Dictionary<int, int> retired)
         {
@@ -229,8 +363,7 @@ namespace BS3D.Tests
             for (int i = released.Count - 1; i >= 0; i--)
             {
                 PhysicsBall ball = released[i];
-                bool below = ball.BallReference.Pose.Position.Y < KILL_PLANE_Y;
-                if (!below && !LooseBallTimeout.Advance(ball, FRAME, floorY)) continue;
+                if (LooseBallTimeout.Cull(ball, released: true, KILL_PLANE_Y, FRAME, floorY) == BallExit.Stays) continue;
 
                 int handle = ball.BallReference.Handle.Value;
                 retired[handle] = retired.TryGetValue(handle, out int n) ? n + 1 : 1;

@@ -256,7 +256,8 @@ namespace Prazsky.BS3D.Physics
         /// <summary>
         /// How far this ball has crossed to its <b>dead weight</b> look, 0 alive and 1 fully marked (#342) —
         /// a released ball that has come to rest against its neighbours, so nothing a shot can do reaches it.
-        /// Eased rather than switched, so nothing pops.
+        /// Eased rather than switched, so nothing pops. It eases back if the ball moves again, but not once the ball has
+        /// begun its last dissolve (<see cref="Vanish"/>), which is drawn carried on from it.
         /// <para>
         /// Kept on the ball for the reason <see cref="RippleTime"/> and <see cref="ColourFadeRemaining"/> are,
         /// and advanced by the same once-per-frame walk. It is <b>cosmetic</b>: what a ball is worth to the

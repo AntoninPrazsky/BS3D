@@ -207,7 +207,8 @@ namespace BS3D.Screens
         /// </para>
         /// <para>
         /// <b>A released ball that outstays its time in the field is dissolved, then retired (#1191)</b>: one still above
-        /// the field's floor (the one the dead weight is marked above) <see cref="LooseBallTimeout.FIELD_SECONDS"/> after
+        /// the field's floor where the glass has taken it (<see cref="FieldFloorY"/>, the one the dead weight is marked
+        /// above) <see cref="LooseBallTimeout.FIELD_SECONDS"/> after
         /// its release and not falling out of it (<see cref="LooseBallTimeout.FALLING_SPEED"/>), wedged up among the balls,
         /// where a shot passes through it and nothing can attach to it, which confused players. It goes over
         /// <see cref="LooseBallTimeout.VANISH_SECONDS"/> in the dead weight's dither carried the whole way, which is what
@@ -236,20 +237,20 @@ namespace BS3D.Screens
         /// the shot balls is still flying, and a shot is no released ball.</param>
         private void RemoveFallenBalls(List<PhysicsBall> balls, bool scoreMisses, bool released = false)
         {
+            float floorY = FieldFloorY;
+
             for (int i = balls.Count - 1; i >= 0; i--)
             {
                 BodyReference body = balls[i].BallReference;
 
                 //No sleep cull here, deliberately; but a spent cutter goes at once (#823), and a released ball that has
-                //dissolved the whole way (#1191) - see the remarks above. The timeout is asked last, so every ball that
-                //stays is aged exactly once a frame and one that is leaving anyway is not
-                bool belowKillPlane = body.Pose.Position.Y < KILL_PLANE_Y;
-                bool spentCutter = released && balls[i].Kind == BallKind.Cutter;
+                //dissolved the whole way (#1191) - see the remarks above. The decision is the library's, so the tests run
+                //this very one: the timeout is asked last, so every ball that stays is aged exactly once a frame and one
+                //that is leaving anyway is not
+                BallExit exit = LooseBallTimeout.Cull(balls[i], released, KILL_PLANE_Y, _simulatedThisFrame, floorY);
+                if (exit == BallExit.Stays) continue;
 
-                if (!belowKillPlane && !spentCutter
-                    && !(released && LooseBallTimeout.Advance(balls[i], _simulatedThisFrame, _clusterWorldOffset.Y))) continue;
-
-                if (released && _test.LogShots) LogLooseBallGone(balls[i], belowKillPlane, spentCutter);
+                if (released && _test.LogShots) LogLooseBallGone(balls[i], exit, floorY);
 
                 //Unregisters the listener if there still is one and then removes the body, in that one order
                 //that is safe (PhysicsWorld.RetireBall owns it), and answers whether the ball was STILL
@@ -278,15 +279,20 @@ namespace BS3D.Screens
         /// natural fall takes to the kill plane, how many balls are still loose when the timeout comes). Opt-in, as every
         /// diagnostic on the gameplay path is (BestPractices.md §4): a big drop is a hundred lines.
         /// </summary>
-        private void LogLooseBallGone(PhysicsBall ball, bool belowKillPlane, bool spentCutter)
+        private void LogLooseBallGone(PhysicsBall ball, BallExit exit, float floorY)
         {
             float y = ball.BallReference.Pose.Position.Y;
             float speed = ball.BallReference.Velocity.Linear.Length();
-            string cause = belowKillPlane ? "the kill plane" : spentCutter ? "spent cutter" : "dissolved";
+            string cause = exit switch
+            {
+                BallExit.KillPlane => "the kill plane",
+                BallExit.SpentCutter => "spent cutter",
+                _ => "dissolved",
+            };
 
             Console.WriteLine(FormattableString.Invariant(
                 $"[loose] {ball.Type} {ball.Kind} gone at {WallClock:F2} s after {ball.LooseSeconds:F2} s loose: {cause}")
-                + FormattableString.Invariant($", at y {y:F1} ({(y > _clusterWorldOffset.Y ? "in" : "below")} the field), {speed:F2} u/s")
+                + FormattableString.Invariant($", at y {y:F1} ({(y > floorY ? "in" : "below")} the field), {speed:F2} u/s")
                 + (ball.Untimed ? ", untimed" : "") + $", {_fallingBalls.Count - 1} still loose");
         }
 
