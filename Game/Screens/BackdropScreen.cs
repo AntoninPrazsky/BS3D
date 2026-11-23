@@ -257,8 +257,10 @@ namespace BS3D.Screens
         private const float WIDE_LENS_DROP = 2f;
 
         //Where the fly-in's crane starts and ends, stated as how steeply the lens LOOKS UP at the middle of the
-        //cluster (#599) — and both are upward, so there is no moment of the flight at which the camera looks
-        //down on the map. It starts low and steep, where the underside is the face in frame and the sky behind
+        //cluster (#599) — and both are upward, so there is no moment of the cluster's pass at which the camera
+        //looks down on the map. (The pass over the glass, #1214, is the one leg that does: the owner asked for
+        //it on 2026-11-20, a deliberate view from above of its own, which reverses this ruling for that leg
+        //alone.) It starts low and steep, where the underside is the face in frame and the sky behind
         //it says the thing hangs, and it climbs to a shallow look that is still up: CRANE_HIGH_PITCH is about
         //the wide leg's own (WIDE_LENS_DROP over the wide stand-off comes to 3 degrees at 16:9), so the
         //retreat pulls straight back out onto the establishing turn without tipping. The steep end is a
