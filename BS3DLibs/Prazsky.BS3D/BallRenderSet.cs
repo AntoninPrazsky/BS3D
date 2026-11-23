@@ -1388,9 +1388,8 @@ namespace Prazsky.BS3D
         /// for the reason <see cref="PULSE_DEPTH_RIPPLING"/> gives.</param>
         /// <param name="groundHeight">Y the ground-contact half of the ambient occlusion is measured against;
         /// the balls' bellies darken as they approach it, the same way the barrel's underside does. Defaults to
-        /// the island every ball in this game hangs over. The shader's ground term reaches 2 units up, i.e. to
-        /// y = −6.5, and a map's own grid sits at y ≥ 0, so this is a no-op for a caller drawing a bare map with
-        /// no island under it (the map editor) rather than something it has to opt out of.</param>
+        /// the island every ball in this game hangs over, the map editor's included: it hangs a map where a session does
+        /// (#1210). The shader's ground term reaches 2 units up, i.e. to y = −6.5.</param>
         public BallRenderSet(GraphicsDevice graphicsDevice, Effect instancingEffect, bool ripples = false,
             float groundHeight = ArenaIsland.TOP_Y)
         {

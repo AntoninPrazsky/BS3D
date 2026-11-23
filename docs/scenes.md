@@ -2,7 +2,7 @@
 
 The twenty-one backdrops the Game, the Testbed and the MapEditor all share, plus the island the gun stands on and the glass drain in the middle of it.
 
-**Each scene is one `Backdrop` class under `Prazsky.Core/Render/Scenes`, registered in `SceneCatalog` and hosted by `SceneRenderer`**, and the setting around it (the island, the ceiling plate, the sky light, the scene lights, the scatters) exists in one copy that no executable keeps for itself. Read [Backdrops and the scene registry](scenes/backdrop-architecture.md) before adding or changing a scene, and the one document of the scene you touch. **A terrain's height is mirrored on the CPU** (`TerrainMirror`, what the scatters, lamps and lenses are placed by): after touching a terrain shader's height or its mirror, run `mirrorcheck` on every mirrored scene. **The MapEditor never loads `Sky.fx`**, so a per-scene sky feature cannot live there.
+**Each scene is one `Backdrop` class under `Prazsky.Core/Render/Scenes`, registered in `SceneCatalog` and hosted by `SceneRenderer`**, and the setting around it (the island, the ceiling plate, the sky light, the scene lights, the scatters) exists in one copy that no executable keeps for itself. Read [Backdrops and the scene registry](scenes/backdrop-architecture.md) before adding or changing a scene, and the one document of the scene you touch. **A terrain's height is mirrored on the CPU** (`TerrainMirror`, what the scatters, lamps and lenses are placed by): after touching a terrain shader's height or its mirror, run `mirrorcheck` on every mirrored scene. **The MapEditor draws `Sky.fx` only with its game sky on** (the G switch, #1210), so a per-scene sky feature that has to show in every view belongs to the scene's own pass.
 
 ## Sub-documents
 

@@ -2,7 +2,7 @@
 
 Part of [The scenes](../scenes.md).
 
-The round stone island the gun stands on, in every scene. `Prazsky.Core.Render.IslandMesh` builds it, `ArenaIsland` assembles it; the Testbed and Game draw it, the map editor does not. Its shading and cost: [The island's surface and its cost](island-surface-and-cost.md); per-family dressing: [Dressing](island-dressing.md); the drain at its centre: [The drain funnel](drain.md).
+The round stone island the gun stands on, in every scene. `Prazsky.Core.Render.IslandMesh` builds it, `ArenaIsland` assembles it; the Testbed, the Game and the map editor (behind its I switch, #1210) draw it. Its shading and cost: [The island's surface and its cost](island-surface-and-cost.md); per-family dressing: [Dressing](island-dressing.md); the drain at its centre: [The drain funnel](drain.md).
 
 ## Structure and the rules that hold it
 

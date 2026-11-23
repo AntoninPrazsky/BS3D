@@ -184,9 +184,8 @@ namespace Prazsky.Core.Render
         /// of units inside the rim so the terrain tucks under the stone edge with no gap. Push it into
         /// <see cref="SceneRenderer.TerrainHoleRadius"/>.
         /// <para>
-        /// The map editor deliberately leaves that property at its <c>0</c> default and must keep doing so:
-        /// it draws no island, so nothing should be cut out of its terrain. Making an island available must
-        /// not give the editor one as a side effect.
+        /// The map editor sets it by its island switch (#1210): this radius with the island shown, <c>0</c> with it off,
+        /// so a field with nothing under it hangs over whole ground.
         /// </para>
         /// </summary>
         public const float TERRAIN_HOLE_RADIUS = RADIUS - 2f;

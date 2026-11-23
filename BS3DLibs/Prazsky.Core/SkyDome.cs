@@ -126,8 +126,8 @@ namespace Prazsky.Core
         /// Testbed and the game put procedural clouds over the baked gradient. The effect is expected to
         /// declare <c>World</c>, <c>View</c> and <c>Projection</c> (cached here on assignment — the by-name
         /// indexer is a linear scan and this draws every frame); everything else it needs is the caller's
-        /// business and is set on the effect directly. Leave it null for the plain gradient — the map editor
-        /// does, and does not build a sky shader at all.
+        /// business and is set on the effect directly. Leave it null for the plain gradient: the map editor's
+        /// dome with its game sky off (#1210).
         /// </summary>
         public Effect Effect
         {

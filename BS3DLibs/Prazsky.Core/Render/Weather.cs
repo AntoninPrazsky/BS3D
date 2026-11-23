@@ -282,6 +282,15 @@ namespace Prazsky.Core.Render
             };
         }
 
+        /// <summary>
+        /// The sky a level stands under: the level file's word (<see cref="TryParse"/>), else its scene's own
+        /// (<c>SceneConfig.Weather</c>, null for a host with no config to ask), else <see cref="WeatherPreset.Scattered"/>.
+        /// One rule for every host that puts a level's sky up: the Game, the Testbed under its <c>weather=</c>, and the
+        /// map editor's game sky (#1210), which previews a level under the sky it plays under.
+        /// </summary>
+        public static WeatherPreset ForLevel(string levelWord, WeatherPreset? sceneWeather) =>
+            TryParse(levelWord) ?? sceneWeather ?? WeatherPreset.Scattered;
+
         /// <summary>The word a preset is written as, for the level files this tool chain emits.</summary>
         public static string NameOf(WeatherPreset preset) => preset switch
         {

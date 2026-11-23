@@ -276,6 +276,9 @@
   <ItemGroup>
     <Compile Include="..\..\MapEditor\GUI\EditorKeyHelp.cs" />
     <Compile Include="..\..\MapEditor\GUI\KeyHelpLayout.cs" />
+    <!--The editor's lens in the game's frame (#1210): the field's hang and a camera moved by it, plain geometry.
+        MapEditorGameFrameTests holds it to where a session hangs the same map.-->
+    <Compile Include="..\..\MapEditor\GameFrameCamera.cs" />
   </ItemGroup>
 
   <!--The website capture's parts that have no device in them (#946): its clock and window, the stated camera's keys and curves,

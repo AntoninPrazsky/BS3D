@@ -658,11 +658,7 @@ namespace BS3D
                 ? _cityConfig
                 : _sceneRenderer?.GetSceneConfig(_scene);
 
-            WeatherPreset preset = WeatherLooks.TryParse(levelWeather)
-                ?? config?.Weather
-                ?? WeatherPreset.Scattered;
-
-            _clouds.SetWeather(preset);
+            _clouds.SetWeather(WeatherLooks.ForLevel(levelWeather, config?.Weather));
         }
 
         /// <summary>

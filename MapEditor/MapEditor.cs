@@ -131,8 +131,8 @@ namespace MapEditor
         //the shared savanna/desert birds, the mountain's snow and the sea's spray) live in the shared
         //SceneRenderer; the city is its buildings drawn through the shared InstancedModel city technique, lit
         //by the sky rig like the balls. V cycles the scenes (the game uses NumPad2, which the editor spends on
-        //ball types). There is no arena platform here — the AABB marks the field instead — and no clouds, so
-        //the scenes get full sun with no cloud shadow.
+        //ball types). The island, the plate and the game's sky stand in them too since #1210 (the region below), each
+        //behind a switch; the AABB still marks the field.
         private SceneRenderer _sceneRenderer;
         private SceneKind _scene = SceneKind.City;
 
@@ -145,8 +145,9 @@ namespace MapEditor
         //The crates a loaded level carried (#257), kept through a round-trip though the editor neither shows nor places them
         private CrateSpec[] _levelCrates;
 
-        //And its spring (#690) and its sky (#221), on the same terms: the editor hangs nothing and draws no weather, but a
-        //round-trip must not quietly stiffen a soft level or put it back under its scene's usual sky
+        //And its spring (#690) and its sky (#221), on the same terms: the editor hangs nothing, and it draws the weather only
+        //with the game's sky on (G, #1210), but a round-trip must not quietly stiffen a soft level or put it back under its
+        //scene's usual sky, whatever the switch says
         private SoftnessSpec _levelSoftness;
         private string _levelWeather;
 
@@ -194,8 +195,8 @@ namespace MapEditor
         //The forest's handful of firefly-like blinking lights (#487), planted over the same floor.
         private ForestFireflies _forestFireflies;
 
-        //The forest's old lamps on their poles round the island (#1166), off the backdrop's layout. The editor builds no
-        //SceneLights, so their bulbs glow and the ground under them takes their light (the backdrop's own), the balls not
+        //The forest's old lamps on their poles round the island (#1166), off the backdrop's layout; their light falls on the
+        //balls and the island through the editor's SceneLights (#1210), as in the game
         private ForestLamps _forestLamps;
 
         //A map or level dropped or opened is parsed off the render thread, and everything it changes is
@@ -220,10 +221,6 @@ namespace MapEditor
         //game's copy here, constants and all, which is exactly the drift this editor exists to not have.
         private SkyLightRig _rig;
 
-        //The clearing radius no longer mirrors anything: the game's arena became the round stone island
-        //(ArenaIsland.RADIUS = 26), so this 60 keeps the editor's towers ~2.3× as far from the field as they
-        //stand in play. Whether to close that to 26 is a look decision, not a sync.
-        private const float ARENA_HALF_EXTENT = 60f;
         //Window brightness (day + neon) now lives in _cityConfig.WindowBrightness / _cityConfig.NeonLook.WindowBrightness.
         private const float CITY_SPECULAR_AMBIENT = 0.07f;
         private const float SCENE_AMBIENT_INTENSITY = 0.25f;
@@ -231,6 +228,61 @@ namespace MapEditor
         private readonly BasicEffectParams _sceneEffectParams = new(Vector3.One * SCENE_AMBIENT_INTENSITY, Vector3.Zero, 0f, Vector3.Zero);
 
         #endregion Scenes
+
+        #region The setting the game draws round the field (#1210)
+
+        //The editor keeps the map in its raw grid frame (the selector, the outline, the six views, the flying camera); the
+        //setting and the balls stand in the frame a session hangs the field in, drawn through this lens: the editor's own,
+        //moved by the field's hang every frame (GameFrameCamera.Follow). So the island stands under the field, the plate over
+        //it and the scene round it exactly where a level puts them.
+        private GameFrameCamera _gameCamera;
+
+        //The island, the glass drain and the pit (the shared ArenaIsland, as the Game and the Testbed draw it), the ceiling
+        //glass the cluster hangs from with the cables and winches it hangs by, and the scene's point lights on all of it and
+        //on the balls (the campfire, the neon, the forest's lamps)
+        private ArenaIsland _island;
+        private CeilingPlate _ceilingPlate;
+        private CeilingRigging _ceilingRigging;
+        private SceneLights _sceneLights;
+
+        //The field the plate and the rigging were last fitted to: a refit is a new renderer, so only on a change of size
+        private byte _plateStageX, _plateStageZ;
+
+        //THE GAME'S SKY: Sky.fx over the dome (the sun's disc, the cloud deck under the level's weather), the heaps over it
+        //where the Game draws them, and the deck's shadows on everything below. It reverses #220's "no disc and no clouds in
+        //the editor" (the owner asked for the game's sky here); the dome is still the plain one with it off (G).
+        private Effect _skyEffect;
+        private EffectParameter _skyCameraPositionParam;
+        private SkyPass _skyPass;
+        private readonly CloudField _clouds = new();
+        private CloudVolumes _cloudVolumes;
+
+        //The three view switches (G, I, C): what is drawn, never what F4 writes. Each starts on, so the editor opens on
+        //the game's view of the map, unless the command line said off.
+        private bool _gameSkyShown = true;
+        private bool _islandShown = true;
+        private bool _ceilingGlassShown = true;
+
+        //Built once each, so the per-frame hand-over allocates no delegate (BestPractices.md)
+        private Action<Matrix> _drawShadowCasters;
+
+        /// <summary><c>gamesky=off</c>: start under the plain dome rather than the game's sky (G switches it).</summary>
+        public bool ShowGameSky { get => _gameSkyShown; set => _gameSkyShown = value; }
+
+        /// <summary><c>island=off</c>: start with no island under the field (I switches it).</summary>
+        public bool ShowIsland { get => _islandShown; set => _islandShown = value; }
+
+        /// <summary><c>glass=off</c>: start with no ceiling glass over the field (C switches it).</summary>
+        public bool ShowCeilingGlass { get => _ceilingGlassShown; set => _ceilingGlassShown = value; }
+
+        /// <summary>
+        /// <c>save=&lt;path&gt;</c>: once the file opened on the command line is applied, write it out as F4 writes a level, then
+        /// carry on. With the view switches above it is how a run shows that a switch is a view and not data: the same level
+        /// saved with them on and off is the same file.
+        /// </summary>
+        public string SaveLevelOnStart { get; set; }
+
+        #endregion
 
         public MapEditor(bool windowed = true, int windowWidth = 1280, int windowHeight = 800)
         {
@@ -346,6 +398,12 @@ namespace MapEditor
                 Bind(EditorKeyHelp.CycleScene, mgKeys.V, SwitchScene),
                 Bind(EditorKeyHelp.CycleStyle, mgKeys.L, SwitchBallStyle),
                 Bind(EditorKeyHelp.CycleKind, mgKeys.K, CycleBallKind),
+
+                //The view switches (#1210). G and I for the game's sky and the island, C for the ceiling: none of them
+                //was taken (G was the scene-config panel's until #522)
+                Bind(EditorKeyHelp.ToggleSetting, mgKeys.G, ToggleGameSky),
+                Bind(EditorKeyHelp.ToggleSetting, mgKeys.I, ToggleIsland),
+                Bind(EditorKeyHelp.ToggleSetting, mgKeys.C, ToggleCeilingGlass),
 
                 Bind(EditorKeyHelp.SaveMap, mgKeys.F1, SaveJson),
                 Bind(EditorKeyHelp.Open, mgKeys.F2, LoadJson),
@@ -467,10 +525,19 @@ namespace MapEditor
                 Style = _ballStyle
             };
 
-            //linearVertexColors: the dome is drawn through BasicEffect into the linear HDR target, so its
-            //baked gradient has to be converted from sRGB once at load or the tonemapper reads a gradient of
-            //display values as radiance. The game does the same; the editor used to skip it, drawing in gamma.
+            //linearVertexColors: the dome is drawn into the linear HDR target, so its baked gradient has to be converted from
+            //sRGB once at load or the tonemapper reads a gradient of display values as radiance. The game does the same; the
+            //editor used to skip it, drawing in gamma.
             _sky = new SkyDome(GraphicsDevice, _skyDomeNumber, linearVertexColors: true);
+
+            //THE GAME'S SKY (#1210), built as the Game builds it: Sky.fx on the dome, its static half pushed once, the pass
+            //that shades it at display resolution and draws it behind the opaque scene, and the heaps where the device can
+            //hold their noise. With the switch off the dome goes back to its own BasicEffect, the plain gradient (SetViewSwitches).
+            _skyEffect = Content.Load<Effect>("Shaders/Sky");
+            _skyCameraPositionParam = _skyEffect.Parameters["CameraPosition"];
+            _clouds.ApplyStaticParameters(_skyEffect);
+            _skyPass = new SkyPass(GraphicsDevice, _sky);
+            if (GraphicsSupport.VolumeTextures(GraphicsDevice)) _cloudVolumes = new CloudVolumes(GraphicsDevice, Content);
 
             //10 levels for the initial ball layout plus empty levels at the bottom for the structure to grow into
             _map = new BallsMap(10, 10, 15);
@@ -489,7 +556,9 @@ namespace MapEditor
             _cityConfig.Seed += _sceneSeedOffset;
             _cityConfig.NeonLayout.Seed += _sceneSeedOffset;
 
-            _city = new City(_cityConfig, neon: _scene == SceneKind.NeonCity, ARENA_HALF_EXTENT);
+            //The game's clearing, the island's radius, so the towers stand where they stand in play (#1210: it was 60 here,
+            //the towers ~2.3x as far out, from before the island was drawn in the editor)
+            _city = new City(_cityConfig, neon: _scene == SceneKind.NeonCity, ArenaIsland.RADIUS);
             _cityIsNeon = _scene == SceneKind.NeonCity;
             _cityRenderer = new InstancedModelRenderer(GraphicsDevice, _unitBox, Vector3.One, _instancingEffect)
             {
@@ -501,8 +570,24 @@ namespace MapEditor
                 CityRooftops.DEFAULT_SEED + _sceneSeedOffset);
             _streets = new CityStreets(GraphicsDevice, Content.Load<Effect>("Shaders/CityStreets"), _city);
 
-            //After the scene renderer, because the rig consults it for the scenes that state their own lighting
-            _rig = new SkyLightRig(_sceneRenderer);
+            //After the scene renderer, because the rig consults it for the scenes that state their own lighting. The cloud
+            //hook is captured once (a method group at a per-frame call site builds a delegate each time) and asks the G
+            //switch itself, so the scenes' shaders take the deck exactly while the game's sky is up (ApplyCloudsToScene).
+            _rig = new SkyLightRig(_sceneRenderer) { CloudHook = ApplyCloudsToScene };
+
+            //The level's sky (the scene's own until a level names one), up at once rather than faded in as the Game fades a
+            //level's: a preview shows the sky it previews
+            ApplySceneWeather();
+
+            //The setting a session hangs a field in (#1210): the island with its drain and pit, the ceiling glass and its
+            //rigging, the scene's point lights, and the lens that draws all of it in the game's frame. The island's ambient
+            //is the scene's, as the hosts hand it.
+            _island = new ArenaIsland(GraphicsDevice, _instancingEffect, SCENE_AMBIENT_INTENSITY);
+            _ceilingPlate = new CeilingPlate(GraphicsDevice, _instancingEffect);
+            _ceilingRigging = new CeilingRigging(GraphicsDevice, _instancingEffect);
+            _sceneLights = new SceneLights(_instancingEffect);
+            _gameCamera = new GameFrameCamera(Camera3D);
+            FitCeilingToMap();
 
             //The forest's wood, planted on the very terrain the SceneRenderer above draws. After it, because the
             //component is built from that renderer's own forest config, and before the sky lighting below, since
@@ -528,6 +613,9 @@ namespace MapEditor
                 seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
 
             _forestLamps = new ForestLamps(GraphicsDevice, _instancingEffect, _sceneRenderer.ForestLamps, SCENE_AMBIENT_INTENSITY);
+
+            //The switches as the command line left them: the dome's effect and the hole the terrain cuts for the island
+            SetViewSwitches();
 
             ApplySkyLighting();
 
@@ -581,6 +669,94 @@ namespace MapEditor
             //(GameplayScreen.Session's SetSkyDome call). Setting it on a scene cycle would overwrite the
             //author's choice for a preview, which is a lie in the one direction that also destroys their work.
             ApplySkyLighting();
+
+            //The weather is not data that way: a level that names its sky keeps it, and one that does not stands under the
+            //new scene's own, as it would play there (#1210)
+            ApplySceneWeather();
+        }
+
+        /// <summary>
+        /// Puts up the sky the level plays under (<see cref="WeatherLooks.ForLevel"/>, the Game's rule): the loaded level's
+        /// word, else the scene's own. At once, with no fade. It reads <see cref="_levelWeather"/> and never writes it, so
+        /// what F4 saves is what was loaded.
+        /// </summary>
+        private void ApplySceneWeather()
+        {
+            //The city's config is this file's: the two cities are drawn through the shared instanced technique, not by a
+            //scene shader, so the scene renderer has none to give for them
+            SceneConfig config = _scene is SceneKind.City or SceneKind.NeonCity
+                ? _cityConfig
+                : _sceneRenderer.GetSceneConfig(_scene);
+
+            _clouds.SetWeatherImmediately(WeatherLooks.ForLevel(_levelWeather, config?.Weather));
+        }
+
+        /// <summary>
+        /// G (#1210): the game's sky (<c>Sky.fx</c>: the sun's disc, the cloud deck under the level's weather, the heaps, the
+        /// deck's shadows) or the plain dome. A view: the level's sky and weather stay what they were.
+        /// </summary>
+        private void ToggleGameSky()
+        {
+            _gameSkyShown = !_gameSkyShown;
+            SetViewSwitches();
+            Info.CustomText = _gameSkyShown
+                ? "Sky: the game's (sun, clouds, the level's weather)"
+                : "Sky: the plain dome (no sun, no clouds)";
+        }
+
+        /// <summary>I (#1210): the island under the field (its stone, the glass drain, the pit) and the hole the terrain
+        /// cuts for it, or neither.</summary>
+        private void ToggleIsland()
+        {
+            _islandShown = !_islandShown;
+            SetViewSwitches();
+            Info.CustomText = _islandShown ? "Island: on" : "Island: off";
+        }
+
+        /// <summary>C (#1210): the ceiling glass the cluster hangs from, with its cables and winches, or neither.</summary>
+        private void ToggleCeilingGlass()
+        {
+            _ceilingGlassShown = !_ceilingGlassShown;
+            Info.CustomText = _ceilingGlassShown ? "Ceiling glass: on" : "Ceiling glass: off";
+        }
+
+        /// <summary>
+        /// What the switches change beyond what <see cref="Draw"/> reads each frame: the dome's effect (<c>Sky.fx</c>, or
+        /// null for the dome's own plain gradient) and the hole the solid terrains cut for the island
+        /// (<see cref="ArenaIsland.TERRAIN_HOLE_RADIUS"/>, or none: with no island the ground stays whole under the field).
+        /// </summary>
+        private void SetViewSwitches()
+        {
+            _sky.Effect = _gameSkyShown ? _skyEffect : null;
+            _sceneRenderer.TerrainHoleRadius = _islandShown ? ArenaIsland.TERRAIN_HOLE_RADIUS : 0f;
+        }
+
+        /// <summary>
+        /// The scenes' half of the cloud deck (<see cref="SkyLightRig.CloudHook"/>): the deck's parameters with the game's sky
+        /// up, a coverage of nothing with it down. Suppressed rather than skipped, because an effect keeps its last values
+        /// between frames and a deck left on it would go on shadowing the ground under the plain dome
+        /// (<see cref="CloudField.SuppressOn"/>).
+        /// </summary>
+        private void ApplyCloudsToScene(Effect effect)
+        {
+            if (_gameSkyShown) _clouds.ApplyTo(effect);
+            else _clouds.SuppressOn(effect);
+        }
+
+        /// <summary>
+        /// Fits the ceiling glass and its rigging to the field's footprint, when the field's size has changed since the last
+        /// fit (a new map, a loaded one). Called every frame: a fitted plate is a new renderer, which has never been told the
+        /// sky, so it is re-lit here, and nothing else needs to remember to call it.
+        /// </summary>
+        private void FitCeilingToMap()
+        {
+            if (_map.StageSizeX == _plateStageX && _map.StageSizeZ == _plateStageZ) return;
+
+            _plateStageX = _map.StageSizeX;
+            _plateStageZ = _map.StageSizeZ;
+            _ceilingPlate.Fit(_plateStageX, _plateStageZ);
+            _ceilingRigging.Fit(_plateStageX, _plateStageZ);
+            _rig.ApplyToGlass(_ceilingPlate.Renderer);
         }
 
         /// <summary>
@@ -628,7 +804,7 @@ namespace MapEditor
             if (_city == null || neon == _cityIsNeon) return;
 
             _cityIsNeon = neon;
-            _city = new City(_cityConfig, neon, ARENA_HALF_EXTENT);
+            _city = new City(_cityConfig, neon, ArenaIsland.RADIUS);
             _rooftops.Rebuild(_city, _cityConfig);
             _streets.Rebuild(_city);
         }
@@ -654,9 +830,10 @@ namespace MapEditor
         /// derivation is the game's, literally — <see cref="SkyLightRig"/> is the one copy since #75, so a
         /// palette, a tint or a scene's own rig cannot mean one thing here and another in play.
         /// <para>
-        /// Only the enrolment is the editor's own, and it is short: the balls, the city and the forest's scatter.
-        /// The city takes part like every other instanced object — its facades are dark, but its specular ambient
-        /// reads the sky. There is no island, no drain and no ceiling here to light.
+        /// Only the enrolment is the editor's own: the balls, the city, the wood and the lamps, and since #1210 the island
+        /// (never its pit shaft, which no dome may bleach), the rigging and the ceiling glass, lit whether or not their switch
+        /// shows them, so a switch turned on shows them in the sky they stand under. The city takes part like every other
+        /// instanced object — its facades are dark, but its specular ambient reads the sky.
         /// </para>
         /// </summary>
         private void ApplySkyLighting()
@@ -679,10 +856,25 @@ namespace MapEditor
             foreach (InstancedModelRenderer renderer in _auroraScatter.Renderers) _rig.ApplyTo(renderer);
             foreach (InstancedModelRenderer renderer in _forestLamps.Renderers) _rig.ApplyTo(renderer);
 
+            //The island's cap, drum, drain glass and gold bands (its list leaves the pit out), by index: the aurora's step
+            //re-runs this while drawing, and a foreach over the interface would box an enumerator each time
+            IReadOnlyList<InstancedModelRenderer> island = _island.SkyLitRenderers;
+            for (int i = 0; i < island.Count; i++) _rig.ApplyTo(island[i]);
+            foreach (InstancedModelRenderer renderer in _ceilingRigging.Renderers) _rig.ApplyTo(renderer);
+
+            //The ceiling glass stands against the sky itself, so its lights follow the sky's brightness (SkyLightRig.ApplyToGlass)
+            _rig.ApplyToGlass(_ceilingPlate.Renderer);
+
             //And the wood's own pigments, which the rig above cannot reach — see ForestScatterRenderer.
             //ShiftTowardsSky (#108). This is the executable the symptom is quickest to see in: B cycles the
             //domes over a parked forest.
             _forestScatter.ApplySkyTint(_rig.KeyTint);
+
+            //The deck's colours follow the dome, its lit side handed the very radiance the rig gives the scene, and the sun's
+            //direction rides along: the disc, the silver lining and the shadow the instanced shader throws (as the Game and the
+            //Testbed push it). Pushed with the plain dome up as well, where the deck's coverage is zero and it shades nothing.
+            _clouds.ApplyDome(_skyEffect, _instancingEffect, _rig.SunDirection,
+                _rig.SunRadianceTinted, _rig.ZenithLinear, _rig.HorizonLinear);
 
             //The aurora's own wood takes the scene's glow colour instead (DrawScene), not the rig's key
             //tint pushed here: it is another scatter, and the tint is the scene's own.
@@ -730,6 +922,7 @@ namespace MapEditor
             _levelSoftness = null;
             _levelWeather = null;
             SetBallStyle(BallStyle.Beach);
+            ApplySceneWeather();
 
             Info.CustomText = $"New map {dialog.StageSizeX} x {dialog.StageSizeZ} x {dialog.Levels}";
         }
@@ -737,8 +930,13 @@ namespace MapEditor
         protected override void Update(GameTime gameTime)
         {
             //A map or level dropped/opened on a background thread is applied here, on the main thread, before
-            //the focus guard so it lands even if the window briefly lost focus during the drop
-            ApplyPendingLoad();
+            //the focus guard so it lands even if the window briefly lost focus during the drop. The first one applied
+            //is the command line's file, which save= writes back out (before the guard too: a scripted run has no focus).
+            if (ApplyPendingLoad() && SaveLevelOnStart != null)
+            {
+                SaveLevelTo(SaveLevelOnStart);
+                SaveLevelOnStart = null;
+            }
 
             if (!IsActive) return;
 
@@ -793,6 +991,15 @@ namespace MapEditor
             string filePath = GetFilePathByDialog(true);
             if (string.IsNullOrEmpty(filePath)) return;
 
+            SaveLevelTo(filePath);
+        }
+
+        /// <summary>
+        /// Writes the level to <paramref name="filePath"/>: F4's write, and <c>save=</c>'s. Only what a level IS goes in; the
+        /// view switches (G, I, C) are not read here, so a level saved with any of them off is the file it is with them on.
+        /// </summary>
+        private void SaveLevelTo(string filePath)
+        {
             Level level = new()
             {
                 Name = Path.GetFileNameWithoutExtension(filePath),
@@ -888,13 +1095,14 @@ namespace MapEditor
         /// nothing is pending. A plain map swaps in its layout and resets what a map file does not carry (theme,
         /// author, ball style); a level also switches to the scene backdrop it names and sets the sky dome — so a
         /// level previews in the editor exactly the way it plays. Mirrors the Testbed's LoadLevel, minus the
-        /// physics/cannon/camera the game derives.
+        /// physics/cannon/camera the game derives. Whether a file was applied comes back, false for nothing pending and for
+        /// a level that would not apply (so <c>save=</c> never writes the map that was up before it).
         /// </summary>
-        private void ApplyPendingLoad()
+        private bool ApplyPendingLoad()
         {
             PendingLoad pending;
             lock (_pendingLoadLock) { pending = _pendingLoad; _pendingLoad = null; }
-            if (pending == null) return;
+            if (pending == null) return false;
 
             if (pending.Level == null)
             {
@@ -912,7 +1120,8 @@ namespace MapEditor
                 _levelSoftness = null;
                 _levelWeather = null;
                 SetBallStyle(BallStyle.Beach);
-                return;
+                ApplySceneWeather();
+                return true;
             }
 
             Level level = pending.Level;
@@ -942,25 +1151,81 @@ namespace MapEditor
                 //The level's dome wins over whatever is up (the sky key still cycles freely from here)
                 SetSkyDome(Math.Clamp((int)level.SkyDome, 1, SKY_DOME_COUNT));
 
+                //And its weather, or its scene's (#1210): the sky it plays under, for the game's sky to show
+                ApplySceneWeather();
+
                 string levelName = string.IsNullOrEmpty(level.Name) ? "Untitled" : level.Name;
                 Info.CustomText = $"Level: {levelName}, scene {_scene}, sky {_skyDomeNumber}, "
                     + $"{BallStyles.ToName(_ballStyle)} balls";
                 Console.WriteLine($"[level] Loaded '{levelName}': scene={_scene}, sky={_skyDomeNumber}, "
                     + $"style={BallStyles.ToName(_ballStyle)}, balls={_map.GetBallsCount()}");
+                return true;
             }
             catch (Exception e)
             {
                 Console.WriteLine($"[level] Failed to apply level: {e.Message}");
+                return false;
             }
         }
 
         protected override void Draw(GameTime gameTime)
         {
+            //THE GAME'S FRAME (#1210). The field's hang is taken once, here, for everything drawn through the game-frame lens
+            //this frame: the sky, the scene, the island, the glass and the balls. The selector, the outline and the axis cross
+            //stay on the editor's own camera, in the grid frame they work in; the two lenses differ by exactly the hang, so
+            //their draws meet on the screen and in the depth buffer.
+            _gameCamera.Follow(_map);
+            FitCeilingToMap();
+            Matrix plateWorld = Matrix.CreateTranslation(0f, CeilingPlate.CentreYAbove(_gameCamera.FieldTopY), 0f);
+
+            //The map's balls, through the shared set, hung where a session hangs them, and collected BEFORE the shadow pass,
+            //which casts them as the Game casts its cluster. BeginFrame hands back a ref struct, which is what keeps the
+            //once-per-frame walk from being anything else: it cannot be stored, so it cannot outlive the frame it belongs
+            //to; the _balls.Draw below closes it. A static map has nothing to ease towards, so AddMap simply reads the grid.
+            BallDrawFrame ballFrame = _balls.BeginFrame(_gameCamera);
+            ballFrame.AddMap(_map, _gameCamera.Shift);
+
+            //The ceiling's glass shades what hangs under it (#553), stated for this frame's shadow pass while it is shown
+            if (_ceilingGlassShown) _sceneRenderer.CastCeilingShadow(_ceilingPlate.Renderer, plateWorld.Translation);
+
             //The sun's shadow maps come first (#469): their own target, before the scene's target is bound (see
-            //SceneRenderer.DrawShadowMaps on why) - so the editor previews the savanna's shadows as the game draws them.
-            //The effect is handed over so the BALLS receive (#470); the editor draws no island and no gun, so
-            //it registers no casters of its own and the scatter is the whole of what throws a shadow here.
-            _sceneRenderer.DrawShadowMaps(_scene, Camera3D, _rig.SunDirection, _instancingEffect);
+            //SceneRenderer.DrawShadowMaps on why). The effect is handed over so everything drawn through it receives (#470),
+            //and the casters are the editor's own objects, as the Game casts its own (DrawShadowCasters).
+            _sceneRenderer.DrawShadowMaps(_scene, _gameCamera, _rig.SunDirection, _instancingEffect, _drawShadowCasters ??= DrawShadowCasters);
+
+            //THE SKY. A sky-replacing scene (space, the dream, the cavern, the Moon...) is its own sky and has no dome either way.
+            //Under a dome, the game's sky (G) is the Game's: the deck on the wall clock the scene runs on, handed to the sky and
+            //to the instanced effect from the one field, so the cloud seen and the shadow it throws are one cloud; then the
+            //sky's own targets before the scene's is bound (the heaps marched, the dome shaded once a display pixel). With it
+            //off, or no dome, the deck's coverage is zeroed on the instanced effect, so nothing is shadowed by a deck nobody sees.
+            bool domed = !SceneRenderer.ReplacesSky(_scene);
+            bool gameSky = domed && _gameSkyShown;
+            bool skyBehind = gameSky && SkyPass.BehindScene(_pipeline.SceneTarget);
+
+            if (gameSky)
+            {
+                _clouds.Time = _sceneSeconds;
+
+                //The ground's light on the deck (the volcano's crater, #509), stated every frame so no scene inherits the last
+                if (_sceneRenderer.TryGetGroundGlow(_scene, _sceneSeconds, out Vector3 glowAt, out Vector3 glowColor, out float glowRange))
+                    _clouds.SetGroundGlow(glowAt, glowColor, glowRange);
+                else _clouds.ClearGroundGlow();
+
+                _clouds.ApplyTo(_skyEffect);
+                _clouds.ApplyTo(_instancingEffect);
+                _skyCameraPositionParam.SetValue(_gameCamera.Position);
+                _cloudVolumes?.ApplyToSky(_skyEffect, _clouds, CloudVolumesShown);
+
+                _skyPass.Prepare(_gameCamera, _clouds, _skyEffect, CloudVolumesShown ? _cloudVolumes : null, _pipeline.SceneTarget,
+                    _pipeline.SupersampleFactor, SkyPass.DisplayResolutionPays(_scene, sceneryShown: true));
+            }
+            else
+            {
+                _clouds.SuppressOn(_instancingEffect);
+
+                //No game sky this frame, so no target of the sky's own held for it
+                _skyPass.Release();
+            }
 
             //The scene is drawn in linear radiance into the HDR target; the pipeline's Resolve box-filters,
             //glares, tonemaps and sRGB-encodes it onto the back buffer. The selector gizmo and the text
@@ -972,12 +1237,12 @@ namespace MapEditor
             //skyline instead of showing through as a blue band (same fix as the game).
             //Space has no dome and no horizon, so it clears to black instead: Space.fx covers every pixel of
             //the frame, and black is what would show if it ever did not.
-            GraphicsDevice.Clear(SceneRenderer.ReplacesSky(_scene) ? Color.Black : new Color(_rig.HorizonLinear));
+            GraphicsDevice.Clear(domed ? new Color(_rig.HorizonLinear) : Color.Black);
 
-            //Space draws no dome either - the full-screen sky pass would only overdraw it. (The editor sets no
-            //cloud uniforms at all, so unlike the game and the Testbed it has no cloud shadow to suppress:
-            //CloudCoverageGain sits at 0 and CloudSunlight already returns a flat 1.)
-            if (!SceneRenderer.ReplacesSky(_scene)) _sky.Draw(Camera3D);
+            //The plain dome over the clear, depth off, as the editor has always drawn it; the game's sky here only where the
+            //target is multisampled (SkyPass.BehindScene), which the editor's supersampled one never is
+            if (gameSky && !skyBehind) _skyPass.Draw(_gameCamera, behindScene: false);
+            else if (domed && !gameSky) _sky.Draw(_gameCamera);
 
             //Stated after the sky (which sets its own depth state): the backdrop and the balls both want
             //alpha blending, depth on and back-face culling. Drawing the selector also leaves additive
@@ -995,21 +1260,74 @@ namespace MapEditor
             //editor's flying camera therefore keeps the fade it has always had, whatever depth it swims to.
             _sceneRenderer.ApplySeaSubmerge(_instancingEffect, _scene, 0f);
 
-            //The chosen environment stands in for what the game draws where the city would be. It is drawn
-            //before the balls so the cluster reads in front of it; the snow (mountain) comes after, in front.
-            SceneFrame sceneFrame = BuildSceneFrame();
-            DrawScene(sceneFrame);
+            SceneFrame sceneFrame = _rig.BuildSceneFrame(_gameCamera, _sceneSeconds);
 
-            //The map's balls, through the shared set. BeginFrame hands back a ref struct, which is what keeps
-            //the once-per-frame walk from being anything else: it cannot be stored, so it cannot outlive the
-            //frame it belongs to. A static map has nothing to ease towards, so AddMap simply reads the grid.
-            BallDrawFrame ballFrame = _balls.BeginFrame(Camera3D);
-            ballFrame.AddMap(_map);
+            //The scene's own point lights (the campfire, the neon ring, the forest's lamps, space's planetshine) onto the
+            //shared instanced effect, so the island and the balls take them as in the game, on the clock the scene runs on
+            _sceneLights.Apply(_scene, _sceneRenderer, _cityConfig.NeonLook, _sceneSeconds);
+
+            //The island's depth before the environment, as the Game lays it (#1098): every pixel of ground it stands in front
+            //of is turned away unshaded, and the island itself is drawn after the environment as it always was. Its event
+            //(the volcano's eruption in the basalt's cracks, #535) first, before its first draw of the frame.
+            if (_islandShown)
+            {
+                _island.EventGlow = _scene == SceneKind.Volcano ? _sceneRenderer.VolcanoEruption(_sceneSeconds) : 0f;
+                if (_sceneRenderer.EnvironmentFollowsIslandDepth(_scene, _pipeline.SceneTarget))
+                    _island.DrawIslandDepth(_gameCamera, _sceneEffectParams, _scene);
+            }
+
+            //The environment's opaque half: the city or the backdrop's first half, and the forest's wood standing on it
+            DrawSceneOpaque(sceneFrame);
+
+            //THE GAME'S SKY, BEHIND THE OPAQUE SCENE (#1104), as the Game draws it: depth-read at the far plane, so every pixel
+            //the ground, the wood, the city and the island's laid depth own is turned away before Sky.fx runs. It puts the
+            //scene's states back on its way out. The city's street band at the far plane is painted back after it.
+            if (skyBehind)
+            {
+                _skyPass.Draw(_gameCamera, behindScene: true);
+                if (_scene == SceneKind.City || _scene == SceneKind.NeonCity) _streets.DrawAtFarPlane();
+            }
+
+            //The aurora's wood after the sky, where the Game draws it (it is its own sky there, so this is about the light
+            //rig's step: see DrawAurora)
+            if (_scene == SceneKind.Aurora) DrawAurora();
+
+            //The backdrop's second half (#1098): what it blends over the sky and the ground without writing depth (the sea,
+            //the storm, the fountains, the moons). Then the outback's heat shimmer at the skyline (#1135), before the island.
+            _sceneRenderer.DrawEnvironmentBlended(_scene, sceneFrame);
+            _sceneRenderer.DrawHorizonRefraction(_scene, sceneFrame, _pipeline);
+
+            //The round island, opaque, over the depth it laid before the environment: its stone and drum, then the dark well
+            //behind the glass drain in the solid-terrain scenes (I)
+            if (_islandShown)
+            {
+                _island.DrawIsland(_gameCamera, _sceneEffectParams, _scene);
+                _island.DrawPit(_gameCamera, _sceneEffectParams, _scene);
+            }
+
+            //The translucent baseline stated again: a backdrop or the island's slices may leave another behind, and the
+            //balls, the outline and the glass below inherit it (the Game's #667 restatement)
+            GraphicsDevice.BlendState = BlendState.AlphaBlend;
+            GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+            GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+
+            //The balls collected at the top of the frame, on the scene's wall clock
             _balls.Draw(_sceneSeconds);
 
-            //The outline is translucent, so it is drawn over the finished scene and does not write depth
+            //What the plate hangs from (#896), opaque, with the scene: the Testbed's place for it, the editor's pane bending
+            //nothing either (C)
+            if (_ceilingGlassShown) _ceilingRigging.Draw(_gameCamera, plateWorld, _sceneEffectParams, _sceneRenderer, _scene);
+
+            //The outline is translucent, so it is drawn over the opaque scene and does not write depth. In the grid frame,
+            //through the editor's own camera.
             GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
             _aabb.Draw(Camera3D);
+            GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+
+            //The drain's gold bands and its glass (I), then the ceiling's pane (C), over everything already in the frame. The
+            //editor's pane is the plain translucent one the Testbed draws: the Game alone bends the frame behind it (#541).
+            if (_islandShown) _island.DrawGlass(_gameCamera, _sceneEffectParams, _scene);
+            if (_ceilingGlassShown) _ceilingPlate.Renderer.Draw(_gameCamera, plateWorld, _sceneEffectParams);
 
             //The savanna's fires, the meadow's water and the Grid's walls of light, then falling snow (mountain), which
             //settles in front of everything; each a no-op for every other scene
@@ -1044,11 +1362,16 @@ namespace MapEditor
             _shots.Service((float)gameTime.TotalGameTime.TotalSeconds, _scene);
         }
 
+        /// <summary>Whether the heaps stand over the deck this frame: where the Game draws them (<c>BS3DGame.CloudVolumesShown</c>),
+        /// on the authored detail the editor draws (<see cref="SceneRenderer.FineMeshes"/>) under a dome.</summary>
+        private bool CloudVolumesShown => _cloudVolumes != null && _sceneRenderer.FineMeshes && !SceneRenderer.ReplacesSky(_scene);
+
         /// <summary>
-        /// Draws the chosen environment backdrop: the city's buildings (lit by the sky rig, neon-lit for the
-        /// neon scene) or one of the self-lit shared backdrops. No arena platform — the AABB marks the field.
+        /// The environment's opaque half, through the game-frame lens: the city's buildings (lit by the sky rig, neon-lit for
+        /// the neon scene) or the backdrop's first half (<see cref="SceneRenderer.DrawEnvironmentOpaque"/>), and the forest's
+        /// wood, fireflies and lamps standing on it. Everything here writes depth, which the game's sky behind the scene needs.
         /// </summary>
-        private void DrawScene(in SceneFrame frame)
+        private void DrawSceneOpaque(in SceneFrame frame)
         {
             if (_scene == SceneKind.City || _scene == SceneKind.NeonCity)
             {
@@ -1056,49 +1379,64 @@ namespace MapEditor
                 _cityRenderer.CityNeon = neon ? 1f : 0f;
                 _cityRenderer.CityWindowBrightness = neon ? _cityConfig.NeonLook.WindowBrightness : _cityConfig.WindowBrightness;
                 //Frustum-culled and ordered near to far, as the game draws it — see City.PrepareVisible
-                int visibleBuildings = _city.PrepareVisible(Camera3D);
-                _cityRenderer.Draw(Camera3D, _city.Visible, visibleBuildings, _sceneEffectParams);
-                _rooftops.Draw(Camera3D, neon, frame.Time);
+                int visibleBuildings = _city.PrepareVisible(_gameCamera);
+                _cityRenderer.Draw(_gameCamera, _city.Visible, visibleBuildings, _sceneEffectParams);
+                _rooftops.Draw(_gameCamera, neon, frame.Time);
                 _streets.Draw(frame, _cityConfig.Streets, neon, _cityConfig.NeonLook);
             }
             else
                 //The target goes in so the dream, the cavern and the big top can be shaded at the back
                 //buffer's size and scaled up (#155, #1096) — the editor draws the scenes exactly as the game does, this one included.
-                _sceneRenderer.DrawEnvironment(_scene, frame, _pipeline.SceneTarget);
+                _sceneRenderer.DrawEnvironmentOpaque(_scene, frame, _pipeline.SceneTarget);
 
             //The forest's scattered trees, boulders and stumps, after the terrain they stand on — with depth, or
             //they would draw through it. The state is the caller's, and it is already the game's: alpha blend,
             //depth test and write and counter-clockwise culling into the supersampled HDR target. The component
             //touches none of it, so the balls drawn after this are unaffected.
-            if (_scene == SceneKind.Forest) _forestScatter?.Draw(Camera3D, _sceneRenderer.FineMeshes);
+            if (_scene == SceneKind.Forest) _forestScatter?.Draw(_gameCamera, _sceneRenderer.FineMeshes);
 
             //The forest's firefly-like blinking lights (#487), on the same wall clock the roof beacon
             //flashes on
-            if (_scene == SceneKind.Forest) _forestFireflies?.Draw(Camera3D, frame.Time);
+            if (_scene == SceneKind.Forest) _forestFireflies?.Draw(_gameCamera, frame.Time);
 
-            //The old lamps round where the island stands in the game (#1166)
-            if (_scene == SceneKind.Forest) _forestLamps?.Draw(Camera3D, frame.Time);
+            //The old lamps on their poles round the island (#1166)
+            if (_scene == SceneKind.Forest) _forestLamps?.Draw(_gameCamera, frame.Time);
+        }
 
-            if (_scene == SceneKind.Aurora)
-            {
-                //Re-tinted here rather than in ApplySkyLighting (see there), on the scene's own tint: constant since
-                //#963, so ApplySkyTint's value guard encodes the wood once.
-                _auroraScatter?.ApplySkyTint(_sceneRenderer.AuroraGlowColor(_sceneSeconds));
+        /// <summary>The aurora's own wood, under the scene's own tint and the light rig's step, where the Game draws it: after the sky.</summary>
+        private void DrawAurora()
+        {
+            //Re-tinted here rather than in ApplySkyLighting (see there), on the scene's own tint: constant since
+            //#963, so ApplySkyTint's value guard encodes the wood once.
+            _auroraScatter?.ApplySkyTint(_sceneRenderer.AuroraGlowColor(_sceneSeconds));
 
-                //The balls take the curtains' light through the scene's own rig, its back light following the arcs;
-                //the rig steps rather than slides, so this re-lights only on a step.
-                if (_rig.StepSceneLight(_sceneSeconds)) ApplySkyLighting();
+            //The balls take the curtains' light through the scene's own rig, its back light following the arcs;
+            //the rig steps rather than slides, so this re-lights only on a step.
+            if (_rig.StepSceneLight(_sceneSeconds)) ApplySkyLighting();
 
-                _auroraScatter?.Draw(Camera3D, _sceneRenderer.FineMeshes);
-            }
+            _auroraScatter?.Draw(_gameCamera, _sceneRenderer.FineMeshes);
         }
 
         /// <summary>
-        /// The per-frame inputs the shared <see cref="SceneRenderer"/> needs, built by the rig that already
-        /// holds five of the six. No clouds here (the editor draws none): the rig's cloud hook was never set, so
-        /// it stays null, the cloud uniforms stay at zero and the scenes get full sun with no shadow.
+        /// What the editor casts into the sun's shadow map: what it draws, on the conditions it draws it, as the Game's own
+        /// casters do (<c>BS3DGame.DrawShadowCasters</c>): the island while it is shown (I), the balls, the forest's wood and
+        /// lamps, the aurora's wood, and the cities' towers (all of them, not the frustum's: a tower off the side of the
+        /// screen is the one whose shadow falls across the street in view). The backdrop's own planting (the savanna's
+        /// scatter, the beach's palms) casts from inside the renderer. Handed to <see cref="SceneRenderer.DrawShadowMaps"/>
+        /// with the map's target bound and its states set.
         /// </summary>
-        private SceneFrame BuildSceneFrame() => _rig.BuildSceneFrame(Camera3D, _sceneSeconds);
+        private void DrawShadowCasters(Matrix shadowViewProjection)
+        {
+            if (_islandShown) _island.DrawShadow(shadowViewProjection);
+            _balls.DrawShadow(shadowViewProjection);
+
+            if (_scene == SceneKind.Forest) _forestScatter?.DrawShadow(shadowViewProjection, _sceneRenderer.FineMeshes, _gameCamera);
+            if (_scene == SceneKind.Forest) _forestLamps?.DrawShadow(shadowViewProjection);
+            if (_scene == SceneKind.Aurora) _auroraScatter?.DrawShadow(shadowViewProjection, _sceneRenderer.FineMeshes, _gameCamera);
+
+            if (_scene == SceneKind.City || _scene == SceneKind.NeonCity)
+                _cityRenderer.DrawDepth(shadowViewProjection, _city.Buildings, _city.Buildings.Length);
+        }
 
         private string GetFilePathByDialog(bool save)
         {

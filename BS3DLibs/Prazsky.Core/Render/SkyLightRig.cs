@@ -205,8 +205,9 @@ namespace Prazsky.Core.Render
         /// The hook that hands the shared cloud field to an effect, carried into every
         /// <see cref="BuildSceneFrame"/>. Set it <b>once</b>, at load — a caller that assigns
         /// <c>clouds.ApplyTo</c> per frame allocates a fresh delegate per frame, which is what all three
-        /// executables were doing on the draw path. Left null when there is no weather to apply (the map
-        /// editor draws no clouds, so the cloud uniforms stay zero and <c>CloudSunlight</c> returns a flat 1).
+        /// executables were doing on the draw path. Left null when there is no weather to apply, the cloud uniforms then staying
+        /// zero so <c>CloudSunlight</c> returns a flat 1; the map editor's hook applies the deck or zeroes its coverage by its
+        /// game-sky switch (#1210).
         /// </summary>
         public Action<Effect> CloudHook { get; set; }
 

@@ -25,12 +25,15 @@ namespace MapEditor
             //own screen can be photographed the way the Testbed's is (#1209, #1210): width= and height= size the window's
             //client area, shot= saves frames on a schedule in seconds, campos= and camtarget= place the camera (in the
             //editor's grid frame, the one the selector and the six views work in), and notext starts with the text hidden,
-            //as F12 hides it. An argument is an option only by its exact prefix, so a file path stays a file path.
-            string filePath = null;
+            //as F12 hides it. gamesky=, island= and glass= start a view switch off (G, I, C), and save= writes the file
+            //opened here back out as F4 would, once it is applied: the same level saved with the switches on and off is how a
+            //run shows they are a view and not data. An argument is an option only by its exact prefix, so a file path stays
+            //a file path.
+            string filePath = null, savePath = null;
             int width = DEFAULT_WINDOW_WIDTH, height = DEFAULT_WINDOW_HEIGHT;
             float[] shotSeconds = null;
             Vector3? cameraPosition = null, cameraTarget = null;
-            bool hideText = false;
+            bool hideText = false, gameSky = true, island = true, glass = true;
 
             foreach (string arg in args ?? Array.Empty<string>())
             {
@@ -40,6 +43,10 @@ namespace MapEditor
                 else if (TryOption(arg, "campos=", out value)) cameraPosition = VectorOr(value, cameraPosition);
                 else if (TryOption(arg, "camtarget=", out value)) cameraTarget = VectorOr(value, cameraTarget);
                 else if (arg.Equals("notext", StringComparison.OrdinalIgnoreCase)) hideText = true;
+                else if (TryOption(arg, "gamesky=", out value)) gameSky = OnOr(value, gameSky);
+                else if (TryOption(arg, "island=", out value)) island = OnOr(value, island);
+                else if (TryOption(arg, "glass=", out value)) glass = OnOr(value, glass);
+                else if (TryOption(arg, "save=", out value)) savePath = value.Length > 0 ? value : savePath;
                 else filePath ??= arg;
             }
 
@@ -50,9 +57,21 @@ namespace MapEditor
                 StartCameraPosition = cameraPosition,
                 StartCameraTarget = cameraTarget,
                 StartWithTextHidden = hideText,
+                ShowGameSky = gameSky,
+                ShowIsland = island,
+                ShowCeilingGlass = glass,
+                SaveLevelOnStart = savePath,
             };
             game.Run();
         }
+
+        //on/off, 1/0 or true/false; anything else keeps the default rather than failing the launch
+        private static bool OnOr(string value, bool fallback) => value.ToLowerInvariant() switch
+        {
+            "on" or "1" or "true" => true,
+            "off" or "0" or "false" => false,
+            _ => fallback,
+        };
 
         private static bool TryOption(string arg, string prefix, out string value)
         {

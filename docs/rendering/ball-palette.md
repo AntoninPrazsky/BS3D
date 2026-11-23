@@ -18,7 +18,7 @@ There are thirteen `BallType`s (`Type1..Type13`; tints and ambient in `BasicEffe
 
 ## Judging colour through the Testbed carries weather the Game never has
 
-The Testbed steps `SkyLightRig.StepOvercast` each frame; the **Game never does** (the palette is authored for daylight and would lighten a dusk city) and the editor has no deck. **`nooverc` pins it** (#334): the ambient is the dome's own, bit-exactly what the Game draws, and the deck still drifts and dims the sun; every run prints one `[overcast]` line saying which regime. **Pass `nooverc` for any colour A/B the way `nopost` is passed for a shader A/B.** The Testbed steps it by default (decided 2026-09-04).
+The Testbed steps `SkyLightRig.StepOvercast` each frame; the **Game never does** (the palette is authored for daylight and would lighten a dusk city), and neither does the map editor. **`nooverc` pins it** (#334): the ambient is the dome's own, bit-exactly what the Game draws, and the deck still drifts and dims the sun; every run prints one `[overcast]` line saying which regime. **Pass `nooverc` for any colour A/B the way `nopost` is passed for a shader A/B.** The Testbed steps it by default (decided 2026-09-04).
 
 - **Worth** (`Thirteen_Colors`, meadow, dome 1, `weather=overcast`, stepped vs pinned): black/silver 22.8 vs 29.1, red/orange 13.9 vs 17.6, white/yellow 15.0 vs 15.9. **It changes which pair is tightest** (stepped red/orange 13.9; pinned white/yellow 15.9). Under the default scattered sky two runs agree within 1/255.
 - Open (#367): a green ball reads 63/113/44 in the Testbed against 31/190/26 in the editor through "comparable" framing; the overcast term does not explain it.

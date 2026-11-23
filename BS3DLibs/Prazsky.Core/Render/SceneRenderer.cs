@@ -2100,10 +2100,9 @@ namespace Prazsky.Core.Render
 
             //Is there anything to cast at all? A scene with planting of its own casts it (Backdrop.HasShadowCasters -
             //the savanna, the beach, the meadow, the volcano, the Moon's rocks and the rest); in the others the casters are
-            //all the host's, so a caller that registers
-            //none of them — the MAP EDITOR, which draws no island, no gun and no wood — would render an empty
-            //map and then pay its reads every pixel to learn that everything is lit. The editor is the caller this
-            //spares, and it is the only one: both other executables always hand a callback in.
+            //all the host's, so a caller that registers none of them would render an empty map and then pay its reads
+            //every pixel to learn that everything is lit. Every executable hands a callback in (the map editor since it
+            //casts its island and its balls, #1210); the gate is for a caller that does not.
             bool sceneCasts = sceneryCasts && BackdropFor(scene)?.HasShadowCasters == true;
 
             //Then the gates that cost least to fail first: does this scene ask for a map at all, is the tier

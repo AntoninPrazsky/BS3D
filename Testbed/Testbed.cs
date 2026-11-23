@@ -929,7 +929,7 @@ namespace Testbed
             //Cut the island's footprint out of the solid terrain scenes so nothing solid shows through the drain
             //and the funnel below the island reads as a drain into a pit, not a bowl in flat ground (the dark pit
             //cone that backs the glass then fills that hole - see ArenaIsland.TERRAIN_HOLE_RADIUS). The map editor
-            //leaves this 0 - it draws no island, so nothing is cut and the terrain stays whole under the field's AABB.
+            //sets it by its island switch (#1210), 0 with the island off so the terrain stays whole under the field.
             _sceneRenderer.TerrainHoleRadius = ArenaIsland.TERRAIN_HOLE_RADIUS;
 
             //The sky the starting scene stands under (#221), and IMMEDIATELY rather than faded: a fade here
@@ -1138,9 +1138,7 @@ namespace Testbed
                 : _sceneRenderer.GetSceneConfig(_scene);
 
             WeatherPreset preset = WeatherLooks.TryParse(_weatherFromCommandLine)
-                ?? WeatherLooks.TryParse(levelWeather)
-                ?? config?.Weather
-                ?? WeatherPreset.Scattered;
+                ?? WeatherLooks.ForLevel(levelWeather, config?.Weather);
 
             if (immediately) _clouds.SetWeatherImmediately(preset); else _clouds.SetWeather(preset);
         }
