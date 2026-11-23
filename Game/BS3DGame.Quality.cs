@@ -751,8 +751,8 @@ namespace BS3D
                 //rebuilt (the range's finer grid is built on its first draw and kept). See QualityPreset.FineMeshes
                 _sceneRenderer.FineMeshes = preset.FineMeshes;
 
-                //And Ultra's farther reach (#1208): the aurora stand's spruces out to 300 where High stops at 200; read per draw.
-                //See QualityPreset.FarDetail
+                //And Ultra's farther reach (#1208): the aurora stand's spruces out to 300 where High stops at 200, the savanna's
+                //treeline masses as shrubs out to 600 where High stops at 240 (#1195); read per draw. See QualityPreset.FarDetail
                 _sceneRenderer.FarDetail = preset.FarDetail;
 
                 //And the outback's heat shimmer at the skyline (#1135), High and Ultra; read per frame. See QualityPreset.HorizonShimmer

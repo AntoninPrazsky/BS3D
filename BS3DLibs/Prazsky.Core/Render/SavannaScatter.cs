@@ -372,16 +372,19 @@ namespace Prazsky.Core.Render
         //shapes stand in for each dome mesh (its instances dealt round them in turn, as the thorn bushes' are), their own seeds (no
         //roll of the planting moves), and how far from the lens, horizontally, a plant is drawn shaped on High and on Ultra
         //(ScatterSwap). The scrub's: past the plain's whole reach from any pose the play camera takes (the plain is
-        //AcaciaConfig.MaxRadius, 340, round the axis and the play lens stands within some 40 of it), so play never swaps one, and
+        //AcaciaConfig.MaxRadius, 340, round the axis, the play lens stands within some 40 of it and the front end's orbit within
+        //55 in a square window), so neither ever swaps one, and
         //only a chapter intro's lens far out on the plain sees the far side's scrub as domes, 400 off, some 30 pixels across a
-        //3840-wide frame (the largest 55). The treeline's: High keeps the domes everywhere the play camera stands (the band starts 300 out, so
-        //from any play pose it is over 255 away) and shapes the masses a chapter intro flies near; Ultra shapes every mass from
-        //any play pose (the band and its masses pushed out of the rocks end within 480 of the axis) and leaves the domes to the
-        //intro's far side, 600 off and two thirds of the way into the plants' haze
+        //3840-wide frame (the largest 55). The treeline's: High keeps the domes everywhere the play camera and the front end's
+        //orbit stand (the band starts 300 out; the orbit's wide leg, which the result page hands its camera to, stands 46.5 out in
+        //the owner's half-screen window and 54.5 in a square one, so a mass is over 245 away) and shapes the masses a chapter
+        //intro flies near; Ultra shapes every mass from any of those poses (the band and its masses pushed out of the rocks end
+        //within 480 of the axis) and leaves the domes to the intro's far side, 600 off and two thirds of the way into the
+        //plants' haze. SavannaShapedScrubTests holds every one of those poses off both radii
         internal const int SCRUB_SHAPES = 3, TREELINE_SHAPES = 3;
         private const int SCRUB_SHAPE_SEED = 11950, TREELINE_SHAPE_SEED = 11960;
         internal const float SCRUB_SWAP_RADIUS = 400f, SCRUB_FAR_DETAIL_SWAP_RADIUS = 400f;
-        internal const float TREELINE_SWAP_RADIUS = 250f, TREELINE_FAR_DETAIL_SWAP_RADIUS = 600f;
+        internal const float TREELINE_SWAP_RADIUS = 240f, TREELINE_FAR_DETAIL_SWAP_RADIUS = 600f;
 
         //The shaped scrub's and treeline mass's leaf card against its clump and its clumps' cover (the meadow's shrub is 0.55 and 2.4)
         internal const float SCRUB_CARD = MeadowShrubMesh.SHRUB_CARD, SCRUB_COVER = MeadowShrubMesh.SHRUB_COVER;
@@ -394,9 +397,19 @@ namespace Prazsky.Core.Render
         //giant shrub's vase. The meadow's dome stands at 0.62 of the height, 0.42 of it half-high, its lowest clumps at -0.7 of that,
         //13 to 17 clumps 0.3 to 0.4 of the reach, and its stems leave 0.06 of the reach apart
         internal static readonly MeadowShrubMesh.ShrubForm SCRUB_FORM = new(DomeCentre: 0.45f, DomeHalf: 0.5f, DomeLowest: -0.9f, RootSpread: 0.12f,
-            Clumps: 15, ClumpMin: 0.28f, ClumpMax: 0.36f);
+            Clumps: 15, ClumpMin: 0.28f, ClumpMax: 0.36f, FootSlope: SCRUB_FOOT_SLOPE);
         internal static readonly MeadowShrubMesh.ShrubForm TREELINE_FORM = new(DomeCentre: 0.5f, DomeHalf: 0.5f, DomeLowest: -0.8f, RootSpread: 0.3f,
-            Clumps: 34, ClumpMin: 0.12f, ClumpMax: 0.17f, TwigsMin: 1, TwigsMax: 2);
+            Clumps: 34, ClumpMin: 0.12f, ClumpMax: 0.17f, TwigsMin: 1, TwigsMax: 2, FootSlope: TREELINE_FOOT_SLOPE);
+
+        //The steepest ground each is planted on with its pivot at the ground under its axis (the form's FootSlope: every stem's foot
+        //is carried that much deeper the further out it leaves the ground, #658's and #938's fault otherwise, a trunk's end in the
+        //air on a hillside's downhill side). The band's slopes reach 0.39 (the plain's rolling hills, TerrainMirror.SavannaPlain); the
+        //scrub stands where they rise out of the clearing, 0.55 at the steepest, and leans up to SCRUB_LEAN besides
+        //(SavannaShapedScrubTests holds both and every planted foot under the ground)
+        internal const float SCRUB_FOOT_SLOPE = 0.65f, TREELINE_FOOT_SLOPE = 0.4f;
+
+        //How far off vertical a scrub may lean, in radians (a lean rolled up to this per plant)
+        internal const float SCRUB_LEAN = 0.08f;
 
         //How deep a treeline mass's pivot is set under the ground, a share of TreelineSize (the planting's sink), so the ground stands
         //this high over the pivot in the mass's own units whatever its scale
@@ -1054,7 +1067,7 @@ namespace Prazsky.Core.Render
                     float s = 0.7f + 0.6f * (float)rng.NextDouble();
                     int shrub = rng.Next(SCRUB);
                     (float x, float z) = Place(dr.ScrubSize * s, ac.MinRadius, ac.MaxRadius, 0.7f, ac.ClusterSpread * 0.8f, scrubVolume[shrub], s);
-                    scrubInstances[shrub].Add(Plant(x, z, s, 0.08f * (float)rng.NextDouble(), 0f, (float)rng.NextDouble(), Jitter()));
+                    scrubInstances[shrub].Add(Plant(x, z, s, SCRUB_LEAN * (float)rng.NextDouble(), 0f, (float)rng.NextDouble(), Jitter()));
                 }
 
                 //--- The termite mounds: alone in the open, never in a grove, sunk a little into the earth they are made of.
@@ -1573,7 +1586,7 @@ namespace Prazsky.Core.Render
 
         //The shaped scrub's and treeline's wood (#1195): the trees' trunk, darkened, a thicket's stems seen in its own shade. And their
         //leaf against the dome's colours: the cards are lit through and on both sides (Acacia.fx), and at the dome's own colours the
-        //mass photographed lighter than the dome it replaced by about a seventh in sRGB (the treeline's median foliage pixel 94
+        //mass photographed about 16 % lighter in sRGB than the dome it replaced (the treeline's median foliage pixel 94
         //against 81 at the chapter intro's baobab shot), where the references' thickets are darker than the field
         private const float SHAPED_WOOD = 0.55f, SHAPED_LEAF = 0.72f;
 

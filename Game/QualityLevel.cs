@@ -313,15 +313,17 @@ namespace BS3D
         /// along a cube face's edge with every stalactite where Low and Medium use 104 and leave the short ones out (#958), the Moon's
         /// and the volcano's rocks as fractured blocks and worn boulders with a stone surface where Low and Medium keep twenty flat
         /// facets and the lathes (#777), the outback's near formations on a polar disc of 160 by 80 where Low and Medium lay
-        /// the far ones' 96 by 40 (#967), and the title wordmark's halo round the PNG logo, which Low and Medium leave out (#929, #981).
+        /// the far ones' 96 by 40 (#967), the savanna's scrub and treeline masses near the lens as shrubs of stems and broad-leaf
+        /// cards where Low and Medium keep the domes everywhere (#1195), and the title wordmark's halo round the PNG logo, which Low
+        /// and Medium leave out (#929, #981).
         /// The same lever draws more than meshes: the cloud heaps over the deck wherever the sky stands as heaps (#989,
         /// <c>BS3DGame.CloudVolumesShown</c>), the savanna's fires as volumes (#886), the volcano's authored flank program on its
         /// full grid where Medium draws <c>VolcanoMedium</c> (#1037), Mars's ground read from its baked maps (#1100) and the
         /// outback's crust and gibber (#776). <b>High and Ultra only</b>: the owner asked for the detail there ("on High / Ultra this
         /// transition should have more detail"; of the spruces, "they could pass for Low, maybe Medium, but not High or
         /// Ultra"; of the range, "how they look now could be the look of low/medium, but on high/ultra they must have more
-        /// detail"), and Medium is the weak machine's rung. What it costs is in "The fork, grown for High and Ultra (#758)" and
-        /// "The bush (#883)" in docs/scenes/savanna-trees.md, "Two woods (#889)" and "The shrubs (#890)" in docs/scenes/meadow.md, "The spruces on
+        /// detail"), and Medium is the weak machine's rung. What it costs is in "The fork, grown for High and Ultra (#758)",
+        /// "The bush (#883)" and "The scrub and the treeline near the lens (#1195)" in docs/scenes/savanna-trees.md, "Two woods (#889)" and "The shrubs (#890)" in docs/scenes/meadow.md, "The spruces on
         /// High and Ultra" in docs/scenes/aurora.md, "High and Ultra's range" in docs/scenes/mountains.md, "Built off the frame" in docs/scenes/cavern.md,
         /// "High and Ultra's rocks" in docs/scenes/moon.md and "High and Ultra's wood" in docs/scenes/forest.md; the heaps' in "The clouds
         /// as volumes on High and Ultra (#989)" in docs/rendering/weather.md, and the lever's as a whole in "What the scene and each lever
@@ -348,11 +350,13 @@ namespace BS3D
         public readonly bool HorizonShimmer;
 
         /// <summary>
-        /// Whether the distance rules reach farther than High's (<c>SceneRenderer.FarDetail</c>, #1208): the aurora stand's
-        /// spires are spruces out to <c>StandSpruces.FAR_DETAIL_SWAP_RADIUS</c> (300) where High swaps them within 200.
+        /// Whether the distance rules reach farther than High's (<c>SceneRenderer.FarDetail</c>, #1208). Two follow it: the aurora
+        /// stand's spires are spruces out to <c>StandSpruces.FAR_DETAIL_SWAP_RADIUS</c> (300) where High swaps them within 200,
+        /// and the savanna's treeline masses are shrubs out to <c>SavannaScatter.TREELINE_FAR_DETAIL_SWAP_RADIUS</c> (600) where
+        /// High stops at <c>TREELINE_SWAP_RADIUS</c> (240, #1195).
         /// <b>Ultra only</b>: the owner, of the post that compared the tiers, "High has fewer detailed trees than Ultra, and Max
         /// has every tree in detail", where Ultra had drawn High's trees to the tree. What it costs is in "The stand's spruces"
-        /// in docs/scenes/aurora.md.
+        /// in docs/scenes/aurora.md and "The scrub and the treeline near the lens (#1195)" in docs/scenes/savanna-trees.md.
         /// </summary>
         public readonly bool FarDetail;
 
@@ -437,7 +441,8 @@ namespace BS3D
 
             //Ultra (#484) — High, the sun shadow map at twice the scene's authored size (8192), and the farther reach of
             //the distance rules that trade a far thing's detail for frame time (#1208, FarDetail: the aurora stand's spruces
-            //out to 300 where High stops at 200). The one rung ABOVE the authored look, so it is the player's alone: the probe
+            //out to 300 where High stops at 200, the savanna's treeline masses as shrubs out to 600 where High stops at 240).
+            //The one rung ABOVE the authored look, so it is the player's alone: the probe
             //starts at High and only steps down. Every other entry is already at the authored maximum
             //on High (full scene detail, full stone cap, full city, the ceiling's refraction), and the one dial
             //that could go further — supersampling 3 — is 2.25x High's shaded pixels at 3840x1600, the whole
