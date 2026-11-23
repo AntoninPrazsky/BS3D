@@ -612,8 +612,11 @@ namespace BS3D.Screens
         //and a hot phone's re-measure (BS3DGame.WatchDeviceHeat). Over the cluster's pass and the gun's that is
         //left alone — measured, the cluster's pass is not the expensive half (see "The wide leg's length is the
         //probe's" in docs/game-shell/menu-camera.md), and the probe only ever steps down. The pass over the glass
-        //(#1214) is not judged at all: Update tells the probe so for as long as it flies, because its pane fills
-        //the frame and bends a copy of the scene taken at it every frame, and no phone's price for that is known.
+        //(#1214) is not judged at all: Update tells the probe so for as long as it flies. Its pane fills the frame
+        //and bends a copy of the scene taken at it every frame, over the cluster seen from just above, and measured
+        //on the desktop at High the frame at the glass is 1.7 to 2.8 times the wide leg's, and over a bubble
+        //map under the floor a 75 Hz display sets (the figures under "The pass over the glass" in the same
+        //document); no phone's price for it is known.
         private const float WIDE_SECONDS = 12f, WIDE_JITTER_SECONDS = 8f;
         private const float APPROACH_SECONDS = 3.5f, APPROACH_JITTER_SECONDS = 1.5f;
         private const float CLOSE_SECONDS = 16f, CLOSE_JITTER_SECONDS = 8f;
