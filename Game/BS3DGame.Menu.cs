@@ -88,6 +88,9 @@ namespace BS3D
         /// <summary>What the front end does about its own gun (#1040): the <c>menugun=</c> argument, a gun and a pass at it unless it says otherwise.</summary>
         internal MenuGunMode MenuGunMode { get; private set; }
 
+        /// <summary>What the front end does about its pass over the glass (#1214): the <c>menuglass=</c> argument, now and then unless it says otherwise.</summary>
+        internal MenuGlassMode MenuGlassMode { get; private set; }
+
         //The Myra host. Rendered as the very last thing in Draw (after the tonemap resolve and base.Draw),
         //straight to the back buffer — the same place the map editor puts it. Render() also processes Myra's
         //own mouse/keyboard input, so it is only called while a menu page is the active screen, where the
@@ -1331,6 +1334,13 @@ namespace BS3D
         //DropCinematic's own submerge pull (#193) reads this once at Begin rather than holding a
         //SceneRenderer reference — meaningless off the sea, where nothing asks for it.
         internal float SeaLevelY => _sceneRenderer?.SeaLevelY ?? POTATO_NO_SEA_Y;
+
+        /// <summary>
+        /// What the scene has over (<paramref name="x"/>, <paramref name="z"/>) - the cavern's vault, the Big Top's canvas - or
+        /// infinity under an open sky (<see cref="SceneRenderer.RoofAbove"/>): what the front end's pass over the glass stays
+        /// under (#1214).
+        /// </summary>
+        internal float RoofAbove(float x, float z) => _sceneRenderer?.RoofAbove(_scene, x, z) ?? float.PositiveInfinity;
 
         /// <summary>
         /// <see cref="SeaLevelY"/> on the Potato path (#789), which has no sea to stand a level on: far enough below

@@ -130,26 +130,45 @@ namespace BS3D.Screens
             /// </summary>
             public float Span => MathF.Sqrt(SpanXZ * SpanXZ + HalfHeight * HalfHeight);
 
-            public OrbitFraming(float spanXZ, float halfHeight, float centreY)
+            /// <summary>World Y of the glass's top face over the cluster: what the pass over the glass looks down at (#1214).</summary>
+            public readonly float PlateTopY;
+
+            /// <summary>
+            /// Where the plate's (+, +) cable rises off the axis, in X and Z (<see cref="CeilingRigging.CableOffset"/>); the
+            /// other three mirror it. What a lens over the glass keeps clear of (#1214).
+            /// </summary>
+            public readonly float CableX, CableZ;
+
+            /// <summary>How far the four cables stand off the axis.</summary>
+            public float CableReach => MathF.Sqrt(CableX * CableX + CableZ * CableZ);
+
+            public OrbitFraming(float spanXZ, float halfHeight, float centreY, float plateTopY, float cableX, float cableZ)
             {
                 SpanXZ = spanXZ;
                 HalfHeight = halfHeight;
                 CentreY = centreY;
+                PlateTopY = plateTopY;
+                CableX = cableX;
+                CableZ = cableZ;
             }
 
             /// <summary>
             /// What the front end frames with no map hanging at all — the no-readable-level fallback. The
             /// drain's mouth stands in for the cluster, because with nothing hanging over the island the hole
             /// in the middle of it is what the flight is going round; the aim height is the one the fixed orbit
-            /// used before any of this was solved.
+            /// used before any of this was solved. No plate hangs, so the pass over the glass is never flown
+            /// over it: its plate figures are the aim height and the axis, finite so a drift to or from it stays so.
             /// </summary>
             public static readonly OrbitFraming Bare =
-                new(ArenaIsland.FUNNEL_TOP_RADIUS, 0f, 5f);
+                new(ArenaIsland.FUNNEL_TOP_RADIUS, 0f, 5f, 5f, 0f, 0f);
 
             public static OrbitFraming Lerp(in OrbitFraming from, in OrbitFraming to, float amount) => new(
                 MathHelper.Lerp(from.SpanXZ, to.SpanXZ, amount),
                 MathHelper.Lerp(from.HalfHeight, to.HalfHeight, amount),
-                MathHelper.Lerp(from.CentreY, to.CentreY, amount));
+                MathHelper.Lerp(from.CentreY, to.CentreY, amount),
+                MathHelper.Lerp(from.PlateTopY, to.PlateTopY, amount),
+                MathHelper.Lerp(from.CableX, to.CableX, amount),
+                MathHelper.Lerp(from.CableZ, to.CableZ, amount));
         }
 
         //What the camera is flying to today, and what it is drifting towards. Two of them rather than one
@@ -363,10 +382,17 @@ namespace BS3D.Screens
             float halfX = CeilingPlate.FootprintFor(map.StageSizeX) * Constants.HALF;
             float halfZ = CeilingPlate.FootprintFor(map.StageSizeZ) * Constants.HALF;
 
+            //The glass over it (#1214): the top level's crowns meet the plate's underside (BallsConstraintsBuilder.CeilingRestY),
+            //so its top face is a plate's thickness over them; and its cables, off the same corners the rigging stands them on
+            Vector2 cable = CeilingRigging.CableOffset(map.StageSizeX, map.StageSizeZ);
+
             return new OrbitFraming(
                 MathF.Sqrt(halfX * halfX + halfZ * halfZ),
                 (topY - bottomY) * Constants.HALF,
-                centreY);
+                centreY,
+                topY + CeilingPlate.THICKNESS,
+                cable.X,
+                cable.Y);
         }
 
         /// <summary>
@@ -453,9 +479,17 @@ namespace BS3D.Screens
         /// much, which is the one test that holds from every bearing and every height of the crane at once.
         /// The pose is last frame's, since the request is stepped before the flight; a frame's movement is
         /// nothing against the margin.
+        /// <para>
+        /// <b>Or, on the pass over the glass, over the map's glass</b> (#1214): the sphere reaches well over the plate's top
+        /// face, and a lens on that pass is inside it most of the time, though nothing of the map is near it. Over the plate
+        /// and off its cables (<see cref="GlassPass.ClearAbove"/>) it is clear of everything the map hangs, so the map can
+        /// hang under it; without this a map the level picker asked for would wait out the whole pass. The other legs keep
+        /// the sphere alone, as they always have.
+        /// </para>
         /// </summary>
         private bool LensClearOf(in OrbitFraming framing) =>
-            Vector3.Distance(_lens, new Vector3(0f, framing.CentreY, 0f)) >= framing.Span + HANG_CLEARANCE;
+            Vector3.Distance(_lens, new Vector3(0f, framing.CentreY, 0f)) >= framing.Span + HANG_CLEARANCE
+            || (_glassPass && GlassPass.ClearAbove(_lens, framing.PlateTopY, framing.CableX, framing.CableZ));
 
         #endregion
 
@@ -637,11 +671,50 @@ namespace BS3D.Screens
         private bool _gunSwingSet;
         private Vector3 _gunAnchor;
 
-        //The excursion's legs are the cluster's, or the gun's once the cycle has turned to it (#1040): one scalar, Closeness,
-        //answers for both, so the wordmark and the camera read the same shape off whichever pass is flying
-        private float ApproachSeconds => _gunPass ? _gunApproachSeconds : _approachSeconds;
-        private float CloseSeconds => _gunPass ? _gunCloseSeconds : _closeSeconds;
-        private float RetreatSeconds => _gunPass ? _gunRetreatSeconds : _retreatSeconds;
+        //=== THE PASS OVER THE GLASS (#1214) ===
+        //
+        //Now and then an excursion goes over the glass instead: the lens leaves the wide turn, climbs over the plate to look almost
+        //straight down at the map from a height, comes down to a few units over the glass while it turns a quarter of the way round,
+        //lingers there with the cut and what it bends filling the frame, and climbs back out (GlassPass says how). The one leg of
+        //the flight that looks down: #599's "never looks down" holds for the cluster's pass, and this leg is the owner's own ask of
+        //2026-11-20. Rolled with the gun's from one draw, so the gun keeps its one cycle in three; never under the picker, by the
+        //same clock, Closeness and hold as the other two; and only where the tier bends what is behind the pane
+        //(BS3DGame.RefractsCeiling): over a plain pane the pass would show a flat plate from above and nothing it was flown for.
+        private const float GLASS_PASS_SHARE = 1f / 4f;
+
+        //The approach is long because the lens climbs from beside the island to high over the plate; the close leg is the
+        //descent (GlassPass.DESCENT_SHARE of it) and the time at the glass; the retreat climbs as it pulls out
+        private const float GLASS_APPROACH_SECONDS = 5f, GLASS_APPROACH_JITTER_SECONDS = 2f;
+        private const float GLASS_CLOSE_SECONDS = 14f, GLASS_CLOSE_JITTER_SECONDS = 6f;
+        private const float GLASS_RETREAT_SECONDS = 6f, GLASS_RETREAT_JITTER_SECONDS = 3f;
+
+        //How high over the plate's top face the descent ends (rolled): near enough that two or three of the cut's diamonds
+        //(CeilingPlate.CUT_PERIOD) span the frame's height, so what shows through each facet is a ball or two bent apart
+        private const float GLASS_NEAR_HEIGHT = 3.5f, GLASS_NEAR_JITTER = 2.5f;
+
+        //Where there is no roof over the island (SceneRenderer.RoofAbove's infinity), a ceiling the far height never reaches,
+        //finite so the ease towards it stays finite
+        private const float NO_ROOF_Y = 1e4f;
+
+        //This cycle's pass over the glass: whether it was rolled, whether the excursion has turned to it, and what it rolled. The
+        //bearing is the side the lens arrives over (GlassPass.FirstBearing); the swing is the lens's bearing off the wide turn's,
+        //unwrapped as the gun's is. The plate the lens looks down at, its cables and the roof over it are eased rather than read,
+        //so a map the picker hangs under the lens, or a scene with a lower roof, moves the lens and never cuts it.
+        private bool _glassIntent, _glassPass;
+        private float _glassApproachSeconds = GLASS_APPROACH_SECONDS;
+        private float _glassCloseSeconds = GLASS_CLOSE_SECONDS;
+        private float _glassRetreatSeconds = GLASS_RETREAT_SECONDS;
+        private float _glassNearHeight = GLASS_NEAR_HEIGHT;
+        private float _glassBearing;
+        private float _glassSwing;
+        private bool _glassSwingSet;
+        private float _glassPlateTop, _glassCableReach, _glassCeilingY, _glassRoofY = NO_ROOF_Y;
+
+        //The excursion's legs are the cluster's, or the gun's (#1040) or the glass's (#1214) once the cycle has turned to one: one
+        //scalar, Closeness, answers for all three, so the wordmark and the camera read the same shape off whichever pass is flying
+        private float ApproachSeconds => _gunPass ? _gunApproachSeconds : _glassPass ? _glassApproachSeconds : _approachSeconds;
+        private float CloseSeconds => _gunPass ? _gunCloseSeconds : _glassPass ? _glassCloseSeconds : _closeSeconds;
+        private float RetreatSeconds => _gunPass ? _gunRetreatSeconds : _glassPass ? _glassRetreatSeconds : _retreatSeconds;
 
         private float ExcursionSeconds => ApproachSeconds + CloseSeconds + RetreatSeconds;
         private float CycleSeconds => _wideSeconds + ExcursionSeconds;
@@ -679,11 +752,22 @@ namespace BS3D.Screens
             _retreatSeconds = RETREAT_SECONDS + (float)RANDOM.NextDouble() * RETREAT_JITTER_SECONDS;
             _closeClearance = CLOSE_CLEARANCE * (1f + (2f * (float)RANDOM.NextDouble() - 1f) * CLOSE_CLEARANCE_JITTER);
 
-            //And whether this cycle's excursion goes to the gun (#1040): rolled here, decided when the excursion begins (the
-            //gun may not stand yet - a fresh roll of the preview rolls the cycle first), so the wide leg is the cluster's
-            //whichever it turns out to be
-            _gunIntent = Game.MenuGunMode == MenuGunMode.Pass
-                || (Game.MenuGunMode == MenuGunMode.Normal && RANDOM.NextDouble() < GUN_PASS_SHARE);
+            //And whether this cycle's excursion goes over the glass (#1214) or to the gun (#1040): one draw for both, so each
+            //keeps its own share whatever the other's argument says, and the cluster has the rest. Rolled here, decided when
+            //the excursion begins (the gun may not stand yet - a fresh roll of the preview rolls the cycle first - and the tier
+            //may not bend the pane), so the wide leg is the cluster's whichever it turns out to be. A forced pass wins over the
+            //other's roll, the glass's over the gun's.
+            double kind = RANDOM.NextDouble();
+            _glassIntent = Game.MenuGlassMode == MenuGlassMode.Pass
+                || (Game.MenuGlassMode == MenuGlassMode.Normal && Game.MenuGunMode != MenuGunMode.Pass && kind < GLASS_PASS_SHARE);
+            _glassPass = false;
+            _glassApproachSeconds = GLASS_APPROACH_SECONDS + (float)RANDOM.NextDouble() * GLASS_APPROACH_JITTER_SECONDS;
+            _glassCloseSeconds = GLASS_CLOSE_SECONDS + (float)RANDOM.NextDouble() * GLASS_CLOSE_JITTER_SECONDS;
+            _glassRetreatSeconds = GLASS_RETREAT_SECONDS + (float)RANDOM.NextDouble() * GLASS_RETREAT_JITTER_SECONDS;
+            _glassNearHeight = GLASS_NEAR_HEIGHT + (float)RANDOM.NextDouble() * GLASS_NEAR_JITTER;
+
+            _gunIntent = !_glassIntent && (Game.MenuGunMode == MenuGunMode.Pass
+                || (Game.MenuGunMode == MenuGunMode.Normal && kind >= GLASS_PASS_SHARE && kind < GLASS_PASS_SHARE + GUN_PASS_SHARE));
             _gunPass = false;
             _gunApproachSeconds = GUN_APPROACH_SECONDS + (float)RANDOM.NextDouble() * GUN_APPROACH_JITTER_SECONDS;
             _gunCloseSeconds = GUN_CLOSE_SECONDS + (float)RANDOM.NextDouble() * GUN_CLOSE_JITTER_SECONDS;
@@ -695,20 +779,11 @@ namespace BS3D.Screens
         /// <summary>
         /// Where in the excursion the camera is, as one reversible scalar: 0 out on the wide turn, 1 in on
         /// the map. Smoothstepped at both ends, so the flight leaves the wide leg at rest and arrives at rest — the
-        /// same shape precise aim, the drop cinematic and the result screen's own release are built on.
+        /// same shape precise aim, the drop cinematic and the result screen's own release are built on. Written once in
+        /// <see cref="GlassPass.Closeness"/>, whose tests fly the pass over the glass on it.
         /// </summary>
-        private float Closeness(float clock)
-        {
-            float since = clock - _wideSeconds;
-
-            if (since <= 0f) return 0f;
-            if (since < ApproachSeconds) return MathHelper.SmoothStep(0f, 1f, since / ApproachSeconds);
-
-            since -= ApproachSeconds;
-            if (since < CloseSeconds) return 1f;
-
-            return MathHelper.SmoothStep(1f, 0f, (since - CloseSeconds) / RetreatSeconds);
-        }
+        private float Closeness(float clock) =>
+            GlassPass.Closeness(clock - _wideSeconds, ApproachSeconds, CloseSeconds, RetreatSeconds);
 
         /// <summary>
         /// How far up the crane is, 0 at its low, steep look up at the cluster and 1 at its shallow one (see
@@ -755,7 +830,7 @@ namespace BS3D.Screens
             //where it was: the tour ends on the pose it was handed at its start (a city's swing home lands on it, #972),
             //and a flight that had gone on turning under a twenty-second reel was 76 to 114 degrees round by then, so the
             //blend back was a fast sweep round the arena and not a nudge between two poses (the review of #972).
-            AdvanceOrbit(_tour.Running ? 0f : elapsed, out Vector3 position, out Vector3 target, out float fieldOfView);
+            AdvanceOrbit(_tour.Running ? 0f : elapsed, out Vector3 position, out Vector3 target, out float fieldOfView, frontEnd: true);
 
             _tour.Update(elapsed);
             if (_tour.Engaged)
@@ -798,7 +873,12 @@ namespace BS3D.Screens
         /// what a result screen eases onto is the establishing turn and never the middle of a pass at the map.
         /// </para>
         /// </summary>
-        internal void AdvanceOrbit(float elapsed, out Vector3 position, out Vector3 target, out float fieldOfView)
+        /// <param name="frontEnd">
+        /// The front end's own update (<see cref="Update"/>), the one caller that draws the preview plate the pass over the
+        /// glass looks down at (#1214). The result page's flight flies over a session's plate, which a session steps down
+        /// under a framing solved at its start, so over it an excursion rolled for the glass flies the cluster.
+        /// </param>
+        internal void AdvanceOrbit(float elapsed, out Vector3 position, out Vector3 target, out float fieldOfView, bool frontEnd = false)
         {
             //Exponential approach, so the drift onto a newly rolled map's framing is frame-rate independent
             //and has no arrival to overshoot. It is a no-op on every frame the map has not changed. Brisker
@@ -820,15 +900,19 @@ namespace BS3D.Screens
                 RollCycle();
             }
 
-            //The excursion turns to the gun as it begins - strictly after the wide leg, so a held wide leg (its clock stops AT the
-            //end of it) does not begin one - and only with a gun to come to; a cycle rolled for it with none standing flies the
-            //cluster as before (#1040)
-            if (!_gunPass && _gunIntent && _flightClock > _wideSeconds) BeginGunPass();
+            //The excursion turns to the glass or the gun as it begins - strictly after the wide leg, so a held wide leg (its clock
+            //stops AT the end of it) does not begin one - and only with a bending pane over the front end's own map (#1214) or a
+            //gun to come to (#1040); a cycle rolled for either without it flies the cluster as before
+            if (!_gunPass && !_glassPass && _flightClock > _wideSeconds)
+            {
+                if (_glassIntent) BeginGlassPass(frontEnd);
+                else if (_gunIntent) BeginGunPass();
+            }
 
             float closeness = Closeness(_flightClock);
 
-            //The pass at the gun is its own blend, below; the cluster's pass has none of this excursion
-            float clusterCloseness = _gunPass ? 0f : closeness;
+            //The passes at the gun and over the glass are blends of their own, below; the cluster's pass has none of them
+            float clusterCloseness = _gunPass || _glassPass ? 0f : closeness;
 
             //Both stand-offs solved here, from the map's measurements and the window's own shape, rather than
             //stored with the framing — see OrbitFraming for why they cannot be settled at load. The close one
@@ -838,7 +922,8 @@ namespace BS3D.Screens
 
             //The crane's height is taken at the pass's own stand-off, where its pitches are meant, and mixed
             //with the wide leg's the way the radius is. Both are under the aim, so every blend of them is too:
-            //the lens looks up at the cluster through the whole flight and never down on it (#599).
+            //the lens looks up at the cluster through the whole of the wide turn and the cluster's pass and never down
+            //on it (#599). The pass over the glass (#1214) is the one leg that looks down, and it is blended in below.
             float height = MathF.Max(LENS_FLOOR_Y, MathHelper.Lerp(
                 _framing.CentreY - WIDE_LENS_DROP,
                 CraneHeight(_framing, closeRadius, Rise(_flightClock)),
@@ -864,8 +949,9 @@ namespace BS3D.Screens
 
             target = new Vector3(0f, _framing.CentreY - lift, 0f);
 
-            //The excursion at the gun, blended off the wide pose just solved (#1040)
+            //The excursion at the gun, blended off the wide pose just solved (#1040), or over the glass (#1214)
             if (_gunPass && closeness > 0f) BlendGunPass(closeness, ref position, ref target, ref fieldOfView);
+            if (_glassPass) BlendGlassPass(closeness, elapsed, ref position, ref target, ref fieldOfView);
 
             _lens = position;
             _lensFov = fieldOfView;
@@ -970,6 +1056,105 @@ namespace BS3D.Screens
 
             target = Vector3.Lerp(target, aim, closeness);
             fieldOfView = MathHelper.Lerp(fieldOfView, FOV, closeness);
+        }
+
+        /// <summary>
+        /// The excursion turns to the glass (#1214), if there is glass worth coming to: the front end's own plate over its own map
+        /// (<paramref name="frontEnd"/>), bending what is behind it at this tier (<see cref="BS3DGame.RefractsCeiling"/>, which
+        /// <c>menuglass=pass</c> overrides so a <c>plainceiling</c> pair can be photographed), and room under the scene's roof for
+        /// the near height. Otherwise this excursion is the cluster's, and it is not asked again. The side the lens arrives over
+        /// is the one nearest where the wide turn will have taken it by the end of the approach.
+        /// </summary>
+        private void BeginGlassPass(bool frontEnd)
+        {
+            _glassIntent = false;
+
+            if (!frontEnd || _previewMap == null || Game.MenuCeilingRenderer == null) return;
+
+            if (!Game.RefractsCeiling && Game.MenuGlassMode != MenuGlassMode.Pass)
+            {
+                Console.WriteLine("[orbit] glass pass: the pane does not bend at this tier, the cluster's pass instead");
+                return;
+            }
+
+            _glassRoofY = RoofOverIsland();
+            if (_glassRoofY - GlassPass.ROOF_AIR - _hungFraming.PlateTopY < GLASS_NEAR_HEIGHT + GLASS_NEAR_JITTER)
+            {
+                Console.WriteLine("[orbit] glass pass: no room under the roof, the cluster's pass instead");
+                return;
+            }
+
+            _glassPass = true;
+            _glassSwingSet = false;
+            _glassBearing = GlassPass.FirstBearing(_angle + WIDE_ROTATION_SPEED * _glassApproachSeconds);
+            _glassPlateTop = _hungFraming.PlateTopY;
+            _glassCableReach = _hungFraming.CableReach;
+            _glassCeilingY = _glassRoofY - GlassPass.ROOF_AIR;
+
+            Console.WriteLine($"[orbit] glass pass: plate top y {_glassPlateTop:F1}"
+                + $", height {GlassFarHeight():F1} to {MathF.Min(_glassNearHeight, GlassFarHeight()):F1}"
+                + $", over side {MathHelper.ToDegrees(MathHelper.WrapAngle(_glassBearing)):F0} deg turning {MathHelper.ToDegrees(GlassPass.TURN):F0}"
+                + $", legs {_glassApproachSeconds:F1} / {_glassCloseSeconds:F1} / {_glassRetreatSeconds:F1} s"
+                + (Game.RefractsCeiling ? "" : ", the pane not bending"));
+        }
+
+        //What the scene has over the island's axis (the cavern's vault, the Big Top's canvas), or NO_ROOF_Y under an open sky
+        private float RoofOverIsland()
+        {
+            float roof = Game.RoofAbove(0f, 0f);
+            return float.IsFinite(roof) ? MathF.Min(roof, NO_ROOF_Y) : NO_ROOF_Y;
+        }
+
+        /// <summary>
+        /// The far height over the plate's top face (<see cref="GlassPass.FarHeight"/>), at the window's current shape and the
+        /// framing's current footprint, under the scene's roof by <see cref="GlassPass.ROOF_AIR"/>, and never under the near height.
+        /// </summary>
+        private float GlassFarHeight()
+        {
+            FrameHalfAngles(out float vertical, out float horizontal);
+
+            float far = MathF.Min(GlassPass.FarHeight(_framing.SpanXZ, MathF.Min(vertical, horizontal)), _glassCeilingY - _glassPlateTop);
+            return MathF.Max(far, GLASS_NEAR_HEIGHT);
+        }
+
+        /// <summary>
+        /// Blends the wide pose just solved towards the lens over the glass (#1214), by <paramref name="closeness"/>: the pose is
+        /// <see cref="GlassPass.Pose"/> at the height <see cref="GlassPass.Depth"/> says and the bearing the quarter turn has
+        /// reached, and the blend is <see cref="GlassPass.Blend"/>'s, polar about the axis like the gun's.
+        /// <para>
+        /// <b>The plate is eased, not read.</b> What the lens looks down at is the higher of the plate that hangs and the one the
+        /// framing is drifting to, and the nearer of their cables: a map the level picker asks for while the lens is over the
+        /// glass (#408) is hung as soon as the lens is clear above it (<see cref="LensClearOf"/>), and the pose then settles onto
+        /// the new plate instead of jumping to it - up first if the new plate is higher, so it is never hung through the lens,
+        /// and down only once the old one is gone. The roof is read every frame and eased the same way, for a picked level in
+        /// another scene and for the cavern, whose vault is placed off the frame and is open sky until it is.
+        /// </para>
+        /// </summary>
+        private void BlendGlassPass(float closeness, float elapsed, ref Vector3 position, ref Vector3 target, ref float fieldOfView)
+        {
+            //One point, the axis: the cavern keeps its last few answers, and the front end asks it over the plate's four corners
+            //(the rigging) and this, so the march through its shell is not run per frame
+            _glassRoofY = RoofOverIsland();
+
+            float ease = 1f - MathF.Exp(-elapsed / CLEARING_EASE_SECONDS);
+            _glassPlateTop = MathHelper.Lerp(_glassPlateTop, MathF.Max(_framing.PlateTopY, _hungFraming.PlateTopY), ease);
+            _glassCableReach = MathHelper.Lerp(_glassCableReach, MathF.Min(_framing.CableReach, _hungFraming.CableReach), ease);
+            _glassCeilingY = MathHelper.Lerp(_glassCeilingY, _glassRoofY - GlassPass.ROOF_AIR, ease);
+
+            float far = GlassFarHeight();
+            float since = _flightClock - _wideSeconds;
+            float height = GlassPass.HeightAt(far, MathF.Min(_glassNearHeight, far),
+                GlassPass.Depth(since, _glassApproachSeconds, _glassCloseSeconds, _glassRetreatSeconds));
+            float bearing = _glassBearing + GlassPass.TURN * GlassPass.Turn(since, _glassApproachSeconds, _glassCloseSeconds);
+
+            GlassPass.Pose(_glassPlateTop, _glassCableReach, height, bearing, out Vector3 lens, out Vector3 aim);
+
+            //The bearing of the lens over the glass off the wide turn's, continuous, and the shorter way round when the pass begins
+            float raw = bearing - _angle;
+            _glassSwing = _glassSwingSet ? GlassPass.Unwrap(_glassSwing, raw) : MathHelper.WrapAngle(raw);
+            _glassSwingSet = true;
+
+            GlassPass.Blend(closeness, _angle, _glassSwing, lens, aim, FOV, ref position, ref target, ref fieldOfView);
         }
 
         //The [orbit] line's note on the scene's open ground (#1039): nothing where the scene has none, and otherwise where
