@@ -21,7 +21,8 @@ namespace Prazsky.Core.Render
     /// <para>
     /// <b>Grown from the crown inwards</b>, as the old trees are: the clumps are laid over the dome first, the stems are grown to the
     /// clumps they lead to, and every other clump takes a branch from the nearest stem below it, so no clump floats and every stem ends
-    /// inside a clump's spray. The stems come out of the ground within <see cref="ROOT_SPREAD"/> of the axis and reach under the pivot,
+    /// inside a clump's spray. The stems come out of the ground within <see cref="ROOT_SPREAD"/> of the axis (the meadow's
+    /// <see cref="ShrubForm"/>) and reach under the pivot,
     /// which the planting sinks under the ground, so the base is one rooted spot with no lip.
     /// </para>
     /// <para>
@@ -32,7 +33,9 @@ namespace Prazsky.Core.Render
     /// </para>
     /// <para>
     /// <b>The tropical beach's sea grape is this shrub too</b> (#753), fitted to that beach's scrub domes, with cards twice the side and
-    /// round leaves (<c>Acacia.fx</c>'s leaves 3): the card size and the cover are arguments, the meadow's by default.
+    /// round leaves (<c>Acacia.fx</c>'s leaves 3): the card size and the cover are arguments, the meadow's by default. The savanna's
+    /// scrub and treeline masses near the lens on High and Ultra are this shrub as well (#1195), each in a <see cref="ShrubForm"/> of
+    /// its own (where its clumps are laid and its stems leave the ground).
     /// </para>
     /// </summary>
     internal sealed class MeadowShrubMesh : IDisposable
@@ -114,12 +117,14 @@ namespace Prazsky.Core.Render
         /// The savanna's scrub and treeline masses (#1195) take their own, their leaf down to the grass as a thicket's is and, under a
         /// treeline mass, a stand of trunks rather than one giant shrub's vase. <c>Clumps</c> (the fewest; up to four more are
         /// rolled) and <c>ClumpMin</c> to <c>ClumpMax</c> (a clump's radius against the reach) make a wide, low mass of many small
-        /// clumps rather than a dome of a few big ones; <c>Ground</c> is how high the ground stands over the pivot, in the shrub's
-        /// units at scale 1, for a planting that sinks its pivot under it (a treeline mass): the shrub is grown and fitted standing
-        /// on it, its stems' feet under it.
+        /// clumps rather than a dome of a few big ones; <c>TwigsMin</c> to <c>TwigsMax</c> are how many twigs carry a clump's cards
+        /// (a shrub seen only from afar needs fewer: a twig is most of the wood's triangles and none of what reads); <c>Ground</c> is
+        /// how high the ground stands over the pivot, in the shrub's units at scale 1, for a planting that sinks its pivot under it (a
+        /// treeline mass): the shrub is grown and fitted standing on it, its stems' feet under it.
         /// </summary>
         internal readonly record struct ShrubForm(float DomeCentre, float DomeHalf, float DomeLowest, float RootSpread,
-            int Clumps = CLUMPS_MIN, float ClumpMin = CLUMP_MIN, float ClumpMax = CLUMP_MAX, float Ground = 0f)
+            int Clumps = CLUMPS_MIN, float ClumpMin = CLUMP_MIN, float ClumpMax = CLUMP_MAX, float Ground = 0f,
+            int TwigsMin = SHRUB_TWIGS_MIN, int TwigsMax = SHRUB_TWIGS_MAX)
         {
             public static readonly ShrubForm Meadow = new(DOME_CENTRE, DOME_HALF, DOME_LOWEST, ROOT_SPREAD);
         }
@@ -277,7 +282,7 @@ namespace Prazsky.Core.Render
             {
                 (Vector3 centre, float r, _) = clumps[c];
                 MeadowTreeMesh.AddSpray(g.WoodVertices, g.WoodIndices, g.LeafVertices, g.LeafIndices, sprayBases[c], sprayBacks[c], centre, domeCentre,
-                    r, r * 0.8f, shaded[c], H * TWIG_RADIUS, leafRng, cover, cardSize, SHRUB_TWIGS_MIN, SHRUB_TWIGS_MAX);
+                    r, r * 0.8f, shaded[c], H * TWIG_RADIUS, leafRng, cover, cardSize, shape.TwigsMin, shape.TwigsMax);
             }
             g.TwigRadius = H * TWIG_RADIUS;
             g.SprayBases.AddRange(sprayBases);

@@ -49,7 +49,7 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Drawn only when <see cref="SceneRenderer.FineMeshes"/> is this (#758): <c>true</c> for High and Ultra's finer mesh
         /// of a thing (an acacia's <see cref="AcaciaMesh.FineWood"/>, a bush's <see cref="ThornBushMesh"/>, #883, a meadow shrub's
-        /// <see cref="MeadowShrubMesh"/>, #890), <c>false</c>
+        /// <see cref="MeadowShrubMesh"/>, #890, and the savanna scrub's and treeline's near the lens, #1195, <see cref="Swap"/>), <c>false</c>
         /// for the coarser one Low and Medium draw instead off the same instances (the bush's lobed dome), <c>null</c> for every
         /// tier. The Moon's and the volcano's rocks are the same switch (#777): <see cref="FracturedRockMesh"/>'s blocks and boulders
         /// for High and Ultra, <see cref="VolcanoPlanting.BlockMesh"/> and <see cref="RockMesh"/> for Low and Medium.
@@ -395,8 +395,8 @@ namespace Prazsky.Core.Render
         //13 to 17 clumps 0.3 to 0.4 of the reach, and its stems leave 0.06 of the reach apart
         internal static readonly MeadowShrubMesh.ShrubForm SCRUB_FORM = new(DomeCentre: 0.45f, DomeHalf: 0.5f, DomeLowest: -0.9f, RootSpread: 0.12f,
             Clumps: 15, ClumpMin: 0.28f, ClumpMax: 0.36f);
-        internal static readonly MeadowShrubMesh.ShrubForm TREELINE_FORM = new(DomeCentre: 0.5f, DomeHalf: 0.5f, DomeLowest: -0.7f, RootSpread: 0.3f,
-            Clumps: 34, ClumpMin: 0.12f, ClumpMax: 0.17f);
+        internal static readonly MeadowShrubMesh.ShrubForm TREELINE_FORM = new(DomeCentre: 0.5f, DomeHalf: 0.5f, DomeLowest: -0.8f, RootSpread: 0.3f,
+            Clumps: 34, ClumpMin: 0.12f, ClumpMax: 0.17f, TwigsMin: 1, TwigsMax: 2);
 
         //How deep a treeline mass's pivot is set under the ground, a share of TreelineSize (the planting's sink), so the ground stands
         //this high over the pivot in the mass's own units whatever its scale

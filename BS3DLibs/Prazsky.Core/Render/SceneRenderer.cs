@@ -451,12 +451,13 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Whether the scenes draw their <b>finer meshes</b> (#758): High and Ultra's, where Low and Medium draw the coarser
-        /// mesh of the same thing off the same instances. Thirteen things today: the savanna acacias' wood — the fork grown as one
+        /// mesh of the same thing off the same instances. Fourteen things today: the savanna acacias' wood — the fork grown as one
         /// surface out of a swollen, lobed crotch rather than tubes poking out of the trunk's cut end
         /// (<see cref="AcaciaMesh.FineWood"/>, <see cref="ScatterBucket.FineMeshes"/>, #758) — the meadow's old trees' wood
         /// grown the same way, the limbs coming out through the crotch's side (<see cref="MeadowTreeMesh.FineWood"/>, #889,
         /// drawn by <see cref="PlantPass"/>) — the savanna's bushes, thorn shrubs of stems, twigs and leaf cards in place of a
-        /// lobed dome with nothing inside it (<see cref="ThornBushMesh"/>, #883) — the meadow's free-standing shrubs, stems and
+        /// lobed dome with nothing inside it (<see cref="ThornBushMesh"/>, #883) — the savanna's scrub and treeline masses within a
+        /// radius of the lens, stems and clumps of broad-leaf cards in place of the domes (<see cref="ScatterSwap"/>, #1195) — the meadow's free-standing shrubs, stems and
         /// clumps of broad-leaf cards in place of the lobed loaf the hedgerows keep (<see cref="MeadowShrubMesh"/>, #890) — the spruces of the aurora's
         /// wood and the daytime forest, whose crowns are separate boughs with snow lying on them in lumps instead of a lathe
         /// of smooth skirts (<see cref="TreeMesh.FineCrown"/>, #733) — the daytime forest's wood twice as thick with saplings, snags and
@@ -480,8 +481,8 @@ namespace Prazsky.Core.Render
         /// A switch of its own rather than a step of <see cref="SceneDetail"/>, because that one is Low's alone (#298) and
         /// this one is Medium's too: Medium is the weak machine's rung. A plain flag for <see cref="SupersampleFactor"/>'s
         /// reason — the tier lives in the Game. Left on, a caller that never sets it draws the authored look, which is what
-        /// the Testbed and the map editor want. Costed in "The fork, grown for High and Ultra (#758)" and "The bush (#883)" in
-        /// docs/scenes/savanna-trees.md, in "Two woods (#889)" and "The shrubs (#890)" in docs/scenes/meadow.md, in "The spruces on High and Ultra"
+        /// the Testbed and the map editor want. Costed in "The fork, grown for High and Ultra (#758)" and "The bush (#883)" and
+        /// "The scrub and the treeline near the lens (#1195)" in docs/scenes/savanna-trees.md, in "Two woods (#889)" and "The shrubs (#890)" in docs/scenes/meadow.md, in "The spruces on High and Ultra"
         /// in docs/scenes/aurora.md, in "High and Ultra's range" in docs/scenes/mountains.md, in "High and Ultra's rocks" in docs/scenes/moon.md, in
         /// "One height field, two kinds of mesh" in docs/scenes/outback.md, in "High and Ultra's wood" in docs/scenes/forest.md, in
         /// "The beetles and scorpions (#966)" in docs/scenes/desert.md, in "The saucer (#955)" in docs/scenes/space.md and in
@@ -498,10 +499,13 @@ namespace Prazsky.Core.Render
         /// Whether a distance rule that trades a far thing's detail for frame time reaches farther than High's: Ultra's rung
         /// (#1208). The owner, of the post that compared the tiers: "High has fewer detailed trees than Ultra, and Max has every
         /// tree in detail", where Ultra had drawn High's trees to the tree. It moves the aurora stand's swap from spire to spruce
-        /// out to <see cref="StandSpruces.FAR_DETAIL_SWAP_RADIUS"/> from <see cref="StandSpruces.SWAP_RADIUS"/> (only with
-        /// <see cref="FineMeshes"/>, which makes the swap at all); <see cref="RenderDetail.Maximum"/> still goes past both.
+        /// out to <see cref="StandSpruces.FAR_DETAIL_SWAP_RADIUS"/> from <see cref="StandSpruces.SWAP_RADIUS"/>, and the savanna
+        /// treeline's from dome to shrub out to <see cref="SavannaScatter.TREELINE_FAR_DETAIL_SWAP_RADIUS"/> from
+        /// <see cref="SavannaScatter.TREELINE_SWAP_RADIUS"/> (#1195; only with <see cref="FineMeshes"/>, which makes either swap at all);
+        /// <see cref="RenderDetail.Maximum"/> still goes past both.
         /// Off unless a caller says otherwise: the Testbed's <c>fardetail=</c> and the map editor draw High's reach. What it
-        /// costs is in "The stand's spruces" in docs/scenes/aurora.md.
+        /// costs is in "The stand's spruces" in docs/scenes/aurora.md and "The scrub and the treeline near the lens (#1195)" in
+        /// docs/scenes/savanna-trees.md.
         /// </summary>
         public bool FarDetail
         {

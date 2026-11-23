@@ -662,7 +662,7 @@ namespace Prazsky.Core.Render
 
         /// <summary>What a pass draws of <paramref name="bucket"/>: its own instances, or on High and Ultra (<paramref name="fine"/>)
         /// a swap's side of this pass's split (<see cref="ScatterSwap.For"/>).</summary>
-        private static (VertexBuffer Instances, int Count) Drawn(ScatterBucket bucket, bool fine) =>
+        internal static (VertexBuffer Instances, int Count) Drawn(ScatterBucket bucket, bool fine) =>
             fine && bucket.Swap != null ? bucket.Swap.For(bucket) : (bucket.Instances, bucket.Count);
 
         /// <summary>

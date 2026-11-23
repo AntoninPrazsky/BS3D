@@ -9,6 +9,7 @@ namespace Prazsky.Core.Render
     /// What it moves:
     /// <list type="bullet">
     /// <item>the aurora stand's spires become spruces from <see cref="StandSpruces.MAXIMUM_SWAP_RADIUS"/>, not <see cref="StandSpruces.SWAP_RADIUS"/>;</item>
+    /// <item>the savanna's scrub and treeline masses are shrubs at any distance, never domes (<see cref="ScatterSwap.RadiusFor"/>, #1195);</item>
     /// <item>every planted tree wears the near crown in both passes (<see cref="ForestScatterRenderer.WearsNearCrown"/>);</item>
     /// <item>every broadleaf of a wood is dressed as a near one (<c>ForestDressing</c>);</item>
     /// <item>every city rooftop's clutter and equipment is drawn at any distance (<see cref="CityRooftops"/>);</item>
