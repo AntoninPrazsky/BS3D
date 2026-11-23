@@ -263,6 +263,14 @@ namespace Testbed.Diagnostics
         public bool? FineMeshes { get; private set; }
 
         /// <summary>
+        /// <c>wear=&lt;0|1&gt;</c>: the gun's metal worn by use, High and Ultra's (#1199, <c>CannonRig.Worn</c>): scratches,
+        /// tarnish and grime in the profile's joins, rubbed crests and a patina on the barrel, the carriage and the wheels'
+        /// plates. On by default, the authored look; 0 draws Low and Medium's plain material, so the two can be photographed
+        /// from one pinned camera and, through <c>alt=wear=0;wear=1</c>, measured in one process.
+        /// </summary>
+        public bool? Wear { get; private set; }
+
+        /// <summary>
         /// <c>envorder=&lt;auto|first|island&gt;</c>: whether the island's depth is laid into the frame before the
         /// environment (the backdrop or the city, the wood), so that the environment is shaded only where the island
         /// leaves it showing (#1098). <c>auto</c>, the default, asks the scene and the target, as the Game does
@@ -574,6 +582,7 @@ namespace Testbed.Diagnostics
                 else if (arg.StartsWith("rscale=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("rscale=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedRscale)) options.RenderScale = parsedRscale;
                 else if (arg.StartsWith("detail=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("detail=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedDetail)) options.SceneDetail = parsedDetail;
                 else if (arg.StartsWith("finemeshes=", StringComparison.OrdinalIgnoreCase)) options.FineMeshes = arg.Substring("finemeshes=".Length) is not ("0" or "false" or "off");
+                else if (arg.StartsWith("wear=", StringComparison.OrdinalIgnoreCase)) options.Wear = arg.Substring("wear=".Length) is not ("0" or "false" or "off");
                 else if (arg.StartsWith("envorder=", StringComparison.OrdinalIgnoreCase)) options.EnvironmentOrder = ParseEnvironmentOrder(arg.Substring("envorder=".Length));
                 else if (arg.StartsWith("skyorder=", StringComparison.OrdinalIgnoreCase)) options.SkyBehindScene = ParseSkyBehindScene(arg.Substring("skyorder=".Length));
                 else if (arg.StartsWith("skyres=", StringComparison.OrdinalIgnoreCase)) options.SkyAtDisplayResolution = ParseSkyAtDisplayResolution(arg.Substring("skyres=".Length));

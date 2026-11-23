@@ -360,11 +360,22 @@ namespace BS3D
         /// </summary>
         public readonly bool FarDetail;
 
+        /// <summary>
+        /// Whether the gun's metal and the drain's laser emitters are drawn worn by use (#1199, <c>CannonRig.Worn</c>,
+        /// <c>LaserEmitters.Worn</c>): scratches, tarnish and grime in the profile's joins, rubbed crests and a patina, the
+        /// <c>InstancedWornMetal</c> technique where Low and Medium keep the plain material. <b>High and Ultra only</b>, as
+        /// the owner asked ("this will probably be only for High/Ultra"), and never on a phone (<c>GraphicsSupport.MetalWear</c>,
+        /// which <c>BS3DGame.MetalWorn</c> applies over this). What it costs is in "The metal's wear on High and Ultra" in
+        /// docs/testbed/cannon.md.
+        /// </summary>
+        public readonly bool MetalWear;
+
         public QualityPreset(int supersampleFactor, float facadeGrainStrength, float windowFrameWidth, int cityRadiusBlocks,
             int msaaSamples, int shadowMapCap, bool ceilingRefraction, bool motionBlur, int shadowMapScale = 1,
             bool clusterWind = true, bool fineMeshes = false, bool cityReflections = false, bool horizonShimmer = false,
-            bool farDetail = false)
+            bool farDetail = false, bool metalWear = false)
         {
+            MetalWear = metalWear;
             FarDetail = farDetail;
             HorizonShimmer = horizonShimmer;
             CityReflections = cityReflections;
@@ -436,8 +447,8 @@ namespace BS3D
             //(see MsaaSamples), where the desktop had priced it at nothing and it had been left at 8 for that.
             new(supersampleFactor: 1, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: 4, shadowMapCap: 2048, ceilingRefraction: true, motionBlur: true, clusterWind: false),
 
-            //High — the look the game was authored at, and the finer meshes (#758, #733).
-            new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES, shadowMapCap: 0, ceilingRefraction: true, motionBlur: true, fineMeshes: true, cityReflections: true, horizonShimmer: true),
+            //High — the look the game was authored at, the finer meshes (#758, #733) and the gun's worn metal (#1199).
+            new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES, shadowMapCap: 0, ceilingRefraction: true, motionBlur: true, fineMeshes: true, cityReflections: true, horizonShimmer: true, metalWear: true),
 
             //Ultra (#484) — High, the sun shadow map at twice the scene's authored size (8192), and the farther reach of
             //the distance rules that trade a far thing's detail for frame time (#1208, FarDetail: the aurora stand's spruces
@@ -447,7 +458,7 @@ namespace BS3D
             //on High (full scene detail, full stone cap, full city, the ceiling's refraction), and the one dial
             //that could go further — supersampling 3 — is 2.25x High's shaded pixels at 3840x1600, the whole
             //frame's biggest cost bought for relief detail High already resolves. See ShadowMapScale.
-            new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES, shadowMapCap: 0, ceilingRefraction: true, motionBlur: true, shadowMapScale: 2, fineMeshes: true, cityReflections: true, horizonShimmer: true, farDetail: true),
+            new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES, shadowMapCap: 0, ceilingRefraction: true, motionBlur: true, shadowMapScale: 2, fineMeshes: true, cityReflections: true, horizonShimmer: true, farDetail: true, metalWear: true),
             //Potato (#788) — Low with the last of its multisampling gone, for the Raspberry Pi build (GamePi), where
             //it is the only tier. A placeholder of the desktop pipeline's own dials and nothing more: what the tier
             //actually draws is its own OpenGL shader set and render path (#789), which GamePi needs because none of

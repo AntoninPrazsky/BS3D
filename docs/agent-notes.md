@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-23 — #1199 opotřebovaný kov děla a laserových zářičů — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: kov děla a čtyři laserové zářiče odtoku vypadají na High a Ultra opotřebovaně. Nová technika `InstancedWornMetal` (`WornMetal.fxh`, přidaná na konec, žádný jiný program se nepohnul) přidává patinu, oxidaci, špínu, ošoupané hrany a jemné škrábance s důlky, vše v prostoru meshe. Vnitřní a vnější rohy bere z rotačních profilů (`MetalWear`, `*.WearCorners`). Límec ústí, gumové válečky ani sklo se neopotřebují. Telefon má zatím čistý materiál (`GraphicsSupport.MetalWear`). Cena: ~1 280 instrukčních slotů proti 507, +0,06 ms v herním pohledu.
+- ⚠ `git checkout -- <soubor>` při ověřování, že testy padají, zahodí i vlastní neuložené úpravy toho souboru; zálohuj ho předem.
+- Otevřené: `verdict-eye` (síla opotřebení, škrábance v pohybu nikdo neviděl). Otázka majiteli: myslel „kovovými reflektory“ i reflektory Big Topu v `Circus.fx`? Ty zůstaly čisté.
+
 ## 2026-11-23 — #1195 savana: tvarované keře místo kopulí u objektivu — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: na High a Ultra se křoviny a masy lesního okraje savany blízko objektivu kreslí jako luční keř (`MeadowShrubMesh` s novým `ShrubForm`, tři tvary na kopuli, list 0,72 barvy kopule), dál zůstávají kopule. Přepínání dělá nový `ScatterSwap` podle vodorovné vzdálenosti od objektivu, i ve stínovém průchodu (`BackdropServices.ShadowLens`). Poloměry: křoviny 400, okraj 240 na High a 600 na Ultra; žádná herní póza ani orbit menu je nepřekročí (test). `SavannaScatter.Solids` a lety intra beze změny. Cena Ultra hra 7,26 → 8,00 ms, High 7,11 → 7,39. Low, Medium a Potato beze změny.

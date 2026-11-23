@@ -46,7 +46,7 @@ minutes apart, and half an hour in the laptop slowed by up to 50 % and stayed sl
 sign. By level, the same builds' two runs agreed to 0.1–0.3 ms on most levels. **`-Paths`** (one comma string of pathspecs, `':(glob)**/*Meadow*'`) picks the
 `-Points` among only the merges that touched those files, which is how one scene's step is narrowed.
 
-**A Testbed figure standing in for a lower tier** passes that tier's switches itself: the Testbed draws the authored (`High`) look by default, `finemeshes` and the city's window reflections (`cityreflect=1`, #1065) included, so `ssaa=1` alone is not `Medium`.
+**A Testbed figure standing in for a lower tier** passes that tier's switches itself: the Testbed draws the authored (`High`) look by default, `finemeshes`, the city's window reflections (`cityreflect=1`, #1065) and the gun's worn metal (`wear=1`, #1199; `wear=0` is the lower tiers' plain material) included, so `ssaa=1` alone is not `Medium`.
 
 ## The four ways to measure nothing at all
 

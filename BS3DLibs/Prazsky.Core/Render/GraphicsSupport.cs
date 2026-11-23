@@ -84,5 +84,14 @@ namespace Prazsky.Core.Render
         /// Quality row (<c>PhoneTiers</c>). The effect still compiles for OpenGL ES, as every shared effect does.
         /// </summary>
         public static bool HorizonShimmer => !OperatingSystem.IsAndroid();
+
+        /// <summary>
+        /// Whether the gun's metal and the drain's laser emitters may be drawn worn by use (#1199, <c>InstancedWornMetal</c>,
+        /// <c>QualityPreset.MetalWear</c>): not under MonoGame's Android backend. Its pixel program is about two and a half
+        /// times the plain material's, on the part of the frame the gun covers, and it was priced on the desktop's GPU only;
+        /// a phone starts at Medium and reaches High, the wear's lowest tier, only from the Quality row (<c>PhoneTiers</c>),
+        /// so it keeps the plain material until a phone run prices the wear there. The effect still compiles for OpenGL ES.
+        /// </summary>
+        public static bool MetalWear => !OperatingSystem.IsAndroid();
     }
 }

@@ -2,8 +2,8 @@
 //mirroring the tower across the street where it mirrored only the sky. The owner: the windows should shine by
 //reflecting the buildings round them, sharply, on High and Ultra.
 //
-//Included LAST: its uniforms close the constant buffer, so no other technique's layout moves (InstancedModel.fx's
-//first rule), and CityShade, which it builds on, is in scope above it. A technique of its own and not a branch in
+//Included after every other file but WornMetal.fxh (#1199), whose uniforms come later still: no technique before it
+//moved (InstancedModel.fx's first rule), and CityShade, which it builds on, is in scope above it. A technique of its own and not a branch in
 //CityPS, which is occupancy-bound: a runtime switch would cost every tier the union of both programs' registers.
 
 #if OPENGL

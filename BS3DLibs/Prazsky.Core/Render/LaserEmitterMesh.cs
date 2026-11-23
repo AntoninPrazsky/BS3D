@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
+using System.Collections.Generic;
 
 namespace Prazsky.Core.Render
 {
@@ -78,50 +79,79 @@ namespace Prazsky.Core.Render
         private const float PIN_RADIUS = 0.085f;
         private const float PIN_HALF_LENGTH = ARM_X + ARM_HALF_WIDTH + 0.05f;
 
+        //Down the lathe's axis from the top, so the normals face outwards: top disc, the cup's rim, the neck, the flare to the
+        //flange and the flange's edge; sunk a hand's breadth into the band
+        private static readonly LathePoint[] PEDESTAL_PROFILE =
+        {
+            new(0f, PEDESTAL_TOP, crease: true),
+            new(CUP_RADIUS, PEDESTAL_TOP, crease: true),
+            new(CUP_RADIUS, PEDESTAL_TOP - 0.06f, crease: true),
+            new(0.21f, PEDESTAL_TOP - 0.10f, crease: true),
+            new(0.21f, 0.14f),
+            new(0.38f, 0.10f, crease: true),
+            new(FOOT_RADIUS, 0.07f, crease: true),
+            new(FOOT_RADIUS, -0.05f, crease: true),
+            new(0f, -0.05f, crease: true),
+        };
+
+        //Front to back: the lens seat, the bore wall and the lip, the collar's step and the rib, the body, a second rib, then
+        //the taper to the rear face. The seat sits just behind the lens's back
+        private static readonly LathePoint[] HOUSING_PROFILE =
+        {
+            new(0f, 1.28f, crease: true),
+            new(LENS_RADIUS + 0.01f, 1.28f, crease: true),
+            new(LENS_RADIUS + 0.01f, 1.40f, crease: true),
+            new(0.36f, 1.45f, crease: true),
+            new(COLLAR_RADIUS, 1.45f, crease: true),
+            new(COLLAR_RADIUS, 1.36f, crease: true),
+            new(BODY_RADIUS + 0.02f, 1.33f, crease: true),
+            new(BODY_RADIUS + 0.02f, 1.22f, crease: true),
+            new(BODY_RADIUS, 1.20f, crease: true),
+            new(BODY_RADIUS, 0.98f, crease: true),
+            new(0.43f, 0.96f, crease: true),
+            new(0.43f, 0.86f, crease: true),
+            new(BODY_RADIUS, 0.84f, crease: true),
+            new(BODY_RADIUS, 0.42f, crease: true),
+            new(0.29f, 0.10f, crease: true),
+            new(0.29f, 0.0f, crease: true),
+            new(0f, 0.0f, crease: true),
+        };
+
+        /// <summary>
+        /// The corners of a turned part's profile for the metal's wear on High and Ultra (#1199, <see cref="MetalWear"/>),
+        /// about its frame's Y: the housing's lens seat, lip, collar and ribs, and the pedestal's cup, neck and flange, with
+        /// the line where the flange stands on the glass (the foot's origin is on the glass) as one more join. None for the
+        /// yoke, which is boxes and a pin, or the lens, which is glass.
+        /// </summary>
+        public static IReadOnlyList<WearCorner> WearCorners(Part part)
+        {
+            var corners = new List<WearCorner>();
+
+            switch (part)
+            {
+                case Part.Pedestal:
+                    MetalWear.AddLatheCorners(corners, PEDESTAL_PROFILE);
+                    corners.Add(new WearCorner(0f, FOOT_RADIUS, edge: false));
+                    break;
+
+                case Part.Housing:
+                    MetalWear.AddLatheCorners(corners, HOUSING_PROFILE);
+                    break;
+            }
+
+            return MetalWear.Merge(corners, MetalWear.MERGE_DISTANCE);
+        }
+
         public LaserEmitterMesh(GraphicsDevice device, Part part)
         {
             switch (part)
             {
                 case Part.Pedestal:
-                    //Down the lathe's axis from the top, so the normals face outwards: top disc, the cup's rim, the neck, the
-                    //flare to the flange and the flange's edge; sunk a hand's breadth into the band
-                    Adopt(new LatheMesh(device, new[]
-                    {
-                        new LathePoint(0f, PEDESTAL_TOP, crease: true),
-                        new LathePoint(CUP_RADIUS, PEDESTAL_TOP, crease: true),
-                        new LathePoint(CUP_RADIUS, PEDESTAL_TOP - 0.06f, crease: true),
-                        new LathePoint(0.21f, PEDESTAL_TOP - 0.10f, crease: true),
-                        new LathePoint(0.21f, 0.14f),
-                        new LathePoint(0.38f, 0.10f, crease: true),
-                        new LathePoint(FOOT_RADIUS, 0.07f, crease: true),
-                        new LathePoint(FOOT_RADIUS, -0.05f, crease: true),
-                        new LathePoint(0f, -0.05f, crease: true),
-                    }, SEGMENTS));
+                    Adopt(new LatheMesh(device, PEDESTAL_PROFILE, SEGMENTS));
                     break;
 
                 case Part.Housing:
-                    //Front to back: the lens seat, the bore wall and the lip, the collar's step and the rib, the body, a
-                    //second rib, then the taper to the rear face. The seat sits just behind the lens's back
-                    Adopt(new LatheMesh(device, new[]
-                    {
-                        new LathePoint(0f, 1.28f, crease: true),
-                        new LathePoint(LENS_RADIUS + 0.01f, 1.28f, crease: true),
-                        new LathePoint(LENS_RADIUS + 0.01f, 1.40f, crease: true),
-                        new LathePoint(0.36f, 1.45f, crease: true),
-                        new LathePoint(COLLAR_RADIUS, 1.45f, crease: true),
-                        new LathePoint(COLLAR_RADIUS, 1.36f, crease: true),
-                        new LathePoint(BODY_RADIUS + 0.02f, 1.33f, crease: true),
-                        new LathePoint(BODY_RADIUS + 0.02f, 1.22f, crease: true),
-                        new LathePoint(BODY_RADIUS, 1.20f, crease: true),
-                        new LathePoint(BODY_RADIUS, 0.98f, crease: true),
-                        new LathePoint(0.43f, 0.96f, crease: true),
-                        new LathePoint(0.43f, 0.86f, crease: true),
-                        new LathePoint(BODY_RADIUS, 0.84f, crease: true),
-                        new LathePoint(BODY_RADIUS, 0.42f, crease: true),
-                        new LathePoint(0.29f, 0.10f, crease: true),
-                        new LathePoint(0.29f, 0.0f, crease: true),
-                        new LathePoint(0f, 0.0f, crease: true),
-                    }, SEGMENTS));
+                    Adopt(new LatheMesh(device, HOUSING_PROFILE, SEGMENTS));
                     break;
 
                 case Part.Lens:

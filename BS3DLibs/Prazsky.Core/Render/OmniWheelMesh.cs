@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
+using System.Collections.Generic;
 
 namespace Prazsky.Core.Render
 {
@@ -197,43 +198,14 @@ namespace Prazsky.Core.Render
             //+X (or -X turned the other way); a turn keeps the faces' winding, which AddLathe corrects against the normals.
             Matrix placement = Matrix.CreateRotationZ(-sign * MathHelper.PiOver2) * Matrix.CreateTranslation(outerFaceX, 0f, 0f);
 
-            //The lip: up its chamfered inner edge, across, down its outer wall. On the plate's own segments, so its corners
-            //are the plate's (the lathe's angles land on the plate's set, mirrored).
-            float lipInner = plateRadius * LIP_INNER_FRACTION, lipOuter = plateRadius - LIP_INSET;
-            builder.AddLathe(new[]
-            {
-                new LathePoint(lipInner, -FOOT_SINK),
-                new LathePoint(lipInner, LIP_PROUD - LIP_CHAMFER, crease: true),
-                new LathePoint(lipInner + LIP_CHAMFER, LIP_PROUD, crease: true),
-                new LathePoint(lipOuter, LIP_PROUD, crease: true),
-                new LathePoint(lipOuter, -FOOT_SINK),
-            }, PLATE_SEGMENTS, placement, Vector2.Zero);
+            //The lip on the plate's own segments, so its corners are the plate's (the lathe's angles land on the plate's set,
+            //mirrored); the flange and the cap on the hub face's finer ones
+            LathePoint[][] rings = HubFaceRings(plateRadius);
+            builder.AddLathe(rings[0], PLATE_SEGMENTS, placement, Vector2.Zero);
+            builder.AddLathe(rings[1], HUB_FACE_SEGMENTS, placement, Vector2.Zero);
+            builder.AddLathe(rings[2], HUB_FACE_SEGMENTS, placement, Vector2.Zero);
 
-            //The bolt flange, chamfered at both edges
             float flangeInner = plateRadius * FLANGE_INNER_FRACTION, flangeOuter = plateRadius * HUB_FACE_RADIUS_FRACTION;
-            builder.AddLathe(new[]
-            {
-                new LathePoint(flangeInner, -FOOT_SINK),
-                new LathePoint(flangeInner, FLANGE_HEIGHT - FLANGE_CHAMFER, crease: true),
-                new LathePoint(flangeInner + FLANGE_CHAMFER, FLANGE_HEIGHT, crease: true),
-                new LathePoint(flangeOuter - FLANGE_CHAMFER, FLANGE_HEIGHT, crease: true),
-                new LathePoint(flangeOuter, FLANGE_HEIGHT - FLANGE_CHAMFER, crease: true),
-                new LathePoint(flangeOuter, -FOOT_SINK),
-            }, HUB_FACE_SEGMENTS, placement, Vector2.Zero);
-
-            //The cap, from its crown out and down: the dome (smooth), a step, the flat, the chamfer, the wall
-            float cap = plateRadius * CAP_RADIUS_FRACTION;
-            builder.AddLathe(new[]
-            {
-                new LathePoint(0f, CAP_CROWN),
-                new LathePoint(cap * 0.35f, CAP_CROWN - (CAP_CROWN - CAP_DOME_FOOT) * 0.18f),
-                new LathePoint(cap * 0.58f, CAP_CROWN - (CAP_CROWN - CAP_DOME_FOOT) * 0.58f),
-                new LathePoint(cap * CAP_DOME_FRACTION, CAP_DOME_FOOT, crease: true),
-                new LathePoint(cap * CAP_DOME_FRACTION, CAP_STEP_HEIGHT, crease: true),
-                new LathePoint(cap * CAP_STEP_FRACTION, CAP_STEP_HEIGHT, crease: true),
-                new LathePoint(cap, CAP_WALL_HEIGHT, crease: true),
-                new LathePoint(cap, -FOOT_SINK),
-            }, HUB_FACE_SEGMENTS, placement, Vector2.Zero);
 
             //The axle's nut on the crown, its foot sunk into the dome
             AddNut(builder, placement, Vector3.Zero, AXLE_NUT_RADIUS, CAP_CROWN - FOOT_SINK * 2f, CAP_CROWN + AXLE_NUT_HEIGHT);
@@ -247,6 +219,79 @@ namespace Prazsky.Core.Render
                 AddNut(builder, placement, new Vector3(MathF.Cos(angle) * nutRing, 0f, MathF.Sin(angle) * nutRing), NUT_RADIUS,
                     FLANGE_HEIGHT - FOOT_SINK, FLANGE_HEIGHT + NUT_HEIGHT);
             }
+        }
+
+        /// <summary>
+        /// The hub face's three lathed rings as (radius, height off the plate's face) profiles, in the order
+        /// <see cref="AddHubFace"/> lathes them: the lip (up its chamfered inner edge, across, down its outer wall), the bolt
+        /// flange (chamfered at both edges) and the cap (from its crown out and down: the smooth dome, a step, the flat, the
+        /// chamfer, the wall). One copy, for the mesh and for its wear's corners (<see cref="WearCorners"/>).
+        /// </summary>
+        private static LathePoint[][] HubFaceRings(float plateRadius)
+        {
+            float lipInner = plateRadius * LIP_INNER_FRACTION, lipOuter = plateRadius - LIP_INSET;
+            float flangeInner = plateRadius * FLANGE_INNER_FRACTION, flangeOuter = plateRadius * HUB_FACE_RADIUS_FRACTION;
+            float cap = plateRadius * CAP_RADIUS_FRACTION;
+
+            return new[]
+            {
+                new[]
+                {
+                    new LathePoint(lipInner, -FOOT_SINK),
+                    new LathePoint(lipInner, LIP_PROUD - LIP_CHAMFER, crease: true),
+                    new LathePoint(lipInner + LIP_CHAMFER, LIP_PROUD, crease: true),
+                    new LathePoint(lipOuter, LIP_PROUD, crease: true),
+                    new LathePoint(lipOuter, -FOOT_SINK),
+                },
+                new[]
+                {
+                    new LathePoint(flangeInner, -FOOT_SINK),
+                    new LathePoint(flangeInner, FLANGE_HEIGHT - FLANGE_CHAMFER, crease: true),
+                    new LathePoint(flangeInner + FLANGE_CHAMFER, FLANGE_HEIGHT, crease: true),
+                    new LathePoint(flangeOuter - FLANGE_CHAMFER, FLANGE_HEIGHT, crease: true),
+                    new LathePoint(flangeOuter, FLANGE_HEIGHT - FLANGE_CHAMFER, crease: true),
+                    new LathePoint(flangeOuter, -FOOT_SINK),
+                },
+                new[]
+                {
+                    new LathePoint(0f, CAP_CROWN),
+                    new LathePoint(cap * 0.35f, CAP_CROWN - (CAP_CROWN - CAP_DOME_FOOT) * 0.18f),
+                    new LathePoint(cap * 0.58f, CAP_CROWN - (CAP_CROWN - CAP_DOME_FOOT) * 0.58f),
+                    new LathePoint(cap * CAP_DOME_FRACTION, CAP_DOME_FOOT, crease: true),
+                    new LathePoint(cap * CAP_DOME_FRACTION, CAP_STEP_HEIGHT, crease: true),
+                    new LathePoint(cap * CAP_STEP_FRACTION, CAP_STEP_HEIGHT, crease: true),
+                    new LathePoint(cap, CAP_WALL_HEIGHT, crease: true),
+                    new LathePoint(cap, -FOOT_SINK),
+                },
+            };
+        }
+
+        /// <summary>
+        /// The wheel body's corners for the metal's wear on High and Ultra (#1199, <see cref="MetalWear"/>), at their distance
+        /// along the axle (X) from the wheel's centre and off it, so one list serves both faces (a mirrored profile): the
+        /// plate's rim and the hub face's crests (rubbed bright), and every foot where a ring of the hub face stands on the
+        /// plate (tarnished and grimed: the grease round the axle's cap among them). Arguments as the constructor's.
+        /// </summary>
+        public static IReadOnlyList<WearCorner> WearCorners(float radius, float rollerRadius, float rollerRowOffset,
+            float plateThickness)
+        {
+            float plateRadius = radius - rollerRadius;
+            float plateOuterX = rollerRowOffset + rollerRadius + plateThickness;
+
+            var named = new List<WearCorner> { new(plateOuterX, plateRadius, edge: true) };
+
+            foreach (LathePoint[] ring in HubFaceRings(plateRadius))
+            {
+                var crests = new List<WearCorner>();
+                MetalWear.AddLatheCorners(crests, ring);
+                foreach (WearCorner crest in crests) named.Add(new WearCorner(plateOuterX + crest.Axial, crest.Radial, crest.Edge));
+
+                //The ring's feet, sunk into the plate: a join where each wall comes down to the face
+                foreach (LathePoint point in ring)
+                    if (point.Y < 0f && point.Radius > 0f) named.Add(new WearCorner(plateOuterX, point.Radius, edge: false));
+            }
+
+            return MetalWear.Merge(named, MetalWear.MERGE_DISTANCE);
         }
 
         /// <summary>

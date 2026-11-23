@@ -84,6 +84,33 @@ namespace BS3D.Effects
             };
 
             _renderers = new[] { _pedestal, _yoke, _housing, _lens };
+
+            //Their metal worn as the gun's is, with the gun's figures (#1199): the pedestal and the housing turned about their
+            //frame's Y and the housing scratched along it, the yoke's boxes every way
+            _pedestalWear = new MetalWear(CannonRig.IRON_WEAR, Vector3.Zero, axis: Vector3.Up,
+                corners: LaserEmitterMesh.WearCorners(LaserEmitterMesh.Part.Pedestal),
+                joinWidth: CannonRig.SMALL_JOIN_WIDTH, edgeWidth: CannonRig.SMALL_EDGE_WIDTH);
+            _yokeWear = new MetalWear(CannonRig.IRON_WEAR, Vector3.Zero);
+            _housingWear = new MetalWear(CannonRig.STEEL_WEAR, Vector3.Up, axis: Vector3.Up,
+                corners: LaserEmitterMesh.WearCorners(LaserEmitterMesh.Part.Housing),
+                joinWidth: CannonRig.SMALL_JOIN_WIDTH, edgeWidth: CannonRig.SMALL_EDGE_WIDTH);
+        }
+
+        private readonly MetalWear _pedestalWear, _yokeWear, _housingWear;
+
+        /// <summary>
+        /// Whether the metal is drawn worn by use (#1199), as <see cref="CannonRig.Worn"/> draws the gun's: on High and Ultra,
+        /// set by the host (<c>BS3DGame.SessionEmitters</c>, <c>BS3DGame.ApplyQuality</c>). The lens is glass and never worn.
+        /// </summary>
+        public bool Worn
+        {
+            get => _pedestal.Wear != null;
+            set
+            {
+                _pedestal.Wear = value ? _pedestalWear : null;
+                _yoke.Wear = value ? _yokeWear : null;
+                _housing.Wear = value ? _housingWear : null;
+            }
         }
 
         /// <summary>Every renderer, for the host's sky-lit enrolment.</summary>
