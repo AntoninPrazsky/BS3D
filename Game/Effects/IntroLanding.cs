@@ -20,10 +20,12 @@ namespace BS3D.Effects
     /// with the view swivelling onto the pose); or, for a route round the arena, <see cref="TurnIn"/> off its circle down the
     /// pose's facing; never tighter than a radius the scene states (<see cref="NoTighterThan"/>);</item>
     /// <item><b>timing</b> (<see cref="Fly"/>): the route walked at the speed the scene gives each of its points, then a
-    /// cubic in time that decelerates to rest exactly on the pose, so the last half second is slow;</item>
+    /// cubic in time that decelerates to rest exactly on the pose, so the last half second is slow (or, in the drone style,
+    /// <see cref="Style.DroneSeconds"/>, a smoothstep of the speed, which starts and ends with no step in the acceleration);</item>
     /// <item>a <b>look</b> along the travel (its direction averaged over a moment either side, which turns the view into a
     /// corner before the lens), turned in towards the pose's target where the route asks it and raised towards its height
-    /// where the scene asks it (<see cref="Style.LookRise"/>), that eases onto the pose's own look over the last seconds and
+    /// where the scene asks it (<see cref="Style.LookRise"/>), in the drone style held on the target's bearing and let drift
+    /// slowly (<see cref="Steady"/>), that eases onto the pose's own look over the last seconds and
     /// ends on it exactly; or, for a shot that opens as a close view of something (the desert's scorpion,
     /// <see cref="DesertLanding"/>, #1110), held on that <see cref="Subject"/> first and turned off it onto the travel's;</item>
     /// <item>a <b>bank</b> in proportion to the heading's rate of turn, smoothed, level by the landing; and the lens easing
@@ -70,11 +72,14 @@ namespace BS3D.Effects
         /// <paramref name="LookInward"/> is): 0 keeps the travel's, as the cities and the meadow do. For a route that runs
         /// round the arena close under the cluster (the big top's, #1118), whose look along a level circle put the cluster
         /// in the frame's top corner and the island's cap across its lower half.</param>
-        /// <param name="DroneSeconds">Over 0, the flight is eased to the second derivative everywhere, as a drone's is (#1187,
-        /// the meadow's): the travel's direction for the look is averaged by a Gaussian of this many seconds, its first and last
-        /// carried on past the ends, instead of the box of <paramref name="LookSmoothSeconds"/>; the look lands and the bank
-        /// levels on a smootherstep (<see cref="Smoother"/>); and the deceleration's speed falls on a smoothstep instead of
-        /// linearly, so it starts and ends with no step in the acceleration. 0 flies as every landing did before.</param>
+        /// <param name="DroneSeconds">Over 0, the flight is flown as a drone's is (#1187, the meadow's): the timed points are
+        /// rounded over <see cref="DRONE_ROUNDING_SECONDS"/>; the travel's direction for the look is averaged by a Gaussian of
+        /// half this many seconds, its first and last carried on past the ends, instead of the box of
+        /// <paramref name="LookSmoothSeconds"/>; the look's bearing off the pose's target is averaged by a Gaussian of this many
+        /// seconds (<see cref="Steady"/>), so the arena drifts across the frame slowly whatever the travel under it does; the
+        /// look lands and the bank levels on a smootherstep (<see cref="Smoother"/>); and the deceleration's speed falls on a
+        /// smoothstep instead of linearly, so it starts and ends with no step in the acceleration. 0 flies as every landing did
+        /// before.</param>
         internal readonly record struct Style(float WideLens, float ReleaseTimeScale, float LookPitchFollow, float LookDistance,
             float LookSmoothSeconds, float LookLandSeconds, float LookInward, float RollPerTurn, float MaxRollDegrees,
             float RollSmoothSeconds, int Points, float LookRise = 0f, float DroneSeconds = 0f);
@@ -367,7 +372,7 @@ namespace BS3D.Effects
             //⚠ A drone's by a Gaussian with its ends carried on (#1187): a box cut short at the shot's start is a sum that grows
             //until the box first fits whole and then slides, and the look's turn rate kinked there, LookSmoothSeconds in (the
             //meadow's look swung at 185 °/s² 0.3 s into its flight home)
-            if (drone) direction = Gaussian(direction, style.DroneSeconds / dt);
+            if (drone) direction = Gaussian(direction, 0.5f * style.DroneSeconds / dt);
             else direction = BoxBlur(direction, Math.Max(1, (int)MathF.Round(style.LookSmoothSeconds / dt)));
 
             //The subject's point and how much of the look is on it at each point, read at the second of the shot the point is
@@ -411,7 +416,7 @@ namespace BS3D.Effects
                 if (held != null && held[k] > 0f) ahead[k] = Towards(positions[k], ahead[k], subjectAt[k], held[k]);
             }
 
-            if (drone) Steady(positions, ahead, endTarget, 2f * style.DroneSeconds / dt);
+            if (drone) Steady(positions, ahead, endTarget, style.DroneSeconds / dt);
 
             for (int k = 0; k < points; k++) looks[k] = Vector3.Lerp(ahead[k], endTarget, land[k]);
             looks[^1] = endTarget;
@@ -520,7 +525,7 @@ namespace BS3D.Effects
         /// of a Gaussian, seconds. A route is laid as points half a unit apart, each with its own speed, and walked as a
         /// polyline at a speed that steps from point to point; IntroShot's spline through the timed points is only as smooth
         /// as they are, and with as many of them as a frame has the polyline's corners and the speed's steps jumped the lens's
-        /// acceleration by up to 28 u/s² a frame (the drone limit is 2.5 vertically). Over this it cuts a turn's inside by
+        /// acceleration by up to 30 u/s² a frame, 1787 u/s³ (the drone limit is 300, IntroShotSmoothnessTests). Over this it cuts a turn's inside by
         /// about its sideways acceleration times half the square of this, a fifth of a unit at the meadow's hardest.
         /// </summary>
         internal const float DRONE_ROUNDING_SECONDS = 0.08f;

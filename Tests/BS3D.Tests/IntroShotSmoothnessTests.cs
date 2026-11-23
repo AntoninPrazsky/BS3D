@@ -13,9 +13,11 @@ namespace BS3D.Tests
     /// The chapter-intro shots that fly over rough ground ride like drone footage (#645, #530, #1109, #1112). Every
     /// shot whose height <see cref="AridIntroPaths.Hug"/> lays — the desert's erg, pyramids and crest, the
     /// mountains' range, pass and summit, the outback's plain, approach and crown, the volcano's crater run and its orbit
-    /// round the village (#1127), the Moon's and Mars's tracks (#1114, #1115) and the polar camp's arc (#1128) — and the
-    /// desert's shots low over its sand (#1110: the beetle, the scorpion and the scorpion home's take-off) is built through its
-    /// real builder on the shipped scene config over a dozen rolls and sampled at sixty frames a second on its own eased clock.
+    /// round the village (#1127), the Moon's and Mars's tracks (#1114, #1115) and the polar camp's arc (#1128) — the
+    /// desert's shots low over its sand (#1110: the beetle, the scorpion and the scorpion home's take-off) and every shot of
+    /// the meadow's (#1187: the valley, the two low orbits, the path, the brook and the brook home, on the test planting of
+    /// <see cref="MeadowIntroShotsTests"/>) is built through its real builder on the shipped scene config over a dozen rolls
+    /// and sampled at sixty frames a second on its own eased clock.
     /// <para>
     /// <b>What the limits are, and why.</b> Drone footage changes height and tilt slowly: a gimbal tilts at most about
     /// twenty degrees a second and takes half a second or more to get there, and the craft's climb rate changes over a
@@ -26,6 +28,14 @@ namespace BS3D.Tests
     /// 36-198 u/s² peaks and 1700-10400 u/s³ jumps into ten of these shots and 71-186 °/s² of tilt into five ("the
     /// camera judders over the dunes"); now the worst are 13 u/s², 122 u/s³ and 35 °/s². Peaks, not means: a judder is
     /// one bad frame in a hundred good ones, which an rms hides.
+    /// </para>
+    /// <para>
+    /// <b>And sideways</b> (#1187): the view's turn is held as its tilt is, at most <see cref="MAX_YAW_RATE"/> and reached in no
+    /// less than half a second (<see cref="MAX_YAW_ACCELERATION"/>), and the lens's whole acceleration changes by no more
+    /// than <see cref="MAX_JERK"/>, 5 u/s² from one frame to the next along any axis. The meadow's brook home, a flight round
+    /// the island at up to 42 u/s whose route is pieces laid end to end, turned the view at 56 °/s, swung it at 224 °/s² and
+    /// jumped the lens at 3111 u/s³ where the pieces met; the worst of every other shot here were 84 °/s² (the scorpion
+    /// home) and 289 u/s³ (the volcano's village, an orbit at 60 u/s).
     /// </para>
     /// <para>
     /// ⚠ <b>Smooth is not allowed to mean high</b>: a lens flown well over the ground is trivially smooth. So every
