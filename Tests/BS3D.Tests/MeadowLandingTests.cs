@@ -28,8 +28,9 @@ namespace BS3D.Tests
         private const float POSE_Y = -8.2f;
         private const int BEARINGS = 12;
 
-        //12 since #1187: what took a flight past the drone's limits off the gun's bearing (a crease of the field under the
-        //climb, a climb still rising where the circle is short) stands in layouts 8 and 11 and never in the first six
+        //12 since #1187: a climb still rising where the circle is short, which took a flight off the gun's bearing past the
+        //drone's limits when the descent was laid off its height at the release, stands in layout 8 alone, and so does the
+        //pose the look's lean on a smoothstep turned the view at 50 degrees a second onto (MeadowLanding)
         private const int LAYOUTS = 12;
 
         //How much of the sweep must get a flight home: the rest fall back to the old reel and its tour leg. The level's own
@@ -57,10 +58,10 @@ namespace BS3D.Tests
 
         //The fly-by down the brook and past the willows (#1188): at least this long from the shot's first frame to the pond's
         //middle (1.8 to 2.3 s at the level's own pose before #1188, 3.5 to 3.9 since), and past each willow at no more than
-        //this, on the shot's eased clock: the trees' 14 u/s goes past them at 14.8 to 15.3 over 24 layouts, the brook's 20 went
+        //this, on the shot's eased clock: the trees' 14 u/s goes past them at 14.7 to 15.3 over 24 layouts, the brook's 20 went
         //past at 20.4 to 21.2 over five. A figure of its own, not MeadowLanding.TREES_SPEED's: a limit read off the constant
         //moves with it. And at the level's own pose, the glide's pace read over PACE_WINDOW either side of a pose changes by
-        //no more than LOW_ACCELERATION until the pond's middle: 4.3 u/s² at the most over 24 layouts.
+        //no more than LOW_ACCELERATION until the pond's middle: 4.2 u/s² at the most over 24 layouts.
         private const float LOW_SECONDS = 3f;
         private const float TREES_PACE = 17f;
         private const float LOW_ACCELERATION = 6f;
