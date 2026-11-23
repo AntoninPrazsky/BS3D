@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-24 — #1220 úvod Erupce: let po řece — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: Erupce na Medium, High a Ultra začíná záběrem „the river“ (3,5 s): kamera letí proti proudu východního ramene (1790→1655 po toku, asi 40 u/s, 10–17 nad vodou), vesnice vlevo, kužel se sloupem vpravo. Nahrazuje široký záběr sopky; Low a Potato mají staré tři záběry (16,5 s). Celkem 20,4 s, erupce, kráter a vesnice beze změny, výbuch dál 0,9 s po začátku erupce. Nové `VolcanoCountry.RiverCentre`, `AridIntroPaths.Even`, `RiverKeep`.
+- ⚠ Osa řeky vzorkovaná po jednotce dala trhnutí 500–850 u/s³ (limit 300); vyhlazení přes 30 jednotek vyneslo kameru za břeh. Platí 25 jednotek po čtvrtině.
+- Otevřené: `verdict-eye`; rozhodnutí majitele, zda široký záběr sopky ponechat i za řekou (řez 15° přes 302 jednotek, strop 20,5 s). Medium a pohyb neviděny.
+
 ## 2026-11-23 — #1214 menu: průlet nad skleněným stropem — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: třetí výlet kamery menu (`GlassPass`, každý čtvrtý cyklus; dělo dál 1/3, shluk 5/12). Klesne z 40–52 na 3,5–6 nad desku, 12° od svislice, čtvrtotočka, mezi lany, strop pod střechou. Jen kde tier láme sklo (`RefractsCeiling`); na Low a Potato shluk místo něj. Sklo menu se při průletu vyjasní z 0,7 na hrané 0,48. `menuglass=pass` (nejkratší hodnoty, stejné vteřiny v každém běhu). Sonda kvality průlet nesoudí.
