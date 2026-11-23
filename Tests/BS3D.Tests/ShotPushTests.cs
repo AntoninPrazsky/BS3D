@@ -105,9 +105,11 @@ namespace BS3D.Tests
         /// #696's promise, kept under the push: shots in quick succession, each fired 0.3 s after the last landed into a cluster
         /// the last one set swinging, land in the cell their ghost showed, with both of the ghost's answers to a moving cluster
         /// as the Game fires (the shot keeps its promise, the ghost leads), and with <b>each of them alone</b>, so a change that
-        /// broke either one fails here. These three levels, the ones that lost most without them, read 48 of 48 with both, 46
-        /// with the promise alone, 47 with the lead alone and 41 (85.4 %) with neither; held at 90 %, which the two together
-        /// and each alone clear and neither does. (With no push, 48 of 48 every way.)
+        /// broke either one fails here. Over <see cref="ShotAgreementTests"/>' six levels, sixteen shots each, they read 96 of
+        /// 96 with both, 93 with the promise alone, 94 with the lead alone and 84 (87.5 %) with neither; held at
+        /// <see cref="SUCCESSION_HELD"/>, which the two together and each alone clear by four shots or more and neither misses
+        /// by five, so a solver that answers a shot or two differently on another machine (ARM64's) does not turn it.
+        /// (With no push, Rainbow, Zigzag and Heart, which lose most with it, read 48 of 48 every way.)
         /// </summary>
         [Theory]
         [InlineData(true, true)]
@@ -118,7 +120,7 @@ namespace BS3D.Tests
             int compared = 0, same = 0;
             List<string> others = new();
 
-            foreach (string level in new[] { "Rainbow.json", "Zigzag.json", "Heart.json" })
+            foreach (string level in new[] { "Pennant.json", "One.json", "Colossus.json", "Heart.json", "Rainbow.json", "Zigzag.json" })
             {
                 (int c, int s, List<string> o) = Succession(level, 1192 + level.Length, 16, 0.3f, 1f, promise, lead);
                 compared += c;
@@ -127,9 +129,12 @@ namespace BS3D.Tests
             }
 
             output.WriteLine($"promise {promise}, lead {lead}: {same} of {compared} in the ghost's cell; {string.Join("; ", others)}");
-            Assert.True(compared >= 40, $"only {compared} shots had a ghost to compare");
-            Assert.True(same >= 0.9 * compared, $"{same} of {compared} landed in the ghost's cell: {string.Join("; ", others)}");
+            Assert.True(compared >= 80, $"only {compared} shots had a ghost to compare");
+            Assert.True(same >= SUCCESSION_HELD * compared, $"{same} of {compared} landed in the ghost's cell: {string.Join("; ", others)}");
         }
+
+        /// <summary>The share of <see cref="ShotsIntoAPushedClusterLandWhereTheirGhostShowed"/>'s shots that must land in the ghost's cell.</summary>
+        private const float SUCCESSION_HELD = 0.92f;
 
         /// <summary>
         /// The swing a push starts is settled (<see cref="ShotPush.SETTLE_RATE"/>): a sheet and a strand a push set swaying fall

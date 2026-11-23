@@ -110,9 +110,9 @@ namespace Prazsky.BS3D.Physics
         /// <b>Why a promise is kept at all.</b> The ghost is the solve asked of the cluster as it stood when the shot left,
         /// and the landing is the same solve asked of the cluster as it stands when the shot arrives, a few steps later. A
         /// cluster that moves in between, swinging under the push a landing gives it (<see cref="ShotPush"/>), moves the touch
-        /// across the ball, and a touch near the line between two free cells then picks the other one: one shot in eight
-        /// landed beside its ghost when shots followed each other into a pushed cluster, against one in fifty without the
-        /// push. A player aims at the ghost, so when the shot strikes the very ball the ghost was solved against, and the
+        /// across the ball, and a touch near the line between two free cells then picks the other one: one shot in six
+        /// landed beside its ghost when shots followed each other 0.3 s apart into a pushed cluster, against one in sixty
+        /// without the push. A player aims at the ghost, so when the shot strikes the very ball the ghost was solved against, and the
         /// promised cell is still free, still one the solve may answer for that ball (its first ring, or its second when the
         /// first is full) and within <see cref="PROMISE_SLACK"/> as near the touch as the solve's own cell, the ghost's cell
         /// is where it goes. A shot the swing brings onto another ball lands by the solve alone.
