@@ -173,7 +173,7 @@ namespace BS3D.Tests
         internal sealed record Response(
             XZLevel? Landed, XZLevel? LandedWithout, ShotPush.Result Push,
             float[] MaxDisplacement, float[] MeanDisplacement, float PeakStretch, float PeakStretchWithout,
-            float LowestDrop, int Balls)
+            float LowestDrop, int Balls, float AwakeSeconds = float.NaN, float AwakeSecondsWithout = float.NaN)
         {
             /// <summary>The largest any ball stood from its twin, over the whole run.</summary>
             public float Peak
@@ -230,6 +230,7 @@ namespace BS3D.Tests
             float[] max = new float[steps + 1], mean = new float[steps + 1];
             float stretch = 0f, stretchWithout = 0f, lowestDrop = 0f;
             int balls = 0;
+            float awake = float.NaN, awakeWithout = float.NaN;
 
             for (int step = 0; step <= steps; step++)
             {
@@ -239,13 +240,25 @@ namespace BS3D.Tests
                     still.Hung.Run(HungLevel.TIMESTEP);
                 }
 
+                //When the whole cluster is asleep again, which is when its bodies stop costing a step
+                if (float.IsNaN(awake) && !AnyAwake(pushed.Hung.Balls)) awake = step * HungLevel.TIMESTEP;
+                if (float.IsNaN(awakeWithout) && !AnyAwake(still.Hung.Balls)) awakeWithout = step * HungLevel.TIMESTEP;
+
                 Compare(pushed.Hung.Balls, still.Hung.Balls, out max[step], out mean[step], out balls, out float lowestA, out float lowestB);
                 stretch = MathF.Max(stretch, PeakStretch(pushed.Hung.Balls));
                 stretchWithout = MathF.Max(stretchWithout, PeakStretch(still.Hung.Balls));
                 lowestDrop = MathF.Max(lowestDrop, lowestB - lowestA);
             }
 
-            return new Response(a.Landed, b.Landed, push, max, mean, stretch, stretchWithout, lowestDrop, balls);
+            return new Response(a.Landed, b.Landed, push, max, mean, stretch, stretchWithout, lowestDrop, balls, awake, awakeWithout);
+        }
+
+        private static bool AnyAwake(PhysicsBall[,,] balls)
+        {
+            foreach (PhysicsBall ball in balls)
+                if (ball != null && ball.BallReference.Awake) return true;
+
+            return false;
         }
 
         /// <summary>How far each ball of one world stands from the same ball of its twin.</summary>
@@ -308,11 +321,11 @@ namespace BS3D.Tests
         private static string Cell(XZLevel? cell) => cell is XZLevel c ? $"({c.X},{c.Z},{c.Level})" : "none";
 
         private static string Row(string level, int seed, string label, Response r) => string.Format(CultureInfo.InvariantCulture,
-            "{0,-14} seed {1,3} {2,-22} balls {3,4} push {4,3} balls {5,6:0.0} | peak {6:0.000} at {7:0.00} s | 0.1 s {8:0.000} 0.2 s {9:0.000} 0.3 s {10:0.000} 0.5 s {11:0.000} 1 s {12:0.000} 2 s {13:0.000} | mean at peak {14:0.000} | stretch {15:0.000} (without {16:0.000}) | lowest down {17:0.000} | cell {18}",
+            "{0,-14} seed {1,3} {2,-22} balls {3,4} push {4,3} balls {5,6:0.0} | peak {6:0.000} at {7:0.00} s | 0.1 s {8:0.000} 0.2 s {9:0.000} 0.3 s {10:0.000} 0.5 s {11:0.000} 1 s {12:0.000} 2 s {13:0.000} | mean at peak {14:0.000} | stretch {15:0.000} (without {16:0.000}) | lowest down {17:0.000} | cell {18} | asleep after {19:0.00} s (without {20:0.00} s)",
             level, seed, label, r.Balls, r.Push.Balls, r.Push.Impulse, r.Peak, r.PeakStep * HungLevel.TIMESTEP,
             r.At(0.1f), r.At(0.2f), r.At(0.3f), r.At(0.5f), r.At(1f), r.At(2f), r.MeanDisplacement[r.PeakStep],
             r.PeakStretch, r.PeakStretchWithout, r.LowestDrop,
-            r.Landed == null ? "none" : r.Landed.Equals(r.LandedWithout) ? "same" : "DIFFERS");
+            r.Landed == null ? "none" : r.Landed.Equals(r.LandedWithout) ? "same" : "DIFFERS", r.AwakeSeconds, r.AwakeSecondsWithout);
 
         /// <summary>
         /// The measurement the push's figures were chosen from, off unless <c>BS3D_SHOT_PUSH=&lt;aims per level&gt;</c> is set (it
@@ -321,6 +334,11 @@ namespace BS3D.Tests
         [Fact]
         public void TheReportSaysHowFarAPushMovesTheCluster()
         {
+            //How long each shot is followed (BS3D_SHOT_PUSH_SECONDS, 2 by default): long enough to see a pushed cluster fall
+            //asleep again, which the asleep column reads, takes more
+            float ReportSeconds = float.TryParse(Environment.GetEnvironmentVariable("BS3D_SHOT_PUSH_SECONDS"), NumberStyles.Float,
+                CultureInfo.InvariantCulture, out float seconds) && seconds > 0f ? seconds : 2f;
+
             if (!int.TryParse(Environment.GetEnvironmentVariable("BS3D_SHOT_PUSH"), out int aims) || aims <= 0)
             {
                 output.WriteLine("BS3D_SHOT_PUSH is not set: the measurement is skipped.");
@@ -351,7 +369,7 @@ namespace BS3D.Tests
                 for (int seed = 1; seed <= aims; seed++)
                     foreach ((string label, float scale, Manual? manual) in configurations)
                     {
-                        Response r = Fire(level, seed, 2f, scale, manual);
+                        Response r = Fire(level, seed, ReportSeconds, scale, manual);
                         if (r.Landed == null) { output.WriteLine($"{level} seed {seed}: no landing"); break; }
                         output.WriteLine(Row(level, seed, label, r));
                     }
