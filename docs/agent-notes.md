@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-23 — #1210 editor map kreslí herní nebe, ostrov a strop — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: MapEditor kreslí mapu jako hra: herní nebe (`Sky.fx` přes `SkyPass`, oblačnost podle počasí úrovně, slunce, stíny mraků), sdílený `ArenaIsland` s dírou v terénu, stropní sklo (`CeilingPlate` + `CeilingRigging`), světla scény a stíny (i města přes nové `SceneRenderer.SetHostCityShadows`). Klávesy G / I / C přepínají jen pohled, nikdy data; scéna se kreslí přes `GameFrameCamera` posunutou o zavěšení pole (`ClusterHang.FitWorldOffset`). Nové argumenty `campos=`, `camtarget=`, `notext`, `sceneseed=`, `gamesky=/island=/glass=`, `save=`. `WeatherLooks.ForLevel` je jediné pravidlo počasí.
+- ⚠ Editor bez fokusu nezpracuje Update: přepínače se v testech nastavovaly z příkazové řádky, G/I/C za běhu nikdo nezmáčkl.
+- Otevřené: `verdict-eye`; zda sklo (C) zůstane zapnuté, počasí naskočí hned místo náběhu 8 s; 16 scén neviděno.
+
 ## 2026-11-23 — #1235 vidlička na konci zaměřovací linky — desktop (RDT-PC), Claude Code (bs3d-cc)
 
 - majitel: tenká linka (#1196) je dobrá, ale rozšíření na konci není vidět; nákres `aimer.png` v kořeni hlavního checkoutu: konec se plynule rozvětví do trojité vidličky, která hasne (rozptyl dopadu).
