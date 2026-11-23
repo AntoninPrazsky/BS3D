@@ -25,7 +25,7 @@ namespace BS3D.Effects
     /// </para>
     /// <para>
     /// <b>The four stand on four different sides and at four distances.</b> The river runs up its valley on the far side of
-    /// the arena from the cone, a thousand units from it; the eruption is seen from the cone's foot, low; the crater run climbs
+    /// the arena from the cone, eight hundred to a thousand units from it; the eruption is seen from the cone's foot, low; the crater run climbs
     /// from the arena's side; the village is orbited on the far side of the arena from the cone, seven hundred units from it.
     /// <c>VolcanoIntroShotsTests</c> holds every cut to a lens that moves at least <c>MIN_CUT_DISTANCE</c> AND a view
     /// that turns at least <c>MIN_CUT_ANGLE_DEGREES</c>, stricter than the cities' either-or, because a view that only
