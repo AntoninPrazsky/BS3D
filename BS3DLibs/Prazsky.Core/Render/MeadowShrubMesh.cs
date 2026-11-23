@@ -99,13 +99,29 @@ namespace Prazsky.Core.Render
         /// <param name="cardSize">A leaf card's side against its clump's radius; the meadow's by default. Bigger is bigger leaves
         /// and fewer cards: the tropical beach's sea grape (#753) has leaves several times a hawthorn's.</param>
         /// <param name="cover">How many cards' worth of leaf a clump's shell is covered with; the meadow's by default.</param>
-        /// <param name="rootSpread">How far from the axis the stems leave the ground, a share of the reach; the meadow's
-        /// <see cref="ROOT_SPREAD"/> by default, one rooted spot. The savanna's treeline masses (#1195) spread them wide, a stand of
-        /// trunks under one mass of leaf rather than one giant shrub's vase.</param>
+        /// <param name="form">The dome the clumps are laid over and how far apart the stems leave the ground; the meadow's
+        /// (<see cref="ShrubForm.Meadow"/>) by default.</param>
         public MeadowShrubMesh(GraphicsDevice device, float reach, float top, int seed, float cardSize = SHRUB_CARD, float cover = SHRUB_COVER,
-            float rootSpread = ROOT_SPREAD)
-            : this(device, Build(reach, top, seed, cardSize, cover, rootSpread))
+            ShrubForm? form = null)
+            : this(device, Build(reach, top, seed, cardSize, cover, form))
         {
+        }
+
+        /// <summary>
+        /// Where a shrub's clumps are laid and where its stems leave the ground, as shares of its height and its reach: the dome's
+        /// centre and half-height, the lowest a clump's centre is laid at (in half-heights under the centre), and how far from the
+        /// axis the stems leave the ground. The meadow's is <see cref="Meadow"/>: a dome standing on a vase of stems out of one spot.
+        /// The savanna's scrub and treeline masses (#1195) take their own, their leaf down to the grass as a thicket's is and, under a
+        /// treeline mass, a stand of trunks rather than one giant shrub's vase. <c>Clumps</c> (the fewest; up to four more are
+        /// rolled) and <c>ClumpMin</c> to <c>ClumpMax</c> (a clump's radius against the reach) make a wide, low mass of many small
+        /// clumps rather than a dome of a few big ones; <c>Ground</c> is how high the ground stands over the pivot, in the shrub's
+        /// units at scale 1, for a planting that sinks its pivot under it (a treeline mass): the shrub is grown and fitted standing
+        /// on it, its stems' feet under it.
+        /// </summary>
+        internal readonly record struct ShrubForm(float DomeCentre, float DomeHalf, float DomeLowest, float RootSpread,
+            int Clumps = CLUMPS_MIN, float ClumpMin = CLUMP_MIN, float ClumpMax = CLUMP_MAX, float Ground = 0f)
+        {
+            public static readonly ShrubForm Meadow = new(DOME_CENTRE, DOME_HALF, DOME_LOWEST, ROOT_SPREAD);
         }
 
         private MeadowShrubMesh(GraphicsDevice device, MeadowShrubGeometry geometry)
@@ -125,15 +141,16 @@ namespace Prazsky.Core.Render
         /// meadow was planted by, and its sphere is what a camera keeps out of.
         /// </summary>
         internal static MeadowShrubGeometry Build(float reach, float top, int seed, float cardSize = SHRUB_CARD, float cover = SHRUB_COVER,
-            float rootSpread = ROOT_SPREAD)
+            ShrubForm? form = null)
         {
             var g = new MeadowShrubGeometry();
             Random rng = new(seed);
+            ShrubForm shape = form ?? ShrubForm.Meadow;
 
-            //The nominal figure: the caller's reach and height, which the cards then overshoot a little (fitted below)
-            float R = reach, H = top;
-            Vector3 domeCentre = new(0f, H * DOME_CENTRE, 0f);
-            float domeHalf = H * DOME_HALF;
+            //The nominal figure: the caller's reach and height over the ground, which the cards then overshoot a little (fitted below)
+            float R = reach, H = top - shape.Ground;
+            Vector3 domeCentre = new(0f, H * shape.DomeCentre, 0f);
+            float domeHalf = H * shape.DomeHalf;
 
             //--- The outline: a few broad lobes round the bearing, rolled per shrub
             int lobes = 2 + rng.Next(2);
@@ -143,17 +160,17 @@ namespace Prazsky.Core.Render
 
             //--- The clumps: over the dome's upper part and down its flanks, area-evenly on the golden angle, each pulled inside
             //the outline by its own radius so its outer face is what reaches it; a share set deeper, and the top one or two lifted
-            int clumpCount = CLUMPS_MIN + rng.Next(CLUMPS_EXTRA + 1);
+            int clumpCount = shape.Clumps + rng.Next(CLUMPS_EXTRA + 1);
             float golden = MathF.PI * (3f - MathF.Sqrt(5f));
             float spin = (float)rng.NextDouble() * MathHelper.TwoPi;
             var clumps = new List<(Vector3 Centre, float Radius, bool Inner)>(clumpCount);
             var shaded = new bool[clumpCount];
             for (int i = 0; i < clumpCount; i++)
             {
-                float y = 1f - (1f - DOME_LOWEST) * (i + 0.5f) / clumpCount;
+                float y = 1f - (1f - shape.DomeLowest) * (i + 0.5f) / clumpCount;
                 float ring = MathF.Sqrt(MathF.Max(0f, 1f - y * y));
                 float a = spin + golden * i + 0.4f * ((float)rng.NextDouble() - 0.5f);
-                float r = R * (CLUMP_MIN + (CLUMP_MAX - CLUMP_MIN) * (float)rng.NextDouble());
+                float r = R * (shape.ClumpMin + (shape.ClumpMax - shape.ClumpMin) * (float)rng.NextDouble());
                 bool inner = rng.NextDouble() < INNER_SHARE;
                 float outline = Outline(a);
                 float inset = inner ? INNER_FROM + INNER_SPREAD * (float)rng.NextDouble()
@@ -193,7 +210,7 @@ namespace Prazsky.Core.Render
                 }
                 led[lead] = true;
 
-                Vector3 foot = dir * (R * rootSpread * 0.5f) + Vector3.Down * (H * FOOT_DEPTH);
+                Vector3 foot = dir * (R * shape.RootSpread * 0.5f) + Vector3.Down * (H * FOOT_DEPTH);
                 Vector3 target = clumps[lead].Centre;
                 //Into the clump to a third of its radius short of the centre, where its twigs fan out (the tree's rule)
                 Vector3 spray = target - Vector3.Normalize(target - foot) * (clumps[lead].Radius * 0.33f);
@@ -201,7 +218,7 @@ namespace Prazsky.Core.Render
 
                 //A quadratic curve: up out of the ground near the axis, the control point over the foot so the stem leaves steeply
                 //and leans out above, as a vase's sides do
-                Vector3 control = dir * (R * rootSpread) + Vector3.Up * (spray.Y * (0.55f + 0.15f * (float)rng.NextDouble()));
+                Vector3 control = dir * (R * shape.RootSpread) + Vector3.Up * (spray.Y * (0.55f + 0.15f * (float)rng.NextDouble()));
                 var points = new Vector3[STEM_PIECES + 1];
                 var radii = new float[STEM_PIECES + 1];
                 for (int k = 0; k <= STEM_PIECES; k++)
@@ -274,9 +291,12 @@ namespace Prazsky.Core.Render
                     widest = MathF.Max(widest, MathF.Sqrt(v.Position.X * v.Position.X + v.Position.Z * v.Position.Z));
                     highest = MathF.Max(highest, v.Position.Y);
                 }
-            float fit = MathF.Min(reach / widest, top / highest);
+            float fit = MathF.Min(reach / widest, H / highest);
             g.Scale(fit);
             g.Reach = widest * fit;
+
+            //And stood on the ground over the pivot, where a planting sinks the pivot under it
+            if (shape.Ground != 0f) g.Raise(shape.Ground);
 
             Vector3 middle = new(0f, top * 0.5f, 0f);
             float sphere = 0f;
@@ -321,6 +341,29 @@ namespace Prazsky.Core.Render
 
         /// <summary>A twig's radius where it leaves its spray base: the one ring of the wood left open (inside the branch's end).</summary>
         public float TwigRadius;
+
+        /// <summary>Raises everything by <paramref name="height"/> (#1195: a shrub standing on ground over its pivot): positions and the
+        /// recorded points.</summary>
+        internal void Raise(float height)
+        {
+            Vector3 up = new(0f, height, 0f);
+            static void Positions(List<VertexPositionNormalTexture> list, Vector3 up)
+            {
+                for (int i = 0; i < list.Count; i++)
+                {
+                    VertexPositionNormalTexture v = list[i];
+                    v.Position += up;
+                    list[i] = v;
+                }
+            }
+            Positions(WoodVertices, up);
+            Positions(LeafVertices, up);
+            for (int i = 0; i < Skeleton.Count; i++) Skeleton[i] = (Skeleton[i].From + up, Skeleton[i].To + up);
+            foreach (Vector3[] stem in Stems)
+                for (int k = 0; k < stem.Length; k++) stem[k] += up;
+            for (int i = 0; i < Branches.Count; i++) Branches[i] = (Branches[i].From + up, Branches[i].StemRadius);
+            for (int i = 0; i < SprayBases.Count; i++) SprayBases[i] += up;
+        }
 
         /// <summary>Scales everything about the pivot (#890's fit): positions and the recorded points; normals stay.</summary>
         internal void Scale(float s)
