@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-23 — #1195 savana: tvarované keře místo kopulí u objektivu — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: na High a Ultra se křoviny a masy lesního okraje savany blízko objektivu kreslí jako luční keř (`MeadowShrubMesh` s novým `ShrubForm`, tři tvary na kopuli, list 0,72 barvy kopule), dál zůstávají kopule. Přepínání dělá nový `ScatterSwap` podle vodorovné vzdálenosti od objektivu, i ve stínovém průchodu (`BackdropServices.ShadowLens`). Poloměry: křoviny 400, okraj 240 na High a 600 na Ultra; žádná herní póza ani orbit menu je nepřekročí (test). `SavannaScatter.Solids` a lety intra beze změny. Cena Ultra hra 7,26 → 8,00 ms, High 7,11 → 7,39. Low, Medium a Potato beze změny.
+- ⚠ Na svazích visely paty kmenů okraje ve vzduchu (13 % výsadeb); `FootSlope` je zapouští pod nejstrmější svah, test to hlídá.
+- Otevřené: `verdict-eye` (barva, mezery mezi kmeny, tvrdý střih v intru na High, poloměr Ultra).
+
 ## 2026-11-23 — #1229 krátký článek o tetelení: obrázky, klip a kód zpět — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: „Hot air, only far away“ zůstal krátký (397 slov v odstavcích), ale dostal zpět média dlouhého článku byte po bytu z 8a9870f6: klip prvního, slabšího tetelení v „Bigger, because Antonín asked“ a rozdílový obrázek herního pohledu (vše odlišné ≥ 2/255 leží u obzoru). Nově ukázka kódu: 17 řádků HLSL z `RefractPS` (posun čtení o úhel, ne pixely), nejvýš 34 znaků na řádek, aby se vešla na 360px telefon. `docs/website.md`: krátký je text, ne obrázky; ukázka pod dvacet řádků.

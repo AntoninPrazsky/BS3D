@@ -1568,7 +1568,8 @@ namespace Testbed
                         _sceneRenderer.FineMeshes = pin.Value is not ("0" or "false" or "off");
                         break;
 
-                    //Ultra's farther reach (#1208): the aurora stand's spruces out to 300 instead of 200, read per draw
+                    //Ultra's farther reach (#1208): the aurora stand's spruces out to 300 instead of 200 and the savanna's treeline
+                    //masses as shrubs out to 600 instead of 240 (#1195), read per draw
                     case "fardetail":
                         _sceneRenderer.FarDetail = pin.Value is not ("0" or "false" or "off");
                         break;

@@ -145,8 +145,12 @@ namespace BS3D.Tests
             var treeWorlds = new Dictionary<Matrix, int>();
             foreach (PlantOutline tree in planting.TreeOutlines) treeWorlds[tree.ToMesh] = 0;
 
+            //A shrub drawn near the lens in a scrub's or a treeline mass's place (#1195) is no solid of its own: it stands inside its
+            //dome's sphere (SavannaShapedScrubTests), and the dome's is here
             int index = 0, beside = 0;
             foreach (ScatterBucket bucket in planting.Buckets)
+            {
+                if (bucket.Swap != null && bucket.FineMeshes == true) continue;
                 foreach (ModelInstance instance in bucket.Placed)
                 {
                     PlantFigure solid = planting.Solids[index++];
@@ -159,6 +163,7 @@ namespace BS3D.Tests
                     Assert.True(beside < planting.SolidsBesideTrees.Count, "more solids beside the trees than it hands on");
                     Assert.Equal(solid, planting.SolidsBesideTrees[beside++]);
                 }
+            }
 
             Assert.Equal(planting.Solids.Count, index);
             Assert.Equal(planting.SolidsBesideTrees.Count, beside);
