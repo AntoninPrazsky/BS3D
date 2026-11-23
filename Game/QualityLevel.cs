@@ -360,8 +360,9 @@ namespace BS3D
         /// Whether the gun's metal and the drain's laser emitters are drawn worn by use (#1199, <c>CannonRig.Worn</c>,
         /// <c>LaserEmitters.Worn</c>): scratches, tarnish and grime in the profile's joins, rubbed crests and a patina, the
         /// <c>InstancedWornMetal</c> technique where Low and Medium keep the plain material. <b>High and Ultra only</b>, as
-        /// the owner asked ("this will probably be only for High/Ultra"). What it costs is in "The metal's wear on High and
-        /// Ultra" in docs/testbed/cannon.md.
+        /// the owner asked ("this will probably be only for High/Ultra"), and never on a phone (<c>GraphicsSupport.MetalWear</c>,
+        /// which <c>BS3DGame.MetalWorn</c> applies over this). What it costs is in "The metal's wear on High and Ultra" in
+        /// docs/testbed/cannon.md.
         /// </summary>
         public readonly bool MetalWear;
 

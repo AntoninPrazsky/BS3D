@@ -679,6 +679,14 @@ namespace BS3D
         }
 
         /// <summary>
+        /// Whether the gun's and the drain's emitters' metal is drawn worn by use (#1199): the tier's
+        /// <see cref="QualityPreset.MetalWear"/> (High and Ultra) where the device may draw it
+        /// (<see cref="GraphicsSupport.MetalWear"/>: not a phone). The one answer the rig is seeded with in LoadContent,
+        /// the emitters are given when the session hands them in, and <see cref="ApplyQuality"/> states again.
+        /// </summary>
+        internal bool MetalWorn => QualityPreset.Presets[(int)_quality].MetalWear && GraphicsSupport.MetalWear;
+
+        /// <summary>
         /// The one place the tier changes — <see cref="SetScene"/>'s rule applied to quality: everything a tier
         /// touches is written here and nowhere else, so the adaptive probe, the settings row and the command line
         /// cannot disagree about what a tier means.
@@ -762,10 +770,10 @@ namespace BS3D
             //And the title (#981): every tier draws the PNG logo, Low and Medium its lean copy without the halo
             if (_titleWordmark != null) _titleWordmark.Lean = !preset.FineMeshes;
 
-            //And the gun's and the emitters' metal worn by use (#1199), High and Ultra; a switch of technique read per draw.
-            //Null until LoadContent has made the rig, which states it there. See QualityPreset.MetalWear
-            if (_cannonRig != null) _cannonRig.Worn = preset.MetalWear;
-            if (SessionEmitters != null) SessionEmitters.Worn = preset.MetalWear;
+            //And the gun's and the emitters' metal worn by use (#1199), High and Ultra off a phone; a switch of technique read
+            //per draw. Null until LoadContent has made the rig, which states it there. See MetalWorn
+            if (_cannonRig != null) _cannonRig.Worn = MetalWorn;
+            if (SessionEmitters != null) SessionEmitters.Worn = MetalWorn;
 
             //And the arena's stone cap, which is the first thing the tier reaches that is NOT a scene — it is
             //in all fifteen of them and under the gun in every frame of every level, and #151 measured it at

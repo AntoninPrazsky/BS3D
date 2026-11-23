@@ -163,7 +163,9 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Corners of one kind nearer than this to one already named are one band of wear and are named once: a chamfer a
-        /// hundredth of a unit wide is one rubbed edge, not two (the shader's bands are 0.022 and 0.045 wide).
+        /// hundredth of a unit wide is one rubbed edge, not two. The parts merged with it, the wheels and the emitters, take
+        /// their bands from <c>CannonRig.SMALL_EDGE_WIDTH</c> and <c>SMALL_JOIN_WIDTH</c>, each reaching more than half this
+        /// from its corner, so the bands of two corners of one kind nearer than it would overlap into one anyway.
         /// </summary>
         public const float MERGE_DISTANCE = 0.02f;
 

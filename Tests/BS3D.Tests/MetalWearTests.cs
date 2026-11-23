@@ -3,8 +3,10 @@ using Prazsky.BS3D;
 using Prazsky.Core.Render;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -31,6 +33,55 @@ namespace BS3D.Tests
         [InlineData(QualityLevel.Ultra, true)]
         public void Only_High_and_Ultra_wear_the_metal(QualityLevel quality, bool worn) =>
             Assert.Equal(worn, QualityPreset.Presets[(int)quality].MetalWear);
+
+        /// <summary>
+        /// The packed corners are handed to the shader whole (<c>EffectParameter.SetValue(Vector4[])</c>): more slots than the
+        /// shader declares throw on the first worn draw, fewer leave its last slots holding whatever the previous draw wrote.
+        /// So the two counts are one figure, read here off <c>WornMetal.fxh</c> with its comments taken out.
+        /// </summary>
+        [Fact]
+        public void The_shader_reads_as_many_corner_slots_as_are_packed()
+        {
+            string shader = CodeOf(Path.Combine("BS3DLibs", "Prazsky.Shaders", "Content", "Shaders", "InstancedModel", "WornMetal.fxh"));
+
+            Match slots = Regex.Match(shader, @"^#define\s+WEAR_CORNER_SLOTS\s+(\d+)\s*$", RegexOptions.Multiline);
+            Assert.True(slots.Success, "WornMetal.fxh defines no WEAR_CORNER_SLOTS");
+            Assert.Equal(MetalWear.CORNER_SLOTS, int.Parse(slots.Groups[1].Value));
+            Assert.Matches(@"\bfloat4\s+WearCorners\s*\[\s*WEAR_CORNER_SLOTS\s*\]\s*;", shader);
+        }
+
+        /// <summary>
+        /// The table is not the tier until something carries it, and the gun and the emitters are drawn plain until told
+        /// otherwise. One answer (<c>BS3DGame.MetalWorn</c>: the tier's row, and never on a phone) seeds the rig where
+        /// LoadContent makes it, is given to the emitters when a session hands them in, and is stated again to both on every
+        /// change of tier.
+        /// </summary>
+        [Fact]
+        public void The_tier_reaches_the_gun_and_the_emitters_and_a_phone_never_wears()
+        {
+            string quality = CodeOf(Path.Combine("Game", "BS3DGame.Quality.cs"));
+            Assert.Matches(@"\bbool\s+MetalWorn\s*=>\s*QualityPreset\.Presets\[\(int\)_quality\]\.MetalWear\s*&&\s*GraphicsSupport\.MetalWear\s*;",
+                quality);
+
+            string apply = MethodBody(quality, "internal void ApplyQuality(");
+            Assert.Matches(@"_cannonRig\.Worn\s*=\s*MetalWorn\s*;", apply);
+            Assert.Matches(@"SessionEmitters\.Worn\s*=\s*MetalWorn\s*;", apply);
+
+            string game = CodeOf(Path.Combine("Game", "BS3DGame.cs"));
+            int built = game.IndexOf("_cannonRig = new CannonRig(", StringComparison.Ordinal);
+            Assert.True(built >= 0, "BS3DGame.cs builds no CannonRig");
+            Assert.Matches(@"_cannonRig\.Worn\s*=\s*MetalWorn\s*;",
+                game.Substring(built, game.IndexOf("#endregion", built, StringComparison.Ordinal) - built));
+
+            string scene = CodeOf(Path.Combine("Game", "BS3DGame.Scene.cs"));
+            int emitters = scene.IndexOf("LaserEmitters SessionEmitters", StringComparison.Ordinal);
+            Assert.True(emitters >= 0, "BS3DGame.Scene.cs has no SessionEmitters");
+            Assert.Matches(@"set\s*\{\s*_sessionEmitters\s*=\s*value\s*;\s*if\s*\(\s*value\s*!=\s*null\s*\)\s*value\.Worn\s*=\s*MetalWorn\s*;",
+                scene.Substring(emitters, scene.IndexOf("private BS3D.Effects.LaserEmitters _sessionEmitters", emitters, StringComparison.Ordinal) - emitters));
+
+            Assert.Matches(@"public\s+static\s+bool\s+MetalWear\s*=>\s*!OperatingSystem\.IsAndroid\(\)\s*;",
+                CodeOf(Path.Combine("BS3DLibs", "Prazsky.Core", "Render", "GraphicsSupport.cs")));
+        }
 
         [Fact]
         public void A_step_up_a_profile_run_along_its_axis_is_a_join_at_its_foot_and_an_edge_at_its_crest()
@@ -150,6 +201,29 @@ namespace BS3D.Tests
             Assert.Equal(0f, wear.Profile.W);
             Assert.Equal(1f, new Vector3(wear.Profile.X, wear.Profile.Y, wear.Profile.Z).Length(), 5);
             Assert.All(wear.Corners, slot => Assert.Equal(Vector4.Zero, slot));
+        }
+
+        private static string FindFile(string relative)
+        {
+            for (DirectoryInfo directory = new(AppContext.BaseDirectory); directory != null; directory = directory.Parent)
+            {
+                string candidate = Path.Combine(directory.FullName, relative);
+                if (File.Exists(candidate)) return candidate;
+            }
+
+            throw new FileNotFoundException($"No {relative} was found above the test assembly.");
+        }
+
+        //The text of a source file without its comments, so a word in a note is not taken for code
+        private static string CodeOf(string relative) => Regex.Replace(File.ReadAllText(FindFile(relative)), @"//[^\n]*", string.Empty);
+
+        //A C# method's body, from its head to the brace that closes it at the method's own indentation (eight spaces)
+        private static string MethodBody(string code, string head)
+        {
+            int start = code.IndexOf(head, StringComparison.Ordinal);
+            Assert.True(start >= 0, $"no {head}");
+            int end = code.IndexOf("\n        }", start, StringComparison.Ordinal);
+            return code.Substring(start, end - start);
         }
 
         private static WearCorner Corner(List<WearCorner> corners, float axial, float radial) =>

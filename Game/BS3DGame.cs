@@ -1647,8 +1647,8 @@ namespace BS3D
             //effect is handed in and stays the content manager's — the rig disposes its mesh and renderer only.
             _cannonRig = new CannonRig(GraphicsDevice, _instancingEffect, Magazine.SIZE, Magazine.SPACING);
 
-            //Its metal worn on High and Ultra (#1199); ApplyQuality keeps it from here on
-            _cannonRig.Worn = QualityPreset.Presets[(int)_quality].MetalWear;
+            //Its metal worn on High and Ultra off a phone (#1199, MetalWorn); ApplyQuality keeps it from here on
+            _cannonRig.Worn = MetalWorn;
 
             #endregion
 
