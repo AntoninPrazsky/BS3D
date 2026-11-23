@@ -260,6 +260,11 @@ namespace BS3D
         //at the gun, the one way to photograph it on a schedule.
         internal Screens.MenuGunMode MenuGun { get; private set; }
 
+        //Testing only: the front end's pass over the glass (#1214). Normal is the player's: now and then, where the tier bends the
+        //pane. "off" takes it away (the menu as it was, for a before/after pair); "pass" makes every cycle's excursion that pass,
+        //whatever the tier, the one way to photograph it on a schedule.
+        internal Screens.MenuGlassMode MenuGlass { get; private set; }
+
         //Testing only: open the level picker at boot, on a named chapter or on the one it chooses itself
         //(#273). Null means the argument was absent. Empty string means "pick" without a chapter, which is
         //why this is a string and not an int? — the two are different requests.
@@ -881,6 +886,11 @@ namespace BS3D
             //"menugun=<off|pass>" (#1040): "off" is the front end without its gun and without the camera's pass at it, "pass" makes
             //every cycle's excursion that pass. Anything else leaves what a player gets.
             Row.Text("menugun", (o, v) => o.MenuGun = v == "off" ? Screens.MenuGunMode.Off : Screens.MenuGunMode.Pass,
+                v => v is "off" or "pass"),
+            //"menuglass=<off|pass>" (#1214): "off" is the front end without the camera's pass over the glass, "pass" makes every
+            //cycle's excursion that pass, and over a pane that does not bend too (a plainceiling pair). Anything else leaves what a
+            //player gets.
+            Row.Text("menuglass", (o, v) => o.MenuGlass = v == "off" ? Screens.MenuGlassMode.Off : Screens.MenuGlassMode.Pass,
                 v => v is "off" or "pass"),
             //"balls=<style>" overrides what every level says it is made of (#258), the way "scene="
             //overrides the backdrop each one names. Parsed through BallStyles, so the spellings are the

@@ -10,6 +10,7 @@ Part of [The game: shell](../game-shell.md).
 - ⚠ **Exactly half the refresh is a vsync signature, not a cost** (Onion read 37.5 FPS on 75 Hz and was stepped down; retracted in #209: with the vsync gone, #270, it costs 5.96 ms at `High`).
 - **Seconds, not frames** (`QUALITY_WARMUP_SECONDS`, `QUALITY_WINDOW_SECONDS`): a frame count depends on the frame rate.
 - **No window while the physics warm-up runs** (`PhysicsWarmup.Running`, #1086): its four seconds of a throwaway world on the other cores are no part of a frame's cost. On a machine whose processor and graphics share one power budget, a window it shared could take a tier off the menu for the whole session. The first window therefore starts about 4 s after the load.
+- **No window while the menu camera flies its pass over the glass** (#1214, `TuneQualityToFrameRate`'s `judged`; [The menu camera](menu-camera.md)): the refracting pane fills the frame and the scene is copied at it every frame, and four of the re-opens below come wherever the flight has got to. Its frame at the glass reads 13.4 to 19.1 ms at High on the desktop, against 6.8 to 7.9 on the wide leg, and the meadow's 19.1 is under a 75 Hz display's `floor 68`. The window waits, frames and seconds alike, and the heat is still watched. A start and a return from a level begin on the wide leg ([The wide leg's length is the probe's](menu-camera.md)), so it is the re-opens that come mid-flight it is for.
 - **The floor is the display's refresh** less `QUALITY_REFRESH_MARGIN`, clamped to `QUALITY_MIN_FPS_FLOOR` when the adapter reports none (`SetQualityMinFpsFromRefresh`, the *window's own* monitor, #81): 75 Hz logs `floor 68`. The margin keeps a machine on the frame limiter's cap from tripping on jitter.
 - **A downward step waits for a plateau** (`QUALITY_RAMP_FRACTION`): a GPU still raising its clocks reads slow. It steps only when a window is no more than that fraction faster than the last, so **a drop takes at least two windows**; a window clearing the floor settles at once.
 - **One step per verdict, never upwards, and it latches** (`_qualitySettled`): set by `quality=`/`ssaa=` (`LaunchOptions` keeps them nullable: null means "nobody said"), by the player touching Quality or Auto quality, when the machine is fast enough, or when nothing is left to lower. The step is one rung down and **settles** at `Low`/`Potato` rather than "lowering" `Low` to `Low`.
@@ -18,7 +19,7 @@ Part of [The game: shell](../game-shell.md).
 
 ## When it re-opens
 
-Always through `BS3DGame.ReopenQualityProbe`: every level build, every fullscreen switch **at every tier** (#123), a Resolution-row click ([The resolution](resolution.md)) and turning Auto quality on. **A tier the player pinned is never re-opened** (`_qualityPinnedByPlayer`).
+Always through `BS3DGame.ReopenQualityProbe`: every level build, every fullscreen switch **at every tier** (#123), a Resolution-row click ([The resolution](resolution.md)), turning Auto quality on, and a hot phone's re-measure (below). **A tier the player pinned is never re-opened** (`_qualityPinnedByPlayer`).
 
 ## ⚠ The probe's verdict is never stored
 

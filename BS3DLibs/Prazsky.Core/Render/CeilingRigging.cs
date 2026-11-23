@@ -186,10 +186,28 @@ namespace Prazsky.Core.Render
         /// </summary>
         public void Fit(float stageSizeX, float stageSizeZ)
         {
-            _cornerX = CeilingPlate.FootprintFor(stageSizeX) * Constants.HALF - CORNER_INSET;
-            _cornerZ = CeilingPlate.FootprintFor(stageSizeZ) * Constants.HALF - CORNER_INSET;
+            _cornerX = CornerFor(stageSizeX);
+            _cornerZ = CornerFor(stageSizeZ);
             _fitted = true;
         }
+
+        /// <summary>
+        /// Where the cable at the (+, +) corner rises off the centre of a plate fitted to this field (the figures the caller
+        /// hands <see cref="Fit"/>), in X and Z; the other three mirror it. What the front end's pass over the glass keeps its
+        /// lens clear of (#1214), off the same corner and the same foot <see cref="Draw"/> stands each cable on.
+        /// </summary>
+        public static Vector2 CableOffset(float stageSizeX, float stageSizeZ)
+        {
+            Corner(0, CornerFor(stageSizeX), CornerFor(stageSizeZ), Vector3.Zero, out Vector3 outward, out _, out Vector3 drumAt);
+            Vector3 foot = CableFoot(drumAt, outward);
+            return new Vector2(foot.X, foot.Z);
+        }
+
+        //How far off the plate's centre a winch stands along one axis, for a field this many cells across
+        private static float CornerFor(float stageSize) => CeilingPlate.FootprintFor(stageSize) * Constants.HALF - CORNER_INSET;
+
+        //Where a drum's cable leaves it: off the core's outer side, so it rises clear of the glass
+        private static Vector3 CableFoot(Vector3 drumAt, Vector3 outward) => drumAt + outward * CORE_RADIUS;
 
         /// <summary>
         /// How far a drum has turned, in radians, with its plate's centre at <paramref name="plateY"/>: the cable it has let
@@ -259,7 +277,7 @@ namespace Prazsky.Core.Render
                 }
 
                 //The cable off the core's outer side, straight up to the crane or into the roof
-                Vector3 foot = drumAt + outward * CORE_RADIUS;
+                Vector3 foot = CableFoot(drumAt, outward);
                 float rise = CABLE_RISE;
                 if (scenes != null) rise = MathHelper.Clamp(scenes.RoofAbove(scene, foot.X, foot.Z) - foot.Y, 0f, CABLE_RISE);
                 _cables[k] = new ModelInstance(CableInstance(foot, rise, eye, projection, targetHeight, screenHeight), custom);

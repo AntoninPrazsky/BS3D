@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-23 — #1214 menu: průlet nad skleněným stropem — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: třetí výlet kamery menu (`GlassPass`, každý čtvrtý cyklus; dělo dál 1/3, shluk 5/12). Klesne z 40–52 na 3,5–6 nad desku, 12° od svislice, čtvrtotočka, mezi lany, strop pod střechou. Jen kde tier láme sklo (`RefractsCeiling`); na Low a Potato shluk místo něj. Sklo menu se při průletu vyjasní z 0,7 na hrané 0,48. `menuglass=pass` (nejkratší hodnoty, stejné vteřiny v každém běhu). Sonda kvality průlet nesoudí.
+- ⚠ Cena: u skla 19,1 ms na louce s bublinami (High, 3840x1500), na Ultra 19,3 (Neon City 17,2); mimo rozpočet 75 Hz. Lom stojí 2,7 ms, bubliny zblízka asi 5,3.
+- ⚠ Ústup po křivce blízkosti vjel 0,19 do krabice mapy (Bolt, 21:9), proto `CLIMB_SHARE`: nejdřív stoupat.
+- Otevřené: `verdict-eye`; rozhodnutí o ceně (vyšší blízká výška, nebo bez průletu nad bublinami), podíly a průhlednost 0,48. Telefon neměřen.
+
 ## 2026-11-23 — #1210 editor map kreslí herní nebe, ostrov a strop — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: MapEditor kreslí mapu jako hra: herní nebe (`Sky.fx` přes `SkyPass`, oblačnost podle počasí úrovně, slunce, stíny mraků), sdílený `ArenaIsland` s dírou v terénu, stropní sklo (`CeilingPlate` + `CeilingRigging`), světla scény a stíny (i města přes nové `SceneRenderer.SetHostCityShadows`). Klávesy G / I / C přepínají jen pohled, nikdy data; scéna se kreslí přes `GameFrameCamera` posunutou o zavěšení pole (`ClusterHang.FitWorldOffset`). Nové argumenty `campos=`, `camtarget=`, `notext`, `sceneseed=`, `gamesky=/island=/glass=`, `save=`. `WeatherLooks.ForLevel` je jediné pravidlo počasí.

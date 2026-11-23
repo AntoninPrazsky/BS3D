@@ -416,8 +416,8 @@ namespace BS3D
 
         /// <summary>
         /// <see cref="RebuildCeilingRenderer"/> for the menu's plate: refits the backdrop's glass to the preview
-        /// map's footprint, at the menu's own opacity — the played field's 0.4 whispers under a nearly level
-        /// camera against a bright sky, and this plate is a display piece, not furniture (#249). The same
+        /// map's footprint, at the menu's own opacity — the played field's (<see cref="CeilingPlate.GLASS_ALPHA"/>) whispers
+        /// under a nearly level camera against a bright sky, and this plate is a display piece, not furniture (#249). The same
         /// sky-lighting caveat applies — <see cref="ApplySkyLighting"/> has to run after this, and the backdrop
         /// does so as it rolls.
         /// </summary>
@@ -425,6 +425,19 @@ namespace BS3D
         {
             _menuCeilingPlate.Fit(stageSizeX, stageSizeZ, MENU_CEILING_ALPHA);
             _menuCeilingRigging.Fit(stageSizeX, stageSizeZ);
+        }
+
+        /// <summary>
+        /// How clear the menu's plate is this frame (#1214): 0 its display opacity (<see cref="MENU_CEILING_ALPHA"/>), 1 the
+        /// played glass's (<see cref="CeilingPlate.GLASS_ALPHA"/>). The display opacity answers a camera looking at the plate
+        /// nearly level against a bright sky; the pass over the glass looks down through it at the cluster, where that opacity
+        /// is a milky lid over the very thing the cut bends, so the backdrop clears it as the lens comes over. Stated every
+        /// frame the backdrop draws, so no frame inherits a pass's value.
+        /// </summary>
+        internal void SetMenuCeilingClarity(float clarity)
+        {
+            if (_menuCeilingPlate.Renderer != null)
+                _menuCeilingPlate.Renderer.MaterialAlpha = MathHelper.Lerp(MENU_CEILING_ALPHA, CeilingPlate.GLASS_ALPHA, clarity);
         }
 
         /// <summary>

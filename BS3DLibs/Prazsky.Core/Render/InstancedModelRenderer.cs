@@ -719,6 +719,22 @@ namespace Prazsky.Core.Render
         public float MaterialSpecularPower => _parts[0].SpecularPower;
 
         /// <summary>
+        /// The material's opacity, every part's (the <c>alpha</c> the renderer was built with): below one the mesh is
+        /// translucent and is drawn after the opaque scene under <see cref="BlendState.AlphaBlend"/>. A field per part and
+        /// nothing else, read as each part is drawn, so it can be eased per frame: the front end's preview plate clears from
+        /// its display opacity to the played glass's as the menu's camera comes over it (#1214). Keep it below one on a
+        /// renderer built translucent and at one on one built opaque, or the draw order the caller chose is wrong for it.
+        /// </summary>
+        public float MaterialAlpha
+        {
+            get => _parts[0].DiffuseColor.W;
+            set
+            {
+                for (int i = 0; i < _parts.Length; i++) _parts[i].DiffuseColor.W = value;
+            }
+        }
+
+        /// <summary>
         /// Draws the plain material as <b>polished metal</b> (#602): the <c>InstancedPolishedMetal</c> technique,
         /// which mirrors a sharp version of the dome — a horizon that is an edge, a bright band along it, a dark
         /// one under it, the sun as a glint — with no diffuse at all, the <see cref="BasicEffectParams.SpecularColor"/>

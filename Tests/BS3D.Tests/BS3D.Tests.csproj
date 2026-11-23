@@ -268,6 +268,7 @@
     <!--#1040: the front end's pass at the gun - where the lens stands round it and the two guards (out of the cluster's sphere,
         inside the scene's open ground); pure geometry over Vector3, held against the shipped levels' own spheres.-->
     <Compile Include="..\..\Game\Screens\GunPass.cs" />
+    <Compile Include="..\..\Game\Screens\GlassPass.cs" />
   </ItemGroup>
 
   <!--The map editor's key help (#1209): what it says and where it goes in a window of any size, strings and arithmetic
