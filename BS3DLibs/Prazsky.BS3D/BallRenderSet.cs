@@ -1320,6 +1320,19 @@ namespace Prazsky.BS3D
         //Public for the pictures of a dead ball the Game draws beside its words (#1023): the tutorial's card and the Help page
         public const float DEAD_DISSOLVE = 0.5f;
 
+        /// <summary>
+        /// The dissolve an ordinary released ball is drawn with (#620, #1191): the dead weight's mark, <paramref name="deadWeight"/>
+        /// of <see cref="DEAD_DISSOLVE"/>, carried on to the whole ball by <paramref name="vanish"/>, the ball's last dissolve.
+        /// At no vanish it is the mark alone and at a whole one the ball is gone; in between the going spends its whole length
+        /// on the pixels the mark left, so a dead ball does not stand still while the vanish climbs past the mark. A ball that
+        /// never wore the mark is drawn at the vanish itself.
+        /// </summary>
+        public static float ReleasedDissolve(float deadWeight, float vanish)
+        {
+            float mark = deadWeight * DEAD_DISSOLVE;
+            return mark + (1f - mark) * vanish;
+        }
+
         private readonly ModelInstance[][] _buckets;
         private readonly int[] _counts;
         private readonly int[] _lodTotals;
@@ -3458,14 +3471,13 @@ namespace Prazsky.BS3D
                     //order here says which wins if a future rule ever puts them on the same frame.
                     //
                     //A released ball's LAST dissolve (#1191) arrives on the instance (AddOriented's vanish) and is
-                    //carried on from the mark: the mark's share of the ball plus that share of what is left, so the
-                    //going starts where the mark stands and spends its whole length on the pixels the mark left. A
-                    //ball that never wore the mark goes out on the instance's dissolve below, as every special kind
-                    //does in its own region above.
+                    //carried on from the mark (BallRenderSet.ReleasedDissolve), so the going starts where the mark
+                    //stands and spends its whole length on the pixels the mark left. A ball that never wore the mark
+                    //goes out on the instance's dissolve below, as every special kind does in its own region above.
                     if (deadWeight > 0f)
                     {
-                        float mark = deadWeight * BallRenderSet.DEAD_DISSOLVE;
-                        _set.Store(typeIndex, lod, instance.WithDissolve(mark + (1f - mark) * instance.Dissolve), still);
+                        _set.Store(typeIndex, lod,
+                            instance.WithDissolve(BallRenderSet.ReleasedDissolve(deadWeight, instance.Dissolve)), still);
                         break;
                     }
 
