@@ -39,8 +39,8 @@ float2 OriginXZ;
 
 //Radius of the platform footprint cut out of the terrain around the world origin, so the drain funnel below
 //the island reads as a drain into a pit rather than a bowl in flat ground (the flat clearing otherwise slices
-//across the funnel just below its rim, hiding its depth and swallowing the balls falling through). The Testbed
-//sets this to the island's radius; the map editor draws no island, so it leaves it 0 and nothing is cut.
+//across the funnel just below its rim, hiding its depth and swallowing the balls falling through). The Game
+//and the Testbed set this to the island's radius, the map editor while its island is shown (I); 0 cuts nothing.
 float IslandHoleRadius;
 
 float MountainLevelY;
@@ -279,7 +279,7 @@ struct MountainVertexOutput
 //down to it, so the hole's wall is a steep cone under the island's stone (which reaches two units past the hole,
 //ArenaIsland.TERRAIN_HOLE_RADIUS) and the only way to see it is down the drain's throat, where the pixel shader
 //paints it black like the pit (HOLE_WALL_DARK). ⚠ Not onto the hole's circle: three corners on a circle are a
-//triangle across it, and the first cut laid snow across the drain. 0 (the map editor) cuts nothing.
+//triangle across it, and the first cut laid snow across the drain. 0 (no island drawn) cuts nothing.
 static const float HOLE_POINT_DEPTH = 400.0;   //how far under the basin the hole's corners go
 static const float HOLE_WALL_DARK = 4.0;       //how far under the basin the ground is the pit's dark: the range never dips that far
 
@@ -627,7 +627,7 @@ MountainFineVertexOutput MountainFineVS(MountainVertexInput input)
 //before the ground shows (TerrainDepthTwinSourceTests fails on it). Below those tiers nothing would show it.
 void MountainCuts(float2 xz)
 {
-    //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
+    //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 (no island drawn) keeps it all.
     clip(length(xz) - IslandHoleRadius);
     FarRingClip(xz);
 }

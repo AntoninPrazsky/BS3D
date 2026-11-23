@@ -462,8 +462,19 @@ namespace Prazsky.Core.Render
         /// the parameters keep their last value on the effect between frames, so a gain left standing from
         /// the scene before would go on shadowing the new one.
         /// </para>
+        /// <para>
+        /// No heaps either (<see cref="SunHeaps"/> 0 on the effects that declare it, <c>Sea.fx</c>): with the deck gone there
+        /// is nothing for them to stand on, and the sea's glint takes the sun past them as far as that figure says. Left as
+        /// the last sky up stated it, the glitter would stay dimmed by a heap that stood before the sun on that frame, under
+        /// a sky with no cloud in it (the map editor's G switch turned off is that case).
+        /// </para>
         /// </summary>
-        public void SuppressOn(Effect effect) => SlotsOf(effect).CoverageGain?.SetValue(0f);
+        public void SuppressOn(Effect effect)
+        {
+            EffectSlots slots = SlotsOf(effect);
+            slots.CoverageGain?.SetValue(0f);
+            slots.SunHeaps?.SetValue(0f);
+        }
 
         /// <summary>This effect's cloud parameters, resolved on first use and cached (see <see cref="_slotsByEffect"/>).</summary>
         private EffectSlots SlotsOf(Effect effect)

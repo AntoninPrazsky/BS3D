@@ -225,8 +225,8 @@ namespace Prazsky.Core.Render
         /// How strongly the crater lights the underside of the cloud deck over it, as a multiple of the lava's
         /// colour a shade up from <see cref="LavaCool"/> — and it swells with each burst. Every eruption the #509 references drew
         /// has the cloud above it lit orange from below; the deck is the sky's (<c>Sky.fx</c>), so this reaches
-        /// it through <see cref="CloudField.SetGroundGlow"/>, and the map editor, which draws no deck, cannot
-        /// show it. 0 turns it off.
+        /// it through <see cref="CloudField.SetGroundGlow"/>, which the map editor shows with its game sky on (#1210).
+        /// 0 turns it off.
         /// <para>
         /// <b>Held low for the cluster's sake</b>, the same readability constraint as <see cref="LightStrength"/>:
         /// from the Game's play pose the cluster hangs directly in front of the deck over the crater, where this

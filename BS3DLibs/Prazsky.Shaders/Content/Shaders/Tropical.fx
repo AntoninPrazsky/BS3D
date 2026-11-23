@@ -26,7 +26,7 @@
 //Shader Model 5.0, built out of this one directory by all three executables. It borrows the scene
 //toolkit: the sky is the current dome's two-colour gradient in linear radiance, every procedural
 //feature band-limits against the pixel footprint, and the cloud shadow is the one shared field in
-//Clouds.fxh (the map editor never sets the cloud uniforms, so there CloudSunlight is a flat 1.0).
+//Clouds.fxh (with no deck pushed, or one CloudField.SuppressOn zeroed, CloudSunlight is a flat 1.0).
 
 #include "ShaderTarget.fxh"
 
@@ -61,8 +61,8 @@ float3 HorizonColor;
 //the world while the mesh slides under it
 float2 OriginXZ;
 
-//Radius of the island's footprint cut out of the terrain around the world origin. The map editor
-//draws no island and leaves it 0.
+//Radius of the island's footprint cut out of the terrain around the world origin. 0 with no island
+//drawn (the map editor's I off).
 float IslandHoleRadius;
 
 #include "TropicalTerrain.fxh"
@@ -190,7 +190,7 @@ TropicalVertexOutput TropicalVS(TropicalVertexInput input)
 //before the ground shows (TerrainDepthTwinSourceTests fails on it). Below those tiers nothing would show it.
 void TropicalCuts(float2 xz)
 {
-    //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
+    //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 (no island drawn) keeps it all.
     clip(length(xz) - IslandHoleRadius);
     FarRingClip(xz);
 }

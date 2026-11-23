@@ -172,7 +172,7 @@ namespace Prazsky.Core.Render
             _neonCyan.SetValue(neonLook.Cyan.ToVector3());
             _neonHazeColor.SetValue(look.NeonHazeColor.ToVector3());
 
-            //The cloud shadow falls on the street as it does on the towers; null in the map editor, which draws no weather
+            //The cloud shadow falls on the street as it does on the towers; the map editor's hook zeroes it with its game sky off
             frame.ApplyClouds?.Invoke(_effect);
 
             _device.BlendState = BlendState.Opaque;

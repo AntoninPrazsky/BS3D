@@ -22,8 +22,41 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The campaign's last chapter plays here at morning with the neon off, and an overcast sheet is what makes that morning read as a morning rather than as a noon. It also flattens the ground light, which is what a chapter about telling neighbouring hues apart wants behind it.
+        /// <para>
+        /// The towers' sun shadows (#471) are stated here as every other scene states its own, at
+        /// <see cref="SHADOW_STRENGTH"/> over <see cref="SHADOW_EXTENT"/>. The renderer does not own the city, so it never
+        /// reads them on its own: every host hands this config to <see cref="SceneRenderer.SetHostCityShadows"/>, the one
+        /// copy of the registration.
+        /// </para>
         /// </summary>
-        public CitySceneConfig() => Weather = WeatherPreset.Overcast;
+        public CitySceneConfig()
+        {
+            Weather = WeatherPreset.Overcast;
+            Shadows = new ShadowConfig(strength: SHADOW_STRENGTH, extent: SHADOW_EXTENT);
+        }
+
+        /// <summary>How dark a tower's full shadow is (<see cref="ShadowConfig.Strength"/>).</summary>
+        public const float SHADOW_STRENGTH = 0.85f;
+
+        /// <summary>
+        /// The city's shadow fit (#471), which is nothing like the scenes <see cref="SceneRenderer"/> fits itself. TIGHTER
+        /// than their 260: the streets are what receives and the towers are what casts, so 2048 texels spread over 260 units
+        /// land about 0.13 to a texel and a tower's edge comes out soft where it should be the hardest line in the frame.
+        /// 180 puts it at 0.09.
+        /// </summary>
+        public const float SHADOW_EXTENT = 180f;
+
+        /// <summary>
+        /// And the box is TALL rather than deep, which is the other thing the city does not share: its ground is the street
+        /// level (<see cref="BaseY"/>), far under the island, and the tallest tower stands 156 over it (the generator's own
+        /// bound). A box that stopped at the island would clip the casters. This is how far under the street the box
+        /// reaches, <see cref="SHADOW_ABOVE"/> how far over it.
+        /// </summary>
+        public const float SHADOW_BELOW = 10f;
+
+        /// <summary>How far over the street level the shadow box reaches: clear of the tallest tower (see
+        /// <see cref="SHADOW_BELOW"/>).</summary>
+        public const float SHADOW_ABOVE = 170f;
 
         /// <summary>Neon night relight instead of the ordinary warm/cool daytime city (drives <see cref="Kind"/>).</summary>
         public bool Neon { get; set; } = false;

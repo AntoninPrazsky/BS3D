@@ -28,8 +28,8 @@ description: How to add and wire custom HLSL effects (.fx) in BS3D — content p
    `GraphicsProfile.HiDef`. `Prazsky.Shaders.csproj` sets
    `MonoGamePlatform` to `Windows` itself (it references no MonoGame platform package, and the libraries'
    private DesktopGL one would compile OpenGL effects). Every effect reaches every executable, used or not
-   (the MapEditor never loads `Sky.fx`). MSAA is off while supersampling is on (the scene renders into an HDR
-   target).
+   (the MapEditor draws `Sky.fx` only with its game sky switched on, G). MSAA is off while supersampling is on
+   (the scene renders into an HDR target).
 4. **Do not copy a helper out of another shader — include it.** `Noise.fxh` (noise, hashes incl. `Hash21` — and for
    anything rolled once per CELL the integer `HashCell`/`HashSalt`/`HashBits`, since `Hash21` repeats exactly every
    50 × 100 whole cells (#674) —

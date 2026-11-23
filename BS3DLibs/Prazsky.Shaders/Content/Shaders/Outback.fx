@@ -26,7 +26,7 @@
 //
 //Shader Model 5.0, built once in Prazsky.Shaders for all three executables. The sky is the current dome's
 //gradient in linear radiance, every procedural feature band-limits against the pixel footprint, and the cloud
-//shadow is the one shared field in Clouds.fxh (the map editor never sets the cloud uniforms, so there
+//shadow is the one shared field in Clouds.fxh (with no deck pushed, or one CloudField.SuppressOn zeroed,
 //CloudSunlight is a flat 1.0).
 
 #include "ShaderTarget.fxh"
@@ -60,7 +60,7 @@ float3 HorizonColor;
 //world while the mesh slides under it
 float2 OriginXZ;
 
-//Radius of the island's footprint cut out of the terrain around the world origin. The map editor leaves it 0.
+//Radius of the island's footprint cut out of the terrain around the world origin. 0 with no island drawn.
 float IslandHoleRadius;
 
 //The plain: its mean level (the island's foot) and the amplitude of the broad swell. Deliberately small - a
@@ -827,7 +827,7 @@ float4 OutbackPS(OutbackVertexOutput input) : COLOR
 {
     float3 worldPosition = input.WorldPosition;
 
-    //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
+    //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 (no island drawn) keeps it all.
     clip(length(worldPosition.xz) - IslandHoleRadius);
     FarRingClip(worldPosition.xz);
 

@@ -24,7 +24,8 @@ namespace Prazsky.Core.Render
     /// <para>
     /// <b>Which renderers take part is deliberately not this class's business.</b> Each executable keeps its
     /// own enrolment list and its own reasons — the Testbed's ceiling is always there while the Game's is
-    /// rebuilt per level and may be null, the map editor lights only the balls and the city, and all of them
+    /// rebuilt per level and may be null, the map editor lights what its switches may show whether or not they show
+    /// it (the island, the ceiling glass and its rigging beside the balls, the city and the wood), and all of them
     /// exclude the drain's pit shaft on purpose so no dome bleaches the inside of a hole in the ground. The
     /// rig is handed a list and never learns what a ceiling or a pit is.
     /// </para>
@@ -205,8 +206,9 @@ namespace Prazsky.Core.Render
         /// The hook that hands the shared cloud field to an effect, carried into every
         /// <see cref="BuildSceneFrame"/>. Set it <b>once</b>, at load — a caller that assigns
         /// <c>clouds.ApplyTo</c> per frame allocates a fresh delegate per frame, which is what all three
-        /// executables were doing on the draw path. Left null when there is no weather to apply (the map
-        /// editor draws no clouds, so the cloud uniforms stay zero and <c>CloudSunlight</c> returns a flat 1).
+        /// executables were doing on the draw path. Left null when there is no weather to apply, the cloud uniforms then staying
+        /// zero so <c>CloudSunlight</c> returns a flat 1; the map editor's hook applies the deck or zeroes its coverage by its
+        /// game-sky switch (#1210).
         /// </summary>
         public Action<Effect> CloudHook { get; set; }
 

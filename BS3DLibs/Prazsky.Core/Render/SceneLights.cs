@@ -31,10 +31,10 @@ namespace Prazsky.Core.Render
     /// island's top plate.
     /// </para>
     /// <para>
-    /// A host that wants no scene lights simply never constructs this: the map editor does not, so
-    /// <c>SceneLightCount</c> there keeps the HLSL uniform default of 0 and it lights no balls. That is the
-    /// reason the shader-side loop has to cost nothing at a count of zero, and why this class never pushes a
-    /// count it was not asked for.
+    /// A host that wants no scene lights simply never constructs this, and <c>SceneLightCount</c> then keeps the
+    /// HLSL uniform default of 0 and lights no balls (every executable constructs one today, the map editor since
+    /// #1210). That is the reason the shader-side loop has to cost nothing at a count of zero, and why this class
+    /// never pushes a count it was not asked for.
     /// </para>
     /// </summary>
     public sealed class SceneLights

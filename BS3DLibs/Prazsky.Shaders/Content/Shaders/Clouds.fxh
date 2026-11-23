@@ -243,7 +243,7 @@ float CloudSunlightLit(float3 worldPosition, float3 sunDirection)
 }
 
 //How much cloud stands between a point and the sun: the weather layer where the sun ray crosses the deck, 0 with no
-//weather (the map editor never sets the uniforms, so the gain sits at 0). For a shader that wants the sun's own beam
+//weather (no deck pushed, or one CloudField.SuppressOn zeroed: the gain sits at 0). For a shader that wants the sun's own beam
 //as well as the light under the deck (Sea.fx's glint, #1172): CloudSunlightUnder of it is CloudSunlight, and it times
 //CloudOpacity, with no floor, is what the sky shader hides its disc behind where the deck is drawn (below High; on High
 //and Ultra the deck near the lens gives way to the heaps).
@@ -259,7 +259,7 @@ float CloudSunCover(float3 worldPosition, float3 sunDirection)
 
 float CloudSunlight(float3 worldPosition, float3 sunDirection)
 {
-    //No clouds configured (the map editor never sets the uniforms, so the gain sits at 0): the answer is
+    //No clouds configured (no deck pushed, or one CloudField.SuppressOn zeroed: the gain sits at 0): the answer is
     //a flat 1 and the noise would be evaluated only to be multiplied away. A branch on a uniform is
     //non-divergent — every pixel takes the same path — and there are no gradient ops in this function, so
     //the derivative-coherence concern above does not apply to it.

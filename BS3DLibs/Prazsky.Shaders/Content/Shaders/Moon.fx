@@ -74,8 +74,8 @@ float3 EarthshineColor;
 //--- Terrain uniforms ------------------------------------------------------------------------------------
 
 //Where the flat grid is pinned this frame (camera XZ snapped to a cell), and the island's footprint cut out
-//of the terrain around the world origin (the Testbed and the Game set it; the map editor draws no island, so
-//it leaves 0 and nothing is cut).
+//of the terrain around the world origin (the Testbed and the Game set it, the map editor while its island is
+//shown; 0 cuts nothing).
 float2 OriginXZ;
 float IslandHoleRadius;
 
@@ -792,7 +792,7 @@ technique MoonSky
 //before the ground shows (TerrainDepthTwinSourceTests fails on it). Below those tiers nothing would show it.
 void MoonCuts(float2 xz)
 {
-    //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
+    //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 (no island drawn) keeps it all.
     clip(length(xz) - IslandHoleRadius);
 
     //Under the drift, which is the regolith too (#983, BankCover.fxh): shaded there, not here

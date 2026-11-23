@@ -79,6 +79,10 @@ namespace MapEditor.GUI
 
         public static readonly KeyHelpRow CycleScene = new(KeyGroup.Scene, "V", "Next scene (named at the top)");
         public static readonly KeyHelpRow CycleSky = new(KeyGroup.Scene, "B", "Next sky dome");
+        //The three view switches (#1210): what the game draws round the field, each on or off, in the order of the keys. One
+        //line for the three, as the arrows are one: three more lines took the help into a second column at 1600 x 900. A view,
+        //not data: F4 writes the same level either way, and the status line names what a press turned on or off.
+        public static readonly KeyHelpRow ToggleSetting = new(KeyGroup.Scene, "G / I / C", "Game's sky, island, ceiling glass: on or off");
 
         public static readonly KeyHelpRow Screenshot = new(KeyGroup.Window, "F8", "Save a screenshot");
         public static readonly KeyHelpRow Fullscreen = new(KeyGroup.Window, "F11", "Fullscreen or windowed");
@@ -93,7 +97,7 @@ namespace MapEditor.GUI
             MoveSelector, MoveSelectorVertically, PutBall, RemoveBall, FillMap, ClearMap,
             PickColour, CycleColour, CycleKind, CycleStyle,
             Fly, FlyVertically, MouseLook, Views, ResetCamera,
-            CycleScene, CycleSky,
+            CycleScene, CycleSky, ToggleSetting,
             Screenshot, Fullscreen, HideText, Quit,
         };
 

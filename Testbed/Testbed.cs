@@ -314,14 +314,6 @@ namespace Testbed
         //nothing.
         private bool _cityIsNeon;
 
-        //The city's shadow fit (#471), the Game's own figures restated rather than shared: they are a HOST's,
-        //and this executable is the other host. Tighter than the ten scenes SceneRenderer fits itself (the
-        //streets receive and the towers cast, so a tower's edge wants the texels) and taller (the ground is
-        //the street level far under the island).
-        private const float CITY_SHADOW_EXTENT = 180f;
-        private const float CITY_SHADOW_BELOW = 10f;
-        private const float CITY_SHADOW_ABOVE = 170f;
-
         private BoxMesh _unitBox;
         private InstancedModelRenderer _cityRenderer;
         //The equipment on the city's roofs (#436) — the Game's own, drawn here too so a rooftop can be framed
@@ -846,17 +838,12 @@ namespace Testbed
             //has to be told what ssaa= settled on — sized in texels a star would be four times dimmer at 2x
             _sceneRenderer = new SceneRenderer(GraphicsDevice, Content, _sceneSeedOffset) { SupersampleFactor = _supersampleFactor };
 
-            //The city's sun shadows (#471), registered exactly as the Game registers them and for the reason
+            //The city's sun shadows (#471), registered through the one copy every host calls and for the reason
             //this executable exists: the streets are a hundred units under the island, so the only camera that
             //can be put where they are judged from is this one's. It has to be here rather than beside the
             //city's own build — that runs first, and the renderer being registered with does not exist yet.
-            //No receiver is handed in — see BuildCity's own comment on CityStreets, which is where that was
-            //tried and measured back out.
-            ShadowConfig cityShadows = new(strength: 0.85f, extent: CITY_SHADOW_EXTENT);
-            _sceneRenderer.SetHostShadowScene(SceneKind.City, cityShadows, _cityConfig.BaseY,
-                CITY_SHADOW_BELOW, CITY_SHADOW_ABOVE);
-            _sceneRenderer.SetHostShadowScene(SceneKind.NeonCity, cityShadows, _cityConfig.BaseY,
-                CITY_SHADOW_BELOW, CITY_SHADOW_ABOVE);
+            //Why no receiver is handed in is SetHostCityShadows' own doc.
+            _sceneRenderer.SetHostCityShadows(_cityConfig);
 
             //#298 PROBE: "detail=" pins SceneRenderer.SceneDetail so a reduced program can be measured and
             //photographed here, where the camera can be pinned. Left alone the Testbed draws the full look.
@@ -929,7 +916,7 @@ namespace Testbed
             //Cut the island's footprint out of the solid terrain scenes so nothing solid shows through the drain
             //and the funnel below the island reads as a drain into a pit, not a bowl in flat ground (the dark pit
             //cone that backs the glass then fills that hole - see ArenaIsland.TERRAIN_HOLE_RADIUS). The map editor
-            //leaves this 0 - it draws no island, so nothing is cut and the terrain stays whole under the field's AABB.
+            //sets it by its island switch (#1210), 0 with the island off so the terrain stays whole under the field.
             _sceneRenderer.TerrainHoleRadius = ArenaIsland.TERRAIN_HOLE_RADIUS;
 
             //The sky the starting scene stands under (#221), and IMMEDIATELY rather than faded: a fade here
@@ -1141,9 +1128,7 @@ namespace Testbed
                 : _sceneRenderer.GetSceneConfig(_scene);
 
             WeatherPreset preset = WeatherLooks.TryParse(_weatherFromCommandLine)
-                ?? WeatherLooks.TryParse(levelWeather)
-                ?? config?.Weather
-                ?? WeatherPreset.Scattered;
+                ?? WeatherLooks.ForLevel(levelWeather, config?.Weather);
 
             if (immediately) _clouds.SetWeatherImmediately(preset); else _clouds.SetWeather(preset);
         }

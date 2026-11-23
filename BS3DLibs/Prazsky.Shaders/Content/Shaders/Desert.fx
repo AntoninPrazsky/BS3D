@@ -30,8 +30,8 @@
 //Shared between the game and the map editor (built for Shader Model 5.0, and for 3.0 on OpenGL ES for Android,
 //ShaderTarget.fxh). It borrows the scene toolkit: the sky is the dome's two-color gradient in linear radiance,
 //every procedural feature band-limits against the pixel footprint, and the cloud shadow is the one shared
-//field in Clouds.fxh, so the sand darkens under the very cloud the sky shows overhead (the editor never sets
-//the cloud uniforms, so there CloudSunlight is a flat 1.0 - full sun, no shadow).
+//field in Clouds.fxh, so the sand darkens under the very cloud the sky shows overhead (with no deck pushed, or
+//one CloudField.SuppressOn zeroed, CloudSunlight is a flat 1.0 - full sun, no shadow).
 
 #include "ShaderTarget.fxh"
 
@@ -68,8 +68,8 @@ float2 OriginXZ;
 
 //Radius of the platform footprint cut out of the terrain around the world origin, so the drain funnel below
 //the island reads as a drain into a pit rather than a bowl in flat ground (the flat clearing otherwise slices
-//across the funnel just below its rim, hiding its depth and swallowing the balls falling through). The Testbed
-//sets this to the island's radius; the map editor draws no island, so it leaves it 0 and nothing is cut.
+//across the funnel just below its rim, hiding its depth and swallowing the balls falling through). The Game
+//and the Testbed set this to the island's radius, the map editor while its island is shown (I); 0 cuts nothing.
 float IslandHoleRadius;
 
 float DesertLevelY;
@@ -558,7 +558,7 @@ float SandPattern(float2 p, float footprint)
 //before the ground shows (TerrainDepthTwinSourceTests fails on it). Below those tiers nothing would show it.
 void DesertCuts(float2 xz)
 {
-    //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
+    //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 (no island drawn) keeps it all.
     clip(length(xz) - IslandHoleRadius);
     FarRingClip(xz);
 }

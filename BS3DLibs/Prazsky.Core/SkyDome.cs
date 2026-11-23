@@ -126,8 +126,8 @@ namespace Prazsky.Core
         /// Testbed and the game put procedural clouds over the baked gradient. The effect is expected to
         /// declare <c>World</c>, <c>View</c> and <c>Projection</c> (cached here on assignment — the by-name
         /// indexer is a linear scan and this draws every frame); everything else it needs is the caller's
-        /// business and is set on the effect directly. Leave it null for the plain gradient — the map editor
-        /// does, and does not build a sky shader at all.
+        /// business and is set on the effect directly. Leave it null for the plain gradient: the map editor's
+        /// dome with its game sky off (#1210).
         /// </summary>
         public Effect Effect
         {
@@ -573,8 +573,8 @@ namespace Prazsky.Core
 
         /// <summary>
         /// Draws the dome over everything in the bound target, with the depth test off: the frame's first draw, which is how
-        /// the map editor and the Potato path draw it. The Game and the Testbed draw it through <see cref="Render.SkyPass"/>,
-        /// behind the opaque scene.
+        /// the map editor's plain dome (its game sky off) and the Potato path draw it. The Game, the Testbed and the map editor's
+        /// game sky draw it through <see cref="Render.SkyPass"/>, behind the opaque scene.
         /// </summary>
         public void Draw(ICamera camera) => Draw(camera, DepthStencilState.None);
 

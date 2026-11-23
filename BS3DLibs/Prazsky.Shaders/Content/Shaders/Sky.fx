@@ -5,8 +5,8 @@
 //already linear - SkyDome rewrites the vertex buffers once at load - so nothing here decodes anything,
 //and every cloud color below is authored as linear radiance rather than as an sRGB paint color.
 //
-//Built by the Testbed and the Game; the map editor builds InstancedModel.fx out of this directory but
-//not this file, so it gets no drawn clouds.
+//Drawn by the Game and the Testbed, and by the map editor as its game sky (its G switch, #1210); with that
+//off the editor draws the dome's plain gradient through SkyDome's own BasicEffect, with no clouds and no sun disc.
 
 #include "ShaderTarget.fxh"
 

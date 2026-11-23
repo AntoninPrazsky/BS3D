@@ -34,7 +34,7 @@ The funnel is a shape the camera sees *into*, so the open-ocean swell showed thr
 - **The swell dies before the glass, keyed on the rest position.** `CALM_BAND` (4, about one grid cell) under the island's rim takes the amplitude to zero, so the pool is exactly the flat rest grid at `SeaLevelY` and its clipped rim cannot breathe. Inside, `POOL_CHOP` (0.18) of the wind chop survives as capillary ripple; foam and the crest subsurface term are zeroed (the damped crest signal parks at 0.5, which a low `FoamCrestStart` would read as foam over still water); the body colour is biased to the deep tint (a still column in a drain reads dark).
 - **The water meets the glass in a meniscus**: over the last `MENISCUS_BAND` (0.9) the normal curls up the wall (`MENISCUS_TILT`).
 - **What continues below the pool sinks into it**: the cone and gold band draw after the water, so `MainPS` gives the plain-material path the balls' fade.
-- The map editor keeps `TerrainHoleRadius` at 0: no cut, no pool, `FunnelPoolRadius` pushed but ignored.
+- With no island drawn (the map editor's I off) `TerrainHoleRadius` is 0: no cut, no pool, `FunnelPoolRadius` pushed but ignored. With it on the editor cuts the ring and keeps the pool as the Game does.
 
 ## The underwater murk
 

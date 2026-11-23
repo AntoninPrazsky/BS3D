@@ -44,7 +44,7 @@ float AuroraTime;
 
 float2 OriginXZ;          //where this grid is centred this frame
 float GridCell;           //its vertex spacing: the base normal's finite difference
-float IslandHoleRadius;   //the platform's footprint; 0 in the map editor, which draws no island
+float IslandHoleRadius;   //the platform's footprint; 0 with no island drawn (the map editor's I off)
 float2 FineOriginXZ;      //the fine grid's centre, which the coarse grid sinks under
 float FineHalfExtent;
 float2 CoarseOriginXZ;    //the coarse grid's centre: the ground ends CoarseReach from it, and fades into the haze before

@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-23 — #1210 editor map kreslí herní nebe, ostrov a strop — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: MapEditor kreslí mapu jako hra: herní nebe (`Sky.fx` přes `SkyPass`, oblačnost podle počasí úrovně, slunce, stíny mraků), sdílený `ArenaIsland` s dírou v terénu, stropní sklo (`CeilingPlate` + `CeilingRigging`), světla scény a stíny (i města přes nové `SceneRenderer.SetHostCityShadows`). Klávesy G / I / C přepínají jen pohled, nikdy data; scéna se kreslí přes `GameFrameCamera` posunutou o zavěšení pole (`ClusterHang.FitWorldOffset`). Nové argumenty `campos=`, `camtarget=`, `notext`, `sceneseed=`, `gamesky=/island=/glass=`, `save=`. `WeatherLooks.ForLevel` je jediné pravidlo počasí.
+- ⚠ Editor bez fokusu nezpracuje Update: přepínače se v testech nastavovaly z příkazové řádky, G/I/C za běhu nikdo nezmáčkl.
+- Otevřené: `verdict-eye`; zda sklo (C) zůstane zapnuté, počasí naskočí hned místo náběhu 8 s; 16 scén neviděno.
+
 ## 2026-11-23 — #1187 louka: let domů jako dron — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: let potokem domů má dronové limity. Půdorys trasy je na spojích zaoblený (Gauss 8), úhyb kolem vrby se klade až po zaoblení, stoupání i sestup jsou smootherstep na vlastních hodinách letu, kroužení je omezené na 46 °/s (`CIRCLE_TURN`), 600 bodů. `IntroLanding.Style.DroneSeconds` (jen louka) drží pohled na aréně (`Steady` 0,8 s). Orbity u balíků a lavičky mají zaoblenou výšku a odmítají oblouk nad 19 °/s náklonu. Ryv 3111 → 186 u/s³, svislý 2700 → 77, natáčení 56 → 49 °/s. `IntroShotSmoothnessTests` přidal limity zrychlení natáčení 100 °/s² a ryvu 300 u/s³ všem záběrům.

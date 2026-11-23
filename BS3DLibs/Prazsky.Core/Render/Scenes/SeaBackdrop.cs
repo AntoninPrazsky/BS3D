@@ -231,7 +231,7 @@ namespace Prazsky.Core.Render
             //FunnelMesh is built from, so the water and the glass cannot drift — buried POOL_WALL_BIAS into
             //the glass so no sliver of the wall shows under the water's edge (the buried-edge lesson of
             //#109). Clamping the span keeps a config that floods the rim or sits below the hole sane. With
-            //TerrainHoleRadius 0 (the map editor) the shader cuts nothing and ignores this figure entirely.
+            //TerrainHoleRadius 0 (no island drawn: the map editor with I off) the shader cuts nothing and ignores this figure.
             float drainRimY = ArenaIsland.TOP_Y - ArenaIsland.DISH_DEPTH;
             float poolT = Math.Clamp((drainRimY - _seaConfig.LevelY) / (drainRimY - ArenaIsland.FUNNEL_BOTTOM_Y), 0f, 1f);
             float poolRadius = MathHelper.Lerp(ArenaIsland.FUNNEL_TOP_RADIUS, ArenaIsland.FUNNEL_DRAWN_HOLE_RADIUS, poolT)

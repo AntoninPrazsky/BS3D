@@ -8,8 +8,8 @@ namespace Prazsky.Core.Render
     /// <summary>
     /// The sky of a scene under the dome (#1104): the dome (<see cref="SkyDome"/> through <c>Sky.fx</c>: the gradient, the
     /// sun's disc, the cloud deck) and on High and Ultra the heaps over it (<see cref="CloudVolumes"/>, #989), drawn by the
-    /// Game and the Testbed <b>behind the opaque scene</b>. The map editor and the Potato path draw their dome first, as
-    /// they always have.
+    /// Game, the Testbed and the map editor's game sky (#1210) <b>behind the opaque scene</b>. The Potato path and the map editor's
+    /// plain dome draw their dome first, as they always have.
     /// <para>
     /// <b>Behind, at the far plane.</b> <c>Sky.fx</c> is among the dearest pixel programs in the frame, and drawn first with
     /// the depth test off it shaded every pixel above the horizon, most of which the ground, the trees, the towers and the

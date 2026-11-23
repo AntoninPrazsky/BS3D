@@ -18,7 +18,7 @@ The meadow, savanna and forest show the wind through `Noise.fxh`'s **`WindGust`*
 - **An offset, not a seed.** Each generator keeps its own constant and adds this one, so the scenes' arrangements stay uncorrelated.
 - **Rolled once, not per build.** A quality step (`ApplyQuality` rebuilds the city) or a scene change reads the offset back and gets the *same* city; a skyline that rearranged because the player opened Settings would read as a fault.
 - ⚠ **`sceneseed=<n>` keeps the instruments working.** A capture pair or an A/B must look at the same city, wood and planting on both halves. The Testbed and the Game both take it and print `[sceneseed] <n>` either way, so a frame filed with its log can be generated again. **`sceneseed=0` is the arrangement everything before the roll was photographed against**: exactly 1777 buildings and 7075 rooftop pieces (rolled runs gave 1812/1803/1860 and 7096/7084/7416 pieces).
-- The **map editor** rolls and has no pin, on purpose (an author judging whether a map reads wants varied backdrops). ⚠ Its forest, aurora wood and fireflies did not roll until #400: they were built on `ForestScatterRenderer.DEFAULT_SEED` alone.
+- The **map editor** rolls by default, on purpose (an author judging whether a map reads wants varied backdrops), and `sceneseed=<n>` pins it for a photograph (it prints no `[sceneseed]` line). ⚠ Its forest, aurora wood and fireflies did not roll until #400: they were built on `ForestScatterRenderer.DEFAULT_SEED` alone.
 
 ## A campfire burns like a fire (#468)
 

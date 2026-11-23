@@ -1388,9 +1388,8 @@ namespace Prazsky.BS3D
         /// for the reason <see cref="PULSE_DEPTH_RIPPLING"/> gives.</param>
         /// <param name="groundHeight">Y the ground-contact half of the ambient occlusion is measured against;
         /// the balls' bellies darken as they approach it, the same way the barrel's underside does. Defaults to
-        /// the island every ball in this game hangs over. The shader's ground term reaches 2 units up, i.e. to
-        /// y = −6.5, and a map's own grid sits at y ≥ 0, so this is a no-op for a caller drawing a bare map with
-        /// no island under it (the map editor) rather than something it has to opt out of.</param>
+        /// the island every ball in this game hangs over, the map editor's included: it hangs a map where a session does
+        /// (#1210). The shader's ground term reaches 2 units up, i.e. to y = −6.5.</param>
         public BallRenderSet(GraphicsDevice graphicsDevice, Effect instancingEffect, bool ripples = false,
             float groundHeight = ArenaIsland.TOP_Y)
         {
@@ -1847,10 +1846,11 @@ namespace Prazsky.BS3D
         /// </para>
         /// <para>
         /// Asked of the caller rather than measured off the device, though the ratio of the bound viewport to the
-        /// back buffer would give it: <see cref="BeginFrame"/> runs <b>before</b> the scene target is bound in the
-        /// Game and <b>after</b> it in the Testbed and the map editor, so what a device read means here depends on
-        /// which executable is asking — the same asymmetry that makes the LOD pick read the back buffer's size,
-        /// which is true whatever is bound (see <see cref="SolveLodDistances"/>).
+        /// back buffer would give it: <see cref="BeginFrame"/> runs <b>before</b> the scene target is bound (every
+        /// executable collects its balls before the sun's shadow map, which casts them), so a device read here would
+        /// see whatever an executable happened to leave bound, not the target the balls are drawn into — the same
+        /// reason the LOD pick reads the back buffer's size, which is true whatever is bound (see
+        /// <see cref="SolveLodDistances"/>).
         /// </para>
         /// </summary>
         public int SupersampleFactor { get; set; } = 1;
