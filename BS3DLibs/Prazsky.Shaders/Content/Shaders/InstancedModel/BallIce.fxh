@@ -207,10 +207,19 @@ float3 IceFracture(float3 direction, float footprint)
     float wander = 0.5 + 0.5 * ReliefOctave(direction, IceCrackOpenAxis, IceCrackOpenFrequency, footprint);
     float width = IceCrackWidth * lerp(IceCrackOpenMin, IceCrackOpenMax, wander);
 
-    float crack = (1 - smoothstep(0, width, fracture.x))
-        * saturate(IceCrackBandLimit - cells / max(width, 1e-3));
-
     float plateLimit = saturate(1 - cells * IcePlateBandLimit);
+
+    //A crack thinner than the pixel is drawn ONE PIXEL WIDE AT ITS COVERAGE (#1216): the profile is
+    //widened to the pixel and dimmed by the same ratio, so a pixel over a hairline takes the share of
+    //the crack it really holds, as a box filter would give it. It used to be faded to nothing over the
+    //last octave instead, and what that did to the look was the issue: the net was there close up and gone
+    //at the play camera, where the plates were left on their own and read as blotches. The edge field
+    //runs at about two of its units per unit of distance across a border, as a pixel runs at `cells` of
+    //them, so `cells` is the pixel measured in the field. Where the line is wider than that, the profile
+    //is exactly the one it always was. The plate's own limit takes the cracks down with the plates on the
+    //smallest balls, where the whole net is converging on its mean anyway.
+    float drawn = max(width, cells);
+    float crack = (1 - smoothstep(0, drawn, fracture.x)) * (width / drawn) * plateLimit;
 
     return float3(crack, lerp(0.5, fracture.y, plateLimit), plateLimit);
 }

@@ -107,6 +107,55 @@ float3 MetalSky(float3 direction)
     return sky + DirLight0SpecularColor * disc * MetalSunGain;
 }
 
+//===================================================================================================
+//THE BRUSH A PIXEL CANNOT HOLD STREAKS THE REFLECTION (#1216). Each brush octave fades out as the ball
+//shrinks (ReliefOctave's band limit, which is what keeps the lines from boiling), and before this the
+//tilt it took away went with it: the reflection of a far ball was a clean mirror with a pinpoint sun,
+//while the same ball close up was brushed. Measured, three of the four octaves are gone at the play
+//camera, so a metal cluster in play showed almost none of what made it brushed metal.
+//
+//A brushed finish seen from afar is what its scratches AVERAGE to, and a pixel over many scratches
+//averages their reflections: the highlight is smeared ACROSS the scratches into a streak, which is the
+//look a brushed sphere has from across a room. So the slope each octave loses to its band limit is
+//handed to the reflection as a spread along the brush's own gradient (the direction the scratch tilts
+//the normal), and the sun and the horizon are blurred by exactly that much. What the pixels can hold is
+//drawn as lines and what they cannot is drawn as streak, and the two add up to the same surface at
+//every size, because the lost and the kept variance sum to the brush's whole.
+//
+//The streak is per-axis Gaussian: a Phong lobe pow(cos, n) is, near its peak, a Gaussian of variance
+//1 / (4n) in the slope of the normal that would reflect the light into the eye, and blurring it by the
+//lost slope adds the two variances along the brush and leaves the other axis alone. Scaled by the ratio
+//of the widths, so the streak carries the energy the pinpoint did instead of brightening as it grows.
+//===================================================================================================
+
+//A Phong lobe of exponent `power`, blurred by `spread` (a slope variance) along the axis whose slope is
+//`along`; `across` is the slope on the other axis. Equal to exp(-2 power theta^2), which is
+//pow(cos(2 theta), power) near its peak, when nothing is spread.
+float MetalStreakLobe(float along, float across, float power, float spread)
+{
+    float own = 0.25 / power;
+    float wide = own + spread;
+
+    return sqrt(own / wide) * exp(-0.5 * (along * along / wide + across * across / own));
+}
+
+//MetalSky for the brushed ball: the sky with its horizon blurred by `horizonSpread` (a deviation in the
+//reflected direction's y) and the sun as two streak lobes. `along` and `across` are the half vector's
+//slopes off the normal along the brush's gradient and across it, and `spread` the lost slope variance.
+float3 MetalSkyBrushed(float3 direction, float along, float across, float spread, float horizonSpread)
+{
+    //A smoothstep from -e to e is close to a Gaussian edge of deviation e / 2.3, so the two widths add
+    //in quadrature there
+    float edge = sqrt(MetalHorizonEdge * MetalHorizonEdge + 5.29 * horizonSpread * horizonSpread);
+
+    float3 sky = lerp(GroundColor * MetalGroundDarkening, SkyColor, smoothstep(-edge, edge, direction.y));
+
+    float disc = MetalStreakLobe(along, across, MetalSunSharpness, spread)
+        + MetalSunHaloWeight * MetalStreakLobe(along, across, MetalSunHaloSharpness, spread);
+
+    return sky + DirLight0SpecularColor * disc * MetalSunGain;
+}
+
 //How bright the direct lights' highlight is on the metal, tinted by the alloy like everything else it
 //reflects. Under 1 because the environment is the main event here and a metal that answers the three-light
 //rig as strongly as it answers the sky reads as a plastic ball with a lot of gloss.
@@ -151,11 +200,51 @@ float4 MetalShade(PatternVertexShaderOutput input, bool motifCue, ColourCuePaint
         + 0.15 * ReliefOctave(direction, MetalBrushA, f * 4.27, footprint);
 
     //How hard the brush bit, varying ACROSS the scratches so it varies along their length.
-    grain *= lerp(1 - MetalScratchVariation, 1,
+    float bite = lerp(1 - MetalScratchVariation, 1,
         0.5 + 0.5 * ReliefOctave(direction, MetalBrushB, MetalScratchLengthFrequency, footprint));
 
-    float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, grain * MetalBrushDepth);
+    grain *= bite;
+
+    float3 smoothNormal = normalize(input.WorldNormal);
+    float3 worldNormal = PerturbNormalFromHeight(smoothNormal, input.WorldPosition, grain * MetalBrushDepth);
     float3 eyeVector = normalize(EyePosition - input.WorldPosition);
+
+    //THE SLOPE THE BAND LIMIT TOOK (#1216, see MetalSkyBrushed's header): each octave's slope variance
+    //(amplitude times frequency, squared, halved for a sine) times the share its fade removed, 1 - fade^2.
+    //The fades are ReliefOctave's own, so what is kept above and what is lost here are one octave split.
+    float4 brushFrequency = f * float4(1, 1.61, 2.63, 4.27);
+    float4 brushSlope = float4(0.36, 0.28, 0.21, 0.15) * brushFrequency;
+    float4 brushKept = saturate(1 - footprint * brushFrequency / 3.14159265);
+    float lostOctaves = 0.5 * dot(brushSlope * brushSlope, 1 - brushKept * brushKept);
+
+    //Into world slope: the octaves are waves in the brush coordinate s = dot(direction, MetalBrushA),
+    //whose gradient over the surface is the tangential part of MetalBrushA over the radius - known in
+    //object space without a rotation (its length), while its DIRECTION in world space is read off the
+    //screen the way PerturbNormalFromHeight reads a height's. Where the gradient vanishes (the brush's two
+    //poles, which the scratches circle) nothing is spread, so the direction's own breakdown there is moot.
+    float brushCoordinate = dot(direction, MetalBrushA);
+    float gradientSquared = saturate(1 - brushCoordinate * brushCoordinate) / (radius * radius);
+    float spread = lostOctaves * gradientSquared * (MetalBrushDepth * bite) * (MetalBrushDepth * bite);
+
+    float3 dpdx = ddx(input.WorldPosition);
+    float3 dpdy = ddy(input.WorldPosition);
+    float3 r1 = cross(dpdy, smoothNormal);
+    float3 r2 = cross(smoothNormal, dpdx);
+    float3 brushAxis = sign(dot(dpdx, r1)) * (ddx(brushCoordinate) * r1 + ddy(brushCoordinate) * r2);
+    brushAxis -= worldNormal * dot(brushAxis, worldNormal);
+    brushAxis *= rsqrt(max(dot(brushAxis, brushAxis), 1e-30));
+    float3 brushAcross = cross(worldNormal, brushAxis);
+
+    //The sun's half vector as slopes off the normal along and across that axis, and how far the spread
+    //swings the reflected direction's height, which is what blurs the horizon: a tilt e along the axis
+    //turns the mirror direction by 2e((axis.eye)n + (n.eye)axis).
+    float3 sunHalfway = SunDirection + eyeVector;
+    sunHalfway *= rsqrt(max(dot(sunHalfway, sunHalfway), 1e-12));
+    float sunFacing = max(dot(sunHalfway, worldNormal), 1e-3);
+    float sunAlong = dot(sunHalfway, brushAxis) / sunFacing;
+    float sunAcross = dot(sunHalfway, brushAcross) / sunFacing;
+    float horizonSpread = 2 * sqrt(spread)
+        * abs(dot(brushAxis, eyeVector) * worldNormal.y + dot(worldNormal, eyeVector) * brushAxis.y);
 
     float3 primary = SrgbToLinear(PatternPrimaryColor);
 
@@ -199,7 +288,7 @@ float4 MetalShade(PatternVertexShaderOutput input, bool motifCue, ColourCuePaint
     //The environment, along the mirror direction. Tinted by LUMINANCE at the body and left honest at the
     //rim, blended on Schlick's own curve - see the header for why that is not a compromise but the whole
     //design.
-    float3 environment = MetalSky(reflect(-eyeVector, worldNormal));
+    float3 environment = MetalSkyBrushed(reflect(-eyeVector, worldNormal), sunAlong, sunAcross, spread, horizonSpread);
     float grazing = pow(1 - saturate(dot(worldNormal, eyeVector)), MetalGrazingPower);
 
     float3 reflection = lerp(f0 * dot(environment, float3(0.2126, 0.7152, 0.0722)), environment, grazing);
