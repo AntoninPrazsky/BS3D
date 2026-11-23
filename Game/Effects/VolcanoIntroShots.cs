@@ -5,21 +5,28 @@ using System;
 namespace BS3D.Effects
 {
     /// <summary>
-    /// The volcano's own shots for a chapter intro's prologue (#530, #975, #1127): the whole volcano from far out, a cut
-    /// to the cone from its foot as a burst goes off, a climb up the flank that crests the rim and looks down into the
-    /// crater, then an orbit round the village on the land past the field that ends with the cone smoking over it — cut
-    /// together, then cut to the tour's last leg. The owner's verdict on #509 was that the intro "never looks INTO the
-    /// volcano from above", and the standard tour cannot: it is a spline round the arena, and the crater is a bowl on a
-    /// summit 250 units off, up 140, that every reference of #509 is built round. His note on #975 was that the first two
-    /// shots were the same picture (both from the arena's side with the lens on the vent): "start with a global view of
-    /// the volcano, then a cut to the volcano spewing, then the continuation". His note on #1127, that the player never
-    /// notices the land at all ("there should also be shots of the village, the river, the mountains and the forests in
-    /// the distance"): the play camera faces the cone, the land is behind it, and only this shot looks at it.
+    /// The volcano's own shots for a chapter intro's prologue (#530, #975, #1127, #1220): a low run up the river between the
+    /// ranges with the village on the left and the cone on the right, a cut to the cone from its foot as a burst goes off, a
+    /// climb up the flank that crests the rim and looks down into the crater, then an orbit round the village on the land past
+    /// the field that ends with the cone smoking over it — cut together, then cut to the tour's last leg. The owner's verdict
+    /// on #509 was that the intro "never looks INTO the volcano from above", and the standard tour cannot: it is a spline round
+    /// the arena, and the crater is a bowl on a summit 250 units off, up 140, that every reference of #509 is built round. His
+    /// note on #975 was that the first two shots were the same picture (both from the arena's side with the lens on the vent):
+    /// "start with a global view of the volcano, then a cut to the volcano spewing, then the continuation". His note on #1127,
+    /// that the player never notices the land at all ("there should also be shots of the village, the river, the mountains
+    /// and the forests in the distance"): the play camera faces the cone, the land is behind it, and only the intro looks at
+    /// it. And on #1220, that the first shot should be taken from the river: "the camera flies in over the river between the
+    /// mountains, past the forest; on the left the village is then visible, on the right the volcano".
     /// <para>
-    /// <b>The four stand on four different sides and at four distances.</b> The volcano is seen from five hundred
-    /// units out, high, a little round from the arena's side so the island stands in the same frame as the cone; the
-    /// eruption from the cone's foot, low, ninety degrees and more round the other way; the crater run climbs from
-    /// the arena's side; the village is orbited on the far side of the arena from the cone, seven hundred units from it.
+    /// <b>The river is the reel's global view where the land is drawn.</b> It holds the vent, the cone's foot and the island
+    /// in the frame throughout, which is what the volcano's own wide shot (five hundred units out, high) was there for, and it
+    /// stands in for that shot rather than before it: the two are one picture of the cone from afar, which is what #975 turned
+    /// down, and the reel is held to its length (<c>VolcanoIntroShotsTests</c>) with no room for both.
+    /// </para>
+    /// <para>
+    /// <b>The four stand on four different sides and at four distances.</b> The river runs up its valley on the far side of
+    /// the arena from the cone, a thousand units from it; the eruption is seen from the cone's foot, low; the crater run climbs
+    /// from the arena's side; the village is orbited on the far side of the arena from the cone, seven hundred units from it.
     /// <c>VolcanoIntroShotsTests</c> holds every cut to a lens that moves at least <c>MIN_CUT_DISTANCE</c> AND a view
     /// that turns at least <c>MIN_CUT_ANGLE_DEGREES</c>, stricter than the cities' either-or, because a view that only
     /// slides along its own line is still the same picture. The village comes last, after the crater: it ends looking at
@@ -30,8 +37,9 @@ namespace BS3D.Effects
     /// (<see cref="VILLAGE_END_DOWN_DEGREES"/>) so that the tilt alone turns the view <see cref="CUT_TO_THE_MAP_DEGREES"/>.
     /// </para>
     /// <para>
-    /// <b>The village is shot only where it stands</b> (<see cref="SceneRenderer.VolcanoCountryDrawn"/>): Low draws the
-    /// land's ground but none of its woods, snags or houses, and there the reel is the three shots it was before #1127.
+    /// <b>The river and the village are shot only where they stand</b> (<see cref="SceneRenderer.VolcanoCountryDrawn"/>): Low
+    /// draws the land's ground but none of its woods, snags or houses, and there the reel is the three shots it was before
+    /// #1127, the volcano's wide shot first.
     /// </para>
     /// <para>
     /// <b>The burst is cued, not hoped for.</b> A burst is on for 4.5 s of every 19, jittered inside its period, so a
@@ -156,6 +164,44 @@ namespace BS3D.Effects
         private const float VILLAGE_END_DOWN_DEGREES = ChapterIntro.MAP_KEY_MIN_ELEVATION_DEGREES - CUT_TO_THE_MAP_DEGREES;
         private const float VILLAGE_FOV = 1.35f;
 
+        //The river (#1220): a run upstream over the river's east arm, from RIVER_FROM to RIVER_TO along its course
+        //(VolcanoCountry.RIVER_COURSE, measured from its source; both moved together by up to RIVER_ROLL), 135 units at about 40
+        //a second. It starts in the valley the water cuts between the ranges (where the course runs 700 and more from the arena
+        //the valley's walls stand 30 to 80 over the water 120 to 160 off it) and comes out towards the arena where the land falls
+        //away, past the banks' trees, climbing from RIVER_LOW to RIVER_HIGH over the water as the valley opens (the water lies
+        //level along the whole arm: a river never climbs, VolcanoCountry). The look is the bearing halfway between the village's
+        //roofs and the vent as the lens sees them, RIVER_LOOK_DOWN_DEGREES down: the village on the left, the cone and its
+        //column on the right, the island between and the river running into the frame under them. The hill on the left hides
+        //the village's roofs over the first half of the run, and it comes out from behind it: "then visible".
+        //
+        //Only the east arm puts them so: flying up the west arm mirrors it (the village on the right). Where the run ends, the
+        //village and the vent stand about 25 degrees either side of the middle of a frame whose half-width is 38 at 16:9; farther
+        //up the arm they draw apart until no frame holds both (past about 1570 along).
+        //
+        //⚠ OVER THE WATER AND SMOOTH ARE A TRADE. The lens rides the meandering centre line (VolcanoCountry.RiverCentre), rounded
+        //by a Gaussian of RIVER_ROUNDING units of the course, so it takes the meanders' bends without swaying round each one: it
+        //stays within 9.3 of the centre line (the water reaches RiverHalfWidth, 11, either side), where 30 took it 11.7 off over
+        //the gravel and 35 13.8. The line is read every RIVER_STEP: read every unit and laid straight between, its points jerked
+        //the lens at 500 to 850 u/s³ (IntroShotSmoothnessTests holds 300), and read every quarter at 160 to 250.
+        //
+        //The trees, the houses and the church keep RiverHalfWidth plus VolcanoCountryPlanting.RiverKeep off the centre line at
+        //their nearest (the snags and the front's blocks stand only by the front, which the river passes 300 and more beyond
+        //here), so the lens passes five units or more beside the nearest crown wherever the planting stood them.
+        private const float RIVER_FROM = 1790f;
+        private const float RIVER_TO = 1655f;
+        private const float RIVER_ROLL = 15f;
+        private const float RIVER_ROUNDING = 25f;
+        internal const float RIVER_LOW = 10f;
+        private const float RIVER_HIGH = 17f;
+        private const float RIVER_LATERAL = 4f;
+        private const float RIVER_LOOK_DOWN_DEGREES = 3f;
+        private const float RIVER_LOOK_REACH = 300f;
+        private const float RIVER_FOV = 1.1f;
+        internal const float RIVER_SECONDS = 3.5f;
+
+        //How finely the centre line is read before it is rounded, in units of the course
+        private const float RIVER_STEP = 0.25f;
+
         /// <summary>
         /// The prologue for the volcano the renderer is drawing, starting at <paramref name="time"/> on its wall
         /// clock, or null when it has no volcano config; cues the burst the eruption shot meets, and cues it again
@@ -166,37 +212,44 @@ namespace BS3D.Effects
         {
             if (scenes?.GetSceneConfig(SceneKind.Volcano) is not VolcanoSceneConfig volcano) return null;
 
-            scenes.CueVolcanoBurst(time, BurstOnset(time));
+            bool land = scenes.VolcanoCountryDrawn;
+            scenes.CueVolcanoBurst(time, BurstOnset(time, land));
             return Shots(scenes.VolcanoGroundHeight, scenes.VolcanoLightPosition(0, 0f), volcano, fieldOfView, random,
                 eruptionStarts: () =>
                 {
-                    float onset = Recue(time, clock?.Invoke() ?? time + VIEW_SECONDS);
+                    float onset = Recue(time, clock?.Invoke() ?? time + OpeningSeconds(land), land);
                     if (!float.IsNaN(onset)) scenes.CueVolcanoBurst(time, onset);
                 },
-                village: scenes.VolcanoCountryDrawn);
+                land: land);
         }
 
         /// <summary>
         /// The burst's second the eruption shot wants when it comes on screen at <paramref name="now"/> on the wall
         /// clock, for an intro built at <paramref name="time"/>; NaN when the cue made at the build already lands it.
+        /// <paramref name="land"/> is whether the reel opens on the river (see <see cref="Shots"/>).
         /// </summary>
-        internal static float Recue(float time, float now)
+        internal static float Recue(float time, float now, bool land)
         {
             float onset = now + BURST_LEAD;
-            return MathF.Abs(onset - BurstOnset(time)) > RECUE_TOLERANCE ? onset : float.NaN;
+            return MathF.Abs(onset - BurstOnset(time, land)) > RECUE_TOLERANCE ? onset : float.NaN;
         }
 
-        /// <summary>The second the cued burst goes off, for a prologue that starts at <paramref name="time"/>.</summary>
-        internal static float BurstOnset(float time) => time + VIEW_SECONDS + BURST_LEAD;
+        /// <summary>The second the cued burst goes off, for a prologue that starts at <paramref name="time"/> and opens on the
+        /// river where <paramref name="land"/> is drawn, on the volcano where not.</summary>
+        internal static float BurstOnset(float time, bool land) => time + OpeningSeconds(land) + BURST_LEAD;
+
+        /// <summary>How long the shot the eruption follows runs: the river's where the land is drawn, the volcano's where not.</summary>
+        internal static float OpeningSeconds(bool land) => land ? RIVER_SECONDS : VIEW_SECONDS;
 
         /// <summary>
         /// The shots off the ground, the vent and the config alone, for a test with no renderer. The volcano and the
         /// eruption stand on opposite sides of the arena's bearing, which side rolled. <paramref name="eruptionStarts"/> is
-        /// called as the eruption shot comes on screen. <paramref name="village"/> is whether the tier draws the land's
-        /// village and woods: without them there is no shot of the village, and the reel is the three it was before #1127.
+        /// called as the eruption shot comes on screen. <paramref name="land"/> is whether the tier draws the land's village and
+        /// woods: where it does, the reel opens on the river in place of the volcano (#1220) and ends on the village (#1127);
+        /// where not, it is the three shots it was before either.
         /// </summary>
         internal static IntroShot[] Shots(Func<float, float, float> ground, Vector3 vent, VolcanoSceneConfig volcano, float fieldOfView,
-            Random random, Action eruptionStarts = null, bool village = true)
+            Random random, Action eruptionStarts = null, bool land = true)
         {
             float side = random.Next(2) == 0 ? 1f : -1f;
 
@@ -204,13 +257,72 @@ namespace BS3D.Effects
             IntroShot eruption = Eruption(ground, vent, volcano, -side, fieldOfView, random, eruptionStarts);
             IntroShot crater = Crater(ground, vent, volcano, fieldOfView, random);
 
-            //The village is rolled LAST, off a generator of its own seeded by one draw of the reel's: the other three roll
-            //exactly what they rolled before #1127, and whether it is rolled at all (the tier) never moves what the session
-            //deals after the intro (the benchmark plays one seed on every tier)
-            var villageRandom = new Random(random.Next());
-            if (!village) return new[] { whole, eruption, crater };
+            //The village and the river are rolled LAST, off a generator of their own seeded by one draw of the reel's: the other
+            //three roll exactly what they rolled before #1127, and whether these two are rolled at all (the tier) never moves
+            //what the session deals after the intro (the benchmark plays one seed on every tier). The volcano is rolled on every
+            //tier for the same reason, and shown only where the river does not stand in for it.
+            var landRandom = new Random(random.Next());
+            if (!land) return new[] { whole, eruption, crater };
 
-            return new[] { whole, eruption, crater, Village(ground, vent, volcano, fieldOfView, villageRandom) };
+            IntroShot village = Village(ground, vent, volcano, fieldOfView, landRandom);
+            return new[] { River(ground, vent, volcano, fieldOfView, landRandom), eruption, crater, village };
+        }
+
+        /// <summary>
+        /// Up the river between the ranges (#1220, the owner: "the camera flies in over the river between the mountains, past
+        /// the forest; on the left the village is then visible, on the right the volcano"): low over the water of its east arm,
+        /// upstream, out of the valley it cuts through the ranges and towards the arena, the village coming up on the left and the
+        /// cone with its column on the right, the island between them. The reel's establishing view where the land is drawn: it
+        /// holds the vent, the cone's foot and the island in the frame from its first frame to its last, as the volcano's did.
+        /// </summary>
+        internal static IntroShot River(Func<float, float, float> ground, Vector3 vent, VolcanoSceneConfig volcano, float fieldOfView,
+            Random random)
+        {
+            VolcanoCountry country = VolcanoCountry.Of(volcano);
+            float shift = AridIntroPaths.Roll(random, -RIVER_ROLL, RIVER_ROLL);
+            float from = RIVER_FROM + shift, to = RIVER_TO + shift;
+
+            //The centre line read on past both ends for the rounding's reach, rounded, and the run itself laid evenly along it
+            int reach = (int)MathF.Ceiling(3f * RIVER_ROUNDING / RIVER_STEP);
+            int run = (int)MathF.Round((from - to) / RIVER_STEP);
+            var xs = new float[run + 1 + 2 * reach];
+            var zs = new float[xs.Length];
+            for (int k = 0; k < xs.Length; k++)
+            {
+                Vector2 c = country.RiverCentre(from + (reach - k) * RIVER_STEP, out _);
+                xs[k] = c.X;
+                zs[k] = c.Y;
+            }
+
+            float[] roundedX = AridIntroPaths.Rounded(xs, RIVER_ROUNDING / RIVER_STEP, turnOver: true);
+            float[] roundedZ = AridIntroPaths.Rounded(zs, RIVER_ROUNDING / RIVER_STEP, turnOver: true);
+            var line = new Vector2[run + 1];
+            for (int k = 0; k <= run; k++) line[k] = new Vector2(roundedX[reach + k], roundedZ[reach + k]);
+            Vector2[] plan = AridIntroPaths.Even(line);
+
+            //Over the water, climbing as the valley opens; the ground on four hands lifts it wherever a bar or a bank would
+            //come nearer than RIVER_LOW
+            Vector3[] path = AridIntroPaths.Hug(plan, ground, RIVER_LOW, RIVER_LATERAL, RIVER_SECONDS, i =>
+            {
+                float water = volcano.LevelY + country.River(plan[i].X, plan[i].Y).Level;
+                return water + MathHelper.Lerp(RIVER_LOW, RIVER_HIGH, MathHelper.SmoothStep(0f, 1f, i / (float)(plan.Length - 1)));
+            });
+
+            //The look: halfway between the village and the vent in plan, as the lens sees them from where it is, tilted down
+            Vector2 village = volcano.Country.Village.ToVector2(), cone = new(vent.X, vent.Z);
+            float down = -MathHelper.ToRadians(RIVER_LOOK_DOWN_DEGREES);
+            var look = new Vector3[path.Length];
+            for (int i = 0; i < path.Length; i++)
+            {
+                Vector2 at = new(path[i].X, path[i].Z);
+                float toVillage = MathF.Atan2(village.Y - at.Y, village.X - at.X);
+                float toCone = MathF.Atan2(cone.Y - at.Y, cone.X - at.X);
+                float bearing = toVillage + 0.5f * MathHelper.WrapAngle(toCone - toVillage);
+                look[i] = path[i] + new Vector3(MathF.Cos(bearing) * MathF.Cos(down), MathF.Sin(down), MathF.Sin(bearing) * MathF.Cos(down))
+                    * RIVER_LOOK_REACH;
+            }
+
+            return new IntroShot("the river", path, RIVER_SECONDS, fieldOfView * RIVER_FOV, lookAtPath: look);
         }
 
         /// <summary>

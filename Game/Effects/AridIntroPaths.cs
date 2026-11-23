@@ -49,6 +49,29 @@ namespace BS3D.Effects
         }
 
         /// <summary>
+        /// A line read off something curved (the volcano's river, #1220), laid evenly along its own length in
+        /// <see cref="POINTS"/> points: what <see cref="IntroShot"/> walks, whose clock is a uniform speed only over evenly
+        /// spaced points. Straight between the line's own points, so they must be close enough for that not to show.
+        /// </summary>
+        public static Vector2[] Even(Vector2[] line, int count = POINTS)
+        {
+            var lengths = new float[line.Length];
+            for (int i = 1; i < line.Length; i++) lengths[i] = lengths[i - 1] + Vector2.Distance(line[i], line[i - 1]);
+
+            var plan = new Vector2[count];
+            int j = 0;
+            for (int k = 0; k < count; k++)
+            {
+                float s = lengths[^1] * k / (count - 1);
+                while (j < line.Length - 2 && lengths[j + 1] < s) j++;
+                float f = (s - lengths[j]) / MathF.Max(lengths[j + 1] - lengths[j], 1e-6f);
+                plan[k] = Vector2.Lerp(line[j], line[j + 1], MathHelper.Clamp(f, 0f, 1f));
+            }
+
+            return plan;
+        }
+
+        /// <summary>
         /// An arc round <paramref name="centre"/> from one bearing to another, its radius running from
         /// <paramref name="fromRadius"/> to <paramref name="toRadius"/> — a gentle spiral when they differ.
         /// </summary>

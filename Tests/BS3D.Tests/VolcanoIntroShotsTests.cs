@@ -14,17 +14,32 @@ namespace BS3D.Tests
     /// and the cued burst going off inside the second. And the land past the field (#1127, the owner: "there should also be
     /// shots of the village, the river, the mountains and the forests in the distance"): the village orbited last, over
     /// every tree, house and the church, the village in the frame throughout and the cone over it at the end, the cut out of
-    /// it into the tour's last leg a different picture too, and no such shot on a tier that draws no village.
+    /// it into the tour's last leg a different picture too, and no such shot on a tier that draws no village. And the river
+    /// (#1220, the owner: "the camera flies in over the river between the mountains, past the forest; on the left the village is
+    /// then visible, on the right the volcano"): the reel's first shot where the land is drawn, in place of the volcano's wide
+    /// one, low over the water and beside every tree, the village on the left and the cone on the right in plain sight at its
+    /// end, and the cued burst still going off inside the eruption shot after it.
     /// </summary>
     public class VolcanoIntroShotsTests
     {
         private const int ROLLS = 16;
 
-        //The prologue and the tour's last leg together, with the village and without it (Low): the owner prefers a faster
-        //reel to a longer one, so the village came in with the first two shots shortened (17.3 s before it, 20.1 with it), and
-        //a reel that grows past these fails here rather than in his hands.
+        //The prologue and the tour's last leg together, with the land (the river and the village) and without it (Low): the
+        //owner prefers a faster reel to a longer one, so the village came in with the first two shots shortened (17.3 s before
+        //it, 20.1 with it), the river in place of the volcano's wide shot (20.4), and a reel that grows past these fails here
+        //rather than in his hands.
         private const float MAX_SECONDS = 20.5f;
         private const float MAX_SECONDS_WITHOUT_THE_VILLAGE = 17.3f;
+
+        //The river's lens (#1220): how far inside the water's edge it stays, how far beside the nearest crown, wall or spire the
+        //land could stand at the water's side (VolcanoCountryPlanting.RiverKeep) and how high over the water a low flight goes
+        private const float INSIDE_THE_WATER = 1f;
+        private const float BESIDE_THE_TREES = 4f;
+        private const float LOW_OVER_THE_WATER = 20f;
+
+        //Where the river's run ends, the village stands at least this far left of the frame's middle and the vent as far right
+        //of it, in half-widths
+        private const float TO_ONE_SIDE = 0.25f;
 
         //How far over everything the land stands the village's lens keeps (the shot flies VolcanoIntroShots.TREE_AIR over it,
         //reading the ground more coarsely than this test does), and how finely round the lens the ground is read for it
@@ -75,6 +90,10 @@ namespace BS3D.Tests
 
         private const int POSES = 120;
 
+        //How much of a line of sight next to the point it is drawn to is not read over (Hidden): the point stands on the ground
+        //or over it there
+        private const float LINE_END = 5f;
+
         private static IntroShot[] Shots(int seed, out VolcanoSceneConfig volcano, out Func<float, float, float> ground, out Vector3 vent,
             bool village = true) => Shots(new Random(seed), out volcano, out ground, out vent, village);
 
@@ -86,24 +105,25 @@ namespace BS3D.Tests
             volcano = config;
             ground = mirror;
             vent = new VolcanoLava(config, 0).VentPosition[0];
-            return VolcanoIntroShots.Shots(mirror, vent, config, INTRO_FIELD_OF_VIEW, random, village: village);
+            return VolcanoIntroShots.Shots(mirror, vent, config, INTRO_FIELD_OF_VIEW, random, land: village);
         }
 
         [Fact]
-        public void TheVolcanoOpensThenTheEruptionThenTheCraterThenTheVillage()
+        public void TheRiverOpensThenTheEruptionThenTheCraterThenTheVillage()
         {
             IntroShot[] shots = Shots(1, out _, out _, out _);
 
-            Assert.Equal(new[] { "the volcano", "the eruption", "the crater", "the village" }, Array.ConvertAll(shots, shot => shot.Name));
+            Assert.Equal(new[] { "the river", "the eruption", "the crater", "the village" }, Array.ConvertAll(shots, shot => shot.Name));
         }
 
         /// <summary>
-        /// Low draws the land's ground but not its woods or houses: there is no village to shoot, and the reel is the three
-        /// shots it was before #1127. Whether the village is rolled never moves what the session deals after the intro (the
-        /// benchmark plays one seed on every tier), nor what the three shots roll.
+        /// Low draws the land's ground but not its woods or houses: there is no village to shoot and no woods to fly past, and
+        /// the reel is the three shots it was before #1127, the volcano's wide shot first. Whether the land's two are rolled
+        /// never moves what the session deals after the intro (the benchmark plays one seed on every tier), nor what the
+        /// eruption and the crater roll.
         /// </summary>
         [Fact]
-        public void WithoutTheVillageTheReelIsTheThreeShotsAndTheSessionRollsTheSame()
+        public void WithoutTheLandTheReelIsTheThreeShotsAndTheSessionRollsTheSame()
         {
             for (int seed = 1; seed <= ROLLS; seed++)
             {
@@ -115,7 +135,7 @@ namespace BS3D.Tests
                 Assert.Equal(new[] { "the volcano", "the eruption", "the crater" }, Array.ConvertAll(without, shot => shot.Name));
                 Assert.Equal(withRandom.Next(), withoutRandom.Next());
 
-                for (int i = 0; i < without.Length; i++)
+                for (int i = 1; i < without.Length; i++)
                     foreach (float t in new[] { 0f, 0.5f, 1f })
                     {
                         with[i].Pose(t, out Vector3 a, out Vector3 aim);
@@ -194,6 +214,75 @@ namespace BS3D.Tests
                 Vector2 crater = AssertInFrame(shot, 1f, vent, $"seed {seed}: the vent");
                 AssertInFrame(shot, 1f, vent + new Vector3(0f, JET_REACH, 0f), $"seed {seed}: the column");
                 Assert.True(crater.Y > village.Y, $"seed {seed}: the vent ends at {crater.Y:F2}, under the village at {village.Y:F2}");
+            }
+        }
+
+        /// <summary>
+        /// The river is flown low over its water (#1220): at every pose of every roll the lens stands over the water, at least
+        /// <see cref="INSIDE_THE_WATER"/> inside its edge, between <see cref="VolcanoIntroShots.RIVER_LOW"/> and
+        /// <see cref="LOW_OVER_THE_WATER"/> over it, and at least <see cref="BESIDE_THE_TREES"/> beside the nearest crown, wall
+        /// or spire the land could stand at the water's side wherever the planting stood it
+        /// (<see cref="VolcanoCountryPlanting.RiverKeep"/>, read off the planting's own figures, so it holds for every
+        /// <c>sceneseed=</c>), and past the scorched band before the front, where the snags and the front's blocks stand.
+        /// </summary>
+        [Fact]
+        public void TheRiverFliesLowOverTheWaterBesideEveryTree()
+        {
+            for (int seed = 1; seed <= ROLLS; seed++)
+            {
+                IntroShot shot = Shots(seed, out VolcanoSceneConfig volcano, out _, out _)[0];
+                VolcanoCountry country = VolcanoCountry.Of(volcano);
+                float half = volcano.Country.RiverHalfWidth;
+                Assert.Equal("the river", shot.Name);
+
+                for (int i = 0; i < POSES; i++)
+                {
+                    shot.Pose(i / (float)(POSES - 1), out Vector3 position, out _);
+                    (float across, float _, float level) = country.River(position.X, position.Z);
+                    float over = position.Y - (volcano.LevelY + level);
+                    float beside = half + VolcanoCountryPlanting.RiverKeep - MathF.Abs(across);
+                    float outside = country.Outside(position.X, position.Z);
+
+                    Assert.True(MathF.Abs(across) <= half - INSIDE_THE_WATER, $"seed {seed}: the lens at {i}/{POSES} is {across:F1} off the river's centre line");
+                    Assert.InRange(over, VolcanoIntroShots.RIVER_LOW - 0.05f, LOW_OVER_THE_WATER);
+                    Assert.True(beside >= BESIDE_THE_TREES, $"seed {seed}: the lens at {i}/{POSES} passes {beside:F1} beside the nearest crown the land could stand");
+                    Assert.True(outside > VolcanoCountryPlanting.SCORCHED_BAND + VolcanoCountryPlanting.Tallest,
+                        $"seed {seed}: the lens at {i}/{POSES} stands {outside:F0} past the field's edge, among the snags");
+                }
+            }
+        }
+
+        /// <summary>
+        /// The owner's picture (#1220): where the river's run ends, the village's roofs stand in the frame's left half and the
+        /// vent in its right, the column over it in the frame too, and the ground between the lens and the roofs and between
+        /// the lens and the column hides neither (the vent itself sits down in the crater, behind its rim from any lens this
+        /// low). Through the whole run the village never stands right of the vent.
+        /// </summary>
+        [Fact]
+        public void TheRiverEndsWithTheVillageOnTheLeftAndTheConeOnTheRight()
+        {
+            for (int seed = 1; seed <= ROLLS; seed++)
+            {
+                IntroShot shot = Shots(seed, out VolcanoSceneConfig volcano, out Func<float, float, float> ground, out Vector3 vent)[0];
+                Vector2 middle = volcano.Country.Village.ToVector2();
+                Vector3 roofs = new(middle.X, ground(middle.X, middle.Y) + VILLAGE_ROOFS, middle.Y);
+                Vector3 column = vent + new Vector3(0f, JET_REACH, 0f);
+
+                Vector2 village = AssertInFrame(shot, 1f, roofs, $"seed {seed}: the village");
+                Vector2 crater = AssertInFrame(shot, 1f, vent, $"seed {seed}: the vent");
+                AssertInFrame(shot, 1f, column, $"seed {seed}: the column");
+                Assert.True(village.X <= -TO_ONE_SIDE, $"seed {seed}: the village ends at {village.X:F2} across the frame, not on its left");
+                Assert.True(crater.X >= TO_ONE_SIDE, $"seed {seed}: the vent ends at {crater.X:F2} across the frame, not on its right");
+
+                shot.Pose(1f, out Vector3 lens, out _);
+                Assert.True(Hidden(ground, lens, roofs) < 0f, $"seed {seed}: the ground stands {Hidden(ground, lens, roofs):F1} over the line to the village");
+                Assert.True(Hidden(ground, lens, column) < 0f, $"seed {seed}: the ground stands {Hidden(ground, lens, column):F1} over the line to the column");
+
+                for (int i = 0; i < POSES; i++)
+                {
+                    float t = i / (float)(POSES - 1);
+                    Assert.True(Across(shot, t, roofs) < Across(shot, t, vent), $"seed {seed}: the village stands right of the vent at t {t:F2}");
+                }
             }
         }
 
@@ -278,12 +367,17 @@ namespace BS3D.Tests
                     }
         }
 
+        /// <summary>
+        /// The reel opens on a global view of the volcano (#975): the river where the land is drawn (#1220), the volcano's wide
+        /// shot where not, each holding the vent, the cone's foot and the island in the frame from its first frame to its last.
+        /// </summary>
         [Fact]
         public void TheFirstShotHoldsTheVolcanoAndTheIsland()
         {
+            foreach (bool land in new[] { true, false })
             for (int seed = 1; seed <= ROLLS; seed++)
             {
-                IntroShot shot = Shots(seed, out VolcanoSceneConfig volcano, out Func<float, float, float> ground, out Vector3 vent)[0];
+                IntroShot shot = Shots(seed, out VolcanoSceneConfig volcano, out Func<float, float, float> ground, out Vector3 vent, land)[0];
                 Vector2 cone = volcano.ConeCenter.ToVector2();
 
                 //The cone's foot under the axis, its vent, and the island, all through the whole shot
@@ -316,18 +410,26 @@ namespace BS3D.Tests
             }
         }
 
+        /// <summary>
+        /// The burst goes off <see cref="VolcanoIntroShots.BURST_LEAD"/> into the eruption shot on both tiers (#1220): after the
+        /// river where it opens the reel, after the volcano's wide shot where not.
+        /// </summary>
         [Fact]
         public void TheCuedBurstGoesOffInsideTheEruptionShot()
         {
-            IntroShot[] shots = Shots(1, out VolcanoSceneConfig volcano, out _, out _);
-            const float start = 1234.5f;
+            foreach (bool land in new[] { true, false })
+            {
+                IntroShot[] shots = Shots(1, out VolcanoSceneConfig volcano, out _, out _, land);
+                const float start = 1234.5f;
 
-            float onset = VolcanoIntroShots.BurstOnset(start) - start;
-            float peak = onset + 0.14f * volcano.Eruption.Length;
+                float onset = VolcanoIntroShots.BurstOnset(start, land) - start;
+                float peak = onset + 0.14f * volcano.Eruption.Length;
 
-            //The light starts after the cut to the eruption and peaks before the cut away from it
-            Assert.InRange(onset, shots[0].Seconds + 0.5f, shots[0].Seconds + shots[1].Seconds);
-            Assert.InRange(peak, shots[0].Seconds, shots[0].Seconds + shots[1].Seconds - 1f);
+                //The light starts the lead after the cut to the eruption and peaks before the cut away from it
+                Assert.Equal("the eruption", shots[1].Name);
+                Assert.Equal(shots[0].Seconds + VolcanoIntroShots.BURST_LEAD, onset, 3);
+                Assert.InRange(peak, shots[0].Seconds, shots[0].Seconds + shots[1].Seconds - 1f);
+            }
         }
 
         [Fact]
@@ -350,17 +452,40 @@ namespace BS3D.Tests
         [Fact]
         public void TheBurstIsCuedAgainOnlyWhenTheIntroFellBehind()
         {
-            const float start = 600f;
-            float onTime = start + shotsBefore();
+            foreach (bool land in new[] { true, false })
+            {
+                const float start = 600f;
+                float onTime = start + Shots(1, out _, out _, out _, land)[0].Seconds;
 
-            //On time, or a hitch's worth late: the cue made at the build stands
-            Assert.True(float.IsNaN(VolcanoIntroShots.Recue(start, onTime)));
-            Assert.True(float.IsNaN(VolcanoIntroShots.Recue(start, onTime + 0.05f)));
+                //On time, or a hitch's worth late: the cue made at the build stands
+                Assert.True(float.IsNaN(VolcanoIntroShots.Recue(start, onTime, land)));
+                Assert.True(float.IsNaN(VolcanoIntroShots.Recue(start, onTime + 0.05f, land)));
 
-            //Four seconds behind a pause page: the burst goes off the lead after the shot really starts
-            Assert.Equal(onTime + 4f + VolcanoIntroShots.BURST_LEAD, VolcanoIntroShots.Recue(start, onTime + 4f), 3);
+                //Four seconds behind a pause page: the burst goes off the lead after the shot really starts
+                Assert.Equal(onTime + 4f + VolcanoIntroShots.BURST_LEAD, VolcanoIntroShots.Recue(start, onTime + 4f, land), 3);
+            }
+        }
 
-            static float shotsBefore() => VolcanoIntroShots.BurstOnset(0f) - VolcanoIntroShots.BURST_LEAD;
+        //How far the ground rises over the line from the lens to a point at its worst, read every unit along it and leaving out
+        //the last LINE_END (the point stands on or over the ground there): positive, the ground hides it
+        private static float Hidden(Func<float, float, float> ground, Vector3 from, Vector3 to)
+        {
+            float length = Vector3.Distance(from, to), worst = float.MinValue;
+            for (float d = 1f; d < length - LINE_END; d += 1f)
+            {
+                Vector3 q = Vector3.Lerp(from, to, d / length);
+                worst = MathF.Max(worst, ground(q.X, q.Z) - q.Y);
+            }
+
+            return worst;
+        }
+
+        //Which way across the view a point stands at t, as the angle off the view's middle (right positive), wherever it is
+        private static float Across(IntroShot shot, float t, Vector3 point)
+        {
+            shot.Pose(t, out Vector3 position, out Vector3 target);
+            Vector3 view = Vector3.Transform(point, Matrix.CreateLookAt(position, target, Vector3.Up));
+            return MathF.Atan2(view.X, -view.Z);
         }
 
         //Where the point stands in the frame, in its half-widths and half-heights from its middle (up positive)

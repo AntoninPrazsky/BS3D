@@ -189,6 +189,29 @@ namespace Prazsky.Core.Render
             return (side * MathF.Sqrt(best) - MeanderAt(along), along, level);
         }
 
+        /// <summary>
+        /// Where the river's meandering centre line runs <paramref name="along"/> the course (#1220), the inverse of
+        /// <see cref="River"/>: the rounded course's point that far along it, moved off it across the course by
+        /// <see cref="MeanderAt"/>, the way <see cref="River"/> measures across; and the course's downstream direction there.
+        /// Clamped to the course's two ends. No GPU and no allocation: what the chapter intro lays its flight up the river on.
+        /// </summary>
+        public Vector2 RiverCentre(float along, out Vector2 downstream)
+        {
+            int last = RiverPoints - 1;
+            along = Math.Clamp(along, 0f, RiverPath[last].Z);
+
+            int i = 0;
+            while (i < last - 1 && RiverPath[i + 1].Z < along) i++;
+
+            Vector4 a = RiverPath[i], b = RiverPath[i + 1];
+            Vector2 from = new(a.X, a.Y), to = new(b.X, b.Y);
+            downstream = Vector2.Normalize(to - from);
+            Vector2 onCourse = Vector2.Lerp(from, to, (along - a.Z) / MathF.Max(b.Z - a.Z, 1e-3f));
+
+            //River's "across" is positive on this side of the run: (-z, x) of the downstream direction
+            return onCourse + new Vector2(-downstream.Y, downstream.X) * MeanderAt(along);
+        }
+
         /// <summary>How far the river's meandering centre line swings off its course at a distance along it.</summary>
         public static float MeanderAt(float along) =>
             MEANDER_A1 * MathF.Sin(along * MEANDER_K1 + MEANDER_P1) + MEANDER_A2 * MathF.Sin(along * MEANDER_K2 + MEANDER_P2);

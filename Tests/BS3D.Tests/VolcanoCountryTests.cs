@@ -32,8 +32,7 @@ namespace BS3D.Tests
             Vector4 last = COUNTRY.RiverPath[COUNTRY.RiverPoints - 1];
             for (float along = 0f; along <= last.Z; along += 5f)
             {
-                Vector2 at = PointAlong(along, out Vector2 across);
-                Vector2 centre = at + across * VolcanoCountry.MeanderAt(along);
+                Vector2 centre = COUNTRY.RiverCentre(along, out _);
                 float outside = COUNTRY.Outside(centre.X, centre.Y);
                 Assert.True(outside > 100f, $"the river's centre {along} along stands only {outside} past the field's edge");
             }
@@ -45,8 +44,8 @@ namespace BS3D.Tests
             //The channel is laid level, so the water drawn on it is: across the half-width the mirror's height stays one
             for (float along = 200f; along < 2200f; along += 150f)
             {
-                Vector2 at = PointAlong(along, out Vector2 across);
-                Vector2 centre = at + across * VolcanoCountry.MeanderAt(along);
+                Vector2 centre = COUNTRY.RiverCentre(along, out Vector2 downstream);
+                Vector2 across = new(-downstream.Y, downstream.X);
                 (float measuredAcross, float _, float level) = COUNTRY.River(centre.X, centre.Y);
                 Assert.True(MathF.Abs(measuredAcross) < 1f, $"the course's centre at {along} measures {measuredAcross} across");
 
@@ -92,20 +91,23 @@ namespace BS3D.Tests
                 }
         }
 
-        //The point the course passes at a distance along it, and the unit vector across it towards positive Across
-        private static Vector2 PointAlong(float along, out Vector2 across)
+        /// <summary>
+        /// <see cref="VolcanoCountry.RiverCentre"/> is <see cref="VolcanoCountry.River"/>'s inverse (#1220): the point it gives
+        /// at a distance along the course measures on the centre line, that far along, all the way down the course, its
+        /// rounded corners and its meanders included. The chapter intro's flight up the river is laid on it.
+        /// </summary>
+        [Fact]
+        public void TheRiversCentreIsWhereTheRiverMeasuresIt()
         {
-            for (int i = 1; i < COUNTRY.RiverPoints; i++)
+            Vector4 last = COUNTRY.RiverPath[COUNTRY.RiverPoints - 1];
+            for (float along = 0f; along <= last.Z; along += 5f)
             {
-                Vector4 a = COUNTRY.RiverPath[i - 1], b = COUNTRY.RiverPath[i];
-                if (along > b.Z && i < COUNTRY.RiverPoints - 1) continue;
-                float t = Math.Clamp((along - a.Z) / MathF.Max(b.Z - a.Z, 1e-3f), 0f, 1f);
-                Vector2 dir = Vector2.Normalize(new Vector2(b.X - a.X, b.Y - a.Y));
-                //River's side: e x w > 0 is positive, e x w = e.x w.y - e.y w.x, so +Across is (-e.y, e.x)
-                across = new Vector2(-dir.Y, dir.X);
-                return Vector2.Lerp(new Vector2(a.X, a.Y), new Vector2(b.X, b.Y), t);
+                Vector2 centre = COUNTRY.RiverCentre(along, out Vector2 downstream);
+                (float across, float measuredAlong, float _) = COUNTRY.River(centre.X, centre.Y);
+                Assert.True(MathF.Abs(across) < 1f, $"the centre {along} along measures {across} across");
+                Assert.True(MathF.Abs(measuredAlong - along) < 2f, $"the centre {along} along measures {measuredAlong} along");
+                Assert.Equal(1f, downstream.Length(), 3);
             }
-            throw new InvalidOperationException("no course");
         }
     }
 }
