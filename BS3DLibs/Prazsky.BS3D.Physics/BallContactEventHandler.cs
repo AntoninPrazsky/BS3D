@@ -225,9 +225,6 @@ namespace Prazsky.BS3D.Physics
         /// </summary>
         private int _lastGlassBounce = -1;
 
-        /// <summary>The body handle of the last shot whose refusal was logged, so the line prints once per shot (#696). -1 for none.</summary>
-        private int _lastRefused = -1;
-
         /// <summary>Refused shots to put back at their touch once the step's contacts are done (#696), reused so a refusal allocates nothing.</summary>
         private readonly List<(PhysicsBall Ball, Vector3 Position)> _teleports = new(2);
 
@@ -668,16 +665,17 @@ namespace Prazsky.BS3D.Physics
                 //on Pinwheel, whose disc was drawn to the edge of its field. LevelGen refuses that shape now
                 //(LateralMargin), and this line is what would catch the next one.
                 //Once per shot: a refused shot goes on touching the structure for several steps, and a line a step buried the
-                //one that mattered (a Testbed run logged 184 of them for one shot)
-                if (_lastRefused != shotHandle.Value)
+                //one that mattered (a Testbed run logged 184 of them for one shot). Marked on the shot itself and not by its
+                //body's handle, which Bepu hands to a later shot once this one is culled
+                if (!physicsBall.Refused)
                 {
-                    _lastRefused = shotHandle.Value;
+                    physicsBall.Refused = true;
                     Console.WriteLine("[shot] bounced: no free cell in either ring");
 
                     //A REFUSED SHOT STILL STRIKES (#1192, the owner: "even when the ball does not attach, the map should be
-                    //affected by the impact"): the ball it met takes the push a landing gives, once a shot, as the line above
-                    //is printed once. Read before the bounce below puts the shot back, while it still listens
-                    LastPush = Push(hitBall.ArrayPosition, physicsBall, contact.EventSource);
+                    //affected by the impact"), once a shot, as the line above is printed once (PushRefused). Before the
+                    //bounce below puts the shot back
+                    LastPush = PushRefused(hitBall, physicsBall, swept ? touchCentre : physicsBall.BallReference.Pose.Position.ToXna());
                 }
 
                 //A REFUSED SHOT BOUNCES (#696): it is put back where its surfaces first met the ball - the sweep let it fly the
@@ -878,6 +876,11 @@ namespace Prazsky.BS3D.Physics
             //Where the list of loose balls stood before this landing, so what it releases can be marked below (#410)
             int fallingBefore = _fallingBalls.Count;
 
+            //The push's walk (#1192), on the structure as the shot found it and before anything leaves: a shot that
+            //completes a group made of all its cell's neighbours would otherwise find nothing round the emptied cell, and
+            //what that group hung from would not answer the blow (ShotPush.Prepare; given after the removals, below)
+            _push.Prepare(_physicsBalls, cell);
+
             BallsReleased released = BallsConstraintsBuilder.ReleaseSameTypeCluster(physicsBall, _physicsBalls,
                 _map, _simulation, _fallingBalls, _thawedCells, _detonations);
 
@@ -913,9 +916,8 @@ namespace Prazsky.BS3D.Physics
 
             //THE SHOT PUSHES WHAT IT HIT (#1192), and LAST: the cell was decided before anything moved, the body stands in
             //it and its sockets were built with no error, and the four removals above have taken what they take, so the
-            //push goes to the balls still hanging round the cell and a group that fell falls as it always did
-            LastPush = _push.Apply(_simulation, _physicsBalls, cell,
-                ShotPush.ImpulseOf(shotMass, struckWith, shotKind, PushScale));
+            //push goes to the balls the walk found that still hang, and a group that fell falls as it always did
+            LastPush = _push.Deliver(_simulation, _physicsBalls, ShotPush.ImpulseOf(shotMass, struckWith, shotKind, PushScale));
 
             //Everything the four removals just let go of is LOOSE from here on, and a shot still in the air passes
             //through it (#410; the filter is NarrowPhaseCallbacks'). Marked here because this is the one place a
@@ -982,12 +984,28 @@ namespace Prazsky.BS3D.Physics
         }
 
         /// <summary>
-        /// Pushes the balls round <paramref name="origin"/> with what the shot <paramref name="ball"/> carried (#1192): the
-        /// refusal's and the cutter's push, which a landing gives in line with its own order.
+        /// A refused shot's push (#1192): what an inelastic touch hands the ball it met, the shot's velocity along the line
+        /// between the two centres, goes to the balls round that ball as a landing's push goes (<see cref="ShotPush"/>), and
+        /// the shot keeps only what runs across that line. Taken off the shot here, it slides off the ball instead of the
+        /// solver bouncing it off as well, so the cluster takes the blow once, and no more than the shot lost.
         /// </summary>
-        private ShotPush.Result Push(XZLevel origin, PhysicsBall ball, CollidableReference shot) =>
-            _push.Apply(_simulation, _physicsBalls, origin,
-                ShotPush.ImpulseOf(ShotMass(ball), StrikeVelocity(shot, ball), ball.Kind, PushScale));
+        /// <param name="shotCentre">Where the shot's centre was when it touched, in world space.</param>
+        private ShotPush.Result PushRefused(PhysicsBall hitBall, PhysicsBall shot, Vector3 shotCentre)
+        {
+            System.Numerics.Vector3 normal = shotCentre.ToNumerics() - hitBall.BallReference.Pose.Position;
+            if (normal.LengthSquared() <= 1e-8f) return ShotPush.Result.None;
+            normal = System.Numerics.Vector3.Normalize(normal);
+
+            System.Numerics.Vector3 velocity = shot.BallReference.Velocity.Linear;
+            float closing = System.Numerics.Vector3.Dot(velocity, normal);
+            if (closing >= 0f) return ShotPush.Result.None; //moving away already: nothing to hand over
+
+            System.Numerics.Vector3 lost = normal * closing; //along the line, into the ball it met
+            shot.BallReference.Velocity.Linear = velocity - lost;
+
+            return _push.Apply(_simulation, _physicsBalls, hitBall.ArrayPosition,
+                ShotPush.ImpulseOf(ShotMass(shot), lost, shot.Kind, PushScale));
+        }
 
         /// <summary>
         /// A cutter round (<see cref="BallKind.Cutter"/>) has struck a ball of the structure: destroy that ball's storey (#692),

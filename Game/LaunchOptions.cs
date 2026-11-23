@@ -735,7 +735,8 @@ namespace BS3D
             //of what a slower shot would do, asked in play. 30 to 400; the shipped speed is 200, and the benchmark keeps it.
             Row.Float("shotspeed", (o, v) => o.ShotSpeed = v, v => v >= 30f && v <= 400f),
             //"shotpush=<scale>" multiplies the push every shot gives the balls it strikes (#1192): 0 is none, 1 the shipped one
-            //(the shot's whole momentum), up to 4. For the owner's hands to compare; the benchmark keeps the shipped one.
+            //(the shot's whole momentum), up to 4. For the owner's hands to compare; the benchmark's measured run has none and
+            //a capture the shipped one, whatever this says (GameplayScreen.Session's PushScale).
             Row.Float("shotpush", (o, v) => o.ShotPush = v, v => v >= 0f && v <= 4f),
             //"tutorial" offers every tutorial card and records nothing, "tutorial=demo" reels them (#189) —
             //see the property's own note.

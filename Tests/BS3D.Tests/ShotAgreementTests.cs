@@ -22,8 +22,11 @@ namespace BS3D.Tests
     /// and the world's gravity in the ghost's flight - sweep alone 93.3 %, sweep and gravity 95.8 %, with the narrow phase
     /// no longer turning a shot by a contact it had not reached 97.9 %. Measured again when #849 rebuilt Colossus, one of
     /// the six, from a solid block into a figure with air between its limbs: 232 of 238 (97.5 %), 95.9 % at the widest
-    /// glance. Since #1192 the rig's shots carry their ghost's promise and the ghost leads a moving cluster, as the Game's
-    /// do (<see cref="ShotRig.StampsPromise"/>, <see cref="ShotRig.Leads"/>): 238 of 238, at every glance.
+    /// glance. The rig fires without #1192's two answers to a moving cluster (<see cref="ShotRig.StampsPromise"/>,
+    /// <see cref="ShotRig.Leads"/>, both off unless a test turns them on), so these tests guard the shared solve's own
+    /// agreement: a shot that keeps its ghost's promise lands in the promised cell over a solve that disagrees, and would
+    /// hide a broken one here. The figure is still 232 of 238 (98.7, 97.8 and 95.9 % by glance); fired as the Game fires,
+    /// with both, the same aims read 238 of 238.
     /// </para>
     /// </summary>
     public class ShotAgreementTests(ITestOutputHelper output)

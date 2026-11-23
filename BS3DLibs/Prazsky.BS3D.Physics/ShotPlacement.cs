@@ -393,6 +393,11 @@ namespace Prazsky.BS3D.Physics
         /// only wants the answer. <b>It is what lets the aim BEAM follow the curve</b>: a straight line drawn
         /// from the muzzle to a contact the ball reaches by curving is a guide that lies about the middle of
         /// the flight while telling the truth about its end, which is worse than either.</param>
+        /// <param name="lead">Whether to lead a moving cluster (#1192): when the ball the flight meets moves faster than
+        /// <see cref="LEAD_MIN_SPEED"/>, the flight is flown again at the shot's velocity less that ball's, as the ball sees
+        /// it, so the touch is where the shot meets it after the steps it flies and not where it stands now. A level with
+        /// crates is never led: they do not move with the cluster. False, every caller but the Game's preview and what solves
+        /// as it does, takes the cluster as it stands.</param>
         public static bool TryFindFirstHitCurved(PhysicsBall[,,] balls, Vector3 origin, Vector3 velocity,
             float radiusSum, GravityWells wells, out PhysicsBall hit, out Vector3 worldContact,
             List<Vector3> path = null, Crates crates = null, bool worldGravity = false, bool lead = false)

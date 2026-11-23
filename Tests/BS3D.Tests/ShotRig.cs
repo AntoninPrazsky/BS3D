@@ -75,13 +75,17 @@ namespace BS3D.Tests
         public BallContactEventHandler Handler => _handler;
 
         /// <summary>
-        /// Whether each shot carries its ghost's promise (<see cref="PhysicsBall.PromisedCell"/>), as the Game's do (#1192):
-        /// true, or false to measure the landing by the solve alone.
+        /// Whether each shot carries its ghost's promise (<see cref="PhysicsBall.PromisedCell"/>), as the Game's do (#1192).
+        /// False by default: the landing is then the shared solve's alone, which is what <see cref="ShotAgreementTests"/>
+        /// guard (#696), and a promise that overrode a broken solve would hide it there.
         /// </summary>
-        public bool StampsPromise { get; set; } = true;
+        public bool StampsPromise { get; set; }
 
-        /// <summary>Whether the ghost leads a moving cluster (<see cref="ShotPlacement.TryFindFirstHitCurved"/>'s <c>lead</c>), as the Game's does (#1192).</summary>
-        public bool Leads { get; set; } = true;
+        /// <summary>
+        /// Whether the ghost leads a moving cluster (<see cref="ShotPlacement.TryFindFirstHitCurved"/>'s <c>lead</c>), as the
+        /// Game's does (#1192). False by default, for <see cref="StampsPromise"/>'s reason.
+        /// </summary>
+        public bool Leads { get; set; }
 
         /// <summary>The last shot's landing as the handler reported it, or null when it did not land (#767: a cutter's
         /// <see cref="BallLanding.ShotDirection"/>).</summary>

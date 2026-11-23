@@ -103,27 +103,226 @@ namespace BS3D.Tests
 
         /// <summary>
         /// #696's promise, kept under the push: shots in quick succession, each fired 0.3 s after the last landed into a cluster
-        /// the last one set swinging, land in the cell their ghost showed. Measured over six levels and 180 shots: 98.9 % with
-        /// the ghost leading the moving cluster and the shot keeping its promise, 88.3 % with neither (and 98.3 % with no push
-        /// at all). These three levels are the ones that lost most without them; held at 90 %.
+        /// the last one set swinging, land in the cell their ghost showed, with both of the ghost's answers to a moving cluster
+        /// as the Game fires (the shot keeps its promise, the ghost leads), and with <b>each of them alone</b>, so a change that
+        /// broke either one fails here. These three levels, the ones that lost most without them, read 48 of 48 with both, 46
+        /// with the promise alone, 47 with the lead alone and 41 (85.4 %) with neither; held at 90 %, which the two together
+        /// and each alone clear and neither does. (With no push, 48 of 48 every way.)
         /// </summary>
-        [Fact]
-        public void ShotsIntoAPushedClusterLandWhereTheirGhostShowed()
+        [Theory]
+        [InlineData(true, true)]
+        [InlineData(true, false)]
+        [InlineData(false, true)]
+        public void ShotsIntoAPushedClusterLandWhereTheirGhostShowed(bool promise, bool lead)
         {
             int compared = 0, same = 0;
             List<string> others = new();
 
             foreach (string level in new[] { "Rainbow.json", "Zigzag.json", "Heart.json" })
             {
-                (int c, int s, List<string> o) = Succession(level, 1192 + level.Length, 16, 0.3f, 1f);
+                (int c, int s, List<string> o) = Succession(level, 1192 + level.Length, 16, 0.3f, 1f, promise, lead);
                 compared += c;
                 same += s;
                 others.AddRange(o);
             }
 
-            output.WriteLine($"{same} of {compared} in the ghost's cell; {string.Join("; ", others)}");
+            output.WriteLine($"promise {promise}, lead {lead}: {same} of {compared} in the ghost's cell; {string.Join("; ", others)}");
             Assert.True(compared >= 40, $"only {compared} shots had a ghost to compare");
             Assert.True(same >= 0.9 * compared, $"{same} of {compared} landed in the ghost's cell: {string.Join("; ", others)}");
+        }
+
+        /// <summary>
+        /// The swing a push starts is settled (<see cref="ShotPush.SETTLE_RATE"/>): a sheet and a strand a push set swaying fall
+        /// asleep again within <see cref="SLEEP_WITHIN"/> seconds of the hit (measured 4.7 to 5.5 s; the same landings with no
+        /// push slept in 3.7 and 3.8 s on the two sheets, and Pendant's strand not within fourteen), where with the push and no
+        /// settle all three were still swaying, awake and stepped, fourteen seconds later. Its first
+        /// second (<see cref="ShotPush.SETTLE_HOLD"/>) is left alone, so the hit still shows: half a second in, the farthest
+        /// ball stands at least 0.2 from its unpushed twin.
+        /// </summary>
+        [Theory]
+        [InlineData("Zigzag.json", 2)]
+        [InlineData("Pennant.json", 2)]
+        [InlineData("Pendant.json", 1)]
+        public void APushedClusterFallsAsleepAgainWithinSeconds(string level, int seed)
+        {
+            Response r = Fire(level, seed, SLEEP_WITHIN);
+            output.WriteLine(Row(level, seed, "settle", r));
+
+            Assert.False(float.IsNaN(r.AwakeSeconds), $"the pushed cluster was still awake {SLEEP_WITHIN} s after the hit");
+            Assert.True(r.At(0.5f) >= 0.2f, $"the push moved the farthest ball only {r.At(0.5f):0.000} in its first half second");
+        }
+
+        /// <summary>How long after a hit <see cref="APushedClusterFallsAsleepAgainWithinSeconds"/> allows.</summary>
+        private const float SLEEP_WITHIN = 7f;
+
+        /// <summary>
+        /// A refused shot strikes too (#1192, "even when the ball does not attach"). Fired into a field filled to its walls,
+        /// where every ball's two rings are full, the shot is refused at the ball it meets, and the cluster takes the momentum
+        /// the touch hands over: the shot's velocity along the line between the two centres, once, never more than the whole
+        /// momentum a landing hands over. The shot keeps only what runs across that line, so it slides off the ball rather
+        /// than the solver bouncing it off and pushing the cluster a second time. Its twin, with the push off, does not move.
+        /// </summary>
+        [Fact]
+        public void ARefusedShotPushesTheBallItMetOnceAndSlidesOff()
+        {
+            using RefusalRig pushed = new(1f);
+            using RefusalRig still = new(0f);
+
+            PhysicsBall shot = pushed.Fire(out int step);
+            still.Fire(out _);
+
+            Assert.True(step >= 0, "the shot was never refused");
+            ShotPush.Result push = pushed.Handler.LastPush;
+            output.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                $"refused at step {step}: {push.Balls} balls took {push.Impulse:0.0} of momentum, of the {ShotRig.SHOOT_SPEED * BallsConstraintsBuilder.BALL_MASS:0.0} the shot carried"));
+
+            //A glance hands over the part of the momentum along the line between the centres, never the whole of it
+            Assert.True(push.Balls > 0 && push.Impulse > 0f, "the refusal pushed nothing");
+            Assert.True(push.Impulse < 0.99f * ShotRig.SHOOT_SPEED * BallsConstraintsBuilder.BALL_MASS,
+                $"the refusal handed out {push.Impulse:0.0}, the whole of what the shot carried and not what the touch hands over");
+
+            //Slid off: put back at the touch, nothing left of its velocity into the ball it met
+            PhysicsBall met = Nearest(pushed.Hung.Balls, shot.BallReference.Pose.Position);
+            System.Numerics.Vector3 normal = System.Numerics.Vector3.Normalize(shot.BallReference.Pose.Position - met.BallReference.Pose.Position);
+            float into = -System.Numerics.Vector3.Dot(shot.BallReference.Velocity.Linear, normal);
+            Assert.True(into < 0.05f * ShotRig.SHOOT_SPEED, $"the refused shot still moved {into:0.00} units a second into the ball it met");
+
+            //And the cluster moved, where its twin's did not
+            float farthest = 0f;
+            for (int i = 0; i < (int)MathF.Round(0.3f / HungLevel.TIMESTEP); i++)
+            {
+                pushed.Hung.Run(HungLevel.TIMESTEP);
+                still.Hung.Run(HungLevel.TIMESTEP);
+                Compare(pushed.Hung.Balls, still.Hung.Balls, out float max, out _, out _, out _, out _);
+                farthest = MathF.Max(farthest, max);
+            }
+
+            Assert.True(farthest >= 0.03f, $"the refusal moved no ball more than {farthest:0.000} from its twin in 0.3 s");
+        }
+
+        /// <summary>
+        /// The push's walk is taken before the match takes anything (<see cref="ShotPush.Prepare"/>) and given after it: a shot
+        /// that completes a group made of every ball beside its cell, a strand's dangling tip, still pushes the strand the group
+        /// hung from. Walked after the release, from the emptied cell, it found nothing and pushed nothing at all.
+        /// </summary>
+        [Fact]
+        public void AShotThatTakesEveryNeighbourStillPushesWhatTheyHungFrom()
+        {
+            //A strand of four from the glass, its two lowest of one colour, and a ball of that colour landed under its tip
+            BallsMap map = new(7, 7, 10);
+            List<XZLevel> strand = new() { new XZLevel(3, 3, 9) };
+            BallType[] colours = { BallType.Type1, BallType.Type2, BallType.Type3, BallType.Type3 };
+            XZLevel size = new(7, 7, 10);
+            while (strand.Count < 5)
+                foreach (XZLevel next in BallsMap.GetNeighboringCells(strand[^1], size))
+                    if (next.Level == strand[^1].Level - 1) { strand.Add(next); break; }
+
+            for (int i = 0; i < 4; i++) map.PutBallAt((byte)strand[i].X, (byte)strand[i].Z, (byte)strand[i].Level, colours[i]);
+
+            using HungLevel hung = new(map, workerThreads: 1);
+            hung.Run(1f);
+
+            XZLevel under = strand[4];
+            PhysicsBall landed = ClusterInvariantTests.Land(hung, under, BallType.Type3, live: true);
+            System.Numerics.Vector3 impulse = new(0f, ShotRig.SHOOT_SPEED * BallsConstraintsBuilder.BALL_MASS, 0f);
+
+            ShotPush push = new();
+            push.Prepare(hung.Balls, under);
+
+            List<PhysicsBall> released = new();
+            BallsReleased result = BallsConstraintsBuilder.ReleaseSameTypeCluster(landed, hung.Balls, hung.Map, hung.World.Simulation, released);
+            Assert.Equal(3, result.Matched);
+
+            ShotPush.Result given = push.Deliver(hung.World.Simulation, hung.Balls, impulse);
+            ShotPush.Result walkedAfter = new ShotPush().Apply(hung.World.Simulation, hung.Balls, under, impulse);
+            output.WriteLine($"walked before the release: {given}; walked after it: {walkedAfter}");
+
+            Assert.Equal(2, given.Balls);
+            Assert.True(given.Impulse > 0f && given.Impulse < impulse.Length(), $"handed out {given.Impulse:0.0}");
+            Assert.True(hung.Balls[strand[1].X, strand[1].Z, strand[1].Level].BallReference.Velocity.Linear.Y > 0.1f,
+                "the ball the group hung from was not pushed");
+            Assert.Equal(ShotPush.Result.None, walkedAfter);
+        }
+
+        private static PhysicsBall Nearest(PhysicsBall[,,] balls, System.Numerics.Vector3 to)
+        {
+            PhysicsBall nearest = null;
+            float best = float.MaxValue;
+            foreach (PhysicsBall ball in balls)
+            {
+                if (ball == null) continue;
+                float d = System.Numerics.Vector3.DistanceSquared(ball.BallReference.Pose.Position, to);
+                if (d < best) { best = d; nearest = ball; }
+            }
+
+            return nearest;
+        }
+
+        /// <summary>
+        /// A field filled to its walls (4 x 4 x 4, every cell a ball), hung on one worker thread with the Game's own contact
+        /// handler: every ball's two rings are full, so any shot into it is refused.
+        /// </summary>
+        private sealed class RefusalRig : IDisposable
+        {
+            private readonly List<PhysicsBall> _shots = new();
+            private readonly List<PhysicsBall> _falling = new();
+
+            public HungLevel Hung { get; }
+            public BallContactEventHandler Handler { get; }
+
+            public RefusalRig(float pushScale)
+            {
+                BallsMap map = new(4, 4, 4);
+                for (byte x = 0; x < 4; x++)
+                    for (byte z = 0; z < 4; z++)
+                        for (byte l = 0; l < 4; l++)
+                            map.PutBallAt(x, z, l, BallType.Type1);
+
+                Hung = new HungLevel(map, workerThreads: 1);
+                Hung.Run(1.5f);
+
+                Handler = new BallContactEventHandler(Hung.World.Simulation, Hung.World.Events,
+                    new KinematicBody(Hung.Ceiling, Hung.Ceiling.Handle), Hung.Map, Hung.Balls, _shots, _falling, Hung.WorldOffset)
+                {
+                    PushScale = pushScale,
+                };
+            }
+
+            /// <summary>
+            /// Fires a shot from below and to one side at the lowest ball nearest the field's middle, and steps until the
+            /// handler refuses it (<paramref name="refusedAt"/>, -1 when it never is).
+            /// </summary>
+            public PhysicsBall Fire(out int refusedAt)
+            {
+                PhysicsBall target = null;
+                foreach (PhysicsBall ball in Hung.Balls)
+                    if (ball != null && ball.ArrayPosition.Level == 0 && ball.ArrayPosition.X == 1 && ball.ArrayPosition.Z == 1)
+                        target = ball;
+
+                //A glance, not a dead-centre hit: half a unit off the ball's centre, so the touch hands over only part of
+                //what the shot carries and the rest is left to slide off with
+                XVector3 at = target.BallReference.Pose.Position.ToXna();
+                XVector3 muzzle = at + new XVector3(-4f, -8f, 1f);
+                XVector3 velocity = XVector3.Normalize(at + new XVector3(0f, 0f, 0.5f) - muzzle) * ShotRig.SHOOT_SPEED;
+
+                PhysicsBall shot = new()
+                {
+                    Type = BallType.Type13,
+                    BallReference = Hung.World.AddShotBall(muzzle.ToNumerics(), velocity.ToNumerics(), Handler),
+                };
+                _shots.Add(shot);
+
+                refusedAt = -1;
+                for (int step = 0; step < 120; step++)
+                {
+                    Hung.World.Step(HungLevel.TIMESTEP, () => Handler.ProcessQueuedContacts());
+                    if (Handler.LastPush.Balls > 0 || shot.Refused) { refusedAt = step; break; }
+                }
+
+                return shot;
+            }
+
+            public void Dispose() => Hung.Dispose();
         }
 
         private static PhysicsBall LowestBall(PhysicsBall[,,] balls)
@@ -173,7 +372,7 @@ namespace BS3D.Tests
         internal sealed record Response(
             XZLevel? Landed, XZLevel? LandedWithout, ShotPush.Result Push,
             float[] MaxDisplacement, float[] MeanDisplacement, float PeakStretch, float PeakStretchWithout,
-            float LowestDrop, int Balls, float AwakeSeconds = float.NaN, float AwakeSecondsWithout = float.NaN)
+            float LowestDrop, int Balls, float AwakeSeconds = float.NaN, float AwakeSecondsWithout = float.NaN, float Deeper = 0f)
         {
             /// <summary>The largest any ball stood from its twin, over the whole run.</summary>
             public float Peak
@@ -228,7 +427,7 @@ namespace BS3D.Tests
 
             int steps = (int)MathF.Round(seconds / HungLevel.TIMESTEP);
             float[] max = new float[steps + 1], mean = new float[steps + 1];
-            float stretch = 0f, stretchWithout = 0f, lowestDrop = 0f;
+            float stretch = 0f, stretchWithout = 0f, lowestDrop = 0f, deepestA = float.MaxValue, deepestB = float.MaxValue;
             int balls = 0;
             float awake = float.NaN, awakeWithout = float.NaN;
 
@@ -248,9 +447,12 @@ namespace BS3D.Tests
                 stretch = MathF.Max(stretch, PeakStretch(pushed.Hung.Balls));
                 stretchWithout = MathF.Max(stretchWithout, PeakStretch(still.Hung.Balls));
                 lowestDrop = MathF.Max(lowestDrop, lowestB - lowestA);
+                deepestA = MathF.Min(deepestA, lowestA);
+                deepestB = MathF.Min(deepestB, lowestB);
             }
 
-            return new Response(a.Landed, b.Landed, push, max, mean, stretch, stretchWithout, lowestDrop, balls, awake, awakeWithout);
+            return new Response(a.Landed, b.Landed, push, max, mean, stretch, stretchWithout, lowestDrop, balls, awake, awakeWithout,
+                deepestB - deepestA);
         }
 
         private static bool AnyAwake(PhysicsBall[,,] balls)
@@ -321,11 +523,11 @@ namespace BS3D.Tests
         private static string Cell(XZLevel? cell) => cell is XZLevel c ? $"({c.X},{c.Z},{c.Level})" : "none";
 
         private static string Row(string level, int seed, string label, Response r) => string.Format(CultureInfo.InvariantCulture,
-            "{0,-14} seed {1,3} {2,-22} balls {3,4} push {4,3} balls {5,6:0.0} | peak {6:0.000} at {7:0.00} s | 0.1 s {8:0.000} 0.2 s {9:0.000} 0.3 s {10:0.000} 0.5 s {11:0.000} 1 s {12:0.000} 2 s {13:0.000} | mean at peak {14:0.000} | stretch {15:0.000} (without {16:0.000}) | lowest down {17:0.000} | cell {18} | asleep after {19:0.00} s (without {20:0.00} s)",
+            "{0,-14} seed {1,3} {2,-22} balls {3,4} push {4,3} balls {5,6:0.0} | peak {6:0.000} at {7:0.00} s | 0.1 s {8:0.000} 0.2 s {9:0.000} 0.3 s {10:0.000} 0.5 s {11:0.000} 1 s {12:0.000} 2 s {13:0.000} | mean at peak {14:0.000} | stretch {15:0.000} (without {16:0.000}) | lowest down {17:0.000}, deepest {21:0.000} under the twin's deepest | cell {18} | asleep after {19:0.00} s (without {20:0.00} s)",
             level, seed, label, r.Balls, r.Push.Balls, r.Push.Impulse, r.Peak, r.PeakStep * HungLevel.TIMESTEP,
             r.At(0.1f), r.At(0.2f), r.At(0.3f), r.At(0.5f), r.At(1f), r.At(2f), r.MeanDisplacement[r.PeakStep],
             r.PeakStretch, r.PeakStretchWithout, r.LowestDrop,
-            r.Landed == null ? "none" : r.Landed.Equals(r.LandedWithout) ? "same" : "DIFFERS", r.AwakeSeconds, r.AwakeSecondsWithout);
+            r.Landed == null ? "none" : r.Landed.Equals(r.LandedWithout) ? "same" : "DIFFERS", r.AwakeSeconds, r.AwakeSecondsWithout, r.Deeper);
 
         /// <summary>
         /// The measurement the push's figures were chosen from, off unless <c>BS3D_SHOT_PUSH=&lt;aims per level&gt;</c> is set (it

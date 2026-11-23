@@ -140,14 +140,15 @@ namespace BS3D.Tests
         /// are taken out of the world, so their bodies' handles are reused as well.
         /// </summary>
         /// <param name="push">When set, every landing also gives the cluster a shot's push (#1192) from its cell, along a random
-        /// flight from below as the gun fires, after the release as the contact handler gives it. Its flights are drawn from a
-        /// generator of their own, so a sequence with the push lands and releases exactly what the same seed does without it.</param>
+        /// flight from below as the gun fires, walked before the release and given after it as the contact handler gives it.
+        /// Its flights are drawn from a generator of their own, so a sequence with the push lands and releases exactly what the
+        /// same seed does without it.</param>
         /// <param name="stepsBetween">Steps of the world after each operation.</param>
-        /// <param name="peakStretch">The most any socket between two balls stood stretched past its length after an operation.</param>
         internal static Totals RunSequence(HungLevel hung, int seed, int operations, bool verifyEach, ShotPush push = null,
             int stepsBetween = STEPS_BETWEEN) => RunSequence(hung, seed, operations, verifyEach, push, stepsBetween, out _);
 
         /// <inheritdoc cref="RunSequence(HungLevel, int, int, bool, ShotPush, int)"/>
+        /// <param name="peakStretch">The most any socket between two balls stood stretched past its length after an operation.</param>
         internal static Totals RunSequence(HungLevel hung, int seed, int operations, bool verifyEach, ShotPush push,
             int stepsBetween, out float peakStretch)
         {
@@ -210,6 +211,9 @@ namespace BS3D.Tests
                 PhysicsBall landed = Land(hung, at, type, live: stepsBetween != STEPS_BETWEEN);
                 attached++;
 
+                //The push's walk before the release, its impulse after it, in the contact handler's order
+                push?.Prepare(hung.Balls, at);
+
                 released.Clear();
                 BallsReleased result = BallsConstraintsBuilder.ReleaseSameTypeCluster(landed, hung.Balls, hung.Map,
                     simulation, released, detonationsInto: detonations);
@@ -223,7 +227,7 @@ namespace BS3D.Tests
                     double bearing = flights.NextDouble() * 2.0 * Math.PI;
                     System.Numerics.Vector3 flight = System.Numerics.Vector3.Normalize(
                         new System.Numerics.Vector3((float)Math.Cos(bearing), 0.4f + (float)flights.NextDouble(), (float)Math.Sin(bearing)));
-                    push.Apply(simulation, hung.Balls, at, ShotPush.ImpulseOf(BallsConstraintsBuilder.BALL_MASS, flight * 200f, BallKind.Normal));
+                    push.Deliver(simulation, hung.Balls, ShotPush.ImpulseOf(BallsConstraintsBuilder.BALL_MASS, flight * 200f, BallKind.Normal));
                 }
 
                 hung.Run(stepsBetween * HungLevel.TIMESTEP);
@@ -245,7 +249,7 @@ namespace BS3D.Tests
         /// (<see cref="ShotPlacement.CellWorldPosition"/>), as the contact handler places a shot, rather than at the cell's ideal
         /// lattice place: the paced sequences, which read the sockets' stretch, which a ball put a unit off its neighbours
         /// would set by itself.</param>
-        private static PhysicsBall Land(HungLevel hung, XZLevel cell, BallType type, bool live = false)
+        internal static PhysicsBall Land(HungLevel hung, XZLevel cell, BallType type, bool live = false)
         {
             Vector3 rest = hung.Map.GetRealCenteredPosition(cell) + hung.WorldOffset;
 

@@ -686,9 +686,11 @@ namespace BS3D.Screens
             _eventHandler = new BallContactEventHandler(_world.Simulation, _world.Events, _ceiling, _map,
                 _physicsBalls, _shotBalls, _fallingBalls, _clusterWorldOffset)
             {
-                //The push a shot gives what it strikes (#1192): the shipped one, unless shotpush= asks to try another. The
-                //benchmark keeps the shipped one, as it keeps the shot's speed
-                PushScale = _run.Benchmark ? 1f : _test.ShotPush ?? 1f,
+                //The push a shot gives what it strikes (#1192): the shipped one, unless shotpush= asks to try another. NONE IN
+                //THE BENCHMARK'S MEASURED RUN: a pushed cluster turns each run of the action into a different one (the balls
+                //that fell loose read 35 to 224 over three identical runs, against 186 to 206 without it), and two machines
+                //are compared only on the same work. A capture keeps it: its clips show the game as it plays
+                PushScale = _run.Benchmark ? (Game.Capturing ? 1f : 0f) : _test.ShotPush ?? 1f,
             };
 
             //The handler reports what a shot did; what it is worth is the scorer's business. Subscribed on the
