@@ -373,8 +373,8 @@ namespace Prazsky.Core.Render
         //roll of the planting moves), and how far from the lens, horizontally, a plant is drawn shaped on High and on Ultra
         //(ScatterSwap). The scrub's: past the plain's whole reach from any pose the play camera takes (the plain is
         //AcaciaConfig.MaxRadius, 340, round the axis and the play lens stands within some 40 of it), so play never swaps one, and
-        //only a chapter intro's lens far out on the plain sees the far side's scrub as domes, 400 off, under 35 pixels across a
-        //3840-wide frame. The treeline's: High keeps the domes everywhere the play camera stands (the band starts 300 out, so
+        //only a chapter intro's lens far out on the plain sees the far side's scrub as domes, 400 off, some 30 pixels across a
+        //3840-wide frame (the largest 55). The treeline's: High keeps the domes everywhere the play camera stands (the band starts 300 out, so
         //from any play pose it is over 255 away) and shapes the masses a chapter intro flies near; Ultra shapes every mass from
         //any play pose (the band and its masses pushed out of the rocks end within 480 of the axis) and leaves the domes to the
         //intro's far side, 600 off and two thirds of the way into the plants' haze
