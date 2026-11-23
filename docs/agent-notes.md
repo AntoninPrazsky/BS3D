@@ -20,6 +20,14 @@ Pravidla:
 
 ---
 
+## 2026-11-23 — #1235 vidlička na konci zaměřovací linky — desktop (RDT-PC), Claude Code (bs3d-cc)
+
+- majitel: tenká linka (#1196) je dobrá, ale rozšíření na konci není vidět; nákres `aimer.png` v kořeni hlavního checkoutu: konec se plynule rozvětví do trojité vidličky, která hasne (rozptyl dopadu).
+- Hotovo, sloučeno: `AimBeam.LayProngs`, dvě tenké čárkované větve vedle nezměněné linky, smoothstep od 0,35 do 0,65 letu na rozptyl 0,65, kolmo k pohledu, alfa 0,9 linky, hasnou s ní. 74 px na 1080 řádcích, nad zasaženou koulí 0,000.
+- ⚠ Herní pohled vidí vzdálenou polovinu letu jako poslední třetinu linky na obrazovce, většinou už v shluku: vidlička od `FAR_FROM` byla schovaná mezi koulemi. Světlo větve úměrné otevření² bylo proti dennímu nebi neviditelné.
+- ⚠ Game nemá `aim=`; nejčistší záběr vidličky je výchozí míření na Fish a Minaret (Cannonball míří hluboko do shluku).
+- Otevřené: verdikt (stránka RgKmYHNdKkw7ofhWN5DWNu); pohyb a ruce nevyzkoušeny.
+
 ## 2026-11-22 — #1234 savana: stébla z boku ukotvená k zemi — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: stébla savany viděná z boku už nejsou vějíř připnutý k obrazovce (`Fbm2Combed` s pozicí kamery), ale luční `GrassStrokes` z `Grass.fxh`, jen v detailním programu, se stejným mícháním 0,85/0,5 a `tipCover` (stezky a spálenina kolem ohňů je dál vypínají). Frekvence 20 (40 na jednotku), aby v blízkém poli domova trávy zůstala šíře na obrazovce; 72 na jednotku v nízkých záběrech skoro zmizelo. Snímek po snímku drží vzor 0,92–0,98 (dřív 0,03–0,42). Herní pohled o 0,2 ms levnější, nejdražší vteřina intra +0,1 ms. Testy `SavannaStrokesSourceTests`. #1232 je totéž (z review #1190) a je tímto opravené.
