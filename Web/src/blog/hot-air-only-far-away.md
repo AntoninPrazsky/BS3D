@@ -28,11 +28,13 @@ A shimmer does not change a colour; it changes which point you see. So once the 
 
 The trap is anything near. A pixel of sky above a near rock, told to read lower, would find the rock and smear it upwards. So the strip is a ring far out around the camera, hidden wherever something nearer stands, and a read that lands on anything near brings nothing back.
 
-Here is that read in the shader, trimmed. It moves by an angle, never by pixels, so a laptop and a 4K screen see the same air.
+Here is that read in the shader, trimmed. It moves by an angle, never by pixels, so a 1080p screen and a 4K one see the same air.
 
 ```hlsl
 // wobble: rising noise, -1 to 1
 // Amplitude: max move, in radians
+// reach: 1 at the skyline, fading
+// out above it
 float read = elevation
     + Amplitude * reach * wobble;
 
@@ -54,7 +56,7 @@ The island, the gun and the balls are drawn afterwards, so they never wobble.
 
 <figure>
   <img src="/img/blog/hot-air-only-far-away/play-view-difference-800.jpg" srcset="/img/blog/hot-air-only-far-away/play-view-difference-800.jpg 800w, /img/blog/hot-air-only-far-away/play-view-difference-1600.jpg 1600w" sizes="(max-width: 1088px) calc(100vw - 32px), 1056px" width="1600" height="900" loading="lazy" alt="The view from behind the cannon in grey, dimmed: the gun on its island, the cluster of balls hanging above it, a big rock on the left. A thin bright ragged line runs along the horizon on both sides of the gun, broken by the gun's wheels and stopping at the rock on the left.">
-  <figcaption>Every pixel that differs by two levels of 255 or more between the shimmer's two versions (below) at the same moment, painted light over the greyed play view: all at the skyline, stopping at the gun, the island and the near rock.</figcaption>
+  <figcaption>The play view with our first, smaller shimmer and with today's, at the same moment: every pixel that differs by two levels of 255 or more is painted light over the greyed frame. All of them lie at the skyline, and the strip stops at the gun, the island and the near rock.</figcaption>
 </figure>
 
 ## Bigger, because Antonín asked
