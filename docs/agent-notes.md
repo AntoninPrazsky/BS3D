@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-23 — #1187 louka: let domů jako dron — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: let potokem domů má dronové limity. Půdorys trasy je na spojích zaoblený (Gauss 8), úhyb kolem vrby se klade až po zaoblení, stoupání i sestup jsou smootherstep na vlastních hodinách letu, kroužení je omezené na 46 °/s (`CIRCLE_TURN`), 600 bodů. `IntroLanding.Style.DroneSeconds` (jen louka) drží pohled na aréně (`Steady` 0,8 s). Orbity u balíků a lavičky mají zaoblenou výšku a odmítají oblouk nad 19 °/s náklonu. Ryv 3111 → 186 u/s³, svislý 2700 → 77, natáčení 56 → 49 °/s. `IntroShotSmoothnessTests` přidal limity zrychlení natáčení 100 °/s² a ryvu 300 u/s³ všem záběrům.
+- ⚠ Čtyři krátké záběry, které issue podezíralo, byly v limitech už předtím; drsnost byla v posledním letu. Změřit dřív, než se opravuje.
+- Otevřené: `verdict-eye` (pohyb nikdo neviděl, kroužení o něco pomalejší 41 proti 44 u/s, tvrdé střihy zůstaly).
+
 ## 2026-11-23 — #1199 opotřebovaný kov děla a laserových zářičů — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: kov děla a čtyři laserové zářiče odtoku vypadají na High a Ultra opotřebovaně. Nová technika `InstancedWornMetal` (`WornMetal.fxh`, přidaná na konec, žádný jiný program se nepohnul) přidává patinu, oxidaci, špínu, ošoupané hrany a jemné škrábance s důlky, vše v prostoru meshe. Vnitřní a vnější rohy bere z rotačních profilů (`MetalWear`, `*.WearCorners`). Límec ústí, gumové válečky ani sklo se neopotřebují. Telefon má zatím čistý materiál (`GraphicsSupport.MetalWear`). Cena: ~1 280 instrukčních slotů proti 507, +0,06 ms v herním pohledu.

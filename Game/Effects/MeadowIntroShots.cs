@@ -58,7 +58,7 @@ namespace BS3D.Effects
         private const float VALLEY_FROM = 195f;
         private const float VALLEY_TO = 167f;
         private const float VALLEY_ABOVE_FROM = 26f;
-        private const float VALLEY_ABOVE_TO = 18f;
+        internal const float VALLEY_ABOVE_TO = 18f;
         private const float VALLEY_SECONDS = 2.8f;
 
         //The brook: down its centreline a little over the water, the reeds and the stones passing either side, the lens
@@ -72,7 +72,7 @@ namespace BS3D.Effects
         //stopping short of its crown
         private const float PATH_FROM = 22f;               //past the path's end, where the walk finishes
         private const float PATH_RUN = 40f;
-        private const float PATH_ABOVE = 1.7f;
+        internal const float PATH_ABOVE = 1.7f;
         private const float PATH_TREE_LOOK_UP = 7f;         //the point on the tree the lens holds: the trunk under the crown
         private const float PATH_SECONDS = 3.2f;
 
@@ -92,6 +92,21 @@ namespace BS3D.Effects
         //(internal: MeadowIntroShotsTests holds the lens to this band - the shot's own, inside the owner's 0.6 to 1.5)
         internal const float ORBIT_ABOVE_FROM = 0.7f;
         internal const float ORBIT_ABOVE_TO = 1.1f;
+
+        //The lens's height is rounded over this much of the shot, seconds at its peak pace (#1187): held over the cut ground
+        //point by point, it took every crease of the field (where the brook's banks and the pond's level ground ease into it)
+        //as a jump, 328 u/s³ in one of 400 layouts against the drone's 150 (IntroShotSmoothnessTests). Rounded over the 0.7 s
+        //the terrain shots are (AridIntroPaths.ROUNDING_SECONDS), a third of this shot, it stood up to 1.67 over the ground,
+        //out of the owner's band.
+        private const float ORBIT_ROUNDING_SECONDS = 0.15f;
+
+        //And no faster than this does the view pitch round the subject, degrees a second (#1187): a lens this low follows the
+        //ground, so on a hillside it climbs and drops as it goes round and the view tilts with it, and a drone's gimbal tilts
+        //at 20 at the most (IntroShotSmoothnessTests). An arc that would tilt it faster is refused, as one that loses the
+        //subject is, and another bearing round it is tried: four layouts of 2000 tilted it at 20.0 to 21.0, each on a slope
+        //running down across the arc, which no rounding of the height takes off. A degree under the limit, for the spline
+        //between the points it is read at.
+        private const float ORBIT_PITCH_RATE = 19f;
 
         //The lens is never nearer the ground than this, whatever the ground does between the points the path is built at
         private const float LOWEST_LENS = 0.5f;
@@ -178,17 +193,21 @@ namespace BS3D.Effects
         }
 
         /// <summary>Down the brook a little over the water, the reeds passing either side, to the pond it runs into: the reel's
-        /// brook where no flight home is clear (<see cref="MeadowLanding"/>).</summary>
+        /// brook where no flight home is clear (<see cref="MeadowLanding"/>). Its height is laid the way a drone flies the
+        /// ground (<see cref="AridIntroPaths.Hug"/>, #1187): the field it runs over eases into the pond's level ground on a
+        /// smoothstep whose second derivative steps at both ends, and a lens held at <see cref="BROOK_ABOVE"/> over it point by
+        /// point jumped at 290 u/s³ there (the drone limit is 150, <c>IntroShotSmoothnessTests</c>).</summary>
         private static IntroShot Brook(MeadowSceneConfig meadow, float fieldOfView)
         {
             float end = meadow.ClearingRadius * MeadowPath.BROOK_START + BROOK_FROM;
-            var path = new Vector3[IntroPaths.FINE_POINTS];
-            for (int i = 0; i < path.Length; i++)
+            var plan = new Vector2[IntroPaths.FINE_POINTS];
+            for (int i = 0; i < plan.Length; i++)
             {
-                float d = end + BROOK_RUN * (1f - i / (path.Length - 1f));
-                (float x, float z) = MeadowPath.BrookPoint(d, 0f, meadow);
-                path[i] = new Vector3(x, TerrainMirror.MeadowGround(x, z, meadow) + BROOK_ABOVE, z);
+                (float x, float z) = MeadowPath.BrookPoint(end + BROOK_RUN * (1f - i / (plan.Length - 1f)), 0f, meadow);
+                plan[i] = new Vector2(x, z);
             }
+
+            Vector3[] path = AridIntroPaths.Hug(plan, (x, z) => TerrainMirror.MeadowGround(x, z, meadow), BROOK_ABOVE, 0f, BROOK_SECONDS);
 
             (float pondX, float pondZ) = MeadowPath.PondCentre(meadow);
             return new IntroShot("the brook", path, BROOK_SECONDS, fieldOfView * 1.1f,
@@ -302,13 +321,36 @@ namespace BS3D.Effects
             if (!low.Clear(half, MARGIN, LOWEST_LENS)) return null;
             if (!low.SightClear(half, look, reach + SIGHT_SLACK)) return null;
 
-            //Its middle, the lens at the heights the half circle has there
+            //Its middle, the lens at the heights the half circle has there, rounded over ORBIT_ROUNDING_SECONDS
             float skip = (MathF.PI - ORBIT_TURN) * 0.5f / MathF.PI;
             Vector3[] path = low.Arc(centre, radius, from + sign * MathF.PI * skip, from + sign * MathF.PI * (1f - skip),
                 MathHelper.Lerp(ORBIT_ABOVE_FROM, ORBIT_ABOVE_TO, skip), MathHelper.Lerp(ORBIT_ABOVE_FROM, ORBIT_ABOVE_TO, 1f - skip),
                 IntroGround.PATH_POINTS);
+            var heights = new float[path.Length];
+            for (int i = 0; i < path.Length; i++) heights[i] = path[i].Y;
+            heights = AridIntroPaths.Rounded(heights, ORBIT_ROUNDING_SECONDS * IntroShot.PEAK_PACE * (path.Length - 1) / ORBIT_SECONDS, turnOver: true);
+            for (int i = 0; i < path.Length; i++) path[i].Y = heights[i];
 
+            if (PitchRate(path, look) > ORBIT_PITCH_RATE) return null;
             return new IntroShot(name, path, ORBIT_SECONDS, lens, lookAt: look);
+        }
+
+        /// <summary>
+        /// The fastest the view pitches, degrees a second, on a path of <see cref="ORBIT_SECONDS"/> held on
+        /// <paramref name="look"/>, its points read at the shot's peak pace (<see cref="IntroShot.PEAK_PACE"/>).
+        /// </summary>
+        internal static float PitchRate(Vector3[] path, Vector3 look)
+        {
+            float perPoint = IntroShot.PEAK_PACE * (path.Length - 1) / ORBIT_SECONDS, fastest = 0f, last = 0f;
+            for (int i = 0; i < path.Length; i++)
+            {
+                Vector3 to = look - path[i];
+                float pitch = MathF.Atan2(to.Y, new Vector2(to.X, to.Z).Length());
+                if (i > 0) fastest = MathF.Max(fastest, MathF.Abs(pitch - last) * perPoint);
+                last = pitch;
+            }
+
+            return MathHelper.ToDegrees(fastest);
         }
 
         /// <summary>

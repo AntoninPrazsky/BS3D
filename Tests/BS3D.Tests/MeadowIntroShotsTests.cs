@@ -615,7 +615,7 @@ namespace BS3D.Tests
             //(#945); since #1107 the orbits are shorter and the brook home lands, so no tour leg follows it: this holds the whole
             //intro under the meadow's own ceiling, the tour's last leg (4.5 s) counted where the reel has no landing. Since #1188
             //moved the time the orbits gave up into the brook home's glide down the brook and past the willows, the intro runs
-            //20.4 to 21.0 s over these rolls, where it ran 21.0 to 21.7 before: the ceiling stands under the old longest, so the
+            //20.4 to 21.1 s over these rolls, where it ran 21.0 to 21.7 before: the ceiling stands under the old longest, so the
             //intro cannot grow back to it unnoticed (the owner has asked for a shorter intro, never a longer one)
             for (int seed = 1; seed <= ROLLS; seed++)
             {

@@ -13,7 +13,8 @@ namespace BS3D.Tests
     /// cities' swing home is (<see cref="CitySwingTests"/>) over the meadow planting <see cref="MeadowIntroShotsTests"/> builds
     /// and a sweep of gameplay poses round the arena: it is found for nearly every pose, it flies down the brook and over the
     /// pond, it ends exactly on the pose with the game's own lens and no bank, it never comes near the ground, the arena, a
-    /// tree, a low solid or the reeds round the pond, and its ride stays inside the limits the city's was held to. And the
+    /// tree, a low solid or the reeds round the pond, and its ride is drone footage over the whole sweep (#1187: the limits
+    /// <see cref="IntroShotSmoothnessTests"/> holds the terrain shots to, and a landing that creeps onto the pose). And the
     /// shared landing it is flown by (<see cref="IntroLanding"/>) on a route of its own.
     /// </summary>
     public class MeadowLandingTests
@@ -26,27 +27,41 @@ namespace BS3D.Tests
         private static readonly float[] Radii = { 29f, 37f, 45f };
         private const float POSE_Y = -8.2f;
         private const int BEARINGS = 12;
-        private const int LAYOUTS = 6;
+
+        //12 since #1187: a climb still rising where the circle is short, which took a flight off the gun's bearing past the
+        //drone's limits when the descent was laid off its height at the release, stands in layout 8 alone, and so does the
+        //pose the look's lean on a smoothstep turned the view at 50 degrees a second onto (MeadowLanding)
+        private const int LAYOUTS = 12;
 
         //How much of the sweep must get a flight home: the rest fall back to the old reel and its tour leg. The level's own
         //pose, on the gun's bearing, gets one in every layout.
         private const float MIN_BUILT_SHARE = 0.95f;
 
-        //The ride: the city's limits (CitySwingTests) for the view's turn, pitch and the landing, and the meadow's own for the
-        //speed, the bank and the length. The bank is the meadow's lighter one (MeadowLanding.Landing).
+        //The ride: the drone's limits (IntroShotSmoothnessTests, #1187) for the view's turn and pitch over the whole sweep of
+        //poses, where the city's (CitySwingTests: 170 and 80 degrees a second) held it before, and the meadow's own for the
+        //speed, the bank, the length and the landing. The bank is the meadow's lighter one (MeadowLanding.Landing). The
+        //landing is a drone's settle onto its mark (IntroLanding.Style.DroneSeconds): no faster than MAX_LANDING_SPEED over the
+        //last half second, 1.8 at the most, where the city's 8 held the shared landing's steady deceleration, which came on
+        //at 4.4.
         private const float MAX_SPEED = 50f;
-        private const float MAX_YAW_RATE = 170f;
-        private const float MAX_PITCH_RATE = 80f;
+        private const float MAX_YAW_RATE = 50f;
+        private const float MAX_PITCH_RATE = 20f;
         private const float MAX_ROLL_DEGREES = 8f;
-        private const float MAX_LANDING_SPEED = 8f;
+        private const float MAX_LANDING_SPEED = 3f;
         private const float MIN_SECONDS = 4.5f, MAX_SECONDS = 14.5f;
+
+        //The climb (#1187): at the level's own pose the lens crosses the pond's near shore, the crater's bank close under it,
+        //on average at least this high over the field. Begun at its point past the middle, the climb's smootherstep had barely
+        //left the brook's 1.8 there (2.05 on average); begun MeadowLanding's lead before it, 3.0. On average, because a tree
+        //by the pond's arena side has a layout climb late by design (MeadowLanding's RISE_LATE_COST makes late only dear).
+        private const float NEAR_SHORE_ABOVE = 2.5f;
 
         //The fly-by down the brook and past the willows (#1188): at least this long from the shot's first frame to the pond's
         //middle (1.8 to 2.3 s at the level's own pose before #1188, 3.5 to 3.9 since), and past each willow at no more than
-        //this, on the shot's eased clock: the trees' 14 u/s goes past them at 14.8 to 15.3 over 24 layouts, the brook's 20 went
+        //this, on the shot's eased clock: the trees' 14 u/s goes past them at 14.7 to 15.3 over 24 layouts, the brook's 20 went
         //past at 20.4 to 21.2 over five. A figure of its own, not MeadowLanding.TREES_SPEED's: a limit read off the constant
         //moves with it. And at the level's own pose, the glide's pace read over PACE_WINDOW either side of a pose changes by
-        //no more than LOW_ACCELERATION until the pond's middle: 4.3 u/s² at the most over 24 layouts.
+        //no more than LOW_ACCELERATION until the pond's middle: 4.2 u/s² at the most over 24 layouts.
         private const float LOW_SECONDS = 3f;
         private const float TREES_PACE = 17f;
         private const float LOW_ACCELERATION = 6f;
@@ -362,6 +377,72 @@ namespace BS3D.Tests
             }
 
             Assert.True(longest > 0f, "no flight home was walked");
+        }
+
+        /// <summary>
+        /// Over the whole sweep the flight rides as drone footage (#1187): the lens's acceleration and jerk, vertical and whole,
+        /// and the view's tilt and turn changing no faster than <see cref="IntroShotSmoothnessTests"/> holds the terrain shots
+        /// to, measured as it measures them. Off the gun's bearing the climb carried the field's creases from the brook's height
+        /// it left (up to 195 u/s³), and where the circle is short a climb still rising at the release was stopped there in a
+        /// frame (20.5 u/s²); neither ever showed at the level's own pose.
+        /// </summary>
+        [Fact]
+        public void Over_the_whole_sweep_the_ride_is_drone_footage()
+        {
+            int measured = 0;
+            foreach (var (layout, bearing, radius, planting, shot) in Sweep.Value)
+            {
+                if (shot == null) continue;
+
+                measured++;
+                string where = $"layout {layout}, bearing {bearing}, radius {radius}";
+                IntroShotSmoothnessTests.Ride ride = IntroShotSmoothnessTests.Measure(shot, (x, z) => MeadowLanding.Floor(x, z, planting.Config));
+
+                Assert.True(ride.PeakVerticalAcceleration <= IntroShotSmoothnessTests.MAX_VERTICAL_ACCELERATION,
+                    $"{where}: vertical acceleration peaks at {ride.PeakVerticalAcceleration:F1} u/s² at t={ride.PeakVerticalAccelerationAt:F2}");
+                Assert.True(ride.PeakVerticalJerk <= IntroShotSmoothnessTests.MAX_VERTICAL_JERK,
+                    $"{where}: vertical acceleration jumps at {ride.PeakVerticalJerk:F0} u/s³ at t={ride.PeakVerticalJerkAt:F2}");
+                Assert.True(ride.PeakPitchAcceleration <= IntroShotSmoothnessTests.MAX_PITCH_ACCELERATION,
+                    $"{where}: the view's tilt changes at {ride.PeakPitchAcceleration:F0} degrees a second squared at t={ride.PeakPitchAccelerationAt:F2}");
+                Assert.True(ride.PeakYawAcceleration <= IntroShotSmoothnessTests.MAX_YAW_ACCELERATION,
+                    $"{where}: the view's turn changes at {ride.PeakYawAcceleration:F0} degrees a second squared at t={ride.PeakYawAccelerationAt:F2}");
+                Assert.True(ride.PeakJerk <= IntroShotSmoothnessTests.MAX_JERK, $"{where}: the lens's acceleration jumps at {ride.PeakJerk:F0} u/s³ at t={ride.PeakJerkAt:F2}");
+            }
+
+            Assert.True(measured > 0, "no flight home was measured");
+        }
+
+        /// <summary>
+        /// The lens is climbing by the time it crosses the pond's near shore (#1187): at the level's own pose, on average
+        /// <see cref="NEAR_SHORE_ABOVE"/> or more over the field there. Low over it, the crater's bank so close under the lens
+        /// drew as a dark sawtooth band across the frame, and the climb's smootherstep, begun at its point past the
+        /// pond's middle, had hardly risen yet.
+        /// </summary>
+        [Fact]
+        public void At_the_levels_pose_the_lens_has_climbed_by_the_ponds_near_shore()
+        {
+            float sum = 0f;
+            for (int layout = 1; layout <= 24; layout++)
+            {
+                MeadowIntroShotsTests.Planting planting = MeadowIntroShotsTests.Plant(layout);
+                MeadowSceneConfig config = planting.Config;
+                IntroShot shot = Home(planting, MeadowIntroShotsTests.GamePosition, layout);
+                Assert.NotNull(shot);
+
+                var poses = new Vector3[POSES + 1];
+                int middle = 0;
+                for (int i = 0; i <= POSES; i++)
+                {
+                    shot.Pose(i / (float)POSES, out poses[i], out _);
+                    if (MeadowPath.PondShore(poses[i].X, poses[i].Z, config) < MeadowPath.PondShore(poses[middle].X, poses[middle].Z, config)) middle = i;
+                }
+
+                int shore = middle;
+                while (shore < POSES && MeadowPath.PondShore(poses[shore].X, poses[shore].Z, config) < 0f) shore++;
+                sum += poses[shore].Y - TerrainMirror.MeadowGround(poses[shore].X, poses[shore].Z, config);
+            }
+
+            Assert.True(sum / 24f >= NEAR_SHORE_ABOVE, $"the lens crosses the pond's near shore {sum / 24f:F2} over the field on average");
         }
 
         [Fact]

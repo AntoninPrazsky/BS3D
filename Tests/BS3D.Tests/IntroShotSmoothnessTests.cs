@@ -13,9 +13,12 @@ namespace BS3D.Tests
     /// The chapter-intro shots that fly over rough ground ride like drone footage (#645, #530, #1109, #1112). Every
     /// shot whose height <see cref="AridIntroPaths.Hug"/> lays — the desert's erg, pyramids and crest, the
     /// mountains' range, pass and summit, the outback's plain, approach and crown, the volcano's crater run and its orbit
-    /// round the village (#1127), the Moon's and Mars's tracks (#1114, #1115) and the polar camp's arc (#1128) — and the
-    /// desert's shots low over its sand (#1110: the beetle, the scorpion and the scorpion home's take-off) is built through its
-    /// real builder on the shipped scene config over a dozen rolls and sampled at sixty frames a second on its own eased clock.
+    /// round the village (#1127), the Moon's and Mars's tracks (#1114, #1115) and the polar camp's arc (#1128) — the
+    /// desert's shots low over its sand (#1110: the beetle, the scorpion and the scorpion home's take-off) and every shot of
+    /// the meadow's (#1187: the valley, the two low orbits, the path, the brook and the brook home, on the test planting of
+    /// <see cref="MeadowIntroShotsTests"/>) is built through its real builder on the shipped scene config over a dozen rolls
+    /// (the meadow's two orbits over <see cref="ORBIT_ROLLS"/>, a layout a roll) and sampled at sixty frames a second on its
+    /// own eased clock.
     /// <para>
     /// <b>What the limits are, and why.</b> Drone footage changes height and tilt slowly: a gimbal tilts at most about
     /// twenty degrees a second and takes half a second or more to get there, and the craft's climb rate changes over a
@@ -26,6 +29,14 @@ namespace BS3D.Tests
     /// 36-198 u/s² peaks and 1700-10400 u/s³ jumps into ten of these shots and 71-186 °/s² of tilt into five ("the
     /// camera judders over the dunes"); now the worst are 13 u/s², 122 u/s³ and 35 °/s². Peaks, not means: a judder is
     /// one bad frame in a hundred good ones, which an rms hides.
+    /// </para>
+    /// <para>
+    /// <b>And sideways</b> (#1187): the view's turn is held as its tilt is, at most <see cref="MAX_YAW_RATE"/> and reached in no
+    /// less than half a second (<see cref="MAX_YAW_ACCELERATION"/>), and the lens's whole acceleration changes by no more
+    /// than <see cref="MAX_JERK"/>, 5 u/s² from one frame to the next along any axis. The meadow's brook home, a flight round
+    /// the island at up to 42 u/s whose route is pieces laid end to end, turned the view at 56 °/s, swung it at 224 °/s² and
+    /// jumped the lens at 3111 u/s³ where the pieces met; the worst of every other shot here were 84 °/s² (the scorpion
+    /// home) and 289 u/s³ (the volcano's village, an orbit at 60 u/s).
     /// </para>
     /// <para>
     /// ⚠ <b>Smooth is not allowed to mean high</b>: a lens flown well over the ground is trivially smooth. So every
@@ -45,12 +56,25 @@ namespace BS3D.Tests
         private const double FRAME = 1.0 / 60.0;
         private const int EDGE_FRAMES = 3;
 
-        //What drone footage is, in world units and degrees per second (see the class remarks).
-        private const double MAX_VERTICAL_ACCELERATION = 20.0;
-        private const double MAX_VERTICAL_JERK = 150.0;
-        private const double MAX_PITCH_RATE = 20.0;
-        private const double MAX_PITCH_ACCELERATION = 40.0;
-        private const double MAX_YAW_RATE = 50.0;
+        //The meadow's two orbits (#1187) are cheap to build, and what takes one past the limits is the ground under one
+        //layout in a hundred or more: a crease of the cut field under the arc (260 u/s³ on roll 52 with the height held over
+        //the ground point by point) or a hillside running down across it (the view tilted at 20.6 and 21.0 on rolls 498 and
+        //938 with no arc refused for it). Over a dozen rolls neither was ever met.
+        private const int ORBIT_ROLLS = 1000;
+
+        //What drone footage is, in world units and degrees per second (see the class remarks). (internal: MeadowLandingTests
+        //holds the brook home to them over its whole sweep of poses)
+        internal const double MAX_VERTICAL_ACCELERATION = 20.0;
+        internal const double MAX_VERTICAL_JERK = 150.0;
+        internal const double MAX_PITCH_RATE = 20.0;
+        internal const double MAX_PITCH_ACCELERATION = 40.0;
+        internal const double MAX_YAW_RATE = 50.0;
+
+        //And sideways (#1187): the view's turn reached in no less than half a second, as its tilt is, and the lens's whole
+        //acceleration changing by no more than 5 u/s² from one frame to the next, along any axis. The meadow's brook home, held
+        //to neither, swung the view at 224 °/s² and jumped the lens at 3111 u/s³ where the pieces of its route met.
+        internal const double MAX_YAW_ACCELERATION = 100.0;
+        internal const double MAX_JERK = 300.0;
 
         //The low runs along their own travel and the crater's climb were "too fast" at 30-59 u/s (#645).
         private const double MAX_SPEED = 28.0;
@@ -68,8 +92,10 @@ namespace BS3D.Tests
         public IntroShotSmoothnessTests(ITestOutputHelper output) => _output = output;
 
         /// <summary>One shot: how to build it for a roll, the ground under it, the clearance it keeps, whether it is held
-        /// to the speed limit, and whether it has no designed floor (so its mean height over the clearance is held).</summary>
-        private sealed record Case(Func<Random, IntroShot> Build, Func<float, float, float> Ground, float Clearance, bool Slow, bool Floorless);
+        /// to the speed limit, whether it has no designed floor (so its mean height over the clearance is held), and over how
+        /// many rolls.</summary>
+        private sealed record Case(Func<Random, IntroShot> Build, Func<float, float, float> Ground, float Clearance, bool Slow, bool Floorless,
+            int Rolls = ROLLS);
 
         private static Dictionary<string, Case> Cases()
         {
@@ -91,6 +117,9 @@ namespace BS3D.Tests
             Func<float, float, float> marsCeiling = (x, z) => OffworldGround.MarsCeiling(x, z, mars.Terrain);
             var polar = new PolarSceneConfig();
             Func<float, float, float> ice = (x, z) => TerrainMirror.Polar(x, z, polar);
+            var meadow = new MeadowSceneConfig();
+            Func<float, float, float> field = (x, z) => TerrainMirror.MeadowGround(x, z, meadow);
+            Func<float, float, float> meadowCut = (x, z) => TerrainMirror.Meadow(x, z, meadow);
 
             return new Dictionary<string, Case>
             {
@@ -120,8 +149,56 @@ namespace BS3D.Tests
                 ["mars: the tracks"] = new(_ => MarsIntroShots.Tracks(mars.Terrain), marsCeiling, MarsIntroShots.CLEARANCE, true, true),
                 //An arc at one height over the highest ice under it (#1128), the lens on the camp: held to the ride all the same
                 ["polar: the camp"] = new(r => PolarIntroShots.Camp(polar, FieldOfView, r), ice, PolarIntroShots.CAMP_HEIGHT, true, false),
+                //The meadow (#1187): the valley's level dolly over its highest ground, the two low orbits on the cut ground, the
+                //walk up the path and, where no flight home is clear, the run down the brook, each over the uncut field it was
+                //laid on; and the brook home, a flight round the island at up to 42 u/s (MeadowLanding), not a low run
+                ["meadow: the valley"] = new(Meadow("the valley"), field, MeadowIntroShots.VALLEY_ABOVE_TO, true, false),
+                ["meadow: the bales"] = new(Orbit(bales: true), meadowCut, MeadowIntroShots.ORBIT_ABOVE_FROM, true, true, ORBIT_ROLLS),
+                ["meadow: the path"] = new(Meadow("the path"), field, MeadowIntroShots.PATH_ABOVE, true, true),
+                ["meadow: the bench"] = new(Orbit(bales: false), meadowCut, MeadowIntroShots.ORBIT_ABOVE_FROM, true, true, ORBIT_ROLLS),
+                ["meadow: the brook"] = new(Meadow("the brook", landing: false), field, MeadowLanding.BROOK_ABOVE, true, true),
+                ["meadow: the brook home"] = new(Meadow(MeadowLanding.NAME), (x, z) => MeadowLanding.Floor(x, z, meadow), MeadowLanding.LOWEST, false, false),
             };
         }
+
+        /// <summary>
+        /// A meadow shot (#1187) as the prologue builds it, on <see cref="MeadowIntroShotsTests"/>' planting (the planting needs a
+        /// device, so the test lays one from its constants) at the level's own pose, a layout off each roll; a layout that has
+        /// no such shot is passed over for the next. <paramref name="landing"/> false asks it of a pose no
+        /// flight home reaches (the menu's crane over the island), where the reel keeps its run down the brook.
+        /// </summary>
+        private static Func<Random, IntroShot> Meadow(string name, bool landing = true) => r =>
+        {
+            Vector3 pose = landing ? MeadowIntroShotsTests.GamePosition : new Vector3(0f, -2f, 15f);
+            for (int layout = 0; layout < 8; layout++)
+            {
+                MeadowIntroShotsTests.Planting planting = MeadowIntroShotsTests.Plant(r.Next(1, 10000));
+                IntroShot shot = Array.Find(MeadowIntroShots.Build(planting.Config, planting.Figures, pose, MeadowIntroShotsTests.GameTarget,
+                    MeadowIntroShotsTests.INTRO_FIELD_OF_VIEW, r), s => s.Name == name);
+                if (shot != null) return shot;
+            }
+
+            throw new InvalidOperationException($"no layout of eight had '{name}'");
+        };
+
+        /// <summary>
+        /// One of the meadow's two orbits (#1187) straight off its builder (<see cref="MeadowIntroShots.Bales"/>,
+        /// <see cref="MeadowIntroShots.Bench"/>), which the prologue calls with its own roll, on a layout off each roll: the
+        /// whole prologue lays the brook home too, which is too dear to build <see cref="ORBIT_ROLLS"/> times.
+        /// </summary>
+        private static Func<Random, IntroShot> Orbit(bool bales) => r =>
+        {
+            for (int layout = 0; layout < 8; layout++)
+            {
+                MeadowIntroShotsTests.Planting planting = MeadowIntroShotsTests.Plant(r.Next(1, 10000));
+                IntroShot shot = bales
+                    ? MeadowIntroShots.Bales(planting.Config, planting.Figures, MeadowIntroShotsTests.INTRO_FIELD_OF_VIEW, r)
+                    : MeadowIntroShots.Bench(planting.Config, planting.Figures, MeadowIntroShotsTests.INTRO_FIELD_OF_VIEW, r);
+                if (shot != null) return shot;
+            }
+
+            throw new InvalidOperationException($"no layout of eight had {(bales ? "the bales" : "the bench")}");
+        };
 
         public static IEnumerable<object[]> Shots()
         {
@@ -134,11 +211,18 @@ namespace BS3D.Tests
         {
             Case shot = Cases()[name];
             var worst = new Ride { LeastClearance = double.MaxValue };
+            var rides = new Ride[shot.Rolls + 1];
+            for (int seed = 1; seed <= shot.Rolls; seed++) worst = worst.Worst(rides[seed] = Measure(shot.Build(new Random(seed)), shot.Ground));
 
-            for (int seed = 1; seed <= ROLLS; seed++)
+            //The worst over the rolls first, so a failing shot still says how far over it is
+            _output.WriteLine(string.Format(CultureInfo.InvariantCulture,
+                "{0}: speed {1:F1} u/s, vertical {2:F1} u/s² {3:F0} u/s³, pitch {4:F1}°/s {5:F0}°/s², yaw {6:F1}°/s {10:F0}°/s², jerk {11:F0} u/s³, clearance least {7:F2} mean {8:F1} highest {9:F1}",
+                name, worst.Speed, worst.PeakVerticalAcceleration, worst.PeakVerticalJerk, worst.PeakPitchRate, worst.PeakPitchAcceleration,
+                worst.PeakYawRate, worst.LeastClearance, worst.MeanClearance, worst.HighestClearance, worst.PeakYawAcceleration, worst.PeakJerk));
+
+            for (int seed = 1; seed <= shot.Rolls; seed++)
             {
-                Ride ride = Measure(shot.Build(new Random(seed)), shot.Ground);
-                worst = worst.Worst(ride);
+                Ride ride = rides[seed];
 
                 Assert.True(ride.LeastClearance >= shot.Clearance - CLEARANCE_TOLERANCE,
                     $"{name} (roll {seed}): the lens is {ride.LeastClearance:F2} over the ground, under its clearance {shot.Clearance}");
@@ -155,12 +239,10 @@ namespace BS3D.Tests
                 Assert.True(ride.PeakPitchAcceleration <= MAX_PITCH_ACCELERATION,
                     $"{name} (roll {seed}): the view's tilt changes at {ride.PeakPitchAcceleration:F0} degrees a second squared at t={ride.PeakPitchAccelerationAt:F2}");
                 Assert.True(ride.PeakYawRate <= MAX_YAW_RATE, $"{name} (roll {seed}): the view turns {ride.PeakYawRate:F1} degrees a second");
+                Assert.True(ride.PeakYawAcceleration <= MAX_YAW_ACCELERATION,
+                    $"{name} (roll {seed}): the view's turn changes at {ride.PeakYawAcceleration:F0} degrees a second squared at t={ride.PeakYawAccelerationAt:F2}");
+                Assert.True(ride.PeakJerk <= MAX_JERK, $"{name} (roll {seed}): the lens's acceleration jumps at {ride.PeakJerk:F0} u/s³ at t={ride.PeakJerkAt:F2}");
             }
-
-            _output.WriteLine(string.Format(CultureInfo.InvariantCulture,
-                "{0}: speed {1:F1} u/s, vertical {2:F1} u/s² {3:F0} u/s³, pitch {4:F1}°/s {5:F0}°/s², yaw {6:F1}°/s, clearance least {7:F2} mean {8:F1} highest {9:F1}",
-                name, worst.Speed, worst.PeakVerticalAcceleration, worst.PeakVerticalJerk, worst.PeakPitchRate, worst.PeakPitchAcceleration,
-                worst.PeakYawRate, worst.LeastClearance, worst.MeanClearance, worst.HighestClearance));
         }
 
         /// <summary>
@@ -236,11 +318,13 @@ namespace BS3D.Tests
             }
         }
 
-        private sealed class Ride
+        /// <summary>The peaks of one shot's ride (<see cref="Measure"/>), or the worst over several.</summary>
+        internal sealed class Ride
         {
             public double Speed, LeastClearance, MeanClearance, HighestClearance;
             public double PeakVerticalAcceleration, PeakVerticalAccelerationAt, PeakVerticalJerk, PeakVerticalJerkAt;
             public double PeakPitchRate, PeakPitchAcceleration, PeakPitchAccelerationAt, PeakYawRate;
+            public double PeakYawAcceleration, PeakYawAccelerationAt, PeakJerk, PeakJerkAt;
 
             public Ride Worst(Ride other) => new()
             {
@@ -253,11 +337,14 @@ namespace BS3D.Tests
                 PeakPitchRate = Math.Max(PeakPitchRate, other.PeakPitchRate),
                 PeakPitchAcceleration = Math.Max(PeakPitchAcceleration, other.PeakPitchAcceleration),
                 PeakYawRate = Math.Max(PeakYawRate, other.PeakYawRate),
+                PeakYawAcceleration = Math.Max(PeakYawAcceleration, other.PeakYawAcceleration),
+                PeakJerk = Math.Max(PeakJerk, other.PeakJerk),
             };
         }
 
-        //The shot at sixty frames a second on its own clock: the lens's height, the view's pitch and yaw, and the clearance.
-        private static Ride Measure(IntroShot shot, Func<float, float, float> ground)
+        /// <summary>The shot at sixty frames a second on its own clock: the lens's height, the view's pitch and yaw, and the
+        /// clearance over <paramref name="ground"/>.</summary>
+        internal static Ride Measure(IntroShot shot, Func<float, float, float> ground)
         {
             int frames = (int)(shot.Seconds / FRAME);
             var position = new Vector3[frames];
@@ -305,10 +392,16 @@ namespace BS3D.Tests
                 double tilt = Math.Abs(pitch[i + 1] - 2.0 * pitch[i] + pitch[i - 1]) / (dt * dt);
                 if (tilt > ride.PeakPitchAcceleration) (ride.PeakPitchAcceleration, ride.PeakPitchAccelerationAt) = (tilt, t);
 
+                double swing = Math.Abs(yaw[i + 1] - 2.0 * yaw[i] + yaw[i - 1]) / (dt * dt);
+                if (swing > ride.PeakYawAcceleration) (ride.PeakYawAcceleration, ride.PeakYawAccelerationAt) = (swing, t);
+
                 if (i + 2 >= frames - EDGE_FRAMES + 1) continue;
 
                 double jerk = Math.Abs(position[i + 2].Y - 3.0 * position[i + 1].Y + 3.0 * position[i].Y - position[i - 1].Y) / (dt * dt * dt);
                 if (jerk > ride.PeakVerticalJerk) (ride.PeakVerticalJerk, ride.PeakVerticalJerkAt) = (jerk, t);
+
+                double whole = (position[i + 2] - 3f * position[i + 1] + 3f * position[i] - position[i - 1]).Length() / (dt * dt * dt);
+                if (whole > ride.PeakJerk) (ride.PeakJerk, ride.PeakJerkAt) = (whole, t);
             }
 
             return ride;

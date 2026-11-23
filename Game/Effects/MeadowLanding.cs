@@ -31,6 +31,14 @@ namespace BS3D.Effects
     /// goes round them; a light bank into the turn.
     /// </para>
     /// <para>
+    /// <b>Flown as a drone flies</b> (#1187, the owner: "the camera moves will need smoothing out; it is inspired by the
+    /// movement of a drone, but we must smooth out the flight path"): the route is rounded where its pieces meet
+    /// (<see cref="PLAN_ROUNDING"/>), the climb and the descent are eased on the flight's own clock, and the shared landing
+    /// flies it in its drone style (<see cref="IntroLanding.Style.DroneSeconds"/>): the look held on the arena's bearing and
+    /// let drift slowly, so it no longer swings with the swerve round the willows nor with the turn in, and every ease eased
+    /// to the second derivative. <c>IntroShotSmoothnessTests</c> holds it to the drone limits the terrain shots are held to.
+    /// </para>
+    /// <para>
     /// <b>Found, not assumed.</b> Rolled candidates (how much of the brook, the circle's radius and height, how far round the
     /// curves onto and off it sweep, the climb, the cruise, which way the lens arrives, and now and then the longer way round)
     /// are each laid in full and refused if they turn tighter than the speed allows, or if any point is under the ground,
@@ -72,14 +80,47 @@ namespace BS3D.Effects
         private const float TREES_SLOW_TO = 18f;
 
         //The climb: from this far past the pond's middle (low until then, under the willows' crowns, see the class's note),
-        //over this long a run, to the cruise's height over the highest ground the lens passes after the pond. The earlier the
-        //better, by RISE_LATE_COST a unit in the score: begun 11 or more past the middle, the lens crossed the near shore at the
-        //brook's height, and the crater's bank so close under it drew as a dark sawtooth band across the frame. Up to a run's
-        //length past it, though, so a tree standing by the pond's arena side can still be passed under.
+        //over this many seconds of the flight's own clock, to the cruise's height over the highest ground the lens passes
+        //after the pond. The earlier the better, by RISE_LATE_COST a unit in the score: begun 11 or more past the middle, the
+        //lens crossed the near shore at the brook's height, and the crater's bank so close under it drew as a dark sawtooth
+        //band across the frame. Up to a run's length past it, though, so a tree standing by the pond's arena side can still be
+        //passed under. ⚠ In seconds, not units (#1187): the pace picks up from the trees' to the cruise's as the lens climbs,
+        //and a smoothstep over 22 to 40 units took its second half at up to 33 u/s: the lens's climb bent at up to 57 u/s² and
+        //its ends jumped it at up to 2700 u/s³ (the drone limits are 20 and 150, IntroShotSmoothnessTests). Over 2.6 s a rise
+        //of 10 peaks at 8.5 u/s² and 34 u/s³ on a smootherstep (IntroLanding.Smoother), whatever the pace; laid over 1 s
+        //instead, the climb bent the lens at up to 44 u/s².
         private const float RISE_PAST_MIDDLE_MIN = 0f, RISE_PAST_MIDDLE_MAX = 32f;
         private const float RISE_LATE_COST = 0.05f;
-        private const float CLIMB_MIN = 22f, CLIMB_MAX = 40f;
+        private const float CLIMB_SECONDS_MIN = 2.6f, CLIMB_SECONDS_MAX = 3.2f;
+
+        //And it starts this long, seconds, before the lens reaches its point past the middle: a smootherstep rises slowly at
+        //first, and begun at that point it had barely left the brook's height where it crosses the pond's near shore, the
+        //crater's bank close under it: 2.05 over the field on average at the level's own pose, 3.0 with the lead
+        //(MeadowLandingTests holds 2.5). Half a second before the middle is as the lens passes the willows, 7 to 11 short of
+        //it at the trees' pace, so it is still at the brook's height between them.
+        private const float CLIMB_LEAD = 0.5f;
         private const float CRUISE_ABOVE_MIN = 6f, CRUISE_ABOVE_MAX = 10f;
+
+        //And the brook's height it climbs from, BROOK_ABOVE over the field, is rounded along the plan by a Gaussian of this many
+        //units (#1187): the field eases into the pond's level ground on a smoothstep, whose second derivative steps, and the
+        //climb carried every such crease it crossed half-risen into the lens, up to 195 u/s³ off the gun's bearing (the drone
+        //limit is 150, MeadowLandingTests' sweep). Down the brook, the field is near enough level along it that the lens still
+        //opens at the brook's height.
+        private const float LOW_ROUNDING = 6f;
+
+        //The pace reaches the cruise's no sooner than half this past where the climb begins, so the lens is not flown at the
+        //cruise's pace while it is still low over the pond's shore
+        private const float CLIMB_MIN = 22f, CLIMB_MAX = 40f;
+
+        //How far the route's plan is rounded where its pieces meet (#1187): the sigma of a Gaussian along it, units. The run
+        //down the brook, the curve off it, the circle and the turn in each have a curvature of their own, so the travel's
+        //sideways acceleration stepped at every join (by v²/r, 33 u/s² onto a circle of 54 at 42 u/s): the lens's jerk read
+        //up to 3111 u/s³ there over 24 layouts, and 440 with all else as it is now but this (the limit is 300). A Gaussian
+        //of this width spreads each step over half a second at that pace and cuts a turn's inside by about the square of
+        //this over twice the turn's radius, half a unit on the circle. ⚠ The swerve round the trunks is laid after it
+        //(PassTheTrunks): rounded with the rest, a swerve this short lost so much of what it lacks that the trunks'
+        //clearance refused every flight in some layouts.
+        private const float PLAN_ROUNDING = 8f;
 
         //The pace picks up from this far short of the pond's middle, from the trees' pace in one ease, and reaches the cruise's
         //on the circle. ⚠ Given back to the brook's own pace a few units past the middle and picking up from there, the lens
@@ -89,6 +130,13 @@ namespace BS3D.Effects
         private const float ACCELERATE_BEFORE_MIDDLE = 10f;
         private const float CRUISE_MIN = 34f, CRUISE_MAX = 40f, CRUISE_FASTEST = 42f;
         private const float CIRCLE_SECONDS = 2.5f;
+
+        //And never so fast round the circle that the view turns faster than this, degrees a second (#1187): round the circle
+        //the look turns as fast as the heading does, the lens's speed over the radius, and 42 u/s round a radius of 48 is 50,
+        //the drone limit itself (IntroShotSmoothnessTests); unheld, the view turned at up to 51.8 over its rolls. The lens's
+        //speed is the cruise's on the shot's own eased clock, which runs up to IntroShot.PEAK_PACE of it in the shot's
+        //middle, where the circle is.
+        private const float CIRCLE_TURN = 46f;
 
         //The circle round the arena: its radius (the keep-out is 44, IntroGround.ARENA_KEEP_OUT; the planting starts at 70,
         //MeadowScatter, past the knoll's oak and the pond), and how far round the arena the curve onto it sweeps, degrees.
@@ -112,9 +160,9 @@ namespace BS3D.Effects
         private const float LONG_WAY_SHARE = 0.25f;
 
         //No tighter than this off the brook: at a cruise of 40 u/s a 16-unit radius is 143 degrees a second of heading, which
-        //the look's averaging and its lean take well under the 170 the ride is held to (70 at most, MeadowLandingTests); the
-        //release, decelerating from the cruise to rest, turns its tightest at about half the speed and may take
-        //RELEASE_TURN_RADIUS
+        //the look does not follow: it is held on the arena's bearing (IntroLanding.Style.DroneSeconds) and turns at 50
+        //degrees a second at the most (MeadowLandingTests); the release, decelerating from the cruise to rest, turns its
+        //tightest at about half the speed and may take RELEASE_TURN_RADIUS
         private const float MIN_TURN_RADIUS = 16f;
         private const float RELEASE_TURN_RADIUS = 10f;
 
@@ -135,7 +183,7 @@ namespace BS3D.Effects
         //radians or more from any clump, about MARGIN past a reed's own width at the shore's distance. None stands on the
         //brook's own bank. The pose's own distance less ARRIVAL_SLACK is the nearest the axis the lens comes.
         private const float MARGIN = 1.5f;
-        private const float LOWEST = 1f;
+        internal const float LOWEST = 1f;
         private const float ISLAND_FOOT_REACH = ArenaIsland.RADIUS + 8f;
         private const float ISLAND_BANK_TOP = ArenaIsland.TOP_Y - ArenaIsland.EDGE_HEIGHT + 1.35f;
         private const float LOW_LENS = 3f;
@@ -145,13 +193,13 @@ namespace BS3D.Effects
         //flown down the line, the trunk filled a quarter of the frame and its roots ran under the lens. So the run swerves off
         //the line by what it lacks, over DEFLECT_UPSTREAM before the nearest point and DEFLECT_DOWNSTREAM after it; within
         //1.8 of the line by the mouth it is still over the brook's own bank, where the pond plants no reeds. ⚠ The swerve is
-        //as long as the pace past it is slow (#1188): the look's direction is averaged over a time (Landing's
-        //LookSmoothSeconds), so at the trees' pace it spans fewer units of the swerve, and over the 6 and 9 it had at the
-        //brook's pace the view turned at up to 72 degrees a second there (53 at the brook's pace); over 16 and 14, 40 (over
-        //24 layouts at the level's own pose). ⚠ The run is back on the line by the pond's middle however near it the tree
-        //stands (PassTheTrunks): still off it there, the curve off the brook left from a point and along a heading the route
-        //had not been laid for, and came onto the circle with the look turned out off the island, the axis 32 degrees off it
-        //in a frame 36 wide (MeadowLandingTests holds it 5 inside the edge).
+        //as long as the pace past it is slow (#1188): over the 6 and 9 it had at the brook's pace the view turned at up to 72
+        //degrees a second there; over 16 and 14, 40, with the look along the travel. Held on the arena's bearing since #1187
+        //(IntroLanding.Style.DroneSeconds) the view no longer follows the swerve: 7.5 degrees a second at the most over the
+        //run's first 3 s (24 layouts at the level's own pose). ⚠ The run is back on the line by the pond's middle however
+        //near it the tree stands (PassTheTrunks): still off it there, the curve off the brook left from a point and along a
+        //heading the route had not been laid for, and came onto the circle with the look turned out off the island, the axis
+        //32 degrees off it in a frame 36 wide (MeadowLandingTests holds it 5 inside the edge).
         private const float ROOT_REACH = 2.1f;
         private const float TRUNK_AIR = 2.5f;
         private const float DEFLECT_UPSTREAM = 16f, DEFLECT_DOWNSTREAM = 14f;
@@ -166,12 +214,14 @@ namespace BS3D.Effects
         private const float CELL = 12f;
 
         /// <summary>How the brook home is timed, pointed and banked once laid (<see cref="IntroLanding.Fly"/>): a little wider
-        /// than the meadow's other shots at first, easing to the game's lens; the city's look and settle, with the look turning in
+        /// than the meadow's other shots at first, easing to the game's lens; the city's look and settle, flown in the drone
+        /// style (#1187: the look's bearing off the arena averaged over 0.8 s, a smoothstep settle), with the look turning in
         /// towards the arena off the brook (<see cref="IntroLanding.Route.Lean"/>) and landing over a longer last stretch, the
-        /// turn onto the pose being a wider one; a light bank.</summary>
+        /// turn onto the pose being a wider one; a light bank. 600 points, about one a frame: through 240 the shot's spline
+        /// changed the lens's acceleration at each, a jump of up to 441 u/s³ in the turn in.</summary>
         internal static readonly IntroLanding.Style Landing = new(WideLens: 1.15f, ReleaseTimeScale: 2f, LookPitchFollow: 0.3f,
             LookDistance: 30f, LookSmoothSeconds: 0.3f, LookLandSeconds: 2.2f, LookInward: 0.7f, RollPerTurn: 0.1f,
-            MaxRollDegrees: 8f, RollSmoothSeconds: 0.25f, Points: 240);
+            MaxRollDegrees: 8f, RollSmoothSeconds: 0.25f, Points: 600, DroneSeconds: 0.8f);
 
         /// <summary>
         /// The brook home over <paramref name="meadow"/>, landing on <paramref name="endPosition"/> looking at
@@ -212,6 +262,7 @@ namespace BS3D.Effects
             double arrival = random.NextDouble();
             float slant = arrival < 0.5 ? 0f : arrival < 0.8 ? SLANT_SOME : SLANT_MORE;
             bool longWay = random.NextDouble() < LONG_WAY_SHARE;
+            float climbSeconds = Roll(random, CLIMB_SECONDS_MIN, CLIMB_SECONDS_MAX);
 
             Vector2 end = new(endPosition.X, endPosition.Z);
             float pondDistance = meadow.ClearingRadius * MeadowPath.BROOK_START;
@@ -235,7 +286,6 @@ namespace BS3D.Effects
                 plan.Add(new Vector2(x, z));
             }
             int brookEnd = plan.Count - 1;
-            if (trees != null) PassTheTrunks(plan, trees);
             Vector2 brookHeading = Vector2.Normalize(plan[^1] - plan[^2]);
 
             //Off the brook's line: onto the circle and round it, then the turn in onto the pose; or, for a pose on the pond's
@@ -274,6 +324,16 @@ namespace BS3D.Effects
                 arrive = Vector2.Normalize(plan[^1] - plan[^2]);
             }
 
+            //Rounded where its pieces meet (#1187), and only then swerved round the trunks by the brook: rounded with the rest, a
+            //swerve this short lost so much of what it lacks that the trunks' clearance refused every flight in some layouts
+            Round(plan, PLAN_ROUNDING / STEP);
+            if (trees != null)
+            {
+                List<Vector2> brook = plan.GetRange(0, brookEnd + 1);
+                PassTheTrunks(brook, trees);
+                for (int i = 0; i <= brookEnd; i++) plan[i] = brook[i];
+            }
+
             if (!IntroLanding.NoTighterThan(plan, brookEnd, MIN_TURN_RADIUS, releaseStart + 3)
                 || !IntroLanding.NoTighterThan(plan, releaseStart, RELEASE_TURN_RADIUS)) return null;
 
@@ -283,7 +343,8 @@ namespace BS3D.Effects
             for (int i = 1; i < plan.Count; i++) length[i] = length[i - 1] + Vector2.Distance(plan[i - 1], plan[i]);
             float total = length[^1];
 
-            cruise = MathF.Min(MathF.Max(cruise, circle / CIRCLE_SECONDS), CRUISE_FASTEST);
+            cruise = MathF.Min(MathF.Min(MathF.Max(cruise, circle / CIRCLE_SECONDS), CRUISE_FASTEST),
+                radius * MathHelper.ToRadians(CIRCLE_TURN) / IntroShot.PEAK_PACE);
 
             //The deceleration takes at least SETTLE_SECONDS (the shared landing's lasts ReleaseTimeScale times its length over the
             //speed it enters with): begun only at the turn in, a fast cruise came onto the pose at 9 u/s in its last half second
@@ -302,24 +363,15 @@ namespace BS3D.Effects
             for (int i = brookEnd; i <= releaseStart; i++) top = MathF.Max(top, TerrainMirror.MeadowGround(plan[i].X, plan[i].Y, meadow));
             float cruiseY = top + above;
 
-            //The heights and the speeds: the brook's height over the field easing up to the cruise's over the climb, and the
-            //brook's pace easing to the trees' before the willows and up from there to the cruise's; over the release, the height
-            //eased from where it was onto the pose's while the shared landing decelerates
-            var path = new List<Vector3>(plan.Count);
+            //The speeds: the brook's pace easing to the trees' before the willows and up from there to the cruise's (a smoothstep
+            //of the distance, so the acceleration has no step); and the look down the brook and over the pond, turning in towards
+            //the island as the lens comes off the brook's line, on a smootherstep: on a smoothstep the view turned at 50 degrees
+            //a second, the drone limit, onto one pose of MeadowLandingTests' sweep
             var speed = new float[plan.Count];
             var lean = new float[plan.Count];
-            float releaseY = 0f, sRelease = length[releaseStart];
             for (int i = 0; i < plan.Count; i++)
             {
-                float s = length[i], y;
-                if (i <= releaseStart)
-                {
-                    float low = TerrainMirror.MeadowGround(plan[i].X, plan[i].Y, meadow) + BROOK_ABOVE;
-                    y = MathHelper.Lerp(low, cruiseY, MathHelper.SmoothStep(0f, 1f, MathHelper.Clamp((s - sRise) / climb, 0f, 1f)));
-                    releaseY = y;
-                }
-                else y = MathHelper.Lerp(releaseY, endPosition.Y, MathHelper.SmoothStep(0f, 1f, (s - sRelease) / MathF.Max(total - sRelease, 1e-3f)));
-
+                float s = length[i];
                 if (i <= settleFrom)
                 {
                     float brook = MathHelper.Lerp(BROOK_SPEED, TREES_SPEED, MathHelper.SmoothStep(0f, 1f,
@@ -328,17 +380,47 @@ namespace BS3D.Effects
                         MathHelper.Clamp((s - sAccelerate) / MathF.Max(sCruise - sAccelerate, 1f), 0f, 1f)));
                 }
 
-                //The look down the brook and over the pond, turning in towards the island as the lens comes off the brook's line
-                lean[i] = MathHelper.SmoothStep(0f, 1f, MathHelper.Clamp((s - length[brookEnd]) / MathF.Max(sCruise - length[brookEnd], 1f), 0f, 1f));
+                lean[i] = IntroLanding.Smoother((s - length[brookEnd]) / MathF.Max(sCruise - length[brookEnd], 1f));
+            }
+
+            //The flight's own clock at each point, as the shared landing will time it (IntroLanding.Fly): the route's speeds,
+            //then the drone's settle onto the pose
+            var clock = new float[plan.Count];
+            float settleLength = total - length[settleFrom], settleSeconds = Landing.ReleaseTimeScale * settleLength / speed[settleFrom];
+            for (int i = 1; i < plan.Count; i++)
+                clock[i] = i <= settleFrom ? clock[i - 1] + (length[i] - length[i - 1]) / speed[i]
+                    : clock[settleFrom] + settleSeconds * IntroLanding.DroneSettled((length[i] - length[settleFrom]) / MathF.Max(settleLength, 1e-3f));
+
+            //The heights, eased on that clock, as a drone's climb rate changes (#1187): the brook's over the field, climbing to
+            //the cruise's over climbSeconds from CLIMB_LEAD before sRise; over the release, from that onto the pose's while the
+            //landing decelerates. Both on a smootherstep, a choice no limit tells from a smoothstep: the landing's rounding of
+            //its timed points (IntroLanding.DRONE_ROUNDING_SECONDS) turns a smoothstep's steps in the acceleration into ramps
+            //well inside the drone limits
+            int rise = 0;
+            while (rise < plan.Count - 1 && length[rise] < sRise) rise++;
+            float climbFrom = clock[rise] - CLIMB_LEAD;
+
+            //The brook's height it climbs from, over the field and rounded along the plan (LOW_ROUNDING)
+            var low = new float[plan.Count];
+            for (int i = 0; i < plan.Count; i++) low[i] = TerrainMirror.MeadowGround(plan[i].X, plan[i].Y, meadow) + BROOK_ABOVE;
+            low = AridIntroPaths.Rounded(low, LOW_ROUNDING / STEP, turnOver: true);
+
+            //⚠ The descent eases in off the climb as it is still going, not off the height it had at the release: where the
+            //circle is short, the climb is still rising there, and held at that height from one frame to the next the lens
+            //stopped climbing at up to 20 u/s² (the drone limit, MeadowLandingTests' sweep)
+            var path = new List<Vector3>(plan.Count);
+            float descend = MathF.Max(clock[^1] - clock[releaseStart], 1e-3f);
+            for (int i = 0; i < plan.Count; i++)
+            {
+                float y = MathHelper.Lerp(low[i], cruiseY, IntroLanding.Smoother((clock[i] - climbFrom) / climbSeconds));
+                if (i > releaseStart) y = MathHelper.Lerp(y, endPosition.Y, IntroLanding.Smoother((clock[i] - clock[releaseStart]) / descend));
 
                 path.Add(new Vector3(plan[i].X, y, plan[i].Y));
             }
             path[^1] = endPosition;
 
             //How long it will take (the shared landing's own timing), so the one nearest TARGET_SECONDS is preferred
-            float estimate = 0f;
-            for (int i = 1; i <= settleFrom; i++) estimate += (length[i] - length[i - 1]) / speed[i];
-            estimate += Landing.ReleaseTimeScale * (total - length[settleFrom]) / speed[settleFrom];
+            float estimate = clock[^1];
 
             //The best is the length asked for, arriving along the pose's facing, climbing early
             float swivel = MathF.Acos(MathHelper.Clamp(Vector2.Dot(arrive, facing), -1f, 1f));
@@ -401,6 +483,22 @@ namespace BS3D.Effects
         //A cosine ease from 1 at 0 to 0 at 1, flat at both ends
         private static float Bump(float x) => 0.5f + 0.5f * MathF.Cos(MathF.PI * MathHelper.Clamp(x, 0f, 1f));
 
+        /// <summary>
+        /// A plan rounded by a Gaussian of <paramref name="sigma"/> points (#1187, <see cref="AridIntroPaths.Rounded"/>), each
+        /// end turned over itself, so the rounded plan starts and ends exactly where it was laid and leaves and arrives the
+        /// way it was going.
+        /// </summary>
+        private static void Round(List<Vector2> plan, float sigma)
+        {
+            var x = new float[plan.Count];
+            var z = new float[plan.Count];
+            for (int i = 0; i < plan.Count; i++) (x[i], z[i]) = (plan[i].X, plan[i].Y);
+
+            x = AridIntroPaths.Rounded(x, sigma, turnOver: true);
+            z = AridIntroPaths.Rounded(z, sigma, turnOver: true);
+            for (int i = 0; i < plan.Count; i++) plan[i] = new Vector2(x[i], z[i]);
+        }
+
         //The unit vector to the left of a run at a point
         private static Vector2 Across(List<Vector2> run, int i)
         {
@@ -413,6 +511,13 @@ namespace BS3D.Effects
         private static Vector2 Tangent(float bearing, int sign) => new(-sign * MathF.Sin(bearing), sign * MathF.Cos(bearing));
 
         private static float Roll(Random random, float min, float max) => min + (max - min) * (float)random.NextDouble();
+
+        /// <summary>The ground the flight keeps <see cref="LOWEST"/> over: the cut field, and the island's bank near the axis.</summary>
+        internal static float Floor(float x, float z, MeadowSceneConfig meadow)
+        {
+            float ground = TerrainMirror.Meadow(x, z, meadow);
+            return x * x + z * z < ISLAND_FOOT_REACH * ISLAND_FOOT_REACH ? MathF.Max(ground, ISLAND_BANK_TOP) : ground;
+        }
 
         /// <summary>
         /// What a point of the flight may not be near (see the class's note): the ground, the arena nearer than the pose, the
@@ -462,10 +567,7 @@ namespace BS3D.Effects
             public bool Clear(Vector3 p)
             {
                 if (MathF.Sqrt(p.X * p.X + p.Z * p.Z) < _keepOut) return false;
-
-                float ground = TerrainMirror.Meadow(p.X, p.Z, _meadow);
-                if (p.X * p.X + p.Z * p.Z < ISLAND_FOOT_REACH * ISLAND_FOOT_REACH) ground = MathF.Max(ground, ISLAND_BANK_TOP);
-                if (p.Y < ground + LOWEST) return false;
+                if (p.Y < Floor(p.X, p.Z, _meadow) + LOWEST) return false;
 
                 float overField = p.Y - TerrainMirror.MeadowGround(p.X, p.Z, _meadow);
                 if (overField < REED_TOP + MARGIN && InReeds(p)) return false;
