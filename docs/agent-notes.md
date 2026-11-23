@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-23 — #1191 uvolněné kuličky se po čase rozplynou — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: uvolněná kulička, která je 5 s po uvolnění pořád nad podlahou pole (`LooseBallTimeout.FIELD_SECONDS`, číslo majitele), se 1 s rozpouští ditherem mrtvé váhy a odejde přes `PhysicsWorld.RetireBall`. Hodiny jdou s hrou (pauza drží), skóre se nemění, náhradní dávka je `Untimed`, karta mrtvé váhy padá dřív. Podlaha jde se sklem dolů až k čáře smrti (`ClusterHang.FieldFloorY`); padající kulička (> 2 u/s) počká. `logshots` píše řádky `[loose]`.
+- ⚠ Pojistka 12 s všude rozpustila na Pennantu 52 kuliček uprostřed pádu do odtoku (odtok trvá až 12,9 s); pod podlahou proto žádný časovač.
+- Otevřené: `verdict-eye` (rychlost a pocit rozplynutí, karta na obrazovce i po odchodu kuličky). Rozhodnutí majiteli: chytat zaklíněné kuličky pod podlahou podle klidu? Délka 1 s?
+
 ## 2026-11-23 — #1214 menu: průlet nad skleněným stropem — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: třetí výlet kamery menu (`GlassPass`, každý čtvrtý cyklus; dělo dál 1/3, shluk 5/12). Klesne z 40–52 na 3,5–6 nad desku, 12° od svislice, čtvrtotočka, mezi lany, strop pod střechou. Jen kde tier láme sklo (`RefractsCeiling`); na Low a Potato shluk místo něj. Sklo menu se při průletu vyjasní z 0,7 na hrané 0,48. `menuglass=pass` (nejkratší hodnoty, stejné vteřiny v každém běhu). Sonda kvality průlet nesoudí.
