@@ -57,7 +57,8 @@ namespace BS3D.Screens
         /// <summary>
         /// How much of the frame's narrower half-angle the plate's footprint (its circumradius) fills from the far height:
         /// a little over half, so the far view is the map from above with its glass and the island round it, and the
-        /// descent has somewhere to go. 30 units over a twelve-wide field at 16:9, 48 over a twenty-wide one.
+        /// descent has somewhere to go. About 32 units over a twelve-wide field and 52 over a twenty-wide one, the frame's
+        /// vertical half-angle being the narrower at any window wider than it is tall.
         /// </summary>
         public const float FAR_SHARE = 0.55f;
 

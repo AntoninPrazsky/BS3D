@@ -31,7 +31,8 @@ namespace BS3D.Screens
     /// juicy map awaits them to shoot apart. The map is drawn again at random on every return to the front
     /// end (<see cref="BS3DGame.ReturnToMainMenu"/>). And since #1040 the gun stands under it
     /// (<see cref="MenuGun"/>), loaded in the map's own colours, and the camera now and then comes to it
-    /// (<see cref="BlendGunPass"/>).
+    /// (<see cref="BlendGunPass"/>). Since #1214 it now and then climbs over the glass instead and looks down through it at
+    /// the map, closing in until the cut and what it bends fill the frame (<see cref="BlendGlassPass"/>).
     /// </para>
     /// <para>
     /// And since #254 the camera does more than turn: it is <b>framed for the map that is actually hanging</b>
