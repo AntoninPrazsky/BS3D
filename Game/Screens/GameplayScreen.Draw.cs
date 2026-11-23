@@ -776,6 +776,9 @@ namespace BS3D.Screens
                     //since one that missed is still in _shotBalls on the way back down. The panel's floor cull turns
                     //on it (#134)
                     FromAbove = letGo || ball.RoseAboveDeathLine,
+
+                    //Going as the ball goes (#1191): zero on every shot and on every released ball still on its time
+                    Vanish = ball.Vanish,
                 };
             }
         }

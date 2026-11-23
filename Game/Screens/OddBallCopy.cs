@@ -52,7 +52,8 @@ namespace BS3D.Screens
         //ball a player is likeliest to meet - any colour that has come to rest above the field's floor after the cluster let it
         //go, drawn with pixels missing (#620). A friend of the owner's took it for a special he could not make sense of, which
         //is why it stands on this tab: it is where a player looks for a strange ball. Its square draws the mark as the map
-        //does, and the tutorial's card (Tutorial, "deadweight") says the same in fewer words.
+        //does, and the tutorial's card (Tutorial, "deadweight") says the same in fewer words. Its last sentence is the
+        //timeout (#1191, LooseBallTimeout): the ball dissolves the rest of the way and is gone.
 
         /// <summary>The line before the dead weight's entry.</summary>
         internal const string DeadLead = "And one that is no special at all, just a ball on its way out.";
@@ -62,7 +63,7 @@ namespace BS3D.Screens
 
         /// <summary>What the dead weight's entry says.</summary>
         internal const string DeadText = "It has been shot down and counted, but got stuck on its way down. Your shots pass "
-            + "straight through it, so there is no need to aim at it.";
+            + "straight through it, so there is no need to aim at it. It fades away after a few seconds.";
 
         /// <summary>The colour the dead weight's ball is drawn in beside it.</summary>
         internal const BallType DeadColour = BallType.Type2;

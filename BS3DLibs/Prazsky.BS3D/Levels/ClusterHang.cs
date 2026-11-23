@@ -121,6 +121,29 @@ namespace Prazsky.BS3D.Levels
         public const float BELOW_LINE_GRACE = 1.5f;
 
         /// <summary>
+        /// <b>The field's floor where the glass has taken it</b>, in world Y: the height above which a released ball that
+        /// has stopped is dead weight (#342, <c>ClusterCollector</c>'s mark) and is on the loose timeout (#1191,
+        /// <c>LooseBallTimeout</c>), one figure for both so a ball that wears the mark is a ball the timeout takes. The
+        /// lattice's lowest level as the load hung it (<see cref="FitWorldOffset"/>'s Y), lowered as far as the glass now
+        /// hangs under its rest, since the bodies are dragged down with it, a step at a time.
+        /// <para>
+        /// <b>It follows the hang</b>: the load's floor alone stays put while every step takes the cluster lower, so late
+        /// in a level a ball wedged on the cluster's lowest balls sat under it, never wore the mark and never went (on a
+        /// 16-level field the load's floor is 2.5 units over the line, about four steps). <b>Never under the death
+        /// line</b>: a field whose empty bottom levels the glass has dragged under the line would otherwise reach down to
+        /// the island's stone, where a resting ball's centre is half a unit under the line (<see cref="ArenaIsland.TOP_Y"/>
+        /// plus a radius at the highest, the line a unit over it), and time the balls on their way into the drain. Between
+        /// the two only the cluster, or a crate a level stands there, can hold a ball up: the island's collider is the stone
+        /// and the funnel (<c>FunnelPhysics</c>).
+        /// </para>
+        /// </summary>
+        /// <param name="loadFloorY">Where the load hung the field's lowest level (<see cref="FitWorldOffset"/>'s Y).</param>
+        /// <param name="glassBelowRest">How far the glass hangs under its rest now: every descent since the load less every
+        /// brake.</param>
+        public static float FieldFloorY(float loadFloorY, float glassBelowRest) =>
+            MathF.Max(DEATH_Y, loadFloorY - glassBelowRest);
+
+        /// <summary>
         /// The lattice-to-world offset a field is hung by, and the Y its topmost level ends up at.
         /// <para>
         /// Y hangs the top of the field at <see cref="FIELD_TOP_Y"/> — or higher, when the field is deep

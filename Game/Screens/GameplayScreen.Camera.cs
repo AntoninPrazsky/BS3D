@@ -711,6 +711,16 @@ namespace BS3D.Screens
             _clusterWorldOffset - new Vector3(0f, _ceilingDescent.RestY - _ceilingDescent.TargetY, 0f);
 
         /// <summary>
+        /// The field's floor <b>now</b>, in world Y (<see cref="Prazsky.BS3D.Levels.ClusterHang.FieldFloorY"/>, which
+        /// says why it follows the hang and stops at the death line): the height above which a released ball that has
+        /// stopped is dead weight (#342) and is on the loose timeout (#1191), one figure for both. Off
+        /// <see cref="CeilingDescent.Y"/>, where the glass hangs this frame, rather than the step's target
+        /// <see cref="AimWorldOffset"/> reads, since the bodies are dragged with the glass as it slides.
+        /// </summary>
+        private float FieldFloorY =>
+            Prazsky.BS3D.Levels.ClusterHang.FieldFloorY(_clusterWorldOffset.Y, _ceilingDescent.RestY - _ceilingDescent.Y);
+
+        /// <summary>
         /// The topmost level a tall level's gun is solved and policed for — the working band's roof, the
         /// column's underside plus <see cref="TALL_AIM_HEADROOM_LEVELS"/>. Held to a band just above the
         /// underside, the player has to eat the column from the bottom, and the descent is what hands them the

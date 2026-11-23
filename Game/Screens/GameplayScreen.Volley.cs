@@ -76,8 +76,8 @@ namespace BS3D.Screens
         }
 
         //One spare ball out of the barrel: the colour at the muzzle, a ball with no listener (it lands on nothing that counts)
-        //kept with the released balls, so it is drawn and culled as they are; and the shot's smear, recoil, sound and buzz,
-        //smaller, with the count's tick climbing
+        //kept with the released balls, so it is drawn and culled as they are, but off the loose timeout (#1191): its flight is
+        //the count, and it drains by itself; and the shot's smear, recoil, sound and buzz, smaller, with the count's tick climbing
         private void FireSpareBall(float ago)
         {
             Vector3 direction = _cannon.FireDirection;
@@ -93,6 +93,7 @@ namespace BS3D.Screens
                 BallReference = _world.AddLooseBall(at.ToNumerics(), velocity.ToNumerics()),
                 Type = LoadedColour(0),
                 Kind = BallKind.Normal,
+                Untimed = true,
             });
 
             _smears.Add(muzzle, direction, LoadedTint(0));

@@ -274,7 +274,8 @@ namespace Prazsky.BS3D.Physics
         /// <summary>
         /// How far this ball has crossed to its <b>dead weight</b> look, 0 alive and 1 fully marked (#342) —
         /// a released ball that has come to rest against its neighbours, so nothing a shot can do reaches it.
-        /// Eased rather than switched, so nothing pops.
+        /// Eased rather than switched, so nothing pops. It eases back if the ball moves again, but not once the ball has
+        /// begun its last dissolve (<see cref="Vanish"/>), which is drawn carried on from it.
         /// <para>
         /// Kept on the ball for the reason <see cref="RippleTime"/> and <see cref="ColourFadeRemaining"/> are,
         /// and advanced by the same once-per-frame walk. It is <b>cosmetic</b>: what a ball is worth to the
@@ -282,6 +283,29 @@ namespace Prazsky.BS3D.Physics
         /// </para>
         /// </summary>
         public float DeadWeight;
+
+        /// <summary>
+        /// How long ago the cluster let this ball go, in seconds of the <b>world's</b> clock (#1191): advanced by the Game's
+        /// cull for as long as the ball is among its released ones, through <see cref="LooseBallTimeout.Advance"/>, so a
+        /// pause holds it and the steps the world really took move it. Zero on every ball that was never released.
+        /// </summary>
+        public float LooseSeconds;
+
+        /// <summary>
+        /// How far this released ball is through its <b>last</b> dissolve, 0 whole and 1 gone (#1191): the dither the dead
+        /// weight is drawn with (<see cref="DeadWeight"/>), carried the whole way, after which the ball is retired. Raised by
+        /// <see cref="LooseBallTimeout.Advance"/> once the ball has outstayed its time and never lowered, so a ball that has
+        /// begun to go goes, wherever it rolls meanwhile. Unlike the dead weight it is not cosmetic alone: it ends the
+        /// body. What the ball was worth was settled when it was released, and its going counts nothing.
+        /// </summary>
+        public float Vanish;
+
+        /// <summary>
+        /// Whether <see cref="LooseBallTimeout"/> leaves this ball alone (#1191): a ball the Game keeps among the released
+        /// ones without the cluster having let it go, the spare volley's (#881). Its flight is the count the player is
+        /// watching and it drains by itself; no clock is advanced on it.
+        /// </summary>
+        public bool Untimed;
 
         /// <summary>
         /// Whether this ball, as a shot, has been above the death line: set by the game on the step it is seen there,

@@ -862,7 +862,8 @@ namespace BS3D.Tools.LevelGen
         /// <summary>
         /// The vase's colour: white wherever the handle tubes run - the tube wins over the body where they
         /// overlap at the shoulder and the neck, which is exactly what makes each loop one connected white
-        /// group from springing to landing - and the alternating orange/black gores everywhere else.
+        /// group from springing to landing - the alternating orange/black gores over the belly, and blue and red
+        /// at the solid foot and neck.
         /// </summary>
         private static BallType AmphoraColour(float r, float ang, int i, int depth)
         {
@@ -883,14 +884,23 @@ namespace BS3D.Tools.LevelGen
             //same finding. Six gores stop the body fusing across its own hollow, but the foot and the neck
             //are solid discs barely two cells across, and down there every gore is within a cell of every
             //other: whatever colour they carry, all three sheets of it meet. Handing the ends two colours
-            //nothing else uses cuts the body's orange and black apart at both ends for good, and it costs
-            //nothing to read - unglazed clay is exactly what the foot and the neck of a black-figure vase
-            //ARE. The ends stay TWO colours rather than one because the neck is what the whole vase hangs
-            //from: one colour on it and a single lucky ball takes the level off the glass.
+            //nothing else uses cuts the body's orange and black apart at both ends for good - painted
+            //bands at the foot and the lip, the way a vase is finished. The ends stay TWO colours rather
+            //than one because the neck is what the whole vase hangs from: one colour on it and a single
+            //lucky ball takes the level off the glass.
+            //
+            //⚠ THE ENDS ARE BLUE AND RED, NOT BROWN AND RED (#1194). Brown was the clay, and in the bubble's
+            //spots it is the one colour that sits between the two the body is made of: the twelve dots are
+            //a paler brown, which is an orange-brown, on a ground darkened to pay for them, which is nearly
+            //black - and the orange's four spots are the orange darkened, which is a brown. Beside a field of
+            //black and orange the brown read as either, and the owner could not tell the three apart
+            //(BALLS_MEADOW's rule since; the measurement is in docs/rendering/ball-palette.md). Of the colours
+            //the vase did not already hang, blue stands furthest from all four it hangs beside. It is a
+            //relabelling and nothing else: the same cells, the same groups, the same difficulty.
             int sector = SectorIndex(ang, AMPHORA_GORE_TWIST, AMPHORA_GORES);
 
             return AMPHORA_PROFILE[i] <= AMPHORA_PINCH
-                ? Band(sector, new[] { BallType.Type10, BallType.Type1 })   //brown, red - the clay ends
+                ? Band(sector, new[] { BallType.Type3, BallType.Type1 })    //blue, red - the painted ends
                 : Band(sector, new[] { BallType.Type9, BallType.Type8 });   //orange, black - the gores
         }
 

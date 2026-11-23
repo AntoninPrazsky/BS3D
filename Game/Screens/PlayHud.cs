@@ -690,6 +690,13 @@ namespace BS3D.Screens
             /// dealt into its slot, which nothing shows.
             /// </summary>
             public bool Cutter;
+
+            /// <summary>
+            /// How far the ball is through its last dissolve (#1191, <c>PhysicsBall.Vanish</c>), 0 whole and 1 gone: a
+            /// released ball that outstayed its time. Its ring fades with it, so the panel does not hold a ball the
+            /// field no longer shows.
+            /// </summary>
+            public float Vanish;
         }
 
         /// <summary>
@@ -3284,14 +3291,16 @@ namespace BS3D.Screens
                 //Down to the bottom of the frame and no further, which on a loss is free — nothing else is drawn
                 //under the panel then.
                 float sink = bottomY - marker.World.Y;
-                float alpha = 1f;
+
+                //A released ball dissolving away in the field fades out of the panel with it (#1191)
+                float alpha = 1f - marker.Vanish;
                 bool crossed = false;
 
                 if (sink > 0f)
                 {
                     if (!marker.InFlight) crossed = true;
                     else if (!marker.FromAbove || sink >= sinkFade) continue;
-                    else alpha = sink <= sinkHold ? 1f : 1f - (sink - sinkHold) / (sinkFade - sinkHold);
+                    else alpha *= sink <= sinkHold ? 1f : 1f - (sink - sinkHold) / (sinkFade - sinkHold);
                 }
 
                 float px = WorldToPanelX(marker.World);

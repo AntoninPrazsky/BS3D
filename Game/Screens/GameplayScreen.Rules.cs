@@ -584,7 +584,9 @@ namespace BS3D.Screens
         /// <c>DeadWeight</c> has eased up to 1, so it has stood still above the field's floor for the mark's hold and its
         /// fade (<c>ClusterCollector</c>, on the draw clock), and the map shows it as the card will. Only an ordinary ball:
         /// a special kind keeps its own look when it comes to rest (<c>BallRenderSet.Route</c> dithers the ordinary ones), so
-        /// it is not the ball the card explains. The card's ball is drawn in its colour. Asked every frame, and the walk over
+        /// it is not the ball the card explains. Nor one that has begun its last dissolve (#1191, <c>PhysicsBall.Vanish</c>):
+        /// the map no longer shows it as the card does, and it is gone within a second, so the card waits for a ball the
+        /// player can still find. The card's ball is drawn in its colour. Asked every frame, and the walk over
         /// the released balls is paid only while the card is armed, which is until a player has been taught it; never with
         /// the Tutorial row off (it stays armed) or on a decided level.
         /// </summary>
@@ -595,7 +597,7 @@ namespace BS3D.Screens
             for (int i = 0; i < _fallingBalls.Count; i++)
             {
                 PhysicsBall ball = _fallingBalls[i];
-                if (ball.Kind != BallKind.Normal || ball.DeadWeight < 1f) continue;
+                if (ball.Kind != BallKind.Normal || ball.DeadWeight < 1f || ball.Vanish > 0f) continue;
 
                 _tutorial.NoteDeadWeight(ball.Type);
 

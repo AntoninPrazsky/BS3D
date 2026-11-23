@@ -20,6 +20,25 @@ Pravidla:
 
 ---
 
+## 2026-11-24 — #1220 úvod Erupce: let po řece — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: Erupce na Medium, High a Ultra začíná záběrem „the river“ (3,5 s): kamera letí proti proudu východního ramene (1790→1655 po toku, asi 40 u/s, 10–17 nad vodou), vesnice vlevo, kužel se sloupem vpravo. Nahrazuje široký záběr sopky; Low a Potato mají staré tři záběry (16,5 s). Celkem 20,4 s, erupce, kráter a vesnice beze změny, výbuch dál 0,9 s po začátku erupce. Nové `VolcanoCountry.RiverCentre`, `AridIntroPaths.Even`, `RiverKeep`.
+- ⚠ Osa řeky vzorkovaná po jednotce dala trhnutí 500–850 u/s³ (limit 300); vyhlazení přes 30 jednotek vyneslo kameru za břeh. Platí 25 jednotek po čtvrtině.
+- Otevřené: `verdict-eye`; rozhodnutí majitele, zda široký záběr sopky ponechat i za řekou (řez 15° přes 302 jednotek, strop 20,5 s). Medium a pohyb neviděny.
+
+## 2026-11-23 — #1191 uvolněné kuličky se po čase rozplynou — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: uvolněná kulička, která je 5 s po uvolnění pořád nad podlahou pole (`LooseBallTimeout.FIELD_SECONDS`, číslo majitele), se 1 s rozpouští ditherem mrtvé váhy a odejde přes `PhysicsWorld.RetireBall`. Hodiny jdou s hrou (pauza drží), skóre se nemění, náhradní dávka je `Untimed`, karta mrtvé váhy padá dřív. Podlaha jde se sklem dolů až k čáře smrti (`ClusterHang.FieldFloorY`); padající kulička (> 2 u/s) počká. `logshots` píše řádky `[loose]`.
+- ⚠ Pojistka 12 s všude rozpustila na Pennantu 52 kuliček uprostřed pádu do odtoku (odtok trvá až 12,9 s); pod podlahou proto žádný časovač.
+- Otevřené: `verdict-eye` (rychlost a pocit rozplynutí, karta na obrazovce i po odchodu kuličky). Rozhodnutí majiteli: chytat zaklíněné kuličky pod podlahou podle klidu? Délka 1 s?
+
+## 2026-11-23 — #1194 Amfora: modrá místo hnědé — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: noha a hrdlo Amfory modré a červené místo hnědé a červené (44 koulí Type10 → Type3 v `AmphoraColour`, level přegenerován). Tvar, skupiny i obtížnost stejné (14 skupin, nejkratší dohrání 4).
+- ⚠ Rig barev sloučení neukáže (bublina ukazuje oblohu za sebou): černá/hnědá tam 28,1, v levelu jen 11,5–19,8 (CIEDE2000, medián koule). Příčina: tečky hnědé jsou světle oranžovohnědé na skoro černém podkladu (GROUND_MIN), skvrny oranžové jsou tmavě oranžové, tedy hnědé. Bez ozdob je to 31,6. Měřit v levelu, ne na rigu.
+- Nový test `BubblePaletteTests`: bublinový level nesmí věšet hnědou vedle černé nebo oranžové (viděn selhat na starém levelu).
+- Otevřené: `verdict-eye` (čte se modrá noha pořád jako amfora?); online žebříček Amfory začíná znovu (nový hash, potřebuje ceilings). Neměřeno: stejná hnědá s tmavým podkladem ve vlně, porcelánu a plazmě vedle černé.
+
 ## 2026-11-23 — #1214 menu: průlet nad skleněným stropem — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: třetí výlet kamery menu (`GlassPass`, každý čtvrtý cyklus; dělo dál 1/3, shluk 5/12). Klesne z 40–52 na 3,5–6 nad desku, 12° od svislice, čtvrtotočka, mezi lany, strop pod střechou. Jen kde tier láme sklo (`RefractsCeiling`); na Low a Potato shluk místo něj. Sklo menu se při průletu vyjasní z 0,7 na hrané 0,48. `menuglass=pass` (nejkratší hodnoty, stejné vteřiny v každém běhu). Sonda kvality průlet nesoudí.

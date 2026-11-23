@@ -38,7 +38,7 @@ The owner's decision on #1007 ("there is no sign of the impact's energy on the o
 
 ## Culling
 
-**Falling below `KILL_PLANE_Y` is the only thing that removes a ball** (the Testbed also culls sleeping balls). ⚠ **`_shotBalls` holds shot *bodies*, not shots in flight** (#66): a ball resting on the stone stays in it for the session, so a loss gated on `_shotBalls.Count == 0` could never fire. Ask `AnyShotUndecided`: the **contact-listener flag** (a ball stops listening exactly when its shot resolves) plus `Awake` (a ball resting on another loose shot touched nothing static).
+**Falling below `KILL_PLANE_Y` removes a ball, and coming to rest never does** (the Testbed also culls sleeping balls): a ball winking out in shot reads as a bug. Two exceptions, both in `RemoveFallenBalls`: a spent cutter goes on the step it struck (#823), and **a released ball still above the field's floor `LooseBallTimeout.FIELD_SECONDS` (5 s) after its release, and not falling out of it (`FALLING_SPEED`), dissolves away over `VANISH_SECONDS` and is retired** (#1191, aged on the world's clock, `_simulatedThisFrame`); below the floor nothing is timed, since a big drop drains through the funnel's hole for up to 13 s ([Dead weight](../game-feedback/dead-weight.md#it-goes-after-its-time-1191)). ⚠ **`_shotBalls` holds shot *bodies*, not shots in flight** (#66): a ball resting on the stone stays in it for the session, so a loss gated on `_shotBalls.Count == 0` could never fire. Ask `AnyShotUndecided`: the **contact-listener flag** (a ball stops listening exactly when its shot resolves) plus `Awake` (a ball resting on another loose shot touched nothing static).
 
 ## Wind (#95)
 
