@@ -12,9 +12,9 @@ namespace BS3D.Tests
 {
     /// <summary>
     /// The loose ball's timeout (#1191, <see cref="LooseBallTimeout"/>): a released ball that wedged in the field goes after its
-    /// time, dissolving the whole way, and is retired once, with nothing counted for it again; one below the field is left its
-    /// fall until the backstop; the spare volley's balls never go; and the drawn dissolve carries the dead weight's mark on to
-    /// the whole ball.
+    /// time, dissolving the whole way, and is retired once, with nothing counted for it again; one below the field, or falling
+    /// out of it, is left its fall; the spare volley's balls never go; and the drawn dissolve carries the dead weight's mark on
+    /// to the whole ball.
     /// </summary>
     public class LooseBallTimeoutTests
     {
