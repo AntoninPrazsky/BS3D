@@ -39,6 +39,12 @@ namespace BS3D.Tests
     /// home) and 289 u/s³ (the volcano's village, an orbit at 60 u/s).
     /// </para>
     /// <para>
+    /// <b>And the bank</b> (#1220): a lens that rolls (the volcano's helicopter run up its river, and the two landings here,
+    /// the desert's scorpion home and the meadow's brook home, banked into their turns by <see cref="IntroLanding"/>) is
+    /// rolled and levelled as the view is tilted, at most <see cref="MAX_ROLL_RATE"/> and reached in no less than half a
+    /// second (<see cref="MAX_ROLL_ACCELERATION"/>).
+    /// </para>
+    /// <para>
     /// ⚠ <b>Smooth is not allowed to mean high</b>: a lens flown well over the ground is trivially smooth. So every
     /// frame keeps its shot's clearance over the ground under it, and a shot with no designed floor stays on average
     /// within <see cref="MAX_MEAN_LIFT"/> of its clearance on every roll (on its worst roll the pass, over the roughest
@@ -75,6 +81,11 @@ namespace BS3D.Tests
         //to neither, swung the view at 224 °/s² and jumped the lens at 3111 u/s³ where the pieces of its route met.
         internal const double MAX_YAW_ACCELERATION = 100.0;
         internal const double MAX_JERK = 300.0;
+
+        //And the bank (#1220: the volcano's river, the scorpion home and the brook home bank): rolled and levelled as the tilt
+        //is, at most 20 degrees a second and that rate reached in no less than half a second
+        internal const double MAX_ROLL_RATE = 20.0;
+        internal const double MAX_ROLL_ACCELERATION = 40.0;
 
         //The low runs along their own travel and the crater's climb were "too fast" at 30-59 u/s (#645).
         private const double MAX_SPEED = 28.0;
@@ -139,8 +150,9 @@ namespace BS3D.Tests
                 ["outback: the plain"] = new(r => OutbackIntroShots.Plain(monolith, plain, FieldOfView, r), plain, OutbackIntroShots.WIDE_CLEARANCE, false, false),
                 ["outback: the approach"] = new(r => OutbackIntroShots.Approach(outback, monolith, plain, FieldOfView, r), plain, OutbackIntroShots.APPROACH_CLEARANCE, false, true),
                 ["outback: the crown"] = new(r => OutbackIntroShots.Crown(outback, monolith, plain, FieldOfView, r), plain, OutbackIntroShots.CRANE_CLEARANCE, false, false),
-                //A run up the water at about 40 u/s, its subject far ahead (#1220): held to the ride, not to the low runs' speed
-                ["volcano: the river"] = new(r => VolcanoIntroShots.River(cone, vent, volcano, FieldOfView, r), cone, VolcanoIntroShots.RIVER_LOW, false, false),
+                //A helicopter's glide high up the river at about 28 u/s, its subject far ahead, coming down, banking and turning its
+                //look (#1220): held to the ride, not to the low runs' speed
+                ["volcano: the river"] = new(r => VolcanoIntroShots.River(cone, vent, volcano, FieldOfView, r), cone, VolcanoIntroShots.RIVER_CLEARANCE, false, false),
                 ["volcano: the crater"] = new(r => VolcanoIntroShots.Crater(cone, vent, volcano, FieldOfView, r), cone, VolcanoIntroShots.CLIMB_CLEARANCE, true, false),
                 //An orbit high over the land (#1127), not a run along the ground: held to the ride, not to the low runs' speed
                 ["volcano: the village"] = new(r => VolcanoIntroShots.Village(cone, vent, volcano, FieldOfView, r), cone,
@@ -218,9 +230,10 @@ namespace BS3D.Tests
 
             //The worst over the rolls first, so a failing shot still says how far over it is
             _output.WriteLine(string.Format(CultureInfo.InvariantCulture,
-                "{0}: speed {1:F1} u/s, vertical {2:F1} u/s² {3:F0} u/s³, pitch {4:F1}°/s {5:F0}°/s², yaw {6:F1}°/s {10:F0}°/s², jerk {11:F0} u/s³, clearance least {7:F2} mean {8:F1} highest {9:F1}",
+                "{0}: speed {1:F1} u/s, vertical {2:F1} u/s² {3:F0} u/s³, pitch {4:F1}°/s {5:F0}°/s², yaw {6:F1}°/s {10:F0}°/s², jerk {11:F0} u/s³, roll {12:F1}°/s {13:F0}°/s², clearance least {7:F2} mean {8:F1} highest {9:F1}",
                 name, worst.Speed, worst.PeakVerticalAcceleration, worst.PeakVerticalJerk, worst.PeakPitchRate, worst.PeakPitchAcceleration,
-                worst.PeakYawRate, worst.LeastClearance, worst.MeanClearance, worst.HighestClearance, worst.PeakYawAcceleration, worst.PeakJerk));
+                worst.PeakYawRate, worst.LeastClearance, worst.MeanClearance, worst.HighestClearance, worst.PeakYawAcceleration, worst.PeakJerk,
+                worst.PeakRollRate, worst.PeakRollAcceleration));
 
             for (int seed = 1; seed <= shot.Rolls; seed++)
             {
@@ -244,6 +257,9 @@ namespace BS3D.Tests
                 Assert.True(ride.PeakYawAcceleration <= MAX_YAW_ACCELERATION,
                     $"{name} (roll {seed}): the view's turn changes at {ride.PeakYawAcceleration:F0} degrees a second squared at t={ride.PeakYawAccelerationAt:F2}");
                 Assert.True(ride.PeakJerk <= MAX_JERK, $"{name} (roll {seed}): the lens's acceleration jumps at {ride.PeakJerk:F0} u/s³ at t={ride.PeakJerkAt:F2}");
+                Assert.True(ride.PeakRollRate <= MAX_ROLL_RATE, $"{name} (roll {seed}): the lens banks {ride.PeakRollRate:F1} degrees a second");
+                Assert.True(ride.PeakRollAcceleration <= MAX_ROLL_ACCELERATION,
+                    $"{name} (roll {seed}): the lens's bank changes at {ride.PeakRollAcceleration:F0} degrees a second squared");
             }
         }
 
@@ -327,6 +343,7 @@ namespace BS3D.Tests
             public double PeakVerticalAcceleration, PeakVerticalAccelerationAt, PeakVerticalJerk, PeakVerticalJerkAt;
             public double PeakPitchRate, PeakPitchAcceleration, PeakPitchAccelerationAt, PeakYawRate;
             public double PeakYawAcceleration, PeakYawAccelerationAt, PeakJerk, PeakJerkAt;
+            public double PeakRollRate, PeakRollAcceleration;
 
             public Ride Worst(Ride other) => new()
             {
@@ -341,6 +358,8 @@ namespace BS3D.Tests
                 PeakYawRate = Math.Max(PeakYawRate, other.PeakYawRate),
                 PeakYawAcceleration = Math.Max(PeakYawAcceleration, other.PeakYawAcceleration),
                 PeakJerk = Math.Max(PeakJerk, other.PeakJerk),
+                PeakRollRate = Math.Max(PeakRollRate, other.PeakRollRate),
+                PeakRollAcceleration = Math.Max(PeakRollAcceleration, other.PeakRollAcceleration),
             };
         }
 
@@ -352,6 +371,7 @@ namespace BS3D.Tests
             var position = new Vector3[frames];
             var pitch = new double[frames];
             var yaw = new double[frames];
+            var roll = new double[frames];
             var ride = new Ride { LeastClearance = double.MaxValue };
 
             for (int i = 0; i < frames; i++)
@@ -359,6 +379,7 @@ namespace BS3D.Tests
                 shot.Pose(i / (float)(frames - 1), out Vector3 p, out Vector3 target);
                 Vector3 forward = Vector3.Normalize(target - p);
                 position[i] = p;
+                roll[i] = MathHelper.ToDegrees(shot.RollAt(i / (float)(frames - 1)));
                 pitch[i] = MathHelper.ToDegrees(MathF.Asin(MathHelper.Clamp(forward.Y, -1f, 1f)));
 
                 //Unwrapped, so a heading through south is not a jump of 360 degrees.
@@ -380,6 +401,7 @@ namespace BS3D.Tests
                 travelled += Vector3.Distance(position[i], position[i - 1]);
                 ride.PeakPitchRate = Math.Max(ride.PeakPitchRate, Math.Abs(pitch[i] - pitch[i - 1]) / dt);
                 ride.PeakYawRate = Math.Max(ride.PeakYawRate, Math.Abs(yaw[i] - yaw[i - 1]) / dt);
+                ride.PeakRollRate = Math.Max(ride.PeakRollRate, Math.Abs(roll[i] - roll[i - 1]) / dt);
             }
 
             ride.Speed = travelled / shot.Seconds;
@@ -396,6 +418,8 @@ namespace BS3D.Tests
 
                 double swing = Math.Abs(yaw[i + 1] - 2.0 * yaw[i] + yaw[i - 1]) / (dt * dt);
                 if (swing > ride.PeakYawAcceleration) (ride.PeakYawAcceleration, ride.PeakYawAccelerationAt) = (swing, t);
+
+                ride.PeakRollAcceleration = Math.Max(ride.PeakRollAcceleration, Math.Abs(roll[i + 1] - 2.0 * roll[i] + roll[i - 1]) / (dt * dt));
 
                 if (i + 2 >= frames - EDGE_FRAMES + 1) continue;
 

@@ -5,18 +5,20 @@ using System;
 namespace BS3D.Effects
 {
     /// <summary>
-    /// The volcano's own shots for a chapter intro's prologue (#530, #975, #1127, #1220): a low run up the river between the
-    /// ranges with the village on the left and the cone on the right, a cut to the cone from its foot as a burst goes off, a
-    /// climb up the flank that crests the rim and looks down into the crater, then an orbit round the village on the land past
-    /// the field that ends with the cone smoking over it — cut together, then cut to the tour's last leg. The owner's verdict
-    /// on #509 was that the intro "never looks INTO the volcano from above", and the standard tour cannot: it is a spline round
-    /// the arena, and the crater is a bowl on a summit 250 units off, up 140, that every reference of #509 is built round. His
+    /// The volcano's own shots for a chapter intro's prologue (#530, #975, #1127, #1220): a helicopter's run high up the river
+    /// out of the ranges, ending with the village on the left and the cone on the right, a cut to the cone from its foot as a
+    /// burst goes off, a climb up the flank that crests the rim and looks down into the crater, then an orbit round the
+    /// village on the land past the field that ends with the cone smoking over it — cut together, then cut to the tour's last
+    /// leg. The owner's verdict on #509 was that the intro "never looks INTO the volcano from above", and the standard tour
+    /// cannot: it is a spline round the arena, and the crater is a bowl on a summit 250 units off, up 140, that every reference
+    /// of #509 is built round. His
     /// note on #975 was that the first two shots were the same picture (both from the arena's side with the lens on the vent):
     /// "start with a global view of the volcano, then a cut to the volcano spewing, then the continuation". His note on #1127,
     /// that the player never notices the land at all ("there should also be shots of the village, the river, the mountains
     /// and the forests in the distance"): the play camera faces the cone, the land is behind it, and only the intro looks at
     /// it. And on #1220, that the first shot should be taken from the river: "the camera flies in over the river between the
-    /// mountains, past the forest; on the left the village is then visible, on the right the volcano".
+    /// mountains, past the forest; on the left the village is then visible, on the right the volcano", flown "much higher - as
+    /// if it were a view from a helicopter".
     /// <para>
     /// <b>The river is the reel's global view where the land is drawn.</b> It holds the vent, the cone's foot and the island
     /// in the frame throughout, which is what the volcano's own wide shot (five hundred units out, high) was there for, and it
@@ -24,8 +26,8 @@ namespace BS3D.Effects
     /// down, and the reel is held to its length (<c>VolcanoIntroShotsTests</c>) with no room for both.
     /// </para>
     /// <para>
-    /// <b>Each shot stands somewhere else than the one before it.</b> The river runs up its valley on the far side of the
-    /// arena from the cone, eight hundred to a thousand units from it; the eruption is seen from the cone's foot, low, round
+    /// <b>Each shot stands somewhere else than the one before it.</b> The river runs high up its valley on the far side of the
+    /// arena from the cone, eight to nine hundred units from it; the eruption is seen from the cone's foot, low, round
     /// to one side; the crater run climbs from the arena's side; the village is orbited on the far side of the arena again,
     /// seven hundred units from the cone, two cuts after the river.
     /// <c>VolcanoIntroShotsTests</c> holds every cut to a lens that moves at least <c>MIN_CUT_DISTANCE</c> AND a view
@@ -165,46 +167,69 @@ namespace BS3D.Effects
         private const float VILLAGE_END_DOWN_DEGREES = ChapterIntro.MAP_KEY_MIN_ELEVATION_DEGREES - CUT_TO_THE_MAP_DEGREES;
         private const float VILLAGE_FOV = 1.35f;
 
-        //The river (#1220): a run upstream over the river's east arm (its run back out from its turn beside the
-        //village, on +X: docs/scenes/volcano.md), from RIVER_FROM to RIVER_TO along its course
-        //(VolcanoCountry.RIVER_COURSE, measured from its source; both moved together by up to RIVER_ROLL), 141 to 143
-        //units of flight as the lens follows the meanders and climbs, at about 40 a second. It starts in the valley the
-        //water cuts between the ranges (where the course runs 700 and more from the arena the valley's walls stand 30
-        //to 80 over the water 120 to 160 off it) and comes out towards the arena where the land falls away, past the
-        //banks' trees, climbing from RIVER_LOW to RIVER_HIGH over the water as the valley opens (the water lies level
-        //along the whole arm: a river never climbs, VolcanoCountry). The look is the bearing halfway between the
-        //village's roofs and the vent as the lens sees them, RIVER_LOOK_DOWN_DEGREES down: the village on the left, the
-        //cone and its column on the right, the island between and the river running into the frame under them. The hill
-        //on the left hides the village's roofs over the first half of the run, and it comes out from behind it: "then
-        //visible".
+        //The river (#1220): a helicopter's run up the river's east arm (its run back out from its turn beside the village, on +X:
+        //docs/scenes/volcano.md) where its valley opens out of the ranges towards the field, over its course from RIVER_FROM to
+        //RIVER_TO (VolcanoCountry.RIVER_COURSE, measured from its source; both moved together by up to RIVER_ROLL). The owner's
+        //verdict on the low run first built here, ten to seventeen over the water: "raise the camera well away from the river"
+        //rather than give the banks and the woods the detail a lens among them needs, "as if it were a view from a helicopter.
+        //But it must be smooth and cinematic - dramatic, even". So it starts RIVER_HIGH_FROM over the water, over the hills
+        //either side of the valley's mouth (their tops 50 to 85 over the water within 300 of it there), and comes down at a
+        //steady rate to RIVER_HIGH_TO by the end, banking into the river's bend (RIVER_BANK_DEGREES) and turning its look with
+        //it, as the village comes in on the left. Never lower than RIVER_CLEARANCE over the ground within
+        //VolcanoCountryPlanting.Reach of the lens: three times the tallest thing the land stands (VolcanoCountryPlanting.Tallest,
+        //the church's spire), so whatever stands under the lens is a third of its height or less, and the woods, the banks and
+        //the water read as land, not as close detail.
         //
-        //Only the east arm puts them so: flying up the west arm mirrors it (the village on the right). Where the run ends, the
-        //village and the vent stand about 25 degrees either side of the middle of a frame whose half-width is 38 at 16:9; farther
-        //up the arm they draw apart until no frame holds both (past about 1570 along).
+        //The look, in plan: a bearing between the village's roofs and the vent as the lens sees them, RIVER_PAN_FROM of the way
+        //round from the roofs to the vent at the cut, so it opens on the cone over the island with the village at the frame's
+        //left edge, and turning with the helicopter to RIVER_PAN_TO, halfway, by the end (on a smoothstep), so the village comes
+        //in on the left and the cone with its column stands on the right (only the east arm puts them so: up the west arm the
+        //village is on the right). In height, RIVER_LOOK_SHARE of the way from the roofs' elevation to that of a point
+        //RIVER_LOOK_OVER_VENT over the vent, so the jets and the column's stem stay in the frame over the cone while the lens
+        //comes down towards the village. The lens widens from RIVER_FOV to RIVER_END_FOV of the play frame as the two draw apart:
+        //at the end they stand some 60 degrees apart, and at 1.15 a 4:3 window (the narrowest the game is played in; the
+        //projection is Hor+) put the vent on the frame's right edge and the column over it past it.
         //
-        //⚠ OVER THE WATER AND SMOOTH ARE A TRADE. The lens rides the meandering centre line (VolcanoCountry.RiverCentre), rounded
-        //by a Gaussian of RIVER_ROUNDING units of the course, so it takes the meanders' bends without swaying round each one: it
-        //stays within 9.3 of the centre line (the water reaches RiverHalfWidth, 11, either side), where 30 took it 11.7 off over
-        //the gravel and 35 13.8. The line is read every RIVER_STEP: read every unit and laid straight between, its points jerked
-        //the lens at 500 to 850 u/s³ (IntroShotSmoothnessTests holds 300), and read every quarter at 160 to 250.
+        //⚠ UNDER THE CLOUD DECK. The volcano's sky is the storm's (WeatherPreset.Storm), whose deck is a plane 140 over the
+        //world's zero, the lowest any weather lays, and the sky shader finds the deck by crossing the view ray up through that
+        //plane from below (Sky.fx), which a lens over it cannot. The run starts some 30 under it: started 170 over the water, a
+        //lens at 152 stood over it.
         //
-        //The trees, the houses and the church keep RiverHalfWidth plus VolcanoCountryPlanting.RiverKeep off the centre line at
-        //their nearest (the snags and the front's blocks stand only by the front, which the river passes 300 and more beyond
-        //here), so the lens passes five units or more beside the nearest crown wherever the planting stood them.
-        private const float RIVER_FROM = 1790f;
-        private const float RIVER_TO = 1655f;
-        private const float RIVER_ROLL = 15f;
-        private const float RIVER_ROUNDING = 25f;
-        internal const float RIVER_LOW = 10f;
-        private const float RIVER_HIGH = 17f;
-        private const float RIVER_LATERAL = 4f;
-        private const float RIVER_LOOK_DOWN_DEGREES = 3f;
+        //⚠ WITHIN ABOUT 680 OF THE DRAIN, SO NOT FARTHER UP THE VALLEY. From up here the lens sees down into the drain's mouth on
+        //the island, and past about 680 off it the band of glass the depth buffer cannot part from the dark sheath behind it is
+        //wider than from the play view, whatever the near plane (RecoilCamera.NEAR_PLANE_CEILING, NearPlaneTests): the flicker
+        //#1193 took off the meadow's valley. A run up the valley between the higher ranges (from 1830 along) stood 814 off. Nor
+        //much nearer the turn: past about 1590 along the village and the vent draw apart until no frame holds both (61 degrees
+        //apart at 1600 along, 70 at 1560). So the run is a slow glide of about a hundred units, and the bank, the turn of the
+        //look and the descent are what move.
+        //
+        //⚠ THE FLIGHT IS A CURVE THROUGH THE COURSE, NOT THE MEANDERING WATER. From this high the meanders are the water's own
+        //business: laid on the centre line rounded by a Gaussian of 70 or 80 units of the course (the low run's was 25), the
+        //run's turn changed its way with the meanders, a bank laid on it rocked from one side to the other, and the lens jerked
+        //at up to 303 u/s³ over the 300 IntroShotSmoothnessTests holds. A quadratic curve through the course
+        //(VolcanoCountry.RiverCourse) at both ends and halfway turns one way only, the water winding under it within about 20 of
+        //the lens's track.
+        private const float RIVER_FROM = 1694f;
+        private const float RIVER_TO = 1600f;
+        private const float RIVER_ROLL = 3f;
+        internal const float RIVER_HIGH_FROM = 128f;
+        internal const float RIVER_HIGH_TO = 100f;
+        internal static readonly float RIVER_CLEARANCE = 3f * VolcanoCountryPlanting.Tallest;
+        private const float RIVER_LOOK_OVER_VENT = 60f;
+        private const float RIVER_LOOK_SHARE = 0.5f;
+        private const float RIVER_PAN_FROM = 0.8f;
+        private const float RIVER_PAN_TO = 0.5f;
         private const float RIVER_LOOK_REACH = 300f;
         private const float RIVER_FOV = 1.1f;
+        private const float RIVER_END_FOV = 1.25f;
         internal const float RIVER_SECONDS = 3.5f;
 
-        //How finely the centre line is read before it is rounded, in units of the course
-        private const float RIVER_STEP = 0.25f;
+        /// <summary>The helicopter's bank into the river's bend at its deepest, halfway through the run: eased in from level at
+        /// the cut and back out to level by the next (a sine squared over the shot).</summary>
+        internal const float RIVER_BANK_DEGREES = 7f;
+
+        //How many points the curve is read at before it is laid evenly along its length
+        private const int RIVER_CURVE_POINTS = 400;
 
         /// <summary>
         /// The prologue for the volcano the renderer is drawing, starting at <paramref name="time"/> on its wall
@@ -273,11 +298,12 @@ namespace BS3D.Effects
         }
 
         /// <summary>
-        /// Up the river between the ranges (#1220, the owner: "the camera flies in over the river between the mountains, past
-        /// the forest; on the left the village is then visible, on the right the volcano"): low over the water of its east arm,
-        /// upstream, out of the valley it cuts through the ranges and towards the arena, the village coming up on the left and the
-        /// cone with its column on the right, the island between them. The reel's establishing view where the land is drawn: it
-        /// holds the vent, the cone's foot and the island in the frame from its first frame to its last, as the volcano's did.
+        /// Up the river out of the ranges (#1220, the owner: "the camera flies in over the river between the mountains, past the
+        /// forest; on the left the village is then visible, on the right the volcano", and on the first cut, flown low over the
+        /// water: "as if it were a view from a helicopter"): high over its east arm, upstream along its course and down towards
+        /// the land round the village, banking into the river's bend and turning with it from the cone over the island onto the
+        /// village on the left and the cone with its column on the right. The reel's establishing view where the land is drawn:
+        /// it holds the vent, the cone's foot and the island in the frame from its first frame to its last, as the volcano's did.
         /// </summary>
         internal static IntroShot River(Func<float, float, float> ground, Vector3 vent, VolcanoSceneConfig volcano, float fieldOfView,
             Random random)
@@ -286,47 +312,59 @@ namespace BS3D.Effects
             float shift = AridIntroPaths.Roll(random, -RIVER_ROLL, RIVER_ROLL);
             float from = RIVER_FROM + shift, to = RIVER_TO + shift;
 
-            //The centre line read on past both ends for the rounding's reach, rounded, and the run itself laid evenly along it
-            int reach = (int)MathF.Ceiling(3f * RIVER_ROUNDING / RIVER_STEP);
-            int run = (int)MathF.Round((from - to) / RIVER_STEP);
-            var xs = new float[run + 1 + 2 * reach];
-            var zs = new float[xs.Length];
-            for (int k = 0; k < xs.Length; k++)
+            //A quadratic curve through the course at both ends and halfway (its control point set so it passes through the
+            //middle), laid evenly along its length
+            Vector2 start = country.RiverCourse(from, out _), end = country.RiverCourse(to, out _);
+            Vector2 control = 2f * country.RiverCourse(0.5f * (from + to), out _) - 0.5f * (start + end);
+            var line = new Vector2[RIVER_CURVE_POINTS];
+            for (int k = 0; k < line.Length; k++)
             {
-                Vector2 c = country.RiverCentre(from + (reach - k) * RIVER_STEP, out _);
-                xs[k] = c.X;
-                zs[k] = c.Y;
+                float u = k / (float)(line.Length - 1);
+                line[k] = (1f - u) * (1f - u) * start + 2f * u * (1f - u) * control + u * u * end;
             }
 
-            float[] roundedX = AridIntroPaths.Rounded(xs, RIVER_ROUNDING / RIVER_STEP, turnOver: true);
-            float[] roundedZ = AridIntroPaths.Rounded(zs, RIVER_ROUNDING / RIVER_STEP, turnOver: true);
-            var line = new Vector2[run + 1];
-            for (int k = 0; k <= run; k++) line[k] = new Vector2(roundedX[reach + k], roundedZ[reach + k]);
             Vector2[] plan = AridIntroPaths.Even(line);
 
-            //Over the water, climbing as the valley opens; the ground on four hands lifts it wherever a bar or a bank would
-            //come nearer than RIVER_LOW
-            Vector3[] path = AridIntroPaths.Hug(plan, ground, RIVER_LOW, RIVER_LATERAL, RIVER_SECONDS, i =>
+            //Coming down at a steady rate over the water (the water lies level along the whole arm: a river never climbs,
+            //VolcanoCountry), which the ground lifts wherever it or what the land stands on it would come nearer than
+            //RIVER_CLEARANCE
+            Vector3[] path = AridIntroPaths.Hug(plan, ground, RIVER_CLEARANCE, VolcanoCountryPlanting.Reach, RIVER_SECONDS, i =>
             {
                 float water = volcano.LevelY + country.River(plan[i].X, plan[i].Y).Level;
-                return water + MathHelper.Lerp(RIVER_LOW, RIVER_HIGH, MathHelper.SmoothStep(0f, 1f, i / (float)(plan.Length - 1)));
+                return water + MathHelper.Lerp(RIVER_HIGH_FROM, RIVER_HIGH_TO, i / (float)(plan.Length - 1));
             });
 
-            //The look: halfway between the village and the vent in plan, as the lens sees them from where it is, tilted down
+            //The look, as the lens sees the village and the vent from where it is: in plan turning from most of the way round to
+            //the vent onto halfway between them, in height part of the way from the village's roofs up to a point over the vent
             Vector2 village = volcano.Country.Village.ToVector2(), cone = new(vent.X, vent.Z);
-            float down = -MathHelper.ToRadians(RIVER_LOOK_DOWN_DEGREES);
+            float roofs = ground(village.X, village.Y) + VILLAGE_LOOK_RISE, overVent = vent.Y + RIVER_LOOK_OVER_VENT;
             var look = new Vector3[path.Length];
             for (int i = 0; i < path.Length; i++)
             {
                 Vector2 at = new(path[i].X, path[i].Z);
                 float toVillage = MathF.Atan2(village.Y - at.Y, village.X - at.X);
                 float toCone = MathF.Atan2(cone.Y - at.Y, cone.X - at.X);
-                float bearing = toVillage + 0.5f * MathHelper.WrapAngle(toCone - toVillage);
-                look[i] = path[i] + new Vector3(MathF.Cos(bearing) * MathF.Cos(down), MathF.Sin(down), MathF.Sin(bearing) * MathF.Cos(down))
+                float towardsCone = MathHelper.Lerp(RIVER_PAN_FROM, RIVER_PAN_TO, MathHelper.SmoothStep(0f, 1f, i / (float)(path.Length - 1)));
+                float bearing = toVillage + towardsCone * MathHelper.WrapAngle(toCone - toVillage);
+                float pitch = MathHelper.Lerp(MathF.Atan2(roofs - path[i].Y, Vector2.Distance(at, village)),
+                    MathF.Atan2(overVent - path[i].Y, Vector2.Distance(at, cone)), RIVER_LOOK_SHARE);
+                look[i] = path[i] + new Vector3(MathF.Cos(bearing) * MathF.Cos(pitch), MathF.Sin(pitch), MathF.Sin(bearing) * MathF.Cos(pitch))
                     * RIVER_LOOK_REACH;
             }
 
-            return new IntroShot("the river", path, RIVER_SECONDS, fieldOfView * RIVER_FOV, lookAtPath: look);
+            //The bank: into the way the run turns (a helicopter's roll is positive to the right, and a heading that falls, the
+            //way MathF.Atan2(z, x) runs, turns left), level at both cuts
+            Vector2 leaving = plan[1] - plan[0], arriving = plan[^1] - plan[^2];
+            float turn = MathF.Sign(MathHelper.WrapAngle(MathF.Atan2(arriving.Y, arriving.X) - MathF.Atan2(leaving.Y, leaving.X)));
+            var roll = new float[path.Length];
+            for (int i = 0; i < roll.Length; i++)
+            {
+                float swing = MathF.Sin(MathF.PI * i / (roll.Length - 1));
+                roll[i] = turn * MathHelper.ToRadians(RIVER_BANK_DEGREES) * swing * swing;
+            }
+
+            return new IntroShot("the river", path, RIVER_SECONDS, fieldOfView * RIVER_FOV, lookAtPath: look, rollPath: roll,
+                endFieldOfView: fieldOfView * RIVER_END_FOV);
         }
 
         /// <summary>

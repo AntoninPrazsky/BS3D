@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-24 — #1220 úvod Erupce: řeka z vrtulníku — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: záběr „the river“ (3,5 s) letí jako z vrtulníku: 1694→1600 po toku východního ramene, 28 u/s, klesá ze 128 na 100 nad vodou (Y 110→82), náklon 7° doleva do ohybu, pohled se stáčí o 20° doleva, objektiv 1,1→1,25. Dráha po hladké čáře toku (`VolcanoCountry.RiverCourse`), `RiverKeep` odstraněn. Testy hlídají náklon (20 °/s, 40 °/s²), oblačnou palubu, výšku nad stromy a rámec i ve 4:3.
+- ⚠ Výš, déle ani rychleji nejde: bouřková paluba je rovina v Y 140 (shader ji kreslí jen zespodu), záběr ukazující odtok musí stát do ~681 od něj (#1193), za ~1590 se vesnice s kuželem nevejdou do rámu.
+- Otevřené: `verdict-eye` (pohyb neviděn, je 28 u/s dost dramatické?); rozhodnutí majitele: vlastní near plane pro tenhle záběr, chce-li delší a rychlejší let.
+
 ## 2026-11-24 — #1130 #1133 #1134 práce pro NVIDII — DESKTOP_L (GTX 1060), Claude Code
 
 - Hotovo, sloučeno: `terraindepth=` v Testbedu (`SceneRenderer.TerrainDepthFirst`) kreslí terén jednou místo přes hloubkové dvojče. Na 1060 má 20 pohledů ve 12 scénách shodnou dvojici obou variant na pixel; posun výřezu dvojčete o 1.0005 dal 77 px až 116/255 na hraně potoka. #1130 zavřeno.
