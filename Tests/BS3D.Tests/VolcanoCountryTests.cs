@@ -94,7 +94,7 @@ namespace BS3D.Tests
         /// <summary>
         /// <see cref="VolcanoCountry.RiverCentre"/> is <see cref="VolcanoCountry.River"/>'s inverse (#1220): the point it gives
         /// at a distance along the course measures on the centre line, that far along, all the way down the course, its
-        /// rounded corners and its meanders included. The chapter intro's flight up the river is laid on it.
+        /// rounded corners and its meanders included; and past either end it stays at that end, its meander the end's own.
         /// </summary>
         [Fact]
         public void TheRiversCentreIsWhereTheRiverMeasuresIt()
@@ -107,6 +107,12 @@ namespace BS3D.Tests
                 Assert.True(MathF.Abs(across) < 1f, $"the centre {along} along measures {across} across");
                 Assert.True(MathF.Abs(measuredAlong - along) < 2f, $"the centre {along} along measures {measuredAlong} along");
                 Assert.Equal(1f, downstream.Length(), 3);
+            }
+
+            foreach ((float past, float end) in new[] { (-50f, 0f), (last.Z + 50f, last.Z) })
+            {
+                Vector2 beyond = COUNTRY.RiverCentre(past, out _), atEnd = COUNTRY.RiverCentre(end, out _);
+                Assert.True(Vector2.Distance(beyond, atEnd) < 1e-3f, $"the centre {past} along is {Vector2.Distance(beyond, atEnd):F2} off its end's");
             }
         }
     }

@@ -55,9 +55,16 @@ namespace BS3D.Tests
         private const float VILLAGE_ROOFS = 6f;
 
         //The vertical field of view the game hands the intro (GameplayScreen.GAME_FOV), which each shot widens from,
-        //and the narrowest window shape the owner plays at: the projection is Hor+, so a narrower one crops the sides.
+        //and the narrowest window shape the owner plays at, which the later shots' frames are held at: the projection is
+        //Hor+, so a narrower one crops the sides.
         private const float INTRO_FIELD_OF_VIEW = MathF.PI / 4.2f;
         private const float ASPECT = 16f / 9f;
+
+        //The window shapes the opening's frame is held at, as the other scenes' intro tests hold theirs: 16:9, the owner's
+        //3840x1600, 16:10 and 4:3, the narrowest, whose sides the Hor+ projection crops the most. The river's end (#1220) sets
+        //the subjects wide apart, the village on the left and the cone on the right, and a lens as narrow as the low run's
+        //put the vent on the frame's right edge at 4:3 and the column past it.
+        private static readonly float[] ASPECTS = { 16f / 9f, 2.4f, 1.6f, 4f / 3f };
 
         //Across a cut the lens must move AND the view must turn. The cities' test takes either, at 22 degrees or 40 units;
         //here the two shots the note named were 56 units apart at best and turned only 18 degrees, a view sliding along its
@@ -300,7 +307,8 @@ namespace BS3D.Tests
         /// The owner's picture (#1220): where the river's run ends, the village's roofs stand in the frame's left half and the
         /// vent in its right, the column over it in the frame too, and the ground between the lens and the roofs and between
         /// the lens and the column hides neither (the vent itself sits down in the crater, behind its rim from any lens this
-        /// low). Through the whole run the village never stands right of the vent.
+        /// low). Through the whole run the village never stands right of the vent. At every window shape in
+        /// <see cref="ASPECTS"/>.
         /// </summary>
         [Fact]
         public void TheRiverEndsWithTheVillageOnTheLeftAndTheConeOnTheRight()
@@ -312,11 +320,14 @@ namespace BS3D.Tests
                 Vector3 roofs = new(middle.X, ground(middle.X, middle.Y) + VILLAGE_ROOFS, middle.Y);
                 Vector3 column = vent + new Vector3(0f, JET_REACH, 0f);
 
-                Vector2 village = AssertInFrame(shot, 1f, roofs, $"seed {seed}: the village");
-                Vector2 crater = AssertInFrame(shot, 1f, vent, $"seed {seed}: the vent");
-                AssertInFrame(shot, 1f, column, $"seed {seed}: the column");
-                Assert.True(village.X <= -TO_ONE_SIDE, $"seed {seed}: the village ends at {village.X:F2} across the frame, not on its left");
-                Assert.True(crater.X >= TO_ONE_SIDE, $"seed {seed}: the vent ends at {crater.X:F2} across the frame, not on its right");
+                foreach (float aspect in ASPECTS)
+                {
+                    Vector2 village = AssertInFrame(shot, 1f, roofs, $"seed {seed}, aspect {aspect:F2}: the village", aspect);
+                    Vector2 crater = AssertInFrame(shot, 1f, vent, $"seed {seed}, aspect {aspect:F2}: the vent", aspect);
+                    AssertInFrame(shot, 1f, column, $"seed {seed}, aspect {aspect:F2}: the column", aspect);
+                    Assert.True(village.X <= -TO_ONE_SIDE, $"seed {seed}, aspect {aspect:F2}: the village ends at {village.X:F2} across the frame, not on its left");
+                    Assert.True(crater.X >= TO_ONE_SIDE, $"seed {seed}, aspect {aspect:F2}: the vent ends at {crater.X:F2} across the frame, not on its right");
+                }
 
                 shot.Pose(1f, out Vector3 lens, out _);
                 Assert.True(Hidden(ground, lens, roofs) < 0f, $"seed {seed}: the ground stands {Hidden(ground, lens, roofs):F1} over the line to the village");
@@ -421,7 +432,8 @@ namespace BS3D.Tests
 
         /// <summary>
         /// The reel opens on a global view of the volcano (#975): the river where the land is drawn (#1220), the volcano's wide
-        /// shot where not, each holding the vent, the cone's foot and the island in the frame from its first frame to its last.
+        /// shot where not, each holding the vent, the cone's foot and the island in the frame from its first frame to its last,
+        /// at every window shape in <see cref="ASPECTS"/>.
         /// </summary>
         [Fact]
         public void TheFirstShotHoldsTheVolcanoAndTheIsland()
@@ -436,13 +448,14 @@ namespace BS3D.Tests
                 Vector3 foot = new(cone.X, ground(cone.X + volcano.ConeRadius, cone.Y), cone.Y);
                 Vector3 island = new(0f, volcano.LevelY, 0f);
 
-                for (int i = 0; i < POSES; i++)
-                {
-                    float t = i / (float)(POSES - 1);
-                    AssertInFrame(shot, t, vent, $"seed {seed}: the vent");
-                    AssertInFrame(shot, t, foot, $"seed {seed}: the cone's foot");
-                    AssertInFrame(shot, t, island, $"seed {seed}: the island");
-                }
+                foreach (float aspect in ASPECTS)
+                    for (int i = 0; i < POSES; i++)
+                    {
+                        float t = i / (float)(POSES - 1);
+                        AssertInFrame(shot, t, vent, $"seed {seed}, aspect {aspect:F2}: the vent", aspect);
+                        AssertInFrame(shot, t, foot, $"seed {seed}, aspect {aspect:F2}: the cone's foot", aspect);
+                        AssertInFrame(shot, t, island, $"seed {seed}, aspect {aspect:F2}: the island", aspect);
+                    }
             }
         }
 
@@ -540,14 +553,15 @@ namespace BS3D.Tests
             return MathF.Atan2(view.X, -view.Z);
         }
 
-        //Where the point stands in the frame, in its half-widths and half-heights from its middle (up positive)
-        private static Vector2 AssertInFrame(IntroShot shot, float t, Vector3 point, string what)
+        //Where the point stands in the frame, in its half-widths and half-heights from its middle (up positive), in a window
+        //of the given shape
+        private static Vector2 AssertInFrame(IntroShot shot, float t, Vector3 point, string what, float aspect = ASPECT)
         {
             shot.Pose(t, out Vector3 position, out Vector3 target);
             //Banked as RecoilCamera banks it: the up vector turned about the view by the shot's roll (the river's, #1220)
             Vector3 up = Vector3.TransformNormal(Vector3.Up, Matrix.CreateFromAxisAngle(Vector3.Normalize(target - position), shot.RollAt(t)));
             Matrix view = Matrix.CreateLookAt(position, target, up);
-            Matrix projection = Matrix.CreatePerspectiveFieldOfView(shot.FieldOfViewAt(t), ASPECT, 1f, 5000f);
+            Matrix projection = Matrix.CreatePerspectiveFieldOfView(shot.FieldOfViewAt(t), aspect, 1f, 5000f);
 
             Vector4 clip = Vector4.Transform(new Vector4(point, 1f), view * projection);
             float x = clip.X / clip.W, y = clip.Y / clip.W;

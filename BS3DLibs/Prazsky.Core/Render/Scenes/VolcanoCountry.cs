@@ -197,6 +197,8 @@ namespace Prazsky.Core.Render
         /// </summary>
         public Vector2 RiverCentre(float along, out Vector2 downstream)
         {
+            //Clamped here as well as in RiverCourse, so past either end the meander is the end's own, not one off the course
+            along = Math.Clamp(along, 0f, RiverPath[RiverPoints - 1].Z);
             Vector2 onCourse = RiverCourse(along, out downstream);
 
             //River's "across" is positive on this side of the run: (-z, x) of the downstream direction

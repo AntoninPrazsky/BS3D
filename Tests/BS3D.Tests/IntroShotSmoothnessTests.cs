@@ -39,9 +39,10 @@ namespace BS3D.Tests
     /// home) and 289 u/s³ (the volcano's village, an orbit at 60 u/s).
     /// </para>
     /// <para>
-    /// <b>And the bank</b> (#1220): a lens that rolls, the volcano's helicopter run up its river the one here, is rolled and
-    /// levelled as the view is tilted, at most <see cref="MAX_ROLL_RATE"/> and reached in no less than half a second
-    /// (<see cref="MAX_ROLL_ACCELERATION"/>).
+    /// <b>And the bank</b> (#1220): a lens that rolls (the volcano's helicopter run up its river, and the two landings here,
+    /// the desert's scorpion home and the meadow's brook home, banked into their turns by <see cref="IntroLanding"/>) is
+    /// rolled and levelled as the view is tilted, at most <see cref="MAX_ROLL_RATE"/> and reached in no less than half a
+    /// second (<see cref="MAX_ROLL_ACCELERATION"/>).
     /// </para>
     /// <para>
     /// ⚠ <b>Smooth is not allowed to mean high</b>: a lens flown well over the ground is trivially smooth. So every
@@ -81,8 +82,8 @@ namespace BS3D.Tests
         internal const double MAX_YAW_ACCELERATION = 100.0;
         internal const double MAX_JERK = 300.0;
 
-        //And the bank (#1220, the volcano's river, the one shot here that banks): rolled and levelled as the tilt is, at most
-        //20 degrees a second and that rate reached in no less than half a second
+        //And the bank (#1220: the volcano's river, the scorpion home and the brook home bank): rolled and levelled as the tilt
+        //is, at most 20 degrees a second and that rate reached in no less than half a second
         internal const double MAX_ROLL_RATE = 20.0;
         internal const double MAX_ROLL_ACCELERATION = 40.0;
 

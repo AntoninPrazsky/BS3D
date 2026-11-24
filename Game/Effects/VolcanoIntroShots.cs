@@ -186,7 +186,9 @@ namespace BS3D.Effects
         //in on the left and the cone with its column stands on the right (only the east arm puts them so: up the west arm the
         //village is on the right). In height, RIVER_LOOK_SHARE of the way from the roofs' elevation to that of a point
         //RIVER_LOOK_OVER_VENT over the vent, so the jets and the column's stem stay in the frame over the cone while the lens
-        //comes down towards the village. The lens widens from RIVER_FOV to RIVER_END_FOV of the play frame as the two draw apart.
+        //comes down towards the village. The lens widens from RIVER_FOV to RIVER_END_FOV of the play frame as the two draw apart:
+        //at the end they stand some 60 degrees apart, and at 1.15 a 4:3 window (the narrowest the game is played in; the
+        //projection is Hor+) put the vent on the frame's right edge and the column over it past it.
         //
         //⚠ UNDER THE CLOUD DECK. The volcano's sky is the storm's (WeatherPreset.Storm), whose deck is a plane 140 over the
         //world's zero, the lowest any weather lays, and the sky shader finds the deck by crossing the view ray up through that
@@ -219,7 +221,7 @@ namespace BS3D.Effects
         private const float RIVER_PAN_TO = 0.5f;
         private const float RIVER_LOOK_REACH = 300f;
         private const float RIVER_FOV = 1.1f;
-        private const float RIVER_END_FOV = 1.15f;
+        private const float RIVER_END_FOV = 1.25f;
         internal const float RIVER_SECONDS = 3.5f;
 
         /// <summary>The helicopter's bank into the river's bend at its deepest, halfway through the run: eased in from level at
