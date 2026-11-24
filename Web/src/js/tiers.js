@@ -5,7 +5,11 @@
 // the tier names under the slider are buttons that jump to one, a click on the picture steps to the next, and the notes stand
 // in one place under the slider, the one for the shown pane visible. Nothing is fetched here: every picture is in the page already
 // (visibility, not display, hides one, so a lazy picture still loads as the figure nears the screen). The post layout loads this
-// file only on a page that has such a figure.
+// file only on a page that has such a figure. The figure's data-slider-label names what the slider picks for a screen reader
+// ("Detail level" without it), and a figure of more than MANY_STEPS panes is marked .tiers-many: on a phone its names cannot stand
+// under their steps, and the stylesheet wraps them into rows under the slider instead (#1238, the ten ball materials).
+
+const MANY_STEPS = 6;
 
 for (const figure of document.querySelectorAll("figure.tiers")) setUp(figure);
 
@@ -26,7 +30,7 @@ function setUp(figure) {
   slider.max = String(last);
   slider.step = "1";
   slider.value = "0";
-  slider.setAttribute("aria-label", "Detail level");
+  slider.setAttribute("aria-label", figure.dataset.sliderLabel || "Detail level");
   slider.addEventListener("input", () => show(Number(slider.value)));
 
   // The names are a convenience for a mouse or a finger: the slider is the control a keyboard and a screen reader meet
@@ -74,5 +78,6 @@ function setUp(figure) {
   // The picture is a button for a mouse or a finger: the next level, round to the first after the last
   frame.addEventListener("click", () => show(shown === last ? 0 : shown + 1));
   show(0);
+  figure.classList.toggle("tiers-many", panes.length > MANY_STEPS);
   figure.classList.add("is-live");
 }

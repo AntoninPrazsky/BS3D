@@ -388,6 +388,13 @@ h3 { font-size: 1.45rem; }
   .tiers.is-live .tiers-controls { padding-inline: 2rem; }
   .tiers-ticks button { font-size: 0.78rem; }
 }
+/* More steps than fit under the slider (js/tiers.js marks the figure .tiers-many: the ten ball materials, #1238): below 700 px
+   the names wrap into centred rows of buttons under the slider instead of standing under their steps */
+@media (max-width: 700px) {
+  .tiers-many.is-live .tiers-controls { padding-inline: 0; }
+  .tiers-many .tiers-ticks { display: flex; flex-wrap: wrap; justify-content: center; height: auto; }
+  .tiers-many .tiers-ticks button { position: static; transform: none; }
+}
 @media (prefers-reduced-motion: no-preference) {
   .tiers.is-live .tiers-pane { transition: opacity 0.1s ease, visibility 0s linear 0.1s; }
   .tiers.is-live .tiers-pane.is-shown { transition: opacity 0.1s ease, visibility 0s; }

@@ -2,18 +2,18 @@
 //PLASMA ORB (#309): the desktop plasma-ball toy - a dark, nearly empty globe with thin bright filaments
 //of ionised gas crawling across the inside of it, tinted by the type colour.
 //
-//IT IS THE ONLY STYLE WHOSE READ IS MOTION, and that is its whole reason to exist beside the other
-//seven. Every one of them is a still material photographed under a moving camera; this one is alive
+//IT IS THE ONLY STYLE WHOSE READ IS MOTION, and that is its whole reason to exist beside the others.
+//Every one of them is a still material photographed under a moving camera; this one is alive
 //whether anything is happening or not. A screenshot says almost nothing about it, which is a fact about
 //how it must be JUDGED and not a complaint.
 //
 //THE FILAMENTS ARE A DOMAIN WARP: one field displaces the sample point of a second, and the narrow band
 //where the second is near zero is drawn as a line. Warping the INPUT is what makes an arc WRITHE rather
-//than merely ripple - the same reason the marble warps its vein coordinate - and it is what costs this
-//style its place as the dearest of the eight: two noise evaluations where every other has one, animated,
-//so nothing about it is cacheable.
+//than merely ripple - the same reason the marble warps its vein coordinate. Two fields, animated, so
+//nothing about them is cacheable, and still the cheapest style to draw: it never runs the lighting model,
+//which costs more than its noise does ("Cost" in docs/rendering/ball-styles.md, #1215).
 //
-//ITS COLOUR IS EMISSION, WHICH MAKES IT THE STRONGEST OF ALL EIGHT ON HUE AND THE WEAKEST ON VALUE.
+//ITS COLOUR IS EMISSION, WHICH MAKES IT STRONG ON HUE AND WEAK ON VALUE.
 //Emissive thin lines are read directly - not diluted by ambient, not filtered by transmission, not
 //tinted by a backdrop, which are the four ways the other styles lose their hue. But the colour lives in
 //thin bright lines over a dark shell, so a CLUSTER reads dark, and against a bright dome the balls
