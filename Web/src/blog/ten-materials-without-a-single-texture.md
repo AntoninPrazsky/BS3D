@@ -62,7 +62,7 @@ thumb: /img/blog/thumbs/ten-materials-without-a-single-texture.jpg
   <figcaption>One cluster in all ten materials, in the order a player meets them: the map of Orrery, a Nebula level, hung in the meadow and filmed from the same place at the same moment at Ultra. Drag the slider, press a name or click the picture.</figcaption>
 </figure>
 
-Every chapter of BS3D hangs its cluster in a material of its own, from soap bubbles to cut gems. The balls play the same in all ten; only the look changes.
+Every chapter of BS3D hangs its cluster in one of ten materials, from soap bubbles to cut gems. The balls play the same in all ten; only the look changes.
 
 ## Arithmetic, not pictures
 
@@ -100,9 +100,7 @@ Summed, the waves make a height whose slope tilts the surface to catch the light
 
 ## Thirteen colours that stay apart
 
-Thirteen colours must stay apart in every material, and in some they come close: in wool, black, brown and silver. So in nine of the ten, each colour also carries a figure, from a set chosen for the material: emblems on the vinyl, spots on the bubble.
-
-The figure is a darker or paler shade of the ball's colour and the rest shifts the other way, so a ball too far off to show its figure still shows its colour.
+Thirteen colours must stay apart in every material, and in some they come close: in wool, black, brown and silver. So in nine of the ten each colour also carries a figure: emblems on the vinyl, spots on the bubble. The figure is a darker or paler shade of the colour and the rest shifts the other way, so a ball too far off to show its figure still shows its colour.
 
 <figure class="compare">
   <div class="compare-frame">
@@ -118,19 +116,15 @@ The figure is a darker or paler shade of the ball's colour and the rest shifts t
   <figcaption>The vinyl with the colour figures off and on. Off, it is a beach ball. On, each colour's emblem takes the place of the white stripes, like a deck of cards.</figcaption>
 </figure>
 
-## What each one costs
+## Two notes from Antonín
 
-Antonín asked what each material costs, so we timed all ten on our RX 6900 XT, in Girandole's 1204 balls at Ultra: 8.50 ms a frame with the vinyl, and six others within our noise of 0.3 ms.
-
-The bubble added 1.82 ms: it shows its far side through its near one, so each ball is drawn twice. The ice added 1.28 ms for its cracks, and the plasma saved 0.90 ms, since it never runs the lighting.
+Antonín asked what each material costs, so we timed all ten on our RX 6900 XT, in Girandole's 1204 balls at Ultra: 8.50 ms a frame with the vinyl, and six others within our noise of 0.3 ms. The bubble added 1.82 ms: it shows its far side through its near one, so each ball is drawn twice. The ice added 1.28 ms for its cracks, and the plasma saved 0.90 ms, since it never runs the lighting.
 
 We cut nothing. The bubble is the first chapter's, and its biggest level, Amphora, plays at 9.02 ms a frame, well inside the 13.33 ms of 75 frames a second. Weaker graphics chips we have not timed yet.
 
-## Up close and far away
+He also saw some materials change with the distance: the gem's facets and the wool's strands showed mostly from afar. The tilt the height's slope gives the light is divided by the pixel's area on the ball, with a floor so that a pixel seen edge-on never divides by nothing.
 
-Antonín also saw some materials change with the distance. That tilt is divided by the pixel's area on the ball, with a floor under that area so that a pixel seen edge-on never divides by nothing. That floor was the landscapes', sized for hills: on any ball over about 25 pixels in radius it flattened the relief, to a seventh on the menu's close pass. The gem's facets and the wool's strands showed mostly from afar.
-
-The balls' floor is now half the pixel's own area, and the relief is whole at any size. Brushing too fine for a pixel now streaks the metal's reflection instead, as on a brushed ball seen across a room.
+That floor was the landscapes', sized for hills: on a PC at High or Ultra it flattened the relief of any ball over about 25 pixels in radius, to a seventh on the menu's close pass. The balls' floor is now half the pixel's own area, and the relief keeps its depth at any size. Brushing too fine for a pixel now streaks the metal's reflection instead, as on a brushed ball seen across a room.
 
 <figure class="compare">
   <div class="compare-frame">
@@ -143,7 +137,7 @@ The balls' floor is now half the pixel's own area, and the relief is whole at an
       <span class="compare-tag">After</span>
     </div>
   </div>
-  <figcaption>A metal ball in the gun under precise aim, the biggest a ball is ever drawn, on Crib in the Quarry, before the fix and after. Before, its brushing kept a few per cent of its depth there.</figcaption>
+  <figcaption>A metal ball in the gun under precise aim, close to the lens, on Eclipse in the Quarry, before the fix and after. Before, its brushing kept only a small fraction of its depth this close.</figcaption>
 </figure>
 
 The fix comes with the next release.
