@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-24 — #1238 článek na blog: deset materiálů kuliček — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno, nepublikováno: článek „Ten materials without a single texture“ (`Web/src/blog/ten-materials-without-a-single-texture.md`, ~480 slov, tři mezititulky). Desetikrokový posuvník: Orrery v louce, capture mód na Ultra, 16,5 s (mezi tepy; v 6,0 s tep zesvětlil snímek o pětinu). Ukázka `ReliefOctave`, smyčka plazmy 3,6 s, figurky vinylu vyp/zap, ceny z #1215, kov zblízka z #1216. Recepty a váha (3,74 MB) v `docs/website.md`.
+- `tiers.js`: `data-slider-label`; posuvník nad šest kroků (`.tiers-many`) zalamuje pod 700 px názvy do řádků.
+- Hlavička `BallPlasma.fxh` opravena: plazma je nejlevnější styl, ne nejdražší.
+- Otevřené: `verdict-eye` (galerie posuvník vs mřížka, smyčka v pohybu neviděna, jen headless Edge); datum je zástupné, publikuje majitel.
+
 ## 2026-11-24 — #1237 článek na blog: střela postrčí shluk — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno, nepublikováno: článek „The momentum we used to throw away“ (`Web/src/blog/the-momentum-we-used-to-throw-away.md`, 2026-11-24, ~420 slov, tři mezititulky, 19řádková ukázka z `ShotPush.Deliver`). Sedm smyček z capture módu hry: zásah Zigzagu a tři páry Before/Now (Zigzag, Pendant, Cannonball, `shotpush=0`), 2,22 MB WebM. Recept na přetočení je v `docs/website.md`.
