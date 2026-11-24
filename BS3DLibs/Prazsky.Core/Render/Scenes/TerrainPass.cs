@@ -213,7 +213,7 @@ namespace Prazsky.Core.Render
             //meadow's patch does (#924). Only an opaque ground on the scene block's own depth state can be laid first; the
             //lagoon is blended and the sea is drawn depth-read, and neither effect has a depth twin to find
             EffectTechnique ground = Effect.CurrentTechnique;
-            bool depthFirst = _services.SupersampleFactor > 1 && blend == null
+            bool depthFirst = _services.LaysTerrainDepth && blend == null
                 && _graphicsDevice.DepthStencilState == DepthStencilState.Default;
 
             if (DrawsGrid && _blocks != null)

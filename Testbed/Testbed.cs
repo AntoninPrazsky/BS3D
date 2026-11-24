@@ -885,6 +885,9 @@ namespace Testbed
             //than at display resolution: the big top's frame before #1096; the dream and the cavern have taken the path since #155, space since #1132
             _sceneRenderer.BackdropsAtDisplayResolution = _options.BackdropsAtDisplayResolution;
 
+            //#1130: "terraindepth=0" draws every terrain once with depth writes on instead of laying its depth through its twin first
+            _sceneRenderer.TerrainDepthFirst = _options.TerrainDepthFirst;
+
             //#471 PROBE: "shadow=" pins SceneRenderer.ShadowScale so a sun shadow map can be measured and
             //photographed against its own absence WITHOUT a second build - 0 is what a scene with no map
             //renders, exactly. It is alternable (see ApplyVariant), which is the point: alt=shadow=0;shadow=1
@@ -1456,7 +1459,7 @@ namespace Testbed
         /// behind alike and <see cref="MarkVariantSwitch"/> waits out (#1129).
         /// </summary>
         private static readonly string[] ALTERNATION_DIALS =
-            { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "finemeshes", "fardetail", "wear", "envorder", "skyorder", "skyres", "bdres", "cityreflect", "cityreflectreach", "cityreflectsteps", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano", "aurora", "cavern", "meadow", "mountain", "forest", "mars", "outback" };
+            { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "finemeshes", "fardetail", "wear", "envorder", "skyorder", "skyres", "bdres", "terraindepth","cityreflect", "cityreflectreach", "cityreflectsteps", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano", "aurora", "cavern", "meadow", "mountain", "forest", "mars", "outback" };
 
         /// <summary>
         /// Prints the sweep's plan before the first window, and names anything it will not switch. A pin that
@@ -1679,6 +1682,12 @@ namespace Testbed
                     //them into the scene target with its samples. Read per frame by the renderer
                     case "bdres":
                         _sceneRenderer.BackdropsAtDisplayResolution = pin.Value is not ("0" or "false" or "off");
+                        break;
+
+                    //Whether a supersampled terrain lays its depth through its twin first (#1097): a pair either side of
+                    //"terraindepth=0;terraindepth=1" is identical unless the twin and its ground disagree on this GPU (#1130)
+                    case "terraindepth":
+                        _sceneRenderer.TerrainDepthFirst = pin.Value is not ("0" or "false" or "off");
                         break;
 
                     //On/off like the switch it mirrors: "nopost=1" is the argument, "nopost=0" the authored look

@@ -249,7 +249,7 @@ namespace Prazsky.Core.Render
             //that the one pass it always was
             TerrainGridCache.DrawSeenBlocks(_graphicsDevice, _moonGrid, _moonFrustum, originX, originZ, MOON_EXTENT,
                 TerrainPass.BLOCK_LOW_Y, TerrainPass.BLOCK_HIGH_Y, 0f, _moonTerrainTechnique.Passes[0],
-                Services.SupersampleFactor > 1 ? _moonTerrainDepth : null);
+                Services.LaysTerrainDepth ? _moonTerrainDepth : null);
 
             //The rocks, before the sky so the sky's depth test rejects what they cover too. Lit as the terrain is lit, not
             //from a dome (there is none): the config's sun, the tiny floor and the earthshine overhead, and the sunlit

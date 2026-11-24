@@ -497,6 +497,19 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
+        /// Whether a supersampled frame lays the terrains' depth through their depth twins before shading them (#1097: the
+        /// meadow's patch, the Moon, every <c>TerrainPass</c> grid and far ring, the volcano's flank). True, the shipped frame.
+        /// False draws each ground once with depth writes on, as below supersampling: the Testbed's <c>terraindepth=0</c>, so
+        /// the two can be photographed in one process and a GPU whose twin rounds a cut's edge apart from its ground's own
+        /// program shows it as a pixel the pair does not share (#1130). Read per draw.
+        /// </summary>
+        public bool TerrainDepthFirst
+        {
+            get => _services.TerrainDepthFirst;
+            set => _services.TerrainDepthFirst = value;
+        }
+
+        /// <summary>
         /// Whether a distance rule that trades a far thing's detail for frame time reaches farther than High's: Ultra's rung
         /// (#1208). The owner, of the post that compared the tiers: "High has fewer detailed trees than Ultra, and Max has every
         /// tree in detail", where Ultra had drawn High's trees to the tree. It moves the aurora stand's swap from spire to spruce

@@ -328,6 +328,14 @@ namespace Testbed.Diagnostics
         public bool BackdropsAtDisplayResolution { get; private set; } = true;
 
         /// <summary>
+        /// <c>terraindepth=&lt;0|1&gt;</c>: whether a supersampled frame lays the terrains' depth through their depth twins
+        /// before shading them (<c>SceneRenderer.TerrainDepthFirst</c>, #1097). 1, the default, is the shipped frame; 0 draws
+        /// each ground once with depth writes on. An <c>alt=</c> dial too: a pair either side of the switch is identical
+        /// unless a twin and its ground disagree on a cut's edge on this GPU (#1130).
+        /// </summary>
+        public bool TerrainDepthFirst { get; private set; } = true;
+
+        /// <summary>
         /// <c>cityreflect=&lt;strength&gt;</c>: the city's windows mirroring the towers round them (#1065), the Game's High and
         /// Ultra look - the towers' draw takes <c>InstancedCityReflect</c> over a map of the city. 1 by default; 0 draws the
         /// plain technique (the Game's Low and Medium), so the two can be photographed from one pinned camera and, through
@@ -587,6 +595,7 @@ namespace Testbed.Diagnostics
                 else if (arg.StartsWith("skyorder=", StringComparison.OrdinalIgnoreCase)) options.SkyBehindScene = ParseSkyBehindScene(arg.Substring("skyorder=".Length));
                 else if (arg.StartsWith("skyres=", StringComparison.OrdinalIgnoreCase)) options.SkyAtDisplayResolution = ParseSkyAtDisplayResolution(arg.Substring("skyres=".Length));
                 else if (arg.StartsWith("bdres=", StringComparison.OrdinalIgnoreCase)) options.BackdropsAtDisplayResolution = arg.Substring("bdres=".Length) is not ("0" or "false" or "off");
+                else if (arg.StartsWith("terraindepth=", StringComparison.OrdinalIgnoreCase)) options.TerrainDepthFirst = arg.Substring("terraindepth=".Length) is not ("0" or "false" or "off");
                 else if (arg.StartsWith("cityreflect=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("cityreflect=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float cityReflect)) options.CityReflect = MathF.Max(0f, cityReflect);
                 else if (arg.StartsWith("shadow=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("shadow=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedShadow)) options.ShadowScale = parsedShadow;
                 //Read here for the same reason "logfps" is (see the comment above it): an argument this parse
