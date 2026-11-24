@@ -20,6 +20,15 @@ Pravidla:
 
 ---
 
+## 2026-11-24 — #1130 #1133 #1134 práce pro NVIDII — DESKTOP_L (GTX 1060), Claude Code
+
+- Hotovo, sloučeno: `terraindepth=` v Testbedu (`SceneRenderer.TerrainDepthFirst`) kreslí terén jednou místo přes hloubkové dvojče. Na 1060 má 20 pohledů ve 12 scénách shodnou dvojici obou variant na pixel; posun výřezu dvojčete o 1.0005 dal 77 px až 116/255 na hraně potoka. #1130 zavřeno.
+- #1134: sonda na 1060 hlásí fúzované zaokrouhlení, `mirrorcheck` 11/11 PASS (komentář v issue).
+- #1133: swarm na 1060 drží na High 6435 koulí, na Medium 23 896; „fewer than 32“ odstranil #1132. Číslo ale patří tieru, ne stroji; zbytek issue zůstává otevřený.
+- majitel: tenhle stroj je jediná NVIDIA v domě a stojí za typický dětský počítač; ladí se na něm Medium.
+- ⚠ Smart App Control blokoval `MonoGame.Framework.dll` (0x800711C7); majitel ho vypnul.
+- ⚠ Snímky jednoho procesu se i s `clockstill` liší o 1/255 v tisících pixelů. Hledej shodnou dvojici, nespoléhej na jednu.
+
 ## 2026-11-24 — #1238 článek na blog: deset materiálů kuliček — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno, nepublikováno: článek „Ten materials without a single texture“ (`Web/src/blog/ten-materials-without-a-single-texture.md`, ~480 slov, tři mezititulky). Desetikrokový posuvník: Orrery v louce, capture mód na Ultra, 16,5 s (mezi tepy; v 6,0 s tep zesvětlil snímek o pětinu). Ukázka `ReliefOctave`, smyčka plazmy 3,6 s, figurky vinylu vyp/zap, ceny z #1215, kov zblízka z #1216. Recepty a váha (3,74 MB) v `docs/website.md`.
