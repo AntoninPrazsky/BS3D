@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-24 — #1192 výstřel postrčí shluk — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: nový `ShotPush` předá zasaženému shluku hybnost střely (podíl `MOMENTUM_SHARE` 1, `ShareFor(kind)` pro Fire Ball #1033) jako impuls podél letu, přes sokety do 5 skoků (útlum 0,7, nejvýš 8 u/s na kuličku), až po dokončeném přistání a odstranění skupin. Totéž při prvním odmítnutí (střela sklouzne) a u řezačky. Po 1 s se houpání 4 s tlumí, shluk usne za 1–5,5 s. Duch vede pohybující se kuličku (`lead`) a střela drží buňku ducha (`KeepsPromise`): shoda 98,9 % při 0,3 s. Benchmark měří bez postrčení; `shotpush=<0..4>` pro porovnání.
+- ⚠ Starý údaj „nejníž“ porovnával dvojčata ve stejném okamžiku a lhal (Rope 1,1); porovnávat nejhlubší bod každého zvlášť.
+- Otevřené: `verdict-hands`; rozhodnutí majitele: Orrery s postrčením hlásí průvěs (3–5 z 5) — převěsit, nebo zeslabit. Snímek na Potato/Pi/telefonu neměřen.
+
 ## 2026-11-24 — #1220 úvod Erupce: let po řece — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: Erupce na Medium, High a Ultra začíná záběrem „the river“ (3,5 s): kamera letí proti proudu východního ramene (1790→1655 po toku, asi 40 u/s, 10–17 nad vodou), vesnice vlevo, kužel se sloupem vpravo. Nahrazuje široký záběr sopky; Low a Potato mají staré tři záběry (16,5 s). Celkem 20,4 s, erupce, kráter a vesnice beze změny, výbuch dál 0,9 s po začátku erupce. Nové `VolcanoCountry.RiverCentre`, `AridIntroPaths.Even`, `RiverKeep`.
