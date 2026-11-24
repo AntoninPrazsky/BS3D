@@ -411,6 +411,25 @@ never affected by scene-space effects like the underwater blur — don't judge a
 exception is the Game's HUD under a page's blur, a pause: since #438 it is drawn into a layer and softened
 with the frame, so a paused Game capture is *supposed* to show a soft HUD.)
 
+### Does a ball keep its detail at every size? `ball-detail-sweep.ps1` and `ball-detail.py` (#1216)
+
+A change to a ball style's relief, a band limit or the shared normal tilt is checked against the rule "What fades
+where" in `docs/rendering/ball-styles.md` states: the same ball at the play view and at the menu's close pass keeps
+the same detail. `ball-detail-sweep.ps1` photographs every style from one place at both sizes (R 25 and R 69
+display pixels, the lens narrowed for the second, one Testbed run each, `F5` on the first frame so every run hangs
+the same pose), and `ball-detail.py` reads the detail in one band relative to the ball's size, in L*, in the play
+view against the close-up shrunk to the play size by a box filter (what a perfect filter keeps); `--check 0.9,1.1`
+exits 1 when a style leaves the range. ⚠ **Compare the play view with the filtered close-up, never with the raw
+one**: the raw ratio also counts octaves no frame can draw at the play size and reads under 1 for every relieved
+style. And ⚠ **never move the camera in for the close-up**: from another place every ball is seen at another angle,
+and its glints and reflections move with it. Take the cue on (the default) and off, and `-Ssaa 1`; the header of each
+script has the rest. Python needs numpy, scipy and Pillow.
+
+```powershell
+.\ball-detail-sweep.ps1 -OutDir C:\scratch\detail -Cue motif
+python ball-detail.py C:\scratch\detail --cue motif --check 0.9,1.1
+```
+
 ## Comparing the Testbed against the map editor (#367)
 
 The editor is the only cross-check the Testbed has, so "do the two agree about a ball's colour" is worth being

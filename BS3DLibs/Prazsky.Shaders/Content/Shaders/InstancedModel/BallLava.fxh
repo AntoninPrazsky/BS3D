@@ -237,7 +237,7 @@ float4 LavaShade(PatternVertexShaderOutput input, bool motifCue, ColourCuePaint 
     //header; this is the one new style that wants the vinyl's moulding machinery.
     float height = SurfaceRelief(direction, footprint) * LavaCrustRelief - seam * LavaSeamDepth;
 
-    float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, height);
+    float3 worldNormal = PerturbNormalFromHeightAtAnySize(normalize(input.WorldNormal), input.WorldPosition, height);
     float3 primary = SrgbToLinear(PatternPrimaryColor);
 
     //A painted cue (#737) is a COOLER or HOTTER patch of the flow: the seams and their heat halo burn at the figure

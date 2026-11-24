@@ -81,8 +81,13 @@ static const float PorcelainWanderFrequency = 3.3;
 //
 //A line of |sin| < w at frequency f is 2w/f wide in direction units, so footprint * f / 2w is that line
 //in pixel-pairs; the constant holds it at full strength until it is about a pixel and fades it over the
-//last octave, exactly as IceCrackBandLimit does. The craze is therefore a CLOSE-RANGE figure and gone by
+//last octave, exactly as ZapArcBandLimit does. The craze is therefore a CLOSE-RANGE figure and gone by
 //play distance - which is why this style could not be left resting its whole read on it.
+//
+//It is NOT drawn at its coverage the way the ice's cracks are (#1216), deliberately: the ice's crack is
+//light added in the ball's own colour, while this one is a second colour, the stained clay, and a net
+//kept at its average would carry about a tenth of every porcelain ball towards that brown in play, where
+//the thirteen glazes were measured apart. Close up it is the craze; from afar it leaves the glaze.
 static const float PorcelainCrazeBandLimit = 1.5;
 
 //The white clay under the glaze - the body of the thing, and the one addition #339 turns on. Slightly
@@ -173,8 +178,11 @@ static const float PorcelainEnamelSheer = 0.22;
 static const float PorcelainOrnamentBandLimit = 1.5;
 
 //How deep a crack parts the glaze. Very shallow: it is there so the net survives on the tints where the
-//tone step is smallest, not to be seen as relief.
-static const float PorcelainCrackDepth = 0.007;
+//tone step is smallest, not to be seen as relief. A quarter of what it was until #1216, which is what
+//the craze actually showed: it is a close-range figure, and close up the world-unit floor under the tilt
+//(Noise.fxh) took all but a seventh to a quarter of the old 0.007. At full strength the grooves catch
+//the sky as WHITE hairlines across the glaze, the sparkle PorcelainCrazeBandLimit's note warns of.
+static const float PorcelainCrackDepth = 0.0018;
 
 //The glaze's own face: a tight bright lobe over the body, which is what puts the colour UNDER a surface
 //rather than on it.
@@ -391,7 +399,7 @@ float4 PorcelainShade(PatternVertexShaderOutput input, bool motifCue, ColourCueP
     float beadEdge = saturate(ornament / PorcelainOrnamentWidth);
     float bead = (1 - beadEdge * beadEdge) * ribbon;
 
-    float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition,
+    float3 worldNormal = PerturbNormalFromHeightAtAnySize(normalize(input.WorldNormal), input.WorldPosition,
         bead * PorcelainOrnamentRelief - craze * PorcelainCrackDepth);
 
     //The body under the glaze: an ordinary diffuse ceramic, its own broad highlight cut back because the

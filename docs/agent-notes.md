@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-24 — #1216 kuličky: stejný detail zblízka i ve hře — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: reliéf kuliček už nemá podlahu determinantu ve světových jednotkách (1e-4, dělaná pro krajinu), která zblízka srazila reliéf na sedminu; všechny kuličkové techniky volají `PerturbNormalFromHeightAtAnySize` (podlaha = půl plochy pixelu), scény mají starou verzi. Kov: oktávy kartáče, které band limit ubere, jdou do anizotropního pruhu v odrazu (`MetalSkyBrushed`); led kreslí tenké praskliny pixel široké podle pokrytí; porcelán má drážku 0,0018. Měření a kontrola jsou v `.claude/skills/screenshot/` (`ball-detail-sweep.ps1`, `ball-detail.py --check 0.9,1.1`).
+- ⚠ Podlaha v absolutních jednotkách závisí na velikosti objektu: na kuličce byl detail jen zdálky. Stejná podlaha zplošťuje reliéf scén do ~40 jednotek od objektivu.
+- Otevřené: `verdict-eye` (kov ve hře zřetelně kartáčovaný, drahokam 1,16, ssaa 1, pohyb neviděn); otázka majiteli, které styly myslel; follow-up pro scény nezaložen.
+
 ## 2026-11-24 — #1220 úvod Erupce: let po řece — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: Erupce na Medium, High a Ultra začíná záběrem „the river“ (3,5 s): kamera letí proti proudu východního ramene (1790→1655 po toku, asi 40 u/s, 10–17 nad vodou), vesnice vlevo, kužel se sloupem vpravo. Nahrazuje široký záběr sopky; Low a Potato mají staré tři záběry (16,5 s). Celkem 20,4 s, erupce, kráter a vesnice beze změny, výbuch dál 0,9 s po začátku erupce. Nové `VolcanoCountry.RiverCentre`, `AridIntroPaths.Even`, `RiverKeep`.

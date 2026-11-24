@@ -175,7 +175,7 @@ float4 AcidPS(PatternVertexShaderOutput input) : COLOR
 
     //Contract point 6: the pits turn with the ball and are cut IN; the meniscus is a bead and stands proud.
     float height = meniscus * AcidMeniscusRelief - fill * pits * AcidPitDepth;
-    float3 worldNormal = PerturbNormalFromHeight(normal, input.WorldPosition, height);
+    float3 worldNormal = PerturbNormalFromHeightAtAnySize(normal, input.WorldPosition, height);
 
     SurfaceSpecular surface;
     surface.Highlight = lerp(AcidDryHighlight, AcidWetHighlight, fill);

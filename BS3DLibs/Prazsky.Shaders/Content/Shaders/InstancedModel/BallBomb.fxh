@@ -398,7 +398,7 @@ float4 BombPS(PatternVertexShaderOutput input) : COLOR
     //that makes them read as two different features rather than as one dented surface.
     float height = (stud * MineStudHeight - seam * MineSeamDepth);
 
-    float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, height);
+    float3 worldNormal = PerturbNormalFromHeightAtAnySize(normalize(input.WorldNormal), input.WorldPosition, height);
 
     SurfaceSpecular surface;
     surface.Highlight = BombHighlight;

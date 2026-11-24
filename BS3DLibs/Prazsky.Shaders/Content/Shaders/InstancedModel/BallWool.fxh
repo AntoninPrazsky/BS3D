@@ -139,7 +139,7 @@ float4 WoolShade(PatternVertexShaderOutput input, bool motifCue, ColourCuePaint 
     //because the strand direction visibly sweeps across the surface.
     float profile = WoolHeight(direction, footprint);
 
-    float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, profile * WoolStrandDepth);
+    float3 worldNormal = PerturbNormalFromHeightAtAnySize(normalize(input.WorldNormal), input.WorldPosition, profile * WoolStrandDepth);
 
     float3 primary = SrgbToLinear(PatternPrimaryColor);
 
