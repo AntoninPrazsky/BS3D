@@ -299,6 +299,16 @@ namespace Prazsky.Core.Render
         /// Read per draw, so a tier change needs no hook.</summary>
         public bool FineMeshes { get; set; } = true;
 
+        /// <summary>Whether a supersampled terrain lays its depth through its depth twin before it is shaded —
+        /// <see cref="SceneRenderer.TerrainDepthFirst"/>, which forwards here.</summary>
+        public bool TerrainDepthFirst { get; set; } = true;
+
+        /// <summary>
+        /// Whether this frame's terrains are drawn twice (#1097): the depth through the ground's depth twin, then the ground
+        /// shaded on it with depth writes off. Where the frame supersamples, unless the Testbed pins it off.
+        /// </summary>
+        public bool LaysTerrainDepth => SupersampleFactor > 1 && TerrainDepthFirst;
+
         /// <summary>Whether a distance rule reaches farther than High's — <see cref="SceneRenderer.FarDetail"/>, which forwards
         /// here. Read per draw, so a tier change needs no hook.</summary>
         public bool FarDetail { get; set; }

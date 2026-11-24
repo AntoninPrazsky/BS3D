@@ -661,7 +661,7 @@ namespace Prazsky.Core.Render
             //depth pass 0.54, but its program shaded on that depth costs 3.3 more (14.0 ms against 11.0 for the frame),
             //on DepthRead or on the default depth state alike and with the blend opaque too, where the same program drawn
             //a second time over its own finished depth costs 0.57. Why the volcano's ring and no other is not known.
-            bool depthFirst = Services.SupersampleFactor > 1 && _graphicsDevice.DepthStencilState == DepthStencilState.Default;
+            bool depthFirst = Services.LaysTerrainDepth && _graphicsDevice.DepthStencilState == DepthStencilState.Default;
             TerrainGridCache.DrawSeenBlocks(_graphicsDevice, _volcanoGrid, _terrainFrustum, originX, originZ, VOLCANO_EXTENT, low, high,
                 0f, _drawnTechnique.Passes[0], depthFirst ? _drawnDepth : null);
             Services.FarField.DrawRing(_volcanoEffect, new Vector2(originX, originZ), VOLCANO_EXTENT);

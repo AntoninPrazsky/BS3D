@@ -182,7 +182,7 @@ namespace Prazsky.Core.Render
             _graphicsDevice.BlendState = BlendState.Opaque;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
             _patch.DrawGround(_graphicsDevice, _carvedDepthTechnique.Passes[0], (_sceneDetail > 0.5f ? _carvedTechnique : _carvedReducedTechnique).Passes[0],
-                _bedTechnique.Passes[0], camera.Position, _patchFrustum, Services.SupersampleFactor > 1);
+                _bedTechnique.Passes[0], camera.Position, _patchFrustum, Services.LaysTerrainDepth);
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
