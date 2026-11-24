@@ -100,9 +100,9 @@ Summed, the waves make a height whose slope tilts the surface to catch the light
 
 ## Thirteen colours that stay apart
 
-Thirteen colours must stay apart in every material, and in some they come close: in wool, black, brown and silver. So each colour also carries a figure, from a set chosen for the material: emblems on the vinyl, spots on the bubble.
+Thirteen colours must stay apart in every material, and in some they come close: in wool, black, brown and silver. So in nine of the ten, each colour also carries a figure, from a set chosen for the material: emblems on the vinyl, spots on the bubble.
 
-The figure is a darker or paler shade of the ball's colour, and the rest of the ball shifts the other way, so a ball too far away to show its figure still shows its colour.
+The figure is a darker or paler shade of the ball's colour and the rest shifts the other way, so a ball too far off to show its figure still shows its colour.
 
 <figure class="compare">
   <div class="compare-frame">
@@ -124,13 +124,13 @@ Antonín asked what each material costs, so we timed all ten on our RX 6900 XT, 
 
 The bubble added 1.82 ms: it shows its far side through its near one, so each ball is drawn twice. The ice added 1.28 ms for its cracks, and the plasma saved 0.90 ms, since it never runs the lighting.
 
-We cut nothing. The bubble is the first chapter's, and its biggest level, Amphora, plays at 9.02 ms a frame, well inside the 13.33 ms of 75 frames a second.
+We cut nothing. The bubble is the first chapter's, and its biggest level, Amphora, plays at 9.02 ms a frame, well inside the 13.33 ms of 75 frames a second. Weaker graphics chips we have not timed yet.
 
 ## Up close and far away
 
-Antonín also saw some materials change between close up and far away. The tilt is divided by the pixel's area on the ball, with a floor under that area so that a pixel seen edge-on never divides by nothing. That floor was the landscapes', sized for hills: on any ball over about 25 pixels in radius it flattened the relief, to a seventh on the menu's close pass. The gem's facets and the wool's strands showed mostly from afar.
+Antonín also saw some materials change with the distance. The tilt is divided by the pixel's area on the ball, with a floor under that area so that a pixel seen edge-on never divides by nothing. That floor was the landscapes', sized for hills: on any ball over about 25 pixels in radius it flattened the relief, to a seventh on the menu's close pass. The gem's facets and the wool's strands showed mostly from afar.
 
-Now the balls' floor is half the pixel's own area, and the relief is whole at any size. The metal's brushing, where too fine for a pixel, now streaks its reflection instead, as a brushed ball does across a room.
+The balls' floor is now half the pixel's own area, and the relief is whole at any size. Brushing too fine for a pixel now streaks the metal's reflection instead, as on a brushed ball seen across a room.
 
 <figure class="compare">
   <div class="compare-frame">
