@@ -71,7 +71,8 @@ namespace BS3D.Screens
             //A landing breaks the impossible shot's run (#230); the shot has already left _shotBalls, so the watch cannot see it
             _repeatMiss.Break();
 
-            if (_test.LogShots) LogResolution($"landed at ({landing.Cell.X},{landing.Cell.Z},{landing.Cell.Level})");
+            if (_test.LogShots) LogResolution(FormattableString.Invariant(
+                $"landed at ({landing.Cell.X},{landing.Cell.Z},{landing.Cell.Level}), pushing {landing.Push.Balls} ball(s) with {landing.Push.Impulse:0.#} of momentum"));
 
             //A cutter does not land: it severs (#767). Its strike has a sound and a knock of its own in place of the
             //landing's note and tap below; the slash and the faces' glow are staged once the cinematic

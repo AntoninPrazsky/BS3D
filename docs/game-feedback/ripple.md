@@ -2,7 +2,7 @@
 
 Part of [The game: feedback](../game-feedback.md).
 
-Every ball that lands sends a wave of light through the cluster: the balls touching the impact flare first, then the ones touching those. It makes the cluster read as one connected body instead of a heap of spheres, because the thing the shot stuck to answers. While it runs the resting heartbeat is turned down (`PULSE_DEPTH_RESTING` to `PULSE_DEPTH_RIPPLING` in `BallRenderSet`), because a breath swinging over half the emission drowns the event. The same wave also carries the ceiling's alarm (below, and [The ceiling and the floor alarm](ceiling-and-floor-alarms.md)).
+Every ball that lands sends a wave of light through the cluster: the balls touching the impact flare first, then the ones touching those. It makes the cluster read as one connected body instead of a heap of spheres, because the thing the shot stuck to answers. While it runs the resting heartbeat is turned down (`PULSE_DEPTH_RESTING` to `PULSE_DEPTH_RIPPLING` in `BallRenderSet`), because a breath swinging over half the emission drowns the event. The same wave also carries the ceiling's alarm (below, and [The ceiling and the floor alarm](ceiling-and-floor-alarms.md)). The wave is light; the motion is the shot's push, which moves the balls round the landing ([A shot pushes what it hits](../game-session/physics-in-the-game.md#a-shot-pushes-what-it-hits-1192), #1192).
 
 ## How it travels
 

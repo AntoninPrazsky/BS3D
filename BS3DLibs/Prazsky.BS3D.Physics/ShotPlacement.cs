@@ -97,6 +97,73 @@ namespace Prazsky.BS3D.Physics
         }
 
         /// <summary>
+        /// How much farther from the touch than the cell the solve chose a promised cell may stand and still be kept, in world
+        /// units (<see cref="KeepsPromise"/>).
+        /// </summary>
+        public const float PROMISE_SLACK = 0.5f;
+
+        /// <summary>
+        /// Whether a shot that struck <paramref name="hitBall"/> keeps the promise its ghost made as it left (#1192): it
+        /// lands in <paramref name="promisedCell"/> rather than in <paramref name="solvedCell"/>, the cell
+        /// <see cref="TrySolveAgainstBall"/> answered for this touch.
+        /// <para>
+        /// <b>Why a promise is kept at all.</b> The ghost is the solve asked of the cluster as it stood when the shot left,
+        /// and the landing is the same solve asked of the cluster as it stands when the shot arrives, a few steps later. A
+        /// cluster that moves in between, swinging under the push a landing gives it (<see cref="ShotPush"/>), moves the touch
+        /// across the ball, and a touch near the line between two free cells then picks the other one: one shot in six
+        /// landed beside its ghost when shots followed each other 0.3 s apart into a pushed cluster, against one in sixty
+        /// without the push. A player aims at the ghost, so when the shot strikes the very ball the ghost was solved against, and the
+        /// promised cell is still free, still one the solve may answer for that ball (its first ring, or its second when the
+        /// first is full) and within <see cref="PROMISE_SLACK"/> as near the touch as the solve's own cell, the ghost's cell
+        /// is where it goes. A shot the swing brings onto another ball lands by the solve alone.
+        /// </para>
+        /// </summary>
+        /// <param name="worldContact">Where the touch happened, in world space.</param>
+        /// <param name="clusterDrift">What <see cref="TrySolveAgainstBall"/> measured on <paramref name="hitBall"/>.</param>
+        public static bool KeepsPromise(BallsMap map, PhysicsBall hitBall, Vector3 worldContact, Vector3 worldOffset,
+            Vector3 clusterDrift, XZLevel solvedCell, XZLevel? promisedCell, PhysicsBall promisedAgainst)
+        {
+            if (map == null || hitBall == null || promisedCell is not XZLevel promised || !ReferenceEquals(hitBall, promisedAgainst)
+                || promised.Equals(solvedCell))
+                return false;
+
+            XZLevel size = new(map.StageSizeX, map.StageSizeZ, map.Levels);
+            if (promised.X < 0 || promised.Z < 0 || promised.Level < 0
+                || promised.X >= size.X || promised.Z >= size.Z || promised.Level >= size.Level) return false;
+
+            StaticBall[,,] cells = map.GetStaticBallsArray();
+            if (cells[promised.X, promised.Z, promised.Level] != null) return false;
+
+            //One the solve may answer for this ball: beside it, or - only when the solve itself had to go there, its first ring
+            //being full - beside a ball beside it
+            XZLevel hit = hitBall.ArrayPosition;
+            bool inRing = IsNeighbour(hit, promised, size);
+            if (!inRing && !IsNeighbour(hit, solvedCell, size))
+                foreach (XZLevel neighbour in BallsMap.GetNeighboringCells(hit, size))
+                    if (cells[neighbour.X, neighbour.Z, neighbour.Level] != null && IsNeighbour(neighbour, promised, size))
+                    {
+                        inRing = true;
+                        break;
+                    }
+
+            if (!inRing) return false;
+
+            //Nearly as near the touch as the solve's own cell, in the frame the solve measured it in
+            Vector3 anchored = worldContact - worldOffset - clusterDrift;
+            return Vector3.Distance(map.GetRealCenteredPosition(promised), anchored)
+                <= Vector3.Distance(map.GetRealCenteredPosition(solvedCell), anchored) + PROMISE_SLACK;
+        }
+
+        //By the map's own neighbour rule (GetNeighboringCells), not a second copy of its parity arithmetic
+        private static bool IsNeighbour(XZLevel of, XZLevel cell, XZLevel size)
+        {
+            foreach (XZLevel neighbour in BallsMap.GetNeighboringCells(of, size))
+                if (neighbour.Equals(cell)) return true;
+
+            return false;
+        }
+
+        /// <summary>
         /// Where a solved cell actually <b>is</b>, in world space, as the cluster hangs this instant: the cell's
         /// ideal lattice position, taken up into the world frame and then corrected by the local drift the solve
         /// measured.
@@ -326,9 +393,40 @@ namespace Prazsky.BS3D.Physics
         /// only wants the answer. <b>It is what lets the aim BEAM follow the curve</b>: a straight line drawn
         /// from the muzzle to a contact the ball reaches by curving is a guide that lies about the middle of
         /// the flight while telling the truth about its end, which is worse than either.</param>
+        /// <param name="lead">Whether to lead a moving cluster (#1192): when the ball the flight meets moves faster than
+        /// <see cref="LEAD_MIN_SPEED"/>, the flight is flown again at the shot's velocity less that ball's, as the ball sees
+        /// it, so the touch is where the shot meets it after the steps it flies and not where it stands now. A level with
+        /// crates is never led: they do not move with the cluster. False, every caller but the Game's preview and what solves
+        /// as it does, takes the cluster as it stands.</param>
         public static bool TryFindFirstHitCurved(PhysicsBall[,,] balls, Vector3 origin, Vector3 velocity,
             float radiusSum, GravityWells wells, out PhysicsBall hit, out Vector3 worldContact,
-            List<Vector3> path = null, Crates crates = null, bool worldGravity = false)
+            List<Vector3> path = null, Crates crates = null, bool worldGravity = false, bool lead = false)
+        {
+            if (!TryFindFirstHitCurvedStill(balls, origin, velocity, radiusSum, wells, out hit, out worldContact, path, crates,
+                    worldGravity))
+                return false;
+
+            //LEADING A MOVING CLUSTER (#1192): the ball the flight meets is asked how fast it is moving, and the flight is
+            //flown again as that ball sees it, at the shot's velocity less the ball's, so the touch is where the shot meets
+            //it after the few steps it flies rather than where it stands now. Not with crates, which do not move with it
+            if (!lead || (crates != null && crates.Count > 0)) return true;
+
+            Vector3 moving = hit.BallReference.Velocity.Linear.ToXna();
+            if (moving.LengthSquared() < LEAD_MIN_SPEED * LEAD_MIN_SPEED) return true;
+
+            return TryFindFirstHitCurvedStill(balls, origin, velocity - moving, radiusSum, wells, out hit, out worldContact, path,
+                crates, worldGravity);
+        }
+
+        /// <summary>
+        /// How fast a struck ball has to be moving, in units a second, before the preview leads it (<see cref="TryFindFirstHitCurved"/>'s
+        /// <c>lead</c>). A hanging cluster at rest creeps at a few hundredths; a pushed one swings at a unit or more.
+        /// </summary>
+        public const float LEAD_MIN_SPEED = 0.05f;
+
+        private static bool TryFindFirstHitCurvedStill(PhysicsBall[,,] balls, Vector3 origin, Vector3 velocity,
+            float radiusSum, GravityWells wells, out PhysicsBall hit, out Vector3 worldContact,
+            List<Vector3> path, Crates crates, bool worldGravity)
         {
             hit = null;
             worldContact = Vector3.Zero;

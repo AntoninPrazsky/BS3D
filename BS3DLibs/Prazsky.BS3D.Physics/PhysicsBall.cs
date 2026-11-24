@@ -25,6 +25,24 @@ namespace Prazsky.BS3D.Physics
         public XZLevel ArrayPosition;
 
         /// <summary>
+        /// A shot's promise (#1192): the cell its landing ghost showed as it left the barrel, solved against
+        /// <see cref="PromisedAgainst"/>, or null for a shot fired with no ghost (the Testbed's, the sag gate's). The contact
+        /// handler keeps it when the shot strikes that very ball and the cell is still one the solve may answer for it, nearly
+        /// as near the touch as the cell the solve chose (<see cref="ShotPlacement.KeepsPromise"/>).
+        /// </summary>
+        public XZLevel? PromisedCell;
+
+        /// <summary>The structure ball the ghost's cell was solved against (<see cref="PromisedCell"/>).</summary>
+        public PhysicsBall PromisedAgainst;
+
+        /// <summary>
+        /// Whether this shot has been refused once already (both rings full round what it met): its refusal is logged and
+        /// pushes the cluster once (#1192, <see cref="BallContactEventHandler"/>). On the shot and not keyed by its body's
+        /// handle, which Bepu hands to a later body once this one is gone.
+        /// </summary>
+        internal bool Refused;
+
+        /// <summary>
         /// Occlusion data of a ball with nothing packed around it.
         /// </summary>
         public static readonly System.Numerics.Vector4 UNOCCLUDED = new(0f, 0f, 0f, 1f);

@@ -560,12 +560,10 @@ namespace BS3D.Screens
             //before the input, so R and a click in one frame fired a cutter the preview had not seen loaded, a flick across the
             //boundary fired one at the storey it crossed into, and a Swap that took the cutter out refused the ball after it
             //(the review of #692). One sweep a click.
-            bool cutterRefused = false;
-            if (CutterLoaded)
-            {
-                UpdateShotPreview();
-                cutterRefused = _cutterRefused;
-            }
+            //And for every round, not only a cutter (#1192): the ghost's cell and the ball it was solved against go with the
+            //shot as its promise (PhysicsBall.PromisedCell, below), which has to be the promise of the flight that leaves.
+            UpdateShotPreview();
+            bool cutterRefused = CutterLoaded && _cutterRefused;
 
             if (cutterRefused)
             {
@@ -604,7 +602,12 @@ namespace BS3D.Screens
                 BallReference = _world.AddShotBall(muzzle.ToNumerics(), direction.ToNumerics() * ShotSpeed,
                     _eventHandler),
                 Type = type, //the colour the player saw loaded at the muzzle, so aiming for it means something
-                Kind = kind  //and what it is, which for everything but a wildcard is Normal (#330)
+                Kind = kind, //and what it is, which for everything but a wildcard is Normal (#330)
+
+                //And the ghost's promise (#1192): the contact handler keeps it when the shot strikes the ball it was solved
+                //against, so a cluster the last shot set swinging does not tip this one into the cell beside it
+                PromisedCell = _previewHasCell ? _previewCell : null,
+                PromisedAgainst = _previewAgainst,
             };
 
             //A cutter leaves turned as it lay in the bore (#767's verdict): its saw's frame is the round's own

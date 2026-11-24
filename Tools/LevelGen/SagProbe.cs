@@ -923,6 +923,9 @@ namespace BS3D.Tools.LevelGen
         /// </summary>
         private static readonly GravityWells _wells = new();
 
+        /// <summary>The push a landing gives the cluster (#1192), its walk's scratch reused as <see cref="_wells"/> is.</summary>
+        private static readonly ShotPush _push = new();
+
         //The level's crates (#257), stood where the game stands them (Crates.AddSpecs) and handed to the shot's sweep -
         //the game's own preview banks a shot off them, so the probe's landing must too - and to the world as statics,
         //so what a shot releases falls round them rather than through them. Set per run like the wind clock.
@@ -1018,6 +1021,15 @@ namespace BS3D.Tools.LevelGen
             XZLevel cell = default;
             Vector3 drift = default;
 
+            //The flight of the shot that is kept, for its push (#1192): the gun is laid on every candidate in turn below, so
+            //once the loop has run on past the fallback the barrel points at the last one tried, not at the kept shot
+            Vector3 flight = default;
+
+            //And the first candidate that would be refused (both rings full round the ball its line meets): what a player
+            //with nothing that sticks fires into, and the ball that takes the refusal's push
+            PhysicsBall refusedAt = null;
+            Vector3 refusedContact = default, refusedFlight = default;
+
             //⚠ A PLAYER AIMS AT WHAT THEY CAN SEE, and the first cut of this did not: it pointed the gun at a
             //ball of the loaded colour wherever it was, and ShotPlacement then dutifully landed the shot beside
             //whatever ball the LINE met first - an outer one, usually of another colour entirely. The result
@@ -1051,11 +1063,22 @@ namespace BS3D.Tools.LevelGen
                         out PhysicsBall hit, out Vector3 contact, crates: _crates)) continue;
 
                 if (!ShotPlacement.TrySolveAgainstBall(map, hit, contact, worldOffset, out XZLevel solved,
-                        out Vector3 solvedDrift)) continue;                    //both rings full: it would bounce
+                        out Vector3 solvedDrift))
+                {
+                    //Both rings full: it would bounce
+                    if (refusedAt == null)
+                    {
+                        refusedAt = hit;
+                        refusedContact = contact;
+                        refusedFlight = cannon.AimDirection * SHOT_SPEED;
+                    }
+
+                    continue;
+                }
 
                 //The first shot that would stick anywhere, kept in case nothing matches: a player with no
                 //match available still fires, and the ball that sticks is the point of firing at all.
-                if (!found) { cell = solved; drift = solvedDrift; found = true; }
+                if (!found) { cell = solved; drift = solvedDrift; flight = cannon.AimDirection * SHOT_SPEED; found = true; }
 
                 //What the gun ACTUALLY put there, which need not be the gap aimed at - the line may have met
                 //a ball short of it. Asked of the solved cell rather than of the intent, so a shot only counts
@@ -1064,10 +1087,29 @@ namespace BS3D.Tools.LevelGen
 
                 cell = solved;
                 drift = solvedDrift;
+                flight = cannon.AimDirection * SHOT_SPEED;
                 break;
             }
 
-            if (!found) return Shot.Bounced;
+            if (!found)
+            {
+                //A REFUSED SHOT STILL STRIKES (#1192), as the contact handler's refusal does (PushRefused): what the touch
+                //hands over, the shot's velocity along the line between the two centres, goes to the balls round the ball it met
+                if (refusedAt != null)
+                {
+                    Vector3 normal = refusedContact - refusedAt.BallReference.Pose.Position.ToXna();
+                    if (normal.LengthSquared() > 1e-8f)
+                    {
+                        normal.Normalize();
+                        float closing = Vector3.Dot(refusedFlight, normal);
+                        if (closing < 0f)
+                            _push.Apply(world.Simulation, balls, refusedAt.ArrayPosition, ShotPush.ImpulseOf(
+                                BallsConstraintsBuilder.BALL_MASS, (normal * closing).ToNumerics(), BallKind.Normal));
+                    }
+                }
+
+                return Shot.Bounced;
+            }
 
             Vector3 rest = ShotPlacement.CellWorldPosition(map, cell, worldOffset, drift);
 
@@ -1121,6 +1163,10 @@ namespace BS3D.Tools.LevelGen
             List<XZLevel> zaps = ArmedSpecials(map, cell, BallKind.Zap, _landingZaps);
             List<XZLevel> acids = ArmedSpecials(map, cell, BallKind.Acid, _landingAcids);
 
+            //The push's walk (#1192), before anything leaves, as the handler walks it: what a released group hung from
+            //still answers the blow (given after the removals, below)
+            _push.Prepare(balls, cell);
+
             //And the game rule: three or more of a colour touching each other let go, and so does anything
             //that was only held up by them. A shot that completes nothing simply stays, which is the whole
             //point of firing rather than picking - two throws in three add a ball to the underside.
@@ -1148,6 +1194,14 @@ namespace BS3D.Tools.LevelGen
             if (armed.Count > 0)
                 released = released.Plus(BallsConstraintsBuilder.DetonateBombs(
                     armed, balls, map, world.Simulation, falling));
+
+            //THE SHOT PUSHES WHAT IT HIT (#1192), last, as the handler gives it: the momentum the shot flew in with, handed to
+            //the balls the walk found that still hang. A step of a landing that lives in the handler, so it is repeated here,
+            //or the gate would measure a cluster that never swings under a hit. The flight is not simulated, so the velocity
+            //is the one the kept shot leaves with, which is what it strikes with to a hundredth. (The settle that damps the
+            //swing afterwards runs on the simulation's own step, so it needs no line here.)
+            _push.Deliver(world.Simulation, balls, ShotPush.ImpulseOf(BallsConstraintsBuilder.BALL_MASS, flight.ToNumerics(),
+                BallKind.Normal));
 
             return Shot.Landed;
         }

@@ -273,9 +273,11 @@ namespace BS3D.Screens
 
                 Vector3 direction = Vector3.Normalize(at - _cannon.Position);
                 Vector3 muzzle = _cannon.Position + direction * Game.CannonRig.PivotToFrontBall;
+                //Leading a moving cluster as the preview does (#1192) only where the shots push it (a capture): the measured
+                //run has no push, and a lead there would follow the wind's sway and change the work it was measured on
                 if (!ShotPlacement.TryFindFirstHitCurved(_physicsBalls, muzzle, direction * SHOOT_SPEED,
                         2f * BallsConstraintsBuilder.BALL_RADIUS, _gravityWells, out PhysicsBall hit, out _, null, _crates,
-                        worldGravity: true))
+                        worldGravity: true, lead: _eventHandler.PushScale > 0f))
                     continue;
 
                 float score = (float)_demoRandom.NextDouble();

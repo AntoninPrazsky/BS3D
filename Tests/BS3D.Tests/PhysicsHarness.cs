@@ -31,14 +31,16 @@ namespace BS3D.Tests
 
         /// <param name="lateral">Added to the fitted offset in X and Z — a cluster hung off the plate's axis on
         /// purpose, for a test that needs an offset the fit itself no longer produces (#561).</param>
-        public HungLevel(BallsMap map, Microsoft.Xna.Framework.Vector3 lateral = default)
+        /// <param name="workerThreads">The world's worker threads, 0 for one per processor; 1 makes two hangings of the same
+        /// level step identically, for a test that compares a world with its twin (#946, #1192).</param>
+        public HungLevel(BallsMap map, Microsoft.Xna.Framework.Vector3 lateral = default, int workerThreads = 0)
         {
             Map = map;
             Map.Center();
 
             WorldOffset = ClusterHang.FitWorldOffset(Map, out float fieldTopY) + lateral;
 
-            World = new PhysicsWorld();
+            World = new PhysicsWorld(workerThreads: workerThreads);
 
             float ceilingY = CeilingPlate.CentreYAbove(fieldTopY);
             Box box = new(CeilingPlate.FootprintFor(Map.StageSizeX), CeilingPlate.THICKNESS,
@@ -53,8 +55,8 @@ namespace BS3D.Tests
                 WorldOffset.ToNumerics());
         }
 
-        public static HungLevel FromLevelFile(string path, Microsoft.Xna.Framework.Vector3 lateral = default) =>
-            new(new BallsMap(Level.Load(path).Map), lateral);
+        public static HungLevel FromLevelFile(string path, Microsoft.Xna.Framework.Vector3 lateral = default, int workerThreads = 0) =>
+            new(new BallsMap(Level.Load(path).Map), lateral, workerThreads);
 
         public void Run(float seconds)
         {

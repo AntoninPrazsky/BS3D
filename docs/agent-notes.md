@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-24 — #1192 výstřel postrčí shluk — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: nový `ShotPush` předá zasaženému shluku hybnost střely (podíl `MOMENTUM_SHARE` 1, `ShareFor(kind)` pro Fire Ball #1033) jako impuls podél letu, přes sokety do 5 skoků (útlum 0,7, nejvýš 8 u/s na kuličku), až po dokončeném přistání a odstranění skupin. Totéž při prvním odmítnutí (střela sklouzne) a u řezačky. Po 1 s se houpání 4 s tlumí, shluk usne za 1–5,5 s. Duch vede pohybující se kuličku (`lead`) a střela drží buňku ducha (`KeepsPromise`): shoda 98,9 % při 0,3 s. Benchmark měří bez postrčení; `shotpush=<0..4>` pro porovnání.
+- ⚠ Starý údaj „nejníž“ porovnával dvojčata ve stejném okamžiku a lhal (Rope 1,1); porovnávat nejhlubší bod každého zvlášť.
+- Otevřené: `verdict-hands`; rozhodnutí majitele: Orrery s postrčením hlásí průvěs (3–5 z 5) — převěsit, nebo zeslabit. Snímek na Potato/Pi/telefonu neměřen.
+
 ## 2026-11-24 — #1216 kuličky: stejný detail zblízka i ve hře — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: reliéf kuliček už nemá podlahu determinantu ve světových jednotkách (1e-4, dělaná pro krajinu), která zblízka srazila reliéf na sedminu; všechny kuličkové techniky volají `PerturbNormalFromHeightAtAnySize` (podlaha = půl plochy pixelu), scény mají starou verzi. Kov: oktávy kartáče, které band limit ubere, jdou do anizotropního pruhu v odrazu (`MetalSkyBrushed`); led kreslí tenké praskliny pixel široké podle pokrytí; porcelán má drážku 0,0018. Měření a kontrola jsou v `.claude/skills/screenshot/` (`ball-detail-sweep.ps1`, `ball-detail.py --check 0.9,1.1`).

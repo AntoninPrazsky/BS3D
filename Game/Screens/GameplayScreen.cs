@@ -1220,6 +1220,12 @@ namespace BS3D.Screens
         private bool _previewHasCell;
 
         /// <summary>
+        /// The structure ball <see cref="_previewCell"/> was solved against: what a shot carries beside the cell as its
+        /// promise (#1192, <see cref="PhysicsBall.PromisedAgainst"/>). Null whenever there is no cell.
+        /// </summary>
+        private PhysicsBall _previewAgainst;
+
+        /// <summary>
         /// How far the cluster hangs off its lattice where <see cref="_previewCell"/> is — measured on the very ball
         /// the aim reaches, and handed back by the same call that answers the cell.
         /// <para>

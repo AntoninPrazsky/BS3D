@@ -71,6 +71,22 @@ namespace BS3D.Tests
 
         public HungLevel Hung => _hung;
 
+        /// <summary>The Game's own contact handler on this level: what a test sets its push on (#1192).</summary>
+        public BallContactEventHandler Handler => _handler;
+
+        /// <summary>
+        /// Whether each shot carries its ghost's promise (<see cref="PhysicsBall.PromisedCell"/>), as the Game's do (#1192).
+        /// False by default: the landing is then the shared solve's alone, which is what <see cref="ShotAgreementTests"/>
+        /// guard (#696), and a promise that overrode a broken solve would hide it there.
+        /// </summary>
+        public bool StampsPromise { get; set; }
+
+        /// <summary>
+        /// Whether the ghost leads a moving cluster (<see cref="ShotPlacement.TryFindFirstHitCurved"/>'s <c>lead</c>), as the
+        /// Game's does (#1192). False by default, for <see cref="StampsPromise"/>'s reason.
+        /// </summary>
+        public bool Leads { get; set; }
+
         /// <summary>The last shot's landing as the handler reported it, or null when it did not land (#767: a cutter's
         /// <see cref="BallLanding.ShotDirection"/>).</summary>
         public BallLanding? LastLanding => _landing;
@@ -78,9 +94,10 @@ namespace BS3D.Tests
         /// <param name="levelFile">A file of <c>Game/Levels</c>.</param>
         /// <param name="settleSeconds">How long the level hangs before anything is fired at it: a level is long settled by the
         /// time a player fires, and a cluster still sagging is a moving target no ghost can promise.</param>
-        public ShotRig(string levelFile, float settleSeconds = 1.5f)
+        /// <param name="workerThreads">The world's worker threads (<see cref="HungLevel"/>): 1 for a rig compared with its twin.</param>
+        public ShotRig(string levelFile, float settleSeconds = 1.5f, int workerThreads = 0)
         {
-            _hung = HungLevel.FromLevelFile(LevelPath(levelFile));
+            _hung = HungLevel.FromLevelFile(LevelPath(levelFile), workerThreads: workerThreads);
             _hung.Run(settleSeconds);
 
             KinematicBody ceiling = new(_hung.Ceiling, _hung.Ceiling.Handle);
@@ -119,10 +136,14 @@ namespace BS3D.Tests
             XVector3 velocity = aim * SHOOT_SPEED;
 
             XZLevel? promised = null;
+            PhysicsBall promisedAgainst = null;
             if (ShotPlacement.TryFindFirstHitCurved(_hung.Balls, muzzle, velocity, 2f * BallsConstraintsBuilder.BALL_RADIUS, null,
-                    out PhysicsBall hit, out XVector3 contact, null, _crates, worldGravity: true)
+                    out PhysicsBall hit, out XVector3 contact, null, _crates, worldGravity: true, lead: Leads)
                 && ShotPlacement.TrySolveAgainstBall(_hung.Map, hit, contact, _hung.WorldOffset, out XZLevel cell, out _))
+            {
                 promised = cell;
+                promisedAgainst = hit;
+            }
 
             if (promised == null) return new ShotResult(ShotOutcome.NoGhost, null, null, glance, 0, 0f);
 
@@ -131,6 +152,14 @@ namespace BS3D.Tests
             _spent = false;
 
             PhysicsBall shot = new() { Type = type, Kind = kind, BallReference = _hung.World.AddShotBall(muzzle.ToNumerics(), velocity.ToNumerics(), _handler) };
+
+            //And the promise, as the Game stamps it on every shot that leaves with a ghost (#1192)
+            if (StampsPromise && kind != BallKind.Cutter)
+            {
+                shot.PromisedCell = promised;
+                shot.PromisedAgainst = promisedAgainst;
+            }
+
             _shots.Add(shot);
 
             //The preview's own integration of the flight, step by step: semi-implicit Euler at the simulation's step with

@@ -80,6 +80,13 @@ namespace Prazsky.BS3D.Levels
         /// stands, the figure is now also the player's last-chance window.)
         /// </para>
         /// <para>
+        /// <b>The shot's push (#1192) was measured against the unit and fits under it</b>: a pushed cluster's lowest ball
+        /// went at most 0.17 deeper than the same landing's without the push (Pylon; Chest's own at most 0.03, so its
+        /// deepest swing stays near 0.85), the deepest of each twin over six seconds compared, 32 landings on eight levels
+        /// (<c>ShotPushTests</c>' report). The push swings the cluster sideways far more than down, and its swing is settled
+        /// (<c>ShotPush.SETTLE_RATE</c>). A larger push, or one without the settle, is measured again against this.
+        /// </para>
+        /// <para>
         /// <b>⚠ What this pair cannot forgive, and #301 is the report of it:</b> shooting a group off removes
         /// structure from one side, so the remainder rotates into a <i>new rest pose and stays there</i> — a
         /// lower equilibrium rather than a passing dip. The grace then expires and the level ends, correctly.

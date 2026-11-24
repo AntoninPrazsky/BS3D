@@ -115,10 +115,17 @@ namespace Prazsky.BS3D.Physics
         /// </summary>
         public readonly Vector3 ShotDirection;
 
+        /// <summary>
+        /// The push the shot gave the balls still hanging round where it struck (#1192, <see cref="ShotPush"/>): how many it
+        /// reached and the momentum it handed them. <see cref="ShotPush.Result.None"/> when nothing was left to take it.
+        /// </summary>
+        public readonly ShotPush.Result Push;
+
         public BallLanding(BallsReleased released, Vector3 world, BallType type, XZLevel cell, int coloured = 0,
             int thawed = 0, IReadOnlyList<Detonation> detonations = null, BallKind kind = BallKind.Normal,
-            Vector3 shotDirection = default)
+            Vector3 shotDirection = default, ShotPush.Result push = default)
         {
+            Push = push;
             Released = released;
             World = world;
             Type = type;

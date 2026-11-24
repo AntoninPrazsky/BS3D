@@ -76,6 +76,7 @@ namespace BS3D.Screens
         private void UpdateShotPreview()
         {
             _previewHasCell = false;
+            _previewAgainst = null;
             _previewReachesCluster = false;
             _previewBeamVisible = false;
             _cutterRefused = false;
@@ -107,9 +108,12 @@ namespace BS3D.Screens
             //one ball to its neighbour, so the ghost is now the flight the simulation integrates and no longer the straight
             //line from the barrel. The step is the simulation's own; the cost is a stepped walk where a straight sweep was,
             //which a segment's box test against the cluster's bounds keeps to the few steps near the cluster.
+            //
+            //AND IT LEADS A MOVING CLUSTER SINCE #1192 (lead): a shot pushes what it hits, and the cluster the next shot flies
+            //at is often still swinging, so the touch is solved where the struck ball will be when the shot gets there.
             if (!ShotPlacement.TryFindFirstHitCurved(_physicsBalls, muzzle, aim * ShotSpeed,
                     2f * BallsConstraintsBuilder.BALL_RADIUS, _gravityWells, out PhysicsBall hit,
-                    out Vector3 contact, _previewPath, _crates, worldGravity: true))
+                    out Vector3 contact, _previewPath, _crates, worldGravity: true, lead: true))
             {
                 //Nothing out there. The beam still goes up, because in the overview it is the ONLY thing saying
                 //where the gun points — but open-ended, so it thins away instead of ending at a phantom.
@@ -138,6 +142,7 @@ namespace BS3D.Screens
             //_previewDrift, and ShotPlacement.CellWorldPosition for the two things that separate the two.
             _previewHasCell = ShotPlacement.TrySolveAgainstBall(_map, hit, contact, _clusterWorldOffset,
                 out _previewCell, out _previewDrift);
+            if (_previewHasCell) _previewAgainst = hit;
 
             //And none for a cutter (#213): it does not land in a cell, so the ghost would show a ball that will not be there.
             //The beam ends at the ball it will strike, which is the promise a cutter can keep - and when that ball stands in
@@ -146,6 +151,7 @@ namespace BS3D.Screens
             if (CutterLoaded)
             {
                 _previewHasCell = false;
+                _previewAgainst = null;
                 _cutterRefused = BallsConstraintsBuilder.IsCutProtected(hit.ArrayPosition, _map);
 
                 //And what it would cut off, lit before the shot (#692, the owner's ask) - only where the gun would fire
