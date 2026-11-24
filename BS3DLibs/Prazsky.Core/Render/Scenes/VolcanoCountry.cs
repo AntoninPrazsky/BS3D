@@ -191,11 +191,24 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Where the river's meandering centre line runs <paramref name="along"/> the course (#1220), the inverse of
-        /// <see cref="River"/>: the rounded course's point that far along it, moved off it across the course by
-        /// <see cref="MeanderAt"/>, the way <see cref="River"/> measures across; and the course's downstream direction there.
-        /// Clamped to the course's two ends. No GPU and no allocation: what the chapter intro lays its flight up the river on.
+        /// <see cref="River"/>: <see cref="RiverCourse"/>'s point moved off the course across it by <see cref="MeanderAt"/>, the way
+        /// <see cref="River"/> measures across; and the course's downstream direction there. Clamped to the course's two ends. No
+        /// GPU and no allocation.
         /// </summary>
         public Vector2 RiverCentre(float along, out Vector2 downstream)
+        {
+            Vector2 onCourse = RiverCourse(along, out downstream);
+
+            //River's "across" is positive on this side of the run: (-z, x) of the downstream direction
+            return onCourse + new Vector2(-downstream.Y, downstream.X) * MeanderAt(along);
+        }
+
+        /// <summary>
+        /// The rounded course's point <paramref name="along"/> it, its meanders left out, and its downstream direction there: the
+        /// river's general line, which the chapter intro's high run up the valley follows (#1220). Clamped to the course's two
+        /// ends. No GPU and no allocation.
+        /// </summary>
+        public Vector2 RiverCourse(float along, out Vector2 downstream)
         {
             int last = RiverPoints - 1;
             along = Math.Clamp(along, 0f, RiverPath[last].Z);
@@ -206,10 +219,7 @@ namespace Prazsky.Core.Render
             Vector4 a = RiverPath[i], b = RiverPath[i + 1];
             Vector2 from = new(a.X, a.Y), to = new(b.X, b.Y);
             downstream = Vector2.Normalize(to - from);
-            Vector2 onCourse = Vector2.Lerp(from, to, (along - a.Z) / MathF.Max(b.Z - a.Z, 1e-3f));
-
-            //River's "across" is positive on this side of the run: (-z, x) of the downstream direction
-            return onCourse + new Vector2(-downstream.Y, downstream.X) * MeanderAt(along);
+            return Vector2.Lerp(from, to, (along - a.Z) / MathF.Max(b.Z - a.Z, 1e-3f));
         }
 
         /// <summary>How far the river's meandering centre line swings off its course at a distance along it.</summary>

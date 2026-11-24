@@ -16,9 +16,10 @@ namespace BS3D.Tests
     /// every tree, house and the church, the village in the frame throughout and the cone over it at the end, the cut out of
     /// it into the tour's last leg a different picture too, and no such shot on a tier that draws no village. And the river
     /// (#1220, the owner: "the camera flies in over the river between the mountains, past the forest; on the left the village is
-    /// then visible, on the right the volcano"): the reel's first shot where the land is drawn, in place of the volcano's wide
-    /// one, low over the water and beside every tree, the village on the left and the cone on the right in plain sight at its
-    /// end, and the cued burst still going off inside the eruption shot after it.
+    /// then visible, on the right the volcano", and on its first cut: "much higher - as if it were a view from a helicopter"): the
+    /// reel's first shot where the land is drawn, in place of the volcano's wide one, high over the river's course and under the
+    /// cloud deck, banking into the river's bend, the village on the left and the cone on the right in plain sight at its end,
+    /// and the cued burst still going off inside the eruption shot after it.
     /// </summary>
     public class VolcanoIntroShotsTests
     {
@@ -31,11 +32,10 @@ namespace BS3D.Tests
         private const float MAX_SECONDS = 20.5f;
         private const float MAX_SECONDS_WITHOUT_THE_VILLAGE = 17.3f;
 
-        //The river's lens (#1220): how far inside the water's edge it stays, how far beside the nearest crown, wall or spire the
-        //land could stand at the water's side (VolcanoCountryPlanting.RiverKeep) and how high over the water a low flight goes
-        private const float INSIDE_THE_WATER = 1f;
-        private const float BESIDE_THE_TREES = 4f;
-        private const float LOW_OVER_THE_WATER = 20f;
+        //The river's lens (#1220): how far off the water's meandering centre line in plan it flies at the most (a curve through
+        //the river's course, the meanders winding under it), and how far under the lowest cloud deck any weather lays it keeps
+        private const float OVER_THE_COURSE = 35f;
+        private const float UNDER_THE_DECK = 25f;
 
         //Where the river's run ends, the village stands at least this far left of the frame's middle and the vent as far right
         //of it, in half-widths
@@ -218,37 +218,81 @@ namespace BS3D.Tests
         }
 
         /// <summary>
-        /// The river is flown low over its water (#1220): at every pose of every roll the lens stands over the water, at least
-        /// <see cref="INSIDE_THE_WATER"/> inside its edge, between <see cref="VolcanoIntroShots.RIVER_LOW"/> and
-        /// <see cref="LOW_OVER_THE_WATER"/> over it, and at least <see cref="BESIDE_THE_TREES"/> beside the nearest crown, wall
-        /// or spire the land could stand at the water's side wherever the planting stood it
-        /// (<see cref="VolcanoCountryPlanting.RiverKeep"/>, read off the planting's own figures, so it holds for every
-        /// <c>sceneseed=</c>), and past the scorched band before the front, where the snags and the front's blocks stand.
+        /// The river is flown high up its valley, as a helicopter would (#1220, the owner on the run first flown ten to seventeen
+        /// over the water: "much higher - as if it were a view from a helicopter"): at every pose of every roll the lens follows
+        /// the river's course, within <see cref="OVER_THE_COURSE"/> of the water's meandering centre line in plan; it stands over
+        /// the water, and over the highest ground within <see cref="VolcanoCountryPlanting.Reach"/> of it (read on rings round the
+        /// lens), by three times the tallest thing the land could stand there (<see cref="VolcanoCountryPlanting.Tallest"/>, read
+        /// off the planting's own tables, so it holds for every <c>sceneseed=</c>): a tree under the lens is a third of its height
+        /// or less. And it keeps <see cref="UNDER_THE_DECK"/> under the lowest cloud deck any weather lays (the volcano's own, the
+        /// storm's), which the sky shader finds by crossing it from below. How far from the drain it may see the island,
+        /// <see cref="NearPlaneTests"/> holds.
         /// </summary>
         [Fact]
-        public void TheRiverFliesLowOverTheWaterBesideEveryTree()
+        public void TheRiverIsFlownHighUpItsValley()
         {
+            float deck = float.MaxValue;
+            foreach (WeatherPreset weather in Enum.GetValues<WeatherPreset>()) deck = MathF.Min(deck, WeatherLooks.Of(weather).PlaneY);
+
             for (int seed = 1; seed <= ROLLS; seed++)
             {
-                IntroShot shot = Shots(seed, out VolcanoSceneConfig volcano, out _, out _)[0];
+                IntroShot shot = Shots(seed, out VolcanoSceneConfig volcano, out Func<float, float, float> ground, out _)[0];
                 VolcanoCountry country = VolcanoCountry.Of(volcano);
-                float half = volcano.Country.RiverHalfWidth;
                 Assert.Equal("the river", shot.Name);
 
                 for (int i = 0; i < POSES; i++)
                 {
                     shot.Pose(i / (float)(POSES - 1), out Vector3 position, out _);
                     (float across, float _, float level) = country.River(position.X, position.Z);
-                    float over = position.Y - (volcano.LevelY + level);
-                    float beside = half + VolcanoCountryPlanting.RiverKeep - MathF.Abs(across);
-                    float outside = country.Outside(position.X, position.Z);
+                    float overWater = position.Y - (volcano.LevelY + level);
 
-                    Assert.True(MathF.Abs(across) <= half - INSIDE_THE_WATER, $"seed {seed}: the lens at {i}/{POSES} is {across:F1} off the river's centre line");
-                    Assert.InRange(over, VolcanoIntroShots.RIVER_LOW - 0.05f, LOW_OVER_THE_WATER);
-                    Assert.True(beside >= BESIDE_THE_TREES, $"seed {seed}: the lens at {i}/{POSES} passes {beside:F1} beside the nearest crown the land could stand");
-                    Assert.True(outside > VolcanoCountryPlanting.SCORCHED_BAND + VolcanoCountryPlanting.Tallest,
-                        $"seed {seed}: the lens at {i}/{POSES} stands {outside:F0} past the field's edge, among the snags");
+                    float highest = ground(position.X, position.Z);
+                    for (int b = 0; b < RING_BEARINGS; b++)
+                        for (int r = 1; r <= RING_STEPS; r++)
+                        {
+                            float bearing = MathHelper.TwoPi * b / RING_BEARINGS, reach = VolcanoCountryPlanting.Reach * r / RING_STEPS;
+                            highest = MathF.Max(highest, ground(position.X + MathF.Cos(bearing) * reach, position.Z + MathF.Sin(bearing) * reach));
+                        }
+
+                    Assert.True(MathF.Abs(across) <= OVER_THE_COURSE, $"seed {seed}: the lens at {i}/{POSES} is {across:F1} off the river's centre line");
+                    Assert.True(overWater >= 3f * VolcanoCountryPlanting.Tallest, $"seed {seed}: the lens at {i}/{POSES} is {overWater:F1} over the water");
+                    Assert.True(position.Y - highest >= 3f * VolcanoCountryPlanting.Tallest,
+                        $"seed {seed}: the lens at {i}/{POSES} stands {position.Y - highest:F1} over the highest ground round it, under three times the tallest tree");
+                    Assert.True(deck - position.Y >= UNDER_THE_DECK, $"seed {seed}: the lens at {i}/{POSES} stands {deck - position.Y:F1} under the cloud deck at {deck}");
                 }
+            }
+        }
+
+        /// <summary>
+        /// The helicopter banks into the river's bend (#1220): the run turns left as it goes up the valley, the bank is to the left
+        /// wherever the lens is banked, it is level at both cuts, and no deeper than <see cref="VolcanoIntroShots.RIVER_BANK_DEGREES"/>.
+        /// How fast it rolls is held with the ride (<see cref="IntroShotSmoothnessTests"/>).
+        /// </summary>
+        [Fact]
+        public void TheRiverBanksIntoItsBendAndIsLevelAtBothCuts()
+        {
+            for (int seed = 1; seed <= ROLLS; seed++)
+            {
+                IntroShot shot = Shots(seed, out _, out _, out _)[0];
+
+                shot.Pose(0f, out Vector3 a, out _);
+                shot.Pose(0.02f, out Vector3 b, out _);
+                shot.Pose(0.98f, out Vector3 c, out _);
+                shot.Pose(1f, out Vector3 d, out _);
+                float turn = MathHelper.WrapAngle(MathF.Atan2(d.Z - c.Z, d.X - c.X) - MathF.Atan2(b.Z - a.Z, b.X - a.X));
+                Assert.True(turn < 0f, $"seed {seed}: the run turns {MathHelper.ToDegrees(turn):F1} degrees, not to the left");
+
+                Assert.Equal(0f, shot.RollAt(0f), 4);
+                Assert.Equal(0f, shot.RollAt(1f), 4);
+                for (int i = 0; i < POSES; i++)
+                {
+                    float roll = MathHelper.ToDegrees(shot.RollAt(i / (float)(POSES - 1)));
+                    Assert.True(roll <= 1e-3f && roll >= -VolcanoIntroShots.RIVER_BANK_DEGREES - 1e-3f,
+                        $"seed {seed}: the lens at {i}/{POSES} is banked {roll:F2} degrees (negative is to the left)");
+                }
+
+                Assert.True(shot.RollAt(0.5f) < -0.5f * MathHelper.ToRadians(VolcanoIntroShots.RIVER_BANK_DEGREES),
+                    $"seed {seed}: halfway through the run the lens is banked only {MathHelper.ToDegrees(shot.RollAt(0.5f)):F2} degrees");
             }
         }
 
@@ -501,7 +545,7 @@ namespace BS3D.Tests
         {
             shot.Pose(t, out Vector3 position, out Vector3 target);
             Matrix view = Matrix.CreateLookAt(position, target, Vector3.Up);
-            Matrix projection = Matrix.CreatePerspectiveFieldOfView(shot.FieldOfView, ASPECT, 1f, 5000f);
+            Matrix projection = Matrix.CreatePerspectiveFieldOfView(shot.FieldOfViewAt(t), ASPECT, 1f, 5000f);
 
             Vector4 clip = Vector4.Transform(new Vector4(point, 1f), view * projection);
             float x = clip.X / clip.W, y = clip.Y / clip.W;

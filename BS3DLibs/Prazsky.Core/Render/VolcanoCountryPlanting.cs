@@ -90,12 +90,9 @@ namespace Prazsky.Core.Render
         private const float TOWER_HALF = 2.6f, TOWER_INSET = 0.4f, TOWER_TOP = 21f, SPIRE = 10f, SPIRE_PROUD = 0.3f;
 
         //How far past the water's edge (VolcanoCountryConfig.RiverHalfWidth off the river's meandering centre line) the
-        //broadleaves, the church and the houses keep their feet (#1220: RiverKeep is read off them), a house its own
-        //HOUSE_KEEP_SHARE of its length further; the spruces keep off the water by the woods' mask (VolcanoCountry.FOREST_RIVER_FROM)
+        //broadleaves, the church and the houses keep their feet, a house its own HOUSE_KEEP_SHARE of its length further; the
+        //spruces keep off the water by the woods' mask (VolcanoCountry.FOREST_RIVER_FROM)
         private const float BROADLEAF_RIVER_KEEP = 10f, CHURCH_RIVER_KEEP = 34f, HOUSE_RIVER_KEEP = 20f, HOUSE_KEEP_SHARE = 0.6f;
-
-        //How far a house's eaves and gables stand out past its walls' footprint, at the most (AddRoof's EAVE and GABLE, rounded up)
-        private const float HOUSE_OVERHANG = 1.2f;
 
         /// <summary>
         /// The tallest anything the land stands rises over the ground at its foot, in world units (#1127): the church's spire,
@@ -110,18 +107,6 @@ namespace Prazsky.Core.Render
         /// <summary>How far sideways from its foot anything the land stands reaches (#1127): the church's tower and spire,
         /// from the middle of its nave.</summary>
         public static float Reach { get; } = WidestStanding();
-
-        /// <summary>
-        /// How far past the water's edge (<see cref="VolcanoCountryConfig.RiverHalfWidth"/> off the river's meandering centre line,
-        /// <see cref="VolcanoCountry.River"/>'s across) the nearest tree, house or the church reaches, in world units (#1220): the
-        /// least of each kind's keep off the water less how far its crown or its walls reach sideways from its foot, at the largest
-        /// scale it is planted at. It is the village's broadleaves, kept <see cref="BROADLEAF_RIVER_KEEP"/> off with the widest
-        /// crown. The snags, the fallen trunks and the front's blocks stand only in the scorched band before the front
-        /// (<see cref="SCORCHED_BAND"/>). So a lens over the water, nearer the centre line than the water's edge plus this by a
-        /// margin and past the scorched band, passes beside everything the land stands, wherever the planting stood it: the
-        /// chapter intro's flight up the river, which needs no device to know it.
-        /// </summary>
-        public static float RiverKeep { get; } = NearestTheRiver();
 
         /// <summary>How far past the field's edge (<see cref="VolcanoCountry.Outside"/>) the snags stand at the most (#1220); the
         /// fallen trunks lie within 50 of it and the front's blocks within <see cref="VolcanoCountry.FRONT_FOOT"/> plus 9.</summary>
@@ -151,33 +136,6 @@ namespace Prazsky.Core.Render
             //houses' are nearer
             float tower = NAVE_HALF_L + TOWER_HALF * 2f - TOWER_INSET + SPIRE_PROUD, side = TOWER_HALF + SPIRE_PROUD;
             return MathF.Sqrt(tower * tower + side * side);
-        }
-
-        private static float NearestTheRiver()
-        {
-            var trees = new ForestTreeConfig();
-            float spruceScale = SPRUCE_SCALE + SPRUCE_SCALE_SPAN, broadleafScale = BROADLEAF_SCALE + BROADLEAF_SCALE_SPAN;
-
-            //The spruces and the spires, where the woods' mask is above nothing: never within FOREST_RIVER_FROM past the water
-            float conifer = 0f;
-            foreach ((float width, float _, int _) in SPRUCES) conifer = MathF.Max(conifer, trees.ConiferCrownRadius * width * spruceScale);
-            foreach ((float _, float radius, int _, float _) in SPIRES) conifer = MathF.Max(conifer, radius * spruceScale);
-            float keep = VolcanoCountry.FOREST_RIVER_FROM - conifer;
-
-            //The broadleaves, the village's grown ones and the banks'
-            float broadleaf = 0f;
-            foreach ((float _, float crown, float _, int _) in VILLAGE_BROADLEAVES) broadleaf = MathF.Max(broadleaf, trees.CrownRadius * crown * broadleafScale);
-            foreach ((float _, float crown, float _, int _) in BANK_TREES) broadleaf = MathF.Max(broadleaf, crown * broadleafScale);
-            keep = MathF.Min(keep, BROADLEAF_RIVER_KEEP - broadleaf);
-
-            //A house keeps its share of its length on top of its own keep, and reaches its footprint's half-diagonal and its
-            //overhang; the church keeps CHURCH_RIVER_KEEP from the middle of its nave and reaches Reach
-            foreach (HouseKind kind in HOUSE_KINDS)
-            {
-                float corner = 0.5f * MathF.Sqrt(kind.Length * kind.Length + kind.Depth * kind.Depth) + HOUSE_OVERHANG;
-                keep = MathF.Min(keep, HOUSE_RIVER_KEEP + kind.Length * HOUSE_KEEP_SHARE - corner);
-            }
-            return MathF.Min(keep, CHURCH_RIVER_KEEP - Reach);
         }
 
         //Where the far spruces thin out to nothing: past it the ground's own forest floor (Volcano.fx's ForestCover) is the
