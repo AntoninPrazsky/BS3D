@@ -5,12 +5,13 @@ using System;
 namespace BS3D.Effects
 {
     /// <summary>
-    /// The volcano's own shots for a chapter intro's prologue (#530, #975, #1127, #1220): a helicopter's run high up the river's
-    /// valley between the ranges with the village on the left and the cone on the right, a cut to the cone from its foot as a burst goes off, a
-    /// climb up the flank that crests the rim and looks down into the crater, then an orbit round the village on the land past
-    /// the field that ends with the cone smoking over it — cut together, then cut to the tour's last leg. The owner's verdict
-    /// on #509 was that the intro "never looks INTO the volcano from above", and the standard tour cannot: it is a spline round
-    /// the arena, and the crater is a bowl on a summit 250 units off, up 140, that every reference of #509 is built round. His
+    /// The volcano's own shots for a chapter intro's prologue (#530, #975, #1127, #1220): a helicopter's run high up the river
+    /// out of the ranges, ending with the village on the left and the cone on the right, a cut to the cone from its foot as a
+    /// burst goes off, a climb up the flank that crests the rim and looks down into the crater, then an orbit round the
+    /// village on the land past the field that ends with the cone smoking over it — cut together, then cut to the tour's last
+    /// leg. The owner's verdict on #509 was that the intro "never looks INTO the volcano from above", and the standard tour
+    /// cannot: it is a spline round the arena, and the crater is a bowl on a summit 250 units off, up 140, that every reference
+    /// of #509 is built round. His
     /// note on #975 was that the first two shots were the same picture (both from the arena's side with the lens on the vent):
     /// "start with a global view of the volcano, then a cut to the volcano spewing, then the continuation". His note on #1127,
     /// that the player never notices the land at all ("there should also be shots of the village, the river, the mountains
@@ -26,7 +27,7 @@ namespace BS3D.Effects
     /// </para>
     /// <para>
     /// <b>Each shot stands somewhere else than the one before it.</b> The river runs high up its valley on the far side of the
-    /// arena from the cone, eight hundred to a thousand units from it; the eruption is seen from the cone's foot, low, round
+    /// arena from the cone, eight to nine hundred units from it; the eruption is seen from the cone's foot, low, round
     /// to one side; the crater run climbs from the arena's side; the village is orbited on the far side of the arena again,
     /// seven hundred units from the cone, two cuts after the river.
     /// <c>VolcanoIntroShotsTests</c> holds every cut to a lens that moves at least <c>MIN_CUT_DISTANCE</c> AND a view
@@ -195,7 +196,7 @@ namespace BS3D.Effects
         //⚠ WITHIN ABOUT 680 OF THE DRAIN, SO NOT FARTHER UP THE VALLEY. From up here the lens sees down into the drain's mouth on
         //the island, and past about 680 off it the band of glass the depth buffer cannot part from the dark sheath behind it is
         //wider than from the play view, whatever the near plane (RecoilCamera.NEAR_PLANE_CEILING, NearPlaneTests): the flicker
-        //#1193 took off the meadow's valley. A run up the valley between the higher ranges (from 1830 along) stood 810 off. Nor
+        //#1193 took off the meadow's valley. A run up the valley between the higher ranges (from 1830 along) stood 814 off. Nor
         //much nearer the turn: past about 1590 along the village and the vent draw apart until no frame holds both (61 degrees
         //apart at 1600 along, 70 at 1560). So the run is a slow glide of about a hundred units, and the bank, the turn of the
         //look and the descent are what move.

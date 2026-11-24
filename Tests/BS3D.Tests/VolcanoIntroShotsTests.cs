@@ -544,7 +544,9 @@ namespace BS3D.Tests
         private static Vector2 AssertInFrame(IntroShot shot, float t, Vector3 point, string what)
         {
             shot.Pose(t, out Vector3 position, out Vector3 target);
-            Matrix view = Matrix.CreateLookAt(position, target, Vector3.Up);
+            //Banked as RecoilCamera banks it: the up vector turned about the view by the shot's roll (the river's, #1220)
+            Vector3 up = Vector3.TransformNormal(Vector3.Up, Matrix.CreateFromAxisAngle(Vector3.Normalize(target - position), shot.RollAt(t)));
+            Matrix view = Matrix.CreateLookAt(position, target, up);
             Matrix projection = Matrix.CreatePerspectiveFieldOfView(shot.FieldOfViewAt(t), ASPECT, 1f, 5000f);
 
             Vector4 clip = Vector4.Transform(new Vector4(point, 1f), view * projection);
