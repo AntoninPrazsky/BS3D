@@ -20,6 +20,14 @@ Pravidla:
 
 ---
 
+## 2026-11-24 — #1237 článek o postrčení: jeden zřetelný pár — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno, nepublikováno: tři páry i úvodní Zigzag pryč (21 souborů); rozestup klipů Zigzag 4,7 %, Pendant 9,1 %, Cannonball 0,4 % šířky. Nový pár: tři rychlé střely do špičky Pennantu zblízka, výřez 544x638, 25,8 % šířky. Text zpět na ~436 slov, „Before“ místo „vlevo“ (telefon klipy skládá pod sebe).
+- Nový `Tools/web-compare.py` (pár klipů nebo snímků); `web-capture-loop.py --fade 0` jen ořízne. Pravidlo v `docs/website.md`: srovnání jen se zřetelným rozdílem ve zobrazené velikosti, změřeným.
+- majitel: Pendant „skoro není vidět“ — rozdíl desetiny šířky není zřetelný.
+- ⚠ Přímé párování obou klipů klame opakující se kuličky (126–233 px podle šíře hledání); sleduj každý klip zvlášť. Celá scéna z 33 u: 4 %, zblízka z 22 u: 26 %.
+- Otevřené: `verdict-eye` (nový pár v pohybu neviděn); kovové kolo v „Ten materials“ hraniční (2,8 % obrazu), horký vzduch neposouzen okem.
+
 ## 2026-11-24 — #1220 úvod Erupce: řeka z vrtulníku — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: záběr „the river“ (3,5 s) letí jako z vrtulníku: 1694→1600 po toku východního ramene, 28 u/s, klesá ze 128 na 100 nad vodou (Y 110→82), náklon 7° doleva do ohybu, pohled se stáčí o 20° doleva, objektiv 1,1→1,25. Dráha po hladké čáře toku (`VolcanoCountry.RiverCourse`), `RiverKeep` odstraněn. Testy hlídají náklon (20 °/s, 40 °/s²), oblačnou palubu, výšku nad stromy a rámec i ve 4:3.
