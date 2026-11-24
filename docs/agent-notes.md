@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-24 — #1237 článek na blog: střela postrčí shluk — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno, nepublikováno: článek „The momentum we used to throw away“ (`Web/src/blog/the-momentum-we-used-to-throw-away.md`, 2026-11-24, ~420 slov, tři mezititulky, 19řádková ukázka z `ShotPush.Deliver`). Sedm smyček z capture módu hry: zásah Zigzagu a tři páry Before/Now (Zigzag, Pendant, Cannonball, `shotpush=0`), 2,22 MB WebM. Recept na přetočení je v `docs/website.md`.
+- `clips.js`: nová skupina `<figure data-together>`, klipy páru startují, stojí i přetáčejí spolu.
+- ⚠ Dohánět pomalejší klip dopředu se zasekne na datech, která se ještě stahují (pár až 1,8 s od sebe); vrací se ten napřed.
+- Otevřené: `verdict-eye` (tón, délka, titulek, počet klipů); věta „comes with the next release“ a datum platí jen, vyjde-li článek před vydáním s #1192. Publikuje majitel.
+
 ## 2026-11-24 — #1192 výstřel postrčí shluk — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: nový `ShotPush` předá zasaženému shluku hybnost střely (podíl `MOMENTUM_SHARE` 1, `ShareFor(kind)` pro Fire Ball #1033) jako impuls podél letu, přes sokety do 5 skoků (útlum 0,7, nejvýš 8 u/s na kuličku), až po dokončeném přistání a odstranění skupin. Totéž při prvním odmítnutí (střela sklouzne) a u řezačky. Po 1 s se houpání 4 s tlumí, shluk usne za 1–5,5 s. Duch vede pohybující se kuličku (`lead`) a střela drží buňku ducha (`KeepsPromise`): shoda 98,9 % při 0,3 s. Benchmark měří bez postrčení; `shotpush=<0..4>` pro porovnání.
