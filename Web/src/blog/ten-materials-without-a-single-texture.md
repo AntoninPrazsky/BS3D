@@ -68,7 +68,7 @@ Every chapter of BS3D hangs its cluster in a material of its own, from soap bubb
 
 None of the ten is a picture wrapped round a sphere. Each is a small program that works out every pixel's colour from where it lies on the ball, in the ball's own space, so the pattern turns as the ball rolls.
 
-Most of it is sine waves at different rates and angles, bent until they stop looking regular. The ice draws its cracks from cells, like dried mud; the gem's facets are a height stepping from face to face. One wave, trimmed:
+Most of a material is sine waves at different rates and angles, bent until they stop looking regular. The ice draws its cracks from cells, like dried mud; the gem's facets are a height stepping from face to face. One wave, trimmed:
 
 ```hlsl
 // One wave of a ball's relief.
@@ -128,7 +128,7 @@ We cut nothing. The bubble is the first chapter's, and its biggest level, Amphor
 
 ## Up close and far away
 
-Antonín also saw some materials change with the distance. The tilt is divided by the pixel's area on the ball, with a floor under that area so that a pixel seen edge-on never divides by nothing. That floor was the landscapes', sized for hills: on any ball over about 25 pixels in radius it flattened the relief, to a seventh on the menu's close pass. The gem's facets and the wool's strands showed mostly from afar.
+Antonín also saw some materials change with the distance. That tilt is divided by the pixel's area on the ball, with a floor under that area so that a pixel seen edge-on never divides by nothing. That floor was the landscapes', sized for hills: on any ball over about 25 pixels in radius it flattened the relief, to a seventh on the menu's close pass. The gem's facets and the wool's strands showed mostly from afar.
 
 The balls' floor is now half the pixel's own area, and the relief is whole at any size. Brushing too fine for a pixel now streaks the metal's reflection instead, as on a brushed ball seen across a room.
 
