@@ -12,6 +12,8 @@ step at the seam larger than any other frame's (docs/website.md, "Filming the ga
 
 --crop cuts every frame to the box at its own pixels (left, top, right, bottom; right and bottom exclusive), before the encoder,
 which only scales: a clip of a strip of the picture is a crop of the frames, not a scaled-down whole.
+--fade 0 fades nothing and keeps every frame: the crop alone, for a clip whose seam is a cut (a hit leaves the cluster changed,
+so its clip simply starts again).
 The frames are written as frame-NNNNNN.png from 1, the names the encoder reads.
 """
 import argparse
@@ -26,7 +28,8 @@ from PIL import Image
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--frames", required=True, help="the capture's folder of frame-NNNNNN.png")
-    parser.add_argument("--fade", required=True, type=int, help="frames cross-faded at the seam; the capture runs this many past the loop")
+    parser.add_argument("--fade", required=True, type=int,
+                        help="frames cross-faded at the seam; the capture runs this many past the loop (0: none, the seam is a cut)")
     parser.add_argument("--out", required=True, help="the folder the loop's frames are written to (must hold no frame-*.png)")
     parser.add_argument("--crop", default=None, help="x0,y0,x1,y1: the box every frame is cut to, at its own pixels")
     arguments = parser.parse_args()
@@ -36,9 +39,9 @@ def main():
         sys.exit("no frame-*.png in " + arguments.frames)
     fade = arguments.fade
     length = len(files) - fade
-    # The fade's two ends must be different frames, with the clip's own frames between them
-    if fade < 1 or length < 2 * fade:
-        sys.exit("%d frames cannot loop with a fade of %d: the loop must be at least twice the fade" % (len(files), fade))
+    # The fade's two ends must be different frames, with the clip's own frames between them (a fade of 0 has no ends)
+    if fade < 0 or length < 2 * fade:
+        sys.exit("%d frames cannot loop with a fade of %d: the fade is 0 or more and the loop at least twice it" % (len(files), fade))
 
     box = None
     if arguments.crop:
@@ -65,7 +68,10 @@ def main():
         Image.fromarray(np.clip(pixels + 0.5, 0, 255).astype(np.uint8)).save(
             os.path.join(arguments.out, "frame-%06d.png" % (index + 1)))
     size = "%dx%d" % (box[2] - box[0], box[3] - box[1]) if box else "their own size"
-    print("%d frames of %s written to %s, the first %d cross-faded from the %d after the loop" % (length, size, arguments.out, fade, fade))
+    if fade:
+        print("%d frames of %s written to %s, the first %d cross-faded from the %d after the loop" % (length, size, arguments.out, fade, fade))
+    else:
+        print("%d frames of %s written to %s, none faded: the seam is a cut" % (length, size, arguments.out))
 
 
 if __name__ == "__main__":

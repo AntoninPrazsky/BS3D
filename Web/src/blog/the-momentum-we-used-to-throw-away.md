@@ -52,7 +52,7 @@ foreach (var (ball, step) in walk)
 
 Spread like this, the push stretches a socket by two hundredths of a ball's width at most, and the shot's own cell never moves. A shot that bounces off pushes too, and so does the Cut when it strikes.
 
-After a second, the swing is gently damped, so the cluster comes to rest a few seconds after the hit. The shape decides how much it moves: a thin pennant swings, while a dense block shares the push among many more balls and hardly stirs. Quick shots add up: three into Pennant's tip swing it more than twice as far as one.
+After a second, the swing is gently damped, so the cluster comes to rest a few seconds after the hit.
 
 ## The ghost had to learn to lead
 
@@ -62,4 +62,4 @@ We fired sixteen quick shots, 0.3 seconds apart, into each of six levels, and on
 
 The preview now asks the ball it aims at how fast it moves, and leads it like a moving target. Each shot also remembers its ghost's cell, and keeps it if it strikes the ball that ghost was worked out against. With both, all 96 of those shots landed where the ghost showed, and 174 of 179 over a longer run.
 
-It all comes with the next release. Fire three quick shots into the tip of the first level's pennant and watch it swing.
+It all comes with the next release. Quick shots add up, so fire three into the tip of the first level's pennant and watch it swing.

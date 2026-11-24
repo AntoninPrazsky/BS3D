@@ -14,7 +14,7 @@ clips: two clips of one moment, frame for frame (a capture with and without the 
     a share of its width (the scale-free figure: a clip is shown at its own size on a desktop and shrunk on a phone).
   - share: the share of that region whose luma differs by VISIBLE or more at the same frame, and the same before anything happens
     (--quiet frames: the noise floor of two encodes of identical frames, 0 for the repository's encoder).
-  ⚠ Matching the two clips' frames against each other directly is fooled by the lattice: a patch of one ball matches any ball of its
+  Trap: matching the two clips' frames against each other directly is fooled by the lattice: a patch of one ball matches any ball of its
   colour a row away, so the answer grew with the search (a pennant's swing read 126, 161 and 233 px for searches of 112, 160 and
   240). Tracking each clip on its own never searches further than a ball.
 
