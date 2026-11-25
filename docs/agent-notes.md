@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-25 — #1239 #1240 všechny scény na Medium na GTX 1060 — DESKTOP_L, Claude Code
+
+- Hotovo: 14 největších levelů a menu všech 21 scén na Medium, 1080p na celou obrazovku, `nocap`. Drží 60 FPS všude kromě menu Marsu (medián 14,7 ms, ale 17 z 50 s nad 16,7; #1239). Tabulka je v #1239, souhrn v `quality-measurements.md`.
+- Předání zbraně po úvodu kapitoly dává na 1060 jeden 53ms snímek (Eleven, v obou bězích, v sekundě odkrytí sítě; #1240, navazuje na #1095).
+- ⚠ `Stop-Process -Force` utne přesměrovaný stdout hry a logy pak končí dřív. Zavírej přes `CloseMainWindow()`.
+- #1236 drží bs3d-45; nabídl jsem v issue ověření na NVIDII.
+
 ## 2026-11-25 — #1236 reliéf scén zblízka — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno: `PerturbNormalFromHeight` (scény) má podlahu determinantu menší ze dvou: podíl plochy pixelu (`ReliefFloorOfPixel`, jako kuličky) a starou světovou 1e-4 (`SCENE_RELIEF_FLOOR`) jako strop. Zblízka je reliéf celý, od ~40 u dál beze změny. Kámen ostrova 4× užším objektivem: sopka 0,49→0,87 reliéfu z dálky, hory 0,40→0,68. +7 instrukcí na volání; programy kuliček bajtově stejné.
