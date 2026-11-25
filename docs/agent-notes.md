@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-25 — #1241 uspání clusteru bez záškubu — desktop (RDT-PC), Claude Code (bs3d-45)
+
+- Hotovo: 21ms krok při uspání byl hlavně JIT. Warm-up drží svůj cluster vzhůru, takže uspání a probuzení v Bepu se kompilovalo až v prvním levelu. `PhysicsWarmup` teď každý čtvrtý slice cluster uspí a probudí (`PhysicsWorld.SleepAndWake`). Eleven na 5900X: krok uspání 19 → 3,4 ms (okolní kroky 2,0–2,3), první probuzení v testu 8,0 → 3,3–4,4 ms.
+- ⚠ Kód, který běží jen občas, zůstává s quick JIT dlouho neoptimalizovaný: jeden cyklus ve warm-upu ho jen zkompiluje, optimalizaci dají až desítky cyklů.
+- Trvale bdělý cluster by stál každý krok (975 kuliček: 10,1 ms fyziky na snímek na slabém stroji).
+- Otevřené: neměřeno na Ryzenu 5 3600 ani na APU.
+
 ## 2026-11-25 — #1207 desáté nahrávky Tower a Reveal — desktop (RDT-PC), Claude Code (bs3d-45)
 
 - Hotovo: `summit-postrock` (post-rock, E moll, c3 z 1. kola) a `nocturne-manouche` (gypsy jazz, F moll, přestřih c2r6), obě s vrstvou bicích. Každá kapitola má teď deset nahrávek a `ChapterTests` už nemá seznam výjimek. Sidecary jsou v `Research/AI-Music`.
