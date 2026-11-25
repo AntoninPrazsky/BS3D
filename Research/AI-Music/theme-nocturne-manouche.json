@@ -1,0 +1,284 @@
+{
+  "file": "theme-nocturne-manouche.wav",
+  "created": "2026-11-25",
+  "issue": 1207,
+  "family": "nocturne",
+  "chapter": "The Reveal (cavern, levels 51-60) - #1207: the family's tenth recording and a style it did not have: gypsy jazz (jazz manouche) in F minor at 128 bpm, a warm sweet violin playing one lively melody of running eighth notes and sixteenth-note turns, answered by a nimble acoustic lead guitar, over a rhythm guitar's swinging la pompe, a walking upright bass and a soft brushed snare",
+  "purpose": "Master of Game/Music/nocturne-manouche.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis; its drums layer Game/Music/Drums/nocturne-manouche.ogg from C:/Users/panrd/AI/stems/separate_drums.py over the baked .ogg and MusicBake --drums. The master stays outside the repository (C:/Users/panrd/AI/output/masters-1207-chosen on the desktop, with its .raw.wav, the render of c2; this is candidate c2r6, recut/theme-nocturne-manouche-c2r6 in masters-1207, where every candidate is); this sidecar is committed beside the .ogg.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan, DiT acestep-v15-turbo-Q8_0.gguf at 8 steps (the [GGUF] line of every ace-synth run in the batch logs) -- batch-1207.ps1 -> generate-music.ps1 -Loop -NoCotCaption",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "request": {
+    "caption": "Modern gypsy jazz instrumental in the natural minor scale, jazz manouche: a warm, sweet violin playing one lively, flowing, hummable melody of quick running eighth notes and sixteenth-note turns in the middle register, clean and perfectly in tune, staying inside the key, answered by a nimble acoustic lead guitar with clean quick runs, a steady acoustic rhythm guitar playing the swinging la pompe pattern on every beat, a round upright bass walking in steady quarter notes, a soft brushed snare, the chords changing every two bars, a different second theme in the middle of the piece, elegant, mysterious and nocturnal like a lamplit street at midnight, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+    "lm_negative_prompt": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, circus, polka, accordion, musette, tango, flamenco, rasgueado, klezmer, out of tune, dissonance, discordant, clashing notes, atonal, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, elevator music, easy listening, muzak, repetitive loop, one chord vamp, drone, detuned strings, out-of-tune strings, string noise, fret buzz, tremolo picking, string bends, pitch bends, slide guitar, wobbly pitch, wow and flutter, ukulele, mandolin, banjo, sitar, harp, wrong notes, key changes, modulation, slow ballad",
+    "instrumental": true,
+    "use_cot_caption": false,
+    "duration": 120,
+    "bpm": 128,
+    "keyscale": "F minor",
+    "seed": 1581686561,
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+  "loop_log": [
+    "Wrote C:\\Users\\panrd\\AI\\output\\masters-1207\\recut\\theme-nocturne-manouche-c2r6.wav: 30.0s loop = source 20.98s..51.00s (15.93 bars at 127.3 bpm), crossfade 0.94s | context match 0.156 (best 0.194) | crossfade rhythm r=0.51 vs the track a bar later r=0.50: in time | spectrum cos=0.70"
+  ],
+  "recut": "Cut again from the raw render's seconds 40-120 with loop_crossfade.py (c2's first cut: a 90.5 s loop whose crossfade rhythm fell BELOW the track's own timekeeping, r=0.29, spectrum cosine 0.23).",
+  "lm_check": {
+    "request0_captured": false,
+    "note": "batch-1207.ps1 did not keep ace-lm's request0.json; the seed, bpm and key asked are the request above (seeds.log)"
+  },
+  "measured": "generate-music.ps1 end to end 60,5 s (ace-lm + ace-synth + loop cut), exit 0",
+  "rendered": true,
+  "chosen": {
+    "candidate": "c2r6",
+    "round": 1,
+    "of": [
+      "c1",
+      "c2",
+      "c3",
+      "c4",
+      "c5",
+      "c6",
+      "c7",
+      "c8",
+      "c9",
+      "c2r1",
+      "c2r2",
+      "c2r3",
+      "c2r4",
+      "c2r5",
+      "c2r6",
+      "c2r7",
+      "c2r8",
+      "c2r9",
+      "c2r10"
+    ],
+    "why": "Chosen by the owner's ear over c7 on the listening page (2026-11-25): \"c2 zní velmi dobře, kvalitně a dospěle\" (c2 sounds very good, high-quality and grown-up). Measured on the baked recording beside the ember family, every column inside its range: 15.6 % in 200 Hz-2 kHz, 14.5 % in 300 Hz-4 kHz, 0.9 % above 6 kHz, tonal mid 78 %, 3.4 held-note changes a second, tempo wander 0.17 %, 0 clipped runs, 16.0 short gaps a minute, no repeat past one bar, 5.6 % of held notes outside F minor (6 of 108); Content Enjoyment 7.88 on the shipped .ogg (ember.ogg 7.56 in the same run). A 30.0 s loop (16 bars at 127.3 bpm); drums layer 13.6 dB under the mix in 300 Hz-4 kHz."
+  },
+  "alternatives": [
+    {
+      "candidate": "c1",
+      "round": 1,
+      "seed": 220349635,
+      "bpm": 128,
+      "caption": "brief_1 (the chosen one's, above)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-1207\\theme-nocturne-manouche-c1.wav: 61.9s loop = source 34.67s..96.55s (32.96 bars at 127.8 bpm), crossfade 0.94s | context match 0.552 (best 0.598) | crossfade rhythm r=0.75 vs the track a bar later r=0.74: in time | spectrum cos=0.79"
+      ],
+      "refused_or_not_chosen": "Ruled out by measurement: 66.9 short gaps a minute (ember at most 27.0)."
+    },
+    {
+      "candidate": "c2",
+      "round": 1,
+      "seed": 1581686561,
+      "bpm": 128,
+      "caption": "brief_1 (the chosen one's, above)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-1207\\theme-nocturne-manouche-c2.wav: 90.5s loop = source 14.27s..104.75s (48.03 bars at 127.4 bpm), crossfade 0.94s | context match 0.263 (best 0.306) | crossfade rhythm r=0.29 vs the track a bar later r=0.51: BELOW the track's own timekeeping -- listen | spectrum cos=0.23"
+      ],
+      "refused_or_not_chosen": "The render the chosen loop is cut from; its own 90.5 s cut failed its seam check (crossfade rhythm BELOW the track's timekeeping, r=0.29, spectrum cosine 0.23) and wandered 0.4 % in tempo, so it was recut (c2r1-c2r10)."
+    },
+    {
+      "candidate": "c3",
+      "round": 1,
+      "seed": 1578465797,
+      "bpm": 128,
+      "caption": "brief_1 (the chosen one's, above)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-1207\\theme-nocturne-manouche-c3.wav: 89.5s loop = source 19.83s..109.30s (48.04 bars at 128.9 bpm), crossfade 0.93s | context match 0.863 (best 0.910) | crossfade rhythm r=0.89 vs the track a bar later r=0.34: in time | spectrum cos=0.96"
+      ],
+      "refused_or_not_chosen": "Ruled out by measurement: 28.8 short gaps a minute, 9.5 % of held notes outside F minor (ember at most 8.6)."
+    },
+    {
+      "candidate": "c4",
+      "round": 2,
+      "seed": 1994534943,
+      "bpm": 128,
+      "caption": "brief_2 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-1207\\theme-nocturne-manouche-c4.wav: 45.0s loop = source 34.10s..79.10s (23.97 bars at 127.8 bpm), crossfade 0.94s | context match 0.806 (best 0.852) | crossfade rhythm r=0.84 vs the track a bar later r=0.71: in time | spectrum cos=0.84"
+      ],
+      "refused_or_not_chosen": "Ruled out by measurement: 29.3 short gaps a minute, 15.0 % of held notes outside F minor."
+    },
+    {
+      "candidate": "c5",
+      "round": 2,
+      "seed": 1822201631,
+      "bpm": 128,
+      "caption": "brief_2 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-1207\\theme-nocturne-manouche-c5.wav: 104.2s loop = source 4.92s..109.10s (55.95 bars at 128.9 bpm), crossfade 0.93s | context match 0.575 (best 0.617) | crossfade rhythm r=0.56 vs the track a bar later r=0.62: in time | spectrum cos=0.64"
+      ],
+      "refused_or_not_chosen": "Ruled out by measurement: 9.8 % of held notes outside F minor (42 of 428)."
+    },
+    {
+      "candidate": "c6",
+      "round": 2,
+      "seed": 1938680653,
+      "bpm": 128,
+      "caption": "brief_2 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-1207\\theme-nocturne-manouche-c6.wav: 101.2s loop = source 4.30s..105.55s (55.01 bars at 130.4 bpm), crossfade 0.92s | context match 0.359 (best 0.407) | crossfade rhythm r=0.51 vs the track a bar later r=0.12: in time | spectrum cos=0.18"
+      ],
+      "refused_or_not_chosen": "Ruled out by measurement: 42.7 short gaps a minute, 9.7 % of held notes outside F minor."
+    },
+    {
+      "candidate": "c7",
+      "round": 3,
+      "seed": 1657637208,
+      "bpm": 128,
+      "caption": "brief_1 (the chosen one's, above)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-1207\\theme-nocturne-manouche-c7.wav: 60.5s loop = source 33.95s..94.40s (32.04 bars at 127.2 bpm), crossfade 0.94s | context match 0.772 (best 0.821) | crossfade rhythm r=0.71 vs the track a bar later r=0.60: in time | spectrum cos=0.82"
+      ],
+      "refused_or_not_chosen": "On the listening page beside c2r6 (41.7 short gaps a minute, over ember's 27.0, the rest inside); the owner chose c2r6."
+    },
+    {
+      "candidate": "c8",
+      "round": 3,
+      "seed": 967845166,
+      "bpm": 128,
+      "caption": "brief_1 (the chosen one's, above)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-1207\\theme-nocturne-manouche-c8.wav: 87.6s loop = source 5.90s..93.55s (47.02 bars at 128.8 bpm), crossfade 0.93s | context match 0.193 (best 0.240) | crossfade rhythm r=0.43 vs the track a bar later r=0.44: in time | spectrum cos=0.15"
+      ],
+      "refused_or_not_chosen": "Ruled out by measurement: 45.2 short gaps a minute, 8.9 % of held notes outside F minor."
+    },
+    {
+      "candidate": "c9",
+      "round": 3,
+      "seed": 1659811552,
+      "bpm": 128,
+      "caption": "brief_1 (the chosen one's, above)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-1207\\theme-nocturne-manouche-c9.wav: 94.1s loop = source 14.72s..108.85s (50.06 bars at 127.7 bpm), crossfade 0.94s | context match 0.088 (best 0.117) | crossfade rhythm r=0.52 vs the track a bar later r=0.53: in time | spectrum cos=0.10"
+      ],
+      "refused_or_not_chosen": "Ruled out by measurement: 37.6 short gaps a minute."
+    },
+    {
+      "candidate": "c2r1",
+      "round": 1,
+      "seed": 1581686561,
+      "bpm": 128,
+      "caption": "brief_1 (the chosen one's, above)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-1207\\recut\\theme-nocturne-manouche-c2r1.wav: 30.0s loop = source 7.25s..37.25s (15.94 bars at 127.5 bpm), crossfade 0.94s | context match 0.301 (best 0.327) | crossfade rhythm r=0.88 vs the track a bar later r=0.53: in time | spectrum cos=0.50"
+      ],
+      "refused_or_not_chosen": "A recut of c2 whose seam held; c2r6, with the highest spectrum cosine across its wrap of the 30 s cuts (0.70), went to the owner's ear instead.",
+      "recut_of": "c2"
+    },
+    {
+      "candidate": "c2r2",
+      "round": 1,
+      "seed": 1581686561,
+      "bpm": 128,
+      "caption": "brief_1 (the chosen one's, above)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-1207\\recut\\theme-nocturne-manouche-c2r2.wav: 30.0s loop = source 24.33s..54.35s (15.94 bars at 127.4 bpm), crossfade 0.94s | context match 0.188 (best 0.193) | crossfade rhythm r=0.47 vs the track a bar later r=0.54: BELOW the track's own timekeeping -- listen | spectrum cos=0.55"
+      ],
+      "refused_or_not_chosen": "A recut of c2: its crossfade rhythm BELOW the track's own timekeeping.",
+      "recut_of": "c2"
+    },
+    {
+      "candidate": "c2r3",
+      "round": 1,
+      "seed": 1581686561,
+      "bpm": 128,
+      "caption": "brief_1 (the chosen one's, above)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-1207\\recut\\theme-nocturne-manouche-c2r3.wav: 30.0s loop = source 21.23s..51.25s (15.93 bars at 127.3 bpm), crossfade 0.94s | context match 0.238 (best 0.254) | crossfade rhythm r=0.53 vs the track a bar later r=0.53: in time | spectrum cos=0.66"
+      ],
+      "refused_or_not_chosen": "A recut of c2 whose seam held; c2r6, with the highest spectrum cosine across its wrap of the 30 s cuts (0.70), went to the owner's ear instead.",
+      "recut_of": "c2"
+    },
+    {
+      "candidate": "c2r4",
+      "round": 1,
+      "seed": 1581686561,
+      "bpm": 128,
+      "caption": "brief_1 (the chosen one's, above)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-1207\\recut\\theme-nocturne-manouche-c2r4.wav: 60.5s loop = source 7.13s..67.60s (32.08 bars at 127.3 bpm), crossfade 0.94s | context match 0.140 (best 0.185) | crossfade rhythm r=0.26 vs the track a bar later r=0.52: BELOW the track's own timekeeping -- listen | spectrum cos=0.14"
+      ],
+      "refused_or_not_chosen": "A recut of c2: its crossfade rhythm BELOW the track's own timekeeping.",
+      "recut_of": "c2"
+    },
+    {
+      "candidate": "c2r5",
+      "round": 1,
+      "seed": 1581686561,
+      "bpm": 128,
+      "caption": "brief_1 (the chosen one's, above)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-1207\\recut\\theme-nocturne-manouche-c2r5.wav: 30.0s loop = source 23.78s..53.80s (15.92 bars at 127.3 bpm), crossfade 0.94s | context match 0.159 (best 0.159) | crossfade rhythm r=0.52 vs the track a bar later r=0.58: in time | spectrum cos=0.49"
+      ],
+      "refused_or_not_chosen": "A recut of c2 whose seam held; c2r6, with the highest spectrum cosine across its wrap of the 30 s cuts (0.70), went to the owner's ear instead.",
+      "recut_of": "c2"
+    },
+    {
+      "candidate": "c2r7",
+      "round": 1,
+      "seed": 1581686561,
+      "bpm": 128,
+      "caption": "brief_1 (the chosen one's, above)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-1207\\recut\\theme-nocturne-manouche-c2r7.wav: 90.5s loop = source 14.27s..104.75s (48.03 bars at 127.4 bpm), crossfade 0.94s | context match 0.263 (best 0.306) | crossfade rhythm r=0.29 vs the track a bar later r=0.51: BELOW the track's own timekeeping -- listen | spectrum cos=0.23"
+      ],
+      "refused_or_not_chosen": "A recut of c2: its crossfade rhythm BELOW the track's own timekeeping.",
+      "recut_of": "c2"
+    },
+    {
+      "candidate": "c2r8",
+      "round": 1,
+      "seed": 1581686561,
+      "bpm": 128,
+      "caption": "brief_1 (the chosen one's, above)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-1207\\recut\\theme-nocturne-manouche-c2r8.wav: 30.0s loop = source 13.93s..43.95s (15.93 bars at 127.4 bpm), crossfade 0.94s | context match 0.142 (best 0.183) | crossfade rhythm r=0.56 vs the track a bar later r=0.51: in time | spectrum cos=0.58"
+      ],
+      "refused_or_not_chosen": "A recut of c2 whose seam held; c2r6, with the highest spectrum cosine across its wrap of the 30 s cuts (0.70), went to the owner's ear instead.",
+      "recut_of": "c2"
+    },
+    {
+      "candidate": "c2r9",
+      "round": 1,
+      "seed": 1581686561,
+      "bpm": 128,
+      "caption": "brief_1 (the chosen one's, above)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-1207\\recut\\theme-nocturne-manouche-c2r9.wav: 30.0s loop = source 9.78s..39.80s (15.93 bars at 127.4 bpm), crossfade 0.94s | context match 0.266 (best 0.283) | crossfade rhythm r=0.58 vs the track a bar later r=0.59: in time | spectrum cos=0.29"
+      ],
+      "refused_or_not_chosen": "A recut of c2 whose seam held; c2r6, with the highest spectrum cosine across its wrap of the 30 s cuts (0.70), went to the owner's ear instead.",
+      "recut_of": "c2"
+    },
+    {
+      "candidate": "c2r10",
+      "round": 1,
+      "seed": 1581686561,
+      "bpm": 128,
+      "caption": "brief_1 (the chosen one's, above)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-1207\\recut\\theme-nocturne-manouche-c2r10.wav: 30.0s loop = source 14.28s..44.30s (15.92 bars at 127.3 bpm), crossfade 0.94s | context match 0.260 (best 0.279) | crossfade rhythm r=0.51 vs the track a bar later r=0.50: in time | spectrum cos=0.51"
+      ],
+      "refused_or_not_chosen": "A recut of c2 whose seam held; c2r6, with the highest spectrum cosine across its wrap of the 30 s cuts (0.70), went to the owner's ear instead.",
+      "recut_of": "c2"
+    }
+  ],
+  "alternative_briefs": {
+    "brief_1": {
+      "caption": "Modern gypsy jazz instrumental in the natural minor scale, jazz manouche: a warm, sweet violin playing one lively, flowing, hummable melody of quick running eighth notes and sixteenth-note turns in the middle register, clean and perfectly in tune, staying inside the key, answered by a nimble acoustic lead guitar with clean quick runs, a steady acoustic rhythm guitar playing the swinging la pompe pattern on every beat, a round upright bass walking in steady quarter notes, a soft brushed snare, the chords changing every two bars, a different second theme in the middle of the piece, elegant, mysterious and nocturnal like a lamplit street at midnight, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+      "negative": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, circus, polka, accordion, musette, tango, flamenco, rasgueado, klezmer, out of tune, dissonance, discordant, clashing notes, atonal, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, elevator music, easy listening, muzak, repetitive loop, one chord vamp, drone, detuned strings, out-of-tune strings, string noise, fret buzz, tremolo picking, string bends, pitch bends, slide guitar, wobbly pitch, wow and flutter, ukulele, mandolin, banjo, sitar, harp, wrong notes, key changes, modulation, slow ballad",
+      "bpm": 128,
+      "keyscale": "F minor"
+    },
+    "brief_2": {
+      "caption": "Modern gypsy jazz instrumental in the natural minor scale, jazz manouche: a warm, sweet violin playing one lively, flowing, hummable melody of quick running eighth notes and sixteenth-note turns in the middle register, clean and perfectly in tune, staying inside the key, answered by a nimble acoustic lead guitar with clean quick runs, a steady acoustic rhythm guitar playing the swinging la pompe pattern on every beat, a round upright bass walking in steady quarter notes, a soft brushed snare, a steady strict tempo, the chords changing every two bars, a different second theme in the middle of the piece, elegant, mysterious and nocturnal like a lamplit street at midnight, warm mid-forward mix, modern polished production, wide stereo mix with instruments panned left and right, spacious reverb, the full ensemble playing throughout from the first bar, no vocals",
+      "negative": "vocals, singing, choir, humming, audience applause, crowd noise, live recording, comedy, cartoon, slapstick, silly, childish, cute, sugary, toy piano, kazoo, circus, polka, accordion, musette, tango, flamenco, rasgueado, klezmer, out of tune, dissonance, discordant, clashing notes, atonal, ambient drone, free tempo, rubato, tempo changes, long quiet intro, long silent passages, quiet breakdown, near silence, long soft passages, fade out, fade in, boomy sub bass, white noise, wind noise, hiss, sleigh bells, glockenspiel, wind chimes, sparkling high chimes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, horror, harsh dissonance, elevator music, easy listening, muzak, repetitive loop, one chord vamp, drone, detuned strings, out-of-tune strings, string noise, fret buzz, tremolo picking, string bends, pitch bends, slide guitar, wobbly pitch, wow and flutter, ukulele, mandolin, banjo, sitar, harp, wrong notes, key changes, modulation, slow ballad, loose timing, pauses, stops, rests, silences, long ringing sustained notes",
+      "bpm": 128,
+      "keyscale": "F minor"
+    },
+    "note": "brief_2 is brief_1 with 'a steady strict tempo' in the caption and 'loose timing, pauses, stops, rests, silences, long ringing sustained notes' in the negative, for round 1's short gaps; no round-2 render came inside ember on both the gaps and the notes out of key, so round 3 (c7-c9) rendered brief_1 again with new seeds."
+  }
+}
