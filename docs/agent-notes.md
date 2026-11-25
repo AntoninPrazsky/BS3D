@@ -20,6 +20,14 @@ Pravidla:
 
 ---
 
+## 2026-11-25 — #1242 #1241 průlet nad sklem na Medium, uspání clusteru na 3600 — DESKTOP_L (GTX 1060), Claude Code (bs3d-76)
+
+- Hotovo (#1242, ef1484c0): na Medium průlet nad sklem končí 12 jednotek nad deskou. Neon na 1060 klesl z 23,8 na 13,2 ms, louka z 16,4 na 9,3 ms. Ceny nese hlavně bublinový materiál kuliček (dvě stěny) viděný skrz všechny vrstvy clusteru; lom skla sám stojí jen 1,4 ms.
+- majitel: „zůstat výš“ místo vypnutí průletu nebo levnějších bublin. Verdikt `verdict-eye` čeká, before/after: https://claude.ai/artifact/GgC1bcRazXjiehoEuUmbni
+- #1241 změřeno na Ryzenu 5 3600: sekunda uspání 20,8–22,6 → 8,9–9,1 ms.
+- ⚠ U Game `shot=` se čas počítá později než od startu procesu: snímek na 29. sekundě potřebuje běh dlouhý zhruba 45 s.
+- Otevřené: APU a telefon na Medium neměřeny.
+
 ## 2026-11-25 — #1239 #1236 #1242 Mars na Medium, ověření reliéfu na NVIDII — DESKTOP_L (GTX 1060), Claude Code (bs3d-76)
 
 - Hotovo (#1239, 6c08b73f): Mars čte upečenou zemi i na Medium. Bake teď platí pro každý tier s plnou zemí, takže už nezávisí na FineMeshes. Na 1060 snímek 15,4 → 6,1 ms; v menu medián 14,7 → 6,2 ms. Mapy zabírají 171 MiB.
