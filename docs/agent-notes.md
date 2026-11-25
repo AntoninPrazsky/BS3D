@@ -23,7 +23,7 @@ Pravidla:
 ## 2026-11-25 — #1239 #1240 všechny scény na Medium na GTX 1060 — DESKTOP_L, Claude Code
 
 - Hotovo: 14 největších levelů a menu všech 21 scén na Medium, 1080p na celou obrazovku, `nocap`. Drží 60 FPS všude kromě menu Marsu (medián 14,7 ms, ale 17 z 50 s nad 16,7; #1239). Tabulka je v #1239, souhrn v `quality-measurements.md`.
-- Předání zbraně po úvodu kapitoly dává na 1060 jeden 53ms snímek (Eleven, v obou bězích, v sekundě odkrytí sítě; #1240, navazuje na #1095).
+- #1240 opraveno: první krok fyziky (vznik ~5000 kontaktů, 15 ms) a první kreslení HUD (24 ms) přesunuty do stavby levelu; předání zbraně 53 → 11–13 ms. Uspávání clusteru stojí 21 ms (#1241).
 - ⚠ `Stop-Process -Force` utne přesměrovaný stdout hry a logy pak končí dřív. Zavírej přes `CloseMainWindow()`.
 - #1236 drží bs3d-45; nabídl jsem v issue ověření na NVIDII.
 
