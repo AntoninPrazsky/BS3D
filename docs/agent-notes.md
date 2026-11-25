@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-25 — #1239 #1236 #1242 Mars na Medium, ověření reliéfu na NVIDII — DESKTOP_L (GTX 1060), Claude Code (bs3d-76)
+
+- Hotovo (#1239, 6c08b73f): Mars čte upečenou zemi i na Medium. Bake teď platí pro každý tier s plnou zemí, takže už nezávisí na FineMeshes. Na 1060 snímek 15,4 → 6,1 ms; v menu medián 14,7 → 6,2 ms. Mapy zabírají 171 MiB.
+- #1236 na NVIDII: po merge jsem znovu proměřil všech 21 scén na Medium. Žádná nezdražila, výsledek je v komentáři u issue.
+- ⚠ Průlet kamery menu nad sklem (#1214) na Medium na 1060 zdvojnásobí snímek (neon 9,5 → 22,4 ms), zapsáno jako #1242. Dva běhy téže scény se proto liší podle toho, který průlet si menu vylosuje, a `[orbit]` řádek v logu prozradí který.
+- Otevřené: #1242; bake na APU neměřen; #1241 (bs3d-45) zatím neměřen na Ryzenu 5 3600.
+
 ## 2026-11-25 — #1241 uspání clusteru bez záškubu — desktop (RDT-PC), Claude Code (bs3d-45)
 
 - Hotovo: 21ms krok při uspání byl hlavně JIT. Warm-up drží svůj cluster vzhůru, takže uspání a probuzení v Bepu se kompilovalo až v prvním levelu. `PhysicsWarmup` teď každý čtvrtý slice cluster uspí a probudí (`PhysicsWorld.SleepAndWake`). Eleven na 5900X: krok uspání 19 → 3,4 ms (okolní kroky 2,0–2,3), první probuzení v testu 8,0 → 3,3–4,4 ms.
