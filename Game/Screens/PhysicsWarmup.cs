@@ -21,6 +21,11 @@ namespace BS3D.Screens
     /// builds, and stepped for a few seconds it is tiered up as well.
     /// </para>
     /// <para>
+    /// <b>It also puts its cluster to sleep and wakes it</b> (#1241), every <see cref="SLEEP_EVERY_SLICES"/>th slice: a
+    /// level's cluster falls asleep a few seconds after it settles and a shot wakes it, and those passes are compiled code of
+    /// their own that stepping never reaches.
+    /// </para>
+    /// <para>
     /// It steps in slices of <see cref="SLICE_MILLISECONDS"/> with <see cref="REST_MILLISECONDS"/> between them, on one
     /// worker fewer than the machine has, so the menu's frames keep a core. <see cref="Stop"/> ends it early: a level's
     /// release and a benchmark must not share the cores with it. What it compiled by then stays compiled. The front end's
@@ -37,6 +42,16 @@ namespace BS3D.Screens
 
         /// <summary>The rest after each slice.</summary>
         internal const int REST_MILLISECONDS = 6;
+
+        /// <summary>
+        /// Every this many slices the cluster is put to sleep and woken again (<see cref="PhysicsBench.SleepAndWake"/>, #1241),
+        /// from the first slice on, which made its contacts. Bepu's sleep and wake run only when a cluster settles and when a
+        /// shot wakes it, and this world's cluster is kept awake, so without them a launch compiled both in its first level.
+        /// In the Game on a Ryzen 9 5900X, Eleven's first sleep made a step of 18.9-19.2 ms; after the warm-up's 57-64 cycles,
+        /// 3.3-3.5 ms, beside the 2.0-2.3 of the steps around it. One cycle compiles them and the rest run them until the
+        /// runtime optimises them, at a quarter of the slices so that the steps' own tier-up is not pushed back.
+        /// </summary>
+        internal const int SLEEP_EVERY_SLICES = 4;
 
         /// <summary>Enough steps for <see cref="SECONDS"/> at any machine's pace: the bench's figures are not read.</summary>
         private const int STEPS = 4000;
@@ -100,18 +115,20 @@ namespace BS3D.Screens
                 using PhysicsBench bench = Build();
 
                 double firstSlice = 0;
+                int slices = 0;
                 while (!_stop && !bench.Done && Stopwatch.GetElapsedTime(start).TotalSeconds < SECONDS)
                 {
                     long slice = Stopwatch.GetTimestamp();
                     bench.Run(SLICE_MILLISECONDS);
                     if (firstSlice == 0) firstSlice = Stopwatch.GetElapsedTime(slice).TotalMilliseconds;
+                    if (slices++ % SLEEP_EVERY_SLICES == 0 && !_stop) bench.SleepAndWake();
                     Thread.Sleep(REST_MILLISECONDS);
                 }
 
                 Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
-                    "[warmup] physics solver compiled on a {0}-ball world: {1} steps in {2:F1} s, the first slice {3:F0} ms, the last slice's steps {4:F2} ms{5}",
-                    bench.Balls, bench.Taken, Stopwatch.GetElapsedTime(start).TotalSeconds, firstSlice, bench.SliceMean,
-                    _stop ? ", stopped early" : ""));
+                    "[warmup] physics solver compiled on a {0}-ball world: {1} steps and {2} sleeps in {3:F1} s, the first slice {4:F0} ms, the last slice's steps {5:F2} ms{6}",
+                    bench.Balls, bench.Taken, bench.SleepCycles, Stopwatch.GetElapsedTime(start).TotalSeconds, firstSlice,
+                    bench.SliceMean, _stop ? ", stopped early" : ""));
             }
             catch (Exception e)
             {

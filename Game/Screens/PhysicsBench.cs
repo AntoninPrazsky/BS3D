@@ -46,6 +46,7 @@ namespace BS3D.Screens
         private readonly FrameStats _measured, _warmup = new(WARMUP_STEPS);
         private float _clock;
         private int _taken;
+        private BodyHandle _anyBall;
 
         /// <summary>How many balls the cluster holds.</summary>
         internal int Balls { get; }
@@ -95,12 +96,26 @@ namespace BS3D.Screens
                 offset.ToNumerics());
             int count = 0;
             foreach (PhysicsBall ball in balls)
-                if (ball != null) count++;
+                if (ball != null && count++ == 0) _anyBall = ball.BallReference.Handle;
 
             _world.BeginStartSwing(balls);
             if (_wind.Strength > 0f) _world.KeepClusterAwake(balls);
             return count;
         }
+
+        /// <summary>
+        /// Puts the cluster to sleep and wakes it again (<see cref="PhysicsWorld.SleepAndWake"/>): what
+        /// <see cref="PhysicsWarmup"/> runs between its slices of steps so that a level's first settle is not where Bepu's
+        /// sleep and wake are compiled (#1241). The cluster carries on as it was, its sleep threshold included.
+        /// </summary>
+        internal void SleepAndWake()
+        {
+            _world.SleepAndWake(_anyBall);
+            SleepCycles++;
+        }
+
+        /// <summary>How many times <see cref="SleepAndWake"/> has run.</summary>
+        internal int SleepCycles { get; private set; }
 
         /// <summary>How many steps have been taken, the warm-up's included.</summary>
         internal int Taken => _taken;
