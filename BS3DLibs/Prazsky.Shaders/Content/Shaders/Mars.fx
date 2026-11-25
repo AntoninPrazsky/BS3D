@@ -1211,7 +1211,7 @@ technique MarsTerrainReducedDepth
 #endif
 
 //=====================================================================================================
-//THE BAKE (#1100): the ground does not change, so on High and Ultra what it is at a point - its albedo, its normal, the
+//THE BAKE (#1100): the ground does not change, so on Medium, High and Ultra what it is at a point - its albedo, its normal, the
 //big craters' light, its masks - is worked out once into textures (MarsBakePS, MarsBackdrop.BeforeShadowMaps) and the
 //ground reads them (MarsGroundBaked) instead of working it out for every pixel of every frame: a pass bound by the width of
 //its program (BestPractices.md section 7), which a texture read does not have. What moves (the clouds' shadow, the sun's

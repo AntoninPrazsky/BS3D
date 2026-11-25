@@ -58,7 +58,7 @@ namespace Prazsky.Core.Render
         internal const float MOON_CONE_SCALE = 1.08f;
 
         //THE BAKE (#1100): the ground's static fields worked out once into three maps round the arena (Mars.fx's MarsBake,
-        //THE BAKE there for what is in them and why the mapping is polar), which the ground reads on High and Ultra
+        //THE BAKE there for what is in them and why the mapping is polar), which the ground reads on Medium, High and Ultra
         //(MarsTerrainBaked) wherever the lens stands within BAKE_CAMERA_REACH of the arena. Null on OpenGL ES, which does
         //not compile them.
         private readonly EffectTechnique _marsBakeTechnique, _marsTerrainBaked;
@@ -454,9 +454,10 @@ namespace Prazsky.Core.Render
             _marsPass.Draw(frame, Services.TerrainHoleRadius, _drawBank);
         }
 
-        //The bake is wanted where the full ground is drawn on the finer tiers (High and Ultra, the outback's sun bake's
-        //line), and where the effect has it at all
-        private bool BakeWanted => _marsBakeTechnique != null && Services.FineMeshes && _marsTerrainTechnique == _marsTerrainFull;
+        //The bake is wanted wherever the full ground is drawn (Medium, High and Ultra; Low draws the reduced one) and the effect
+        //has it at all. Medium is where it saves most: at 1x with four samples the exact ground shades every overdrawn sample's
+        //pixel, which put a third of the front end's orbit over a GTX 1060's 16.7 ms (#1239)
+        private bool BakeWanted => _marsBakeTechnique != null && _marsTerrainTechnique == _marsTerrainFull;
 
         /// <summary>
         /// Whether this frame's ground reads the bake (#1100): it is baked and wanted, and the lens stands within
