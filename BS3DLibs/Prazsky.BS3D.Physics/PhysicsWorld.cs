@@ -387,22 +387,6 @@ namespace Prazsky.BS3D.Physics
         /// field on each call also survives the handler being replaced per map or per level, which both
         /// callers do.
         /// </param>
-        /// <summary>
-        /// Runs the step's collision detection alone (#1240): the bounding boxes, the broad phase and the narrow phase,
-        /// with no solve and no integration, so no body moves. A freshly hung cluster touches its neighbours everywhere,
-        /// and the world's first step otherwise pays for creating every one of those contacts at once: a 959-ball
-        /// cluster's ~5000 took 15 ms of a 19.8 ms first step on a Ryzen 5 3600, and on a level a chapter's tour opens
-        /// that step lands on the frame the tour hands the gun over. Primed while the level is built, that first step
-        /// finds the pairs already made. Nothing is listening yet (the contact stream reports registered shots only),
-        /// and the stream is flushed as a step flushes it.
-        /// </summary>
-        public void PrimeContacts(float dt)
-        {
-            Simulation.PredictBoundingBoxes(dt, _threadDispatcher);
-            Simulation.CollisionDetection(dt, _threadDispatcher);
-            Events.Flush();
-        }
-
         public void Step(float dt, Action perStepWork)
         {
             //Before the integrator, and that is the whole of what this property is for — see PerStepForces.
@@ -420,6 +404,22 @@ namespace Prazsky.BS3D.Physics
 
             Events.Flush();
             perStepWork();
+        }
+
+        /// <summary>
+        /// Runs the step's collision detection alone (#1240): the bounding boxes, the broad phase and the narrow phase,
+        /// with no solve and no integration, so no body moves. A freshly hung cluster touches its neighbours everywhere,
+        /// and the world's first step otherwise pays for creating every one of those contacts at once: a 959-ball
+        /// cluster's ~5000 took 15 ms of a 19.8 ms first step on a Ryzen 5 3600, and on a level a chapter's tour opens
+        /// that step lands on the frame the tour hands the gun over. Primed while the level is built, that first step
+        /// finds the pairs already made. Nothing is listening yet (the contact stream reports registered shots only),
+        /// and the stream is flushed as a step flushes it.
+        /// </summary>
+        public void PrimeContacts(float dt)
+        {
+            Simulation.PredictBoundingBoxes(dt, _threadDispatcher);
+            Simulation.CollisionDetection(dt, _threadDispatcher);
+            Events.Flush();
         }
 
         /// <summary>
