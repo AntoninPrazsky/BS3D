@@ -1,6 +1,7 @@
 using BepuPhysics;
 using BepuPhysics.Collidables;
 using BepuUtilities;
+using BepuUtilities.Collections;
 using BepuUtilities.Memory;
 using Prazsky.Core.Tools;
 using System;
@@ -335,6 +336,32 @@ namespace Prazsky.BS3D.Physics
         {
             foreach (PhysicsBall ball in balls)
                 if (ball != null) Simulation.Awakener.AwakenBody(ball.BallReference.Handle);
+        }
+
+        /// <summary>
+        /// Puts the island holding <paramref name="body"/> to sleep, whatever its speed, and wakes it again, both on the
+        /// world's own worker threads: the two passes Bepu runs when a settled cluster falls asleep and when a shot's
+        /// contact wakes it (#1241). For a warm-up only: stepping never runs either pass on a cluster that is kept awake, and
+        /// a launch otherwise compiles them in the middle of its first level. On a Ryzen 9 5900X, a 959-ball cluster's first
+        /// sleep made a step of 19 ms in the Game and 3.3-3.5 ms after the warm-up had run this about sixty times; its first
+        /// wake took 8.0 ms in a test and 3.3-4.4 ms after eighty.
+        /// </summary>
+        public void SleepAndWake(BodyHandle body)
+        {
+            QuickList<int> indices = new(1, BufferPool);
+            try
+            {
+                indices.AllocateUnsafely() = Simulation.Bodies.HandleToLocation[body.Value].Index;
+                Simulation.Sleeper.Sleep(ref indices, _threadDispatcher);
+
+                indices.Count = 0;
+                indices.AllocateUnsafely() = Simulation.Bodies.HandleToLocation[body.Value].SetIndex;
+                Simulation.Awakener.AwakenSets(ref indices, _threadDispatcher);
+            }
+            finally
+            {
+                indices.Dispose(BufferPool);
+            }
         }
 
         /// <summary>

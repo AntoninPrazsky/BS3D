@@ -20,5 +20,27 @@ namespace BS3D.Tests
 
             Assert.True(bench.AwakeBodies >= bench.Balls, $"{bench.AwakeBodies} bodies awake of {bench.Balls} balls");
         }
+
+        /// <summary>
+        /// The sleep and the wake it runs between slices (#1241) hand the cluster back awake and stepping, so the solver it
+        /// is there to compile still runs after them.
+        /// </summary>
+        [Fact]
+        public void ItsClusterIsAwakeAfterEverySleepAndWake()
+        {
+            using PhysicsBench bench = PhysicsWarmup.Build();
+            while (bench.Taken < 60) bench.Run(50.0);
+
+            for (int cycle = 0; cycle < 3; cycle++)
+            {
+                bench.SleepAndWake();
+                Assert.True(bench.AwakeBodies >= bench.Balls, $"after cycle {cycle}: {bench.AwakeBodies} bodies awake of {bench.Balls} balls");
+
+                int taken = bench.Taken;
+                while (bench.Taken < taken + 120) bench.Run(50.0);
+                Assert.True(bench.AwakeBodies >= bench.Balls, $"a second after cycle {cycle}: {bench.AwakeBodies} bodies awake of {bench.Balls} balls");
+            }
+            Assert.Equal(3, bench.SleepCycles);
+        }
     }
 }
