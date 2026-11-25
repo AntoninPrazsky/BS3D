@@ -1113,6 +1113,9 @@ namespace BS3D.Screens
         //cleared when the release runs - at once, or when a chapter intro hands the lens back
         private bool _releasePending;
 
+        //Whether this level's HUD has been drawn once (#1240): false from the build until its first frame
+        private bool _hudWarmed;
+
         //Which blocks have already shown their intro this run of the program, keyed by the block's FIRST
         //level index rather than its name — a name is authored prose and not guaranteed unique across blocks,
         //where the first index always is. Deliberately not PlayerProgress and never cleared: a fresh launch
@@ -2089,6 +2092,15 @@ namespace BS3D.Screens
                 DrawOverlay(layerParts);
                 if (overlayBlur > 0f) Game.EndOverlayLayer(overlayBlur);
             }
+            //A chapter's tour hides the HUD, so its first draw waited for the frame the tour hands the gun over, and that
+            //draw is dear the first time (the text, the queue's discs, the chips' backings): 24 ms on a GTX 1060 with a
+            //Ryzen 5 3600 (#1240). So on the level's first frame, the HUD hidden for the tour, it is drawn once into the
+            //overlay layer and never composited. The layer is the frame's first target as on a faded frame, so no target is
+            //bound twice; the Potato path has no layer and keeps the cost
+            else if (!_hudWarmed && !overlayUp && !LevelOver && _chapterIntro.Running && _run is not { Benchmark: true }
+                && !Game.CaptureHidesHud && Game.BeginOverlayLayer())
+                DrawOverlay();
+            _hudWarmed = true;
 
             //This frame's ball collection, opened here and closed by the one Draw below. It is a ref struct and
             //lives as a LOCAL, deliberately: BeginFrame is the only thing that can open one, it empties the
