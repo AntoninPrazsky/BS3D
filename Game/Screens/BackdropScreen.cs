@@ -703,6 +703,10 @@ namespace BS3D.Screens
         //(CeilingPlate.CUT_PERIOD) span the frame's height, so what shows through each facet is a ball or two bent apart
         private const float GLASS_NEAR_HEIGHT = 3.5f, GLASS_NEAR_JITTER = 2.5f;
 
+        //Medium's floor under that roll (#1242): the plate whole in the frame with the island round it, where the Neon City
+        //holds 13.2 ms at the glass on a GTX 1060 at 1080p (8 units: 16.7)
+        private const float GLASS_NEAR_HEIGHT_MEDIUM = 12f;
+
         //Where there is no roof over the island (SceneRenderer.RoofAbove's infinity), a ceiling the far height never reaches,
         //finite so the ease towards it stays finite
         private const float NO_ROOF_Y = 1e4f;
@@ -1101,6 +1105,10 @@ namespace BS3D.Screens
                 Console.WriteLine("[orbit] glass pass: no room under the roof, the cluster's pass instead");
                 return;
             }
+
+            //Medium stops the descent higher (#1242): the frame at the glass is the bubbles' two walls over every layer of the
+            //cluster the lens looks down through, and at the rolled heights it took a GTX 1060 to 23.8 ms over the Neon City
+            if (Game.Quality is QualityLevel.Low or QualityLevel.Medium) _glassNearHeight = MathF.Max(_glassNearHeight, GLASS_NEAR_HEIGHT_MEDIUM);
 
             _glassPass = true;
             _glassSwingSet = false;
