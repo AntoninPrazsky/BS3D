@@ -178,6 +178,9 @@ namespace BS3D.Screens
             //play (#1095), from pictures read or baked ahead while the game loaded (#1146)
             _hud.PrepareChips();
 
+            //And the whole HUD drawn once, unseen, on the level's first frame (#1240): see GameplayScreen.Draw
+            _hudWarmed = false;
+
             //Last, now that the field, the cannon and the game camera are all fit to this level: the one
             //thing here that reads the fit rather than only resetting state (#267).
             TryBeginChapterIntro();
@@ -703,6 +706,10 @@ namespace BS3D.Screens
 
             Console.WriteLine($"[game] {_map.GetBallsCount()} balls in the cluster, "
                 + $"{_world.Simulation.Solver.CountConstraints()} constraints");
+
+            //The contacts between the hung balls made now, inside the build's frame, and not by the world's first step
+            //(#1240): on a level a chapter's tour opens, that step is the frame the tour hands the gun over. Nothing moves
+            _world.PrimeContacts(PHYSICS_TIMESTEP);
 
             //The frame has just become as expensive as it gets, so whatever the probe settled on against the
             //front end is a verdict about a different picture — see BS3DGame.ReopenQualityProbe. Per level and
