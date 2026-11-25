@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-25 — #1236 reliéf scén zblízka — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno: `PerturbNormalFromHeight` (scény) má podlahu determinantu menší ze dvou: podíl plochy pixelu (`ReliefFloorOfPixel`, jako kuličky) a starou světovou 1e-4 (`SCENE_RELIEF_FLOOR`) jako strop. Zblízka je reliéf celý, od ~40 u dál beze změny. Kámen ostrova 4× užším objektivem: sopka 0,49→0,87 reliéfu z dálky, hory 0,40→0,68. +7 instrukcí na volání; programy kuliček bajtově stejné.
+- ⚠ Tvrzení issue „z herního pohledu je reliéf celý“ neplatilo: herní kamera stojí 1,1 u nad kamenem, mění se spodní desetina obrazu.
+- ⚠ Android build tady bez Java SDK neprojde; GL překlad stačí ověřit `dotnet mgcb /@:Content/Shaders.mgcb /workingDir:Content /platform:Android` v `Prazsky.Shaders`.
+- Otevřené: `verdict-eye` (spáry sopky v popředí v pohybu neviděny, telefon neviděn). Kanon (`WornMetal`) tuhle funkci nevolá.
+
 ## 2026-11-24 — #1237 článek o postrčení: jeden zřetelný pár — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno, nepublikováno: tři páry i úvodní Zigzag pryč (21 souborů); rozestup klipů Zigzag 4,7 %, Pendant 9,1 %, Cannonball 0,4 % šířky. Nový pár: tři rychlé střely do špičky Pennantu zblízka, výřez 544x638, 25,8 % šířky. Text zpět na ~436 slov, „Before“ místo „vlevo“ (telefon klipy skládá pod sebe).

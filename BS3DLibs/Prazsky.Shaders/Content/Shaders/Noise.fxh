@@ -517,9 +517,11 @@ float2 VoronoiEdgeCell3(float3 p)
 //bigger, and everything on a ball half a unit in radius: there a pixel is under 0.01 units whenever the
 //ball is more than about 25 display pixels in radius at ssaa 2, and the relief came out at
 //(pixel / 0.01)^2 of itself - a seventh on the menu's close pass, full in play. That was #1216's "detail
-//only from afar". The balls take PerturbNormalFromHeightAtAnySize, whose floor is a share of the pixel's
-//own size, so the tilt is the true slope at every distance; the scenes keep the world floor they were
-//tuned under. Both go through this one body.
+//only from afar". The scene surfaces near the lens sat under the same floor (the island's cap, the
+//stations, the Needles, the ground an intro skims), and it tied their relief to the render's resolution:
+//a 4K pixel covers a quarter of a 1080p pixel's area, so where both sat under the floor the same shot drew
+//a quarter of the relief at 4K (#1236). Both floors below are a share of the pixel's own size wherever the
+//pixel is small, so the tilt is the true slope at every distance; both go through this one body.
 float3 TiltNormalByHeight(float3 normal, float3 dpdx, float3 dpdy, float dhdx, float dhdy, float determinantFloor)
 {
     float3 r1 = cross(dpdy, normal);
@@ -529,11 +531,6 @@ float3 TiltNormalByHeight(float3 normal, float3 dpdx, float3 dpdy, float dhdx, f
     float3 surfaceGradient = sign(determinant) * (dhdx * r1 + dhdy * r2);
 
     return normalize(max(abs(determinant), determinantFloor) * normal - surfaceGradient);
-}
-
-float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height)
-{
-    return TiltNormalByHeight(normal, ddx(worldPosition), ddy(worldPosition), ddx(height), ddy(height), 1e-4);
 }
 
 //The floor as a share of |dpdx| |dpdy|, the area the pixel would have if its two derivatives were square
@@ -546,11 +543,36 @@ float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height
 //to about the pixel's own area at the disc's centre and left the relief whole or nearly.
 static const float RELIEF_FLOOR_SHARE = 0.5;
 
-float3 PerturbNormalFromHeightAtAnySize(float3 normal, float3 worldPosition, float height)
+float ReliefFloorOfPixel(float3 dpdx, float3 dpdy)
+{
+    return max(RELIEF_FLOOR_SHARE * sqrt(dot(dpdx, dpdx) * dot(dpdy, dpdy)), 1e-20);
+}
+
+//The scenes' world floor, an area of 1e-4 world units squared (a pixel 0.01 units across), is kept as a
+//CEILING on the pixel's share: a scene's floor is the smaller of the two. Where a pixel covers more than
+//that (a surface seen face-on beyond about 40 units of the lens at 3840 x 1600 and ssaa 2) the floor is the one
+//every scene was tuned under, so a far peak seen edge-on is guarded as it always was and nothing far
+//moves; under it the floor is the pixel's share and the relief stays whole as the lens closes in. The
+//share alone would floor a far grazing frame harder than the world floor did (half a large pixel against
+//1e-4), which is a change nobody asked of the mountains' ridgelines.
+static const float SCENE_RELIEF_FLOOR = 1e-4;
+
+float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height)
 {
     float3 dpdx = ddx(worldPosition);
     float3 dpdy = ddy(worldPosition);
 
     return TiltNormalByHeight(normal, dpdx, dpdy, ddx(height), ddy(height),
-        max(RELIEF_FLOOR_SHARE * sqrt(dot(dpdx, dpdx) * dot(dpdy, dpdy)), 1e-20));
+        min(ReliefFloorOfPixel(dpdx, dpdy), SCENE_RELIEF_FLOOR));
+}
+
+//The balls' entry: the pixel's share alone, which #1216 tuned every style under. The world ceiling would
+//differ from it only on a small far ball's limb, and it is left out so the balls' programs stay the ones
+//#1216 measured.
+float3 PerturbNormalFromHeightAtAnySize(float3 normal, float3 worldPosition, float height)
+{
+    float3 dpdx = ddx(worldPosition);
+    float3 dpdy = ddy(worldPosition);
+
+    return TiltNormalByHeight(normal, dpdx, dpdy, ddx(height), ddy(height), ReliefFloorOfPixel(dpdx, dpdy));
 }

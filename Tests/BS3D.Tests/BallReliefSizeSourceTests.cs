@@ -55,22 +55,28 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void TheBallsFloorIsAShareOfThePixelAndTheScenesKeepTheirs()
+        public void TheBallsFloorIsAShareOfThePixelAndTheScenesCapItAtTheWorldFloor()
         {
             string noise = Code("Noise.fxh");
 
-            string atAnySize = Body(noise, "float3 PerturbNormalFromHeightAtAnySize(");
-            Assert.Contains("RELIEF_FLOOR_SHARE", atAnySize);
-            Assert.Contains("TiltNormalByHeight(", atAnySize);
-            Assert.DoesNotContain("1e-4", atAnySize);
+            string pixelFloor = Body(noise, "float ReliefFloorOfPixel(");
+            Assert.Contains("RELIEF_FLOOR_SHARE", pixelFloor);
 
             double share = Constant(noise, "RELIEF_FLOOR_SHARE");
             Assert.InRange(share, 0.05, 1.0);
 
-            //The scenes were tuned under the world floor, and their pixels are far larger than a ball's: theirs stays
+            string atAnySize = Body(noise, "float3 PerturbNormalFromHeightAtAnySize(");
+            Assert.Contains("ReliefFloorOfPixel(", atAnySize);
+            Assert.Contains("TiltNormalByHeight(", atAnySize);
+            Assert.DoesNotContain("SCENE_RELIEF_FLOOR", atAnySize);
+            Assert.DoesNotContain("1e-4", atAnySize);
+
+            //The scenes' relief stays whole close to the lens too (#1236): their floor is the pixel's share, capped at the
+            //world floor they were tuned under, so a pixel larger than that (everything far) is floored as it always was
             string scenes = Body(noise, "float3 PerturbNormalFromHeight(");
             Assert.Contains("TiltNormalByHeight(", scenes);
-            Assert.Contains("1e-4", scenes);
+            Assert.Matches(@"min\(\s*ReliefFloorOfPixel\([^)]*\)\s*,\s*SCENE_RELIEF_FLOOR\s*\)", scenes);
+            Assert.Matches(@"static\s+const\s+float\s+SCENE_RELIEF_FLOOR\s*=\s*1e-4\s*;", noise);
         }
 
         [Fact]
