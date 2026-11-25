@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-25 — #1207 desáté nahrávky Tower a Reveal — desktop (RDT-PC), Claude Code (bs3d-45)
+
+- Hotovo: `summit-postrock` (post-rock, E moll, c3 z 1. kola) a `nocturne-manouche` (gypsy jazz, F moll, přestřih c2r6), obě s vrstvou bicích. Každá kapitola má teď deset nahrávek a `ChapterTests` už nemá seznam výjimek. Sidecary jsou v `Research/AI-Music`.
+- majitel: Reveal „c2 zní velmi dobře, kvalitně a dospěle“; Tower c3 před c5 („zaseknutá deska“) i před „dospělou“ c13: „Použijeme c3“.
+- ⚠ `ace-lm` nepíše do plánu `synth_model` a `ace-synth` pak načte 2B sft. `generate-music.ps1` ho teď zapisuje (turbo); kontroluj řádek `[GGUF]`.
+- ⚠ Sloupec „longest repeat“ zachytil c5, kterou majitel slyšel jako zaseknutou desku. „Dospělé“ zadání zpomalilo melodii a prohrálo s původní c3 (`music-generation.md`).
+
 ## 2026-11-25 — #1239 #1240 všechny scény na Medium na GTX 1060 — DESKTOP_L, Claude Code
 
 - Hotovo: 14 největších levelů a menu všech 21 scén na Medium, 1080p na celou obrazovku, `nocap`. Drží 60 FPS všude kromě menu Marsu (medián 14,7 ms, ale 17 z 50 s nad 16,7; #1239). Tabulka je v #1239, souhrn v `quality-measurements.md`.

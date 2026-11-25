@@ -36,6 +36,10 @@ param(
     [string]$KeyScale = "",
     [int]$Seed = -1,
 
+    # The DiT that renders the LM's composition. The 2B turbo at 8 steps is the one the recordings are made with
+    # (Tools/Generation/README.md, #1087); the sft and XL GGUFs beside it need 50 steps and CFG.
+    [string]$SynthModel = "acestep-v15-turbo-Q8_0.gguf",
+
     [ValidateSet("mp3", "wav16", "wav24", "wav32")]
     [string]$OutputFormat = "mp3",
 
@@ -95,6 +99,13 @@ $lmElapsed = (Get-Date) - $lmStart
 
 $request0 = Join-Path $work "request0.json"
 if (-not (Test-Path $request0)) { throw "ace-lm did not produce request0.json" }
+
+# ace-lm writes request0.json without a DiT, and ace-synth then loads whichever v15 GGUF it finds first in the models
+# folder: since #1087 put the sft and XL DiTs beside the turbo that was the 2B sft, run at the turbo's 8 steps (#1207).
+if (-not (Test-Path (Join-Path $ModelsDir $SynthModel))) { throw "DiT $SynthModel not found in $ModelsDir" }
+$plan = [System.IO.File]::ReadAllText($request0) | ConvertFrom-Json
+$plan | Add-Member -NotePropertyName synth_model -NotePropertyValue $SynthModel -Force
+[System.IO.File]::WriteAllText($request0, ($plan | ConvertTo-Json -Depth 5), (New-Object System.Text.UTF8Encoding $false))
 
 Write-Host "[2/2] ace-synth: DiT + VAE synthesis (Vulkan) ..." -ForegroundColor Cyan
 $synthStart = Get-Date

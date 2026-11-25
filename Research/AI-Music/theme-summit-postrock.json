@@ -1,0 +1,224 @@
+{
+  "file": "theme-summit-postrock.wav",
+  "created": "2026-11-25",
+  "issue": 1207,
+  "family": "summit",
+  "chapter": "The Tower (mountains, levels 31-40) - #1207: the family's tenth recording and its first with guitars: instrumental post-rock in E minor at 104 bpm, two clean chiming electric guitars with stereo delay playing one interlocking melody of running eighth notes over a round bass guitar, a steady kick, snare and toms with a dark ride, and pads and strings holding the chords",
+  "purpose": "Master of Game/Music/summit-postrock.ogg: written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis; its drums layer Game/Music/Drums/summit-postrock.ogg from C:/Users/panrd/AI/stems/separate_drums.py over the baked .ogg and MusicBake --drums. The master stays outside the repository (C:/Users/panrd/AI/output/masters-1207-chosen on the desktop, with its .raw.wav; this is candidate c3, theme-summit-postrock-c3 in masters-1207, where every candidate is); this sidecar is committed beside the .ogg.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan, DiT acestep-v15-turbo-Q8_0.gguf at 8 steps (the [GGUF] line of every ace-synth run in the batch logs) -- batch-1207.ps1 -> generate-music.ps1 -Loop -NoCotCaption",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "request": {
+    "caption": "Modern uplifting instrumental post-rock in the natural minor scale: two clean chiming electric guitars with shimmering stereo delay playing one bright, flowing, hummable interlocking melody of quick running eighth notes in the middle register, clean and perfectly in tune, staying inside the key, a warm round bass guitar playing steady eighth notes, kick, snare and toms with a dark ride cymbal keeping a steady driving beat, warm sustained synth pads and soft strings holding the chords through every bar, the chords changing every two bars, a build into a soaring euphoric peak with the guitars ringing out wide, hopeful, crisp and vast like thin mountain air at dawn, the feeling of climbing towards a summit, glossy modern production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full band playing throughout from the first bar, no vocals",
+    "lm_negative_prompt": "vocals, singing, choir, humming, brass band, polka, oompah, march, folk, accordion, fiddle, yodel, alphorn, bagpipe, hurdy-gurdy, crowd noise, audience applause, live recording, heavy distortion, distorted guitars, overdriven guitars, heavy metal, shoegaze, wall of noise, guitar feedback, power chords, grunge, punk, emo, screaming, long quiet intro, quiet breakdown, near silence, long soft passages, long silent passages, fade in, fade out, slow build from silence, ambient drone, free tempo, rubato, tempo changes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, boomy sub bass, out of tune, wobbly pitch, dissonance, sad, melancholic, slow ballad",
+    "instrumental": true,
+    "use_cot_caption": false,
+    "duration": 120,
+    "bpm": 104,
+    "keyscale": "E minor",
+    "seed": 1772379639,
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+  "loop_log": [
+    "Wrote C:\\Users\\panrd\\AI\\output\\masters-1207\\theme-summit-postrock-c3.wav: 55.4s loop = source 41.82s..97.20s (24.01 bars at 104.0 bpm), crossfade 1.15s | context match 0.721 (best 0.761) | crossfade rhythm r=0.72 vs the track a bar later r=0.79: in time | spectrum cos=0.75"
+  ],
+  "lm_check": {
+    "request0_captured": false,
+    "note": "batch-1207.ps1 did not keep ace-lm's request0.json; the seed, bpm and key asked are the request above (seeds.log)"
+  },
+  "measured": "generate-music.ps1 end to end 55,6 s (ace-lm + ace-synth + loop cut), exit 0",
+  "rendered": true,
+  "chosen": {
+    "candidate": "c3",
+    "round": 1,
+    "of": [
+      "c1",
+      "c2",
+      "c3",
+      "c4",
+      "c5",
+      "c6",
+      "c10",
+      "c11",
+      "c12",
+      "c13",
+      "c3r1",
+      "c3r2",
+      "c3r3",
+      "c3r4"
+    ],
+    "why": "Chosen by the owner's ear, twice: over c5 on the first listening page (\"Lépe zní c3\", c3 sounds better) and then over c13, the round made for the owner's note on c3 (\"U c3 by se mi ale líbilo, kdyby byla méně „ukuňkaná“ (hlavně na začátku) a více dospělá.\", I would like c3 less cute, mainly at the start, and more grown-up): \"Použijeme c3\" (2026-11-25). Measured on the baked recording beside the ember family: 21.3 % in 200 Hz-2 kHz, 19.1 % in 300 Hz-4 kHz, 1.2 % above 6 kHz, tonal mid 91 %, 3.92 held-note changes a second, tempo wander 0.02 %, 0 clipped runs, every held note in E minor (0 of 230), no short gaps; Content Enjoyment 7.61 on the shipped .ogg (ember.ogg 7.56 in the same run). The one column over ember's: its longest repeat, 24 bars (55.4 s) at --similar 0.90 and 16 bars (36.9 s) at 0.93, against ember's 48.0 s and 17.5 s - the column that named c5's stuck record, and the owner heard c3 and kept it. A 55.4 s loop (24 bars at 104 bpm); drums layer 12.6 dB under the mix in 300 Hz-4 kHz (ember -4.5 to -13.8)."
+  },
+  "alternatives": [
+    {
+      "candidate": "c1",
+      "round": 1,
+      "seed": 1405299088,
+      "bpm": 104,
+      "caption": "brief_1 (the chosen one's, above)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-1207\\theme-summit-postrock-c1.wav: 37.3s loop = source 44.77s..82.05s (16.04 bars at 103.2 bpm), crossfade 1.16s | context match 0.652 (best 0.692) | crossfade rhythm r=0.79 vs the track a bar later r=0.86: in time | spectrum cos=0.67"
+      ],
+      "refused_or_not_chosen": "Ruled out by measurement: 3.3 % above 6 kHz (ember at most 2.0) and the opening repeats for the whole 37.3 s loop (16 bars; ember at most 7.5 s)."
+    },
+    {
+      "candidate": "c2",
+      "round": 1,
+      "seed": 1669124727,
+      "bpm": 104,
+      "caption": "brief_1 (the chosen one's, above)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-1207\\theme-summit-postrock-c2.wav: 57.6s loop = source 47.47s..105.05s (24.00 bars at 100.1 bpm), crossfade 1.20s | context match 0.691 (best 0.740) | crossfade rhythm r=0.65 vs the track a bar later r=0.15: in time | spectrum cos=0.81"
+      ],
+      "refused_or_not_chosen": "Ruled out by measurement: 1.3 held-note changes a second (ember at least 2.74), the opening repeats for 4 bars (9.6 s)."
+    },
+    {
+      "candidate": "c4",
+      "round": 2,
+      "seed": 327475508,
+      "bpm": 104,
+      "caption": "brief_2 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-1207\\theme-summit-postrock-c4.wav: 92.3s loop = source 17.53s..109.85s (39.98 bars at 103.9 bpm), crossfade 1.15s | context match 0.300 (best 0.300) | crossfade rhythm r=0.57 vs the track a bar later r=0.61: in time | spectrum cos=0.18"
+      ],
+      "refused_or_not_chosen": "Ruled out by measurement: 1.85 held-note changes a second, the opening repeats for 16 bars (36.9 s)."
+    },
+    {
+      "candidate": "c5",
+      "round": 2,
+      "seed": 1975697373,
+      "bpm": 104,
+      "caption": "brief_2 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-1207\\theme-summit-postrock-c5.wav: 64.0s loop = source 31.20s..95.20s (28.03 bars at 105.1 bpm), crossfade 1.14s | context match 0.533 (best 0.577) | crossfade rhythm r=0.96 vs the track a bar later r=0.77: in time | spectrum cos=0.48"
+      ],
+      "refused_or_not_chosen": "On the listening page beside c3, every first-table column inside ember's range, but its longest repeat ran 26 bars (59.4 s of a 64.1 s loop) at --similar 0.90 and 15 bars (34.3 s) at 0.93, against ember's 48.0 s and 17.5 s. The owner (2026-11-25): \"Ta c5 se hodně opakuje, že zní trochu jako zaseknutá deska.\" (c5 repeats so much it sounds a bit like a stuck record)."
+    },
+    {
+      "candidate": "c6",
+      "round": 2,
+      "seed": 462590939,
+      "bpm": 104,
+      "caption": "brief_2 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-1207\\theme-summit-postrock-c6.wav: 64.0s loop = source 28.05s..92.10s (30.05 bars at 112.6 bpm), crossfade 1.07s | context match 0.293 (best 0.332) | crossfade rhythm r=0.44 vs the track a bar later r=0.43: in time | spectrum cos=0.40"
+      ],
+      "refused_or_not_chosen": "Ruled out by measurement: 2.47 held-note changes a second and 1.17 % tempo wander (ember at most 0.29 %)."
+    },
+    {
+      "candidate": "c10",
+      "round": 4,
+      "seed": 321629143,
+      "bpm": 104,
+      "caption": "brief_4 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-1207\\theme-summit-postrock-c10.wav: 55.4s loop = source 29.47s..84.85s (23.95 bars at 103.8 bpm), crossfade 1.16s | context match 0.435 (best 0.482) | crossfade rhythm r=0.74 vs the track a bar later r=0.52: in time | spectrum cos=0.83"
+      ],
+      "refused_or_not_chosen": "Ruled out by measurement: 5.0 % in 200 Hz-2 kHz and 1.8 % in 300 Hz-4 kHz (ember at least 9.5 and 5.6), 0.96 held-note changes a second, a 22-bar repeat, 17.9 % of held notes outside E minor (ember at most 8.6)."
+    },
+    {
+      "candidate": "c11",
+      "round": 4,
+      "seed": 1951331863,
+      "bpm": 104,
+      "caption": "brief_4 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-1207\\theme-summit-postrock-c11.wav: 54.9s loop = source 27.04s..81.90s (24.03 bars at 105.2 bpm), crossfade 1.14s | context match 0.512 (best 0.561) | crossfade rhythm r=0.59 vs the track a bar later r=0.60: in time | spectrum cos=0.62"
+      ],
+      "refused_or_not_chosen": "Ruled out by measurement: 2.02 held-note changes a second and a +11.8 dB level step across the wrap (91st percentile of its own steps)."
+    },
+    {
+      "candidate": "c12",
+      "round": 4,
+      "seed": 1851102547,
+      "bpm": 104,
+      "caption": "brief_4 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-1207\\theme-summit-postrock-c12.wav: 84.5s loop = source 11.83s..96.30s (35.99 bars at 102.3 bpm), crossfade 1.17s | context match 0.281 (best 0.310) | crossfade rhythm r=0.28 vs the track a bar later r=0.79: BELOW the track's own timekeeping -- listen | spectrum cos=0.22"
+      ],
+      "refused_or_not_chosen": "Ruled out by measurement: 9.2 % in 200 Hz-2 kHz (ember at least 9.5), 1.42 held-note changes a second."
+    },
+    {
+      "candidate": "c13",
+      "round": 4,
+      "seed": 1559494944,
+      "bpm": 104,
+      "caption": "brief_4 (below)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-1207\\theme-summit-postrock-c13.wav: 55.4s loop = source 46.21s..101.60s (23.97 bars at 103.9 bpm), crossfade 1.16s | context match 0.479 (best 0.527) | crossfade rhythm r=0.75 vs the track a bar later r=0.69: in time | spectrum cos=0.33"
+      ],
+      "refused_or_not_chosen": "On the listening page against c3 as the answer to the owner's note on c3 (less cute, more grown-up): Content Enjoyment 7.47, no repeat past 8 bars (18.5 s), every held note in E minor, 2.51 held-note changes a second (ember at least 2.74). The owner (2026-11-25): \"Použijeme c3\" (we'll use c3)."
+    },
+    {
+      "candidate": "c3r1",
+      "round": 1,
+      "seed": 1772379639,
+      "bpm": 104,
+      "caption": "brief_1 (the chosen one's, above)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-1207\\recut\\theme-summit-postrock-c3r1.wav: 36.9s loop = source 9.23s..46.15s (16.00 bars at 104.0 bpm), crossfade 1.15s | context match 0.432 (best 0.455) | crossfade rhythm r=0.68 vs the track a bar later r=0.74: in time | spectrum cos=0.54"
+      ],
+      "refused_or_not_chosen": "A recut of c3 from a later stretch, for the owner's note on its start: the 16-bar loop is one pattern throughout (opening and longest repeat 16 bars, 36.9 s).",
+      "recut_of": "c3"
+    },
+    {
+      "candidate": "c3r2",
+      "round": 1,
+      "seed": 1772379639,
+      "bpm": 104,
+      "caption": "brief_1 (the chosen one's, above)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-1207\\recut\\theme-summit-postrock-c3r2.wav: 18.5s loop = source 16.09s..34.55s (8.00 bars at 104.0 bpm), crossfade 1.15s | context match 0.541 (best 0.541) | crossfade rhythm r=0.14 vs the track a bar later r=0.70: BELOW the track's own timekeeping -- listen | spectrum cos=0.67"
+      ],
+      "refused_or_not_chosen": "A recut of c3 from a later stretch: an 8-bar loop (18.5 s), its crossfade rhythm BELOW the track's own timekeeping (r=0.14).",
+      "recut_of": "c3"
+    },
+    {
+      "candidate": "c3r3",
+      "round": 1,
+      "seed": 1772379639,
+      "bpm": 104,
+      "caption": "brief_1 (the chosen one's, above)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-1207\\recut\\theme-summit-postrock-c3r3.wav: 18.5s loop = source 13.19s..31.65s (8.00 bars at 104.0 bpm), crossfade 1.15s | context match 0.716 (best 0.716) | crossfade rhythm r=0.33 vs the track a bar later r=0.63: BELOW the track's own timekeeping -- listen | spectrum cos=0.87"
+      ],
+      "refused_or_not_chosen": "A recut of c3 from a later stretch: an 8-bar loop (18.5 s), its crossfade rhythm BELOW the track's own timekeeping (r=0.33), 2.8 % above 6 kHz.",
+      "recut_of": "c3"
+    },
+    {
+      "candidate": "c3r4",
+      "round": 1,
+      "seed": 1772379639,
+      "bpm": 104,
+      "caption": "brief_1 (the chosen one's, above)",
+      "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-1207\\recut\\theme-summit-postrock-c3r4.wav: 36.9s loop = source 4.18s..41.10s (16.00 bars at 104.0 bpm), crossfade 1.15s | context match 0.297 (best 0.346) | crossfade rhythm r=0.66 vs the track a bar later r=0.72: in time | spectrum cos=0.45"
+      ],
+      "refused_or_not_chosen": "A recut of c3 from a later stretch: the 16-bar loop is one pattern throughout (opening and longest repeat 16 bars, 36.9 s).",
+      "recut_of": "c3"
+    }
+  ],
+  "alternative_briefs": {
+    "brief_1": {
+      "caption": "Modern uplifting instrumental post-rock in the natural minor scale: two clean chiming electric guitars with shimmering stereo delay playing one bright, flowing, hummable interlocking melody of quick running eighth notes in the middle register, clean and perfectly in tune, staying inside the key, a warm round bass guitar playing steady eighth notes, kick, snare and toms with a dark ride cymbal keeping a steady driving beat, warm sustained synth pads and soft strings holding the chords through every bar, the chords changing every two bars, a build into a soaring euphoric peak with the guitars ringing out wide, hopeful, crisp and vast like thin mountain air at dawn, the feeling of climbing towards a summit, glossy modern production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full band playing throughout from the first bar, no vocals",
+      "negative": "vocals, singing, choir, humming, brass band, polka, oompah, march, folk, accordion, fiddle, yodel, alphorn, bagpipe, hurdy-gurdy, crowd noise, audience applause, live recording, heavy distortion, distorted guitars, overdriven guitars, heavy metal, shoegaze, wall of noise, guitar feedback, power chords, grunge, punk, emo, screaming, long quiet intro, quiet breakdown, near silence, long soft passages, long silent passages, fade in, fade out, slow build from silence, ambient drone, free tempo, rubato, tempo changes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, boomy sub bass, out of tune, wobbly pitch, dissonance, sad, melancholic, slow ballad",
+      "bpm": 104,
+      "keyscale": "E minor"
+    },
+    "brief_2": {
+      "caption": "Modern uplifting instrumental post-rock in the natural minor scale: two clean chiming electric guitars with shimmering stereo delay playing one bright, flowing, hummable interlocking melody of quick running eighth notes in the middle register, clean and perfectly in tune, staying inside the key, a warm round bass guitar playing steady eighth notes, kick, snare and toms with a dark ride cymbal keeping a steady driving beat, warm sustained synth pads and soft strings holding the chords through every bar, the chords changing every two bars, a different second theme in the middle of the piece, the melody developing from phrase to phrase, a build into a soaring euphoric peak with the guitars ringing out wide, hopeful, crisp and vast like thin mountain air at dawn, the feeling of climbing towards a summit, glossy modern production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full band playing throughout from the first bar, no vocals",
+      "negative": "vocals, singing, choir, humming, brass band, polka, oompah, march, folk, accordion, fiddle, yodel, alphorn, bagpipe, hurdy-gurdy, crowd noise, audience applause, live recording, heavy distortion, distorted guitars, overdriven guitars, heavy metal, shoegaze, wall of noise, guitar feedback, power chords, grunge, punk, emo, screaming, long quiet intro, quiet breakdown, near silence, long soft passages, long silent passages, fade in, fade out, slow build from silence, ambient drone, free tempo, rubato, tempo changes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, boomy sub bass, out of tune, wobbly pitch, dissonance, sad, melancholic, slow ballad, repetitive loop, one chord vamp, monotonous ostinato, the same phrase over and over",
+      "bpm": 104,
+      "keyscale": "E minor"
+    },
+    "brief_4": {
+      "caption": "Mature cinematic instrumental post-rock in the natural minor scale: warm, deep, clean electric guitars with long shimmering stereo delay playing one grand, flowing, hummable melody of steady eighth notes in the low-middle register, with a round, warm, full tone, clean and perfectly in tune, staying inside the key, a second guitar answering an octave below, a warm round bass guitar playing steady eighth notes, kick, snare and toms with a dark ride cymbal keeping a steady driving beat, warm sustained synth pads and low cello-like strings holding the chords through every bar, the chords changing every two bars, a different second theme in the middle of the piece, the melody developing from phrase to phrase, a build into a powerful soaring peak, serious, grown-up and vast like a mountain range at dusk, glossy modern production, wide stereo mix with instruments panned left and right, stereo delays, spacious reverb, the full band playing throughout from the first bar, no vocals",
+      "negative": "vocals, singing, choir, humming, brass band, polka, oompah, march, folk, accordion, fiddle, yodel, alphorn, bagpipe, hurdy-gurdy, crowd noise, audience applause, live recording, heavy distortion, distorted guitars, overdriven guitars, heavy metal, shoegaze, wall of noise, guitar feedback, power chords, grunge, punk, emo, screaming, long quiet intro, quiet breakdown, near silence, long soft passages, long silent passages, fade in, fade out, slow build from silence, ambient drone, free tempo, rubato, tempo changes, bright crash cymbals, splashy cymbals, cymbal wash, open hi-hats, tambourine, shakers, long drum-only sections, drum solo, boomy sub bass, out of tune, wobbly pitch, dissonance, sad, melancholic, slow ballad, repetitive loop, one chord vamp, monotonous ostinato, the same phrase over and over, cute, childish, sugary, twee, toy-like, plinky, tinkly, whiny, high-pitched twinkling melody, music box, glockenspiel, celesta, bells, chimes, chiptune, video game bleeps, nursery rhyme, bright jangly guitar",
+      "bpm": 104,
+      "keyscale": "E minor"
+    },
+    "note": "c7-c9 were never rendered for the Tower: round 3 was the Reveal's alone. brief_2 is brief_1 with 'a different second theme in the middle of the piece, the melody developing from phrase to phrase' in the caption and 'repetitive loop, one chord vamp, monotonous ostinato, the same phrase over and over' in the negative; brief_4 the 'mature' rewrite for the owner's note on c3 (warm, deep guitars in the low-middle register, a second guitar an octave below, low strings; 'cute, childish, plinky, tinkly, whiny' and bells in the negative)."
+  }
+}

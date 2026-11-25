@@ -118,16 +118,12 @@ namespace BS3D.Tests
         /// <summary>
         /// Each level of a chapter plays its own recording (#1200): <c>GameMusic.SetTheme</c> takes the level's
         /// <see cref="LevelSet.PlaceInChapter"/> modulo its family's count, so within a chapter the places must be 0, 1, 2 …
-        /// in order and the family must have a recording for each. The families short of their chapter are the known
-        /// exceptions the owner's rule of ten recordings a chapter is filling (#1207); a family that falls short and is not
-        /// on the list, or one on the list that has caught up, fails here, so the list cannot go stale either way.
+        /// in order and the family must have a recording for each: the owner's rule of ten recordings a chapter, which every
+        /// family meets since #1207 gave the Tower and the Reveal their tenth.
         /// </summary>
         [Fact]
         public void EveryLevelOfAChapterPlaysItsOwnRecording()
         {
-            //#1207: the Tower's and the Reveal's tenth recordings are still to be generated
-            HashSet<string> knownShort = new(StringComparer.OrdinalIgnoreCase) { "summit", "nocturne" };
-
             LevelSet set = ShippedSet();
             string music = Path.Combine(Path.GetDirectoryName(Shipped.LevelsDirectory), "Music");
 
@@ -154,13 +150,9 @@ namespace BS3D.Tests
                         faults.Add($"'{chapter}': {set.Levels[i].File} is at place {set.PlaceInChapter(i)}, not {i - first}");
 
                 int levels = last - first + 1;
-                bool isShort = recordings.GetValueOrDefault(family) < levels;
-
-                if (isShort && !knownShort.Contains(family))
+                if (recordings.GetValueOrDefault(family) < levels)
                     faults.Add($"'{chapter}' has {levels} levels and its family '{family}' {recordings.GetValueOrDefault(family)} recordings,"
                         + " so two of its levels play the same one");
-                else if (!isShort && knownShort.Contains(family))
-                    faults.Add($"'{family}' has caught up with '{chapter}' ({recordings[family]} recordings): take it off the known-short list");
 
                 first = last + 1;
             }
