@@ -35,10 +35,10 @@ namespace Prazsky.Core.Render
     /// <b>And a landing's line opens into a thin three-pronged fork that fades out</b> (#1235, the owner's sketch, "so that it
     /// is a little visible that the ball does not land exactly where the line ends"): from <see cref="FORK_FROM"/> of the way
     /// to where the lens sees the beam reach the ball, two prongs peel off the line on either side along a smoothstep (no
-    /// corner, not a pitchfork), part to the measured landing region (<see cref="FORK_SPREAD"/>) by <see cref="FORK_FULL"/>
-    /// and run on parallel, dashed with the line's own dashes at the line's width, a little fainter than it
-    /// (<see cref="FORK_LIGHT"/>), and fading out with it at the ball. They part square to the lens's line of sight, so the
-    /// overview, which sees the beam nearly end on, shows them apart: 74 px across at the median on a 1080-line frame.
+    /// corner, not a pitchfork), part to <see cref="FORK_SPREAD"/> by <see cref="FORK_FULL"/> and run on parallel, dashed
+    /// with the line's own dashes at the line's width, a little fainter than it (<see cref="FORK_LIGHT"/>), and fading out
+    /// with it at the ball. They part square to the lens's line of sight, so the overview, which sees the beam nearly end
+    /// on, shows them apart: 52 px across at the median on a 1080-line frame.
     /// The middle line is laid exactly as without them (<see cref="LayProngs"/>).
     /// </para>
     /// </summary>
@@ -269,11 +269,14 @@ namespace Prazsky.Core.Render
         internal const int MAX_PIECES = 3 * MAX_DASHES;
 
         /// <summary>
-        /// <b>How far to the side the fork's two outer prongs part</b>, in world units, at their widest (#1235): the
-        /// measured landing region (<see cref="LANDING_SPREAD"/>), so the fork says what the owner asked it to say, "that the
-        /// ball does not land exactly where the line ends", and no more.
+        /// <b>How far to the side the fork's two outer prongs part</b>, in world units, at their widest. A figure of its own
+        /// since #1245, when the owner asked for the fork narrower: it was the measured landing region
+        /// (<see cref="LANDING_SPREAD"/>, 0.65) when the fork was made (#1235), so it said where the ball can land; at
+        /// 0.45 it says that the ball does not land exactly where the line ends, which is all the owner asked of it,
+        /// and a prong stays clear of the middle line's widest far dashes (<see cref="FAR_WIDTH"/>), by 0.07: at 0.35 it ran into
+        /// them and the fork read as one smeared dash over a bright cluster.
         /// </summary>
-        internal const float FORK_SPREAD = LANDING_SPREAD;
+        internal const float FORK_SPREAD = 0.45f;
 
         /// <summary>
         /// Where the fork's outer prongs start to peel off the line, as a share of the beam's length to where the lens sees it
@@ -294,13 +297,14 @@ namespace Prazsky.Core.Render
         internal const float FORK_FULL = 0.65f;
 
         /// <summary>
-        /// How far apart the outer prongs are, as a share of <see cref="FORK_SPREAD"/>, when they have their whole light
-        /// (<see cref="FORK_LIGHT"/>): they gain it along a smoothstep as they leave the line, so a prong still lying over it
-        /// adds next to nothing to it, and one clear of it (a third of the spread is about two of the line's widths aside)
-        /// shows whole. Tied to the whole opening, a prong had a quarter of its light half way open and was lost against a
-        /// daylight sky.
+        /// How far aside a prong has moved, in world units, when it has its whole light (<see cref="FORK_LIGHT"/>): two of the
+        /// line's half-widths (<see cref="WIDTH"/>), where it stands clear of the line edge to edge. It gains its light along a
+        /// smoothstep up to there, so a prong still lying over the line adds next to nothing to it. A distance and not a share
+        /// of <see cref="FORK_SPREAD"/> since #1245: as a share (0.35, about this distance at the old spread of 0.65) a
+        /// narrower fork would have lit its prongs while they still lay over the line. Tied to the whole opening, a prong had
+        /// a quarter of its light half way open and was lost against a daylight sky (#1235).
         /// </summary>
-        internal const float FORK_SHOW = 0.35f;
+        internal const float FORK_SHOW = 2f * WIDTH;
 
         /// <summary>
         /// An outer prong's alpha, once clear of the line, against the plain line's under the same fade, at the plain line's
@@ -812,7 +816,7 @@ namespace Prazsky.Core.Render
         /// <see cref="FORK_FULL"/>) of <see cref="FORK_SPREAD"/>, square to
         /// the flight and to the lens's line of sight (<see cref="Across"/>), so the two part on screen on either side of the
         /// line whatever the angle; at the line's own <see cref="WIDTH"/>, never widened; and with the plain line's alpha under
-        /// the same fade, times <see cref="FORK_LIGHT"/>, gained as they leave it (<see cref="FORK_SHOW"/>), so they peel off it
+        /// the same fade, times <see cref="FORK_LIGHT"/>, gained as they clear it (<see cref="FORK_SHOW"/>), so they peel off it
         /// from nothing and fade out with it at the ball. Laid only where they have parted at all: the plain line, a strike and an open beam have none.
         /// </summary>
         private static int LayProngs(ReadOnlySpan<Vector3> path, int leg, Vector3 tail, Vector3 head, float a, float b,
@@ -821,8 +825,8 @@ namespace Prazsky.Core.Render
             float openA = far.Fork(a), openB = far.Fork(b);
             if (openB <= 0f) return forkCount;
 
-            float alphaA = far.ThinAlpha(a) * Ease(MathF.Min(1f, openA / FORK_SHOW)) * FORK_LIGHT;
-            float alphaB = far.ThinAlpha(b) * Ease(MathF.Min(1f, openB / FORK_SHOW)) * FORK_LIGHT;
+            float alphaA = far.ThinAlpha(a) * Ease(MathF.Min(1f, FORK_SPREAD * openA / FORK_SHOW)) * FORK_LIGHT;
+            float alphaB = far.ThinAlpha(b) * Ease(MathF.Min(1f, FORK_SPREAD * openB / FORK_SHOW)) * FORK_LIGHT;
             if (MathF.Max(alphaA, alphaB) <= MIN_OPACITY) return forkCount;
 
             //A tail at nothing would leave the shader no alpha to lerp from: a fiftieth of the head's, all but nothing
