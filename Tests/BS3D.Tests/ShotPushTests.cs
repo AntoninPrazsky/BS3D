@@ -189,9 +189,10 @@ namespace BS3D.Tests
             output.WriteLine(string.Create(CultureInfo.InvariantCulture,
                 $"refused at step {step}: {push.Balls} balls took {push.Impulse:0.0} of momentum, of the {ShotRig.SHOOT_SPEED * BallsConstraintsBuilder.BALL_MASS:0.0} the shot carried"));
 
-            //A glance hands over the part of the momentum along the line between the centres, never the whole of it
+            //A glance hands over the part of the momentum along the line between the centres, never the whole of it (times the
+            //feel's share, #1248: the default hands over more than the ball carried, as every push of it does)
             Assert.True(push.Balls > 0 && push.Impulse > 0f, "the refusal pushed nothing");
-            Assert.True(push.Impulse < 0.99f * ShotRig.SHOOT_SPEED * BallsConstraintsBuilder.BALL_MASS,
+            Assert.True(push.Impulse < 0.99f * ShotPush.Feel.Default.Share * ShotRig.SHOOT_SPEED * BallsConstraintsBuilder.BALL_MASS,
                 $"the refusal handed out {push.Impulse:0.0}, the whole of what the shot carried and not what the touch hands over");
 
             //Slid off: put back at the touch, nothing left of its velocity into the ball it met
