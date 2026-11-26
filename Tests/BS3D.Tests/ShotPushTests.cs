@@ -238,6 +238,7 @@ namespace BS3D.Tests
             BallsReleased result = BallsConstraintsBuilder.ReleaseSameTypeCluster(landed, hung.Balls, hung.Map, hung.World.Simulation, released);
             Assert.Equal(3, result.Matched);
 
+            float[] before = released.ConvertAll(ball => ball.BallReference.Velocity.Linear.Y).ToArray();
             ShotPush.Result given = push.Deliver(hung.World.Simulation, hung.Balls, impulse);
             ShotPush.Result walkedAfter = new ShotPush().Apply(hung.World.Simulation, hung.Balls, under, impulse);
             output.WriteLine($"walked before the release: {given}; walked after it: {walkedAfter}");
@@ -247,6 +248,16 @@ namespace BS3D.Tests
             Assert.True(hung.Balls[strand[1].X, strand[1].Z, strand[1].Level].BallReference.Velocity.Linear.Y > 0.1f,
                 "the ball the group hung from was not pushed");
             Assert.Equal(ShotPush.Result.None, walkedAfter);
+
+            //And the group it knocked out leaves along the flight with its share (#1249): until then its share was thrown
+            //away and it dropped as if nothing had hit it (seen to fail so: every released ball at 0 along the flight)
+            Assert.Equal(3, given.Released);
+            Assert.True(given.ReleasedImpulse > 0f, "the released group carried nothing away");
+            for (int i = 0; i < released.Count; i++)
+            {
+                float kick = released[i].BallReference.Velocity.Linear.Y - before[i];
+                Assert.True(kick > 0.1f && kick <= ShotPush.MAX_KICK + 1e-3f, $"a released ball was kicked {kick:0.00} along the flight");
+            }
         }
 
         private static PhysicsBall Nearest(PhysicsBall[,,] balls, System.Numerics.Vector3 to)
