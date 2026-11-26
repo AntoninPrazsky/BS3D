@@ -96,8 +96,8 @@ namespace BS3D.Screens
             //The cannon's two (#895). The rainbow ball's sentences are the paragraph that stood here before it had a square;
             //the Cutter's are the Cut's whole story, which the Controls tab leaves here (#997)
             new(BallKind.Wildcard, BallType.Type1, "Rainbow ball", "It never settles on a colour while it is loaded, and becomes "
-                + "whatever completes a group where it lands. A few of the later levels hand them out, and a card says so the "
-                + "first time one is loaded."),
+                + "whatever completes a group where it lands: the landing preview already wears that colour. A few of the later "
+                + "levels hand them out, and a card says so the first time one is loaded."),
             new(BallKind.Cutter, BallType.Type1, "Cutter", "What the Cut turns your next ball into. It destroys the whole storey it "
                 + "hits, so what hung on it falls; what it would cut off lights up as you aim, never more than the lower half."),
         };

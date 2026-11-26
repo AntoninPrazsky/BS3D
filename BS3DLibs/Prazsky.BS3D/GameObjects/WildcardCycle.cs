@@ -7,13 +7,15 @@ namespace Prazsky.BS3D.GameObjects
     /// What colour a <see cref="BallKind.Wildcard"/> is showing right now (#330) — one clock, read by every
     /// surface that draws or asks about one.
     /// <para>
-    /// <b>That it is ONE clock is the whole design.</b> A wildcard is visible in five places at once — the
-    /// loaded queue in the bore, the round at the muzzle, the halo around it, the aim ghost in the cell it would
-    /// land in, and the ball in flight — and the magazine's own history says what happens when those disagree:
+    /// <b>That it is ONE clock is the whole design.</b> A wildcard is visible in four places at once — the
+    /// loaded queue in the bore, the round at the muzzle, the halo around it and the ball in flight — and the
+    /// magazine's own history says what happens when those disagree:
     /// two testers read a colour off the wrong ball and fired expecting a match (#175). A per-ball phase would
     /// have every wildcard on screen cycling out of step, which is that failure with the colours moving. So the
     /// phase belongs to the <i>game</i>, not to a ball: every wildcard shows the same colour at the same
-    /// instant, and the player reads one answer wherever they look.
+    /// instant, and the player reads one answer wherever they look. The aim ghost is the one place that does
+    /// not cycle (#1254): it wears the colour the ball will become in its cell, the answer the cycle only
+    /// stands in for, and the cycle's own only where the cell touches nothing matchable.
     /// </para>
     /// <para>
     /// <b>It cycles among the colours still hanging</b>, which the caller feeds it (<see cref="SetColours"/>) —

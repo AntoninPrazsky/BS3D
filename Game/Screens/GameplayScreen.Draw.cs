@@ -322,14 +322,39 @@ namespace BS3D.Screens
             //The beat (#831): a whole ball at the top of every beat, a third of one at the bottom, on the wall clock
             float scale = GhostBeat.Scale(WallClock);
 
-            //⚠ A wildcard's ghost is drawn as an ORDINARY ball in the colour the cycle is showing (#330), and
-            //deliberately not handed over as its kind: the crossing writes the very dissolve channel the beat's size
-            //rides in, so routing it would overwrite the size above and leave a whole ball standing still in the cell,
-            //which reads as a ball already there. The colour is still the right one, which is what the ghost is read
-            //for — "does it stick NEXT TO TWO MORE OF ITS OWN" — and it comes through LoadedColour like every
-            //other tint, so it agrees with the muzzle and the strip.
-            frame.Add(LoadedColour(0), position, Matrix.CreateTranslation(position),
+            //⚠ A wildcard's ghost is drawn as an ORDINARY ball (#330), deliberately not handed over as its kind: the
+            //crossing writes the very dissolve channel the beat's size rides in, so routing it would overwrite the size
+            //above and leave a whole ball standing still in the cell, which reads as a ball already there. Its colour is
+            //THE ONE IT WILL BECOME THERE (#1254, the owner: "it should take the cluster's colour, so the ball's function
+            //is seen at once"), and the cycle's only beside nothing matchable, where the landing keeps that too.
+            BallType colour = _magazine.Slot(0).Kind == BallKind.Wildcard ? WildcardGhostColour() : LoadedColour(0);
+
+            frame.Add(colour, position, Matrix.CreateTranslation(position),
                 BallRenderSet.UNOCCLUDED, ModelInstance.GhostDissolve(scale));
+        }
+
+        //What a wildcard landing in the previewed cell becomes (#1254), asked of the map only when the cell or the map has
+        //changed since (BallsMap.Revision): the walk is a flood of each touching colour, cheap but not a per-frame cost
+        private XZLevel _wildcardGhostCell;
+        private int _wildcardGhostRevision = -1;
+        private bool _wildcardGhostJoins;
+        private BallType _wildcardGhostType;
+
+        /// <summary>
+        /// The colour a wildcard's ghost wears (#1254): the colour <see cref="BallsMap.TryChooseWildcardColour"/> gives the
+        /// previewed cell, which is exactly the one the contact handler collapses the ball into when it lands there, or,
+        /// beside nothing matchable, the colour the shared cycle is showing, which the landing keeps.
+        /// </summary>
+        private BallType WildcardGhostColour()
+        {
+            if (_wildcardGhostRevision != _map.Revision || !_wildcardGhostCell.Equals(_previewCell))
+            {
+                _wildcardGhostCell = _previewCell;
+                _wildcardGhostRevision = _map.Revision;
+                _wildcardGhostJoins = _map.TryChooseWildcardColour(_previewCell, out _wildcardGhostType, out _);
+            }
+
+            return _wildcardGhostJoins ? _wildcardGhostType : LoadedColour(0);
         }
 
         #endregion
