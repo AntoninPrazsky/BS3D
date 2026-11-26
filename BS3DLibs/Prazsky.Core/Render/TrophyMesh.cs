@@ -220,6 +220,31 @@ namespace Prazsky.Core.Render
             new(0.510f, 0.586f, 0.012f, 16, 0.09f)    //the knop's gadroons
         };
 
+        /// <summary>
+        /// A band of the crystal cup's OUTER wall cut into flutes (#1250): <see cref="Count"/> hollow-ground grooves round
+        /// the axis, each a parabola across, <see cref="Depth"/> of the radius deep in its middle and meeting its neighbours
+        /// in a sharp ridge on the round surface, so the light and what the glass bends break at every ridge (flat panels
+        /// cut only cos(π/n) in were too shallow to read through the crystal). Eased in from the round over
+        /// <see cref="Ramp"/> at both ends, so the band's end ring is the round one and no crack opens where a fluted span
+        /// meets a round one.
+        /// </summary>
+        private readonly record struct Cut(float Bottom, float Top, float Ramp, int Count, float Depth, float Phase = 0f);
+
+        //THE CRYSTAL IS CUT since #1250 (the owner: luxury glass is cut, and the rarest cup in the game should read so;
+        //some rounded elements may stay). It REVERSES #271's "no facets, ever": the cup's silhouette stays the profile's,
+        //the edges are cut-glass work and not a low-poly polygon. The trumpet, the knop (its gadroons give way) and the
+        //bowl's flare are cut; the foot, the drum, the fluted stem, the collars, the band, the lip and the handles stay
+        //round. The counts divide SEGMENTS and the panels' edges fall on its columns (an edge at half a panel: 96/12/2,
+        //96/16/2 and 96/24/2 segments are whole), so every quad lies inside one panel.
+        private static readonly Cut[] CUTS =
+        {
+            new(0.118f, 0.240f, 0.012f, 12, 0.09f),   //the trumpet rising off the plinth
+            new(0.496f, 0.604f, 0.010f, 12, 0.09f),   //the knop, between the upper collar and the neck
+            new(0.604f, 0.856f, 0.016f, 16, 0.08f, 0.5f) //the bowl's flare, up to the band's step: its ridges, not its
+                                                     //grooves, under the calyx's eight stones, so each setting sits on
+                                                     //the round surface and not over a hollow
+        };
+
         //THE HANDLE IS A CUBIC BÉZIER since #429 — a quadratic before that, and a circular arc before that.
         //A handle has to meet the bowl at BOTH ends whatever the bowl's profile does between them, and struck
         //as a circle it did not: the ends landed where the arc's own geometry put them, the upper one buried
@@ -245,11 +270,12 @@ namespace Prazsky.Core.Render
         /// #183): Bronze and Silver stay plain, so the two pairs are told apart by shape before any colour
         /// has said anything.
         /// </param>
-        public TrophyMesh(GraphicsDevice graphicsDevice, bool handles)
+        /// <param name="cut">Whether the body is the crystal's cut glass (#1250, <see cref="CUTS"/>): only the top tier's.</param>
+        public TrophyMesh(GraphicsDevice graphicsDevice, bool handles, bool cut = false)
         {
             MeshBuilder builder = new();
 
-            BuildBody(builder);
+            BuildBody(builder, cut);
 
             if (handles)
             {
@@ -487,13 +513,13 @@ namespace Prazsky.Core.Render
         /// is what makes an underside face down and the inside of the bowl face up and in. Where the body is
         /// reeded, the normal is the cross product of the reeded surface's own two tangents instead.
         /// </summary>
-        private static void BuildBody(MeshBuilder builder)
+        private static void BuildBody(MeshBuilder builder, bool cut)
         {
             //The densified section, not the authored one — the authored rings are the shape's meaning, this
-            //is the shape itself. Every tier draws it, crystal included (#271): "cut" proved to be a word
-            //for edges the owner did not want, whichever layer they were cut into.
+            //is the shape itself. Every tier draws it; the crystal's is cut into panels over CUTS (#1250).
             Ring[] profile = DensifyProfile();
             int spans = profile.Length - 1;
+            int lip = LipIndex(profile);
 
             //Per-span normal in the (radial, y) plane, then per-ring normals either side of each ring. They
             //differ only at a crease, which is exactly what a crease is.
@@ -534,15 +560,35 @@ namespace Prazsky.Core.Render
                 //A span with no length in either direction would give a degenerate quad and a zero normal
                 if (low.Radius == high.Radius && low.Y == high.Y) continue;
 
+                //Which cut, if any, this span of the OUTER wall lies in (the inside of the bowl stays smooth)
+                int cutIndex = -1;
+                if (cut && s < lip)
+                    for (int c = 0; c < CUTS.Length; c++)
+                        if (low.Y >= CUTS[c].Bottom && high.Y <= CUTS[c].Top) cutIndex = c;
+
                 for (int i = 0; i < SEGMENTS; i++)
                 {
                     float a0 = i / (float)SEGMENTS * MathHelper.TwoPi;
                     float a1 = (i + 1) / (float)SEGMENTS * MathHelper.TwoPi;
 
-                    (Vector3 p00, Vector3 n00) = Surface(low, above[s], a0);
-                    (Vector3 p10, Vector3 n10) = Surface(low, above[s], a1);
-                    (Vector3 p11, Vector3 n11) = Surface(high, below[s + 1], a1);
-                    (Vector3 p01, Vector3 n01) = Surface(high, below[s + 1], a0);
+                    (Vector3 p00, Vector3 n00) = Surface(low, above[s], a0, cut);
+                    (Vector3 p10, Vector3 n10) = Surface(low, above[s], a1, cut);
+                    (Vector3 p11, Vector3 n11) = Surface(high, below[s + 1], a1, cut);
+                    (Vector3 p01, Vector3 n01) = Surface(high, below[s + 1], a0, cut);
+
+                    if (cutIndex >= 0)
+                    {
+                        //The panel this quad lies in, by its middle; its four corners are laid on that panel's plane
+                        Cut band = CUTS[cutIndex];
+                        float panel = MathHelper.TwoPi / band.Count;
+                        float offset = band.Phase * panel;
+                        float centre = MathF.Round(((a0 + a1) * 0.5f - offset) / panel) * panel + offset;
+
+                        (p00, n00) = Panel(low, above[s], a0, centre, band);
+                        (p10, n10) = Panel(low, above[s], a1, centre, band);
+                        (p11, n11) = Panel(high, below[s + 1], a1, centre, band);
+                        (p01, n01) = Panel(high, below[s + 1], a0, centre, band);
+                    }
 
                     //The face normal handed to the builder is the span's own, swung to the middle of this
                     //facet: it decides the winding, and it must not be one of the smoothed vertex normals —
@@ -567,12 +613,14 @@ namespace Prazsky.Core.Render
         /// Inside one, the position is the reeded radius and the normal is <c>∂P/∂s × ∂P/∂θ</c>, taken with the
         /// profile tangent <c>(−n.y, n.x)</c> so the arc length along the section needs no bookkeeping.
         /// </summary>
-        private static (Vector3 Position, Vector3 Normal) Surface(Ring ring, Vector2 normal, float angle)
+        private static (Vector3 Position, Vector3 Normal) Surface(Ring ring, Vector2 normal, float angle, bool cut = false)
         {
             (float sin, float cos) = MathF.SinCos(angle);
             Vector3 radial = new(cos, 0f, sin);
 
-            (float scale, float dAngle, float dY) = ring.Radius > 0f ? Reed(ring.Y, angle) : (1f, 0f, 0f);
+            //The cut crystal's knop is cut, not gadrooned (#1250): no reeding inside a cut band
+            bool reeds = ring.Radius > 0f && !(cut && InCut(ring.Y));
+            (float scale, float dAngle, float dY) = reeds ? Reed(ring.Y, angle) : (1f, 0f, 0f);
             float r = ring.Radius * scale;
 
             Vector3 position = radial * r + Vector3.Up * ring.Y;
@@ -593,6 +641,50 @@ namespace Prazsky.Core.Render
             if (Vector3.Dot(reeded, plain) < 0f) reeded = -reeded;
 
             return (position, reeded.LengthSquared() > 1e-12f ? Vector3.Normalize(reeded) : plain);
+        }
+
+        //Whether a height lies in one of the crystal's cut bands (its own ends included)
+        private static bool InCut(float y)
+        {
+            foreach (Cut band in CUTS)
+                if (y >= band.Bottom && y <= band.Top) return true;
+
+            return false;
+        }
+
+        /// <summary>
+        /// One corner of a flute (#1250): the ring's point at <paramref name="angle"/>, its radius cut in by the band's
+        /// parabola about the flute centred at <paramref name="centre"/> (nothing at the ridges, <see cref="Cut.Depth"/> in the
+        /// middle), eased from the round over the band's ramp; and its normal from the cut surface's own two tangents, the
+        /// same way <see cref="Surface"/> takes a reeded one. The flute is the quad's own, so a vertex on a ridge takes each
+        /// side's slope in turn: the ridge is a crease.
+        /// </summary>
+        private static (Vector3 Position, Vector3 Normal) Panel(Ring ring, Vector2 normal, float angle, float centre, Cut band)
+        {
+            float rise = MathHelper.SmoothStep(0f, 1f, Math.Clamp((ring.Y - band.Bottom) / band.Ramp, 0f, 1f));
+            float fall = MathHelper.SmoothStep(0f, 1f, Math.Clamp((band.Top - ring.Y) / band.Ramp, 0f, 1f));
+            float w = rise * fall;
+
+            float half = MathF.PI / band.Count;
+            float u = (angle - centre) / half;                 //-1 at one ridge, 0 in the middle, 1 at the other
+            float groove = 1f - u * u;
+            float scale = 1f - band.Depth * w * groove;
+            float dAngle = band.Depth * w * 2f * u / half;     //d(scale)/d(angle)
+
+            (float sin, float cos) = MathF.SinCos(angle);
+            Vector3 radial = new(cos, 0f, sin), around = new(-sin, 0f, cos);
+            float r = ring.Radius * scale;
+            Vector3 position = radial * r + Vector3.Up * ring.Y;
+
+            Vector3 plain = new(normal.X * cos, normal.Y, normal.X * sin);
+            float tr = -normal.Y, ty = normal.X;
+            Vector3 alongSection = radial * (tr * scale) + Vector3.Up * ty;
+            Vector3 alongRing = radial * (ring.Radius * dAngle) + around * r;
+
+            Vector3 cut = Vector3.Cross(alongRing, alongSection);
+            if (Vector3.Dot(cut, plain) < 0f) cut = -cut;
+
+            return (position, cut.LengthSquared() > 1e-12f ? Vector3.Normalize(cut) : plain);
         }
 
         /// <summary>

@@ -14,35 +14,22 @@ namespace Prazsky.Core.Render
     /// one material; building the stones into <see cref="TrophyMesh"/> would have made every sapphire gold.
     /// </para>
     /// <para>
-    /// <b>The stones are cabochons — smooth domes, not cut facets</b>, and that is the brief rather than a
-    /// shortcut: the Crown of Saint Wenceslas the owner named is set with polished cabochon sapphires, spinels
-    /// and emeralds, and a faceted stone would bring back the visible edges #271 ruled off this cup.
+    /// <b>The stones are cut since #1250</b> (<see cref="CutStoneMesh"/>, a round brilliant's crown): the owner asked for
+    /// cut stones "like we have the glass ceiling" in place of #429's cabochons, which followed the Crown of Saint
+    /// Wenceslas, and a stone's facets are what throw a different light as the cup turns.
     /// </para>
     /// </summary>
     public static class TrophyOrnaments
     {
-        //Facets around a stone and a setting. A big stone is about 3.6 % of the cup's height across, so at
-        //the dolly's near end — the cup most of the frame high — a few dozen pixels: 32 keeps the dome's
-        //outline round there, and the setting shares the count so its rim hugs the stone without a gap.
+        //Facets around a setting. A big stone is about 3.6 % of the cup's height across, so at the dolly's near end - the
+        //cup most of the frame high - a few dozen pixels: 32 keeps the collet's outline round there.
         private const int STONE_SEGMENTS = 32;
 
         /// <summary>
-        /// A cabochon of radius 1 at its girdle (y = 0), domed to 0.55 — a little higher than half, which is
-        /// what reads as a polished stone rather than a lens — with a short skirt below the girdle that the
-        /// setting hides, so no gap can open between stone and metal whatever the cup's surface does.
+        /// A cut stone of radius 1 at its girdle (y = 0), the crown standing up to <see cref="CutStoneMesh.TableY"/>, with a
+        /// back under the girdle that the setting hides (#1250).
         /// </summary>
-        public static LatheMesh CreateStone(GraphicsDevice device) => new(device, new LathePoint[]
-        {
-            new(0.00f, 0.55f),
-            new(0.30f, 0.53f),
-            new(0.56f, 0.45f),
-            new(0.77f, 0.32f),
-            new(0.91f, 0.18f),
-            new(0.98f, 0.07f),
-            new(1.00f, 0.00f, crease: true),
-            new(1.00f, -0.30f, crease: true),
-            new(0.00f, -0.30f)
-        }, STONE_SEGMENTS);
+        public static CutStoneMesh CreateStone(GraphicsDevice device) => new(device);
 
         /// <summary>
         /// A collet: the raised metal ring a cabochon sits in, with a rolled rim that laps just over the
