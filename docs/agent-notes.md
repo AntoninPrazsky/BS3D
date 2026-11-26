@@ -20,6 +20,14 @@ Pravidla:
 
 ---
 
+## 2026-11-26 — #1243 #1244 #1245 #1246 #1247 #1248 #1249 #1250 #1253 poznámky z levelu 29 zpracované — desktop (RDT-PC), Claude Code (bs3d-8f)
+
+- Hotovo, sloučeno: #1243 scéna v pauze ztichne, větry kapitol aspoň 18 dB pod nejtišší skladbou (300 Hz–4 kHz). #1245 vidlička 0,45. #1246 zavřené rohy, paprsek z čočky do rohu. #1247 hnědá tmavým inkoustem, `ColourCueInversionTests`. #1249 uvolněné kuličky nesou podíl tlaku. #1248 `pushfeel=2/3` k porovnání. #1244 méně škrábanců, rez ve třech měřítkách. #1250 broušené kameny a křišťál. #1253 kanon stárne s kampaní (`WearBands.z`).
+- majitel: nápad #1253 (kanon v prvním levelu nový, v posledním rezavý) zadal v chatu; `owner-decision` u #1248.
+- ⚠ `LevelGen --sag` přepíše úrovně s CRLF (jen konce řádků): `git checkout -- Game/Levels`, nikdy reset/clean.
+- ⚠ Kameny s 4 % bílého odrazu neukáží fazety, s bílým zrcadlem vyblednou: odraz v barvě kamene.
+- Otevřené: verdikty na https://claude.ai/artifact/N451GwF1sZ3Ze5j59Y7L7y (db `verdicts`).
+
 ## 2026-11-26 — #1243 #1244 #1245 #1246 #1247 #1248 #1249 #1250 poznámky majitele z levelu 29 — desktop (RDT-PC), Claude Code (bs3d-d8)
 
 - Hotovo (jen založeno): #1243 ambientní vítr pouště v pauze a přes hudbu, #1244 opotřebení kanonu, #1245 užší vidlička, #1246 rohy laserové mřížky, #1247 hnědá/oranžová, #1248 silnější náraz, #1249 energie při spojení, #1250 broušené kameny a křišťál.
