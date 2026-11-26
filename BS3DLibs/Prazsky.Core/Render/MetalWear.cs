@@ -65,9 +65,30 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// How far the corners' wear reaches, in world units: X from a join (the tarnish and grime), Y from an edge (the
         /// rub) (<c>WearBands</c>). As wide as the steps the part's corners are on: the barrel's rings stand 0.055 proud and
-        /// their dirt lies out onto the tube, a wheel's hub face is a few hundredths high.
+        /// their dirt lies out onto the tube, a wheel's hub face is a few hundredths high. Z carries <see cref="Age"/>, in a
+        /// component the shader had free, so no constant buffer moved for it.
         /// </summary>
-        public Vector4 Bands { get; }
+        public Vector4 Bands => new(_joinWidth, _edgeWidth, Age, 0f);
+
+        private readonly float _joinWidth, _edgeWidth;
+
+        /// <summary>
+        /// <b>How old the metal is</b> (#1253, the owner's easter egg): 0 almost new, 1 heavily scratched and rusty,
+        /// <see cref="SHIPPED_AGE"/> the figures as #1244 left them. The gun and the emitters age through the campaign
+        /// (<see cref="AgeOfLevel"/>); more age is more scratches and more of the surface rusted, not darker ones
+        /// (<c>WEAR_AGE_*</c> in <c>WornMetal.fxh</c>). Read on every draw, so it may change on any frame.
+        /// </summary>
+        public float Age { get; set; } = SHIPPED_AGE;
+
+        /// <summary>The age the figures were chosen at: the middle of the campaign.</summary>
+        public const float SHIPPED_AGE = 0.5f;
+
+        /// <summary>
+        /// The age of the metal on entry <paramref name="index"/> of a campaign of <paramref name="count"/> levels: 0 on the
+        /// first, 1 on the last, evenly between. A campaign of one level is at <see cref="SHIPPED_AGE"/>.
+        /// </summary>
+        public static float AgeOfLevel(int index, int count) =>
+            count <= 1 ? SHIPPED_AGE : Math.Clamp(index / (float)(count - 1), 0f, 1f);
 
         /// <summary>The corners packed as the shader reads them: two to a slot, (axial, ±radial, axial, ±radial), the
         /// radial positive for an edge and negative for a join, zero for an empty place (<c>WearCorners</c>).</summary>
@@ -104,7 +125,8 @@ namespace Prazsky.Core.Render
             bool hasProfile = axis != Vector3.Zero;
             Profile = new Vector4(hasProfile ? Vector3.Normalize(axis) : Vector3.Up, !hasProfile ? 0f : mirrored ? 2f : 1f);
 
-            Bands = new Vector4(joinWidth, edgeWidth, 0f, 0f);
+            _joinWidth = joinWidth;
+            _edgeWidth = edgeWidth;
             Named = corners;
             Corners = Pack(corners);
         }

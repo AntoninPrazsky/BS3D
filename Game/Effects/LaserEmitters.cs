@@ -98,6 +98,18 @@ namespace BS3D.Effects
 
         private readonly MetalWear _pedestalWear, _yokeWear, _housingWear;
 
+        /// <summary>How old the metal is (#1253), the gun's own age (<see cref="CannonRig.WearAge"/>): the emitters age with it.</summary>
+        public float WearAge
+        {
+            get => _housingWear.Age;
+            set
+            {
+                _pedestalWear.Age = value;
+                _yokeWear.Age = value;
+                _housingWear.Age = value;
+            }
+        }
+
         /// <summary>
         /// Whether the metal is drawn worn by use (#1199), as <see cref="CannonRig.Worn"/> draws the gun's: on High and Ultra,
         /// set by the host (<c>BS3DGame.SessionEmitters</c>, <c>BS3DGame.ApplyQuality</c>). The lens is glass and never worn.

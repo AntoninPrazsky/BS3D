@@ -174,6 +174,9 @@ namespace BS3D
         //"nodropcinematic": the Drop camera row held off for this run (LaunchOptions.NoDropCinematic, #1178)
         private readonly bool _launchNoDropCinematic;
 
+        //"wearage=": the gun's metal pinned at this age (#1253), or null for the campaign's (UpdateWearAge)
+        private readonly float? _launchWearAge;
+
         /// <summary>"linelosshold=": how long the line-loss camera holds at the crossing in this run, 0 for its own
         /// (LaunchOptions.LineLossHold, #1178).</summary>
         internal float LineLossHold { get; }
@@ -815,6 +818,7 @@ namespace BS3D
             //line pins it, and printed either way - a frame of a city nobody can generate twice is a frame
             //nobody can compare against.
             _finaleMessage = launch.FinaleMessage;
+            _launchWearAge = launch.WearAge;
             _motionView = launch.MotionView;
             _screenInches = launch.ScreenInches;
 
@@ -2344,6 +2348,9 @@ namespace BS3D
             if (_benchmarking) _benchmarkPage?.TickPlay();
 
             _screens.Update(gameTime);
+
+            //How old the gun looks (#1253), after the stack: a level the stack just built is drawn at its own age this frame
+            UpdateWearAge();
 
             //The camera's pose as the stack left it, when asked (#1198): after every screen that may write it this frame
             if (_logLens) LogLens();

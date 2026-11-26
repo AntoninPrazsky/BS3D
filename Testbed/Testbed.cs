@@ -967,6 +967,7 @@ namespace Testbed
 
             //Its metal worn as High and Ultra draw it (#1199) unless "wear=0" asks for Low and Medium's plain material
             _cannonRig.Worn = _options.Wear ?? true;
+            _cannonRig.WearAge = _options.WearAge ?? MetalWear.SHIPPED_AGE;
 
             //The overlay's own batch, and the crosshair's one white texel stretched into each of its four bars
             _spriteBatch = new SpriteBatch(GraphicsDevice);
@@ -1459,7 +1460,7 @@ namespace Testbed
         /// behind alike and <see cref="MarkVariantSwitch"/> waits out (#1129).
         /// </summary>
         private static readonly string[] ALTERNATION_DIALS =
-            { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "finemeshes", "fardetail", "wear", "envorder", "skyorder", "skyres", "bdres", "terraindepth","cityreflect", "cityreflectreach", "cityreflectsteps", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano", "aurora", "cavern", "meadow", "mountain", "forest", "mars", "outback" };
+            { "arena", "capprobe", "scene", "sky", "balls", "colourcue", "ssaa", "msaa", "rscale", "detail", "finemeshes", "fardetail", "wear", "wearage", "envorder", "skyorder", "skyres", "bdres", "terraindepth","cityreflect", "cityreflectreach", "cityreflectsteps", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano", "aurora", "cavern", "meadow", "mountain", "forest", "mars", "outback" };
 
         /// <summary>
         /// Prints the sweep's plan before the first window, and names anything it will not switch. A pin that
@@ -1568,6 +1569,11 @@ namespace Testbed
                     //The gun's worn metal or its plain material (#1199): a technique picked per draw
                     case "wear":
                         _cannonRig.Worn = pin.Value is not ("0" or "false" or "off");
+                        break;
+
+                    //How old the metal looks (#1253): read per draw, so nothing carries across
+                    case "wearage":
+                        if (float.TryParse(pin.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out float wearAge)) _cannonRig.WearAge = Math.Clamp(wearAge, 0f, 1f);
                         break;
 
                     //The windows mirroring the towers (#1065): the technique is picked per draw, so nothing carries across

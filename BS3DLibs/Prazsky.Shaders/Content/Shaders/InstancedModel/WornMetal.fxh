@@ -55,7 +55,22 @@ float4 WearCorners[WEAR_CORNER_SLOTS];
 //one (the rub). Per part, because a corner's wear is as wide as the step it is on: the barrel's rings stand 0.055 proud
 //and their joins' dirt lies well out onto the tube in front of them, not only up the ring's own face, which the light
 //rarely reaches; a wheel's hub face is a few hundredths high and a band that wide would cover the whole plate.
+//z is the metal's AGE (#1253), 0 almost new to 1 heavily worn, 0.5 the figures below as they are: the gun ages through
+//the campaign, its place in the level set (MetalWear.Age). Carried here, in a free component, so no constant buffer moves.
 float4 WearBands;
+
+//What the age does, each written so 0.5 is exactly the figures as they are: how many scratches there are and how far the
+//edges are rubbed (a share at 0 and at 1), how far the tarnish's field is shifted towards a patch at 0 and at 1 (more of
+//the surface, not darker patches), how much of a join's tarnish and the grime and mottle there is at 0 and at 1
+static const float2 WEAR_AGE_USE = float2(0.1, 1.9);
+static const float2 WEAR_AGE_RUST_SHIFT = float2(-0.20, 0.18);
+static const float2 WEAR_AGE_SOIL = float2(0.25, 1.6);
+
+//A figure at the age: from..1 over the first half of the campaign, 1..to over the second
+float WearAt(float2 range, float age)
+{
+    return age < 0.5 ? lerp(range.x, 1.0, age * 2.0) : lerp(1.0, range.y, age * 2.0 - 1.0);
+}
 
 //The patina, one octave of gradient noise: cycles per world unit, and how far it moves the albedo and the reflected sky
 //either way at full amount
@@ -260,27 +275,31 @@ float4 WornMetalPS(WornVSOutput input) : COLOR
 
     //The tarnish: sparse patches, nearer on the underside, their edge torn by the rim's noise and, where a patch thins out,
     //broken into specks by the grain; and a line in every inside corner broken where the field is low
-    float shaped = field + WEAR_RUST_SHELTER * shelter + WEAR_RUST_RAGGED * rim;
+    float age = WearBands.z;
+    float shaped = field + WEAR_RUST_SHELTER * shelter + WEAR_RUST_RAGGED * rim
+        + (age < 0.5 ? lerp(WEAR_AGE_RUST_SHIFT.x, 0.0, age * 2.0) : lerp(0.0, WEAR_AGE_RUST_SHIFT.y, age * 2.0 - 1.0));
+    float soil = WearAt(WEAR_AGE_SOIL, age);
+    float use = WearAt(WEAR_AGE_USE, age);
     float patch = smoothstep(WEAR_RUST_PATCH.x, WEAR_RUST_PATCH.y, shaped);
     patch *= lerp(1.0, saturate(0.5 + WEAR_RUST_SPECKLE * rustGrain), 4.0 * patch * (1.0 - patch));
     float joinPatchy = saturate(field * 1.6 + 0.65);
-    float rust = saturate(patch * WEAR_RUST_PATCH_SHARE + joinBand * joinPatchy) * WearAmount.y;
+    float rust = saturate(patch * WEAR_RUST_PATCH_SHARE + joinBand * joinPatchy * min(soil, 1.0)) * WearAmount.y;
 
     //Its crusted core, where the field stands well past the edge, and its grain's tone through all of it
     float core = smoothstep(WEAR_RUST_CORE.x, WEAR_RUST_CORE.y, shaped + 0.5 * WEAR_RUST_RAGGED * rustGrain) * rust;
     float3 rustTint = lerp(WEAR_RUST_FILM_TINT, WEAR_RUST_CORE_TINT, core) * (1.0 + WEAR_RUST_GRAIN_TONE * rustGrain);
 
     //The grime: the inside corners, and a little on the underside where the field is high
-    float grime = saturate(joinBand * 0.8 + shelter * WEAR_GRIME_UNDERSIDE * saturate(field * 2.0 + 0.5)) * WearAmount.z;
+    float grime = saturate((joinBand * 0.8 + shelter * WEAR_GRIME_UNDERSIDE * saturate(field * 2.0 + 0.5)) * soil) * WearAmount.z;
 
     //The rub: the outside corners worn back in places, not as an even ring
-    float edge = edgeBand * saturate(0.75 + 2.5 * mottle) * WearAmount.x;
+    float edge = saturate(edgeBand * saturate(0.75 + 2.5 * mottle) * use) * WearAmount.x;
 
     //The scratches, fewer on the underside, where nothing is handled
     float scratch = WearScratchLayer(q, grained > 0.5 ? WEAR_SCRATCH_CELL_GRAIN : WEAR_SCRATCH_CELL_ANY,
-        grained > 0.5 ? WEAR_SCRATCH_SPREAD_GRAIN : 6.2832, WEAR_SCRATCH_CHANCE, scratchFootprint, 3.7);
+        grained > 0.5 ? WEAR_SCRATCH_SPREAD_GRAIN : 6.2832, WEAR_SCRATCH_CHANCE * use, scratchFootprint, 3.7);
     scratch += 0.7 * WearScratchLayer(q + 0.37, (grained > 0.5 ? WEAR_SCRATCH_CELL_GRAIN : WEAR_SCRATCH_CELL_ANY) * WEAR_SCRATCH_FINE_SCALE,
-        grained > 0.5 ? WEAR_SCRATCH_SPREAD_GRAIN * 2.0 : 6.2832, WEAR_SCRATCH_FINE_CHANCE, scratchFootprint, 11.9);
+        grained > 0.5 ? WEAR_SCRATCH_SPREAD_GRAIN * 2.0 : 6.2832, WEAR_SCRATCH_FINE_CHANCE * use, scratchFootprint, 11.9);
     scratch = saturate(scratch) * lerp(1.0, 0.45, shelter) * (1.0 - 0.7 * rust) * WearAmount.x;
 
     //The pits: a dot where the surface passes a pit of the lattice, more of them in the tarnish
@@ -293,7 +312,7 @@ float4 WornMetalPS(WornVSOutput input) : COLOR
         * saturate((pitDrawn - pitAt) / (0.5 * pitDrawn)) * (pitRadius / pitDrawn) * saturate(WearAmount.y + WearAmount.z);
 
     //--- What it does to the light ----------------------------------------------------------------------------------
-    float3 albedo = (1.0 + WEAR_MOTTLE_ALBEDO * mottle * WearAmount.w) * lerp(1.0, rustTint, rust)
+    float3 albedo = (1.0 + WEAR_MOTTLE_ALBEDO * mottle * WearAmount.w * min(soil, 1.3)) * lerp(1.0, rustTint, rust)
         * (1.0 - WEAR_GRIME_DARK * grime) * (1.0 - WEAR_PIT_DARK * pit) + WEAR_EDGE_LIFT * edge;
 
     SurfaceSpecular surface;

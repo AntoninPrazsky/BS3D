@@ -76,8 +76,11 @@ namespace BS3D.Tests
             string scene = CodeOf(Path.Combine("Game", "BS3DGame.Scene.cs"));
             int emitters = scene.IndexOf("LaserEmitters SessionEmitters", StringComparison.Ordinal);
             Assert.True(emitters >= 0, "BS3DGame.Scene.cs has no SessionEmitters");
-            Assert.Matches(@"set\s*\{\s*_sessionEmitters\s*=\s*value\s*;\s*if\s*\(\s*value\s*!=\s*null\s*\)\s*value\.Worn\s*=\s*MetalWorn\s*;",
-                scene.Substring(emitters, scene.IndexOf("private BS3D.Effects.LaserEmitters _sessionEmitters", emitters, StringComparison.Ordinal) - emitters));
+            string handedIn = scene.Substring(emitters, scene.IndexOf("private BS3D.Effects.LaserEmitters _sessionEmitters", emitters, StringComparison.Ordinal) - emitters);
+            Assert.Matches(@"set\s*\{\s*_sessionEmitters\s*=\s*value\s*;\s*if\s*\(\s*value\s*!=\s*null\s*\)\s*\{?\s*value\.Worn\s*=\s*MetalWorn\s*;", handedIn);
+
+            //And the gun's age with it (#1253): emitters handed in after the age was decided age with the gun
+            Assert.Matches(@"value\.WearAge\s*=\s*_wearAge\s*;", handedIn);
 
             Assert.Matches(@"public\s+static\s+bool\s+MetalWear\s*=>\s*!OperatingSystem\.IsAndroid\(\)\s*;",
                 CodeOf(Path.Combine("BS3DLibs", "Prazsky.Core", "Render", "GraphicsSupport.cs")));
@@ -240,5 +243,23 @@ namespace BS3D.Tests
         private static float Muzzle() => PivotToFrontBall() + 0.5f;
 
         private static float Breech() => (Magazine.SIZE - 1) * Magazine.SPACING - PivotToFrontBall() + 0.5f;
+
+        /// <summary>
+        /// The gun ages through the campaign (#1253): almost new on the set's first level, worn through on its last, evenly
+        /// between, and the age reaches the shader in the bands' free component, at the figures' own age unless told otherwise.
+        /// </summary>
+        [Fact]
+        public void The_metal_ages_from_the_first_level_to_the_last_and_the_shader_reads_it()
+        {
+            Assert.Equal(0f, MetalWear.AgeOfLevel(0, 140));
+            Assert.Equal(1f, MetalWear.AgeOfLevel(139, 140));
+            Assert.Equal(0.5f, MetalWear.AgeOfLevel(5, 11), 4);
+            Assert.Equal(MetalWear.SHIPPED_AGE, MetalWear.AgeOfLevel(0, 1));
+
+            MetalWear wear = new(CannonRig.STEEL_WEAR, Vector3.UnitZ);
+            Assert.Equal(MetalWear.SHIPPED_AGE, wear.Bands.Z);
+            wear.Age = 0.8f;
+            Assert.Equal(0.8f, wear.Bands.Z);
+        }
     }
 }

@@ -572,6 +572,21 @@ namespace Prazsky.BS3D
         private bool _worn;
 
         /// <summary>
+        /// How old the gun's metal is (#1253, <see cref="MetalWear.Age"/>): 0 almost new, 1 heavily worn,
+        /// <see cref="MetalWear.SHIPPED_AGE"/> as #1244 drew it. The Game ages it through the campaign.
+        /// </summary>
+        public float WearAge
+        {
+            get => _barrelWear.Age;
+            set
+            {
+                _barrelWear.Age = value;
+                _carriageWear.Age = value;
+                _wheelWear.Age = value;
+            }
+        }
+
+        /// <summary>
         /// Whether the gun's metal is drawn <b>worn by use</b> (#1199, <see cref="MetalWear"/>): scratches along the bore,
         /// tarnish and grime in the profile's joins, rubbed crests, a patina, on the barrel, the carriage and the wheels'
         /// plates. The Game turns it on for High and Ultra (<c>QualityPreset.MetalWear</c>) and the Testbed by default
