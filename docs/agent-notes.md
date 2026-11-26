@@ -20,6 +20,15 @@ Pravidla:
 
 ---
 
+## 2026-11-26 — #1243 #1244 #1245 #1246 #1247 #1248 #1249 #1250 poznámky majitele z levelu 29 — desktop (RDT-PC), Claude Code (bs3d-d8)
+
+- Hotovo (jen založeno): #1243 ambientní vítr pouště v pauze a přes hudbu, #1244 opotřebení kanonu, #1245 užší vidlička, #1246 rohy laserové mřížky, #1247 hnědá/oranžová, #1248 silnější náraz, #1249 energie při spojení, #1250 broušené kameny a křišťál.
+- majitel: v pauze nemá být scéna slyšet; broušený povrch křišťálového poháru ruší #271 („žádné fasety“) a kabošony z #429.
+- ⚠ Příčiny z kódu: koncový fade paprsků a slábnoucí kužel (#1246), tuše figur obracejí oranžovou a hnědou (#1247), `ShotPush.Deliver` zahodí podíl uvolněných kuliček (#1249).
+- ⚠ Rohy mřížky ukáže jen záběr shora: `capture= campos=13,3,19 camtarget=5,-8.5,5 lasers level=29`.
+- LM Studio neběželo, duplicity hledány klíčovými slovy.
+- Otevřené: nic neimplementováno.
+
 ## 2026-11-25 — #1242 #1241 průlet nad sklem na Medium, uspání clusteru na 3600 — DESKTOP_L (GTX 1060), Claude Code (bs3d-76)
 
 - Hotovo (#1242, ef1484c0): na Medium průlet nad sklem končí 12 jednotek nad deskou. Neon na 1060 klesl z 23,8 na 13,2 ms, louka z 16,4 na 9,3 ms. Ceny nese hlavně bublinový materiál kuliček (dvě stěny) viděný skrz všechny vrstvy clusteru; lom skla sám stojí jen 1,4 ms.
