@@ -162,6 +162,9 @@ namespace BS3D.Effects
         /// </summary>
         private readonly record struct Gem(Vector3 Diffuse, Vector3 Glow);
 
+        //How much of a mirror a cut stone is (#1250): see the gems' renderer in RendererFor
+        private const float GEM_METALNESS = 0.4f;
+
         private static readonly Gem AMBER = new(new Vector3(0.75f, 0.36f, 0.04f), new Vector3(0.050f, 0.018f, 0.001f));
         private static readonly Gem SAPPHIRE = new(new Vector3(0.10f, 0.22f, 0.85f), new Vector3(0.004f, 0.012f, 0.070f));
         private static readonly Gem RUBY = new(new Vector3(0.85f, 0.06f, 0.14f), new Vector3(0.070f, 0.003f, 0.010f));
@@ -205,7 +208,8 @@ namespace BS3D.Effects
         private readonly InstancedModelRenderer[] _renderers = new InstancedModelRenderer[TIERS + 1];
         private readonly BasicEffectParams[] _materials = new BasicEffectParams[TIERS + 1];
 
-        private readonly LatheMesh _stoneMesh, _settingMesh;
+        private readonly CutStoneMesh _stoneMesh;
+        private readonly LatheMesh _settingMesh;
         private readonly SphereMesh _beadMesh;
 
         //Every ornament renderer, for Renderers' enrolment and for Dispose; and each tier's sets, drawn before
@@ -268,13 +272,11 @@ namespace BS3D.Effects
             _plainMesh = new TrophyMesh(device, handles: false);
             _handledMesh = new TrophyMesh(device, handles: true);
 
-            //The crystal tier draws the HANDLED mesh — the same smooth revolve Gold draws (#271). It had a
-            //faceted body twice: #231 cut the facets into the geometry (a 24-gon rim), and #271's first
-            //rework kept them in the normals alone (flat shading bands on a round silhouette) — and the
-            //owner's ruling held through both, in the same words: a cup has a cup's shape, "crystal sharp"
-            //is an optical sharpness, and VISIBLE edges are edges whether they are geometric or shading.
-            //The crystal is its material now — transparency, the Fresnel rim, the reflected environment.
-            _crystalMesh = _handledMesh;
+            //The crystal tier draws the handled mesh CUT (#1250): the owner's note reversed #271's "no facets" (a 24-gon
+            //rim and then flat shading on a round silhouette were refused as a low-poly cup). Luxury glass is cut, so the
+            //trumpet, the knop and the bowl's flare are cut-glass panels on the same profile, the silhouette still the
+            //profile's own; the foot, the stem, the band, the lip and the handles stay round (TrophyMesh.CUTS).
+            _crystalMesh = new TrophyMesh(device, handles: true, cut: true);
 
             Vector3 ambient = Vector3.One * ambientIntensity;
 
@@ -373,8 +375,8 @@ namespace BS3D.Effects
             //
             // * THE FACETS. The cup was a smooth surface of revolution, and cut crystal was argued to be DEFINED
             //   by flats that each catch the light on their own, so #231 gave it a faceted mesh of its own.
-            //   The owner refused that twice (#271) and the crystal draws the smooth handled cup again — see
-            //   _crystalMesh above; this bullet is the history, and the facets are not coming back.
+            //   The owner refused that twice (#271) as a low-poly polygon, and then asked for it himself (#1250): cut
+            //   glass panels on the cup's own profile, with rounded parts kept - see _crystalMesh above.
             // * THE BALANCE BETWEEN BODY AND EDGE. A ghost is bright and even; glass is mostly the background
             //   with bright edges. The body came down (the diffuse to about 40 % of #228's and the emissive
             //   tint to a third) and the reflected environment went UP — see the note below, which is the one
@@ -601,13 +603,18 @@ namespace BS3D.Effects
             else
             {
                 Gem gem = (Gem)look;
+                //A cut stone (#1250) mirrors more than a dome did, IN ITS OWN COLOUR: each facet throws back its own part of the
+                //sky and the floor, so the cut reads as light and dark facets of the stone's colour, as a brilliant's facets light
+                //up from inside it. At the dome's 4 % of white the facets all came out one flat colour; at a quarter of a WHITE
+                //mirror they read (the table and the crown apart) but the ruby turned pink and the emerald pale. The highlight
+                //is wider for the same reason: a facet catches the lamp, not a point
                 renderer = new InstancedModelRenderer(device, (IProceduralMesh)mesh, gem.Diffuse, effect)
                 {
-                    Metalness = 0f,
-                    SpecularAmbientStrength = 0.9f,
+                    Metalness = GEM_METALNESS,
+                    SpecularAmbientStrength = 1f,
                     EmissiveTint = gem.Glow
                 };
-                material = new BasicEffectParams(ambient, Vector3.One, 500f, Vector3.Zero);
+                material = new BasicEffectParams(ambient, gem.Diffuse, 160f, Vector3.Zero);
             }
 
             _ornamentRenderers.Add(renderer);
