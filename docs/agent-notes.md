@@ -20,6 +20,27 @@ Pravidla:
 
 ---
 
+## 2026-11-26 — #1258 #1259 #1260 #1261 v0.7.0 vydána (první na itch.io) — desktop (RDT-PC), Claude Code (bs3d-b1)
+
+- Hotovo, sloučeno, majitel OK:
+  - #1258: klávesnice ukazuje duhu od vyčištění pole a pohár až 3 s po známých hvězdách.
+  - #1259: podklad stříbrné drží `SILVER_GROUND_MIN` 0,6, takže v hlavni už nevypadá jako černá.
+  - #1260: každý chuchvalec lávy letí podle erupce v okamžiku výhozu (`EruptionPast0..3`).
+- **v0.7.0 vydána**:
+  - tag na 81e552cd, release běh 45867355502;
+  - ověřeno ze staženého souboru (SHA256SUMS OK, roh ukazuje v0.7.0);
+  - obrázek release Rope L21-2, obrázek v README Cannonball znovu nafocen.
+- majitel:
+  - itch.io jako „pay what you want“;
+  - u Stability AI se registrovat nebude;
+  - článek o erupci má nízkou prioritu (#1261, podklady v `Research/volcano-eruption/`).
+- ⚠ Hru nejde spustit s `scene=NeonCity`, klíč je `neon`.
+- ⚠ Debug vrstva D3D11 je na Windows 11 v souboru `d3d11_3SDKLayers.dll`.
+- Otevřené:
+  - na Pi snímek databáze a `update-ceilings.sh` (BS3D-API#19);
+  - publikace webu;
+  - stránka na itch.io.
+
 ## 2026-11-26 — #1257 #1233 tabulka APU před v0.7.0, cena bubliny a ledu — notebook (ThinkPad), Claude Code (github-18)
 
 - Hotovo, sloučeno: `main` (e80baa3a) vedle v0.6.1 na APU. `Low` se vejde do 16,1 ms na všech 15 levelech (nejtěsněji Spyglass 15,90); `Medium` jen vesmír. #1233: led +0,98 ms, bublina +2,4 až +2,8, nic se nezlevňuje (zavřeno).
