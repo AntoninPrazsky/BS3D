@@ -339,8 +339,9 @@ namespace BS3D
         public int NicknameDismissed { get; set; }
 
         /// <summary>
-        /// Whether the author's note the Raspberry Pi build shows on its first launch has been shown and left (#1083,
-        /// <c>WelcomePage</c>). Absent while false, so a Windows or Android player's file never carries it.
+        /// Whether the author's note every build shows on its first launch has been shown and left (#1083, #1255,
+        /// <c>WelcomePage</c>). Absent while false, so a file from before the note, or from a Windows or Android version
+        /// that never showed it, puts it up once.
         /// </summary>
         [JsonPropertyName("welcomeShown")]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]

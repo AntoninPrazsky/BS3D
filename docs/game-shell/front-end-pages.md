@@ -76,19 +76,18 @@ The game's one "are you sure" page, and it reverses #383's "no confirm dialog" f
 - Left alone on purpose: Restart (two entries clear of Resume already), and the window's close button and Alt+F4 (the operating system's gestures).
 - `quitconfirm=` drives it: "The command line" in `docs/game-shell.md`.
 
-## The author's note on the Pi's first launch (#1083)
+## The author's note on the first launch (#1083)
 
-The Raspberry Pi build greets a new player with a personal note before anything else asks for something. The owner wanted it for the Pi-Apps release (#858). `WelcomePage` stands on a prose plate over the main menu, and `WelcomeNote` holds its words and its gate.
+Every build greets a new player with a personal note before anything else asks for something. The owner wanted it for the Raspberry Pi's Pi-Apps release (#858), then on every build for v0.7.0, the first release on itch.io (#1255): a stranger from a storefront most needs to know the game is one person's and still being made before a bug tells them. `WelcomePage` stands on a prose plate over the main menu, and `WelcomeNote` holds its words and its gate.
 
 - **What it says** (the owner's points):
   - an early release, still being made;
   - one person's project, so bugs are possible;
-  - the score server is itself a Raspberry Pi;
+  - on the Pi build alone, that the score server is itself a Raspberry Pi, "much like the one you are playing on". No other build's note names the Raspberry Pi (the owner, 2026-11-26; `WelcomeNote.Paragraphs(title, build)`), so theirs is three paragraphs;
   - testing and reports through **Write to the Author**, whose words are set strong in the sentence and are also the sea-teal entry under it;
   - thanks for the download and the play, signed "— Antonín".
 - **When it shows** (`WelcomeNote.ShouldShow`, said on a `[welcome]` line):
-  - only on the Pi build (`OperatingSystem.IsLinux()`; Windows and Android never);
-  - only while `welcomeShown` is absent from `Settings.json`;
+  - on every build, only while `welcomeShown` is absent from `Settings.json`. A player updating from a Windows or Android version before v0.7.0 has no `welcomeShown` and meets the note once; that is intended, since v0.7.0 starts afresh (rules v2, new boards). A Pi player who left it before does not;
   - never in a run a script drives (`userdata=` or a `StartupScript` lever), the nickname question's gate.
 - **It comes before the nickname question.** `ShowWelcomeOnce` runs first, the first time the main menu is the page up.
   - ⚠ The frame that opens the note does not ask the question (`if (!ShowWelcomeOnce()) AskForNicknameOnce();`). A push is applied on the next frame, so on that frame the main menu is still `Active`, and both pages went up with the NICKNAME plate on top. That was seen on a build with a score server.

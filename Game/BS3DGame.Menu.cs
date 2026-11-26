@@ -1979,8 +1979,8 @@ namespace BS3D
         }
 
         /// <summary>
-        /// The author's note on the Raspberry Pi build's first launch (#1083): put up over the front end once a run, the
-        /// first time it is the page the player is on, before <see cref="AskForNicknameOnce"/>. When it shows is
+        /// The author's note on the game's first launch (#1083; every build since #1255): put up over the front end once a
+        /// run, the first time it is the page the player is on, before <see cref="AskForNicknameOnce"/>. When it shows is
         /// <see cref="WelcomeNote.ShouldShow"/>'s answer, said in the log either way.
         /// <para>
         /// ⚠ <b>Returns true on the frame it opens the note, and that frame must not ask the question.</b>
@@ -1997,18 +1997,15 @@ namespace BS3D
 
             _welcomeDecided = true;
 
-            bool piBuild = OperatingSystem.IsLinux();
             bool scripted = UserData.IsTestingDirectory || _startupScript.Drives;
 
-            if (WelcomeNote.ShouldShow(piBuild, _settings.WelcomeShown, scripted, _welcomeForced))
+            if (WelcomeNote.ShouldShow(_settings.WelcomeShown, scripted, _welcomeForced))
             {
                 OpenPage(_welcomePage);
                 return true;
             }
 
-            if (piBuild)
-                Console.WriteLine($"[welcome] Not shown: {(_settings.WelcomeShown ? "shown on an earlier launch" : "a scripted run")}");
-
+            Console.WriteLine($"[welcome] Not shown: {(_settings.WelcomeShown ? "shown on an earlier launch" : "a scripted run")}");
             return false;
         }
 

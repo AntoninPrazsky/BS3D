@@ -5,9 +5,9 @@ using Label = Myra.Graphics2D.UI.Label;
 namespace BS3D.Screens
 {
     /// <summary>
-    /// The author's note on the Raspberry Pi build's first launch (#1083): what the game is, that it is early and
-    /// one person's, that the score server is a Pi too, and thanks. What it says and when it shows are
-    /// <see cref="WelcomeNote"/>'s. It stands on a prose plate over the main menu, as About does.
+    /// The author's note on the game's first launch, on every build since #1255 (#1083 made it for the Pi): what the
+    /// game is, that it is early and one person's, on the Pi that the score server is a Pi too, and thanks. What it says
+    /// and when it shows are <see cref="WelcomeNote"/>'s. It stands on a prose plate over the main menu, as About does.
     /// <para>
     /// <b>Let's play is first and is where the cursor lands</b> (<see cref="NavArrival"/>), so Enter, a click or the
     /// pad's A goes on to the game. Escape and the pad's B do the same, through the stack's back. Write to the Author is

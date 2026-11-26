@@ -403,7 +403,7 @@ namespace BS3D
         private readonly bool _nickPrompt, _noInternet;
         private bool _nicknameDecided;
 
-        //The Raspberry Pi build's first-launch note (#1083): the welcome lever that puts it up on any run, and whether it
+        //The first-launch note (#1083, every build since #1255): the welcome lever that puts it up on any run, and whether it
         //has been decided this run - once, the first time the front end stands on its own, before the nickname question.
         //See ShowWelcomeOnce.
         private readonly bool _welcomeForced;
@@ -2378,7 +2378,7 @@ namespace BS3D
             //celebrations, then the pages held back past the title card. See StartupScript.
             _startupScript.Step(this);
 
-            //The Pi's first-launch note (#1083), then the first launch's one question, once the front end is the page the
+            //The first-launch note (#1083, #1255), then the first launch's one question, once the front end is the page the
             //player is on (#763). Not both on one frame: a push is applied on the next one, so on the frame the note is
             //opened the main menu is still Active and the question would go up over it (it did, on a build with a server)
             if (!ShowWelcomeOnce()) AskForNicknameOnce();
