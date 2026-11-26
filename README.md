@@ -103,3 +103,9 @@ non-zero on a failure.
 `CLAUDE.md` at the repo root is a fuller overview of the architecture, and `docs/` goes into each
 subsystem — rendering, the backdrops, the game's menus, its simulation and levels, the HUD/audio/effects,
 the Testbed's gun and camera, and the map/level file formats — in more depth than fits here.
+
+## License
+
+The code is under the [MIT License](LICENSE). The game's logo, its music and its recorded sound effects are not
+covered by it. The libraries and typefaces the game is built on keep their own licences, listed in
+[`Game/THIRD-PARTY-NOTICES.txt`](Game/THIRD-PARTY-NOTICES.txt).
