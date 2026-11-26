@@ -20,6 +20,14 @@ Pravidla:
 
 ---
 
+## 2026-11-26 — #1257 #1233 tabulka APU před v0.7.0, cena bubliny a ledu — notebook (ThinkPad), Claude Code (github-18)
+
+- Hotovo, sloučeno: `main` (e80baa3a) vedle v0.6.1 na APU. `Low` se vejde do 16,1 ms na všech 15 levelech (nejtěsněji Spyglass 15,90); `Medium` jen vesmír. #1233: led +0,98 ms, bublina +2,4 až +2,8, nic se nezlevňuje.
+- ⚠ Amphora čte mezi sezeními 15,1–16,8 ms při stejném buildu i pohledu; seed, kamera a CPU vyloučeny, příčina neznámá.
+- ⚠ Posun kurzoru skriptem může otočit dělo (2,5 ms; past 17 v postupu `benchmark`).
+- ⚠ Scratch `Settings.json` s chybným typem klíče hra zahodí a běží s výchozím nastavením: zkontroluj log `[settings]`.
+- Otevřené: sen na `Medium` +1,36 ms nezúžen; #1239, #1242 a #1241 na APU neměřeny; zkouška Release buildu před tagem.
+
 ## 2026-11-26 — #1252 #1255 #1256 příprava v0.7.0 pro itch.io — desktop (RDT-PC), Claude Code
 
 - Hotovo, sloučeno:
