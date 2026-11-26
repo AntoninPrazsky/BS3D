@@ -119,7 +119,7 @@ namespace Prazsky.BS3D.Physics
         /// <summary>
         /// How hard a hit reads (#1248, <see cref="ShotPush.Feel"/>): its share multiplies every push with
         /// <see cref="PushScale"/>, its kick bounds each ball, and its hold and rate set how the swing is settled.
-        /// <see cref="ShotPush.Feel.Shipped"/> unless the Game's <c>pushfeel=</c> chooses another.
+        /// <see cref="ShotPush.Feel.Default"/> unless the Game's <c>pushfeel=</c> or a test chooses another.
         /// </summary>
         public ShotPush.Feel PushFeel
         {
@@ -132,7 +132,7 @@ namespace Prazsky.BS3D.Physics
             }
         }
 
-        private ShotPush.Feel _pushFeel = ShotPush.Feel.Shipped;
+        private ShotPush.Feel _pushFeel = ShotPush.Feel.Default;
 
         //What multiplies a shot's momentum into its push: the testing scale and the feel's share
         private float PushFactor => PushScale * _pushFeel.Share;
