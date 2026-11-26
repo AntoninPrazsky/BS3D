@@ -20,6 +20,22 @@ Pravidla:
 
 ---
 
+## 2026-11-26 — #1252 #1255 #1256 příprava v0.7.0 pro itch.io — desktop (RDT-PC), Claude Code
+
+- Hotovo, sloučeno:
+  - #1255: vzkaz autora při prvním spuštění se ukazuje na všech buildech, jednou a ne ve skriptovaných bězích.
+  - #1256: About uvádí Stable Audio 3, ze kterého je všech devět nahrávek v `Game/Sfx`.
+  - #1252, běhová půlka: `warp`, `d3ddebug` a `Tools/d3d-debug-capture.ps1`. Prošlo 21 scén v Low i Ultra, Potato, hra a 11 efektů s 0 chybami D3D11 (`docs/rendering/strict-drivers.md`).
+- majitel:
+  - v0.7.0 je první verze na itch.io, jako „pay what you want“;
+  - Raspberry Pi zmiňuje vzkaz jen na Pi;
+  - u Stability AI se registrovat nebude (formulář chce firmu a licence se na hotové zvuky nevztahuje).
+- ⚠ Debug vrstva je na Windows 11 v souboru `d3d11_3SDKLayers.dll`.
+- ⚠ Hra nepřijme `scene=NeonCity`, klíč je `neon`.
+- Otevřené:
+  - #1252: statické čtení shaderů a běh na skutečném Intelu;
+  - stránka na itch.io (#838) a její AI disclosure (grafika, zvuk, kód).
+
 ## 2026-11-26 — #1248 #1254 silnější náraz výchozí, ghost Wildcard v barvě dopadu — desktop (RDT-PC), Claude Code (bs3d-8f)
 
 - Hotovo, sloučeno: #1248 síla 2 (`Feel.Default`, Stronger) ve hře, Testbedu i sag gate; celý sag gate 71/705 běhů s ní i bez ní. #1254 ghost Wildcard nese barvu, kterou kulička v buňce dostane (`TryChooseWildcardColour`, jen při změně buňky nebo `Revision`).
