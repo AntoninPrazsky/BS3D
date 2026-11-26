@@ -98,7 +98,10 @@ namespace BS3D.Effects
         private const float ERUPTION_SECONDS = 3.4f;
 
         /// <summary>How far into the eruption shot the cued burst goes off: long enough for the cone to be read
-        /// before it lights, short enough that the attack and most of the decay play out inside the shot.</summary>
+        /// before it lights, short enough that the fountain climbs to its height inside the shot. Since #1260 each blob
+        /// carries the speed of the moment it was thrown, so the jets rise over about two seconds after the burst lights
+        /// (measured from 0.2 s to 2.4 s after it, on the intro's clock) and the crater shot after it opens on them falling
+        /// back, where they used to stand at full height 0.2 s in and shrink back through the rest of the shot.</summary>
         internal const float BURST_LEAD = 0.9f;
 
         //How far the eruption shot's real start may be from the one the intro was built for before the burst is cued

@@ -64,10 +64,38 @@ float WindDrag;
 //the line of sight times this.
 float StreakTime;
 
-//0 between bursts, up to 1 at the peak of one. Multiplied into the launch speed by EruptionBoost and into
-//the plume's density, so a burst is visible as reach and as volume rather than only as brightness.
+//0 between bursts, up to 1 at the peak of one: the plume's density and the blaze, the eruption of this moment.
+//The jets' launch speed takes EruptionBoost of the eruption a blob was thrown in (EruptionPast0, below), so a
+//burst is visible as reach and as volume rather than only as brightness.
 float Eruption;
 float EruptionBoost;
+
+//The eruption as it was over the last seconds (#1260), sixteen samples ERUPTION_PAST_STEP apart, the newest (now)
+//first: EruptionPast0.x is now, .y a step ago, and so on to EruptionPast3.w. A jet's blob is thrown at the speed of
+//the eruption of the moment it LEFT THE VENT and flies its own parabola to the end. Read off the eruption of now, as
+//it was, every blob in the air took the new speed every frame: the whole fountain swelled at once as a burst rose and
+//shrank back into the crater as one object as it decayed, its blobs slowing in mid-air (the owner: "like an amateur
+//PowerPoint animation"). Four vectors and no array, because a GLES program may index one uniform array and the
+//vents' already take it (#1057). The host's figures are the same pure function of the clock as Eruption.
+float4 EruptionPast0;
+float4 EruptionPast1;
+float4 EruptionPast2;
+float4 EruptionPast3;
+
+//Seconds between two of those samples (VolcanoBackdrop.ERUPTION_PAST_STEP): 15 steps cover the longest blob's life,
+//BlobLife x 1.45
+static const float ERUPTION_PAST_STEP = 0.25;
+
+//The eruption ago seconds ago, linear between the samples (a hat weight on each), held at the oldest past them
+float EruptionAgo(float ago)
+{
+    float x = min(ago / ERUPTION_PAST_STEP, 15.0);
+
+    return dot(EruptionPast0, saturate(1.0 - abs(x - float4(0.0, 1.0, 2.0, 3.0))))
+        + dot(EruptionPast1, saturate(1.0 - abs(x - float4(4.0, 5.0, 6.0, 7.0))))
+        + dot(EruptionPast2, saturate(1.0 - abs(x - float4(8.0, 9.0, 10.0, 11.0))))
+        + dot(EruptionPast3, saturate(1.0 - abs(x - float4(12.0, 13.0, 14.0, 15.0))));
+}
 
 float3 LavaHot;
 float3 LavaCool;
@@ -126,7 +154,8 @@ FountainVertexOutput FountainVS(FountainVertexInput input)
     float tilt = LaunchSpread * sqrt(aim.y);
     float3 direction = float3(sin(tilt) * cos(azimuth), cos(tilt), sin(tilt) * sin(azimuth));
 
-    float speed = LaunchSpeed * VENT_STRENGTH(vent) * (0.55 + 0.6 * shape.y) * (1.0 + Eruption * EruptionBoost);
+    //At the eruption of its launch, t seconds ago, not of now (#1260): see EruptionPast0
+    float speed = LaunchSpeed * VENT_STRENGTH(vent) * (0.55 + 0.6 * shape.y) * (1.0 + EruptionAgo(t) * EruptionBoost);
 
     //Ballistic: launched, pulled down, and leaned over by the wind - the drag term grows as t² because a
     //blob has been in the air that much longer, which is what bends a tall jet downwind at its top and
