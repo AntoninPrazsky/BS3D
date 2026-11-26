@@ -63,8 +63,8 @@ namespace Prazsky.BS3D.GameStructure
 
         /// <summary>
         /// How dark a paler-ink figure's ground may go to balance it; below it the ball's average rises. The silver's
-        /// broad pale stripes and bands (about 0.42 of the ball in a 2.0 ink) need 0.26 and the brown's twelve dots
-        /// 0.29, so this sits just under them; black is held here whatever its figure (nothing balances black).
+        /// broad pale stripes and bands (about 0.42 of the ball in a 2.0 ink) need 0.26, so this sits just under them;
+        /// black is held here whatever its figure (nothing balances black).
         /// </summary>
         public const float GROUND_MIN = 0.25f;
 
@@ -245,13 +245,24 @@ namespace Prazsky.BS3D.GameStructure
         /// a grey - a dim one and nothing more - because its average can only rise anyway: its ground cannot get
         /// darker than black to pay for the figure. The navy's gain is the most that keeps its blue under 1 (a
         /// reflectance); the luminance ratio <c>ColourCueTests</c> asks of every figure holds in every set.
+        /// <para>
+        /// <b>Brown takes the darker ink, as orange does</b> (#1247). Brown is a dark orange, so on the paler ink each of
+        /// the two wore the other's colour: brown's figure brightened to an orange-brown on a ground darkened nearly to
+        /// black, orange's figure darkened to a brown, and which of a ball's two colours dominated depended on the angle
+        /// it was seen from, which the cannon and the cluster do not share. The owner mistook the two on level 29, and the
+        /// bubble's Amphora had merged brown with both black and orange (#1194). On one polarity the brown ball shows no
+        /// orange from any side: its figure is a near-black brown and its ground a lighter brown. Counted over the four
+        /// sets in CIELAB, a pair whose figures each lie within 25 dE00 of the other's ground, and within 15 of it in hue
+        /// and chroma alone (what shading cannot change), was orange/brown in all four sets and is none of them now; the
+        /// blue/silver of the emblems and the spots sits on that line both ways and was left, since silver on the darker
+        /// ink would make black/silver one in every set.
+        /// </para>
         /// </summary>
         private static bool PaleInk(BallType type, out float gain, out float grey)
         {
             (gain, grey) = type switch
             {
                 BallType.Type8 => (1.0f, 0f),    //black: its grey is the coverage's (BlackFigureGrey)
-                BallType.Type10 => (2.4f, 0f),   //brown
                 BallType.Type11 => (2.0f, 0f),   //silver
                 BallType.Type12 => (2.9f, 0f),   //navy
                 _ => (0f, 0f),
