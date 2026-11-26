@@ -24,8 +24,17 @@ namespace BS3D.Audio
     /// plays on until the new one fades in over it.
     /// </para>
     /// <para>
-    /// The beds run whatever is on the stack, pause included — the scene is on screen whether or not a
-    /// session stands, so its sound is too, the same rule the clouds and the city's windows follow.
+    /// The beds run on the front end as in play — the scene is on screen whether or not a session stands, so
+    /// its sound is too, the same rule the clouds and the city's windows follow. <b>Not under the pause over a
+    /// level, nor under the Jukebox</b>: the director fades them out there (<see cref="Duck"/>), because only
+    /// one music is meant to be heard and nobody is playing (#704, #1243).
+    /// </para>
+    /// <para>
+    /// <b>A bed sits at least <see cref="UNDER_MUSIC_DB"/> under the music of the chapter it plays in</b>, measured
+    /// in the 300 Hz–4 kHz band the owner's monitor speakers play (#1243): the bed's band level against the median
+    /// band level of the quietest track of the chapter's family, at the theme's level. The desert's wind sat 13.6 dB
+    /// under <c>ember-stoner</c> and the owner heard it over the music; the nine beds nobody had picked out kept 18.3 dB
+    /// or more. Each target RMS below is the scene's authored level with that margin met.
     /// </para>
     /// </summary>
     public sealed class ProceduralAmbience : IDisposable
@@ -36,6 +45,14 @@ namespace BS3D.Audio
         /// the ear picks out over the music is an ambience that is too loud by definition.
         /// </summary>
         public const float AMBIENCE_VOLUME = 0.04f;
+
+        /// <summary>
+        /// The least a chapter's bed sits under its music, in dB, in the 300 Hz–4 kHz band (#1243): the bed's band
+        /// level at <see cref="AMBIENCE_VOLUME"/> against the band median of the quietest track its chapter plays, at
+        /// the theme's level. Not read by the code — the targets were cut to it — but the figure a new bed or a new
+        /// track is measured against (<c>docs/game-feedback/ambience.md</c>).
+        /// </summary>
+        public const float UNDER_MUSIC_DB = 18f;
 
         //A scene change sweeps the whole backdrop in one frame; the sound follows over this instead, because
         //an atmosphere that cuts is a light switch and one that drags arrives after the scene has.
@@ -310,13 +327,16 @@ namespace BS3D.Audio
                     AddBand(mix, seed, 100f, 650f, 1.0f,
                         t => 0.55f + 0.25f * Cycle(t, 3, 0f) + 0.2f * Cycle(t, 5, 1.3f), WIDTH_AIR);
                     AddCrackle(mix, seed + 1, 1500f, 5000f, 0.3f, spread: 0.35f);
-                    return Seal(mix, loopSamples, tailSamples, targetRms: 0.13f);
+                    //0.13 until #1243: 14.7 dB under mural-afrohouse, cut 3.3 dB to UNDER_MUSIC_DB
+                    return Seal(mix, loopSamples, tailSamples, targetRms: 0.089f);
 
                 case SceneKind.Desert:
                     //A dry, steady wind, thinner than the savanna's, with the faintest whistle over it.
                     AddBand(mix, seed, 250f, 1200f, 1.0f, t => Swell(t, 2, 0.8f, 0f), WIDTH_AIR);
                     AddBand(mix, seed + 1, 1700f, 2100f, 0.18f, t => Square(Swell(t, 3, 0.3f, 2.1f)), WIDTH_AROUND);
-                    return Seal(mix, loopSamples, tailSamples, targetRms: 0.11f);
+                    //0.11 until #1243, when the owner heard it over ember-stoner (13.6 dB under it in the band, where
+                    //this wind has nearly all its energy): cut 4.4 dB to UNDER_MUSIC_DB
+                    return Seal(mix, loopSamples, tailSamples, targetRms: 0.066f);
 
                 case SceneKind.Mountain:
                     //Cold gusts — the swell squared, so the wind arrives in waves rather than breathing — with
@@ -324,7 +344,8 @@ namespace BS3D.Audio
                     //place here with nothing at all between the player and the weather.
                     AddBand(mix, seed, 80f, 900f, 1.0f, t => Square(Swell(t, 3, 0.25f, 0f)), WIDTH_AROUND);
                     AddBand(mix, seed + 1, 2000f, 6000f, 0.22f, t => Swell(t, 3, 0.4f, 0f), WIDTH_AROUND);
-                    return Seal(mix, loopSamples, tailSamples, targetRms: 0.14f);
+                    //0.14 until #1243: 12.8 dB under summit-synthwave, the least margin of any chapter's bed; cut 5.2 dB
+                    return Seal(mix, loopSamples, tailSamples, targetRms: 0.077f);
 
                 case SceneKind.Meadow:
                     //A gentle breeze and a high insect shimmer under a light, fast tremolo. The insects are a
@@ -342,7 +363,8 @@ namespace BS3D.Audio
                     //decorrelating it buys little image and costs the most on a mono downmix.
                     AddBand(mix, seed, 0f, 180f, 1.0f, t => Swell(t, 2, 0.7f, 0f), WIDTH_NEAR);
                     AddBand(mix, seed + 1, 150f, 450f, 0.35f, t => Swell(t, 3, 0.75f, 0.9f), WIDTH_AIR);
-                    return Seal(mix, loopSamples, tailSamples, targetRms: 0.12f);
+                    //0.12 until #1243: 14.8 dB under skyline-jazzhouse, cut 3.2 dB to UNDER_MUSIC_DB
+                    return Seal(mix, loopSamples, tailSamples, targetRms: 0.083f);
 
                 case SceneKind.NeonCity:
                     //The same city a few hours later: the rumble quieter, a steady electric hum in a narrow
@@ -480,7 +502,8 @@ namespace BS3D.Audio
                     //the flank rather than a twig in a hearth — and scattered wide, since they are.
                     AddCrackle(mix, seed + 2, 300f, 1800f, 0.42f, ratePerSecond: 9f, threshold: 0.80f,
                         tailRate: 34f, spread: 0.9f);
-                    return Seal(mix, loopSamples, tailSamples, targetRms: 0.145f);
+                    //0.145 until #1243: 15.0 dB under magma-metal, cut 3.0 dB to UNDER_MUSIC_DB
+                    return Seal(mix, loopSamples, tailSamples, targetRms: 0.103f);
 
                 case SceneKind.Mars:
                     //Thin air, not none: unlike the Moon's total vacuum, Mars's ~1% atmosphere still carries

@@ -40,7 +40,7 @@ Part of [The game: feedback](../game-feedback.md).
 
 ## The pause has its own music (#668)
 
-`GameMusic.Pausing` plays `Music/pause.ogg` at `PAUSE_VOLUME` (= `MENU_VOLUME`; its voice `MusicLevels.PAUSE_VOICE`). The theme is **faded (0.5 s), never stopped** and returns exactly where it stands. It is asked every frame from the stack, like `Yielding`, so every way out of the pause reaches it. **The settings page opened from the pause lets the theme back** (its Music row must be heard against it). `pause-vibes-12` awaits the owner's ear; a missing file leaves the theme playing.
+`GameMusic.Pausing` plays `Music/pause.ogg` at `PAUSE_VOLUME` (= `MENU_VOLUME`; its voice `MusicLevels.PAUSE_VOICE`). The theme is **faded (0.5 s), never stopped** and returns exactly where it stands. It is asked every frame from the stack, like `Yielding`, so every way out of the pause reaches it. **The settings page opened from the pause lets the theme back** (its Music row must be heard against it). **The scene's own sound steps aside for the pause** (#1243), its bed and its one-shots, and comes back with the theme under the settings page ("The ambience" in [ambience.md](ambience.md)). `pause-vibes-12` awaits the owner's ear; a missing file leaves the theme playing.
 
 ## The music tightens as the cluster nears the line (#495)
 

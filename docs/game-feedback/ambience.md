@@ -2,13 +2,22 @@
 
 Part of [The game: feedback](../game-feedback.md).
 
-Every backdrop sounds like itself (#46): one looping bed per scene, synthesized from raw PCM in `Game/Audio/ProceduralAmbience.cs` and crossfaded when the scene changes. The host owns it beside the music and `SetScene` (the one scene writer) retargets it. It runs off the frame: the scene is on screen whether or not a session stands, so its sound is too, **pause included**.
+Every backdrop sounds like itself (#46): one looping bed per scene, synthesized from raw PCM in `Game/Audio/ProceduralAmbience.cs` and crossfaded when the scene changes. The host owns it beside the music and `SetScene` (the one scene writer) retargets it. It runs off the frame: the scene is on screen whether or not a session stands, so its sound is too, on the front end as in play.
+
+**Not under the pause over a level (#1243), nor under the Jukebox (#704).** Only one music is meant to be heard there and nobody is playing: `AudioDirector` fades the bed out over `BED_QUIET_SECONDS` through `ProceduralAmbience.Duck` and drops the scene's one-shots (a thunder already on its way included), and both come back on Resume. The settings page over the pause is the exception: the theme comes back there so its rows can be set against it, and the bed with it. The owner heard the desert's wind under the pause's loop, which sits about 10 dB under a theme.
 
 ## Design rules
 
 - **Filtered noise, never a tone.** A bed sits under the music for the whole run; anything with a pitch would fight the theme or be noticed, and a bed that is noticed is too loud. Even the neon city's hum is a band of noise around 100-150 Hz.
 - **The loops are sealed by construction.** Every envelope runs a whole number of cycles per 16 s loop, and each bed renders a second past the loop point, folded onto the head under an equal-power ramp. Measured at the wrap: the step across the seam is 0.1-1.5x the bed's mean step, in **both** ears (folding one channel only opens a seam in one ear, which is harder to notice).
 - **Levels are RMS targets per scene**, set at bake. The first build sat *over* the theme, so every target was cut to a quarter by ear: an ambience picked out over the music is too loud by definition. **The beds have a volume row of their own** (`master x ambience`); chaining it to the effects row would turn the shot down with it.
+- **A chapter's bed sits at least `UNDER_MUSIC_DB` (18 dB) under its music in the 300 Hz-4 kHz band** (#1243), the band the owner's monitor speakers play: the bed's band level at `AMBIENCE_VOLUME` against the band median, in 400 ms windows, of the quietest track of the chapter's family at the theme level. Full-band RMS does not say it: the desert's wind has nearly all its energy in that band and the mountain's gusts and the savanna's wind do not. The desert sat 13.6 dB under `ember-stoner` and the owner heard it over the music; the nine beds nobody had picked out kept 18.3 dB or more. Measured after the cut (dB under the quietest track):
+
+  | savanna | desert | mountain | city | volcano | circus | neon | cavern | meadow | space | aurora | dream | grid | moon |
+  |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+  | 18.0 | 18.1 | 18.0 | 18.0 | 18.0 | 18.3 | 19.0 | 19.6 | 19.6 | 21.9 | 23.0 | 24.6 | 28.6 | 32.5 |
+
+  A new track that is quieter than its family's, or a new bed, is measured against it. The scenes no chapter uses (sea, forest, outback, tropical, Mars, storm, polar ice) were not cut.
 - **Crackles are point events** (the savanna's campfire, the cavern's drips): each snap rolls its own side and keeps it for its tail. The fire stays **narrow**, the drips take the **widest** spread (hollow noise becomes a room with a roof).
 
 ## Baking and the crossfade
