@@ -1019,6 +1019,9 @@ namespace BS3D
             _tenBitForced = launch.TenBit == true;
             _ramp = launch.Ramp;
 
+            //The strict-driver check (#1252): which device is made is decided before it is
+            AskForStrictDevice(launch.Warp, launch.D3DDebug);
+
             _graphics = new GraphicsDeviceManager(this);
             _graphics.PreparingDeviceSettings += Graphics_PreparingDeviceSettings;
 
@@ -1224,6 +1227,51 @@ namespace BS3D
             if (DisplayRefresh.TryGetScale(Window.Handle, out float scale, out _))
                 Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
                     $"[display] the window's scale changed: now {scale * 100f:0} % ({scale * 96f:0} DPI)"));
+        }
+
+        /// <summary>
+        /// The strict-driver check's device (#1252), set on MonoGame's statics before the device is made: <c>warp</c>
+        /// makes it on WARP, Microsoft's software rasteriser (<c>GraphicsAdapter.DriverType.FastSoftware</c>), and
+        /// <c>d3ddebug</c> asks for the D3D11 debug layer, whose findings go to OutputDebugString for
+        /// <c>Tools/d3d-debug-capture.ps1</c>. Both are Direct3D's, so the OpenGL builds say so and ignore them.
+        /// <para>
+        /// ⚠ <b>The debug layer is Windows' optional Graphics Tools</b>, and without it Direct3D refuses a debug device
+        /// outright, so the run would end before its first frame: its library is looked for first. And
+        /// <c>GraphicsAdapter.UseDebugLayers</c> exists in WindowsDX alone, while GamePi and GameAndroid compile this file
+        /// against packages without it, so the property is found by name.
+        /// </para>
+        /// </summary>
+        private static void AskForStrictDevice(bool warp, bool debugLayer)
+        {
+            if (!warp && !debugLayer) return;
+
+            if (!OperatingSystem.IsWindows())
+            {
+                Console.WriteLine("[gpu] warp and d3ddebug are Direct3D's: ignored on this build");
+                return;
+            }
+
+            if (warp)
+            {
+                GraphicsAdapter.UseDriverType = GraphicsAdapter.DriverType.FastSoftware;
+                Console.WriteLine("[gpu] WARP: the device is Microsoft's software rasteriser, not the graphics card (warp)");
+            }
+
+            if (!debugLayer) return;
+
+            //Graphics Tools on Windows 11 installs d3d11_3SDKLayers.dll; older ones carried d3d11_1 and plain d3d11
+            bool installed = Directory.GetFiles(Environment.SystemDirectory, "d3d11*sdklayers.dll").Length > 0;
+            PropertyInfo layers = typeof(GraphicsAdapter).GetProperty("UseDebugLayers", BindingFlags.Public | BindingFlags.Static);
+
+            if (!installed)
+                Console.WriteLine("[gpu] d3ddebug refused: the D3D11 debug layer is not installed (Windows' optional Graphics Tools)");
+            else if (layers == null)
+                Console.WriteLine("[gpu] d3ddebug refused: this MonoGame has no GraphicsAdapter.UseDebugLayers");
+            else
+            {
+                layers.SetValue(null, true);
+                Console.WriteLine("[gpu] D3D11 debug layer on (d3ddebug): its findings go to OutputDebugString");
+            }
         }
 
         private void Graphics_PreparingDeviceSettings(object sender, PreparingDeviceSettingsEventArgs e)

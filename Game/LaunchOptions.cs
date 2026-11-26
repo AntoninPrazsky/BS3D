@@ -104,6 +104,16 @@ namespace BS3D
         //cycle, which is why it is not "quality=potato" (that is the tier's preset row on the desktop path, and stays).
         internal bool Potato { get; private set; }
 
+        //"warp" (#1252): the device made on WARP, Microsoft's software rasteriser, instead of the graphics card - a second
+        //Direct3D 11 implementation to run the game on without another vendor's GPU on the desk. A frame takes the CPU's
+        //time, so a run is slow. Direct3D's alone: the OpenGL builds ignore it.
+        internal bool Warp { get; private set; }
+
+        //"d3ddebug" (#1252): the device made with the D3D11 debug layer, which validates every call the game makes and
+        //reports what it finds through OutputDebugString (Tools/d3d-debug-capture.ps1 collects it). Needs Windows' optional
+        //Graphics Tools; without them the run says so and makes a plain device. Direct3D's alone.
+        internal bool D3DDebug { get; private set; }
+
         //"desktop" (#1059): this run draws through the desktop's renderer even where a Potato chosen on the Quality row is
         //stored (#808). What the Windows and Android builds draw anyway since #1060; the Pi stays held.
         internal bool Desktop { get; private set; }
@@ -699,6 +709,9 @@ namespace BS3D
             //"potato" runs the Windows build through the Pi's renderer (#808); in GamePi it asks for what already is
             Row.Flag("potato", o => o.Potato = true),
             Row.Flag("desktop", o => o.Desktop = true),
+            //"warp" and "d3ddebug" (#1252): the device of the strict-driver check, decided before it is made
+            Row.Flag("warp", o => o.Warp = true),
+            Row.Flag("d3ddebug", o => o.D3DDebug = true),
             Row.Text("gpumissing", (o, v) => o.GpuMissing = v),
             //"celebrate" fires the victory display at startup. Clearing a level is the only thing that
             //normally starts it, and clearing one cannot be scripted, so without this the fireworks can be
