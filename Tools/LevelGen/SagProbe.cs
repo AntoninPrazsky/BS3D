@@ -924,7 +924,12 @@ namespace BS3D.Tools.LevelGen
         private static readonly GravityWells _wells = new();
 
         /// <summary>The push a landing gives the cluster (#1192), its walk's scratch reused as <see cref="_wells"/> is.</summary>
-        private static readonly ShotPush _push = new();
+        private static readonly ShotPush _push = new()
+        {
+            //The game's own feel (#1248), so the gate measures the push the game gives
+            SettleHold = ShotPush.Feel.Default.SettleHold,
+            SettleRate = ShotPush.Feel.Default.SettleRate,
+        };
 
         //The level's crates (#257), stood where the game stands them (Crates.AddSpecs) and handed to the shot's sweep -
         //the game's own preview banks a shot off them, so the probe's landing must too - and to the world as statics,
@@ -1104,7 +1109,8 @@ namespace BS3D.Tools.LevelGen
                         float closing = Vector3.Dot(refusedFlight, normal);
                         if (closing < 0f)
                             _push.Apply(world.Simulation, balls, refusedAt.ArrayPosition, ShotPush.ImpulseOf(
-                                BallsConstraintsBuilder.BALL_MASS, (normal * closing).ToNumerics(), BallKind.Normal));
+                                BallsConstraintsBuilder.BALL_MASS, (normal * closing).ToNumerics(), BallKind.Normal, ShotPush.Feel.Default.Share),
+                                maxKick: ShotPush.Feel.Default.MaxKick);
                     }
                 }
 
@@ -1201,7 +1207,7 @@ namespace BS3D.Tools.LevelGen
             //is the one the kept shot leaves with, which is what it strikes with to a hundredth. (The settle that damps the
             //swing afterwards runs on the simulation's own step, so it needs no line here.)
             _push.Deliver(world.Simulation, balls, ShotPush.ImpulseOf(BallsConstraintsBuilder.BALL_MASS, flight.ToNumerics(),
-                BallKind.Normal));
+                BallKind.Normal, ShotPush.Feel.Default.Share), ShotPush.Feel.Default.MaxKick);
 
             return Shot.Landed;
         }

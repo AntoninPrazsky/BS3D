@@ -107,26 +107,31 @@ namespace Prazsky.BS3D.Physics
         /// <summary>
         /// <b>How hard a hit reads</b> (#1248): the share of the shot's momentum the cluster takes (over its kind's own,
         /// <see cref="ShareFor"/>), the most one ball's velocity changes by, and how long the swing runs free before it is
-        /// settled and how fast it is settled then. The owner accepted <see cref="Shipped"/> on 2026-11-24 and asked to try
-        /// more energy; <see cref="Stronger"/> and <see cref="Strongest"/> are the two offered beside it, chosen at launch
-        /// (the Game's <c>pushfeel=</c>), until he picks one. A share over 1 is more than the ball carried, the exaggeration
-        /// a game may make; the longer hold is the same momentum shown longer.
+        /// settled and how fast it is settled then. The owner accepted <see cref="Original"/> on 2026-11-24, asked to try more
+        /// energy, compared the three in play (the Game's <c>pushfeel=</c>) and picked <see cref="Stronger"/> on 2026-11-26:
+        /// it is the <see cref="Default"/> the game, the Testbed and the sag gate push with. A share over 1 is more than the
+        /// ball carried, the exaggeration a game may make; the longer hold is the same momentum shown longer.
         /// </summary>
         public readonly record struct Feel(string Name, float Share, float MaxKick, float SettleHold, float SettleRate)
         {
-            /// <summary>The push as shipped since #1192: the shot's whole momentum, <see cref="MAX_KICK"/>, a second free.</summary>
-            public static Feel Shipped => new("shipped", 1f, MAX_KICK, SETTLE_HOLD, SETTLE_RATE);
+            /// <summary>The push of #1192, as the owner accepted it on 2026-11-24: the shot's whole momentum,
+            /// <see cref="MAX_KICK"/>, a second free. <c>pushfeel=1</c>.</summary>
+            public static Feel Original => new("original", 1f, MAX_KICK, SETTLE_HOLD, SETTLE_RATE);
 
-            /// <summary>Three quarters again of the momentum, a half again of the kick, half a second longer free.</summary>
+            /// <summary>Three quarters again of the momentum, a half again of the kick, half a second longer free: the owner's
+            /// pick of 2026-11-26 (#1248), the <see cref="Default"/>. <c>pushfeel=2</c>.</summary>
             public static Feel Stronger => new("stronger", 1.75f, 12f, 1.5f, SETTLE_RATE);
+
+            /// <summary>The push every hit reads with unless a test or <c>pushfeel=</c> says otherwise (#1248).</summary>
+            public static Feel Default => Stronger;
 
             /// <summary>Two and a half times the momentum, twice the kick, two seconds free and a gentler settle after.</summary>
             public static Feel Strongest => new("strongest", 2.5f, 12f, 1.5f, 1.8f);
 
-            /// <summary>The feels by their number in <c>pushfeel=</c>: 1 shipped, 2 stronger, 3 strongest.</summary>
+            /// <summary>The feels by their number in <c>pushfeel=</c>: 1 the original, 2 stronger (the default), 3 strongest.</summary>
             public static Feel ByNumber(int number) => number switch
             {
-                1 => Shipped,
+                1 => Original,
                 2 => Stronger,
                 3 => Strongest,
                 _ => throw new ArgumentOutOfRangeException(nameof(number), number, "pushfeel is 1, 2 or 3"),

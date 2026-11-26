@@ -749,9 +749,9 @@ namespace BS3D
             //(the shot's whole momentum), up to 4. For the owner's hands to compare; the benchmark's measured run has none and
             //a capture the shipped one, whatever this says (GameplayScreen.Session's PushScale).
             Row.Float("shotpush", (o, v) => o.ShotPush = v, v => v >= 0f && v <= 4f),
-            //"pushfeel=<1|2|3>" chooses how hard a hit reads (#1248, ShotPush.Feel): 1 the shipped push, 2 stronger (1.75 of the
-            //momentum, a kick of 12, half a second longer free), 3 strongest (2.5, 16, two seconds free). For the owner to compare
-            //in play until he picks one; the benchmark's measured run has no push whatever this says.
+            //"pushfeel=<1|2|3>" chooses how hard a hit reads (#1248, ShotPush.Feel): 1 the original push of #1192, 2 stronger (1.75
+            //of the momentum, a kick of 12, half a second longer free; the owner's pick and the default since 2026-11-26), 3
+            //strongest (2.5, 12, a faster settle). The benchmark's measured run has no push whatever this says.
             Row.Int("pushfeel", (o, v) => o.PushFeel = v, v => v >= 1 && v <= 3),
             //"tutorial" offers every tutorial card and records nothing, "tutorial=demo" reels them (#189) —
             //see the property's own note.

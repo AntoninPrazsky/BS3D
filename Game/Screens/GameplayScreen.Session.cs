@@ -475,7 +475,7 @@ namespace BS3D.Screens
                 Console.WriteLine(FormattableString.Invariant($"[session] shots leave at {ShotSpeed:0.#} units/s (shotspeed=; the shipped speed is {SHOOT_SPEED:0})"));
             if (!_run.Benchmark && _test.ShotPush is float push && push != 1f)
                 Console.WriteLine(FormattableString.Invariant($"[session] a shot pushes what it hits at {push:0.##} times the shipped push (shotpush=)"));
-            if (!_run.Benchmark && _test.PushFeel is int number && number != 1)
+            if (!_run.Benchmark && _test.PushFeel is int number && ShotPush.Feel.ByNumber(number) != ShotPush.Feel.Default)
             {
                 ShotPush.Feel feel = ShotPush.Feel.ByNumber(number);
                 Console.WriteLine(FormattableString.Invariant(
@@ -701,7 +701,7 @@ namespace BS3D.Screens
                 //are compared only on the same work. A capture keeps it: its clips show the game as it plays
                 PushScale = _run.Benchmark ? (Game.Capturing ? 1f : 0f) : _test.ShotPush ?? 1f,
                 //And how hard a hit reads (#1248): the shipped feel unless pushfeel= chooses another to compare
-                PushFeel = _test.PushFeel is int feel ? ShotPush.Feel.ByNumber(feel) : ShotPush.Feel.Shipped,
+                PushFeel = _test.PushFeel is int feel ? ShotPush.Feel.ByNumber(feel) : ShotPush.Feel.Default,
             };
 
             //The handler reports what a shot did; what it is worth is the scorer's business. Subscribed on the
