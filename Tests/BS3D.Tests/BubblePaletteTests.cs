@@ -19,6 +19,11 @@ namespace BS3D.Tests
     /// disc: a film shows what is behind it, and in a cluster that is the other balls. The owner could not tell the three
     /// apart on Amphora, which hung all of them; its ends are blue since.
     /// </para>
+    /// <para>
+    /// Brown takes the darker ink since #1247 (<see cref="ColourCueInversionTests"/>), so its ground is no longer darkened and
+    /// its dots are no longer an orange: both causes are gone. The rule stays until a bubble level hanging those pairs has
+    /// been measured in a cluster again.
+    /// </para>
     /// </summary>
     public class BubblePaletteTests
     {
