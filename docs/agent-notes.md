@@ -22,7 +22,8 @@ Pravidla:
 
 ## 2026-11-26 — #1257 #1233 tabulka APU před v0.7.0, cena bubliny a ledu — notebook (ThinkPad), Claude Code (github-18)
 
-- Hotovo, sloučeno: `main` (e80baa3a) vedle v0.6.1 na APU. `Low` se vejde do 16,1 ms na všech 15 levelech (nejtěsněji Spyglass 15,90); `Medium` jen vesmír. #1233: led +0,98 ms, bublina +2,4 až +2,8, nic se nezlevňuje.
+- Hotovo, sloučeno: `main` (e80baa3a) vedle v0.6.1 na APU. `Low` se vejde do 16,1 ms na všech 15 levelech (nejtěsněji Spyglass 15,90); `Medium` jen vesmír. #1233: led +0,98 ms, bublina +2,4 až +2,8, nic se nezlevňuje (zavřeno).
+- majitel: bublině se na `Low` zadní stěna nevypíná. Release dělá z desktopu.
 - ⚠ Amphora čte mezi sezeními 15,1–16,8 ms při stejném buildu i pohledu; seed, kamera a CPU vyloučeny, příčina neznámá.
 - ⚠ Posun kurzoru skriptem může otočit dělo (2,5 ms; past 17 v postupu `benchmark`).
 - ⚠ Scratch `Settings.json` s chybným typem klíče hra zahodí a běží s výchozím nastavením: zkontroluj log `[settings]`.
