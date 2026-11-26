@@ -191,6 +191,13 @@ Each of these has actually happened; the first two are the expensive ones.
    readback empties it, and the next 40 frames run at the CPU's pace while it refills (one window read 5.44 ms
    against 6.74); take no reading from the window a shot lands in or the one after.
 
+17. **A cursor a script moves can aim the gun.** While a level plays the Game holds the cursor, so a
+   `SetCursorPos` after launch can be read as mouse aim, and the camera follows the gun. On the reference APU a
+   probe that parked the cursor at the screen's right edge instead of below the window turned the view to more
+   sky and read Amphora at `Low` 13.17–13.23 ms against 15.62–15.73, seven runs each way (#1257).
+   `tier-matrix.ps1`'s own park left the view as the level opens it in the twelve runs on Amphora that saved a
+   frame. A script that puts the cursor anywhere else measures another view: check it with `shot=`.
+
 Also: keep both halves of an A/B in the **same build configuration**, and remember that lifting the cap is
 what makes the number a frame cost rather than the display's refresh. The script always passes `nocap`;
 **prefer `fpscap=N` on the desktop**, which does the same job for a measurement without leaving the card flat
