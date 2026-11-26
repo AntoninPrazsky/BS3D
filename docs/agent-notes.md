@@ -20,6 +20,13 @@ Pravidla:
 
 ---
 
+## 2026-11-26 — #1248 #1254 silnější náraz výchozí, ghost Wildcard v barvě dopadu — desktop (RDT-PC), Claude Code (bs3d-8f)
+
+- Hotovo, sloučeno: #1248 síla 2 (`Feel.Default`, Stronger) ve hře, Testbedu i sag gate; celý sag gate 71/705 běhů s ní i bez ní. #1254 ghost Wildcard nese barvu, kterou kulička v buňce dostane (`TryChooseWildcardColour`, jen při změně buňky nebo `Revision`).
+- majitel: verdikty stránky N451GwF1sZ3Ze5j59Y7L7y všechny OK, u #1248 vybral 2; #1254 jeho poznámka z hraní.
+- ⚠ Sag gate po celé sadě ve dvou worktree souběžně trvá kolem 40 minut.
+- Otevřené: #1254 čeká na verdikt.
+
 ## 2026-11-26 — #1243 #1244 #1245 #1246 #1247 #1248 #1249 #1250 #1253 poznámky z levelu 29 zpracované — desktop (RDT-PC), Claude Code (bs3d-8f)
 
 - Hotovo, sloučeno: #1243 scéna v pauze ztichne, větry kapitol aspoň 18 dB pod nejtišší skladbou (300 Hz–4 kHz). #1245 vidlička 0,45. #1246 zavřené rohy, paprsek z čočky do rohu. #1247 hnědá tmavým inkoustem, `ColourCueInversionTests`. #1249 uvolněné kuličky nesou podíl tlaku. #1248 `pushfeel=2/3` k porovnání. #1244 méně škrábanců, rez ve třech měřítkách. #1250 broušené kameny a křišťál. #1253 kanon stárne s kampaní (`WearBands.z`).
