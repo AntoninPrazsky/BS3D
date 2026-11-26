@@ -915,8 +915,9 @@ namespace Prazsky.BS3D.Physics
                     _armedBombs, _physicsBalls, _map, _simulation, _fallingBalls, _detonations));
 
             //THE SHOT PUSHES WHAT IT HIT (#1192), and LAST: the cell was decided before anything moved, the body stands in
-            //it and its sockets were built with no error, and the four removals above have taken what they take, so the
-            //push goes to the balls the walk found that still hang, and a group that fell falls as it always did
+            //it and its sockets were built with no error, and the four removals above have taken what they take. The balls
+            //the walk found take their shares whether they still hang or were just let go of: a group the shot knocked out
+            //leaves along its flight with its share, and does not drop as if nothing had hit it (#1249)
             LastPush = _push.Deliver(_simulation, _physicsBalls, ShotPush.ImpulseOf(shotMass, struckWith, shotKind, PushScale));
 
             //Everything the four removals just let go of is LOOSE from here on, and a shot still in the air passes
@@ -1053,6 +1054,10 @@ namespace Prazsky.BS3D.Physics
             int fallingBefore = _fallingBalls.Count;
             _fallingBalls.Add(cutter);
 
+            //The strike's push is walked before the cut, as a landing's is before its match (#1249): what the cut lets go of
+            //near the struck cell carries its share of the blow away with it, and what still hangs answers it
+            _push.Prepare(_physicsBalls, cell);
+
             //A cutter the gun let go of only strikes the storeys it may cut, but a flight is not the preview: a cluster that swung
             //while it flew can put a ball of the upper half it may not cut in its way. Then it takes that ball alone and not its
             //storey (#692, the review), so a stray flight can never do what the gun refuses - a top storey cut drops the whole
@@ -1064,9 +1069,9 @@ namespace Prazsky.BS3D.Physics
             for (int i = fallingBefore; i < _fallingBalls.Count; i++)
                 _contactEvents.MarkLoose(_fallingBalls[i].BallReference.Handle);
 
-            //And what is left round the hole takes the strike's push (#1192), after the cut on the landing's own reasoning:
-            //what the cut let go of falls as it fell, and the balls still hanging answer the blow
-            LastPush = _push.Apply(_simulation, _physicsBalls, cell,
+            //And the strike's push is given after the cut (#1192), on the landing's own reasoning: the balls still hanging
+            //answer the blow, and what the cut let go of leaves with its share (#1249)
+            LastPush = _push.Deliver(_simulation, _physicsBalls,
                 ShotPush.ImpulseOf(ShotMass(cutter), flying, BallKind.Cutter, PushScale));
 
             Console.WriteLine($"[shot] cutter struck cell ({cell.X},{cell.Z},{cell.Level}):"

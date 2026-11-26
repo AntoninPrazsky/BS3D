@@ -25,8 +25,15 @@ namespace Prazsky.BS3D.Physics
     /// push is the same whatever the frame rate and whatever step the caller takes (the Testbed's varies). A landing's is
     /// <b>walked before</b> the match and the three removals take what they take (<see cref="Prepare"/>) and <b>given
     /// after</b> them (<see cref="Deliver"/>): the cell the shot landed in was chosen before anything moved, the sockets
-    /// start with no error, and only balls still hanging are pushed, while the walk still finds what a released group
-    /// hung from. What a shot knocks out falls as it always fell, and takes its share of the momentum with it.
+    /// start with no error, and the walk still finds what a released group hung from.
+    /// </para>
+    /// <para>
+    /// <b>What the shot knocks out takes its share with it</b> (#1249, the owner: "throwing the impact energy away makes it
+    /// seem there is no physics in the game"): a ball the walk found that the match, the zap, the acid, the blast or a cut
+    /// has let go of since is pushed like one still hanging, by its hop's share along the flight, so a released group
+    /// leaves in the direction the shot flew, fastest where it struck, and gravity takes it from there. Until then its
+    /// share was discarded and a group dropped as if nothing had hit it. The shares are what they were, so the balls still
+    /// hanging take exactly the push they took.
     /// </para>
     /// <para>
     /// <b>Spread by connectivity, falling off through the sockets</b>: a breadth-first walk over the balls that touch,
@@ -115,8 +122,11 @@ namespace Prazsky.BS3D.Physics
         public static Vector3 ImpulseOf(float mass, Vector3 velocity, BallKind kind, float scale = 1f) =>
             velocity * (mass * ShareFor(kind) * scale);
 
-        /// <summary>What one push did: how many balls it reached and how much momentum it handed them in all.</summary>
-        public readonly record struct Result(int Balls, float Impulse)
+        /// <summary>
+        /// What one push did: how many balls still hanging it reached and how much momentum it handed them, and the same
+        /// for the balls it found that had been released by then (#1249), which carry their share away with them.
+        /// </summary>
+        public readonly record struct Result(int Balls, float Impulse, int Released = 0, float ReleasedImpulse = 0f)
         {
             /// <summary>No push: nothing was hit, or nothing was left standing to take it.</summary>
             public static Result None => default;
@@ -173,10 +183,11 @@ namespace Prazsky.BS3D.Physics
         }
 
         /// <summary>
-        /// Hands <paramref name="impulse"/> to the balls <see cref="Prepare"/> found that still stand in their cells: each its
-        /// hop's share of the whole walk's weight, so a ball that has fallen since takes its share away with it. Every ball
-        /// pushed is woken, since a sleeping island is not integrated, and the structure is then settled
-        /// (<see cref="SETTLE_SECONDS"/>). The walk is spent by it.
+        /// Hands <paramref name="impulse"/> to the balls <see cref="Prepare"/> found: each its hop's share of the whole walk's
+        /// weight, the ones still standing in their cells and the ones released since alike (#1249), so a released ball
+        /// leaves along the flight with its share. A ball gone from the world takes nothing. Every ball pushed is woken,
+        /// since a sleeping island is not integrated, and the structure is then settled (<see cref="SETTLE_SECONDS"/>) if
+        /// any of it still hangs. The walk is spent by it.
         /// </summary>
         /// <param name="maxKick">The most one ball's velocity changes by; <see cref="MAX_KICK"/> as shipped.</param>
         /// <param name="hopFalloff">What each hop weighs against the one before; <see cref="HOP_FALLOFF"/> as shipped.</param>
@@ -193,16 +204,17 @@ namespace Prazsky.BS3D.Physics
             float weights = 0f;
             for (int i = 0; i < _reachedHops.Count; i++) weights += MathF.Pow(hopFalloff, _reachedHops[i]);
 
-            Vector3 delivered = Vector3.Zero;
-            int pushed = 0;
+            Vector3 delivered = Vector3.Zero, carried = Vector3.Zero;
+            int pushed = 0, released = 0;
 
             for (int i = 0; i < _reached.Count; i++)
             {
                 PhysicsBall ball = _reached[i];
                 XZLevel at = ball.ArrayPosition;
 
-                //Released since the walk: it is falling, or already gone from the world
-                if (!ReferenceEquals(balls[at.X, at.Z, at.Level], ball)) continue;
+                //Released since the walk, it falls with its share (#1249); one already gone from the world takes nothing
+                bool hanging = ReferenceEquals(balls[at.X, at.Z, at.Level], ball);
+                if (!hanging && !simulation.Bodies.BodyExists(ball.BallReference.Handle)) continue;
 
                 BodyReference body = simulation.Bodies[ball.BallReference.Handle];
                 float inverseMass = body.LocalInertia.InverseMass;
@@ -217,17 +229,26 @@ namespace Prazsky.BS3D.Physics
                 simulation.Awakener.AwakenBody(body.Handle);
                 body.Velocity.Linear += kick;
 
-                delivered += kick / inverseMass;
-                pushed++;
+                if (hanging)
+                {
+                    delivered += kick / inverseMass;
+                    pushed++;
+                }
+                else
+                {
+                    carried += kick / inverseMass;
+                    released++;
+                }
             }
 
             _reached.Clear();
             _reachedHops.Clear();
 
-            if (pushed == 0) return Result.None;
+            if (pushed == 0 && released == 0) return Result.None;
 
-            BeginSettle(simulation, balls);
-            return new Result(pushed, delivered.Length());
+            //Only what still hangs swings; a released ball is the drain's
+            if (pushed > 0) BeginSettle(simulation, balls);
+            return new Result(pushed, delivered.Length(), released, carried.Length());
         }
 
         /// <summary>
