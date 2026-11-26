@@ -138,11 +138,47 @@ namespace BS3D
             set
             {
                 _sessionEmitters = value;
-                if (value != null) value.Worn = MetalWorn;
+                if (value != null)
+                {
+                    value.Worn = MetalWorn;
+                    value.WearAge = _wearAge;
+                }
             }
         }
 
         private BS3D.Effects.LaserEmitters _sessionEmitters;
+
+        //THE GUN AGES THROUGH THE CAMPAIGN (#1253, the owner's easter egg): almost new on the first level, heavily scratched
+        //and rusty on the last (MetalWear.AgeOfLevel), and on the front end as worn as the player's progress has made it (the
+        //level after the furthest one cleared). Only what the metal draws on High and Ultra changes. Decided once a frame and
+        //handed down only when what it rests on moves: which level stands, or the stars the progress has (a clear). The
+        //emitters take it as they are handed in.
+        private float _wearAge = MetalWear.SHIPPED_AGE;
+        private int _wearAgeKey = int.MinValue;
+
+        private void UpdateWearAge()
+        {
+            bool inSession = _gameplayScreen != null && _gameplayScreen.IsBuilt && _screens.Contains<Screens.GameplayScreen>();
+            int key = inSession ? _gameplayScreen.LevelIndex : -2 - TotalStars;
+            if (key == _wearAgeKey) return;
+            _wearAgeKey = key;
+
+            _wearAge = _launchWearAge
+                ?? (inSession ? (LevelInSet(key) ? MetalWear.AgeOfLevel(key, LevelCount) : MetalWear.SHIPPED_AGE) : ProgressWearAge());
+
+            if (_cannonRig != null) _cannonRig.WearAge = _wearAge;
+            if (_sessionEmitters != null) _sessionEmitters.WearAge = _wearAge;
+        }
+
+        //The front end's age: the level after the furthest one the player has cleared, or the first's
+        private float ProgressWearAge()
+        {
+            int furthest = -1;
+            for (int i = 0; i < LevelCount; i++)
+                if (LevelStars(i) > 0) furthest = i;
+
+            return MetalWear.AgeOfLevel(Math.Min(furthest + 1, Math.Max(LevelCount - 1, 0)), LevelCount);
+        }
 
         private Effect _instancingEffect;
 

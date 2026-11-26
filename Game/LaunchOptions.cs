@@ -172,6 +172,10 @@ namespace BS3D
         //preview alike, or null for the shipped one (GameplayScreen.SHOOT_SPEED)
         internal float? ShotSpeed { get; private set; }
 
+        //Pinning how old the gun's metal looks (#1253): 0 almost new to 1 heavily worn, or null for the campaign's own age
+        //(BS3DGame.UpdateWearAge). For captures of the easter egg; it changes nothing else
+        internal float? WearAge { get; private set; }
+
         //Trying the push a shot gives the cluster (#1192): what multiplies it, 0 for none, or null for the shipped one
         //(ShotPush.MOMENTUM_SHARE of the shot's momentum)
         internal float? ShotPush { get; private set; }
@@ -738,6 +742,9 @@ namespace BS3D
             //"shotspeed=<units/s>" fires every shot, and solves every preview, at that speed (#1007): the owner's question
             //of what a slower shot would do, asked in play. 30 to 400; the shipped speed is 200, and the benchmark keeps it.
             Row.Float("shotspeed", (o, v) => o.ShotSpeed = v, v => v >= 30f && v <= 400f),
+            //"wearage=<0..1>" pins how old the gun's and the emitters' metal looks on High and Ultra (#1253): 0 almost new, 1
+            //heavily scratched and rusty, 0.5 the figures of #1244. Without it the metal ages through the campaign
+            Row.Float("wearage", (o, v) => o.WearAge = v, v => v >= 0f && v <= 1f),
             //"shotpush=<scale>" multiplies the push every shot gives the balls it strikes (#1192): 0 is none, 1 the shipped one
             //(the shot's whole momentum), up to 4. For the owner's hands to compare; the benchmark's measured run has none and
             //a capture the shipped one, whatever this says (GameplayScreen.Session's PushScale).
