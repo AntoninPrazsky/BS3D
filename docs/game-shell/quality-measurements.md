@@ -36,40 +36,33 @@ The figures a future tier change compares against (#64: measured, because intuit
 
 ## The reference APU against shipped levels
 
-Each chapter's heaviest level that is not its block's first (by balls; the city has two rows), in the Game: `level=<name> quality=<tier> nocap logfps windowed width=1600 height=900 mute nofocuspause nofps sceneseed=0`, with `userdata=` a scratch profile whose settings have online scores and the tutorial off. 45 s a run, the first six readings dropped, the median of the rest. **v0.5.0's code (`main` at be2c5420) measured beside v0.4.0's (9ed06dc4)** on 2026-10-27, `history-sweep.ps1 -ByLevel`: each level's two builds forward then reversed, back to back, and the minimum of each build's two runs (builds' `[build]` sets: v0.4.0 libraries `db10bfd5`, shaders `c56d60af`; `main` `c664fd3b`, `36dad7c5`). ms:
+Each chapter's heaviest level that is not its block's first (by balls; the city has two rows), in the Game: `level=<name> quality=<tier> nocap logfps windowed width=1600 height=900 mute nofocuspause nofps sceneseed=0`, with `userdata=` a scratch profile whose `Settings.json` has `"online": false`, `"tutorial": false` and `"welcomeShown": true`. 45 s a run, the first six readings dropped, the median of the rest. **`main` at e80baa3a measured beside v0.6.1 (abfc9c8c)** on 2026-11-26 (#1257), `history-sweep.ps1 -ByLevel`: each level's two builds forward then reversed, back to back, and the minimum of each build's two runs (builds' `[build]` sets: v0.6.1 libraries `d7943f91`, shaders `55b3188e`; `main` `15128500`, `1aec6e3a`). ms:
 
-| level (scene) | `Low` v0.4.0 | `Low` v0.5.0 | step | `Medium` v0.4.0 | `Medium` v0.5.0 | step |
+| level (scene) | `Low` v0.6.1 | `Low` `main` | step | `Medium` v0.6.1 | `Medium` `main` | step |
 |---|---|---|---|---|---|---|
-| Umbrella (aurora) | 14.27 | **18.03** over | **+3.76** | 20.59 | 29.27 | **+8.68** |
-| Spring (cavern) | 15.74 | **18.03** over | **+2.29** | 30.95 | 27.00 | −3.95 |
-| Amphora (meadow) | 14.71 | **17.91** over | **+3.20** | 28.28 | 33.70 | **+5.42** |
-| Spyglass (mountain) | **16.73** over | **16.95** over | +0.22 | 26.02 | 25.20 | −0.82 |
-| Caldera (volcano) | **16.15** over | **16.21** over | +0.06 | 33.53 | 33.57 | +0.04 |
-| Balloon (savanna) | 14.55 | 15.90 | +1.35 | 27.16 | 29.48 | +2.32 |
-| Diadem (dream) | 14.71 | 15.83 | +1.12 | 25.25 | 25.03 | −0.22 |
-| SafetyNet (big top) | 15.33 | 14.42 | −0.91 | 20.22 | 19.43 | −0.79 |
-| Ghost (neon city) | 13.97 | 13.90 | −0.07 | 19.87 | 20.04 | +0.17 |
-| Pendulum (desert) | 12.80 | 12.51 | −0.29 | 19.82 | 19.85 | +0.03 |
-| Girandole (city) | 12.44 | 12.56 | +0.12 | 21.07 | 20.66 | −0.41 |
-| Tesseract (Grid) | 10.17 | 11.46 | +1.29 | **16.05** | 17.87 | +1.82 |
-| Colossus (Moon) | 12.00 | 11.12 | −0.88 | 22.31 | 20.35 | −1.96 |
-| Orrery (space) | 11.16 | 10.24 | −0.92 | **14.67** | **13.08** | −1.59 |
-| Turbine (city) | 10.77 | 10.13 | −0.64 | 19.95 | 18.86 | −1.09 |
+| Umbrella (aurora) | 14.34 | 14.06 | −0.28 | **26.40** over | **25.81** over | −0.59 |
+| Spring (cavern) | 14.88 | 15.01 | +0.13 | **26.47** over | **26.52** over | +0.05 |
+| Amphora (meadow) | 15.22 | 15.14 | −0.08 | **28.64** over | **27.83** over | −0.81 |
+| Spyglass (mountain) | 15.79 | 15.90 | +0.11 | **24.69** over | **24.42** over | −0.27 |
+| Caldera (volcano) | 14.68 | 14.20 | −0.48 | **29.14** over | **29.06** over | −0.08 |
+| Balloon (savanna) | 15.68 | 15.13 | −0.55 | **27.25** over | **25.81** over | −1.44 |
+| Diadem (dream) | 14.93 | 15.38 | +0.45 | **24.27** over | **25.63** over | +1.36 |
+| SafetyNet (big top) | 14.14 | 13.97 | −0.17 | **19.16** over | **19.07** over | −0.09 |
+| Ghost (neon city) | 14.71 | 14.41 | −0.30 | **20.58** over | **20.53** over | −0.05 |
+| Pendulum (desert) | 13.90 | 13.99 | +0.09 | **20.99** over | **20.88** over | −0.11 |
+| Girandole (city) | 12.64 | 12.60 | −0.04 | **20.41** over | **20.21** over | −0.20 |
+| Tesseract (Grid) | 11.05 | 11.07 | +0.02 | **16.68** over | **16.83** over | +0.15 |
+| Colossus (Moon) | 12.73 | 12.97 | +0.24 | **20.53** over | **20.62** over | +0.09 |
+| Orrery (space) | 10.64 | 10.64 | 0.00 | 12.05 | 12.06 | +0.01 |
+| Turbine (city) | 11.36 | 11.36 | 0.00 | **17.97** over | **17.82** over | −0.15 |
 
-- **`Low` misses the 16.1 ms budget in five chapters, three of them since v0.5.0**: the aurora, the cavern and the meadow (the first chapter) were inside it on v0.4.0. **`Medium` fits only space** (the Grid fitted on v0.4.0). `High` is not in the table; on 2026-09-23 it missed the panel by 1.2–3.7×.
-- **The steps and the merges between the two builds that touched the scene:** the aurora's is **#963** (its rebuild, the one such merge): the far stand, the collars and both terrain grids drawn whole at every tier, and on `Medium` the Moon's shadow map (2048). The cavern's span holds **#958** (the hall rebuilt on the CPU), #1017 and #984; on the desktop that hall is cheaper on every tier ("Cost" in `docs/scenes/cavern.md`), on the APU only on `Medium`. The meadow's holds a dozen: the brook (#892 twice, #924, #970, #979), the lawn (#944), the bales (#943, #971), the bench (#891, #1022) and the trees' fork (#889: `Low` and `Medium` draw the coarse wood, +14 to +18 % triangles). The Grid's own is the light cycles (#956). The savanna's holds the acacia leaves (#964), the wood shut at every joint (#938) and the campfires' mounds and light (#887, #885). **Moon, space, the big top and Turbine got 0.6–2.0 ms cheaper** at both tiers.
-- **Since #1028 the meadow's and the savanna's `Low` rows are smaller**: beside v0.4.0 in one session, Amphora 15.18 → 18.04 on v0.5.0 → **16.22** with the plant programs, Balloon 15.01 → 16.35 → **14.81**. Of the meadow's step that is left, +0.97 is the brook's cut (#892); "On the reference APU at `Low`" in `docs/scenes/meadow.md` has the rest. **Then `Low` gave the grass's relief and the banks' texture up** (#1028, the owner's ruling): Amphora −0.71 ms and Diabolo −0.76 beside the build before, which brings Amphora inside the budget.
-- **Since #1027 the aurora is back inside `Low`'s budget**: its far stand is drawn only where the lens looks, and beside the build before it Umbrella reads 17.78 → **14.39 ms** at `Low` (v0.4.0's 14.27 in the table) and 27.69 → 24.64 at `Medium`, Fish 18.07 → 14.71 and 28.00 → 24.63, Pendulum unchanged. The layers' costs are in "Costs" in `docs/scenes/aurora.md`.
-- **Since #1029 the cavern is back inside `Low`'s budget**: `RockReduced` keeps three of the relief's five octaves, and beside the build before it Spring reads 16.80 → **15.31 ms** at `Low` (v0.4.0's 15.74 in the table) and Chest 15.18 → 13.67, Pendulum unchanged. "Cost" in `docs/scenes/cavern.md`.
-- **#748's land put the volcano over `Low`'s budget again** (Caldera +0.61, Paroxysm +1.01, both in the terrain's vertex program), and **#1032 culled its grid to the lens**: Caldera 16.34 → **16.00 ms** at `Low`, on the line rather than over it. "Tiers and costs" in `docs/scenes/volcano.md`.
-- **Since #1037 the volcano's `Medium` is under v0.5.0's**: #748 had cost it 5.9 ms, and `VolcanoMedium` keeps the authored pixel program over `Low`'s grid and vertex program. Caldera 38.00 → **31.93 ms** and Paroxysm 36.00 → 29.95 beside the build before, Colossus unchanged. "Tiers and costs" in `docs/scenes/volcano.md`.
-- **Since #1038 the volcano has a margin at `Low`**: the flank's program skips a flow a pixel is past the reach of (every tier, no pixel changes; Caldera 15.67 → **14.99 ms**, Paroxysm 14.71 → 13.98, and at `Medium` 31.94 → 29.81 and 29.95 → 27.80), and `Low` draws half the eruption column (Caldera −0.16). "Tiers and costs" in `docs/scenes/volcano.md`.
-- **Since #1035 the mountain is inside `Low`'s budget too**: every `TerrainPass` grid is drawn only where the lens looks, and `MountainReduced` takes its rock relief at one octave. Spyglass 17.32 → **15.44 ms** and Belfry 18.80 → 16.85 beside the build before, on an afternoon the whole machine read slow (Colossus 13.64 against 13.12 that morning). "Low's range on the reference APU" in `docs/scenes/mountains.md`.
-- **The cities' `Low` rows did not move with #1066's tower plans or #1065's window reflections** (2026-11-06, the build before the plans, the plans with their review's fixes and the reflections with theirs, `-ByLevel`): Girandole 12.36 → 12.24 → 12.23 ms, Turbine 10.94 → 10.86 → 10.88. Ghost's runs spread 2-3.5 ms, and its minimum of four runs a build read 14.34, 13.91 and 14.06. "Tower plans (#1066)" in `docs/scenes/city.md`; the reflections' own cost at `High` is in "Window reflections" in `docs/rendering/city.md`.
-- ⚠ **Balloon now and then reads about 3 ms cheaper for one whole run** (14.05 and 13.24 ms against 16.3-16.4, on both builds of one comparison), so a minimum of two runs can land on it: re-run before believing a savanna step.
-- **Each build's two runs agree to 0.3 ms or better on eight rows of fifteen at each tier**; on the rest they spread 0.6–2.4 ms (the dream at `Low` 1.65, Girandole at `Medium` 2.38), so a step under about a millisecond there is inside the noise: the dream's +1.12 at `Low` is. The cavern's, meadow's, mountain's, volcano's, savanna's and dream's `Medium` pairs were measured in one session and the rest after the machine restarted, on AC both times.
-- **The day's machine is not the code**: two DisplayLink monitors were attached, another session's JVM held four to nine cores for stretches (the frame barely moved with it: the APU is bound by its GPU here), and a pass-ordered sweep the same morning read the cheap levels up to 40 % lower in its first 25 minutes than the interleaved one did after (Pendulum on v0.5.0, 7.64 against 12.51 ms at `Low`). So a figure above is that afternoon's floor; **the steps are the comparison**. `colourcue=none` (the pre-#737 gores) is not the cheaper path on the APU: +2.5 ms on Girandole, +0.0 on Pendulum (2026-10-17).
-- ⚠ **`Low` keeps the far plane #551 asked for (the owner's ruling, 2026-09-29), so the mountain runs over** (0.6–0.9 ms in the table). With only `DEFAULT_FAR_PLANE_DISTANCE` back at 500, Spyglass read 15.68 ms on 2026-09-29. **Do not shorten it to win the time back.**
+- **`Low` holds the 16.1 ms budget on all fifteen.** The tightest are the mountain (Spyglass, 0.20 ms to spare), the dream (0.72) and the meadow, the first chapter (0.96). **`Medium` fits only space**; the Grid misses by 0.73. `High` is not in the table; on 2026-09-23 it missed the panel by 1.2–3.7×.
+- **The dream is the one chapter more than a quarter of a millisecond dearer than on v0.6.1**: Diadem +0.45 at `Low` and +1.36 at `Medium`. Not narrowed to a merge; its glass solids changed twice in the span (#1126, #1219). Where each chapter's cost goes is in its scene's document.
+- **A build's two runs agree to 0.1 ms or better on all but three rows**: Orrery at `Low` on `main` (11.61 against 10.64), and at `Medium` Spyglass on `main` (27.09 against 24.42) and Caldera on v0.6.1 (29.69 against 29.14). Even so a figure above is that afternoon's floor; **the steps are the comparison**.
+- ⚠ **Amphora can read 1.5 ms apart between sessions** of one day, build, tier and view: 15.14–15.23 in the table's session, then 15.59–15.73 in some later runs and 16.63–16.84, over the budget, in others (its vinyl runs split the same way, 13.26–13.27 and 13.97–14.07). Unexplained: the session seed, the camera and other processes' CPU are ruled out. Spyglass read 15.85–15.90 in the later session, as in the table. An Amphora step across sessions therefore says nothing under 1.5 ms.
+- ⚠ **Balloon now and then reads about 3 ms cheaper for one whole run** (14.05 and 13.24 ms against 16.3-16.4, on both builds of one comparison, 2026-10-27), so a minimum of two runs can land on it: re-run before believing a savanna step.
+- **The owner's rulings on `Low`**: it gave up the grass's relief and the banks' texture (#1028), and it keeps the far plane #551 asked for (2026-09-29), which the mountain, the tightest row, carries. **Do not shorten it to win time back.**
+- `colourcue=none` (the pre-#737 gores) is not the cheaper path on the APU: +2.5 ms on Girandole, +0.0 on Pendulum (2026-10-17).
 - **Front end at `Low`** (2026-09-29, 55 s per scene, orbit spreads of 4–6 ms): five of twenty scenes miss 16.1 ms (Mars 17.88, savanna 17.57, tropical 16.83, outback 16.82, polar 16.18); **left by the owner's ruling: the menu is not worked on for `Low`.**
 
 ## The mid desktop: GTX 1060 6 GB, Ryzen 5 3600 (#1031)
