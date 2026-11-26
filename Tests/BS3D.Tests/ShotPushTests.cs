@@ -5,6 +5,7 @@ using Prazsky.Core.Tools;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using Xunit;
 using Xunit.Abstractions;
 using XVector3 = Microsoft.Xna.Framework.Vector3;
@@ -29,15 +30,19 @@ namespace BS3D.Tests
         /// <see cref="ShotPush.MAX_KICK"/> keeps the sockets inside the same bound.
         /// </summary>
         [Theory]
-        [InlineData("One.json", 1f, BallKind.Normal)]
-        [InlineData("Pennant.json", 1f, BallKind.Normal)]
-        [InlineData("Pendant.json", 1f, BallKind.Normal)]
-        [InlineData("Pendant.json", 4f, BallKind.Normal)]
-        [InlineData("Colossus.json", 1f, BallKind.Cutter)]
-        public void AShotMovesTheClusterItHitsWithinWhatTheLatticeHolds(string level, float scale, BallKind kind)
+        [InlineData("One.json", 1f, BallKind.Normal, 1)]
+        [InlineData("Pennant.json", 1f, BallKind.Normal, 1)]
+        [InlineData("Pendant.json", 1f, BallKind.Normal, 1)]
+        [InlineData("Pendant.json", 4f, BallKind.Normal, 1)]
+        [InlineData("Colossus.json", 1f, BallKind.Cutter, 1)]
+        //The feels offered beside the shipped one (#1248): the stronger on the strand, where its kick bites hardest (+0.04),
+        //the strongest on a sheet (it stretched Pendant's strand 0.058 past the landing's own, over this bound)
+        [InlineData("Pendant.json", 1f, BallKind.Normal, 2)]
+        [InlineData("Pennant.json", 1f, BallKind.Normal, 3)]
+        public void AShotMovesTheClusterItHitsWithinWhatTheLatticeHolds(string level, float scale, BallKind kind, int feel)
         {
-            Response r = Fire(level, 1, 1f, scale, kind: kind);
-            output.WriteLine(Row(level, 1, string.Create(CultureInfo.InvariantCulture, $"x{scale} {kind}"), r));
+            Response r = Fire(level, 1, 1f, scale, kind: kind, feel: feel);
+            output.WriteLine(Row(level, 1, string.Create(CultureInfo.InvariantCulture, $"x{scale} {kind} feel {feel}"), r));
 
             Assert.NotNull(r.Landed);
             Assert.Equal(r.LandedWithout, r.Landed);
@@ -48,7 +53,7 @@ namespace BS3D.Tests
 
             Assert.True(r.PeakStretch - r.PeakStretchWithout < 0.05f,
                 $"the push stretched a socket {r.PeakStretch - r.PeakStretchWithout:0.000} of a diameter beyond the landing's own");
-            Assert.True(r.Push.Impulse <= scale * ShotRig.SHOOT_SPEED * BallsConstraintsBuilder.BALL_MASS * 1.01f,
+            Assert.True(r.Push.Impulse <= scale * ShotPush.Feel.ByNumber(feel).Share * ShotRig.SHOOT_SPEED * BallsConstraintsBuilder.BALL_MASS * 1.01f,
                 $"the push handed out {r.Push.Impulse:0.0}, more than the shot carried");
         }
 
@@ -145,13 +150,16 @@ namespace BS3D.Tests
         /// ball stands at least 0.2 from its unpushed twin.
         /// </summary>
         [Theory]
-        [InlineData("Zigzag.json", 2)]
-        [InlineData("Pennant.json", 2)]
-        [InlineData("Pendant.json", 1)]
-        public void APushedClusterFallsAsleepAgainWithinSeconds(string level, int seed)
+        [InlineData("Zigzag.json", 2, 1)]
+        [InlineData("Pennant.json", 2, 1)]
+        [InlineData("Pendant.json", 1, 1)]
+        //The stronger feels settle too (#1248): measured 4.0 to 7.1 s over five levels, two aims each
+        [InlineData("Zigzag.json", 2, 2)]
+        [InlineData("Zigzag.json", 2, 3)]
+        public void APushedClusterFallsAsleepAgainWithinSeconds(string level, int seed, int feel)
         {
-            Response r = Fire(level, seed, SLEEP_WITHIN);
-            output.WriteLine(Row(level, seed, "settle", r));
+            Response r = Fire(level, seed, SLEEP_WITHIN, feel: feel);
+            output.WriteLine(Row(level, seed, $"settle, feel {feel}", r));
 
             Assert.False(float.IsNaN(r.AwakeSeconds), $"the pushed cluster was still awake {SLEEP_WITHIN} s after the hit");
             Assert.True(r.At(0.5f) >= 0.2f, $"the push moved the farthest ball only {r.At(0.5f):0.000} in its first half second");
@@ -418,12 +426,13 @@ namespace BS3D.Tests
         /// (the handler gives its push at the very end of that step's contact work, so the two are the same moment).
         /// </summary>
         internal static Response Fire(string level, int seed, float seconds, float scale = 1f, Manual? manual = null,
-            BallKind kind = BallKind.Normal)
+            BallKind kind = BallKind.Normal, int feel = 1)
         {
             using ShotRig pushed = new(level, workerThreads: 1);
             using ShotRig still = new(level, workerThreads: 1);
 
             pushed.Handler.PushScale = manual == null ? scale : 0f;
+            pushed.Handler.PushFeel = ShotPush.Feel.ByNumber(feel);
             still.Handler.PushScale = 0f;
 
             Random rngA = new(seed), rngB = new(seed);
@@ -567,10 +576,17 @@ namespace BS3D.Tests
                 ?? "One.json,Kiln.json,Colossus.json,Pennant.json,Sail.json,Hammock.json,Pendant.json,Amphora.json,Rope.json,Zigzag.json")
                 .Split(',');
 
-            List<(string Label, float Scale, Manual? Manual)> configurations = new()
+            List<(string Label, float Scale, Manual? Manual, int Feel)> configurations = new()
             {
-                ("shipped", 1f, null),
+                ("shipped", 1f, null, 1),
             };
+
+            //The feels offered beside the shipped one (#1248), by their pushfeel= numbers (BS3D_SHOT_PUSH_FEELS, e.g. "2,3")
+            foreach (string number in (Environment.GetEnvironmentVariable("BS3D_SHOT_PUSH_FEELS") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries))
+            {
+                int feel = int.Parse(number, CultureInfo.InvariantCulture);
+                configurations.Add((ShotPush.Feel.ByNumber(feel).Name, 1f, null, feel));
+            }
 
             string sweep = Environment.GetEnvironmentVariable("BS3D_SHOT_PUSH_SWEEP");
             if (!string.IsNullOrEmpty(sweep))
@@ -580,14 +596,14 @@ namespace BS3D.Tests
                     Manual m = new(float.Parse(parts[0], CultureInfo.InvariantCulture), int.Parse(parts[1], CultureInfo.InvariantCulture),
                         float.Parse(parts[2], CultureInfo.InvariantCulture),
                         parts.Length > 3 ? float.Parse(parts[3], CultureInfo.InvariantCulture) : ShotPush.HOP_FALLOFF);
-                    configurations.Add((string.Create(CultureInfo.InvariantCulture, $"x{m.Scale} r{m.Reach} k{m.MaxKick} f{m.Falloff}"), 0f, m));
+                    configurations.Add((string.Create(CultureInfo.InvariantCulture, $"x{m.Scale} r{m.Reach} k{m.MaxKick} f{m.Falloff}"), 0f, m, 1));
                 }
 
             foreach (string level in levels)
                 for (int seed = 1; seed <= aims; seed++)
-                    foreach ((string label, float scale, Manual? manual) in configurations)
+                    foreach ((string label, float scale, Manual? manual, int feel) in configurations)
                     {
-                        Response r = Fire(level, seed, ReportSeconds, scale, manual);
+                        Response r = Fire(level, seed, ReportSeconds, scale, manual, feel: feel);
                         if (r.Landed == null) { output.WriteLine($"{level} seed {seed}: no landing"); break; }
                         output.WriteLine(Row(level, seed, label, r));
                     }
@@ -599,10 +615,11 @@ namespace BS3D.Tests
         /// landed in the cell their ghost showed as they left. Every landing completes no group, so the cluster only grows.
         /// </summary>
         internal static (int Compared, int Same, List<string> Others) Succession(string level, int seed, int shots, float gap,
-            float scale, bool promise = true, bool lead = true)
+            float scale, bool promise = true, bool lead = true, int feel = 1)
         {
             using ShotRig rig = new(level, workerThreads: 1);
             rig.Handler.PushScale = scale;
+            rig.Handler.PushFeel = ShotPush.Feel.ByNumber(feel);
             rig.StampsPromise = promise;
             rig.Leads = lead;
 
@@ -661,26 +678,33 @@ namespace BS3D.Tests
                     yield return (mode[0] == '1', mode[2] == '1');
             }
 
+            //The feels to compare (#1248), by their pushfeel= numbers (BS3D_SHOT_PUSH_FEELS, the shipped one by default)
+            int[] feels = (Environment.GetEnvironmentVariable("BS3D_SHOT_PUSH_FEELS") is string listed && listed.Length > 0 ? "1," + listed : "1")
+                .Split(',').Select(n => int.Parse(n, CultureInfo.InvariantCulture)).Distinct().ToArray();
+
             foreach (string gapText in gaps)
             {
                 float gap = float.Parse(gapText, CultureInfo.InvariantCulture);
 
+                foreach (int feel in feels)
                 foreach (float scale in Scales())
                     foreach ((bool promise, bool lead) in Modes())
                     {
+                        if (feel != 1 && scale == 0f) continue;
+
                         int compared = 0, same = 0;
                         List<string> others = new();
 
                         foreach (string level in levels)
                         {
-                            (int c, int s, List<string> o) = Succession(level, 1192 + level.Length, shots, gap, scale, promise, lead);
+                            (int c, int s, List<string> o) = Succession(level, 1192 + level.Length, shots, gap, scale, promise, lead, feel);
                             compared += c;
                             same += s;
                             others.AddRange(o);
                         }
 
                         output.WriteLine(string.Create(CultureInfo.InvariantCulture,
-                            $"gap {gap:0.0#} s, push x{scale}, promise {(promise ? "kept" : "not kept")}, {(lead ? "leading" : "not leading")}: {same} of {compared} in the ghost's cell ({100.0 * same / Math.Max(1, compared):0.0} %)"));
+                            $"gap {gap:0.0#} s, {ShotPush.Feel.ByNumber(feel).Name}, push x{scale}, promise {(promise ? "kept" : "not kept")}, {(lead ? "leading" : "not leading")}: {same} of {compared} in the ghost's cell ({100.0 * same / Math.Max(1, compared):0.0} %)"));
                         foreach (string other in others) output.WriteLine("  " + other);
                     }
             }

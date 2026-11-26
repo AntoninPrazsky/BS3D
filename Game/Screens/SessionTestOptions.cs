@@ -89,6 +89,8 @@ namespace BS3D.Screens
     /// for, or null for the shipped <c>SHOOT_SPEED</c>.</param>
     /// <param name="ShotPush">The <c>shotpush=</c> argument (#1192): what multiplies the push a shot gives the balls it strikes
     /// (<c>BallContactEventHandler.PushScale</c>), 0 for none, or null for the shipped push.</param>
+    /// <param name="PushFeel">The <c>pushfeel=</c> argument (#1248): which <c>ShotPush.Feel</c> a hit reads with, 1 to 3, or null
+    /// for the shipped one.</param>
     internal sealed record SessionTestOptions(
         int? ForcedStreak,
         int ForcedWildcardEvery,
@@ -110,7 +112,8 @@ namespace BS3D.Screens
         IReadOnlyList<float> RevealShotSeconds = null,
         IReadOnlyList<float> IntroShotSeconds = null,
         float? ShotSpeed = null,
-        float? ShotPush = null)
+        float? ShotPush = null,
+        int? PushFeel = null)
     {
         /// <summary>
         /// Reads the levers out of what the command line said. The one place their interpretation lives: any
@@ -140,6 +143,7 @@ namespace BS3D.Screens
             RevealShotSeconds: launch.RevealShotSeconds ?? Array.Empty<float>(),
             IntroShotSeconds: launch.IntroShotSeconds ?? Array.Empty<float>(),
             ShotSpeed: launch.ShotSpeed,
-            ShotPush: launch.ShotPush);
+            ShotPush: launch.ShotPush,
+            PushFeel: launch.PushFeel);
     }
 }

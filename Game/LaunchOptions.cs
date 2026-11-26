@@ -176,6 +176,10 @@ namespace BS3D
         //(ShotPush.MOMENTUM_SHARE of the shot's momentum)
         internal float? ShotPush { get; private set; }
 
+        //Trying how hard a hit reads (#1248): 1 the shipped push, 2 stronger, 3 strongest (ShotPush.Feel.ByNumber), or null
+        //for the shipped one
+        internal int? PushFeel { get; private set; }
+
         //Testing only: offer every tutorial card as if none had been taught, and record none (#189). The
         //cards are gated on the save — a lesson done is never shown again — so on a save that finished the
         //chapter months ago they are otherwise unreachable, and a run that taught them for real would write
@@ -738,6 +742,10 @@ namespace BS3D
             //(the shot's whole momentum), up to 4. For the owner's hands to compare; the benchmark's measured run has none and
             //a capture the shipped one, whatever this says (GameplayScreen.Session's PushScale).
             Row.Float("shotpush", (o, v) => o.ShotPush = v, v => v >= 0f && v <= 4f),
+            //"pushfeel=<1|2|3>" chooses how hard a hit reads (#1248, ShotPush.Feel): 1 the shipped push, 2 stronger (1.75 of the
+            //momentum, a kick of 12, half a second longer free), 3 strongest (2.5, 16, two seconds free). For the owner to compare
+            //in play until he picks one; the benchmark's measured run has no push whatever this says.
+            Row.Int("pushfeel", (o, v) => o.PushFeel = v, v => v >= 1 && v <= 3),
             //"tutorial" offers every tutorial card and records nothing, "tutorial=demo" reels them (#189) —
             //see the property's own note.
             Row.Flag("tutorial", o => o.Tutorial = "force"),
