@@ -35,10 +35,18 @@ namespace BS3D.Effects
     /// </para>
     /// <para>
     /// <b>The net is projected</b> (#874): from each of the four emitters' lenses in the funnel
-    /// (<see cref="LaserEmitterRing.Lens"/>) a soft cone of the same red runs to its corner of the net, a pencil as thin
-    /// as a beam where it leaves the centre of the lens and widening as it goes (<see cref="CONE_SPREAD"/>), dimmer the
-    /// wider (<see cref="CONE_GAIN_POWER"/>), landing on its corner and dissolving just past it. The cones are quads of the
-    /// same buffer and the same draw, so they carry the net's own pulse, wave and flare, and are lit only while it is.
+    /// (<see cref="LaserEmitterRing.Lens"/>) a beam of the net's own width and light runs straight into its corner of the
+    /// net (the projector's ray, #1246), where it meets the two outermost beams in one bright point, and round it a soft
+    /// cone of the same red, as thin as a beam where it leaves the centre of the lens and widening as it goes
+    /// (<see cref="CONE_SPREAD"/>), dimmer the wider (<see cref="CONE_GAIN_POWER"/>), landing on its corner and dissolving
+    /// just past it: the haze the ray is seen through. Both are quads of the same buffer and the same draw, so they carry
+    /// the net's own pulse, wave and flare, and are lit only while it is.
+    /// </para>
+    /// <para>
+    /// <b>The corners are closed</b> (#1246): the two outermost beams that meet at a corner do not fade there, as every
+    /// other end does, but run on past it by <see cref="BEAM_FADE_LENGTH"/> and fade over that, so each is at its whole
+    /// light at the corner and the two, with the projector's ray, cover the vertex. Faded at the corner like a T, the two
+    /// went dark together and left a notch the owner saw as an open net.
     /// </para>
     /// </summary>
     internal sealed class LaserGrid : IDisposable
@@ -48,8 +56,9 @@ namespace BS3D.Effects
         private const float BEAM_HALF_WIDTH = 0.055f;
 
         //A beam's soft ends, as a length and as most a share of the beam: barely there, because every end is on the
-        //boundary (#941) - a T where it meets the outermost beam, a corner where two of those meet and a cone lands - and a
-        //fade longer than the ribbon is wide would leave a gap in each. It only takes the edge off a cut across the ribbon.
+        //boundary (#941) - a T where it meets the outermost beam - and a fade longer than the ribbon is wide would leave a
+        //gap in each. It only takes the edge off a cut across the ribbon. At a corner the outermost beams and the
+        //projector's ray run this far PAST the corner and fade there instead (#1246), so all three are whole at the vertex.
         private const float BEAM_FADE_LENGTH = 0.08f;
         private const float BEAM_FADE_MAX_SHARE = 0.25f;
 
@@ -77,6 +86,13 @@ namespace BS3D.Effects
         //The quads each cone is cut into along its length: the gain is not linear in the length, and each quad's corners
         //carry it, so a few of them make the falloff a curve
         private const int CONE_SECTIONS = 6;
+
+        //The projector's ray (#1246): a beam's width and a beam's light all the way from the lens into the corner, so the
+        //light leaving the lens is the light the net is drawn in, and the cone round it is its haze. The haze alone landed
+        //on the corner at about a tenth of a beam's light, spread a unit wide, and from the play camera, or over the lit
+        //glass, the net looked unconnected to the emitter beside it. One quad: its width and gain do not change along it.
+        private const float RAY_GAIN = 1f;
+        private const int RAY_SECTIONS = 1;
 
         //The envelope's two slopes. Arrival is fast — it is an alarm — and departure slow enough to read
         //as the net standing down rather than flickering out when the player frees the bottom level.
@@ -211,11 +227,11 @@ namespace BS3D.Effects
             int alongX = LaserNetShape.BeamCount(CornerZ);      //beams running along X are spaced in Z
             int alongZ = LaserNetShape.BeamCount(CornerX);
 
-            //Every row of every strip is two vertices, and a strip of n + 1 rows is n quads: a beam is BEAM_SEGMENTS quads
-            //and a cone CONE_SECTIONS
+            //Every row of every strip is two vertices, and a strip of n + 1 rows is n quads: a beam is BEAM_SEGMENTS quads,
+            //a cone CONE_SECTIONS and a projector's ray RAY_SECTIONS
             int beams = alongX + alongZ;
-            _quadCount = beams * LaserNetShape.BEAM_SEGMENTS + LaserEmitterRing.COUNT * CONE_SECTIONS;
-            int vertexCount = (beams * (LaserNetShape.BEAM_SEGMENTS + 1) + LaserEmitterRing.COUNT * (CONE_SECTIONS + 1)) * 2;
+            _quadCount = beams * LaserNetShape.BEAM_SEGMENTS + LaserEmitterRing.COUNT * (CONE_SECTIONS + RAY_SECTIONS);
+            int vertexCount = (beams * (LaserNetShape.BEAM_SEGMENTS + 1) + LaserEmitterRing.COUNT * (CONE_SECTIONS + 1 + RAY_SECTIONS + 1)) * 2;
 
             //The indices are sixteen bits: a net this fine would have to be cut into several buffers (the widest the set
             //draws is 17 across, with about a hundredth of this)
@@ -228,16 +244,22 @@ namespace BS3D.Effects
             int vertex = 0;
             int index = 0;
 
+            //The first and the last beam each way are the boundary, whose ends are the four corners
             for (int i = 0; i < alongX; i++)
-                AddBeam(vertices, indices, ref vertex, ref index, true, LaserNetShape.BeamOffset(i, alongX), y);
+                AddBeam(vertices, indices, ref vertex, ref index, true, LaserNetShape.BeamOffset(i, alongX), y, i == 0 || i == alongX - 1);
 
             for (int i = 0; i < alongZ; i++)
-                AddBeam(vertices, indices, ref vertex, ref index, false, LaserNetShape.BeamOffset(i, alongZ), y);
+                AddBeam(vertices, indices, ref vertex, ref index, false, LaserNetShape.BeamOffset(i, alongZ), y, i == 0 || i == alongZ - 1);
 
-            //The four projection cones, each from the centre of its emitter's lens to its corner of the net
+            //The four projectors, each from the centre of its emitter's lens to its corner of the net: the haze, then the ray
             for (int k = 0; k < LaserEmitterRing.COUNT; k++)
-                AddCone(vertices, indices, ref vertex, ref index, LaserEmitterRing.Lens(k, CornerX, CornerZ, y),
-                    LaserEmitterRing.NetCorner(k, CornerX, CornerZ, y));
+            {
+                Vector3 lens = LaserEmitterRing.Lens(k, CornerX, CornerZ, y);
+                Vector3 corner = LaserEmitterRing.NetCorner(k, CornerX, CornerZ, y);
+
+                AddCone(vertices, indices, ref vertex, ref index, lens, corner);
+                AddRay(vertices, indices, ref vertex, ref index, lens, corner);
+            }
 
             _vertexBuffer = new VertexBuffer(_device, LaserVertex.Declaration, vertices.Length, BufferUsage.WriteOnly);
             _vertexBuffer.SetData(vertices);
@@ -259,9 +281,11 @@ namespace BS3D.Effects
         /// One beam of the net (#941): <see cref="LaserNetShape.BEAM_SEGMENTS"/> + 1 rows along its bowed path
         /// (<see cref="LaserNetShape.BeamPoint"/>), the ribbon's axis at each row the path's direction there (the neighbours'
         /// chord, so the rows of two segments agree on one edge and a bend has no crack in it). The beam fades over
-        /// <see cref="BEAM_FADE_LENGTH"/> at each end, which is where it meets the boundary or, for the outermost beams, the corner.
+        /// <see cref="BEAM_FADE_LENGTH"/> at each end, which is where it meets the boundary; a <paramref name="boundary"/>
+        /// beam's ends are corners, and it runs on past each by that length and fades there instead, whole at the corner
+        /// (#1246). Its end rows move out along the end segments, so the bow's polyline is unchanged.
         /// </summary>
-        private void AddBeam(LaserVertex[] vertices, short[] indices, ref int vertex, ref int index, bool alongX, float offset, float y)
+        private void AddBeam(LaserVertex[] vertices, short[] indices, ref int vertex, ref int index, bool alongX, float offset, float y, bool boundary)
         {
             const int N = LaserNetShape.BEAM_SEGMENTS;
 
@@ -271,10 +295,19 @@ namespace BS3D.Effects
             for (int s = 0; s <= N; s++)
             {
                 Vector2 p = LaserNetShape.BeamPoint(alongX, offset, s, CornerX, CornerZ);
-
                 points[s] = new Vector3(p.X, y, p.Y);
-                distance[s] = s == 0 ? 0f : distance[s - 1] + Vector3.Distance(points[s - 1], points[s]);
             }
+
+            if (boundary)
+            {
+                Vector3 head = points[0] - Vector3.Normalize(points[1] - points[0]) * BEAM_FADE_LENGTH;
+                Vector3 tail = points[N] + Vector3.Normalize(points[N] - points[N - 1]) * BEAM_FADE_LENGTH;
+                points[0] = head;
+                points[N] = tail;
+            }
+
+            for (int s = 0; s <= N; s++)
+                distance[s] = s == 0 ? 0f : distance[s - 1] + Vector3.Distance(points[s - 1], points[s]);
 
             float length = distance[N];
             float fade = MathF.Min(BEAM_FADE_LENGTH / length, BEAM_FADE_MAX_SHARE);
@@ -317,6 +350,28 @@ namespace BS3D.Effects
         }
 
         private static float ConeGain(float halfWidth) => MathF.Pow(BEAM_HALF_WIDTH / halfWidth, CONE_GAIN_POWER);
+
+        /// <summary>
+        /// The projector's ray from <paramref name="lens"/> into <paramref name="corner"/> (#1246): a straight beam of the
+        /// net's own half-width and <see cref="RAY_GAIN"/>, fading in at the lens over the cone's <see cref="CONE_FADE_IN"/>
+        /// and running on past the corner by <see cref="BEAM_FADE_LENGTH"/> to fade there, as the boundary's beams do, so it
+        /// is whole where it hands over to them. The three overlap at the vertex, additively, which is the corner's hot spot.
+        /// </summary>
+        private static void AddRay(LaserVertex[] vertices, short[] indices, ref int vertex, ref int index, Vector3 lens, Vector3 corner)
+        {
+            float length = Vector3.Distance(lens, corner);
+            Vector3 axis = (corner - lens) / length;
+            float total = length + BEAM_FADE_LENGTH;
+            Vector3 end = lens + axis * total;
+
+            for (int i = 0; i <= RAY_SECTIONS; i++)
+            {
+                float a = (float)i / RAY_SECTIONS;
+
+                AddRow(vertices, indices, ref vertex, ref index, i > 0, Vector3.Lerp(lens, end, a), axis, BEAM_HALF_WIDTH, RAY_GAIN,
+                    a, a * total, CONE_FADE_IN, BEAM_FADE_LENGTH / total);
+            }
+        }
 
         /// <summary>
         /// One row of a strip: two vertices on either side of <paramref name="position"/>, and, when <paramref name="joins"/>
