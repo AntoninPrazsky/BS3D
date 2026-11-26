@@ -8,7 +8,7 @@ the same colour and bring pieces of it down. It's a solo project, built in the o
 
 ![Screenshot](/Images/screenshot3.jpg)
 
-*Cannonball, a level of the meadow chapter, captured in game at 2560×1080 on v0.5.0.*
+*Cannonball, a level of the meadow chapter, captured in game at 2560×1080 on v0.7.0.*
 
 ## Download and play
 
