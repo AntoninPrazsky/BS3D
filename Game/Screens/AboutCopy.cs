@@ -162,10 +162,15 @@ namespace BS3D.Screens
             + "(Anthropic), through Claude Code — the shaders, the level designs, the tools and the documentation among "
             + "them. The rest was generated locally:";
 
-        /// <summary>What was generated locally, and what for.</summary>
+        /// <summary>
+        /// What was generated locally, and what for. Stable Audio 3 Small-SFX made every recording in <c>Game/Sfx</c> (#482,
+        /// the fanfares included) and was missing here until #1256, so this list and the itch.io page's AI disclosure did
+        /// not say the same thing.
+        /// </summary>
         internal static readonly Credit[] GENERATED =
         {
             new("ACE-Step\u00A01.5", "the music"),
+            new("Stable\u00A0Audio\u00A03", "the recorded sound effects"),
             new("Z-Image-Turbo", "the intro logo and design references"),
             new("RealESRGAN", "the logo’s upscale"),
             new("Gemma, nomic-embed", "small models, as development tools"),

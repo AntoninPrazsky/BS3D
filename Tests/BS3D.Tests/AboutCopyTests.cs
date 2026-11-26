@@ -25,7 +25,8 @@ namespace BS3D.Tests
         {
             ".NET 10", "MonoGame 3.8.5", "DirectX 11", "BepuPhysics 2.5", "Myra", "FontStashSharp", "NVorbis",
             "Anton", "Inter", "PromptFont", "SIL OFL 1.1",
-            "Claude", "Anthropic", "Claude Code", "ACE-Step 1.5", "Z-Image-Turbo", "RealESRGAN", "Gemma", "nomic-embed",
+            "Claude", "Anthropic", "Claude Code", "ACE-Step 1.5", "Stable Audio 3", "Z-Image-Turbo", "RealESRGAN", "Gemma",
+            "nomic-embed",
         };
 
         //The three builds by name: a public test method cannot take the internal enum
@@ -88,7 +89,11 @@ namespace BS3D.Tests
             //"Typesetting" in docs/game-shell/menu-look.md: a name keeps its version on its line. A credit list's name never
             //breaks today, but a role does, and the licence sits in one
             string api = AboutCopy.GraphicsApi(Parse(build));
-            string[] tied = { "MonoGame\u00A03.8.5", api, "BepuPhysics\u00A02.5", "SIL\u00A0OFL\u00A01.1", "ACE-Step\u00A01.5", ".NET\u00A010" };
+            string[] tied =
+            {
+                "MonoGame\u00A03.8.5", api, "BepuPhysics\u00A02.5", "SIL\u00A0OFL\u00A01.1", "ACE-Step\u00A01.5",
+                "Stable\u00A0Audio\u00A03", ".NET\u00A010",
+            };
             string page = string.Join("\n", AboutCopy.Copy(TITLE, Parse(build)));
 
             foreach (string name in tied) Assert.Contains(name, page);
