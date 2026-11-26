@@ -1,6 +1,7 @@
 using BS3D.Lighting;
 using Microsoft.Xna.Framework;
 using Prazsky.BS3D;
+using Prazsky.BS3D.Levels;
 using System;
 
 namespace BS3D.Screens
@@ -28,15 +29,32 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// How the level ended, for the keyboard's ending (#987): cleared and its stars, or false while it has not ended. Read off the
-        /// record the result page was built from, so the keyboard and the page cannot disagree.
+        /// How the level ended, for the keyboard's ending (#987): cleared and its stars, or false while it is still being played.
+        /// <para>
+        /// <b>From the moment the level is decided</b> (#1258), not from its record: the field emptied (<see cref="LevelPhase.ClearedBeat"/>)
+        /// or the cluster crossed the line (<see cref="LevelPhase.LossHold"/>). Before #1258 the keyboard stayed in play through the
+        /// cleared beat and flashed the round in the bore as the spare volley fired the magazine off, the owner's note.
+        /// </para>
+        /// <para>
+        /// The stars come off the record the result page is built from, so the keyboard and the page cannot disagree, and
+        /// <paramref name="final"/> says whether it has been made: a clear's stars are not known before, since the volley still adds its
+        /// balls to the score.
+        /// </para>
         /// </summary>
-        internal bool KeyLightEnding(out bool cleared, out int stars)
+        internal bool KeyLightEnding(out bool cleared, out int stars, out bool final)
         {
-            cleared = _endingRecord?.Cleared == true;
-            stars = _endingRecord?.Stars ?? 0;
+            if (_endingRecord is EndingRecord record)
+            {
+                cleared = record.Cleared;
+                stars = record.Stars;
+                final = true;
+                return true;
+            }
 
-            return _endingRecord != null;
+            cleared = _phase == LevelPhase.ClearedBeat;
+            stars = 0;
+            final = false;
+            return _phase is LevelPhase.ClearedBeat or LevelPhase.LossHold;
         }
     }
 }

@@ -16,6 +16,9 @@ namespace BS3D
         private float _lightModeSince;
         private bool _lightsWereShown;
 
+        //When a Won ending's stars became known (#1258): the rainbow sweeps its last RAINBOW_SECONDS from here. NaN while they are not
+        private float _lightCupSince = float.NaN;
+
         /// <summary>
         /// The backlit keyboard's frame (#987): what the stack is showing, composed into one colour a lamp
         /// (<see cref="KeyLightModel.Compose"/>, no allocation) and handed to the backend, which sends it off the frame at the
@@ -42,22 +45,26 @@ namespace BS3D
 
             KeyLightInput input = new() { Clock = _wallClock };
             KeyLightMode mode = KeyLightMode.Idle;
+            bool cupKnown = false;
 
             //The ending is the result page's own figures (a page the `result` argument stages too), or, before that page, the
-            //record a level that has ended keeps (the campaign's finale stands in front of the page). Play is the level itself on
-            //top: a pause or the note page over it is the menus' board
+            //level's own ending from the moment it is decided (#1258: the cleared beat, its spare volley, the line loss's hold),
+            //with its stars once its record is made (the campaign's finale stands in front of the page). Play is the level itself
+            //on top: a pause or the note page over it is the menus' board
             if (_screens.Contains<ResultPage>())
             {
                 LevelResult result = _resultPage.Result;
                 mode = result.Cleared ? KeyLightMode.Won : KeyLightMode.Lost;
                 input.Stars = result.Stars;
+                cupKnown = true;
             }
             else if (_gameplayScreen is { IsBuilt: true } play && _screens.Contains<GameplayScreen>() && !_screens.Contains<PausePage>())
             {
-                if (play.KeyLightEnding(out bool cleared, out int stars))
+                if (play.KeyLightEnding(out bool cleared, out int stars, out bool final))
                 {
                     mode = cleared ? KeyLightMode.Won : KeyLightMode.Lost;
                     input.Stars = stars;
+                    cupKnown = final;
                 }
                 else if (_screens.Active is GameplayScreen)
                 {
@@ -73,6 +80,13 @@ namespace BS3D
             }
             input.Mode = mode;
             input.ModeSeconds = _wallClock - _lightModeSince;
+
+            //The cup's clock starts the first frame a Won ending's stars are known, and stops when they are not
+            cupKnown &= mode == KeyLightMode.Won;
+            if (!cupKnown) _lightCupSince = float.NaN;
+            else if (float.IsNaN(_lightCupSince)) _lightCupSince = _wallClock;
+            input.CupKnown = cupKnown;
+            input.CupSeconds = cupKnown ? _wallClock - _lightCupSince : 0f;
 
             KeyLightModel.Compose(input, _lightQueue, layout, _lightLamps);
             KeyboardLights.Submit(_lightLamps, resend: !_lightsWereShown);
