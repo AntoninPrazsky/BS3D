@@ -1140,6 +1140,23 @@ namespace BS3D.Tests
             }
         }
 
+        /// <summary>
+        /// <b>The prongs stand clear of the middle line's widest dashes</b> (#1245, the owner's narrower fork): at the full spread
+        /// a prong's inner edge (its own half-width, <see cref="AimBeam.WIDTH"/>, in from the spread) stays off the edge of the
+        /// widest far dash (<see cref="AimBeam.FAR_WIDTH"/>), or the three prongs run together into one broad end near the ball, and a prong
+        /// has its whole light only once it is clear of the line (<see cref="AimBeam.FORK_SHOW"/>), which the opening must reach.
+        /// <b>Seen to fail</b> at a spread of 0.35, where a prong's inner edge (0.23) stood inside the widest dash's (0.26) and
+        /// the captured fork on Minaret read as one smeared dash.
+        /// </summary>
+        [Fact]
+        public void TheProngsStandClearOfTheWidestFarDash()
+        {
+            float gap = AimBeam.FORK_SPREAD - AimBeam.WIDTH - AimBeam.FAR_WIDTH;
+            Assert.True(gap > 0f, $"a prong's inner edge stands {gap:0.00} off the widest far dash: inside it");
+            Assert.True(AimBeam.FORK_SHOW < AimBeam.FORK_SPREAD, "the prongs never clear the line, so never have their whole light");
+            Assert.True(AimBeam.FORK_SPREAD < AimBeam.LANDING_SPREAD, "the fork as wide as the landing region again, which the owner found too wide");
+        }
+
         /// <summary>A strike (a cutter's plain line) and a beam into the open air have no fork: neither has a landing to spread.</summary>
         [Fact]
         public void OnlyALandingForks()
