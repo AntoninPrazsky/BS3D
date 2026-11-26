@@ -105,6 +105,41 @@ namespace Prazsky.BS3D.Physics
         public const float SETTLE_SECONDS = 4f;
 
         /// <summary>
+        /// <b>How hard a hit reads</b> (#1248): the share of the shot's momentum the cluster takes (over its kind's own,
+        /// <see cref="ShareFor"/>), the most one ball's velocity changes by, and how long the swing runs free before it is
+        /// settled and how fast it is settled then. The owner accepted <see cref="Shipped"/> on 2026-11-24 and asked to try
+        /// more energy; <see cref="Stronger"/> and <see cref="Strongest"/> are the two offered beside it, chosen at launch
+        /// (the Game's <c>pushfeel=</c>), until he picks one. A share over 1 is more than the ball carried, the exaggeration
+        /// a game may make; the longer hold is the same momentum shown longer.
+        /// </summary>
+        public readonly record struct Feel(string Name, float Share, float MaxKick, float SettleHold, float SettleRate)
+        {
+            /// <summary>The push as shipped since #1192: the shot's whole momentum, <see cref="MAX_KICK"/>, a second free.</summary>
+            public static Feel Shipped => new("shipped", 1f, MAX_KICK, SETTLE_HOLD, SETTLE_RATE);
+
+            /// <summary>Three quarters again of the momentum, a half again of the kick, half a second longer free.</summary>
+            public static Feel Stronger => new("stronger", 1.75f, 12f, 1.5f, SETTLE_RATE);
+
+            /// <summary>Two and a half times the momentum, twice the kick, two seconds free and a gentler settle after.</summary>
+            public static Feel Strongest => new("strongest", 2.5f, 12f, 1.5f, 1.8f);
+
+            /// <summary>The feels by their number in <c>pushfeel=</c>: 1 shipped, 2 stronger, 3 strongest.</summary>
+            public static Feel ByNumber(int number) => number switch
+            {
+                1 => Shipped,
+                2 => Stronger,
+                3 => Strongest,
+                _ => throw new ArgumentOutOfRangeException(nameof(number), number, "pushfeel is 1, 2 or 3"),
+            };
+        }
+
+        /// <summary>How long a push's swing runs free before it is settled (<see cref="Feel.SettleHold"/>; <see cref="SETTLE_HOLD"/> as shipped).</summary>
+        public float SettleHold { get; set; } = SETTLE_HOLD;
+
+        /// <summary>The settle's drag per second (<see cref="Feel.SettleRate"/>; <see cref="SETTLE_RATE"/> as shipped).</summary>
+        public float SettleRate { get; set; } = SETTLE_RATE;
+
+        /// <summary>
         /// The share of its momentum a shot of <paramref name="kind"/> hands the cluster. Every kind the gun fires today
         /// takes <see cref="MOMENTUM_SHARE"/>; a kind built to hit harder (#1033's Fire Ball, which tunnels through the
         /// map) states its own here, and <see cref="MAX_KICK"/> still bounds what any one ball takes.
@@ -334,15 +369,15 @@ namespace Prazsky.BS3D.Physics
         {
             _settleAge += dt;
 
-            if (_settleAge > SETTLE_HOLD + SETTLE_SECONDS || _settleBalls == null)
+            if (_settleAge > SettleHold + SETTLE_SECONDS || _settleBalls == null)
             {
                 EndSettle();
                 return;
             }
 
-            if (_settleAge <= SETTLE_HOLD) return;
+            if (_settleAge <= SettleHold) return;
 
-            float keep = MathF.Exp(-SETTLE_RATE * dt);
+            float keep = MathF.Exp(-SettleRate * dt);
             Bodies bodies = _settling.Bodies;
             PhysicsBall[,,] balls = _settleBalls;
 

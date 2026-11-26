@@ -116,6 +116,27 @@ namespace Prazsky.BS3D.Physics
         /// </summary>
         public float PushScale { get; set; } = 1f;
 
+        /// <summary>
+        /// How hard a hit reads (#1248, <see cref="ShotPush.Feel"/>): its share multiplies every push with
+        /// <see cref="PushScale"/>, its kick bounds each ball, and its hold and rate set how the swing is settled.
+        /// <see cref="ShotPush.Feel.Shipped"/> unless the Game's <c>pushfeel=</c> chooses another.
+        /// </summary>
+        public ShotPush.Feel PushFeel
+        {
+            get => _pushFeel;
+            set
+            {
+                _pushFeel = value;
+                _push.SettleHold = value.SettleHold;
+                _push.SettleRate = value.SettleRate;
+            }
+        }
+
+        private ShotPush.Feel _pushFeel = ShotPush.Feel.Shipped;
+
+        //What multiplies a shot's momentum into its push: the testing scale and the feel's share
+        private float PushFactor => PushScale * _pushFeel.Share;
+
         /// <summary>What the last push did (#1192): how many balls it reached and the momentum it handed them.</summary>
         public ShotPush.Result LastPush { get; private set; }
 
@@ -918,7 +939,8 @@ namespace Prazsky.BS3D.Physics
             //it and its sockets were built with no error, and the four removals above have taken what they take. The balls
             //the walk found take their shares whether they still hang or were just let go of: a group the shot knocked out
             //leaves along its flight with its share, and does not drop as if nothing had hit it (#1249)
-            LastPush = _push.Deliver(_simulation, _physicsBalls, ShotPush.ImpulseOf(shotMass, struckWith, shotKind, PushScale));
+            LastPush = _push.Deliver(_simulation, _physicsBalls, ShotPush.ImpulseOf(shotMass, struckWith, shotKind, PushFactor),
+                _pushFeel.MaxKick);
 
             //Everything the four removals just let go of is LOOSE from here on, and a shot still in the air passes
             //through it (#410; the filter is NarrowPhaseCallbacks'). Marked here because this is the one place a
@@ -1005,7 +1027,7 @@ namespace Prazsky.BS3D.Physics
             shot.BallReference.Velocity.Linear = velocity - lost;
 
             return _push.Apply(_simulation, _physicsBalls, hitBall.ArrayPosition,
-                ShotPush.ImpulseOf(ShotMass(shot), lost, shot.Kind, PushScale));
+                ShotPush.ImpulseOf(ShotMass(shot), lost, shot.Kind, PushFactor), maxKick: _pushFeel.MaxKick);
         }
 
         /// <summary>
@@ -1072,7 +1094,7 @@ namespace Prazsky.BS3D.Physics
             //And the strike's push is given after the cut (#1192), on the landing's own reasoning: the balls still hanging
             //answer the blow, and what the cut let go of leaves with its share (#1249)
             LastPush = _push.Deliver(_simulation, _physicsBalls,
-                ShotPush.ImpulseOf(ShotMass(cutter), flying, BallKind.Cutter, PushScale));
+                ShotPush.ImpulseOf(ShotMass(cutter), flying, BallKind.Cutter, PushFactor), _pushFeel.MaxKick);
 
             Console.WriteLine($"[shot] cutter struck cell ({cell.X},{cell.Z},{cell.Level}):"
                 + $" destroyed {released.Destroyed}, orphaned {released.Orphaned}, {_detonations.Count} bomb(s) fired");
