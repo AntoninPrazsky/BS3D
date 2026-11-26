@@ -7,8 +7,10 @@
 //housing turning to its corner) and never swim over it, and none of them a texture:
 //
 // * a PATINA'S MOTTLE: no sheet of steel is one tone; a low noise moves the albedo and the sheen a little either way;
-// * OXIDATION: a warm, matt tarnish in sparse patches, gathering on the underside where water stands, and in every
-//   inside corner of a turned profile (where a ring meets the tube) - the reference images' brown line in each join;
+// * OXIDATION: matt rust in sparse patches, gathering on the underside where water stands, and in every inside corner
+//   of a turned profile (where a ring meets the tube) - the reference images' brown line in each join. A patch has
+//   structure at three scales (#1244: one soft field in one flat tint read as mud): its shape, a ragged, speckled rim
+//   where it thins out, and a grain inside it, a thin warm film round a darker crusted core;
 // * GRIME: those inside corners darker still, oil and dust that a rag never reaches;
 // * RUBBED EDGES: the outside corners of the profile (a ring's crest, the muzzle's lip, a hub's chamfer) worn back to
 //   bright metal in places, where hands, rounds and cloths pass;
@@ -27,10 +29,9 @@
 //Its uniforms are the LAST in the effect (this file is included after CityReflection.fxh), so no other program's
 //constant buffer moves (the include order note in InstancedModel.fx).
 //
-//COST: about 1,280 instruction slots against MainPS's 507, most of it the three gradient noises (one for the mottle,
-//which the rubbed edges' patchiness reuses, two octaves for the tarnish's field) and the corner loop; the first cut, with
-//six noises, was 1,650 and cost half as much again on screen. What it costs in a frame: "The metal's wear on High and
-//Ultra" in docs/testbed/cannon.md.
+//COST: about 1,530 instruction slots against MainPS's 507 (1,280 before #1244's rim and grain), most of it the five gradient noises (one for the mottle,
+//which the rubbed edges' patchiness reuses, two octaves for the tarnish's field, and its rim and its grain since #1244)
+//and the corner loop. What it costs in a frame: "The metal's wear on High and Ultra" in docs/testbed/cannon.md.
 
 //How much of each flaw a part carries, 0 none to 1 the full figure below: x the use (scratches and rubbed edges),
 //y the oxidation, z the grime, w the patina's mottle.
@@ -63,13 +64,24 @@ static const float WEAR_MOTTLE_ALBEDO = 0.3;
 static const float WEAR_MOTTLE_SHEEN = 0.45;
 
 //The tarnish: its field's frequency (two octaves), where the field rises into a patch (it rarely leaves +-0.4), and how
-//much nearer a downward face is to one; and the tint a fully tarnished pixel's albedo takes (linear, a multiplier:
-//warmer and darker, not orange)
+//much nearer a downward face is to one. A patch's edge is narrower than its field's wander, so it reads as an edge and
+//not a stain's soft halo, and RAGGED of a finer noise (RIM_SCALE cycles a unit) moves it about, so it is torn, not round
 static const float WEAR_RUST_SCALE = 1.25;
-static const float2 WEAR_RUST_PATCH = float2(0.12, 0.30);
+static const float2 WEAR_RUST_PATCH = float2(0.14, 0.22);
 static const float WEAR_RUST_SHELTER = 0.22;
 static const float WEAR_RUST_PATCH_SHARE = 0.85;
-static const float3 WEAR_RUST_TINT = float3(0.60, 0.40, 0.27);
+static const float WEAR_RUST_RIM_SCALE = 7.0;
+static const float WEAR_RUST_RAGGED = 0.09;
+
+//Inside a patch: a grain (GRAIN_SCALE cycles a unit) that breaks up the thin rim into specks and moves the tone, and the
+//two tints a pixel's albedo takes (linear, multipliers on the steel's): a thin oxide FILM where the patch is young, warm
+//and still showing the metal, and the crusted CORE, dark reddish brown, where the field stands well past the edge
+static const float WEAR_RUST_GRAIN_SCALE = 26.0;
+static const float WEAR_RUST_GRAIN_TONE = 0.35;
+static const float WEAR_RUST_SPECKLE = 2.2;
+static const float2 WEAR_RUST_CORE = float2(0.24, 0.36);
+static const float3 WEAR_RUST_FILM_TINT = float3(0.95, 0.52, 0.26);
+static const float3 WEAR_RUST_CORE_TINT = float3(0.46, 0.25, 0.14);
 
 //The grime: how dark it takes the albedo at full, and how much of it the underside carries away from any corner
 static const float WEAR_GRIME_DARK = 0.45;
@@ -80,9 +92,10 @@ static const float WEAR_GRIME_UNDERSIDE = 0.3;
 static const float2 WEAR_SCRATCH_CELL_GRAIN = float2(1.1, 0.14);
 static const float2 WEAR_SCRATCH_CELL_ANY = float2(0.36, 0.36);
 static const float WEAR_SCRATCH_SPREAD_GRAIN = 0.10;
-static const float WEAR_SCRATCH_CHANCE = 0.5;
+//The shares were 0.5 and 0.35 until the owner asked for clearly fewer (#1244): the shaded flank read covered in them
+static const float WEAR_SCRATCH_CHANCE = 0.22;
 static const float WEAR_SCRATCH_FINE_SCALE = 0.6;
-static const float WEAR_SCRATCH_FINE_CHANCE = 0.35;
+static const float WEAR_SCRATCH_FINE_CHANCE = 0.12;
 static const float WEAR_SCRATCH_WIDTH = 0.006;
 
 //What a scratch does to the light at full. A scratch is a rough groove: it scatters what reaches it every way, so it
@@ -240,10 +253,22 @@ float4 WornMetalPS(WornVSOutput input) : COLOR
     float field = Fbm3(p * WEAR_RUST_SCALE + 17.0, 2);
     float shelter = saturate(-n.y);
 
-    //The tarnish: sparse patches, nearer on the underside, and a line in every inside corner broken where the field is low
-    float patch = smoothstep(WEAR_RUST_PATCH.x, WEAR_RUST_PATCH.y, field + WEAR_RUST_SHELTER * shelter);
+    //The tarnish's two finer scales (#1244), each faded out by the share of a pixel its features would fill (gone where a
+    //period is two pixels, whole from six), so a gun far off loses the grain and keeps the patch rather than crawling
+    float rim = GradientNoise3(p * WEAR_RUST_RIM_SCALE + 3.1) * saturate(1.5 - 3.0 * WEAR_RUST_RIM_SCALE * footprint);
+    float rustGrain = GradientNoise3(p * WEAR_RUST_GRAIN_SCALE + 9.7) * saturate(1.5 - 3.0 * WEAR_RUST_GRAIN_SCALE * footprint);
+
+    //The tarnish: sparse patches, nearer on the underside, their edge torn by the rim's noise and, where a patch thins out,
+    //broken into specks by the grain; and a line in every inside corner broken where the field is low
+    float shaped = field + WEAR_RUST_SHELTER * shelter + WEAR_RUST_RAGGED * rim;
+    float patch = smoothstep(WEAR_RUST_PATCH.x, WEAR_RUST_PATCH.y, shaped);
+    patch *= lerp(1.0, saturate(0.5 + WEAR_RUST_SPECKLE * rustGrain), 4.0 * patch * (1.0 - patch));
     float joinPatchy = saturate(field * 1.6 + 0.65);
     float rust = saturate(patch * WEAR_RUST_PATCH_SHARE + joinBand * joinPatchy) * WearAmount.y;
+
+    //Its crusted core, where the field stands well past the edge, and its grain's tone through all of it
+    float core = smoothstep(WEAR_RUST_CORE.x, WEAR_RUST_CORE.y, shaped + 0.5 * WEAR_RUST_RAGGED * rustGrain) * rust;
+    float3 rustTint = lerp(WEAR_RUST_FILM_TINT, WEAR_RUST_CORE_TINT, core) * (1.0 + WEAR_RUST_GRAIN_TONE * rustGrain);
 
     //The grime: the inside corners, and a little on the underside where the field is high
     float grime = saturate(joinBand * 0.8 + shelter * WEAR_GRIME_UNDERSIDE * saturate(field * 2.0 + 0.5)) * WearAmount.z;
@@ -268,14 +293,14 @@ float4 WornMetalPS(WornVSOutput input) : COLOR
         * saturate((pitDrawn - pitAt) / (0.5 * pitDrawn)) * (pitRadius / pitDrawn) * saturate(WearAmount.y + WearAmount.z);
 
     //--- What it does to the light ----------------------------------------------------------------------------------
-    float3 albedo = (1.0 + WEAR_MOTTLE_ALBEDO * mottle * WearAmount.w) * lerp(1.0, WEAR_RUST_TINT, rust)
+    float3 albedo = (1.0 + WEAR_MOTTLE_ALBEDO * mottle * WearAmount.w) * lerp(1.0, rustTint, rust)
         * (1.0 - WEAR_GRIME_DARK * grime) * (1.0 - WEAR_PIT_DARK * pit) + WEAR_EDGE_LIFT * edge;
 
     SurfaceSpecular surface;
     surface.Highlight = (1.0 + WEAR_SCRATCH_GLINT * scratch + WEAR_EDGE_GLINT * edge) * (1.0 - 0.75 * rust) * (1.0 - 0.4 * grime);
     surface.Environment = (1.0 + WEAR_MOTTLE_SHEEN * mottle * WearAmount.w + WEAR_EDGE_SHEEN * edge)
         * (1.0 - 0.6 * rust) * (1.0 - 0.3 * grime);
-    surface.Smoothness = saturate(1.0 - 0.55 * rust - 0.25 * grime);
+    surface.Smoothness = saturate(1.0 - 0.55 * rust - 0.2 * core - 0.25 * grime);
 
     float4 shaded = ShadePixel(input.WorldPosition, input.WorldNormal, input.OcclusionData, float4(albedo, 1), 1, 1, surface);
 
