@@ -88,6 +88,22 @@ namespace BS3D.Tests
             }
         }
 
+        /// <summary>
+        /// #1259: the silver's ground is a grey in every set, never the near-black its broad bands once took it to (L* 30, darker
+        /// than a black ball's figure), so a round whose ground is what shows - the top of it in the gun's slot - is not taken for
+        /// a black one. Its figure still stands off it (above), and the ball keeps its average (below).
+        /// </summary>
+        [Theory]
+        [MemberData(nameof(Sets))]
+        public void SilversGroundStaysGrey(int set)
+        {
+            (Vector3 figure, Vector3 ground) = Inks(set, BallType.Type11, out Vector3 plain);
+
+            Assert.True(ColorSpace.Luminance(ground) >= ColourCues.SILVER_GROUND_MIN * ColorSpace.Luminance(plain) - 1e-5f,
+                $"set {set}: silver's ground at {ColorSpace.Luminance(ground) / ColorSpace.Luminance(plain):0.00} of its slate");
+            Assert.True(ColorSpace.Luminance(figure) > ColorSpace.Luminance(plain), $"set {set}: silver's figure is no paler than its slate");
+        }
+
         //The inks average to the plain colour, so a figure too small to see leaves the ball the colour it was. Channel
         //by channel, not in luminance alone: a grey in a pale ink keeps the luminance and loses the hue (it took the
         //navy 10-12 dE towards the black). Black alone cannot (nothing is darker than its ground); its figure is held

@@ -62,11 +62,23 @@ namespace Prazsky.BS3D.GameStructure
         public const float GROUND_MAX = 1.5f;
 
         /// <summary>
-        /// How dark a paler-ink figure's ground may go to balance it; below it the ball's average rises. The silver's
-        /// broad pale stripes and bands (about 0.42 of the ball in a 2.0 ink) need 0.26, so this sits just under them;
-        /// black is held here whatever its figure (nothing balances black).
+        /// How dark a paler-ink figure's ground may go to balance it; below it the ball's average rises. Black is held
+        /// here whatever its figure (nothing balances black), and the navy's broad figures reach it. The silver has a
+        /// floor of its own, far above this (<see cref="SILVER_GROUND_MIN"/>).
         /// </summary>
         public const float GROUND_MIN = 0.25f;
+
+        /// <summary>
+        /// How dark the silver's ground may go, as a share of its slate (#1259). Its broad pale stripes and bands (about
+        /// 0.43 of the ball in the first and the third set) balanced in its full 2.0 ink took the ground to 0.26: L* 30,
+        /// darker than the grey of a black ball's figure, so a silver ball seen where its ground shows - the top of a round
+        /// in the gun's slot, in the bore's shade - was a black one with a light stripe, and the owner could not tell which
+        /// of the two he was firing (the ice of the mountain chapter). Held here, the figure is dimmed instead of the ground
+        /// (<see cref="Inks"/>): the ground at L* 44 and the bands at L* 68. 0.6 is about the lightest ground the figure's
+        /// luminance ratio of 2.5 (<c>ColourCueTests</c>) leaves a figure that broad. The sets whose silver figure is small
+        /// balance above it and are unchanged.
+        /// </summary>
+        public const float SILVER_GROUND_MIN = 0.6f;
 
         /// <summary>The figure kinds, numbered as <c>BallColourCue.fxh</c> branches on them.</summary>
         public enum Kind
@@ -254,8 +266,9 @@ namespace Prazsky.BS3D.GameStructure
         /// orange from any side: its figure is a near-black brown and its ground a lighter brown. Counted over the four
         /// sets in CIELAB, a pair whose figures each lie within 25 dE00 of the other's ground, and within 15 of it in hue
         /// and chroma alone (what shading cannot change), was orange/brown in all four sets and is none of them now; the
-        /// blue/silver of the emblems and the spots sits on that line both ways and was left, since silver on the darker
-        /// ink would make black/silver one in every set.
+        /// blue/silver sits on that line both ways in every set (the figures' and the lines' since #1259 lifted the silver's
+        /// ground, <see cref="SILVER_GROUND_MIN"/>) and is left, since silver on the darker ink would make black/silver one
+        /// in every set.
         /// </para>
         /// </summary>
         private static bool PaleInk(BallType type, out float gain, out float grey)
@@ -376,13 +389,19 @@ namespace Prazsky.BS3D.GameStructure
         /// to pay for it, matched in luminance. The ground is always the plain colour scaled - the marble scales its
         /// own veined stone by the same factor - and is held between <see cref="GROUND_MIN"/> and
         /// <see cref="GROUND_MAX"/>: past them the darker ink is lightened, or the average rises, rather than the
-        /// ground losing its colour.
+        /// ground losing its colour. The silver's ground is held at <see cref="SILVER_GROUND_MIN"/> instead, by a dimmer
+        /// figure, so the ball keeps its average (#1259).
         /// </summary>
         public static (Vector3 figure, Vector3 ground) Inks(BallType type, Vector3 linearColour, float coverage)
         {
             if (PaleInk(type, out float gain, out float grey))
             {
                 if (type == BallType.Type8) grey = BlackFigureGrey(linearColour, coverage);
+
+                //A silver figure too broad for its ink would take the ground under its floor: the gain that leaves the
+                //ground exactly there instead, the plain colour scaled, so the two still average to it
+                if (type == BallType.Type11 && coverage > 0f && (1f - coverage * gain) / (1f - coverage) < SILVER_GROUND_MIN)
+                    gain = (1f - SILVER_GROUND_MIN * (1f - coverage)) / coverage;
 
                 Vector3 figure = linearColour * gain + new Vector3(grey);
                 float luminance = ColorSpace.Luminance(linearColour);
