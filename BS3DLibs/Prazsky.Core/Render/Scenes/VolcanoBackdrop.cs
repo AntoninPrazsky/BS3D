@@ -63,6 +63,12 @@ namespace Prazsky.Core.Render
         //three of them every frame (BestPractices.md §1).
         private readonly EffectTechnique _plumeTechnique, _plumeReducedTechnique, _jetTechnique, _glowTechnique;
 
+        //The eruption over the jets' longest flight (#1260): sixteen samples ERUPTION_PAST_STEP apart, now first, four to a
+        //vector, so each blob flies at the eruption of the moment it was thrown (LavaFountain.fx's EruptionPast0 says why).
+        //Cached at load like the techniques; set every frame.
+        private const float ERUPTION_PAST_STEP = 0.25f;
+        private readonly EffectParameter _eruptionPast0, _eruptionPast1, _eruptionPast2, _eruptionPast3;
+
         //The steam of the fumaroles on the lava field (#679): its own billboard buffer through LavaFountain.fx's
         //Steam technique, and the vents it rises from
         private const int MAX_FUMAROLES = 12;
@@ -128,6 +134,10 @@ namespace Prazsky.Core.Render
             _steamTechnique = _fountainEffect.Techniques["Steam"];
             _jetTechnique = _fountainEffect.Techniques["Fountain"];
             _glowTechnique = _fountainEffect.Techniques["Glow"];
+            _eruptionPast0 = _fountainEffect.Parameters["EruptionPast0"];
+            _eruptionPast1 = _fountainEffect.Parameters["EruptionPast1"];
+            _eruptionPast2 = _fountainEffect.Parameters["EruptionPast2"];
+            _eruptionPast3 = _fountainEffect.Parameters["EruptionPast3"];
             _ashEffect = content.Load<Effect>("Shaders/Ash");
             _plants = new PlantPass(_graphicsDevice, content);
 
@@ -670,6 +680,26 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
+        /// The eruption at sixteen moments <see cref="ERUPTION_PAST_STEP"/> apart back from <paramref name="time"/>, now first,
+        /// four to a vector (#1260): a pure function of the clock, so each is what the jets were thrown at then, a cued burst
+        /// (<see cref="VolcanoLava.CueBurst"/>) included. Sixteen evaluations of a hash and a power a frame, and no allocation.
+        /// </summary>
+        private void SetEruptionPast(float time)
+        {
+            _eruptionPast0.SetValue(EruptionPast(time, 0));
+            _eruptionPast1.SetValue(EruptionPast(time, 4));
+            _eruptionPast2.SetValue(EruptionPast(time, 8));
+            _eruptionPast3.SetValue(EruptionPast(time, 12));
+        }
+
+        //Four samples from the first'th step back
+        private Vector4 EruptionPast(float time, int first) => new(
+            Eruption(time - first * ERUPTION_PAST_STEP),
+            Eruption(time - (first + 1) * ERUPTION_PAST_STEP),
+            Eruption(time - (first + 2) * ERUPTION_PAST_STEP),
+            Eruption(time - (first + 3) * ERUPTION_PAST_STEP));
+
+        /// <summary>
         /// Draws the lava fountains and the smoke plume standing over the crater — two index ranges over the
         /// <b>one</b> particle buffer, so the plume pass never touches a jet's vertex and the jet pass never
         /// touches a puff's. Both depth-read (the flank and the cluster hide what is behind them) and writing
@@ -677,8 +707,9 @@ namespace Prazsky.Core.Render
         /// have to be drawn in for smoke to sit behind fire rather than over it.
         /// <para>
         /// The eruption envelope goes in here rather than being computed per particle: one figure off the wall
-        /// clock (<see cref="SceneRenderer.VolcanoEruption"/>) drives the jets' reach, the plume's density and the crater's
-        /// point light together, which is what makes a burst read as one event.
+        /// clock (<see cref="SceneRenderer.VolcanoEruption"/>) drives the plume's density and the crater's point light
+        /// together, and the jets read its last seconds (<see cref="SetEruptionPast"/>, #1260), each blob the eruption it
+        /// was thrown in, which is what makes a burst read as one event that rises and falls back as lava does.
         /// </para>
         /// </summary>
         private void DrawLavaFountains(in SceneFrame frame)
@@ -694,6 +725,7 @@ namespace Prazsky.Core.Render
             _fountainEffect.Parameters["CameraUp"].SetValue(inverseView.Up);
             _fountainEffect.Parameters["FountainTime"].SetValue(frame.Time);
             _fountainEffect.Parameters["Eruption"].SetValue(Eruption(frame.Time));
+            SetEruptionPast(frame.Time);
 
             _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
