@@ -36,6 +36,15 @@ namespace BS3D.Lighting
         /// <summary>The cup the ending earned, 1 (Bronze) to <see cref="KeyLightModel.CUPS"/> (Diamond), when <see cref="Mode"/> is Won.</summary>
         public int Stars;
 
+        /// <summary>
+        /// Whether <see cref="Stars"/> is final (#1258). A clear is Won from the moment the field empties, but its stars are known only
+        /// once the record is made, after the spare volley has added its balls: until then the rainbow holds, and the cup waits.
+        /// </summary>
+        public bool CupKnown;
+
+        /// <summary>Seconds since <see cref="CupKnown"/> became true, for the rainbow's last sweep and the cup's handover.</summary>
+        public float CupSeconds;
+
         /// <summary>The keys a tutorial card is asking for, a bit per <see cref="LitKey"/>: they blink white over the rest.</summary>
         public int TutorialKeys;
     }
@@ -76,11 +85,13 @@ namespace BS3D.Lighting
     /// does. A wildcard's keys cycle with it and a cutter's take the Cut's accent, because the tint is the one the muzzle collar and the
     /// aim beam are given.</description></item>
     /// <item><description><b>A tutorial card</b> that asks for a key makes it blink white at <see cref="BLINK_HERTZ"/>.</description></item>
-    /// <item><description><b>Won</b>: a full-brightness pastel rainbow, the NEW BEST banner's colours (<see cref="WonRainbow"/>), sweeps
-    /// across the board for <see cref="RAINBOW_SECONDS"/>, then the
-    /// board settles into the cup's colour (<see cref="CupColour"/>), breathing, with a Diamond's keys twinkling white. At the loud
-    /// end on purpose: the owner's standing ruling on celebrations.</description></item>
-    /// <item><description><b>Lost</b>: red, pulsing slowly, whether the cluster reached the line or the balls ran out.</description></item>
+    /// <item><description><b>Won</b>, from the moment the field empties (#1258): a full-brightness pastel rainbow, the NEW BEST banner's
+    /// colours (<see cref="WonRainbow"/>), sweeps across the board through the clear's beat and the spare volley, and
+    /// <see cref="RAINBOW_SECONDS"/> more once the stars are known, then the board settles into the cup's colour
+    /// (<see cref="CupColour"/>), breathing, with a Diamond's keys twinkling white. At the loud end on purpose: the owner's standing
+    /// ruling on celebrations.</description></item>
+    /// <item><description><b>Lost</b>: red, pulsing slowly, whether the cluster reached the line (from the moment it does, through
+    /// the camera's hold at the crossing) or the balls ran out.</description></item>
     /// <item><description><b>Idle</b> (the menus, a pause): a dim rainbow drifting slowly across the board, so the game still owns the
     /// keyboard it took without shouting over a menu.</description></item>
     /// </list>
@@ -98,7 +109,10 @@ namespace BS3D.Lighting
         /// <summary>How often a key a card asks for blinks, on and off, in hertz.</summary>
         public const float BLINK_HERTZ = 2f;
 
-        /// <summary>How long the clear's rainbow sweeps before the cup's colour takes over, in seconds.</summary>
+        /// <summary>
+        /// How long the clear's rainbow sweeps on once the stars are known (<see cref="KeyLightInput.CupSeconds"/>) before the cup's
+        /// colour takes over, in seconds. It has swept through the clear's beat and the spare volley before that (#1258).
+        /// </summary>
         public const float RAINBOW_SECONDS = 3f;
 
         /// <summary>How long the rainbow takes to hand over to the cup's colour, in seconds.</summary>
@@ -205,8 +219,9 @@ namespace BS3D.Lighting
             Vector3 cup = CupColour(input.Stars);
             float breath = CUP_BREATH_LOW + (1f - CUP_BREATH_LOW) * Wave(t / CUP_BREATH_SECONDS);
 
-            //0 while the rainbow runs, 1 once the cup's colour has taken over
-            float cupShare = Math.Clamp((t - RAINBOW_SECONDS) / CUP_FADE_SECONDS, 0f, 1f);
+            //0 while the rainbow runs, 1 once the cup's colour has taken over: never before the stars are known (#1258), and the sweep
+            //keeps its own clock across that moment, so it runs on without a jump
+            float cupShare = input.CupKnown ? Math.Clamp((input.CupSeconds - RAINBOW_SECONDS) / CUP_FADE_SECONDS, 0f, 1f) : 0f;
             int twinkleBeat = (int)MathF.Floor(input.Clock * TWINKLE_HERTZ);
 
             for (int i = 0; i < count; i++)

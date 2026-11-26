@@ -109,9 +109,10 @@ namespace BS3D.Tests
             for (int stars = 1; stars <= 3; stars++)
             {
                 Vector3 cup = KeyLightModel.CupColour(stars);
+                float after = KeyLightModel.RAINBOW_SECONDS + KeyLightModel.CUP_FADE_SECONDS + 0.3f;
                 Vector3[] settled = Compose(new KeyLightInput
                 {
-                    Mode = KeyLightMode.Won, Stars = stars, ModeSeconds = KeyLightModel.RAINBOW_SECONDS + KeyLightModel.CUP_FADE_SECONDS + 0.3f,
+                    Mode = KeyLightMode.Won, Stars = stars, ModeSeconds = after, CupKnown = true, CupSeconds = after,
                 });
                 foreach (Vector3 c in settled)
                 {
@@ -120,6 +121,41 @@ namespace BS3D.Tests
                     Near(cup * share, c);
                 }
             }
+        }
+
+        /// <summary>
+        /// #1258: a clear is Won from the moment the field empties, its stars known only once the spare volley has added its balls.
+        /// Until then the rainbow sweeps on however long the beat lasts, and once they are known it sweeps RAINBOW_SECONDS more,
+        /// on the clock it has run on all along, before the cup takes over.
+        /// </summary>
+        [Fact]
+        public void The_rainbow_holds_until_the_stars_are_known()
+        {
+            KeyLightLayout board = Board();
+            const float beat = 30f;
+
+            //Stars not known: the rainbow at its own place in the sweep, however long the beat has run
+            Vector3[] waiting = Compose(new KeyLightInput { Mode = KeyLightMode.Won, ModeSeconds = beat });
+            for (int i = 0; i < waiting.Length; i++)
+                Near(KeyLightModel.WonRainbow(board.X[i] * KeyLightModel.RAINBOW_SPAN - beat * KeyLightModel.RAINBOW_SPEED), waiting[i]);
+
+            //Known a moment ago: still the rainbow, still on the sweep's clock
+            float since = KeyLightModel.RAINBOW_SECONDS - 0.1f;
+            Vector3[] last = Compose(new KeyLightInput
+            {
+                Mode = KeyLightMode.Won, Stars = 2, ModeSeconds = beat + since, CupKnown = true, CupSeconds = since,
+            });
+            for (int i = 0; i < last.Length; i++)
+                Near(KeyLightModel.WonRainbow(board.X[i] * KeyLightModel.RAINBOW_SPAN - (beat + since) * KeyLightModel.RAINBOW_SPEED), last[i]);
+
+            //And past the sweep and the fade: the cup's colour
+            float done = KeyLightModel.RAINBOW_SECONDS + KeyLightModel.CUP_FADE_SECONDS + 0.1f;
+            Vector3 cup = KeyLightModel.CupColour(2);
+            Vector3[] settled = Compose(new KeyLightInput
+            {
+                Mode = KeyLightMode.Won, Stars = 2, ModeSeconds = beat + done, CupKnown = true, CupSeconds = done,
+            });
+            foreach (Vector3 c in settled) Near(cup * (c.Length() / cup.Length()), c);
         }
 
         //#1201: the band the clear's rainbow keeps, as HSV saturation. Above it is the pure spectrum the owner asked to soften (1); below
@@ -195,7 +231,10 @@ namespace BS3D.Tests
             int white = 0, lamps = 0;
             for (float clock = 0f; clock < 3f; clock += 0.17f)
             {
-                Vector3[] board = Compose(new KeyLightInput { Mode = KeyLightMode.Won, Stars = 4, ModeSeconds = 10f, Clock = clock });
+                Vector3[] board = Compose(new KeyLightInput
+                {
+                    Mode = KeyLightMode.Won, Stars = 4, ModeSeconds = 10f, CupKnown = true, CupSeconds = 10f, Clock = clock,
+                });
                 foreach (Vector3 c in board)
                 {
                     lamps++;
