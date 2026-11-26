@@ -27,13 +27,18 @@ namespace BS3D.Tests
         private const double NEAR_HUE = 15.0;
 
         /// <summary>
-        /// The one pair that sits on the line both ways and is left: blue against silver in the emblems and the spots, at
-        /// 13.6-14.1 in hue and chroma. Silver on the darker ink would make black and silver one in every set (its figure a
-        /// dark slate, black's a grey), and the two are 17 apart whole (#246).
+        /// The one pair that sits on the line both ways and is left: blue against silver, at 13.6-14.9 in hue and chroma (and
+        /// 14.9-15.8 whole). In the emblems and the spots since #1247; in the figures and the lines since #1259, whose floor
+        /// under the silver's ground (<see cref="ColourCues.SILVER_GROUND_MIN"/>) lifted it from near-black to the slate the
+        /// other two sets already had, because the owner could not tell a silver round in the gun's slot from a black one.
+        /// Silver on the darker ink would make black and silver one in every set (its figure a dark slate, black's a grey),
+        /// and the two are 17 apart whole (#246).
         /// </summary>
         private static readonly (int Set, BallType A, BallType B)[] Accepted =
         {
+            (1, BallType.Type3, BallType.Type11),
             (2, BallType.Type3, BallType.Type11),
+            (3, BallType.Type3, BallType.Type11),
             (4, BallType.Type3, BallType.Type11),
         };
 
