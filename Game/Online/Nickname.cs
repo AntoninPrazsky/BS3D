@@ -145,14 +145,15 @@ namespace BS3D.Online
         /// Vulgar and hateful words no part of a name may hold (#1020: "KuloMrd" on the boards, the owner: "Mrd must be a
         /// forbidden word"), matched in each word of the name folded (<see cref="Fold"/>, <see cref="HasDeniedWord"/>): diacritics
         /// off, lower case, and the digits that stand for letters read as those letters, and runs of one- and two-letter words
-        /// joined, so "KuloMrd", "k_u_r_v_a" and "kurv4" are all caught and "Jane Grey" is not.
+        /// joined, so "KuloMrd", "k_u_r_v_a" and "kurv4" are all caught and "Jane Grey" is not. "kigger" is a spoonerism of a
+        /// slur (#1262).
         /// <b>The service's copy is BS3D-API's <c>Nicknames.DeniedWords</c>, the authority</b>: change both in step.
         /// </summary>
         internal static readonly string[] DeniedWords =
         {
             "mrd", "kurv", "kurw", "kokot", "curak", "prdel", "hovn", "srac", "jebat", "jeban", "jebn", "zasran", "buzna", "buzerant",
             "negr", "kreten", "hajzl", "sukat", "picus", "picovin", "debil",
-            "fuck", "shit", "cunt", "nigg", "fagg", "bitch", "whore", "slut", "porn", "nazi", "hitler", "penis", "vagin",
+            "fuck", "shit", "cunt", "nigg", "kigger", "fagg", "bitch", "whore", "slut", "porn", "nazi", "hitler", "penis", "vagin",
             "asshole", "bastard", "retard", "wanker", "dildo", "pussy", "motherf", "cocksuck", "blowjob",
             "ficken", "fotze", "arschloch",
         };

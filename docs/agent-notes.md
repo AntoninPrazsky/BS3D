@@ -20,6 +20,12 @@ Pravidla:
 
 ---
 
+## 2026-11-27 — #1262 Nicknames: deny "kigger" — Pi (BS3DServer), Claude Code
+
+Po spuštění na itch.io si hráč (ne vlastník) dal přezdívku, přesmyčku rasistické nadávky, a jako jediný hráč pravidel v2 stál první na všech jejích žebříčcích. Ani seznam služby, ani seznam hry slovo „kigger“ neznal. Přidáno do `Nickname.DeniedWords` i do BS3D-API `Nicknames.DeniedWords` (autorita, v0.1.39), testy „K1gger“ a „k_i_g_g_e_r“. Vlastník uloženého hráče přejmenuje přes `admin rename`; samotné přejmenování by nevydrželo, protože každé skóre nese přezdívku ze hry a služba hráče přejmenuje zpět. Teď služba takové skóre odmítne jako `bad-name`. Na další přesmyčku pomůže `admin hide-player`.
+
+---
+
 ## 2026-11-26 — #1258 #1259 #1260 #1261 v0.7.0 vydána (první na itch.io) — desktop (RDT-PC), Claude Code (bs3d-b1)
 
 - Hotovo, sloučeno, majitel OK:
