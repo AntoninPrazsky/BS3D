@@ -33,6 +33,9 @@ namespace BS3D.Tests
         [InlineData("Mr D")]
         [InlineData("f u c k")]
         [InlineData("Kurwa")]
+        [InlineData("Will Kiggers")]                     //#1262: a spoonerism of a slur
+        [InlineData("K1gger")]
+        [InlineData("k_i_g_g_e_r")]
         public void ANameHoldingADeniedWordIsRefused(string raw)
         {
             Assert.False(Nickname.TryNormalize(raw, out string name, out string problem));
